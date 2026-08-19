@@ -186,6 +186,7 @@ const MIN_WINDOW_HEIGHT = 200;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_PREVIEW_DISMISS_DELAY_MS = 4000;
 const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
@@ -4891,6 +4892,7 @@ export class WebInspectorElement extends LitElement {
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
+  private announcementPreviewDismissTimeoutId: number | null = null;
   private announcementExpanded = false;
   // Per-instance dedup for `oss.inspector.banner_viewed`, keyed by
   // `${timestamp}:${surface}` so the event fires at most once per
@@ -6721,6 +6723,24 @@ ${argsString}</pre
         transform: translateX(-50%) translateY(0);
       }
 
+      @keyframes cpk-announcement-preview-fade-in {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes cpk-announcement-preview-fade-out {
+        from {
+          opacity: 1;
+        }
+        to {
+          opacity: 0;
+        }
+      }
+
       .announcement-preview {
         position: absolute;
         top: 50%;
@@ -6739,11 +6759,20 @@ ${argsString}</pre
         align-items: flex-start;
         gap: 8px;
         z-index: 4500;
-        animation: fade-slide-in 160ms ease;
+        animation:
+          cpk-announcement-preview-fade-in 160ms ease,
+          cpk-announcement-preview-fade-out 200ms ease
+            ${ANNOUNCEMENT_PREVIEW_DISMISS_DELAY_MS - 200}ms forwards;
         border: 1px solid rgba(219, 219, 229, 0.4);
         white-space: normal;
         word-break: break-word;
         text-align: left;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .announcement-preview {
+          animation: none;
+        }
       }
 
       .announcement-preview[data-side="left"] {
@@ -7481,6 +7510,18 @@ ${argsString}</pre
     if (this.transitionTimeoutId !== null) {
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
+    }
+    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
+      window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
+      this.threadsExampleOverviewVideoLoadTimer = null;
+    }
+    this.clearAnnouncementPreviewDismissal();
+    if (
+      this.threadsExampleOverviewVideoIdleCallbackId !== null &&
+      typeof window.cancelIdleCallback === "function"
+    ) {
+      window.cancelIdleCallback(this.threadsExampleOverviewVideoIdleCallbackId);
+      this.threadsExampleOverviewVideoIdleCallbackId = null;
     }
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
@@ -8736,6 +8777,7 @@ ${argsString}</pre
       return;
     }
 
+    this.clearAnnouncementPreviewDismissal();
     const hadUnseenAnnouncement = this.hasUnseenAnnouncement;
     this.showAnnouncementPreview = false; // hide the bubble once the inspector is opened
 
@@ -13209,6 +13251,7 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementPreviewClick(): void {
+    this.clearAnnouncementPreviewDismissal();
     this.showAnnouncementPreview = false;
     this.openInspector("announcement_preview");
   }
@@ -13217,8 +13260,8 @@ ${prettyEvent}</pre
   // otherwise the bubble pops back out on the next mount because
   // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
   // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
-  // and openInspector do) is intentionally transient — it's the X that makes
-  // the dismissal stick.
+  // and openInspector do) is transient; explicit X dismissal and the automatic
+  // timeout both persist the timestamp.
   private handleDismissAnnouncementPreview = (event: Event): void => {
     // Don't let the dismiss bubble to the preview body, whose click opens the
     // inspector.
@@ -13230,6 +13273,40 @@ ${prettyEvent}</pre
     this.trackBannerClickedOnce({ cta: "dismiss" });
     this.trackBannerDismissedOnce(surface);
     this.markAnnouncementSeen();
+  }
+
+  private scheduleAnnouncementPreviewDismissal(): void {
+    this.clearAnnouncementPreviewDismissal();
+
+    if (
+      this.isOpen ||
+      !this.hasUnseenAnnouncement ||
+      !this.showAnnouncementPreview ||
+      !this.announcementTimestamp
+    ) {
+      return;
+    }
+
+    this.announcementPreviewDismissTimeoutId = window.setTimeout(() => {
+      this.announcementPreviewDismissTimeoutId = null;
+      if (
+        this.isOpen ||
+        !this.hasUnseenAnnouncement ||
+        !this.showAnnouncementPreview
+      ) {
+        return;
+      }
+
+      this.markAnnouncementSeen();
+    }, ANNOUNCEMENT_PREVIEW_DISMISS_DELAY_MS);
+  }
+
+  private clearAnnouncementPreviewDismissal(): void {
+    if (this.announcementPreviewDismissTimeoutId === null) {
+      return;
+    }
+    window.clearTimeout(this.announcementPreviewDismissTimeoutId);
+    this.announcementPreviewDismissTimeoutId = null;
   }
 
   private async fetchAnnouncement(): Promise<void> {
@@ -13267,9 +13344,11 @@ ${prettyEvent}</pre
       this.hasUnseenAnnouncement =
         (!storedTimestamp || storedTimestamp !== timestamp) &&
         !!this.announcementPreviewText;
-      this.showAnnouncementPreview = this.hasUnseenAnnouncement;
+      this.showAnnouncementPreview = this.hasUnseenAnnouncement && !this.isOpen;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
+
+      this.scheduleAnnouncementPreviewDismissal();
 
       // banner_viewed: gate on actual visibility and per-mount dedup, and
       // stamp the surface the announcement is showing on right now.
@@ -13472,7 +13551,7 @@ ${prettyEvent}</pre
   }
 
   private markAnnouncementSeen(): void {
-    // Clear badge only when explicitly dismissed
+    this.clearAnnouncementPreviewDismissal();
     this.hasUnseenAnnouncement = false;
     this.showAnnouncementPreview = false;
 
