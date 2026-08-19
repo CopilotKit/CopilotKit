@@ -112,10 +112,13 @@ without hiding valid usage. Metadata updates do not change the selected thread.
   for live preview with hot-reload.
 </Callout>
 
-## Disabling the Inspector
+## Configuring the Inspector
 
-By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
-`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+In React, Vue, and Angular browser applications, the Inspector appears by
+default only on `localhost`, `127.0.0.1`, and `0.0.0.0`. It is not loaded or
+rendered during server-side rendering.
+
+Set `enableInspector` to `false` to hide it on local hosts:
 
 ```tsx
 <CopilotKit
@@ -127,4 +130,11 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 ```
 
 Set `enableInspector` to `true` to show it on another host, including in a
-production build. CopilotKit always uses an explicit `true` or `false` value.
+production build. CopilotKit always honors an explicit `true` or `false` value.
+
+Vue uses the kebab-case template prop `:enable-inspector="false"`. Angular
+configures it through `provideCopilotKit({ enableInspector: false })`.
+
+React v2 and Vue continue to accept `showDevConsole` as a deprecated alias.
+`enableInspector` takes precedence when both are supplied. Native iOS and
+Android applications do not have a built-in Inspector yet.
