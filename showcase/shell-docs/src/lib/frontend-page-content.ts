@@ -126,7 +126,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "migrate/1.10.X": "using-these-docs",
   "migrate/v2": "using-these-docs",
   "whats-new/v1-50": "using-these-docs",
-  inspector: "guides/troubleshooting",
   "multi-agent-flows": "multi-agent/subagents",
   "ag-ui-protocol": "agentic-protocols/ag-ui",
   "a2a-protocol": "agentic-protocols/a2a",
