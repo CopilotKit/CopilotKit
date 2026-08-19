@@ -137,9 +137,9 @@ does the rest:
 
 <Snippet region="backend-render-operations" />
 
-Nothing about A2UI lives in the agent construct — the operations container is
-just the tool's return value, so the tool drops into whatever agent you
-already have.
+Nothing about A2UI depends on how the agent itself is built — the operations
+container is just the tool's return value, so the tool drops into whatever agent
+you already have.
 </Step>
 </WhenFrameworkHas>
 
@@ -149,10 +149,10 @@ already have.
 
 The snippets above stop at the tool. The reference cell builds its agent with
 `langchain.agents.create_agent` plus `CopilotKitMiddleware` — that is what
-those imports are for — but the construction itself is not shown. A developer
-adding A2UI to an agent they already wrote usually has a hand-built
-`StateGraph` instead. The tool is unchanged; put it in a `ToolNode` and leave
-the rest of the graph alone:
+those imports are for — but the construction itself is not shown. If you added
+A2UI to an agent you already wrote, you probably have a hand-built `StateGraph`
+instead. The tool is unchanged; put it in a `ToolNode` and leave the rest of the
+graph alone:
 
 ```python title="agent.py (LangGraph StateGraph form)"
 from langchain_openai import ChatOpenAI
@@ -182,8 +182,8 @@ graph = builder.compile()
 
 Keep whatever system prompt your agent already has. The reference cell's prompt
 tells the model to call `display_flight` exactly once and stop, because the tool
-result *is* the rendered card — without that steer a model tends to call it
-again looking for a status code.
+result *is* the rendered card. Without it, the model tends to call the tool
+again, looking for a status code.
 
 `CopilotKitMiddleware` is a `create_agent` middleware, so it has no
 `StateGraph` equivalent — and the fixed-schema path does not need one: the

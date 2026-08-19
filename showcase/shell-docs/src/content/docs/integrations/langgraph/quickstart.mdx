@@ -278,7 +278,7 @@ Before you begin, you'll need the following:
 
                   <Callout type="info" title="Why this tab compiles with a checkpointer">
                     Here you run the graph yourself, so nothing supplies
-                    persistence for you. `ag-ui-langgraph` reads thread state via
+                    persistence. `ag-ui-langgraph` reads thread state via
                     `graph.aget_state(...)`, which raises
                     `ValueError: No checkpointer set` on a graph compiled without
                     one — hence `MemorySaver()`. It keeps state in process memory
@@ -286,9 +286,9 @@ Before you begin, you'll need the following:
                     Do **not** copy this into the LangSmith tab's graph.
                   </Callout>
 
-                  `uvicorn` is told to listen on `8123` above, which is the port
-                  the runtime route below expects. Change both together if you
-                  pick a different one.
+                  `main.py` sets uvicorn's port to `8123` above, which is the
+                  port the runtime route below expects. Change both together if
+                  you pick a different one.
                 </Tab>
               </Tabs>
 
@@ -427,6 +427,15 @@ Before you begin, you'll need the following:
               ### Configure CopilotKit Provider
 
               Wrap your application with the CopilotKit provider:
+
+              <Callout type="info" title="Which provider goes with which handler?">
+                `<CopilotKit>` here is the backward-compatible wrapper: it defaults
+                `useSingleEndpoint` to `true`, which is the matching half of the
+                single-route `copilotRuntimeNextJSAppRouterEndpoint` above. `<CopilotKitProvider>`
+                is the v2 provider from the same package and detects the transport from
+                `/info` instead. They are not aliases — see
+                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+              </Callout>
 
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
