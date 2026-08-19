@@ -321,8 +321,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --ignore-scripts
 
+      # No --with-deps: it shells out to apt, which on the runners cannot always
+      # reach azure.archive.ubuntu.com and retries for many minutes — long enough to
+      # burn this job's whole timeout before a test runs. Chromium's system libraries
+      # are already present on the Ubuntu runner image, so downloading the browser is
+      # all this step needs.
       - name: Install Playwright chromium
-        run: npx playwright install chromium --with-deps
+        run: npx playwright install chromium
 
       # docker-compose.local.yml declares `env_file: .env` on every service, so
       # `docker compose` hard-fails if showcase/.env is missing — and .env is
