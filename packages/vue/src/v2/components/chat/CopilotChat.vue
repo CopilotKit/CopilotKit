@@ -20,7 +20,10 @@ import {
   useSlots,
   watch,
 } from "vue";
-import type { Suggestion } from "@copilotkit/core";
+import {
+  emitInspectorViewThreadResult,
+  type Suggestion,
+} from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { useCopilotKit } from "../../providers/useCopilotKit";
@@ -316,6 +319,15 @@ watch(
       return;
     }
 
+    const previousThreadId = activeConnectCycle.value?.threadId;
+    if (previousThreadId && previousThreadId !== threadId) {
+      try {
+        core.stopAgent({ agent: currentAgent });
+      } catch {
+        // No live run to stop.
+      }
+    }
+
     // Pin the thread this chat renders onto its agent, before anything issues a
     // request. `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously
     // to decide whether this is a fresh restore, so a later assignment would let
@@ -387,6 +399,12 @@ watch(
             return;
           }
           console.error("CopilotChat: connectAgent failed", error);
+          emitInspectorViewThreadResult({
+            threadId,
+            agentId: currentAgent.agentId ?? "",
+            ok: false,
+            reason: "connect-failed",
+          });
         })
         .finally(() => {
           // Whether the connect succeeded or failed, we're no longer in

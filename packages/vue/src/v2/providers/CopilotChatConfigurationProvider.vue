@@ -6,8 +6,10 @@ import { CopilotChatConfigurationKey } from "./keys";
 import { CopilotChatDefaultLabels } from "./types";
 import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
+import { emitInspectorActiveThread } from "@copilotkit/core";
 import { useShallowStableRef } from "../lib/shallow-stable";
 import { isMobileViewport } from "../lib/is-mobile-viewport";
+import { useInspectorThreadOverride } from "./use-inspector-thread-override";
 
 // Vue normalizes optional Boolean props to `false` when not supplied; declare
 // `undefined` defaults so we can faithfully distinguish "caller passed false"
@@ -52,7 +54,7 @@ const resolvedAgentId = computed(
 );
 
 const fallbackThreadId = randomUUID();
-const resolvedThreadId = computed(() => {
+const baseThreadId = computed(() => {
   if (propIsAuthoritative.value) return props.threadId as string;
   if (activeThreadOverride.value) return activeThreadOverride.value.threadId;
   if (props.threadId) return props.threadId;
@@ -61,7 +63,18 @@ const resolvedThreadId = computed(() => {
   return fallbackThreadId;
 });
 
+const { inspectorThreadId, endInspectorOverride } = useInspectorThreadOverride({
+  agentId: resolvedAgentId,
+  baseThreadId,
+  isAuthoritative: propIsAuthoritative,
+});
+
+const resolvedThreadId = computed(
+  () => inspectorThreadId.value ?? baseThreadId.value,
+);
+
 const resolvedHasExplicitThreadId = computed(() => {
+  if (inspectorThreadId.value) return true;
   if (propIsAuthoritative.value) return true;
   const own = activeThreadOverride.value
     ? activeThreadOverride.value.explicit
@@ -96,7 +109,13 @@ const resolvedSetModalOpen = computed(() =>
 );
 
 function setActiveThreadId(threadId: string, options?: { explicit?: boolean }) {
+  endInspectorOverride();
   if (propIsAuthoritative.value) {
+    emitInspectorActiveThread({
+      threadId: baseThreadId.value,
+      agentId: resolvedAgentId.value,
+      source: "app",
+    });
     console.warn(
       "[CopilotKit] Ignoring setActiveThreadId(): threadId is controlled " +
         "via the `threadId` prop on CopilotChatConfigurationProvider.",
@@ -107,9 +126,15 @@ function setActiveThreadId(threadId: string, options?: { explicit?: boolean }) {
     threadId,
     explicit: options?.explicit ?? true,
   };
+  emitInspectorActiveThread({
+    threadId,
+    agentId: resolvedAgentId.value,
+    source: "app",
+  });
 }
 
 function startNewThread() {
+  endInspectorOverride();
   if (propIsAuthoritative.value) {
     console.warn(
       "[CopilotKit] Ignoring startNewThread(): threadId is controlled via " +

@@ -11,7 +11,9 @@ import React, {
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 // Import from the tailwind-free leaf module (not ../lib/slots, which pulls
 // tailwind-merge) so this provider stays lean in the headless entry (issue #4893).
+import { emitInspectorActiveThread } from "@copilotkit/core";
 import { useShallowStableRef } from "../lib/shallow-stable-ref";
+import { useInspectorThreadOverride } from "./use-inspector-thread-override";
 
 // Default labels
 export const CopilotChatDefaultLabels = {
@@ -222,7 +224,7 @@ export const CopilotChatConfigurationProvider: React.FC<
     explicit: boolean;
   } | null>(null);
 
-  const resolvedThreadId = useMemo(() => {
+  const baseThreadId = useMemo(() => {
     // An authoritative (caller-chosen) threadId prop always wins.
     if (threadIdPropIsAuthoritative) {
       return threadId as string;
@@ -247,14 +249,26 @@ export const CopilotChatConfigurationProvider: React.FC<
     activeThreadOverride,
   ]);
 
+  const { inspectorThreadId, endInspectorOverride } =
+    useInspectorThreadOverride({
+      agentId: resolvedAgentId,
+      baseThreadId,
+      isAuthoritative: isThreadIdControlled,
+    });
+
+  const resolvedThreadId = inspectorThreadId ?? baseThreadId;
+
   // Explicitness of this provider's own thread, mirroring the resolution order
   // above: an authoritative prop is a caller choice; otherwise an imperative
   // override carries its own explicitness (a picked row is explicit, a fresh
   // `startNewThread` is not); failing both, fall back to the (non-authoritative)
   // prop flag, which is `false` for the v1 bridge seed.
-  const ownHasExplicitThreadId = threadIdPropIsAuthoritative
+  // An Inspector view-in-app override is always explicit so /connect runs.
+  const ownHasExplicitThreadId = inspectorThreadId
     ? true
-    : (activeThreadOverride?.explicit ?? hasExplicitThreadId ?? false);
+    : threadIdPropIsAuthoritative
+      ? true
+      : (activeThreadOverride?.explicit ?? hasExplicitThreadId ?? false);
   const resolvedHasExplicitThreadId =
     ownHasExplicitThreadId || !!parentConfig?.hasExplicitThreadId;
 
@@ -423,7 +437,13 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedSetActiveThreadId = useCallback(
     (id: string, options?: { explicit?: boolean }) => {
+      endInspectorOverride();
       if (isThreadIdControlledRef.current) {
+        emitInspectorActiveThread({
+          threadId: baseThreadId,
+          agentId: resolvedAgentId,
+          source: "app",
+        });
         console.warn(
           "[CopilotKit] Ignoring setActiveThreadId(): threadId is controlled " +
             "via the `threadId` prop on CopilotChatConfigurationProvider.",
@@ -432,14 +452,31 @@ export const CopilotChatConfigurationProvider: React.FC<
       }
       if (parentSetActiveThreadId) {
         parentSetActiveThreadId(id, options);
+        emitInspectorActiveThread({
+          threadId: id,
+          agentId: resolvedAgentId,
+          source: "app",
+        });
         return;
       }
       ownSetActiveThreadId(id, options);
+      emitInspectorActiveThread({
+        threadId: id,
+        agentId: resolvedAgentId,
+        source: "app",
+      });
     },
-    [parentSetActiveThreadId, ownSetActiveThreadId],
+    [
+      parentSetActiveThreadId,
+      ownSetActiveThreadId,
+      endInspectorOverride,
+      resolvedAgentId,
+      baseThreadId,
+    ],
   );
 
   const resolvedStartNewThread = useCallback(() => {
+    endInspectorOverride();
     if (isThreadIdControlledRef.current) {
       console.warn(
         "[CopilotKit] Ignoring startNewThread(): threadId is controlled via " +
@@ -452,7 +489,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       return;
     }
     ownStartNewThread();
-  }, [parentStartNewThread, ownStartNewThread]);
+  }, [parentStartNewThread, ownStartNewThread, endInspectorOverride]);
 
   // Mobile mutual-exclusion (other direction): opening the chat modal closes
   // the drawer. Layered over whichever modal setter we resolved above so the

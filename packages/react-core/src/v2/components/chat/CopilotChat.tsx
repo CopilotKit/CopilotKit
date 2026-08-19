@@ -18,6 +18,7 @@ import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
+  emitInspectorViewThreadResult,
   isRunCompletionAware,
   ɵcreateThreadStore,
 } from "@copilotkit/core";
@@ -330,8 +331,17 @@ export function CopilotChat({
   }, []);
 
   useEffect(() => {
-    const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
+    const previousThreadId = previousThreadIdRef.current;
+    const threadChanged = previousThreadId !== resolvedThreadId;
     previousThreadIdRef.current = resolvedThreadId;
+
+    if (threadChanged && previousThreadId !== null) {
+      if (typeof copilotkit.stopAgent === "function") {
+        copilotkit.stopAgent({ agent });
+      } else {
+        agent.abortRun?.();
+      }
+    }
 
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
@@ -376,6 +386,12 @@ export function CopilotChat({
         // connectAgent already emits via the subscriber system, but catch
         // here to prevent unhandled rejections from unexpected errors.
         console.error("CopilotChat: connectAgent failed", error);
+        emitInspectorViewThreadResult({
+          threadId: resolvedThreadId,
+          agentId: resolvedAgentId,
+          ok: false,
+          reason: "connect-failed",
+        });
       } finally {
         // Whether the connect succeeded or failed, we're no longer in the
         // transitional "connecting" state for this thread — unblock the

@@ -10,6 +10,11 @@ import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
+  emitInspectorStopViewing,
+  emitInspectorViewThread,
+  isInspectorThreadBridgeEnabled,
+  onInspectorActiveThread,
+  onInspectorViewThreadResult,
   ɵselectThreads,
   ɵselectThreadsIsLoading,
   ɵselectThreadsError,
@@ -948,12 +953,14 @@ class CpkThreadList extends LitElement {
   static properties = {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
+    inAppThreadId: { attribute: false },
     errorMessage: { attribute: false },
     suppressEmptyState: { attribute: false },
     _query: { state: true },
   };
   threads: ɵThread[] = [];
   selectedThreadId: string | null = null;
+  inAppThreadId: string | null = null;
   /**
    * Non-null when the underlying thread store reported a load error
    * (REST list rejection, Phoenix subscribe failure, retry exhaustion).
@@ -1108,6 +1115,11 @@ class CpkThreadList extends LitElement {
       color: #087653;
     }
 
+    .cpk-tl__pill--in-app {
+      background: #bec2ff;
+      color: #010507;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
@@ -1214,6 +1226,13 @@ class CpkThreadList extends LitElement {
                         `
                       : nothing
                   }
+                  ${
+                    this.inAppThreadId === thread.id
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--in-app">In app</span>
+                        `
+                      : nothing
+                  }
                 </span>
               </button>
             `,
@@ -1295,6 +1314,8 @@ export class CpkThreadInspector extends LitElement {
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
+    viewInAppMode: { attribute: false },
+    viewInAppError: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -1333,6 +1354,8 @@ export class CpkThreadInspector extends LitElement {
    * so the conversation view reflects live streaming output.
    */
   liveMessageVersion = 0;
+  viewInAppMode: "hidden" | "view" | "stop" = "hidden";
+  viewInAppError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -1744,6 +1767,37 @@ export class CpkThreadInspector extends LitElement {
       text-overflow: clip;
       white-space: normal;
       overflow-wrap: anywhere;
+    }
+
+    .cpk-td__view-in-app {
+      appearance: none;
+      flex-shrink: 0;
+      margin: 0;
+      border: 1px solid #5558b2;
+      border-radius: 6px;
+      background: #5558b2;
+      color: #ffffff;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .cpk-td__view-in-app:focus-visible {
+      outline: 2px solid #010507;
+      outline-offset: 2px;
+    }
+
+    .cpk-td__view-in-app--stop {
+      background: #ffffff;
+      color: #5558b2;
+    }
+
+    .cpk-td__view-in-app-error {
+      flex-basis: 100%;
+      color: #c0333a;
+      font-size: 11px;
     }
 
     /*
@@ -3353,8 +3407,43 @@ export class CpkThreadInspector extends LitElement {
             `,
           )}
         </div>
+        ${this.renderViewInAppAction()}
         ${bulkControls}
       </div>
+    `;
+  }
+
+  private renderViewInAppAction() {
+    if (this.viewInAppMode === "hidden") return nothing;
+    const isStop = this.viewInAppMode === "stop";
+    return html`
+      <button
+        type="button"
+        class="cpk-td__view-in-app ${isStop ? "cpk-td__view-in-app--stop" : ""}"
+        data-testid="cpk-inspector-view-in-app"
+        aria-label=${
+          isStop
+            ? "Stop viewing this thread in the app"
+            : "View this thread in your app"
+        }
+        @click=${() => {
+          this.dispatchEvent(
+            new CustomEvent(isStop ? "stopViewing" : "viewInApp", {
+              bubbles: true,
+              composed: true,
+            }),
+          );
+        }}
+      >
+        ${isStop ? "Stop viewing" : "View in your app"}
+      </button>
+      ${
+        this.viewInAppError
+          ? html`<span class="cpk-td__view-in-app-error" role="alert"
+              >${this.viewInAppError}</span
+            >`
+          : nothing
+      }
     `;
   }
 
@@ -4830,6 +4919,12 @@ export class WebInspectorElement extends LitElement {
     };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private inAppThreadId: string | null = null;
+  private inAppAgentId: string | null = null;
+  private inAppSource: "app" | "override" | null = null;
+  private viewInAppError: string | null = null;
+  private viewInAppWaitId: ReturnType<typeof setTimeout> | null = null;
+  private inspectorBridgeUnsubscribers: Array<() => void> = [];
   private selectedRealThreadIsExplicit = false;
   private selectedLocalExampleThreadId: string | null = null;
   private threadListWidth = 290;
@@ -7449,6 +7544,7 @@ ${argsString}</pre
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
+      this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
   }
@@ -7482,6 +7578,7 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.unsubscribeFromInspectorThreadBridge();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
@@ -9641,6 +9738,111 @@ ${argsString}</pre
     });
   }
 
+  private subscribeToInspectorThreadBridge(): void {
+    this.unsubscribeFromInspectorThreadBridge();
+    if (!isInspectorThreadBridgeEnabled()) return;
+    this.inspectorBridgeUnsubscribers.push(
+      onInspectorActiveThread((payload) => {
+        this.inAppThreadId = payload.threadId;
+        this.inAppAgentId = payload.agentId;
+        this.inAppSource = payload.source;
+        if (payload.source === "app") {
+          this.viewInAppError = null;
+        }
+        this.requestUpdate();
+      }),
+      onInspectorViewThreadResult((payload) => {
+        if (this.viewInAppWaitId !== null) {
+          clearTimeout(this.viewInAppWaitId);
+          this.viewInAppWaitId = null;
+        }
+        if (payload.ok) {
+          this.viewInAppError = null;
+          this.inAppThreadId = payload.threadId;
+          this.inAppAgentId = payload.agentId;
+          this.inAppSource = "override";
+        } else if (payload.reason === "connect-failed") {
+          this.viewInAppError =
+            "The app could not load that thread. The previous chat is back.";
+        } else if (payload.reason === "no-matching-chat") {
+          this.viewInAppError =
+            "No official chat for this agent is on the page.";
+        } else {
+          this.viewInAppError = "View in app is not available.";
+        }
+        this.requestUpdate();
+      }),
+    );
+  }
+
+  private unsubscribeFromInspectorThreadBridge(): void {
+    if (this.viewInAppWaitId !== null) {
+      clearTimeout(this.viewInAppWaitId);
+      this.viewInAppWaitId = null;
+    }
+    for (const unsubscribe of this.inspectorBridgeUnsubscribers) {
+      unsubscribe();
+    }
+    this.inspectorBridgeUnsubscribers = [];
+  }
+
+  private getViewInAppMode(
+    thread: ɵThread | null,
+    isExample: boolean,
+  ): "hidden" | "view" | "stop" {
+    if (!isInspectorThreadBridgeEnabled()) return "hidden";
+    if (!thread || isExample) return "hidden";
+    if (
+      this.inAppSource === "override" &&
+      this.inAppThreadId === thread.id
+    ) {
+      return "stop";
+    }
+    return "view";
+  }
+
+  private handleViewInApp = (): void => {
+    const thread = this.getSelectedRealThread();
+    if (!thread) return;
+    this.viewInAppError = null;
+    if (this.viewInAppWaitId !== null) {
+      clearTimeout(this.viewInAppWaitId);
+    }
+    emitInspectorViewThread({
+      threadId: thread.id,
+      agentId: thread.agentId,
+    });
+    this.viewInAppWaitId = setTimeout(() => {
+      this.viewInAppWaitId = null;
+      if (this.inAppThreadId === thread.id && this.inAppSource === "override") {
+        return;
+      }
+      this.viewInAppError = "No official chat for this agent is on the page.";
+      this.requestUpdate();
+    }, 150);
+    this.requestUpdate();
+  };
+
+  private handleStopViewing = (): void => {
+    const agentId = this.inAppAgentId ?? this.getSelectedRealThread()?.agentId;
+    if (!agentId) return;
+    this.viewInAppError = null;
+    emitInspectorStopViewing({ agentId });
+    this.requestUpdate();
+  };
+
+  private getSelectedRealThread(): ɵThread | null {
+    if (!this.selectedThreadId) return null;
+    if (this.selectedThreadId === this.selectedLocalExampleThreadId) {
+      return null;
+    }
+    return (
+      this.getActiveThreadsState().displayThreads.find(
+        (thread) => thread.id === this.selectedThreadId,
+      ) ?? null
+    );
+  }
+
   private getCurrentExampleTourProps():
     | (InspectorThreadTelemetryProps &
         Readonly<{
@@ -11240,6 +11442,7 @@ ${argsString}</pre
               style="min-height:0;flex:1;"
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
+              .inAppThreadId=${this.inAppThreadId}
               .errorMessage=${threadsErrorMessage}
               .suppressEmptyState=${loadingWithoutRows}
               @threadSelected=${(e: CustomEvent<string>) => {
@@ -11323,6 +11526,13 @@ ${argsString}</pre
                     .liveMessageVersion=${
                       this.liveMessageVersion.get(selectedThread.id) ?? 0
                     }
+                    .viewInAppMode=${this.getViewInAppMode(
+                      selectedThread,
+                      selectedThreadIsLocalExample,
+                    )}
+                    .viewInAppError=${this.viewInAppError}
+                    @viewInApp=${this.handleViewInApp}
+                    @stopViewing=${this.handleStopViewing}
                     .agentStateInput=${this.getLatestStateForAgent(
                       selectedThread.agentId,
                     )}

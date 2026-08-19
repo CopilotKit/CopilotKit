@@ -112,6 +112,29 @@ without hiding valid usage. Metadata updates do not change the selected thread.
   for live preview with hot-reload.
 </Callout>
 
+## View a thread in your app
+
+The Inspector can open a saved thread, but that does not change the live chat.
+Use **View in your app** in the thread detail header to load that thread into
+the official chat (`CopilotChat`, sidebar, or popup).
+
+The chat shows the saved messages. You can send new messages on that same
+thread. The list marks the thread that is open in the app.
+
+Click **Stop viewing** to put the chat back on the previous thread. If you
+pick another thread in the app, the Inspector override ends.
+
+This action is for real saved threads only. Example threads do not have it.
+A production build hides the action even if the Inspector is forced on.
+
+If no official chat for that agent is on the page, the Inspector shows an
+error. A custom chat can listen to the same events from `@copilotkit/core`:
+
+- `view-thread` with `{ threadId, agentId }`
+- `stop-viewing` with `{ agentId }`
+- `active-thread` with `{ threadId, agentId, source }`
+- `view-thread-result` with `{ threadId, agentId, ok }`
+
 ## Disabling the Inspector
 
 By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
