@@ -123,13 +123,24 @@ Before you begin, you'll need the following:
               ```
           </Step>
           <Step>
-              ### Install LangGraph and AG-UI
+              ### Install LangGraph
 
-              Add LangGraph and the required AG-UI packages to your project:
+              Add the packages the agent code below imports:
 
               ```bash
-              uv add langgraph copilotkit langchain-openai langchain-core python-dotenv
+              uv add langgraph langchain-openai langchain-core python-dotenv
               ```
+
+              Both tabs below import all four. The **FastAPI** tab installs what
+              its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
+              `uvicorn` and `copilotkit` — in its own step; the LangSmith path
+              imports none of them, so they are not in this line.
+
+              <Callout type="warn" title="Project with pinned dependencies?">
+                `uv add` resolves and rewrites your lockfile. If your project
+                pins exact versions (`==`), add these to your dependency file by
+                hand instead so the rest of your pins stay put.
+              </Callout>
           </Step>
           <Step>
             ### Expose your agent via AG-UI
@@ -164,6 +175,17 @@ Before you begin, you'll need the following:
                   graph.add_edge("mock_llm", END)
                   graph = graph.compile()
                   ```
+
+                  <Callout type="warn" title="Do not add a checkpointer on this path">
+                    `compile()` is called with no `checkpointer=` on purpose. The
+                    LangGraph API server owns persistence and injects its own
+                    checkpointer at run time. If you compile a custom one in,
+                    `langgraph dev` refuses to load the graph
+                    (`ValueError: ... includes a custom checkpointer ... persistence is
+                    handled automatically by the platform`) and a deployed graph
+                    ignores it. The **FastAPI** tab is the opposite case — see the
+                    note there.
+                  </Callout>
 
                   Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
 
@@ -253,6 +275,20 @@ Before you begin, you'll need the following:
                   if __name__ == "__main__":
                     main()
                   ```
+
+                  <Callout type="info" title="Why this tab compiles with a checkpointer">
+                    Here you run the graph yourself, so nothing supplies
+                    persistence for you. `ag-ui-langgraph` reads thread state via
+                    `graph.aget_state(...)`, which raises
+                    `ValueError: No checkpointer set` on a graph compiled without
+                    one — hence `MemorySaver()`. It keeps state in process memory
+                    only; swap in a durable saver (e.g. Postgres) for production.
+                    Do **not** copy this into the LangSmith tab's graph.
+                  </Callout>
+
+                  `uvicorn` is told to listen on `8123` above, which is the port
+                  the runtime route below expects. Change both together if you
+                  pick a different one.
                 </Tab>
               </Tabs>
 
@@ -287,8 +323,12 @@ Before you begin, you'll need the following:
               ### Install CopilotKit packages
 
               ```npm
-              npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+              npm install @copilotkit/react-core @copilotkit/runtime
               ```
+
+              The components used below (`CopilotKit`, `CopilotSidebar`) and the
+              stylesheet all come from `@copilotkit/react-core/v2`, so
+              `@copilotkit/react-ui` is not needed for this setup.
           </Step>
           <Step>
               ### Setup Copilot Runtime
@@ -298,6 +338,19 @@ Before you begin, you'll need the following:
               ```sh
               mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
               ```
+
+              <Callout type="warn" title="This route is enough for chat, not for Threads or the Inspector">
+                A single `POST /api/copilotkit` is the *minimum* wiring: it runs
+                the runtime in single-route mode, which is all chat needs.
+                Persistent Threads and the Inspector's saved-Threads list need the
+                multi-route handler instead — a catch-all
+                `app/api/copilotkit/[[...slug]]/route.ts` that exports `GET`,
+                `POST`, `PATCH` and `DELETE`, so list, rename, archive and delete
+                requests can reach the runtime. If the Inspector shows **Finish
+                setting up Rich Threads**, this is why. See
+                [Runtime HTTP endpoints](/backend/runtime-endpoints#enable-rich-threads-routes)
+                for the route and the provider setup that goes with it.
+              </Callout>
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
@@ -426,16 +479,31 @@ Before you begin, you'll need the following:
                   cd ..
                   npx @langchain/langgraph-cli dev --port 8123 --no-browser
                   ```
+
+                  <Callout type="warn" title="Port 8123 is not the default">
+                    A bare `langgraph dev` (either the Python `langgraph-cli` or
+                    `@langchain/langgraph-cli`) serves on **2024**. This guide
+                    pins **8123** with `--port 8123` to match the
+                    `http://localhost:8123` fallback in the route above. Keep the
+                    flag, or drop it and change the route's URL to
+                    `http://localhost:2024` — but do not mix the two, or the
+                    runtime will fail to connect with no diagnostic beyond a
+                    connection error.
+                  </Callout>
                 </Tab>
                 <Tab value="FastAPI">
                   ```bash
                   cd ..
                   uv run main.py
                   ```
+
+                  This serves on **8123**, the port set in `main.py`'s
+                  `uvicorn.run(...)` call.
                 </Tab>
               </Tabs>
 
-              Your agent will be available at `http://localhost:8123`.
+              Your agent will be available at `http://localhost:8123` for both
+              tabs above.
           </Step>
           <Step>
               ### Start your UI
@@ -497,6 +565,7 @@ Before you begin, you'll need the following:
                 - Check that your OpenAI API key is correctly set in the `.env` file
                 - If using an existing agent, ensure your LangSmith API key is also configured
                 - Make sure you're in the same folder as your `langgraph.json` file when running the `langgraph dev` command
+                - **Connection refused from the runtime?** Check the port. A bare `langgraph dev` listens on `2024`; this guide's start command pins `8123` with `--port 8123`. The runtime's `LANGGRAPH_DEPLOYMENT_URL` (or its fallback) has to name the port the agent actually bound.
                 - **"graph is nullish" error (JavaScript starters):** This means the LangGraph CLI couldn't load your graph. Ensure the export name in your `langgraph.json` matches your code (e.g., `"starterAgent": "./src/agent.ts:graph"` requires `export const graph = ...` in `agent.ts`). Also verify all dependencies are installed with `npm install` in your agent directory.
                 - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
             </Accordion>
