@@ -5,116 +5,103 @@ import {
   isInspectorThreadBridgeEnabled,
   onInspectorStopViewing,
   onInspectorViewThread,
-  onInspectorViewThreadResult,
 } from "@copilotkit/core";
 
 type InspectorOverride = {
+  requestId: string;
   threadId: string;
+  agentId: string;
   previousThreadId: string;
 };
 
 export function useInspectorThreadOverride(args: {
   agentId: string;
   baseThreadId: string;
-  isAuthoritative: boolean;
 }): {
   inspectorThreadId: string | null;
-  endInspectorOverride: () => void;
+  inspectorRequestId: string | null;
+  failInspectorOverride: (requestId: string) => void;
 } {
   const [override, setOverride] = useState<InspectorOverride | null>(null);
-  const latestRef = useRef({
-    agentId: args.agentId,
-    baseThreadId: args.baseThreadId,
-    isAuthoritative: args.isAuthoritative,
-    override,
-  });
-  latestRef.current = {
-    agentId: args.agentId,
-    baseThreadId: args.baseThreadId,
-    isAuthoritative: args.isAuthoritative,
-    override,
-  };
+  const latestRef = useRef({ ...args, override });
+  latestRef.current = { ...args, override };
 
-  const endInspectorOverride = useCallback(() => {
-    setOverride(null);
-  }, []);
+  const restoreOverride = useCallback(
+    (current: InspectorOverride, nextThreadId: string) => {
+      setOverride(null);
+      emitInspectorActiveThread({
+        requestId: current.requestId,
+        threadId: nextThreadId,
+        agentId: current.agentId,
+        source: "app",
+      });
+    },
+    [],
+  );
+
+  const failInspectorOverride = useCallback(
+    (requestId: string) => {
+      const current = latestRef.current.override;
+      if (!current || current.requestId !== requestId) return;
+      emitInspectorViewThreadResult({
+        requestId,
+        threadId: current.threadId,
+        agentId: current.agentId,
+        ok: false,
+        reason: "connect-failed",
+      });
+      restoreOverride(current, current.previousThreadId);
+    },
+    [restoreOverride],
+  );
 
   useEffect(() => {
     if (!isInspectorThreadBridgeEnabled()) return;
 
     const offView = onInspectorViewThread((payload) => {
       const current = latestRef.current;
-      if (payload.agentId !== current.agentId) return;
+      if (payload.agentId !== current.agentId) return false;
 
       const next: InspectorOverride = current.override
-        ? { ...current.override, threadId: payload.threadId }
+        ? { ...current.override, ...payload }
         : {
-            threadId: payload.threadId,
+            ...payload,
             previousThreadId: current.baseThreadId,
           };
       setOverride(next);
-      emitInspectorViewThreadResult({
-        threadId: payload.threadId,
-        agentId: payload.agentId,
-        ok: true,
-      });
-      emitInspectorActiveThread({
-        threadId: payload.threadId,
-        agentId: payload.agentId,
-        source: "override",
-      });
+      emitInspectorViewThreadResult({ ...payload, ok: true });
+      emitInspectorActiveThread({ ...payload, source: "override" });
+      return true;
     });
 
     const offStop = onInspectorStopViewing((payload) => {
-      const current = latestRef.current;
+      const current = latestRef.current.override;
+      if (!current) return;
+      if (payload.requestId !== current.requestId) return;
       if (payload.agentId !== current.agentId) return;
-      if (!current.override) return;
-      const restoredId = current.override.previousThreadId;
-      setOverride(null);
-      emitInspectorActiveThread({
-        threadId: restoredId,
-        agentId: current.agentId,
-        source: "app",
-      });
-    });
-
-    const offResult = onInspectorViewThreadResult((payload) => {
-      const current = latestRef.current;
-      if (payload.ok) return;
-      if (payload.reason !== "connect-failed") return;
-      if (payload.agentId !== current.agentId) return;
-      if (current.override?.threadId !== payload.threadId) return;
-      const restoredId = current.override.previousThreadId;
-      setOverride(null);
-      emitInspectorActiveThread({
-        threadId: restoredId,
-        agentId: current.agentId,
-        source: "app",
-      });
+      restoreOverride(current, current.previousThreadId);
     });
 
     return () => {
       offView();
       offStop();
-      offResult();
     };
-  }, []);
+  }, [restoreOverride]);
 
   useEffect(() => {
     if (!override) return;
-    if (!args.isAuthoritative) return;
+    if (args.agentId !== override.agentId) {
+      restoreOverride(override, override.previousThreadId);
+      return;
+    }
     if (args.baseThreadId === override.previousThreadId) return;
     if (args.baseThreadId === override.threadId) return;
-    setOverride(null);
-    emitInspectorActiveThread({
-      threadId: args.baseThreadId,
-      agentId: args.agentId,
-      source: "app",
-    });
-  }, [args.agentId, args.baseThreadId, args.isAuthoritative, override]);
+    restoreOverride(override, args.baseThreadId);
+  }, [args.agentId, args.baseThreadId, override, restoreOverride]);
 
   return {
     inspectorThreadId: override?.threadId ?? null,
-    endInspectorOverride,
+    inspectorRequestId: override?.requestId ?? null,
+    failInspectorOverride,
   };
 }

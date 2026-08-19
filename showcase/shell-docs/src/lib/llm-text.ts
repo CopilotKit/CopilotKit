@@ -63,6 +63,7 @@ import angularSourceContent from "@/data/angular-source-content.json";
 import setupContentData from "@/data/setup-content.json";
 import {
   filterAngularBackendScopedBlocks,
+  filterFrameworkScopedBlocks,
   filterFrontendScopedBlocks,
 } from "./toc";
 import type { FrontendId } from "./frontend-options";
@@ -907,6 +908,25 @@ export function renderPageToLlmText(
   if (frontend === "angular") {
     body = filterAngularBackendScopedBlocks(body, framework);
   }
+
+  // Framework-gated branches (`<WhenFrameworkHas flag=… equals=…>`) have to be
+  // resolved here too, and against the SAME framework the `<Snippet />` tags
+  // below resolve to. The live HTML page drops the non-matching branches (the
+  // component returns null); raw Markdown used to keep every branch verbatim,
+  // so a gated page emitted all of its mutually-exclusive variants at once,
+  // each one carrying the single selected framework's code. On
+  // `generative-ui/a2ui/fixed-schema` that meant three "how the schema is
+  // delivered" sections whose prose contradicted the identical snippet under
+  // each of them — including a branch stating the language ships no
+  // `load_schema` helper directly above a snippet calling `load_schema`.
+  //
+  // `pickFramework` is what `expandSnippets` uses, so routing the gating
+  // decision through it keeps prose and code agreeing even on unscoped
+  // (`/<slug>.md`) requests where no framework was passed in.
+  const gatedFramework = frontmatterCell
+    ? (pickFramework(frontmatterCell, undefined, framework) ?? framework)
+    : framework;
+  body = filterFrameworkScopedBlocks(body, gatedFramework);
 
   // 2) Inline the selected package-owned framework setup. Bare docs URLs use
   // Built-in Agent on the live site, so use that same default for setup

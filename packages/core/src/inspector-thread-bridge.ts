@@ -1,18 +1,25 @@
-import { EventClient } from "@tanstack/devtools-event-client";
-
 export const INSPECTOR_THREAD_BRIDGE_PLUGIN_ID =
   "cpk-inspector-thread" as const;
 
+const EVENT_PREFIX = `copilotkit:${INSPECTOR_THREAD_BRIDGE_PLUGIN_ID}`;
+
+type InspectorBridgeGlobal = typeof globalThis & {
+  __COPILOTKIT_INSPECTOR_THREAD_EVENT_TARGET__?: EventTarget;
+};
+
 export type InspectorViewThreadPayload = {
+  requestId: string;
   threadId: string;
   agentId: string;
 };
 
 export type InspectorStopViewingPayload = {
+  requestId: string;
   agentId: string;
 };
 
 export type InspectorActiveThreadPayload = {
+  requestId: string;
   threadId: string;
   agentId: string;
   source: "app" | "override";
@@ -20,66 +27,83 @@ export type InspectorActiveThreadPayload = {
 
 export type InspectorViewThreadResultPayload =
   | {
+      requestId: string;
       threadId: string;
       agentId: string;
       ok: true;
     }
   | {
+      requestId: string;
       threadId: string;
       agentId: string;
       ok: false;
-      reason: "no-matching-chat" | "connect-failed" | "bus-unavailable";
+      reason: "connect-failed";
     };
 
 type InspectorThreadBridgeEvents = {
-  "view-thread": InspectorViewThreadPayload;
   "stop-viewing": InspectorStopViewingPayload;
   "active-thread": InspectorActiveThreadPayload;
   "view-thread-result": InspectorViewThreadResultPayload;
 };
 
-class InspectorThreadBridgeClient extends EventClient<InspectorThreadBridgeEvents> {
-  constructor() {
-    super({ pluginId: INSPECTOR_THREAD_BRIDGE_PLUGIN_ID });
+type ClaimableViewThreadEvent = {
+  payload: InspectorViewThreadPayload;
+  claimed: boolean;
+};
+
+function eventName(suffix: string): string {
+  return `${EVENT_PREFIX}:${suffix}`;
+}
+
+function getEventTarget(): EventTarget | null {
+  if (
+    typeof window !== "undefined" &&
+    typeof window.addEventListener === "function"
+  ) {
+    return window;
   }
+  if (typeof EventTarget === "undefined") return null;
+  // Shared by duplicate @copilotkit/core copies in non-browser test realms.
+  // Browser copies use window itself as the shared event target.
+  const sharedGlobal = globalThis as InspectorBridgeGlobal;
+  sharedGlobal.__COPILOTKIT_INSPECTOR_THREAD_EVENT_TARGET__ ??=
+    new EventTarget();
+  return sharedGlobal.__COPILOTKIT_INSPECTOR_THREAD_EVENT_TARGET__;
 }
 
-const localBus = new EventTarget();
-
-let client: InspectorThreadBridgeClient | null = null;
-
-function getClient(): InspectorThreadBridgeClient {
-  if (!client) {
-    client = new InspectorThreadBridgeClient();
+function createDetailEvent<T>(name: string, detail: T): Event {
+  if (typeof CustomEvent !== "undefined") {
+    return new CustomEvent(name, { detail });
   }
-  return client;
+  const event = new Event(name);
+  Object.defineProperty(event, "detail", { value: detail });
+  return event;
 }
 
-function nodeEnv(): string | undefined {
-  return process.env.NODE_ENV;
+function detailFromEvent<T>(event: Event): T {
+  return (event as Event & { detail: T }).detail;
 }
 
-/**
- * The action and bus are for development. A production build hides both.
- * EventClient from the root import is a no-op outside `development`.
- */
+/** The Inspector thread bridge is development-only. */
 export function isInspectorThreadBridgeEnabled(): boolean {
-  return nodeEnv() !== "production";
+  return process.env.NODE_ENV !== "production";
 }
 
-function useLocalFallback(): boolean {
-  return nodeEnv() !== "development";
+export function createInspectorThreadRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `inspector-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function emit<K extends keyof InspectorThreadBridgeEvents>(
+function dispatch<K extends keyof InspectorThreadBridgeEvents>(
   suffix: K,
   payload: InspectorThreadBridgeEvents[K],
 ): void {
   if (!isInspectorThreadBridgeEnabled()) return;
-  getClient().emit(suffix, payload);
-  if (useLocalFallback()) {
-    localBus.dispatchEvent(new CustomEvent(suffix, { detail: payload }));
-  }
+  const target = getEventTarget();
+  if (!target) return;
+  target.dispatchEvent(createDetailEvent(eventName(suffix), payload));
 }
 
 function on<K extends keyof InspectorThreadBridgeEvents>(
@@ -87,54 +111,63 @@ function on<K extends keyof InspectorThreadBridgeEvents>(
   handler: (payload: InspectorThreadBridgeEvents[K]) => void,
 ): () => void {
   if (!isInspectorThreadBridgeEnabled()) return () => undefined;
-  const offClient = getClient().on(
-    suffix,
-    (event) => {
-      handler(event.payload);
-    },
-    { withEventTarget: true },
-  );
-  if (!useLocalFallback()) {
-    return offClient;
-  }
-  const localHandler = (event: Event) => {
-    handler((event as CustomEvent<InspectorThreadBridgeEvents[K]>).detail);
+  const target = getEventTarget();
+  if (!target) return () => undefined;
+  const listener = (event: Event) => {
+    handler(detailFromEvent<InspectorThreadBridgeEvents[K]>(event));
   };
-  localBus.addEventListener(suffix, localHandler);
-  return () => {
-    offClient();
-    localBus.removeEventListener(suffix, localHandler);
-  };
+  const name = eventName(suffix);
+  target.addEventListener(name, listener);
+  return () => target.removeEventListener(name, listener);
 }
 
+/**
+ * Ask the first mounted official chat for the matching agent to load a thread.
+ * Returns false when no chat claims the request synchronously.
+ */
 export function emitInspectorViewThread(
   payload: InspectorViewThreadPayload,
-): void {
-  emit("view-thread", payload);
+): boolean {
+  if (!isInspectorThreadBridgeEnabled()) return false;
+  const target = getEventTarget();
+  if (!target) return false;
+  const detail: ClaimableViewThreadEvent = { payload, claimed: false };
+  target.dispatchEvent(createDetailEvent(eventName("view-thread"), detail));
+  return detail.claimed;
 }
 
 export function emitInspectorStopViewing(
   payload: InspectorStopViewingPayload,
 ): void {
-  emit("stop-viewing", payload);
+  dispatch("stop-viewing", payload);
 }
 
 export function emitInspectorActiveThread(
   payload: InspectorActiveThreadPayload,
 ): void {
-  emit("active-thread", payload);
+  dispatch("active-thread", payload);
 }
 
 export function emitInspectorViewThreadResult(
   payload: InspectorViewThreadResultPayload,
 ): void {
-  emit("view-thread-result", payload);
+  dispatch("view-thread-result", payload);
 }
 
 export function onInspectorViewThread(
-  handler: (payload: InspectorViewThreadPayload) => void,
+  handler: (payload: InspectorViewThreadPayload) => boolean,
 ): () => void {
-  return on("view-thread", handler);
+  if (!isInspectorThreadBridgeEnabled()) return () => undefined;
+  const target = getEventTarget();
+  if (!target) return () => undefined;
+  const listener = (event: Event) => {
+    const detail = detailFromEvent<ClaimableViewThreadEvent>(event);
+    if (detail.claimed) return;
+    detail.claimed = handler(detail.payload);
+  };
+  const name = eventName("view-thread");
+  target.addEventListener(name, listener);
+  return () => target.removeEventListener(name, listener);
 }
 
 export function onInspectorStopViewing(

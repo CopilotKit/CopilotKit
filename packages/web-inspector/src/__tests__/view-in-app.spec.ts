@@ -32,6 +32,14 @@ const SAVED_THREAD: ɵThread = {
   updatedAt: "2026-08-04T10:00:00.000Z",
 };
 
+const OTHER_SAVED_THREAD: ɵThread = {
+  ...SAVED_THREAD,
+  id: "other-saved-thread",
+  agentId: "other-agent",
+  name: "Other saved chat",
+  updatedAt: "2026-08-03T10:00:00.000Z",
+};
+
 function viewButton(root: ParentNode | null): HTMLButtonElement | null {
   return (
     root?.querySelector<HTMLButtonElement>(
@@ -100,7 +108,7 @@ async function flushInspector(inspector: WebInspectorElement): Promise<void> {
   }
 }
 
-async function setupInspector(): Promise<{
+async function setupInspector(threads: ɵThread[] = [SAVED_THREAD]): Promise<{
   inspector: WebInspectorElement;
   store: ɵThreadStore;
   core: ViewInAppTestCore;
@@ -111,7 +119,7 @@ async function setupInspector(): Promise<{
   const core = new ViewInAppTestCore();
   const store = ɵcreateThreadStore({
     fetch: async () =>
-      new Response(JSON.stringify({ threads: [SAVED_THREAD] }), {
+      new Response(JSON.stringify({ threads }), {
         status: 200,
         headers: { "content-type": "application/json" },
       }),
@@ -175,14 +183,18 @@ test("clicking view-in-app without a chat shows a no-matching-chat error", async
 });
 
 test("a successful view-thread-result turns the button into Stop viewing", async () => {
-  const received: Array<{ threadId: string; agentId: string }> = [];
+  const received: Array<{
+    requestId: string;
+    threadId: string;
+    agentId: string;
+  }> = [];
   const unsubscribe = onInspectorViewThread((payload) => {
     received.push(payload);
     emitInspectorViewThreadResult({
-      threadId: payload.threadId,
-      agentId: payload.agentId,
+      ...payload,
       ok: true,
     });
+    return true;
   });
   const { inspector, teardown } = await setupInspector();
   const detail = inspector.shadowRoot?.querySelector(
@@ -190,7 +202,11 @@ test("a successful view-thread-result turns the button into Stop viewing", async
   ) as CpkThreadInspector;
   viewButton(detail.shadowRoot)?.click();
   await flushInspector(inspector);
-  expect(received).toEqual([{ threadId: "saved-thread", agentId: "default" }]);
+  expect(received).toHaveLength(1);
+  expect(received[0]).toMatchObject({
+    threadId: "saved-thread",
+    agentId: "default",
+  });
   expect(viewButton(detail.shadowRoot)?.textContent?.trim()).toBe(
     "Stop viewing",
   );
@@ -201,13 +217,13 @@ test("a successful view-thread-result turns the button into Stop viewing", async
 });
 
 test("Stop viewing emits stop-viewing", async () => {
-  const stops: Array<{ agentId: string }> = [];
+  const stops: Array<{ requestId: string; agentId: string }> = [];
   const offView = onInspectorViewThread((payload) => {
     emitInspectorViewThreadResult({
-      threadId: payload.threadId,
-      agentId: payload.agentId,
+      ...payload,
       ok: true,
     });
+    return true;
   });
   const offStop = onInspectorStopViewing((payload) => {
     stops.push(payload);
@@ -219,7 +235,77 @@ test("Stop viewing emits stop-viewing", async () => {
   viewButton(detail.shadowRoot)?.click();
   await flushInspector(inspector);
   viewButton(detail.shadowRoot)?.click();
-  expect(stops).toEqual([{ agentId: "default" }]);
+  expect(stops).toHaveLength(1);
+  expect(stops[0]).toMatchObject({ agentId: "default" });
+  offView();
+  offStop();
+  await teardown();
+});
+
+test("unrelated results do not complete the active request", async () => {
+  const offView = onInspectorViewThread((payload) => {
+    emitInspectorViewThreadResult({
+      ...payload,
+      requestId: "unrelated-request",
+      ok: false,
+      reason: "connect-failed",
+    });
+    emitInspectorViewThreadResult({ ...payload, ok: true });
+    return true;
+  });
+  const { inspector, teardown } = await setupInspector();
+  const detail = inspector.shadowRoot?.querySelector(
+    "cpk-thread-details",
+  ) as CpkThreadInspector;
+
+  viewButton(detail.shadowRoot)?.click();
+  await flushInspector(inspector);
+
+  expect(viewButton(detail.shadowRoot)?.textContent?.trim()).toBe(
+    "Stop viewing",
+  );
+  expect(detail.shadowRoot?.querySelector("[role='alert']")).toBeNull();
+  offView();
+  await teardown();
+});
+
+test("viewing another agent stops the previous override first", async () => {
+  const views: Array<{ requestId: string; agentId: string }> = [];
+  const stops: Array<{ requestId: string; agentId: string }> = [];
+  const offView = onInspectorViewThread((payload) => {
+    views.push(payload);
+    emitInspectorViewThreadResult({ ...payload, ok: true });
+    return true;
+  });
+  const offStop = onInspectorStopViewing((payload) => stops.push(payload));
+  const { inspector, teardown } = await setupInspector([
+    SAVED_THREAD,
+    OTHER_SAVED_THREAD,
+  ]);
+  let detail = inspector.shadowRoot?.querySelector(
+    "cpk-thread-details",
+  ) as CpkThreadInspector;
+  viewButton(detail.shadowRoot)?.click();
+  await flushInspector(inspector);
+
+  const list = inspector.shadowRoot?.querySelector("cpk-thread-list");
+  const otherButton = Array.from(
+    list?.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+  ).find((button) => button.textContent?.includes("Other saved chat"));
+  otherButton?.click();
+  await flushInspector(inspector);
+  detail = inspector.shadowRoot?.querySelector(
+    "cpk-thread-details",
+  ) as CpkThreadInspector;
+  viewButton(detail.shadowRoot)?.click();
+  await flushInspector(inspector);
+
+  expect(views.map((view) => view.agentId)).toEqual(["default", "other-agent"]);
+  expect(stops).toHaveLength(1);
+  expect(stops[0]).toEqual({
+    requestId: views[0]!.requestId,
+    agentId: "default",
+  });
   offView();
   offStop();
   await teardown();

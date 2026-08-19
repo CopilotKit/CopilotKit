@@ -1,210 +1,241 @@
 import React from "react";
-import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   emitInspectorStopViewing,
   emitInspectorViewThread,
-  emitInspectorViewThreadResult,
   onInspectorActiveThread,
   onInspectorViewThreadResult,
 } from "@copilotkit/core";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
+import { CopilotChat } from "../../components/chat/CopilotChat";
+import { CopilotKitProvider } from "../CopilotKitProvider";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
 } from "../CopilotChatConfigurationProvider";
 
-function ThreadProbe() {
-  const config = useCopilotChatConfiguration();
+class TrackingAgent extends MockStepwiseAgent {
+  connectCalls: string[] = [];
+  failThreadId: string | null = null;
+
+  clone(): this {
+    const cloned = super.clone();
+    const registry = this;
+    Object.defineProperties(cloned, {
+      threadId: {
+        get: () => registry.threadId,
+        set: (value: string) => {
+          registry.threadId = value;
+        },
+        configurable: true,
+      },
+      connectCalls: {
+        get: () => registry.connectCalls,
+        configurable: true,
+      },
+      failThreadId: {
+        get: () => registry.failThreadId,
+        set: (value: string | null) => {
+          registry.failThreadId = value;
+        },
+        configurable: true,
+      },
+    });
+    return cloned;
+  }
+
+  async connectAgent(
+    _params: unknown,
+    _subscriber: unknown,
+  ): Promise<{ result: unknown; newMessages: [] }> {
+    this.connectCalls.push(this.threadId ?? "");
+    if (this.threadId === this.failThreadId) {
+      throw new Error("connect failed");
+    }
+    return { result: undefined, newMessages: [] };
+  }
+}
+
+function ThreadControls() {
+  const configuration = useCopilotChatConfiguration();
   return (
     <>
-      <div data-testid="thread">{config?.threadId}</div>
-      <div data-testid="explicit">{String(config?.hasExplicitThreadId)}</div>
-      <div data-testid="agent">{config?.agentId}</div>
-      <button
-        data-testid="select"
-        onClick={() => config?.setActiveThreadId("app-picked")}
-      >
+      <button onClick={() => configuration?.setActiveThreadId("app-picked")}>
         select
       </button>
-      <button data-testid="new" onClick={() => config?.startNewThread()}>
-        new
-      </button>
+      <button onClick={() => configuration?.startNewThread()}>new</button>
     </>
   );
 }
 
+function renderChat(
+  agent: TrackingAgent,
+  options: { threadId?: string; withControls?: boolean } = {},
+) {
+  agent.agentId = DEFAULT_AGENT_ID;
+  const chat = <CopilotChat threadId={options.threadId} />;
+  return render(
+    <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}>
+      {options.withControls ? (
+        <CopilotChatConfigurationProvider agentId={DEFAULT_AGENT_ID}>
+          {chat}
+          <ThreadControls />
+        </CopilotChatConfigurationProvider>
+      ) : (
+        chat
+      )}
+    </CopilotKitProvider>,
+  );
+}
+
+function viewRequest(requestId: string, threadId = "saved-thread") {
+  return emitInspectorViewThread({
+    requestId,
+    threadId,
+    agentId: DEFAULT_AGENT_ID,
+  });
+}
+
 describe("inspector thread override", () => {
   const cleanups: Array<() => void> = [];
+  let uuidSequence = 0;
+
+  beforeEach(() => {
+    cleanups.length = 0;
+    vi.mocked(randomUUID).mockImplementation(
+      () => `inspector-thread-${++uuidSequence}`,
+    );
+  });
 
   afterEach(() => {
-    for (const cleanup of cleanups.splice(0)) {
-      cleanup();
-    }
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
   });
 
-  it("switches a pinned threadId when view-thread matches the agent", () => {
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
+  it("switches a pinned threadId when view-thread matches the agent", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { threadId: "pinned-thread" });
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+
+    act(() => expect(viewRequest("request-1")).toBe(true));
+
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
+    expect(agent.connectCalls).toContain("saved-thread");
+  });
+
+  it("ignores view-thread for a different agent", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { threadId: "pinned-thread" });
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+
+    act(() => {
+      expect(
+        emitInspectorViewThread({
+          requestId: "request-2",
+          threadId: "other-thread",
+          agentId: "other-agent",
+        }),
+      ).toBe(false);
+    });
+
+    expect(agent.threadId).toBe("pinned-thread");
+  });
+
+  it("restores the previous thread on stop-viewing", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { threadId: "pinned-thread" });
+    act(() => void viewRequest("request-3"));
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
+
+    act(() =>
+      emitInspectorStopViewing({
+        requestId: "request-3",
+        agentId: DEFAULT_AGENT_ID,
+      }),
     );
 
-    expect(screen.getByTestId("thread").textContent).toBe("pinned-thread");
-
-    act(() => {
-      emitInspectorViewThread({
-        threadId: "saved-thread",
-        agentId: "default",
-      });
-    });
-
-    expect(screen.getByTestId("thread").textContent).toBe("saved-thread");
-    expect(screen.getByTestId("explicit").textContent).toBe("true");
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
   });
 
-  it("ignores view-thread for a different agent", () => {
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
+  it("keeps the original previous thread after a second view-thread", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { threadId: "pinned-thread" });
+    act(() => void viewRequest("request-4a", "first-saved"));
+    await waitFor(() => expect(agent.threadId).toBe("first-saved"));
+    act(() => void viewRequest("request-4b", "second-saved"));
+    await waitFor(() => expect(agent.threadId).toBe("second-saved"));
+
+    act(() =>
+      emitInspectorStopViewing({
+        requestId: "request-4b",
+        agentId: DEFAULT_AGENT_ID,
+      }),
     );
 
-    act(() => {
-      emitInspectorViewThread({
-        threadId: "other-thread",
-        agentId: "other-agent",
-      });
-    });
-
-    expect(screen.getByTestId("thread").textContent).toBe("pinned-thread");
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
   });
 
-  it("restores the previous thread on stop-viewing", () => {
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
-    );
+  it("ends the override when the app picks a thread", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { withControls: true });
+    act(() => void viewRequest("request-5"));
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
 
-    act(() => {
-      emitInspectorViewThread({
-        threadId: "saved-thread",
-        agentId: "default",
-      });
-    });
-    act(() => {
-      emitInspectorStopViewing({ agentId: "default" });
-    });
+    fireEvent.click(screen.getByText("select"));
 
-    expect(screen.getByTestId("thread").textContent).toBe("pinned-thread");
+    await waitFor(() => expect(agent.threadId).toBe("app-picked"));
   });
 
-  it("keeps the original previous thread after a second view-thread", () => {
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
-    );
+  it("ends the override when the app starts a new thread", async () => {
+    const agent = new TrackingAgent();
+    renderChat(agent, { withControls: true });
+    act(() => void viewRequest("request-6"));
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
 
-    act(() => {
-      emitInspectorViewThread({ threadId: "first-saved", agentId: "default" });
-    });
-    act(() => {
-      emitInspectorViewThread({ threadId: "second-saved", agentId: "default" });
-    });
-    expect(screen.getByTestId("thread").textContent).toBe("second-saved");
+    fireEvent.click(screen.getByText("new"));
 
-    act(() => {
-      emitInspectorStopViewing({ agentId: "default" });
-    });
-    expect(screen.getByTestId("thread").textContent).toBe("pinned-thread");
+    await waitFor(() => expect(agent.threadId).not.toBe("saved-thread"));
   });
 
-  it("ends the override when the app picks a thread", () => {
-    render(
-      <CopilotChatConfigurationProvider agentId="default">
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
-    );
-
-    act(() => {
-      emitInspectorViewThread({ threadId: "saved-thread", agentId: "default" });
-    });
-    act(() => {
-      fireEvent.click(screen.getByTestId("select"));
-    });
-
-    expect(screen.getByTestId("thread").textContent).toBe("app-picked");
-  });
-
-  it("rolls back when connect fails", () => {
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
-    );
-
-    act(() => {
-      emitInspectorViewThread({ threadId: "saved-thread", agentId: "default" });
-    });
-    act(() => {
-      emitInspectorViewThreadResult({
-        threadId: "saved-thread",
-        agentId: "default",
-        ok: false,
-        reason: "connect-failed",
-      });
-    });
-
-    expect(screen.getByTestId("thread").textContent).toBe("pinned-thread");
-  });
-
-  it("emits applied result and active-thread on view", () => {
-    const results: Array<{ ok: boolean; threadId: string }> = [];
-    const actives: Array<{ source: string; threadId: string }> = [];
+  it("rolls back when connect fails", async () => {
+    const agent = new TrackingAgent();
+    agent.failThreadId = "saved-thread";
+    renderChat(agent, { threadId: "pinned-thread" });
+    const results: boolean[] = [];
     cleanups.push(
       onInspectorViewThreadResult((payload) => {
-        results.push({ ok: payload.ok, threadId: payload.threadId });
+        if (payload.requestId === "request-7") results.push(payload.ok);
       }),
     );
+
+    act(() => void viewRequest("request-7"));
+
+    await waitFor(() => expect(results).toContain(false));
+    await waitFor(() => expect(agent.threadId).toBe("pinned-thread"));
+  });
+
+  it("emits applied result and active-thread on view", async () => {
+    const agent = new TrackingAgent();
+    const results: boolean[] = [];
+    const activeSources: string[] = [];
     cleanups.push(
-      onInspectorActiveThread((payload) => {
-        actives.push({ source: payload.source, threadId: payload.threadId });
-      }),
+      onInspectorViewThreadResult((payload) => results.push(payload.ok)),
+      onInspectorActiveThread((payload) => activeSources.push(payload.source)),
     );
+    renderChat(agent, { threadId: "pinned-thread" });
 
-    render(
-      <CopilotChatConfigurationProvider
-        agentId="default"
-        threadId="pinned-thread"
-      >
-        <ThreadProbe />
-      </CopilotChatConfigurationProvider>,
-    );
+    act(() => expect(viewRequest("request-8")).toBe(true));
 
-    act(() => {
-      emitInspectorViewThread({ threadId: "saved-thread", agentId: "default" });
-    });
-
-    expect(results).toContainEqual({ ok: true, threadId: "saved-thread" });
-    expect(actives).toContainEqual({
-      source: "override",
-      threadId: "saved-thread",
-    });
+    await waitFor(() => expect(agent.threadId).toBe("saved-thread"));
+    expect(results).toContain(true);
+    expect(activeSources).toContain("override");
   });
 });

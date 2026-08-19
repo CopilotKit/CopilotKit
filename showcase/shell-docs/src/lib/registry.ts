@@ -67,6 +67,17 @@ export interface Integration {
    */
   a2ui_pattern?: "schema-loading" | "schema-inline" | "llm-driven" | null;
   /**
+   * Whether the A2UI docs should additionally show how to attach the
+   * fixed-schema tool to a hand-built graph rather than the cell's agent
+   * factory. Set only where the rendered snippet's language matches the
+   * integration's own — `langgraph-typescript` is deliberately left unset
+   * because the snippet is Python.
+   *
+   * - `langgraph-state-graph`: render the Python `StateGraph` + `ToolNode`
+   *   form next to the `create_agent` snippet.
+   */
+  a2ui_agent_form?: "langgraph-state-graph" | null;
+  /**
    * Implementation pattern for `gen-ui-interrupt` / `interrupt-headless`.
    * Set only when at least one is wired.
    *

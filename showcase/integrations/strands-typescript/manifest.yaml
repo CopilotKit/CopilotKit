@@ -86,7 +86,7 @@ demos:
     description: Copy-paste command to clone the canonical starter
     tags:
       - chat-ui
-    command: "npx copilotkit@latest init --framework strands-typescript"
+    command: "npx copilotkit@latest create --framework aws-strands-ts"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution

@@ -128,12 +128,33 @@ This action is for real saved threads only. Example threads do not have it.
 A production build hides the action even if the Inspector is forced on.
 
 If no official chat for that agent is on the page, the Inspector shows an
-error. A custom chat can listen to the same events from `@copilotkit/core`:
+error. This behavior is agent-framework agnostic: the Inspector addresses the
+CopilotKit chat by `agentId`, regardless of which backend framework serves the
+agent.
 
-- `view-thread` with `{ threadId, agentId }`
-- `stop-viewing` with `{ agentId }`
-- `active-thread` with `{ threadId, agentId, source }`
-- `view-thread-result` with `{ threadId, agentId, ok }`
+A custom chat can use the bridge exported by `@copilotkit/core`. Return `true`
+from `onInspectorViewThread` only when that chat claims the request, and include
+the same `requestId` in every lifecycle event:
+
+- `onInspectorViewThread` receives `{ requestId, threadId, agentId }`
+- `onInspectorStopViewing` receives `{ requestId, agentId }`
+- `emitInspectorActiveThread` sends `{ requestId, threadId, agentId, source }`
+- `emitInspectorViewThreadResult` sends `{ requestId, threadId, agentId, ok }`
+
+## Pop out
+
+The Inspector sits on top of your app. If it covers the UI you need to see,
+click the pop-out control in the Inspector header.
+
+A real browser window opens. It shows the same live Inspector session.
+The app page hides the Inspector and the floating button.
+
+Close the extra window to put the Inspector back on the page. It stays open
+in the same float or dock mode as before.
+
+If the window does not open, allow popups for the site and click pop-out
+again. A refresh closes the extra window. The Inspector does not reopen as a
+pop-out after a refresh.
 
 ## Disabling the Inspector
 

@@ -15,9 +15,7 @@ describe("inspector thread bridge", () => {
   const cleanups: Array<() => void> = [];
 
   afterEach(() => {
-    for (const cleanup of cleanups.splice(0)) {
-      cleanup();
-    }
+    for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
   it("is enabled when NODE_ENV is not production", () => {
@@ -26,86 +24,131 @@ describe("inspector thread bridge", () => {
     );
   });
 
-  it("delivers view-thread from emit to on in the same realm", () => {
-    const received: Array<{ threadId: string; agentId: string }> = [];
+  it("lets a matching chat claim view-thread", () => {
+    const received: string[] = [];
     cleanups.push(
       onInspectorViewThread((payload) => {
-        received.push(payload);
+        received.push(payload.threadId);
+        return payload.agentId === "default";
       }),
     );
 
-    emitInspectorViewThread({ threadId: "thread-1", agentId: "default" });
+    const handled = emitInspectorViewThread({
+      requestId: "request-1",
+      threadId: "thread-1",
+      agentId: "default",
+    });
 
-    expect(received).toEqual([{ threadId: "thread-1", agentId: "default" }]);
+    expect(handled).toBe(true);
+    expect(received).toEqual(["thread-1"]);
   });
 
-  it("delivers stop-viewing, active-thread, and view-thread-result", () => {
-    const stops: Array<{ agentId: string }> = [];
-    const actives: Array<{
-      threadId: string;
-      agentId: string;
-      source: "app" | "override";
-    }> = [];
-    const results: Array<{ ok: boolean }> = [];
-
-    cleanups.push(onInspectorStopViewing((payload) => stops.push(payload)));
-    cleanups.push(onInspectorActiveThread((payload) => actives.push(payload)));
+  it("stops after the first chat claims a request", () => {
+    const claimants: string[] = [];
     cleanups.push(
-      onInspectorViewThreadResult((payload) => results.push(payload)),
+      onInspectorViewThread(() => {
+        claimants.push("first");
+        return true;
+      }),
+      onInspectorViewThread(() => {
+        claimants.push("second");
+        return true;
+      }),
     );
 
-    emitInspectorStopViewing({ agentId: "default" });
+    expect(
+      emitInspectorViewThread({
+        requestId: "request-2",
+        threadId: "thread-2",
+        agentId: "default",
+      }),
+    ).toBe(true);
+    expect(claimants).toEqual(["first"]);
+  });
+
+  it("returns false when no chat claims a request", () => {
+    cleanups.push(onInspectorViewThread(() => false));
+    expect(
+      emitInspectorViewThread({
+        requestId: "request-3",
+        threadId: "thread-3",
+        agentId: "other",
+      }),
+    ).toBe(false);
+  });
+
+  it("delivers request-correlated lifecycle events", () => {
+    const stops: string[] = [];
+    const actives: string[] = [];
+    const results: boolean[] = [];
+    cleanups.push(
+      onInspectorStopViewing((payload) => stops.push(payload.requestId)),
+      onInspectorActiveThread((payload) => actives.push(payload.requestId)),
+      onInspectorViewThreadResult((payload) => results.push(payload.ok)),
+    );
+
+    emitInspectorStopViewing({ requestId: "request-4", agentId: "default" });
     emitInspectorActiveThread({
-      threadId: "thread-2",
+      requestId: "request-4",
+      threadId: "thread-4",
       agentId: "default",
       source: "override",
     });
     emitInspectorViewThreadResult({
-      threadId: "thread-2",
+      requestId: "request-4",
+      threadId: "thread-4",
       agentId: "default",
       ok: true,
     });
 
-    expect(stops).toEqual([{ agentId: "default" }]);
-    expect(actives).toEqual([
-      { threadId: "thread-2", agentId: "default", source: "override" },
-    ]);
-    expect(results).toEqual([
-      { ok: true, threadId: "thread-2", agentId: "default" },
-    ]);
+    expect(stops).toEqual(["request-4"]);
+    expect(actives).toEqual(["request-4"]);
+    expect(results).toEqual([true]);
   });
 
   it("does not notify a listener after unsubscribe", () => {
     const received: string[] = [];
     const unsubscribe = onInspectorViewThread((payload) => {
       received.push(payload.threadId);
+      return true;
     });
     unsubscribe();
 
-    emitInspectorViewThread({ threadId: "late", agentId: "default" });
-
+    expect(
+      emitInspectorViewThread({
+        requestId: "request-5",
+        threadId: "late",
+        agentId: "default",
+      }),
+    ).toBe(false);
     expect(received).toEqual([]);
   });
 
-  it("hides the bus when NODE_ENV is production", () => {
+  it("hides the bus when NODE_ENV is production", async () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     vi.resetModules();
 
-    return import("../inspector-thread-bridge")
-      .then((mod) => {
-        expect(mod.isInspectorThreadBridgeEnabled()).toBe(false);
-        const received: string[] = [];
-        const unsubscribe = mod.onInspectorViewThread((payload) => {
-          received.push(payload.threadId);
-        });
-        mod.emitInspectorViewThread({ threadId: "prod", agentId: "default" });
-        expect(received).toEqual([]);
-        unsubscribe();
-      })
-      .finally(() => {
-        process.env.NODE_ENV = original;
-        vi.resetModules();
+    try {
+      const mod = await import("../inspector-thread-bridge");
+      expect(mod.isInspectorThreadBridgeEnabled()).toBe(false);
+      const received: string[] = [];
+      const unsubscribe = mod.onInspectorViewThread((payload) => {
+        received.push(payload.threadId);
+        return true;
       });
+      expect(
+        mod.emitInspectorViewThread({
+          requestId: "request-prod",
+          threadId: "prod",
+          agentId: "default",
+        }),
+      ).toBe(false);
+      expect(received).toEqual([]);
+      unsubscribe();
+    } finally {
+      process.env.NODE_ENV = original;
+      vi.resetModules();
+    }
   });
 });
