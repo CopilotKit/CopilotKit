@@ -1,13 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createChannel } from "./create-channel.js";
+import type { ChannelHandler } from "./create-channel.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 
-async function runOnMessage(
-  fake: FakeAdapter,
-  fn: Parameters<ReturnType<typeof createChannel>["onMessage"]>[0],
-) {
+async function runOnMessage(fake: FakeAdapter, fn: ChannelHandler) {
   const channel = createChannel({ identifyUser: "platform", adapters: [fake] });
-  channel.onMessage(fn);
+  channel.onMessage(fn as ChannelHandler<unknown, "default">);
   await channel.ɵruntime.start();
   fake.emitTurn({
     userText: "hi",

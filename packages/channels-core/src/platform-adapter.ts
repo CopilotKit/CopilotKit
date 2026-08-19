@@ -114,6 +114,11 @@ export interface ChannelAgentLifecycleArgs {
   isResume?: boolean;
   /** Explicit Memory access resolved before agent execution. */
   memory?: ResolvedChannelMemory;
+  /**
+   * Wire agent id for this Channel run. The default agent uses the Channel
+   * name unsuffixed; extras use `channelName:agentId`.
+   */
+  canonicalAgentId?: string;
   execute(
     subscriber: AgentSubscriber,
     canonicalRun?: CanonicalRunIdentity,

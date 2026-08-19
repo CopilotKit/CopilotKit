@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { createChannel } from "./create-channel.js";
+import {
+  ChannelAgentInterruptPendingError,
+  ChannelAgentResumeAmbiguousError,
+  ChannelAgentResumeNoneError,
+  ChannelDuplicateDefaultError,
+} from "./channel-agent-errors.js";
 import { defineChannelCommand } from "./commands.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
 import { FakeAgent } from "./testing/fake-agent.js";
@@ -14,16 +20,17 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 
 /**
  * Compile-time guards for the handler generics (validated by check-types/build,
- * never executed). `onInterrupt<T>` types `payload`; `onInteraction<T>` types
- * `ctx.action.value`.
+ * never executed). `onInterrupt<T>` types `payload` and `agentId`;
+ * `onInteraction<T>` types `ctx.action.value`.
  */
 const __handlerTypeGuards = () => {
   const channel = createChannel({
     identifyUser: "platform",
     adapters: [new FakeAdapter()],
   });
-  channel.onInterrupt<{ question: string }>("ask", ({ payload }) => {
+  channel.onInterrupt<{ question: string }>("ask", ({ payload, agentId }) => {
     payload.question.toUpperCase();
+    agentId.toUpperCase();
     // @ts-expect-error 'missing' is not on the payload type
     payload.missing;
   });
@@ -31,6 +38,31 @@ const __handlerTypeGuards = () => {
     ctx.action.value?.page.toFixed(0);
     // @ts-expect-error 'nope' is not on the action value type
     ctx.action.value?.nope;
+  });
+
+  const named = createChannel({
+    identifyUser: "platform",
+    adapters: [new FakeAdapter()],
+    agent: new FakeAgent(),
+    agents: { billing: new FakeAgent() },
+  });
+  named.onMention(async ({ thread }) => {
+    await thread.runAgent();
+    await thread.runAgent({ agentId: "billing" });
+    await thread.runAgent({ agentId: "default" });
+    // @ts-expect-error unknown agent id
+    await thread.runAgent({ agentId: "search" });
+  });
+
+  const extrasOnly = createChannel({
+    identifyUser: "platform",
+    adapters: [new FakeAdapter()],
+    agents: { billing: new FakeAgent() },
+  });
+  extrasOnly.onMention(async ({ thread }) => {
+    await thread.runAgent({ agentId: "billing" });
+    // @ts-expect-error agentId is required when there is no default
+    await thread.runAgent();
   });
 };
 void __handlerTypeGuards;
@@ -2121,5 +2153,449 @@ describe("createChannel slash commands", () => {
     const fake = new FakeAdapter();
     channel.ɵruntime.addAdapter(fake);
     expect(channel.adapters).toEqual([fake]);
+  });
+});
+
+describe("createChannel multi-agent runAgent", () => {
+  it("runAgent() with no agentId uses the singular agent", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent();
+    const billing = new FakeAgent();
+    const supportCalls = trackRunAgentCalls(support);
+    const billingCalls = trackRunAgentCalls(billing);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect(supportCalls.total()).toBe(1);
+    expect(billingCalls.total()).toBe(0);
+  });
+
+  it("runAgent({ agentId: 'billing' }) runs the named agent", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent();
+    const billing = new FakeAgent();
+    const billingCalls = trackRunAgentCalls(billing);
+    const sessions = captureSessionAgents(fake);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ agentId: "billing" });
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect(billingCalls.total()).toBe(1);
+    expect(sessions.agents.some((a) => a.threadId?.includes("::billing"))).toBe(
+      true,
+    );
+  });
+
+  it("keeps the default checkpoint unsuffixed when extras exist", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent();
+    const sessions = captureSessionAgents(fake);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing: new FakeAgent() },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect(sessions.agents[0]!.threadId?.includes("::")).toBe(false);
+  });
+
+  it("throws channel_unknown_agent for a missing id", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+    });
+    let seen: unknown;
+    channel.onMention(async ({ thread }) => {
+      try {
+        await thread.runAgent({ agentId: "search" as "default" });
+      } catch (err) {
+        seen = err;
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect((seen as { code?: string }).code).toBe("channel_unknown_agent");
+  });
+
+  it("throws channel_no_default_agent when only extras are configured", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agents: { billing: new FakeAgent() },
+    });
+    let seen: unknown;
+    channel.onMention(async ({ thread }) => {
+      try {
+        // @ts-expect-error extras-only Channel requires agentId
+        await thread.runAgent();
+      } catch (err) {
+        seen = err;
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect((seen as { code?: string }).code).toBe("channel_no_default_agent");
+  });
+
+  it("canonicalAgentId is the extra id when the channel has no name", async () => {
+    const fake = new FakeAdapter();
+    let seen: string | undefined = "SENTINEL";
+    fake.runAgentLifecycle = async (args) => {
+      seen = args.canonicalAgentId;
+      return args.execute({});
+    };
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+      agents: { billing: new FakeAgent() },
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ agentId: "billing" });
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect(seen).toBe("billing");
+  });
+
+  it("canonicalAgentId is undefined for the default agent when the channel has no name", async () => {
+    const fake = new FakeAdapter();
+    let seen: string | undefined = "SENTINEL";
+    fake.runAgentLifecycle = async (args) => {
+      seen = args.canonicalAgentId;
+      return args.execute({});
+    };
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "hi", conversationKey: "c1" });
+    await tick();
+    expect(seen).toBeUndefined();
+  });
+
+  it("throws at createChannel when agent and agents.default both exist", () => {
+    expect(() =>
+      createChannel({
+        identifyUser: "platform",
+        adapters: [new FakeAdapter()],
+        agent: new FakeAgent(),
+        agents: { default: new FakeAgent() },
+      }),
+    ).toThrow(ChannelDuplicateDefaultError);
+  });
+});
+
+const interruptOnce = (value: unknown) => (sub: AgentSubscriber) => {
+  sub.onCustomEvent?.({
+    event: { name: "on_interrupt", value },
+  } as never);
+  sub.onRunFinishedEvent?.({ event: {} } as never);
+};
+
+const finishRun = (sub: AgentSubscriber) => {
+  sub.onRunFinishedEvent?.({ event: {} } as never);
+};
+
+describe("createChannel multi-agent interrupt waiters", () => {
+  it("throws channel_agent_interrupt_pending when the same agent runs again", async () => {
+    const fake = new FakeAdapter();
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async () => {});
+    let seen: unknown;
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "go") {
+        await thread.runAgent({ agentId: "billing" });
+      } else if (message.text === "again") {
+        try {
+          await thread.runAgent({ agentId: "billing" });
+        } catch (err) {
+          seen = err;
+        }
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    fake.emitTurn({ userText: "again", conversationKey: "c1" });
+    await tick();
+    expect(seen).toBeInstanceOf(ChannelAgentInterruptPendingError);
+    expect((seen as ChannelAgentInterruptPendingError).code).toBe(
+      "channel_agent_interrupt_pending",
+    );
+    expect((seen as ChannelAgentInterruptPendingError).agentId).toBe("billing");
+  });
+
+  it("lets a different agent run while another is waiting", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent();
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const supportCalls = trackRunAgentCalls(support);
+    const billingCalls = trackRunAgentCalls(billing);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async () => {});
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "go") {
+        await thread.runAgent({ agentId: "billing" });
+      } else if (message.text === "default") {
+        await thread.runAgent();
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    fake.emitTurn({ userText: "default", conversationKey: "c1" });
+    await tick();
+    expect(billingCalls.total()).toBe(1);
+    expect(supportCalls.total()).toBe(1);
+  });
+
+  it("resumes the single waiting agent when resume has no agentId", async () => {
+    const fake = new FakeAdapter();
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const billingCalls = trackRunAgentCalls(billing);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async () => {});
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "go") {
+        await thread.runAgent({ agentId: "billing" });
+      } else if (message.text === "resume") {
+        await thread.resume({ approved: true });
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    billing.setScript([finishRun]);
+    fake.emitTurn({ userText: "resume", conversationKey: "c1" });
+    await tick();
+    expect(billingCalls.total()).toBe(2);
+  });
+
+  it("throws channel_agent_resume_ambiguous when two agents wait", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async () => {});
+    let seen: unknown;
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "go") {
+        await thread.runAgent();
+        await thread.runAgent({ agentId: "billing" });
+      } else if (message.text === "resume") {
+        try {
+          await thread.resume(1);
+        } catch (err) {
+          seen = err;
+        }
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    fake.emitTurn({ userText: "resume", conversationKey: "c1" });
+    await tick();
+    expect(seen).toBeInstanceOf(ChannelAgentResumeAmbiguousError);
+    expect((seen as ChannelAgentResumeAmbiguousError).code).toBe(
+      "channel_agent_resume_ambiguous",
+    );
+    expect((seen as ChannelAgentResumeAmbiguousError).waiters).toEqual(
+      expect.arrayContaining(["default", "billing"]),
+    );
+    expect((seen as ChannelAgentResumeAmbiguousError).waiters).toHaveLength(2);
+  });
+
+  it("resumes only the named waiter when two agents wait", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const supportCalls = trackRunAgentCalls(support);
+    const billingCalls = trackRunAgentCalls(billing);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async () => {});
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "go") {
+        await thread.runAgent();
+        await thread.runAgent({ agentId: "billing" });
+      } else if (message.text === "resume") {
+        await thread.resume(1, { agentId: "billing" });
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    billing.setScript([finishRun]);
+    fake.emitTurn({ userText: "resume", conversationKey: "c1" });
+    await tick();
+    expect(billingCalls.total()).toBe(2);
+    expect(supportCalls.total()).toBe(1);
+  });
+
+  it("throws channel_agent_resume_none when no agent is waiting", async () => {
+    const fake = new FakeAdapter();
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+      store: { adapter: new MemoryStore() },
+    });
+    let seen: unknown;
+    channel.onMention(async ({ thread, message }) => {
+      if (message.text === "resume") {
+        try {
+          await thread.resume(1);
+        } catch (err) {
+          seen = err;
+        }
+      }
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "resume", conversationKey: "c1" });
+    await tick();
+    expect(seen).toBeInstanceOf(ChannelAgentResumeNoneError);
+    expect((seen as ChannelAgentResumeNoneError).code).toBe(
+      "channel_agent_resume_none",
+    );
+  });
+
+  it("passes the interrupting agentId to onInterrupt", async () => {
+    const fake = new FakeAdapter();
+    const seen: string[] = [];
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: new FakeAgent(),
+      agents: { billing: new FakeAgent([interruptOnce({ q: 1 }), finishRun]) },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", ({ agentId }) => {
+      seen.push(agentId);
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent({ agentId: "billing" });
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+    expect(seen).toEqual(["billing"]);
+  });
+
+  it("resumes the clicked waiter when two agents wait and resume has no agentId", async () => {
+    const fake = new FakeAdapter();
+    const support = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const billing = new FakeAgent([interruptOnce({ q: 1 }), finishRun]);
+    const supportCalls = trackRunAgentCalls(support);
+    const billingCalls = trackRunAgentCalls(billing);
+    const channel = createChannel({
+      identifyUser: "platform",
+      adapters: [fake],
+      agent: support,
+      agents: { billing },
+      store: { adapter: new MemoryStore() },
+    });
+    channel.onInterrupt("on_interrupt", async ({ thread, agentId }) => {
+      await thread.post(
+        Button({
+          value: { agentId },
+          onClick: async ({ thread: clicked }) => {
+            await clicked.resume({ approved: true });
+          },
+          children: `Approve ${agentId}`,
+        }),
+      );
+    });
+    channel.onMention(async ({ thread }) => {
+      await thread.runAgent();
+      await thread.runAgent({ agentId: "billing" });
+    });
+    await channel.ɵruntime.start();
+    fake.emitTurn({ userText: "go", conversationKey: "c1" });
+    await tick();
+
+    const billingButton = fake.posted.flat().find((node) => {
+      if (node.type !== "button") return false;
+      const value = node.props.value as { agentId?: string } | undefined;
+      return value?.agentId === "billing";
+    });
+    const id = (billingButton?.props.onClick as { id?: string } | undefined)
+      ?.id;
+    expect(typeof id).toBe("string");
+
+    billing.setScript([finishRun]);
+    await fake.getSink().onInteraction({
+      id: id!,
+      conversationKey: "c1",
+      replyTarget: {},
+      value: { agentId: "billing" },
+    });
+
+    expect(billingCalls.total()).toBe(2);
+    expect(supportCalls.total()).toBe(1);
   });
 });

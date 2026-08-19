@@ -486,7 +486,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       runId,
       userId: target.delivery.appUserId,
       memory: args.memory,
-      agentId: this.options.channelName,
+      agentId: args.canonicalAgentId ?? this.options.channelName,
       tools: args.tools,
       context: args.context,
       persistedInputMessages,

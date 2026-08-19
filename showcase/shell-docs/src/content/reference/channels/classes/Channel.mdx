@@ -28,7 +28,8 @@ both Slack and Teams for this Channel and keeps each delivery provider-scoped.
 | `identifyUser`   | `"platform" \| ChannelIdentifyUser`                    | Required identity policy. Returns one application user or `null` for each provider event.                                   |
 | `showToolStatus` | `boolean`                                              | Controls managed Slack tool-call progress. It is hidden by default; set `true` to show it.                                  |
 | `replyContinuation` | `ReplyContinuationOptions`                         | Managed Slack long-reply limits: `messageByteLimit`, `maxMessages`, and `truncationMarker`.                                 |
-| `agent`          | `AbstractAgent \| (threadId: string) => AbstractAgent` | Agent instance or factory. Factory preferred; every turn clones the configured result.                                     |
+| `agent`          | `AbstractAgent \| (threadId: string) => AbstractAgent` | Default agent instance or factory. Used when `runAgent` omits `agentId`. Every turn clones the configured result.           |
+| `agents`         | `Record<string, AbstractAgent \| (threadId: string) => AbstractAgent>` | Named extra agents. `"default"` is the no-name agent when `agent` is omitted. Do not pass both `agent` and `agents.default`. |
 | `sanitizeAgentEvents` | `boolean`                                         | Defaults to `true`; repairs a known malformed AG-UI parent-message field in HTTP event streams.                             |
 | `tools`          | `ChannelTool[]`                                        | Typed tools forwarded to the agent.                                                                                         |
 | `context`        | `ContextEntry[]`                                       | Stable `{ description, value }` context sent on each run.                                                                   |

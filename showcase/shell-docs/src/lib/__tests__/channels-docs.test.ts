@@ -15,6 +15,7 @@ const maintainedChannelSlugs = [
   "channels/commands-and-reactions",
   "channels/files-and-multimodality",
   "channels/threads-and-state",
+  "channels/multiple-agents",
   "channels/persistence-and-scaling",
   "channels/history-and-transcripts",
   "channels/deploy-and-operate",
@@ -108,7 +109,7 @@ describe("Channels documentation journey", () => {
       "## Match your Channels configuration",
     );
     expect(overview?.source).toContain(
-      "description: Run one AG-UI agent in Slack, Microsoft Teams, and more",
+      "description: Run one or more named AG-UI agents in Slack, Microsoft Teams, and more",
     );
     expect(overview?.source).toContain(
       "channel connection (Slack, Teams, Discord, etc.)",
@@ -329,6 +330,13 @@ describe("Channels documentation journey", () => {
     expect(threads).toMatch(/not a synthetic user message/i);
   });
 
+  it("documents named Channel agents and agentId", () => {
+    const page = bodyFor("channels/multiple-agents");
+    expect(page).toContain("agentId");
+    expect(page).toContain("agents");
+    expect(page).toContain("default");
+  });
+
   it("offers provider-appropriate setup prompts for coding agents", () => {
     const overviewSource = bodyFor("channels");
     const overview = filterFrontendScopedBlocks(overviewSource, "slack");
@@ -504,6 +512,8 @@ describe("Channels documentation journey", () => {
     expect(thread).toMatch(
       /`assetId` identifies the canonical Intelligence asset/i,
     );
+    expect(channel).toContain("`agents`");
+    expect(thread).toContain("`agentId`");
     expect(directAdapters).toContain("replyContinuation");
     expect(directAdapters).toMatch(/11,000 UTF-8 bytes[\s\S]*20/i);
   });

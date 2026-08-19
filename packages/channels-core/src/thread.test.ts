@@ -19,9 +19,8 @@ function makeTestThread(overrides: {
     channelName: "test",
     threadId: overrides.conversationKey ?? "c1",
     registry,
-    agentFactory: (id) => {
-      throw new Error(`agentFactory not needed in this test: ${id}`);
-    },
+    agentFactories: new Map(),
+    defaultId: undefined,
     tools: new Map(),
     toolDescriptors: [],
     context: [],

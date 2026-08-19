@@ -65,6 +65,22 @@ describe("example slash commands", () => {
     });
   });
 
+  it("/agent search: routes to the named extra agent", async () => {
+    const thread = fakeThread();
+    await byName("agent").handler(
+      ctx({
+        command: "agent",
+        text: "search: linear cycle 12",
+        thread: thread as never,
+      }),
+    );
+    expect(thread.runAgent).toHaveBeenCalledTimes(1);
+    expect(thread.runAgent.mock.calls[0]![0]).toMatchObject({
+      agentId: "search",
+      prompt: "linear cycle 12",
+    });
+  });
+
   it("/agent with no text posts usage and does not run the agent", async () => {
     const thread = fakeThread();
     await byName("agent").handler(
