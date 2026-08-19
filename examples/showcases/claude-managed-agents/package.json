@@ -7,7 +7,7 @@
     "web"
   ],
   "scripts": {
-    "setup": "npm run setup --workspace server",
+    "setup": "npm run setup --workspace server --",
     "dev": "concurrently -n server,web -c blue,magenta \"npm run dev --workspace server\" \"npm run dev --workspace web\"",
     "build": "npm run build --workspace web",
     "start": "npm run start --workspace server",

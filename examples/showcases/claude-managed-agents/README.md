@@ -15,6 +15,7 @@ and reduced to one focused Cookbook interaction.
 | --------------------------------------- | ------------------------------------------------------------------------------------ |
 | `server/src/setup.ts`                   | Provisions the hosted environment and managed agent once, then records their IDs.    |
 | `server/src/index.ts`                   | Hosts the CopilotKit runtime and maps each CopilotKit thread to one managed session. |
+| `server/src/requestLimits.ts`           | Restricts provider routes and applies the in-process demo traffic limits.            |
 | `server/src/financialAssistantTools.ts` | Registers the financial assistant's backend tools.                                   |
 | `web/src/App.tsx`                       | Renders the compact CopilotKit chat surface.                                         |
 | `web/src/viz/`                          | Renders the streamed tool call as an interactive compound-growth chart.              |
@@ -95,7 +96,13 @@ disables the complete built-in agent toolset. Each session receives only the nar
 
 The runtime accepts at most 256 KB per CopilotKit request and interrupts managed-agent turns
 after 90 seconds. The adapter also serializes runs per thread, so a double submission cannot
-drive the same managed session concurrently. This demo does not add a global cross-thread limiter.
+drive the same managed session concurrently.
+
+Only `POST /api/copilotkit/agent/financial-assistant/run` (with one optional trailing slash) can
+start the provider-backed agent. The server rejects run aliases, unknown agents, and the unused
+suggestion route before they reach the runtime. Provider-like attempts are limited to 20 per client
+IP per minute before body parsing, and the process accepts 2,000 successful run requests per
+24-hour window.
 
 For a single-process deployment such as Railway:
 
@@ -105,14 +112,25 @@ npm install && npm run build && npm start
 
 Set `ANTHROPIC_API_KEY` plus the two generated agent identity variables. Set
 `ALLOWED_ORIGINS` to the deployed frontend origin. The server then requires that exact origin
-and `Sec-Fetch-Site: same-origin` on runtime requests. It also limits iframe parents to
-CopilotKit docs and local previews by default; override `FRAME_ANCESTORS` only for another
-approved host. These browser controls are not user authentication because custom clients can
-forge the headers.
+and `Sec-Fetch-Site: same-origin` on runtime requests. It also limits iframe parents to CopilotKit
+docs and local previews by default; override `FRAME_ANCESTORS` only for another approved host.
+These browser controls are not user authentication because custom clients can forge the headers.
+
+When Railway supplies `RAILWAY_ENVIRONMENT_ID`, the per-IP limiter uses Railway's `X-Real-IP`
+client header and normalizes IPv6 addresses with `express-rate-limit`. It deliberately ignores
+`X-Forwarded-For` and leaves Express proxy trust disabled. A missing or malformed Railway client
+header goes into one conservative shared bucket. Local and direct deployments instead use
+Express's socket-derived `request.ip` and ignore both proxy headers.
+
+Both rate-limit counters are intentionally in memory. A process restart clears them, and multiple
+replicas each receive their own 2,000-start allowance. They are traffic controls, not a fixed
+dollar ceiling. For a public demo, scope the API key to a dedicated, non-default
+[Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with the
+desired monthly spend limit; that account-level limit is the durable cost backstop.
 
 Do not expect setting `ANTHROPIC_MODEL` on Railway to change the deployed agent: the server uses
 the provisioned agent ID at runtime. To switch models, reprovision the agent and update
 `ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` on Railway.
 
-The server keeps its thread-to-session map in memory, so a restart starts fresh sessions; that
-is acceptable for this demo but not a production persistence strategy.
+The server also keeps its thread-to-session map in memory, so a restart starts fresh sessions;
+that is acceptable for this demo but not a production persistence strategy.

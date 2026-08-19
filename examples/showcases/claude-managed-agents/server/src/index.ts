@@ -23,6 +23,7 @@ import {
   DEFAULT_FRAME_ANCESTORS,
   parseDeploymentList,
 } from "./deploymentSecurity.ts";
+import { configureDemoRunLimits } from "./requestLimits.ts";
 import { loadAgentIds } from "./setup.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -48,7 +49,7 @@ const frameAncestors =
 const app = express();
 app.use(createFrameAncestorHeaders(frameAncestors));
 app.use("/api/copilotkit", createBrowserRequestGuard(allowedOrigins));
-app.use("/api/copilotkit", createCopilotRequestBodyParser());
+configureDemoRunLimits(app, createCopilotRequestBodyParser());
 app.use(
   createCopilotExpressHandler({
     runtime,

@@ -136,6 +136,7 @@ import {
   createCopilotRequestBodyParser,
   createFinancialAssistantAgentConfig,
 } from "./runtimeLimits";
+import { configureDemoRunLimits } from "./requestLimits";
 
 const runtime = new CopilotSseRuntime({
   agents: {
@@ -145,12 +146,16 @@ const runtime = new CopilotSseRuntime({
   },
 });
 
-app.use("/api/copilotkit", createCopilotRequestBodyParser());
+configureDemoRunLimits(app, createCopilotRequestBodyParser());
 ```
 
-The helper keeps the public demo bounded: it sets `turnTimeoutMs` to 90 seconds and rejects request bodies over
-256 KB before they reach the runtime. The adapter already serializes runs per thread; this recipe does not add a
-global cross-thread limiter.
+The runtime helper keeps the public demo bounded: it leaves `turnTimeoutMs` at 90 seconds and rejects request bodies
+over 256 KB. The adapter already serializes runs per thread.
+
+Only the canonical `POST /api/copilotkit/agent/financial-assistant/run` path, with one optional trailing slash, can
+start the provider-backed agent. Run aliases, unknown agents, and suggestion routes are rejected before the runtime.
+Provider-like attempts are limited to 20 per client IP per minute before body parsing, and the process accepts
+2,000 successful run requests per 24-hour window. Other CopilotKit routes do not use these allowances.
 
 The single [backend tool](/generative-ui/tool-rendering#the-backend-tool-definition) declares the exact data the
 UI needs. Its handler only acknowledges the render because the streamed tool call itself is the user-visible
@@ -214,11 +219,21 @@ ALLOWED_ORIGINS=https://your-app.example.com
 `ANTHROPIC_MODEL` is used by setup, not by the running server. To change models on Railway, reprovision first and
 then update `ANTHROPIC_ENVIRONMENT_ID` and `ANTHROPIC_AGENT_ID` with the replacement IDs.
 
+On Railway, the per-IP limiter uses Railway's `X-Real-IP` header and normalizes IPv6 client addresses with
+`express-rate-limit`. It does not enable Express proxy trust or use `X-Forwarded-For`. Missing or malformed
+`X-Real-IP` values share one conservative bucket; local and direct deployments use the socket-derived
+`request.ip` instead.
+
 <Callout type="warning" title="Protect the runtime before going public">
   The example endpoint has no user authentication, and every message spends your Anthropic API credits.
   When `ALLOWED_ORIGINS` is set, the server rejects requests without the matching origin and same-origin Fetch
-  Metadata. Those browser checks are not authentication because custom clients can forge the headers. Put the
-  runtime behind your application session check before using this pattern in production.
+  Metadata. Those browser checks are not authentication because custom clients can forge the headers. The public
+  demo therefore adds route-specific per-IP and process-wide in-memory limits. The counters reset on restart and
+  are not shared across replicas, and the 2,000-start allowance is not a fixed dollar ceiling. Scope the API key to
+  a dedicated, non-default
+  [Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with the desired monthly spend
+  limit as the durable cost backstop. Put the runtime behind your application session check before using this
+  pattern in production.
 </Callout>
 
 The adapter's default session store is in memory. A server restart starts fresh managed sessions, while the
