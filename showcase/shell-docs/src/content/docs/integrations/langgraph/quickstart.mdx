@@ -131,9 +131,10 @@ Before you begin, you'll need the following:
               uv add langgraph langchain-openai langchain-core python-dotenv
               ```
 
-              The **FastAPI** tab adds `copilotkit` and `ag-ui-langgraph` in its
-              own step — the LangSmith path never imports either, so this line
-              leaves them out.
+              Both tabs below import all four. The **FastAPI** tab installs what
+              its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
+              `uvicorn` and `copilotkit` — in its own step; the LangSmith path
+              imports none of them, so they are not in this line.
 
               <Callout type="warn" title="Project with pinned dependencies?">
                 `uv add` resolves and rewrites your lockfile. If your project
