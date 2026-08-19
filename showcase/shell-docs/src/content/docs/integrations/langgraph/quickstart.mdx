@@ -568,7 +568,16 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - **Connection issues? Keep `localhost`, don't swap in a literal IP.** Which loopback address reaches the agent depends on the runtime, and `0.0.0.0` is a bind-all address for a server, never a valid target in a client URL.
+
+                  <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                      `langgraph dev` (the Python CLI) defaults to `--host 127.0.0.1`, so both `http://127.0.0.1:8123` and `http://localhost:8123` reach it. `http://[::1]:8123` does not — the server is not listening on IPv6.
+                    </Tab>
+                    <Tab value="TypeScript">
+                      `@langchain/langgraph-cli` (the `langgraphjs` binary) defaults to `--host localhost`, which Node resolves to IPv6 on a dual-stack machine, binding `::1` **only**. So `http://localhost:8123` and `http://[::1]:8123` reach it, while `http://127.0.0.1:8123` is refused by that same running server — switching to `127.0.0.1` is what breaks it. If you need IPv4, bind it explicitly with `langgraphjs dev --host 127.0.0.1`.
+                    </Tab>
+                  </Tabs>
                 - Make sure your agent folder contains a `langgraph.json` file
                 - In the `langgraph.json` file, reference the path to a `.env` file
                 - Check that your OpenAI API key is correctly set in the `.env` file
