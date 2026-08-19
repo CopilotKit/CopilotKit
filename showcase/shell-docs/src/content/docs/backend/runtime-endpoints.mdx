@@ -163,6 +163,43 @@ discovers the multi-route transport from `/info`; it has no
 </Step>
 
 <Step>
+### Construct the Intelligence client
+
+`intelligence` is a `CopilotKitIntelligence` instance, not a plain object. Build
+it from your project's Intelligence API key:
+
+```ts
+import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+});
+```
+
+`apiKey` is the only required option. `copilotkit project select` writes this
+key into your project's `.env` as `INTELLIGENCE_API_KEY`, and this is what
+consumes it.
+
+Keep the key server-side. It is a project API key, so it is a different
+credential from the browser-visible `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` used by
+the [Inspector](/inspector) — do not substitute one for the other.
+
+`apiUrl` and `wsUrl` default to CopilotKit's managed platform. The API and
+realtime planes are deployed to **different hosts**, so one cannot be derived
+from the other by swapping the scheme. Override them only for a self-hosted or
+non-production deployment, and override **both together** — setting one alone
+points the two planes at different deployments, which logs a warning:
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiUrl: process.env.INTELLIGENCE_API_URL,
+  wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
+});
+```
+</Step>
+
+<Step>
 ### Identify the signed-in application user
 
 An Intelligence-backed web Runtime exposes Threads only when it can scope them
