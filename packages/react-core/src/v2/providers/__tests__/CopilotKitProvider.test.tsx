@@ -87,16 +87,11 @@ describe("CopilotKitProvider", () => {
         );
 
         await waitFor(() => {
-          expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+          const inspector = document.querySelector<
+            HTMLElement & { core?: unknown }
+          >("cpk-web-inspector");
+          expect(inspector?.core).toBe(providerCore);
         });
-
-        expect(
-          (
-            document.querySelector("cpk-web-inspector") as HTMLElement & {
-              core?: unknown;
-            }
-          ).core,
-        ).toBe(providerCore);
       } finally {
         restore();
       }
