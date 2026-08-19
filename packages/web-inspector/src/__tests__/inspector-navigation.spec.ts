@@ -4,11 +4,13 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type { InspectorMetadataV1 } from "@copilotkit/core";
+import type { ɵThread } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
 
 type InspectorNavigationContext = {
+  core: CopilotKitCore;
   inspector: WebInspectorElement;
   selectedMenuBeforeCore?: unknown;
   open: () => Promise<void>;
@@ -20,6 +22,7 @@ type InspectorNavigationContext = {
 };
 
 type SetupOptions = {
+  agent?: boolean;
   agentIds?: string[];
   appendBeforeCore?: boolean;
   catalog?: boolean;
@@ -31,6 +34,8 @@ type SetupOptions = {
     previewText?: string;
     announcement: string;
   };
+  runtimeMode?: "sse" | "intelligence";
+  threads?: ɵThread[];
 };
 
 /** Build the trusted account metadata fixture used by the shell test. */
@@ -104,12 +109,14 @@ async function setup(
       if (url.endsWith("/info")) {
         return jsonResponse({
           version: "1.0.0",
-          agents: {},
+          agents: options.agent
+            ? { default: { description: "assistant", capabilities: {} } }
+            : {},
           audioFileTranscriptionEnabled: false,
-          mode: "sse",
+          mode: options.runtimeMode ?? "sse",
           threadEndpoints: {
-            list: false,
-            inspect: false,
+            list: Boolean(options.threads),
+            inspect: Boolean(options.threads),
             mutations: false,
             realtimeMetadata: false,
           },
@@ -125,6 +132,24 @@ async function setup(
       }
       if (url.endsWith("/memories")) {
         return jsonResponse({ memories: [] });
+      }
+      if (url.includes("/threads?")) {
+        return jsonResponse({ threads: options.threads ?? [], joinCode: null });
+      }
+      if (url.endsWith("/threads/thread-1/messages")) {
+        return jsonResponse({
+          messages: [
+            { id: "message-1", role: "user", content: "Earlier question" },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: "Earlier answer",
+            },
+          ],
+        });
+      }
+      if (url.endsWith("/threads/thread-1/state")) {
+        return jsonResponse({ state: { topic: "billing" } });
       }
       throw new Error(`Unexpected inspector request: ${url}`);
     },
@@ -212,6 +237,7 @@ async function setup(
   };
 
   return {
+    core,
     inspector,
     selectedMenuBeforeCore,
     open: async () => {
@@ -368,6 +394,7 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
     expect(sidebarLeaves(root)).toEqual([
       "home",
       "whats-new",
+      "playground",
       "threads",
       "memories",
       "agents",
@@ -377,6 +404,7 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
     expect(navigation.textContent).toContain("Workbench");
     expect(navigation.textContent).toContain("Inspect");
     expect(navigation.textContent).toContain("Learning");
+    expect(navigation.textContent).toContain("Playground");
     expectCurrentNavigation(root, "home", "home");
     const engineerCta = requireElement(
       root.querySelector<HTMLAnchorElement>("[data-inspector-thread-cta]"),
@@ -402,6 +430,133 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
     expect(root.querySelector('nav[aria-label="Agent navigation"]')).toBeNull();
     expect(storedSelectedMenu()).toBe("home");
     expect(storedHasOpenedInspector()).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground creates an isolated local thread and explains ephemeral durability", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    expectCurrentNavigation(root, "workbench", "playground");
+    expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
+      "Agent: default",
+    );
+    const input = requireElement(
+      root.querySelector<HTMLTextAreaElement>(
+        'textarea[aria-label="Playground message"]',
+      ),
+      "Playground message input was not rendered",
+    );
+    input.value = "Hello from Inspector";
+    input.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await context.inspector.updateComplete;
+    expect(
+      requireElement(
+        root.querySelector<HTMLButtonElement>(
+          'button[aria-label="Send playground message"]',
+        ),
+        "Playground send button was not rendered",
+      ).disabled,
+    ).toBe(false);
+
+    const newThread = requireElement(
+      Array.from(root.querySelectorAll<HTMLButtonElement>("button")).find(
+        (button) => button.textContent?.trim() === "New thread",
+      ),
+      "Playground New thread button was not rendered",
+    );
+    newThread.click();
+    await context.inspector.updateComplete;
+
+    const notice = requireElement(
+      root.querySelector<HTMLElement>("[data-playground-ephemeral-notice]"),
+      "Ephemeral thread notice was not rendered",
+    );
+    expect(notice.textContent?.replace(/\s+/g, " ")).toContain(
+      "deleted when your local session ends",
+    );
+    expect(notice.textContent).toContain("Set up Intelligence");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground forks saved thread history without changing the app agent", async () => {
+  const context = await setup({
+    agent: true,
+    threads: [
+      {
+        id: "thread-1",
+        organizationId: "organization-1",
+        agentId: "default",
+        createdById: "user-1",
+        name: "Saved conversation",
+        archived: false,
+        createdAt: "2026-08-19T12:00:00.000Z",
+        updatedAt: "2026-08-19T12:01:00.000Z",
+      },
+    ],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await waitFor(
+      () => root.querySelector("#cpk-playground-thread-source") !== null,
+      "saved thread selector",
+    );
+    const source = requireElement(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source"),
+      "Saved thread selector was not rendered",
+    );
+    source.value = "thread-1";
+    source.dispatchEvent(
+      new Event("change", { bubbles: true, composed: true }),
+    );
+
+    await waitFor(
+      () => root.textContent?.includes("Earlier answer") === true,
+      "saved thread messages",
+    );
+    expect(root.textContent).toContain("Earlier question");
+    expect(context.core.getAgent("default")?.messages).toEqual([]);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground omits the durability CTA when Intelligence is active", async () => {
+  const context = await setup({ agent: true, runtimeMode: "intelligence" });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const newThread = requireElement(
+      Array.from(root.querySelectorAll<HTMLButtonElement>("button")).find(
+        (button) => button.textContent?.trim() === "New thread",
+      ),
+      "Playground New thread button was not rendered",
+    );
+    newThread.click();
+    await context.inspector.updateComplete;
+
+    expect(root.querySelector("[data-playground-ephemeral-notice]")).toBeNull();
   } finally {
     context.teardown();
   }
@@ -878,6 +1033,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
     expect(sidebarLeaves(root)).toEqual([
       "home",
       "whats-new",
+      "playground",
       "threads",
       "memories",
       "agents",
@@ -907,6 +1063,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
     expect(sidebarLeaves(root)).toEqual([
       "home",
       "whats-new",
+      "playground",
       "threads",
       "memories",
       "agents",
@@ -938,6 +1095,11 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
       leaf: "agent-context",
       group: "inspect",
       marker: "No context available",
+    },
+    {
+      leaf: "playground",
+      group: "workbench",
+      marker: "Playground",
     },
     {
       leaf: "threads",

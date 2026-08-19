@@ -29,7 +29,7 @@ import type {
   MemoryRealtimeStatus,
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
-import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type {
   Anchor,
   ContextKey,
@@ -224,6 +224,10 @@ const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
 // Renameable — keep the display string in this one place.
 const CAPABILITIES_TAB_LABEL = "Capabilities";
+
+function createPlaygroundThreadId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
+}
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const THREADS_RUNTIME_SETUP_DOCS_URL =
   "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
@@ -2317,6 +2321,28 @@ export class CpkThreadInspector extends PortableLitElement {
       to {
         opacity: 1;
         transform: translateY(0);
+      }
+    }
+
+    @keyframes cpk-playground-message-enter {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .cpk-playground-message-enter {
+      animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
+        both;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-playground-message-enter {
+        animation: none;
       }
     }
 
@@ -5272,6 +5298,16 @@ export class WebInspectorElement extends LitElement {
   private _threadsLoadingByAgent: Map<string, boolean> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private playgroundAgent: AbstractAgent | null = null;
+  private playgroundAgentId: string | null = null;
+  private playgroundAgentUnsubscribe: (() => void) | null = null;
+  private playgroundMessages: InspectorMessage[] = [];
+  private playgroundInput = "";
+  private playgroundIsRunning = false;
+  private playgroundIsLoadingThread = false;
+  private playgroundError: string | null = null;
+  private playgroundSourceThreadId: string | null = null;
+  private playgroundShowEphemeralNotice = false;
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
@@ -5459,6 +5495,11 @@ export class WebInspectorElement extends LitElement {
         key: WHATS_NEW_MENU_KEY,
         label: WHATS_NEW_VIEW_LABEL,
         icon: "Megaphone" as LucideIconName,
+      },
+      {
+        key: "playground",
+        label: "Playground",
+        icon: "MessageCircle" as LucideIconName,
       },
       {
         key: "ag-ui-events",
@@ -6361,6 +6402,7 @@ export class WebInspectorElement extends LitElement {
     this.cachedTools = [];
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
+    this.teardownPlaygroundAgent();
     this.teardownThreadStoreSubscriptions();
     this.teardownOwnedThreadStores();
   }
@@ -11221,6 +11263,280 @@ ${argsString}</pre
     };
   }
 
+  private resolvePlaygroundAgentId(preferredAgentId?: string): string | null {
+    const agents = this._core?.agents ?? {};
+    if (
+      preferredAgentId &&
+      preferredAgentId !== "all-agents" &&
+      agents[preferredAgentId]
+    ) {
+      return preferredAgentId;
+    }
+    return Object.keys(agents)[0] ?? null;
+  }
+
+  private teardownPlaygroundAgent(): void {
+    this.playgroundAgentUnsubscribe?.();
+    this.playgroundAgentUnsubscribe = null;
+    if (this.playgroundAgent && this.playgroundIsRunning) {
+      this.playgroundAgent.abortRun();
+      void this.playgroundAgent.detachActiveRun().catch(() => {});
+    }
+    this.playgroundAgent = null;
+    this.playgroundAgentId = null;
+    this.playgroundMessages = [];
+    this.playgroundIsRunning = false;
+  }
+
+  private syncPlaygroundMessages(): void {
+    this.playgroundMessages =
+      this.normalizeAgentMessages(this.playgroundAgent?.messages) ?? [];
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const messages = this.activeRoot.querySelector<HTMLElement>(
+        "[data-playground-messages]",
+      );
+      if (messages) messages.scrollTop = messages.scrollHeight;
+    });
+  }
+
+  private startPlaygroundSession(
+    showEphemeralNotice: boolean,
+    seedMessages: Message[] = [],
+    seedState: unknown = {},
+    preferredAgentId?: string,
+  ): void {
+    const agentId = this.resolvePlaygroundAgentId(
+      preferredAgentId ?? this.selectedContext,
+    );
+    const sourceAgent = agentId
+      ? typeof this._core?.getAgent === "function"
+        ? this._core.getAgent(agentId)
+        : this._core?.agents[agentId]
+      : undefined;
+
+    this.teardownPlaygroundAgent();
+    this.playgroundError = null;
+    this.playgroundSourceThreadId = null;
+    this.playgroundShowEphemeralNotice =
+      showEphemeralNotice && this._core?.runtimeMode !== "intelligence";
+
+    if (!agentId || !sourceAgent) {
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.selectedContext !== agentId) {
+      this.selectedContext = agentId;
+    }
+
+    const playgroundAgent = sourceAgent.clone();
+    playgroundAgent.threadId = createPlaygroundThreadId();
+    playgroundAgent.setMessages(seedMessages);
+    playgroundAgent.setState(seedState);
+    const subscriber: AgentSubscriber = {
+      onMessagesChanged: () => this.syncPlaygroundMessages(),
+      onActivitySnapshotEvent: () => this.syncPlaygroundMessages(),
+      onActivityDeltaEvent: () => this.syncPlaygroundMessages(),
+      onRunErrorEvent: ({ event }) => {
+        this.playgroundError =
+          "message" in event && typeof event.message === "string"
+            ? event.message
+            : "The agent run failed.";
+        this.requestUpdate();
+      },
+      onRunFailed: ({ error }) => {
+        this.playgroundError = error.message;
+        this.requestUpdate();
+      },
+    };
+    const { unsubscribe } = playgroundAgent.subscribe(subscriber);
+
+    this.playgroundAgent = playgroundAgent;
+    this.playgroundAgentId = agentId;
+    this.playgroundAgentUnsubscribe = unsubscribe;
+    this.syncPlaygroundMessages();
+  }
+
+  private mapThreadMessagesToPlayground(
+    messages: ThreadDebuggerMessage[],
+  ): Message[] {
+    const mapped: Message[] = [];
+    for (const message of messages) {
+      if (message.role === "user") {
+        mapped.push({
+          id: message.id,
+          role: "user",
+          content: message.content ?? "",
+        });
+      } else if (message.role === "assistant") {
+        mapped.push({
+          id: message.id,
+          role: "assistant",
+          content: message.content ?? "",
+          ...(message.toolCalls?.length
+            ? {
+                toolCalls: message.toolCalls.map((toolCall) => ({
+                  id: toolCall.id,
+                  type: "function" as const,
+                  function: {
+                    name: toolCall.name,
+                    arguments:
+                      typeof toolCall.args === "string"
+                        ? toolCall.args
+                        : JSON.stringify(toolCall.args),
+                  },
+                })),
+              }
+            : {}),
+        });
+      } else if (message.role === "tool" && message.toolCallId) {
+        mapped.push({
+          id: message.id,
+          role: "tool",
+          content: message.content ?? "",
+          toolCallId: message.toolCallId,
+        });
+      }
+    }
+    return mapped;
+  }
+
+  private handlePlaygroundThreadSourceChange = async (
+    event: Event,
+  ): Promise<void> => {
+    const threadId = (event.currentTarget as HTMLSelectElement).value;
+    if (!threadId) {
+      this.startPlaygroundSession(false);
+      return;
+    }
+
+    const core = this._core;
+    const thread = this._threads.find((candidate) => candidate.id === threadId);
+    if (!core?.runtimeUrl || !thread) return;
+
+    this.playgroundIsLoadingThread = true;
+    this.playgroundError = null;
+    this.requestUpdate();
+
+    try {
+      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
+      const encodedThreadId = encodeURIComponent(threadId);
+      const [messagesResponse, stateResponse] = await Promise.all([
+        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+          headers: { ...core.headers },
+        }),
+        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+          headers: { ...core.headers },
+        }),
+      ]);
+      if (!messagesResponse.ok) {
+        throw new Error(
+          `Failed to load thread (HTTP ${messagesResponse.status}).`,
+        );
+      }
+      const messagesBody = (await messagesResponse.json()) as {
+        messages?: ThreadDebuggerMessage[];
+      };
+      const stateBody = stateResponse.ok
+        ? ((await stateResponse.json()) as { state?: unknown })
+        : { state: {} };
+      this.startPlaygroundSession(
+        false,
+        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
+        stateBody.state ?? {},
+        thread.agentId,
+      );
+      this.playgroundSourceThreadId = threadId;
+    } catch (error) {
+      this.playgroundError =
+        error instanceof Error ? error.message : "Failed to load thread.";
+    } finally {
+      this.playgroundIsLoadingThread = false;
+      this.requestUpdate();
+    }
+  };
+
+  private runPlaygroundAgent = async (): Promise<void> => {
+    const core = this._core;
+    const agent = this.playgroundAgent;
+    if (!core || !agent || this.playgroundIsRunning) return;
+
+    this.playgroundIsRunning = true;
+    this.playgroundError = null;
+    this.requestUpdate();
+    try {
+      await core.runAgent({ agent });
+    } catch (error) {
+      this.playgroundError =
+        error instanceof Error ? error.message : "The agent run failed.";
+    } finally {
+      this.playgroundIsRunning = false;
+      this.syncPlaygroundMessages();
+    }
+  };
+
+  private handlePlaygroundSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    const content = this.playgroundInput.trim();
+    if (
+      !content ||
+      this.playgroundIsRunning ||
+      this.playgroundIsLoadingThread
+    ) {
+      return;
+    }
+
+    const selectedAgentId = this.resolvePlaygroundAgentId(this.selectedContext);
+    if (!this.playgroundAgent || this.playgroundAgentId !== selectedAgentId) {
+      this.startPlaygroundSession(false, [], {}, selectedAgentId ?? undefined);
+    }
+    if (!this.playgroundAgent) return;
+
+    this.playgroundAgent.addMessage({
+      id: createPlaygroundThreadId(),
+      role: "user",
+      content,
+    });
+    this.playgroundInput = "";
+    this.syncPlaygroundMessages();
+    void this.runPlaygroundAgent();
+  };
+
+  private handlePlaygroundInput = (event: Event): void => {
+    const input = event.currentTarget as HTMLTextAreaElement;
+    this.playgroundInput = input.value;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
+    this.requestUpdate();
+  };
+
+  private handlePlaygroundKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    (event.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
+  };
+
+  private handlePlaygroundRetry = (): void => {
+    const agent = this.playgroundAgent;
+    if (!agent || this.playgroundIsRunning) return;
+    let lastUserIndex = -1;
+    for (let index = agent.messages.length - 1; index >= 0; index -= 1) {
+      if (agent.messages[index]?.role === "user") {
+        lastUserIndex = index;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) return;
+    agent.setMessages(agent.messages.slice(0, lastUserIndex + 1));
+    this.syncPlaygroundMessages();
+    void this.runPlaygroundAgent();
+  };
+
+  private handlePlaygroundStop = (): void => {
+    this.playgroundAgent?.abortRun();
+  };
+
   private renderMainContent() {
     if (this.settingsOpen) {
       return this.renderSettingsPanel();
@@ -11236,6 +11552,10 @@ ${argsString}</pre
 
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
+    }
+
+    if (this.selectedMenu === "playground") {
+      return this.renderPlaygroundView();
     }
 
     if (this.selectedMenu === "agents") {
@@ -11263,6 +11583,257 @@ ${argsString}</pre
     }
 
     return nothing;
+  }
+
+  private renderPlaygroundView() {
+    const agentId = this.resolvePlaygroundAgentId(this.selectedContext);
+    const sourceThreads = this._threads.filter(
+      (thread) => !agentId || thread.agentId === agentId,
+    );
+    const visibleMessages = this.playgroundMessages.filter(
+      (message) =>
+        message.role === "user" ||
+        message.role === "assistant" ||
+        message.role === "activity",
+    );
+    const hasRetry =
+      this.playgroundAgent?.messages.some(
+        (message) => message.role === "user",
+      ) ?? false;
+    const runtimeMode = this._core?.runtimeMode ?? "sse";
+    const runtimeLabel = this._core?.runtimeUrl ?? "Self-managed agent";
+    const busy = this.playgroundIsRunning || this.playgroundIsLoadingThread;
+
+    return html`
+      <div class="flex h-full min-h-[420px] flex-col bg-gray-50">
+        <header
+          class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3"
+        >
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-semibold text-gray-900">Playground</h2>
+              <span
+                class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600"
+                >${runtimeMode}</span
+              >
+            </div>
+            <div class="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-gray-500">
+              <span class="truncate">Agent: ${agentId ?? "waiting…"}</span>
+              <span aria-hidden="true">·</span>
+              <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            ${
+              sourceThreads.length > 0
+                ? html`
+                    <label class="sr-only" for="cpk-playground-thread-source"
+                      >Start from a thread</label
+                    >
+                    <select
+                      id="cpk-playground-thread-source"
+                      class="max-w-[220px] rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-gray-400"
+                      .value=${this.playgroundSourceThreadId ?? ""}
+                      ?disabled=${busy}
+                      @change=${this.handlePlaygroundThreadSourceChange}
+                    >
+                      <option value="">New conversation</option>
+                      ${sourceThreads.map(
+                        (thread) => html`
+                          <option value=${thread.id}>
+                            ${thread.name ?? "Untitled thread"}
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  `
+                : nothing
+            }
+            <button
+              type="button"
+              class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              ?disabled=${busy || !agentId}
+              @click=${() => this.startPlaygroundSession(true)}
+            >
+              ${this.renderIcon("Plus")} <span>New thread</span>
+            </button>
+          </div>
+        </header>
+
+        ${
+          this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
+            ? html`
+                <div
+                  role="alert"
+                  class="mx-4 mt-3 flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs text-violet-950"
+                  data-playground-ephemeral-notice
+                >
+                  <span class="mt-0.5 text-violet-600"
+                    >${this.renderIcon("Clock3")}</span
+                  >
+                  <p class="min-w-0 flex-1 leading-relaxed">
+                    This thread is ephemeral and will be deleted when your local
+                    session ends. Want durable threads?
+                    <a
+                      class="font-semibold underline underline-offset-2"
+                      href=${this.getThreadsIntelligenceSignupUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Set up Intelligence</a
+                    >.
+                  </p>
+                  <button
+                    type="button"
+                    class="rounded p-0.5 text-violet-500 hover:bg-violet-100 hover:text-violet-800"
+                    aria-label="Dismiss ephemeral thread notice"
+                    @click=${() => {
+                      this.playgroundShowEphemeralNotice = false;
+                      this.requestUpdate();
+                    }}
+                  >
+                    ${this.renderIcon("X")}
+                  </button>
+                </div>
+              `
+            : nothing
+        }
+
+        <div
+          class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+          data-playground-messages
+        >
+          ${
+            this.playgroundIsLoadingThread
+              ? html`
+                  <div class="flex h-full items-center justify-center text-xs text-gray-500">
+                    Loading thread into a new scratch session…
+                  </div>
+                `
+              : visibleMessages.length === 0
+                ? html`
+                    <div
+                      class="flex h-full flex-col items-center justify-center gap-2 text-center"
+                    >
+                      <p class="text-xl font-medium tracking-tight text-gray-900">
+                        How can I help you today?
+                      </p>
+                      <p class="max-w-sm text-xs leading-relaxed text-gray-500">
+                        Chatting with ${agentId ?? "your agent"} in an isolated
+                        Inspector thread.
+                      </p>
+                    </div>
+                  `
+                : html`
+                    <div class="mx-auto flex max-w-3xl flex-col gap-7">
+                      ${visibleMessages.map((message) => {
+                        const isUser = message.role === "user";
+                        const content =
+                          message.role === "activity"
+                            ? `Activity: ${message.activityType ?? "unknown"}`
+                            : message.contentText;
+                        return html`
+                          <article
+                            class=${
+                              isUser
+                                ? "cpk-playground-message-enter ml-auto max-w-[80%] rounded-[18px] bg-gray-100 px-4 py-2.5 text-sm leading-relaxed text-gray-900"
+                                : "cpk-playground-message-enter mr-auto w-full text-sm leading-7 text-gray-800"
+                            }
+                            data-playground-message-role=${message.role}
+                          >
+                            <div class="whitespace-pre-wrap break-words">
+                              ${content || (busy ? "…" : "")}
+                            </div>
+                            ${
+                              !isUser && message.toolCalls.length > 0
+                                ? this.renderToolCallDetails(message.toolCalls)
+                                : nothing
+                            }
+                          </article>
+                        `;
+                      })}
+                      ${
+                        this.playgroundIsRunning
+                          ? html`
+                              <div
+                                class="cpk-playground-message-enter flex items-center px-1 py-1"
+                                aria-label="Agent is working"
+                              >
+                                <span class="h-[11px] w-[11px] animate-pulse rounded-full bg-gray-900"></span>
+                              </div>
+                            `
+                          : nothing
+                      }
+                    </div>
+                  `
+          }
+        </div>
+
+        <form
+          class="bg-gray-50 px-4 pb-4 pt-2"
+          @submit=${this.handlePlaygroundSubmit}
+        >
+          ${
+            this.playgroundError
+              ? html`<div
+                  class="mx-auto mb-2 max-w-3xl rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+                  role="alert"
+                >
+                  ${this.playgroundError}
+                </div>`
+              : nothing
+          }
+          <div
+            class="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] bg-white p-2 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+          >
+            <textarea
+              class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm leading-relaxed text-gray-900 outline-none placeholder:text-gray-400"
+              rows="1"
+              placeholder="Type a message..."
+              aria-label="Playground message"
+              .value=${this.playgroundInput}
+              ?disabled=${!agentId || busy}
+              @input=${this.handlePlaygroundInput}
+              @keydown=${this.handlePlaygroundKeyDown}
+            ></textarea>
+            ${
+              hasRetry
+                ? html`
+                    <button
+                      type="button"
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+                      title="Retry last prompt"
+                      aria-label="Retry last prompt"
+                      ?disabled=${busy}
+                      @click=${this.handlePlaygroundRetry}
+                    >
+                      ${this.renderIcon("RotateCcw")}
+                    </button>
+                  `
+                : nothing
+            }
+            <button
+              type=${this.playgroundIsRunning ? "button" : "submit"}
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition duration-200 hover:scale-[1.03] hover:bg-gray-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
+              aria-label=${
+                this.playgroundIsRunning
+                  ? "Stop agent"
+                  : "Send playground message"
+              }
+              ?disabled=${
+                !agentId ||
+                this.playgroundIsLoadingThread ||
+                (!this.playgroundIsRunning && !this.playgroundInput.trim())
+              }
+              @click=${
+                this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
+              }
+            >
+              ${this.renderIcon(this.playgroundIsRunning ? "Square" : "ArrowUp")}
+            </button>
+          </div>
+        </form>
+      </div>
+    `;
   }
 
   private renderSettingsPanel() {
@@ -13933,6 +14504,10 @@ ${prettyEvent}</pre
       this.autoSelectLatestThread();
     }
 
+    if (key === "playground" && !this.playgroundAgent) {
+      this.startPlaygroundSession(false);
+    }
+
     if (key === "memories") {
       // Lazily create + subscribe to the memory store on first activation. This
       // is the only place that touches getMemoryStore(), so the store/realtime
@@ -14025,6 +14600,9 @@ ${prettyEvent}</pre
       this.selectedContext = key;
       this.expandedRows.clear();
       this.autoSelectLatestThread();
+      if (this.selectedMenu === "playground") {
+        this.startPlaygroundSession(false);
+      }
     }
 
     this.contextMenuOpen = false;
