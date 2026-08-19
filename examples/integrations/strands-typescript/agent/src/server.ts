@@ -1,4 +1,3 @@
-import cors from "cors";
 import express from "express";
 import { addPing, addStrandsExpressEndpoint } from "@ag-ui/aws-strands/server";
 
@@ -6,7 +5,6 @@ import { agent } from "./agent.js";
 import { withForwardedHeaders } from "./header-forwarding.js";
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "25mb" }));
 
 app.get("/health", (_request, response) => {

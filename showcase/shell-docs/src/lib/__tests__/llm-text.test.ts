@@ -577,6 +577,11 @@ test("publishes both canonical Strands starter commands in LLM text", () => {
   expect(output).toContain(
     "npx copilotkit@latest create --framework aws-strands-ts",
   );
+  expect(output).toContain("Python 3.12+ (Python agents only)");
+  expect(output).not.toContain(
+    "npm install @ag-ui/aws-strands @strands-agents/sdk express cors",
+  );
+  expect(output).not.toContain("@types/cors");
 });
 
 test.each([

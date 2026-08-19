@@ -12,6 +12,9 @@ RUN npm install
 COPY tsconfig.json ./
 COPY src/ ./src/
 
+# Keep the probe-header boundary and TypeScript build checked by starter CI.
+RUN npm test && npm run typecheck
+
 EXPOSE 8000
 
 CMD ["npx", "tsx", "src/server.ts"]

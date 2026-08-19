@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "tsx --watch src/server.ts",
     "start": "tsx src/server.ts",
+    "test": "tsx --test src/header-forwarding.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -15,7 +16,6 @@
     "@ag-ui/core": "0.0.57",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strands-agents/sdk": "1.6.0",
-    "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "dotenv": "^16.4.0",
     "express": "^5.1.0",
@@ -23,7 +23,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.9.0",
     "tsx": "^4.19.0",

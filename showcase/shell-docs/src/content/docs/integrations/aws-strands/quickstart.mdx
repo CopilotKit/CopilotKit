@@ -19,7 +19,7 @@ Before you begin, you'll need the following:
 
 - An OpenAI API key
 - Node.js 20+
-- Python 3.12+
+- Python 3.12+ (Python agents only)
 - Your favorite package manager
 
 ## Getting started
@@ -160,8 +160,8 @@ Before you begin, you'll need the following:
                         Add the Strands SDK, the AG-UI integration, and the Express helpers:
 
                         ```bash
-                        npm install @ag-ui/aws-strands @strands-agents/sdk express cors
-                        npm install -D @types/express @types/cors
+                        npm install @ag-ui/aws-strands @strands-agents/sdk express
+                        npm install -D @types/express
                         # `@modelcontextprotocol/sdk` is loaded unconditionally by `@strands-agents/sdk`
                         # and is required at runtime even when your agent doesn't use MCP.
                         npm install @modelcontextprotocol/sdk

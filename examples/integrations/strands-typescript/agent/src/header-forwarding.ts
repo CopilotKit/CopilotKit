@@ -3,11 +3,23 @@ import type { Request } from "express";
 
 const headerStorage = new AsyncLocalStorage<Record<string, string>>();
 
-function extractXHeaders(request: Request): Record<string, string> {
+const PROBE_HEADER_NAMES = new Set([
+  "x-aimock-context",
+  "x-aimock-fixture",
+  "x-aimock-strict",
+  "x-test-id",
+]);
+
+function isProbeHeader(name: string): boolean {
+  return PROBE_HEADER_NAMES.has(name) || name.startsWith("x-diag-");
+}
+
+function extractProbeHeaders(request: Request): Record<string, string> {
   const headers: Record<string, string> = {};
   for (const [key, value] of Object.entries(request.headers)) {
-    if (!key.toLowerCase().startsWith("x-") || value === undefined) continue;
-    headers[key.toLowerCase()] = Array.isArray(value)
+    const normalizedKey = key.toLowerCase();
+    if (!isProbeHeader(normalizedKey) || value === undefined) continue;
+    headers[normalizedKey] = Array.isArray(value)
       ? value.join(",")
       : String(value);
   }
@@ -18,7 +30,7 @@ export function withForwardedHeaders<T>(
   request: Request,
   callback: () => T,
 ): T {
-  return headerStorage.run(extractXHeaders(request), callback);
+  return headerStorage.run(extractProbeHeaders(request), callback);
 }
 
 export const forwardingFetch: typeof fetch = (input, init) => {
