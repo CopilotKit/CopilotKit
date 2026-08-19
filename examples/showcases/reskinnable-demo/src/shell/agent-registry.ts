@@ -1,5 +1,6 @@
-import type { BuiltInAgent } from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
 import { bankingAgent } from "@/skins/banking/agent";
+import { bankingExpensesAgent } from "@/skins/banking/expenses-agent";
 import { airlineAgent } from "@/skins/airline/agent";
 import { keelAgent } from "@/skins/keel/agent";
 import { airlineIdentifyUser } from "@/skins/airline/intelligence/user-id";
@@ -55,8 +56,19 @@ export type IdentifyRunUser = (
 ) => { id: string; name: string };
 
 export interface AgentRegistration {
-  /** Factory for this skin's server-only agent. */
-  createAgent: () => BuiltInAgent;
+  /**
+   * Factory for this skin's server-only agent.
+   *
+   * Typed `AbstractAgent` rather than `BuiltInAgent` because the runtime itself
+   * is agent-agnostic: `CopilotRuntime`'s `agents` option is
+   * `Record<string, AbstractAgent>` and the v2 tree contains no
+   * `instanceof BuiltInAgent` branch anywhere. Every skin still returns a
+   * `BuiltInAgent`; banking additionally registers a REMOTE agent (a Python
+   * deep agent reached over AG-UI) under its own key, which is what forced the
+   * widening. Narrowing this back to `BuiltInAgent` would reject that
+   * registration for a constraint the runtime does not have.
+   */
+  createAgent: () => AbstractAgent;
   /** OPTIONAL per-skin identity resolver (see `IdentifyRunUser`). */
   identifyUser?: IdentifyRunUser;
 }
@@ -65,6 +77,19 @@ export const agentRegistry: Record<string, AgentRegistration> = {
   // Banking scopes Intelligence per member/role (durable memory demo), so it
   // contributes its own resolver — the route no longer knows banking's scheme.
   banking: { createAgent: bankingAgent, identifyUser: bankingIdentifyUser },
+  // NOT A SKIN — a second agent belonging to banking, and the one registration
+  // in this map that is not a `BuiltInAgent`. It is the long-running
+  // offsite-expenses run: a Python LangChain deep agent with a sandboxed shell
+  // and parallel research subagents, reached over AG-UI at EXPENSE_AGENT_URL.
+  //
+  // It shares banking's `identifyUser` deliberately: the run files real charges
+  // against the same member's ledger, so it must resolve the same Intelligence
+  // scope banking's own agent does. A different resolver here would file the
+  // charges as somebody else.
+  "banking-expenses": {
+    createAgent: bankingExpensesAgent,
+    identifyUser: bankingIdentifyUser,
+  },
   // Aeronova scopes Intelligence per traveller on the account, and unlike
   // logistics and keel it actually USES that scope for durable memory: it ships
   // `intelligence/seed-memories.ts` (beat 4's standing preference, beat 5's

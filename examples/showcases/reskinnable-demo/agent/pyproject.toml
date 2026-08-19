@@ -1,0 +1,19 @@
+[project]
+name = "reskinnable-demo-agent"
+version = "0.1.0"
+description = "Banking offsite-expenses deep agent for the reskinnable demo"
+requires-python = ">=3.12"
+dependencies = [
+  "ag-ui-langgraph>=0.0.43",
+  "copilotkit>=0.1.95",
+  "deepagents>=0.7.7",
+  "fastapi>=0.115.14",
+  "langchain>=1.2.4",
+  "langchain-openai>=1.1.7",
+  "python-dotenv>=1.2.1",
+  "tavily-python>=0.3.0",
+  "uvicorn[standard]>=0.40.0",
+]
+
+[tool.setuptools]
+py-modules = ["agent", "main"]
