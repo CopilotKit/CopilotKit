@@ -9792,10 +9792,7 @@ ${argsString}</pre
   ): "hidden" | "view" | "stop" {
     if (!isInspectorThreadBridgeEnabled()) return "hidden";
     if (!thread || isExample) return "hidden";
-    if (
-      this.inAppSource === "override" &&
-      this.inAppThreadId === thread.id
-    ) {
+    if (this.inAppSource === "override" && this.inAppThreadId === thread.id) {
       return "stop";
     }
     return "view";

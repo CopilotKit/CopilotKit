@@ -82,11 +82,7 @@ export function useInspectorThreadOverride(args: {
   }
 
   watch(
-    () => [
-      args.baseThreadId.value,
-      args.isAuthoritative.value,
-      override.value,
-    ],
+    () => [args.baseThreadId.value, args.isAuthoritative.value, override.value],
     () => {
       if (!override.value) return;
       if (!args.isAuthoritative.value) return;

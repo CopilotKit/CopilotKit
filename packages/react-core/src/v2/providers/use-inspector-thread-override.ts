@@ -111,12 +111,7 @@ export function useInspectorThreadOverride(args: {
       agentId: args.agentId,
       source: "app",
     });
-  }, [
-    args.agentId,
-    args.baseThreadId,
-    args.isAuthoritative,
-    override,
-  ]);
+  }, [args.agentId, args.baseThreadId, args.isAuthoritative, override]);
 
   return {
     inspectorThreadId: override?.threadId ?? null,
