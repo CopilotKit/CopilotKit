@@ -16,7 +16,10 @@ function mockGitHistory(): void {
     }
 
     if (args[0] === "log") {
-      return { stdout: "abc1234 feat(channels): shared release\n" };
+      return {
+        stdout:
+          "abc1234\tfeat(channels): shared release\tSome detail about the release\n",
+      };
     }
 
     throw new Error(`unexpected git arguments: ${args.join(" ")}`);
@@ -49,7 +52,7 @@ describe("Channels release history", () => {
         "channels/v0.1.1..HEAD",
         "--oneline",
         "--no-merges",
-        "--format=%H %s",
+        "--format=%H%x09%s%x09%b",
       ],
       expect.any(Object),
     );

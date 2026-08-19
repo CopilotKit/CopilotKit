@@ -33,6 +33,7 @@ export function getLastReleaseTag(scope: ReleaseScope): string | null {
 export interface Commit {
   hash: string;
   subject: string;
+  body: string;
 }
 
 function getCommitsSince(lastTag: string | null): Commit[] {
@@ -40,7 +41,7 @@ function getCommitsSince(lastTag: string | null): Commit[] {
 
   const result = spawnSync(
     "git",
-    ["log", range, "--oneline", "--no-merges", "--format=%H %s"],
+    ["log", range, "--oneline", "--no-merges", "--format=%H%x09%s%x09%b"],
     { cwd: ROOT, encoding: "utf8" },
   );
 
@@ -49,10 +50,20 @@ function getCommitsSince(lastTag: string | null): Commit[] {
     .split("\n")
     .filter(Boolean)
     .map((line) => {
-      const spaceIdx = line.indexOf(" ");
+      const firstTab = line.indexOf("\t");
+      const secondTab = line.indexOf("\t", firstTab + 1);
+      const hash = line.slice(0, firstTab);
+      if (secondTab === -1) {
+        return {
+          hash,
+          subject: line.slice(firstTab + 1),
+          body: "",
+        };
+      }
       return {
-        hash: line.slice(0, spaceIdx),
-        subject: line.slice(spaceIdx + 1),
+        hash,
+        subject: line.slice(firstTab + 1, secondTab),
+        body: line.slice(secondTab + 1),
       };
     });
 }

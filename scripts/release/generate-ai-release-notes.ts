@@ -25,7 +25,7 @@ import { createReleaseDraft } from "./lib/notion.js";
 function getRecentCommits(count = 50): string {
   const result = spawnSync(
     "git",
-    ["log", "--oneline", `-${count}`, "--no-merges"],
+    ["log", `-${count}`, "--no-merges", "--format=%h%x09%s%x09%b"],
     { cwd: ROOT, encoding: "utf8" },
   );
   return result.stdout.trim();
@@ -101,7 +101,7 @@ Here is the raw changelog extracted from git history:
 
 ${rawChangelog}
 
-Here are the recent git commits for additional context:
+Here are the recent git commits (hash, subject, body) for additional context:
 
 ${recentCommits}
 
