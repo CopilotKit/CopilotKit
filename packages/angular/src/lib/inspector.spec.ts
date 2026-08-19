@@ -13,7 +13,7 @@ import {
 
 import { provideCopilotKit, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
-import { shouldEnableInspector } from "./inspector";
+import { ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE } from "./inspector";
 
 @Component({
   standalone: true,
@@ -23,26 +23,20 @@ class InspectorHost {
   readonly copilotKit = inject(CopilotKit);
 }
 
-function stubHostname(hostname: string): () => void {
-  const original = Object.getOwnPropertyDescriptor(window, "location");
-  Object.defineProperty(window, "location", {
-    value: { hostname },
-    configurable: true,
-  });
-  return () => {
-    if (original) Object.defineProperty(window, "location", original);
-  };
-}
-
 async function renderHost(
   config: CopilotKitConfig,
   platformId: "browser" | "server" = "browser",
+  isDevelopment = true,
 ) {
   TestBed.configureTestingModule({
     imports: [InspectorHost],
     providers: [
       provideCopilotKit(config),
       { provide: PLATFORM_ID, useValue: platformId },
+      {
+        provide: ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+        useValue: isDevelopment,
+      },
     ],
   });
   const fixture = TestBed.createComponent(InspectorHost);
@@ -54,6 +48,11 @@ async function renderHost(
 }
 
 describe("Angular inspector integration", () => {
+  async function settleInspectorLoad(): Promise<void> {
+    await vi.dynamicImportSettled();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
   beforeEach(() => {
     TestBed.resetTestingModule();
     document.querySelectorAll(WEB_INSPECTOR_TAG).forEach((element) => {
@@ -70,65 +69,48 @@ describe("Angular inspector integration", () => {
     });
   });
 
-  it("uses explicit configuration before the local-host default", () => {
-    expect(shouldEnableInspector(true, "app.example.com")).toBe(true);
-    expect(shouldEnableInspector(false, "localhost")).toBe(false);
-    expect(shouldEnableInspector(undefined, "localhost")).toBe(true);
-    expect(shouldEnableInspector(undefined, "127.0.0.1")).toBe(true);
-    expect(shouldEnableInspector(undefined, "0.0.0.0")).toBe(true);
-    expect(shouldEnableInspector(undefined, "app.example.com")).toBe(false);
+  it("mounts by default in development and attaches the exact core before connection", async () => {
+    const fixture = await renderHost({});
+    const inspector = document.querySelector<
+      HTMLElement & {
+        autoAttachCore?: boolean;
+        autoAttachCoreAtConnection?: boolean;
+        core?: unknown;
+        coreAtConnection?: unknown;
+      }
+    >(WEB_INSPECTOR_TAG);
+
+    expect(inspector).not.toBeNull();
+    expect(inspector?.core).toBe(fixture.componentInstance.copilotKit.core);
+    expect(inspector?.autoAttachCore).toBe(false);
+    expect(inspector?.coreAtConnection).toBe(
+      fixture.componentInstance.copilotKit.core,
+    );
+    expect(inspector?.autoAttachCoreAtConnection).toBe(false);
+    expect(defineWebInspector).toHaveBeenCalledTimes(1);
   });
 
-  it("mounts by default on a local host and attaches the exact core", async () => {
-    const restore = stubHostname("0.0.0.0");
-    try {
-      const fixture = await renderHost({});
-      const inspector = document.querySelector<
-        HTMLElement & { core?: unknown; autoAttachCore?: boolean }
-      >(WEB_INSPECTOR_TAG);
-
-      expect(inspector).not.toBeNull();
-      expect(inspector?.core).toBe(fixture.componentInstance.copilotKit.core);
-      expect(inspector?.autoAttachCore).toBe(false);
-      expect(defineWebInspector).toHaveBeenCalledTimes(1);
-    } finally {
-      restore();
-    }
-  });
-
-  it("does not load on a remote host unless explicitly enabled", async () => {
-    const restore = stubHostname("app.example.com");
-    try {
-      await renderHost({});
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-
-      TestBed.resetTestingModule();
-      await renderHost({ enableInspector: true });
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).not.toBeNull();
-    } finally {
-      restore();
-    }
+  it("never loads in production, even when explicitly enabled", async () => {
+    await renderHost({ enableInspector: true }, "browser", false);
+    await settleInspectorLoad();
+    expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
+    expect(defineWebInspector).not.toHaveBeenCalled();
   });
 
   it("does not load when explicitly disabled or rendering on the server", async () => {
-    const restore = stubHostname("localhost");
-    try {
-      await renderHost({ enableInspector: false });
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
+    await renderHost({ enableInspector: false });
+    await settleInspectorLoad();
+    expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
+    expect(defineWebInspector).not.toHaveBeenCalled();
 
-      TestBed.resetTestingModule();
-      await renderHost({ enableInspector: true }, "server");
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
-      expect(defineWebInspector).not.toHaveBeenCalled();
-    } finally {
-      restore();
-    }
+    TestBed.resetTestingModule();
+    await renderHost({ enableInspector: true }, "server");
+    await settleInspectorLoad();
+    expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
+    expect(defineWebInspector).not.toHaveBeenCalled();
   });
 
   it("reuses a pre-existing inspector without taking ownership", async () => {
-    const restore = stubHostname("localhost");
     const existing = document.createElement(
       WEB_INSPECTOR_TAG,
     ) as HTMLElement & {
@@ -136,29 +118,20 @@ describe("Angular inspector integration", () => {
     };
     document.body.appendChild(existing);
 
-    try {
-      const fixture = await renderHost({});
-      expect(document.querySelectorAll(WEB_INSPECTOR_TAG)).toHaveLength(1);
-      expect(existing.core).toBe(fixture.componentInstance.copilotKit.core);
+    const fixture = await renderHost({});
+    expect(document.querySelectorAll(WEB_INSPECTOR_TAG)).toHaveLength(1);
+    expect(existing.core).toBe(fixture.componentInstance.copilotKit.core);
 
-      TestBed.resetTestingModule();
-      expect(existing.isConnected).toBe(true);
-    } finally {
-      existing.remove();
-      restore();
-    }
+    TestBed.resetTestingModule();
+    expect(existing.isConnected).toBe(true);
+    existing.remove();
   });
 
   it("removes an inspector it owns when the root service is destroyed", async () => {
-    const restore = stubHostname("localhost");
-    try {
-      await renderHost({});
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).not.toBeNull();
+    await renderHost({});
+    expect(document.querySelector(WEB_INSPECTOR_TAG)).not.toBeNull();
 
-      TestBed.inject(EnvironmentInjector).destroy();
-      expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
-    } finally {
-      restore();
-    }
+    TestBed.inject(EnvironmentInjector).destroy();
+    expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
   });
 });

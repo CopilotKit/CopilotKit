@@ -61,13 +61,13 @@ identity data does not hide valid usage or action data.
 
 Trusted Thread usage also appears in the Threads footer:
 
-| Usage state | Inspector behavior |
-| --- | --- |
-| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
-| Unlimited | Shows the used count with **Unlimited** and no progress bar. |
-| Unknown limit | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress. |
-| Known expiry count | Shows the count, including `0 Expiring Soon`. |
-| Missing or malformed expiry | Hides the expiry value instead of inventing one. |
+| Usage state                 | Inspector behavior                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Finite                      | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
+| Unlimited                   | Shows the used count with **Unlimited** and no progress bar.                                                                |
+| Unknown limit               | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress.                                  |
+| Known expiry count          | Shows the count, including `0 Expiring Soon`.                                                                               |
+| Missing or malformed expiry | Hides the expiry value instead of inventing one.                                                                            |
 
 `Expiring Soon` describes a future retention-policy threshold in the next 24
 hours. It does not prove that the thread culler ran or that the Inspector locked
@@ -82,20 +82,20 @@ visible.
 
 <Callout type="info">
   If Threads is locked, the Inspector uses the Runtime's license state and can
-  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those license
-  and billing links appear only when the Runtime supplies a matching trusted
-  action URL; there is no fixed signup destination. An active license with
-  missing Runtime routes instead offers **Copy prompt for your agent** and
+  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those
+  license and billing links appear only when the Runtime supplies a matching
+  trusted action URL; there is no fixed signup destination. An active license
+  with missing Runtime routes instead offers **Copy prompt for your agent** and
   **Open setup guide**. The prompt points the coding agent to the public Runtime
   setup guide and asks it to verify the finished route setup.
 </Callout>
 
-| License state | Locked Threads behavior |
-| --- | --- |
-| Active | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
-| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
-| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
-| Unknown | Shows neutral unavailable copy without an action. |
+| License state | Locked Threads behavior                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Active        | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
+| Not enabled   | Shows **Enable Intelligence** only for a matching trusted action.                                                    |
+| Expired       | Shows **Renew** or **Manage Your Plan** only for a matching trusted action.                                          |
+| Unknown       | Shows neutral unavailable copy without an action.                                                                    |
 
 If an active license shows the setup state, follow [Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
 to use multi-route mode, configure application-user identity, mount every
@@ -119,8 +119,8 @@ never enables Thread work. A license conflict hides an incompatible action
 without hiding valid usage. Metadata updates do not change the selected thread.
 
 <Callout type="info">
-  Want to preview A2UI catalog components directly in your editor? See the [VS Code Extension](/vs-code-extension)
-  for live preview with hot-reload.
+  Want to preview A2UI catalog components directly in your editor? See the [VS
+  Code Extension](/vs-code-extension) for live preview with hot-reload.
 </Callout>
 
 ## Pop out

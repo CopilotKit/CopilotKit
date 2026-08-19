@@ -1,5 +1,6 @@
 import {
   CpkThreadInspector,
+  configureWebInspectorElement,
   WebInspectorElement,
   ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
@@ -292,6 +293,17 @@ describe("WebInspectorElement", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+  });
+
+  it("binds a host core before the real custom element connects", () => {
+    const { core } = createMockCore();
+    const inspector = new WebInspectorElement();
+
+    configureWebInspectorElement(inspector, core as unknown as CopilotKitCore);
+    document.body.appendChild(inspector);
+
+    expect(inspector.autoAttachCore).toBe(false);
+    expect(inspector.core).toBe(core);
   });
 
   it("records agent events and syncs state/messages/tools", async () => {

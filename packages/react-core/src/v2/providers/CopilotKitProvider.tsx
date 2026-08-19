@@ -62,7 +62,7 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
-import { schemaToJsonSchema } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
@@ -91,23 +91,6 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
 const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
-const LOCAL_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
-const LEGACY_AUTO_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1"]);
-
-function shouldRenderCopilotKitInspector(
-  enableInspector: boolean | undefined,
-  showDevConsole: boolean | "auto" | undefined,
-): boolean {
-  if (typeof window === "undefined") return false;
-  if (enableInspector !== undefined) return enableInspector;
-  if (showDevConsole !== undefined) {
-    return showDevConsole === "auto"
-      ? LEGACY_AUTO_INSPECTOR_HOSTS.has(window.location?.hostname ?? "")
-      : showDevConsole;
-  }
-  return LOCAL_INSPECTOR_HOSTS.has(window.location?.hostname ?? "");
-}
-
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -193,13 +176,14 @@ export interface CopilotKitProviderProps {
     designSkill?: string;
   };
   /**
-   * @deprecated Use `enableInspector` instead.
-   * Controls the CopilotKit Inspector when `enableInspector` is omitted.
+   * @deprecated This prop no longer controls the Inspector. Use
+   * `enableInspector` instead.
    */
   showDevConsole?: boolean | "auto";
   /**
-   * Enable or disable the CopilotKit Inspector.
-   * When omitted, the inspector is shown on local development hosts only.
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
   /**
@@ -316,7 +300,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   frontendTools,
   humanInTheLoop,
   openGenerativeUI,
-  showDevConsole,
   enableInspector,
   useSingleEndpoint,
   onError,
@@ -325,15 +308,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   inspectorDefaultAnchor,
   debug,
 }) => {
-  const shouldRenderInspector = shouldRenderCopilotKitInspector(
+  const shouldRenderInspector = shouldEnableInspector({
     enableInspector,
-    showDevConsole,
-  );
-  const isLocalInspectorEnabled =
-    shouldRenderInspector &&
-    process.env.NODE_ENV === "development" &&
-    typeof window !== "undefined" &&
-    LEGACY_AUTO_INSPECTOR_HOSTS.has(window.location?.hostname ?? "");
+    isBrowser: typeof window !== "undefined",
+    isDevelopment: process.env.NODE_ENV === "development",
+  });
+  const isLocalInspectorEnabled = shouldRenderInspector;
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);

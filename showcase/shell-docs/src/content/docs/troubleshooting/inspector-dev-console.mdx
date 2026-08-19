@@ -6,11 +6,12 @@ description: "Configure the CopilotKit Inspector in React, Vue, and Angular."
 
 `enableInspector` controls the built-in Inspector in browser applications:
 
-- `true`: show it on every browser host, including production.
-- `false`: never show it.
-- omitted: show it only on `localhost`, `127.0.0.1`, or `0.0.0.0`.
+- `true` or omitted: show it in development builds.
+- `false`: hide it in development builds.
 
-The Inspector is not loaded or rendered during server-side rendering.
+The Inspector is never loaded or rendered in production builds or during
+server-side rendering. This safety guard cannot be overridden by an explicit
+`true`, and development hostnames are unrestricted.
 
 ## React v2
 
@@ -22,11 +23,8 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 </CopilotKit>;
 ```
 
-React v2 still accepts `showDevConsole?: boolean | "auto"` as a deprecated
-compatibility alias. When both props are supplied, `enableInspector` wins.
-Otherwise, an explicit `showDevConsole` value keeps its existing behavior;
-`"auto"` retains its legacy behavior and enables only on `localhost` or
-`127.0.0.1` (not `0.0.0.0`).
+Legacy `showDevConsole` values no longer control the Inspector. Use
+`enableInspector` for Inspector visibility.
 
 ## Vue
 
@@ -36,8 +34,7 @@ Otherwise, an explicit `showDevConsole` value keeps its existing behavior;
 </CopilotKitProvider>
 ```
 
-Vue also retains `showDevConsole` as a deprecated compatibility alias, with
-the same precedence rules as React v2.
+Vue's deprecated `showDevConsole` prop no longer controls the Inspector.
 
 ## Angular
 
@@ -53,13 +50,13 @@ Angular has no `showDevConsole` alias. Configure the Inspector through
 
 ## React v1
 
-React v1 keeps its existing behavior. `enableInspector` uses the same
-localhost-gated default. Its deprecated `showDevConsole?: boolean` prop controls
-error toasts and banners, not the Inspector.
+The v1 compatibility component follows the same development-only
+`enableInspector` behavior. Its deprecated `showDevConsole?: boolean` prop
+controls error toasts and banners, not the Inspector.
 
 <Callout type="warn">
-  Setting `enableInspector` to `true` exposes debugging and event details on
-  production hosts. Leave it omitted for the development-only default.
+  The Inspector cannot be enabled in a production build. Use a development build
+  when debugging a deployed or remote environment.
 </Callout>
 
 ## React Native
