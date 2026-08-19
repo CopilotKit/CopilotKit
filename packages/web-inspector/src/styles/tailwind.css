@@ -106,7 +106,14 @@
 }
 
 .inspector-account-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background-color: transparent;
+  padding: 0;
   color: #afafb7;
+  font: inherit;
   outline: 2px solid transparent;
   outline-offset: 2px;
   cursor: pointer;
@@ -116,6 +123,18 @@
 .inspector-account-control-active {
   background-color: rgba(255, 255, 255, 0.12);
   color: #ffffff;
+}
+
+.inspector-account-control-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.inspector-account-control-icon svg {
+  width: 15px;
+  height: 15px;
 }
 
 [data-inspector-thread-cta] {
