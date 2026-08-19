@@ -8,6 +8,10 @@ import {
 } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
+// Real public customer-surface wrapper (the same one exercised by
+// CopilotListeners.defaultAgentAbsent.test.tsx / v1-explicit-threadid-bridge.test.tsx
+// and used by Showcase). Its normal default is `useSingleEndpoint=true`.
+import { CopilotKit } from "../../../../components/copilot-provider/copilotkit";
 import { useCopilotKit } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 import {
@@ -181,9 +185,11 @@ describe("CopilotChat readiness gate (empty-assistant-response race)", () => {
  * static `available:"always"` suggestion pills: they render on the welcome
  * screen BEFORE `/info` resolves, so a pill selected during that window would
  * commit `suggestion.message` to the doomed provisional agent (and run against
- * it) — lost on the swap, surfacing as an empty assistant response. The fix
- * withholds `onSelectSuggestion` until `isReady`, making the pill click a
- * no-op during the provisional window and live once the real agent is bound.
+ * it) — lost on the swap, surfacing as an empty assistant response. Merely
+ * withholding `onSelectSuggestion` would leave the pill VISUALLY ENABLED but
+ * inert (a click silently drops the user's intent), so the fix HIDES the pills
+ * until `isReady`: they are not rendered during the provisional window and
+ * appear (live) only once the real agent is bound.
  */
 describe("CopilotChat readiness gate — suggestion submission", () => {
   const originalFetch = global.fetch;
@@ -223,7 +229,7 @@ describe("CopilotChat readiness gate — suggestion submission", () => {
     return <CopilotChat />;
   }
 
-  it("does not commit a suggestion selected during the provisional window; it works once ready", async () => {
+  it("hides the suggestion pill during the provisional window; it appears and works once ready", async () => {
     const realAgent = new MockStepwiseAgent();
     let core: CopilotKitCore | undefined;
 
@@ -236,23 +242,19 @@ describe("CopilotChat readiness gate — suggestion submission", () => {
       </CopilotKitProvider>,
     );
 
-    // --- Provisional window (isReady=false): the static pill is rendered ---
-    const pill = await screen.findByText("Say hello");
-
-    // A user click on the suggestion DURING the provisional window. The fix
-    // withholds onSelectSuggestion, so the click is a no-op and nothing is
-    // committed to the doomed provisional agent. The buggy build commits
-    // `suggestion.message` to the provisional agent (which is the agent
-    // currently rendered by CopilotChat), so its text appears in the DOM.
-    fireEvent.click(pill);
+    // --- Provisional window (isReady=false): the input renders, but the fix
+    // HIDES the static pill so it cannot be a visually-enabled-but-inert
+    // control that silently drops a click. Wait for the composer to mount so
+    // this is a real "rendered chat, no pill" state (not just a pre-mount
+    // frame). The buggy build renders the pill enabled here.
+    await screen.findByRole("textbox");
     await act(async () => {
       await new Promise((r) => setTimeout(r, 50));
     });
 
-    // Discriminator: the suggestion's MESSAGE ("Hello there!", distinct from
-    // the pill's TITLE "Say hello") must NOT have been committed. In the buggy
-    // build it renders as a user message on the provisional agent → present.
-    expect(document.body.textContent).not.toContain("Hello there!");
+    // Discriminator: the pill (its TITLE "Say hello") is NOT in the DOM while
+    // the runtime is provisional. Pre-fix the pill renders visually enabled.
+    expect(screen.queryByText("Say hello")).toBeNull();
 
     // --- Runtime becomes ready (real agent swapped in) ---
     act(() => {
@@ -303,20 +305,30 @@ describe("CopilotChat readiness gate — suggestion submission", () => {
 /**
  * Production-shaped regression for the readiness gate that crosses the real
  * network → SSE transport boundary (rather than injecting a controllable agent
- * and emitting events directly). A public `<CopilotKit runtimeUrl=...>` drives
- * the single-endpoint transport: a mocked `fetch` serves runtime `info` and
- * `agent/run`, and `agent/run` streams a real `text/event-stream` body of
- * AG-UI frames (RUN_STARTED → TEXT_MESSAGE_START → TEXT_MESSAGE_CONTENT →
- * TEXT_MESSAGE_END → RUN_FINISHED). This exercises the same provisional-window
- * race end-to-end: with the gate absent the send committed to the provisional
- * agent (clearing the composer), so the second click — against an empty
- * composer whose send control is disabled — never runs and the assistant
- * container stays empty. With the gate, the first click is a no-op that
- * preserves the composer text, and the second (post-`/info`) click runs over
- * the real transport, rendering the streamed assistant message.
+ * and emitting events directly). It renders the REAL public customer-surface
+ * wrapper — `<CopilotKit runtimeUrl=... agent="agentic_chat">` imported from
+ * `components/copilot-provider/copilotkit`, the same wrapper Showcase uses and
+ * that `CopilotListeners.defaultAgentAbsent.test.tsx` /
+ * `v1-explicit-threadid-bridge.test.tsx` exercise — so it drives the same
+ * provider chain, agent selection, and single-endpoint POST `info` / `agent/run`
+ * path used in production. The wrapper's normal default is
+ * `useSingleEndpoint=true`, so the runtime info handshake is a POST
+ * `{ method: "info" }` (no REST GET `/info` probe — hence no synthetic 404
+ * fallback), and `agent/run` streams a real `text/event-stream` body of AG-UI
+ * frames (RUN_STARTED → TEXT_MESSAGE_START → TEXT_MESSAGE_CONTENT →
+ * TEXT_MESSAGE_END → RUN_FINISHED).
+ *
+ * This exercises the same provisional-window race end-to-end: with the gate
+ * absent the send committed to the provisional agent (clearing the composer),
+ * so the second click — against an empty composer whose send control is
+ * disabled — never runs and the assistant container stays empty. With the gate,
+ * the first click is a no-op that preserves the composer text, and the second
+ * (post-`info`) click runs over the real transport, rendering the streamed
+ * assistant message.
  */
 describe("CopilotChat readiness gate — production-shaped SSE transport", () => {
   const RUNTIME_URL = "http://localhost:59997/api/copilotkit";
+  const AGENT_ID = "agentic_chat";
   const originalFetch = global.fetch;
   let resolveInfo: ((value: Response) => void) | undefined;
   let agentRunCalls = 0;
@@ -365,11 +377,9 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
     global.fetch = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const u = String(url);
       const method = init?.method;
-      // Auto-detect tries REST GET /info first; 404 forces the single-endpoint
-      // POST transport the reviewer asked us to exercise.
-      if (u.endsWith("/info") && method !== "POST") {
-        return Promise.resolve(new Response("Not Found", { status: 404 }));
-      }
+      // The wrapper defaults to single-endpoint transport, so the runtime `info`
+      // handshake and the run both arrive as POSTs to the runtime URL — there is
+      // NO REST GET `/info` probe to fall back from.
       if (u === RUNTIME_URL && method === "POST") {
         const body = JSON.parse(String(init?.body ?? "{}")) as {
           method?: string;
@@ -393,11 +403,18 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
 
   it("streams the assistant response over the real transport after a send during the provisional window", async () => {
     render(
-      <CopilotKitProvider runtimeUrl={RUNTIME_URL}>
+      // `showDevConsole={false}` mirrors a production deploy (Showcase runs with
+      // the dev console off) and keeps the jsdom-unbacked web-inspector
+      // localStorage hydration out of this transport-boundary test.
+      <CopilotKit
+        runtimeUrl={RUNTIME_URL}
+        agent={AGENT_ID}
+        showDevConsole={false}
+      >
         <div style={{ height: 400 }}>
           <CopilotChat welcomeScreen={false} />
         </div>
-      </CopilotKitProvider>,
+      </CopilotKit>,
     );
 
     // --- Provisional window (isReady=false): user types and sends ---
@@ -407,15 +424,16 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
     // Fixed build: gated no-op that preserves the composer text.
     fireEvent.click(screen.getByTestId("copilot-send-button"));
 
-    // --- Resolve the single-endpoint `info` → runtime Connected, real agent
-    // discovered from `agents: { default }`, isReady flips true. ---
+    // --- Resolve the single-endpoint `info` → runtime Connected, the real
+    // `agentic_chat` agent discovered from the advertised `agents` map, isReady
+    // flips true. ---
     await act(async () => {
       resolveInfo!(
         new Response(
           JSON.stringify({
             version: "1.0.0",
             audioFileTranscriptionEnabled: false,
-            agents: { [DEFAULT_AGENT_ID]: { description: "Default agent" } },
+            agents: { [AGENT_ID]: { description: "Agentic chat agent" } },
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         ),
