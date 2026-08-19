@@ -27,3 +27,11 @@ packages:
   # harness package imports from it and both use pnpm.
 onlyBuiltDependencies:
   - better-sqlite3
+  # Required by `examples/showcases/reskinnable-demo` (banking's Arm A harness,
+  # via `@tanstack/ai-claude-code`). Its postinstall is what LINKS the already-
+  # downloaded platform binary into `bin/claude.exe`; blocked, pnpm still puts a
+  # `claude` shim on `node_modules/.bin` — which shadows any host install inside
+  # `pnpm dev` — and every harness run dies with "claude native binary not
+  # installed". Costs no extra download or disk: the 241MB payload arrives as an
+  # optional dependency regardless, and the script only hardlinks it.
+  - "@anthropic-ai/claude-code"
