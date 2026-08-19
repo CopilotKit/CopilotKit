@@ -110,6 +110,15 @@ export type { Anchor } from "./lib/types.js";
 export { buildCapabilityRows as ɵbuildCapabilityRows };
 export type { CapabilityToolRow as ɵCapabilityToolRow };
 
+export type InspectorOpenOptions = {
+  /** Select the thread that contains the message. */
+  threadId?: string;
+  /** Narrow the Threads view to the agent that owns the thread. */
+  agentId?: string;
+  /** Scroll the selected thread timeline to this message when available. */
+  messageId?: string;
+};
+
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
@@ -569,6 +578,7 @@ type TimelineItemKind =
 
 type TimelineItem = {
   id: string;
+  messageId?: string;
   kind: TimelineItemKind;
   title: string;
   body?: string;
@@ -1295,6 +1305,8 @@ export class CpkThreadInspector extends LitElement {
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
+    focusMessageId: { attribute: false },
+    focusRequestId: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -1333,6 +1345,8 @@ export class CpkThreadInspector extends LitElement {
    * so the conversation view reflects live streaming output.
    */
   liveMessageVersion = 0;
+  focusMessageId: string | null = null;
+  focusRequestId = 0;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -1355,6 +1369,8 @@ export class CpkThreadInspector extends LitElement {
   private _eventsNotAvailable = false;
   /** True when the /state endpoint returned 501 — don't fall back to live data. */
   private _stateNotAvailable = false;
+  private _scrolledFocusRequestId = 0;
+  private _highlightedFocusRequestId = -1;
   /**
    * Briefly true after a tab switch so the active-tab highlight + a generic
    * "Loading…" placeholder paint before the heavy per-tab render runs. Without
@@ -1798,6 +1814,37 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__status--error {
       color: #c0333a;
+    }
+
+    @keyframes cpk-td-focus-pulse {
+      0% {
+        outline-color: rgba(100, 48, 171, 0);
+        box-shadow: 0 0 0 rgba(100, 48, 171, 0);
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      24%,
+      50% {
+        outline-color: rgba(100, 48, 171, 0.78);
+        box-shadow: 0 7px 20px rgba(100, 48, 171, 0.2);
+      }
+      100% {
+        outline-color: rgba(100, 48, 171, 0);
+        box-shadow: 0 0 0 rgba(100, 48, 171, 0);
+      }
+    }
+
+    .cpk-td__focus-pulse {
+      position: relative;
+      z-index: 1;
+      outline: 2px solid transparent;
+      outline-offset: 3px;
+      animation: cpk-td-focus-pulse 760ms linear;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__focus-pulse {
+        animation-duration: 320ms;
+      }
     }
 
     /* ── Conversation bubbles ────────────────────────────────────────── */
@@ -2353,6 +2400,47 @@ export class CpkThreadInspector extends LitElement {
       this._messagesAbort = null;
       void this.fetchMessages(this.threadId, true);
     }
+
+    const focusedContentChanged =
+      _changed.has("_fetchedEvents") ||
+      _changed.has("agentEventsInput") ||
+      _changed.has("_conversation");
+    if (
+      this.focusMessageId &&
+      (this.focusRequestId > this._scrolledFocusRequestId ||
+        focusedContentChanged)
+    ) {
+      if (this._tab !== "timeline") {
+        this._activatedTabs = new Set([...this._activatedTabs, "timeline"]);
+        this._tab = "timeline";
+        this.requestUpdate();
+      }
+      requestAnimationFrame(() => this.scrollToFocusedMessage());
+    }
+  }
+
+  private scrollToFocusedMessage(): void {
+    if (!this.focusMessageId) return;
+    const message = Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+    ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
+    if (!message) return;
+    message.scrollIntoView?.({ block: "center" });
+    this._scrolledFocusRequestId = this.focusRequestId;
+    this.pulseFocusedMessage(message);
+  }
+
+  private pulseFocusedMessage(message: HTMLElement): void {
+    if (this.focusRequestId === this._highlightedFocusRequestId) return;
+    this._highlightedFocusRequestId = this.focusRequestId;
+    message.classList.remove("cpk-td__focus-pulse");
+    void message.offsetWidth;
+    message.classList.add("cpk-td__focus-pulse");
+    message.addEventListener(
+      "animationend",
+      () => message.classList.remove("cpk-td__focus-pulse"),
+      { once: true },
+    );
   }
 
   connectedCallback(): void {
@@ -2822,6 +2910,7 @@ export class CpkThreadInspector extends LitElement {
       if (!item) {
         item = {
           id: `message-${key}`,
+          messageId: key,
           kind: "message",
           title: `${role || "message"} message`,
           body: "",
@@ -3498,6 +3587,7 @@ export class CpkThreadInspector extends LitElement {
         class="cpk-td__timeline-item ${
           isWarning ? "cpk-td__timeline-item--warning" : ""
         }"
+        data-message-id=${item.messageId ?? nothing}
       >
         <div class="cpk-td__timeline-header">
           <span class="cpk-td__timeline-kind"
@@ -3691,6 +3781,7 @@ export class CpkThreadInspector extends LitElement {
         class="cpk-td__bubble ${
           isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
         }"
+        data-message-id=${item.id}
       >
         <div
           class="cpk-td__bubble-inner ${
@@ -4832,6 +4923,9 @@ export class WebInspectorElement extends LitElement {
   private selectedThreadId: string | null = null;
   private selectedRealThreadIsExplicit = false;
   private selectedLocalExampleThreadId: string | null = null;
+  private requestedThreadId: string | null = null;
+  private focusedThreadMessageId: string | null = null;
+  private threadFocusRequestId = 0;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -5421,6 +5515,17 @@ export class WebInspectorElement extends LitElement {
     if (!this.areThreadEndpointsAvailable()) return;
     const { displayThreads } = this.getActiveThreadsState();
     const previousSelectedThreadId = this.selectedThreadId;
+
+    if (this.requestedThreadId !== null) {
+      this.selectedThreadId = this.requestedThreadId;
+      this.selectedRealThreadIsExplicit = true;
+      if (
+        displayThreads.some((thread) => thread.id === this.requestedThreadId)
+      ) {
+        this.requestedThreadId = null;
+      }
+      return;
+    }
 
     if (
       this.selectedLocalExampleThreadId !== null &&
@@ -6326,6 +6431,35 @@ export class WebInspectorElement extends LitElement {
     }
 
     return this.agentEvents.get(this.selectedContext) ?? [];
+  }
+
+  private focusThread(options: InspectorOpenOptions): void {
+    if (!options.threadId) return;
+    this.pendingPersistedMenu = null;
+    this.selectedMenu = "threads";
+    this.settingsOpen = false;
+    this.lastSelectedMenuByGroup.threads = "threads";
+    this.contextMenuOpen = false;
+    this.selectedLocalExampleThreadId = null;
+    this.exampleTourActive = false;
+    this.selectedContext =
+      options.agentId &&
+      this.contextOptions.some((option) => option.key === options.agentId)
+        ? options.agentId
+        : "all-agents";
+    this.requestedThreadId = options.threadId;
+    this.selectedThreadId = options.threadId;
+    this.selectedRealThreadIsExplicit = true;
+    this.focusedThreadMessageId = options.messageId ?? null;
+    this.threadFocusRequestId += 1;
+
+    const { displayThreads } = this.getActiveThreadsState();
+    if (displayThreads.some((thread) => thread.id === options.threadId)) {
+      this.requestedThreadId = null;
+    }
+
+    this.persistState();
+    this.requestUpdate();
   }
 
   private filterEvents(events: InspectorEvent[]): InspectorEvent[] {
@@ -8731,7 +8865,14 @@ ${argsString}</pre
     this.draggedDuringInteraction = false;
   }
 
-  private openInspector(source: InspectorOpenSource): void {
+  public openInspector(
+    source: InspectorOpenSource,
+    options: InspectorOpenOptions = {},
+  ): void {
+    if (options.threadId) {
+      this.focusThread(options);
+    }
+
     if (this.isOpen) {
       return;
     }
@@ -9738,6 +9879,8 @@ ${argsString}</pre
     threadId: string,
     showingExamples: boolean,
   ): void {
+    this.requestedThreadId = null;
+    this.focusedThreadMessageId = null;
     if (
       showingExamples &&
       this.selectedThreadId === threadId &&
@@ -11323,6 +11466,8 @@ ${argsString}</pre
                     .liveMessageVersion=${
                       this.liveMessageVersion.get(selectedThread.id) ?? 0
                     }
+                    .focusMessageId=${this.focusedThreadMessageId}
+                    .focusRequestId=${this.threadFocusRequestId}
                     .agentStateInput=${this.getLatestStateForAgent(
                       selectedThread.agentId,
                     )}

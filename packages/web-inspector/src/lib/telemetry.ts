@@ -235,7 +235,10 @@ export function trackBannerDismissed(props: {
  * deliberately NOT a source: it is not an open *intent*, and counting it
  * would turn every dev-server hot reload into an "open".
  */
-export type InspectorOpenSource = "floating_button" | "announcement_preview";
+export type InspectorOpenSource =
+  | "floating_button"
+  | "announcement_preview"
+  | "message_toolbar";
 
 export type InspectorOpenedTelemetryProps = {
   open_source: InspectorOpenSource;
