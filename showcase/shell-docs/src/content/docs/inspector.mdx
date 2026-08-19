@@ -138,10 +138,13 @@ If the window does not open, allow popups for the site and click pop-out
 again. A refresh closes the extra window. The Inspector does not reopen as a
 pop-out after a refresh.
 
-## Disabling the Inspector
+## Configuring the Inspector
 
-By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
-`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+In React, Vue, and Angular browser applications, the Inspector appears by
+default in development builds on any host. It is never loaded or rendered in a
+production build or during server-side rendering.
+
+Set `enableInspector` to `false` to hide it during development:
 
 ```tsx
 <CopilotKit
@@ -152,5 +155,12 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 </CopilotKit>
 ```
 
-Set `enableInspector` to `true` to show it on another host, including in a
-production build. CopilotKit always uses an explicit `true` or `false` value.
+An explicit `true` keeps it enabled in development but cannot override the
+production or server-rendering guard.
+
+Vue uses the kebab-case template prop `:enable-inspector="false"`. Angular
+configures it through `provideCopilotKit({ enableInspector: false })`.
+
+Legacy `showDevConsole` props no longer control the Inspector. Use
+`enableInspector` in every browser framework. Native iOS and Android
+applications do not have a built-in Inspector yet.

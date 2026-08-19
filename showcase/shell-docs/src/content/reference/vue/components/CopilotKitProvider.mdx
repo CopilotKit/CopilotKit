@@ -136,8 +136,17 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Configuration for Open Generative UI. `sandboxFunctions` exposes host functions to generated sandboxed UI (callable via `Websandbox.connection.remote`), and `designSkill` overrides the default design guidelines provided to the generation tool. `sandboxFunctions` must be a stable array.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;" default="false">
-  Whether to show the dev console and inspector. `true` always shows it, `false` always hides it, and `"auto"` shows it only on `localhost` / `127.0.0.1`.
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector. `true` shows it on every browser host,
+  `false` hides it, and an omitted value shows it only on `localhost`,
+  `127.0.0.1`, or `0.0.0.0`. The Inspector is not loaded during SSR. In a Vue
+  template, pass this as `:enable-inspector="false"`.
+</PropertyReference>
+
+<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
+  **Deprecated:** use `enableInspector`. This compatibility alias retains its
+  existing behavior when `enableInspector` is omitted. `enableInspector` wins
+  when both props are supplied.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">

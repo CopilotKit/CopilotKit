@@ -110,8 +110,16 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   handler and a tool call renderer.
 </PropertyReference>
 
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector. `true` shows it on every browser host,
+  `false` hides it, and an omitted value shows it only on `localhost`,
+  `127.0.0.1`, or `0.0.0.0`. The Inspector is not loaded during SSR.
+</PropertyReference>
+
 <PropertyReference name="showDevConsole" type='boolean | "auto"'>
-  Show the CopilotKit developer console for debugging.
+  **Deprecated:** use `enableInspector`. This compatibility alias retains its
+  existing behavior when `enableInspector` is omitted. `enableInspector` wins
+  when both props are supplied.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">

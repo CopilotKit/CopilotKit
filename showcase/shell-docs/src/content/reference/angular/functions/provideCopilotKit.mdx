@@ -56,6 +56,13 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     Use this for request-scoped metadata such as a user id or tenant.
   </PropertyReference>
 
+  <PropertyReference name="enableInspector" type="boolean">
+    Controls the CopilotKit Inspector. `true` shows it on every browser host,
+    `false` hides it, and an omitted value shows it only on `localhost`,
+    `127.0.0.1`, or `0.0.0.0`. The Inspector is not loaded during server-side
+    rendering.
+  </PropertyReference>
+
   <PropertyReference name="agents" type="Record<string, AbstractAgent>">
     A map of agent id to AG-UI agent instance. Use this to register agents
     directly in the client. These are merged with `selfManagedAgents` when the
@@ -251,6 +258,9 @@ export const appConfig: ApplicationConfig = {
   `X-CopilotCloud-Public-Api-Key` header unless that header is already present.
   The current package does not render a watermark or log a missing-key warning.
 - `agents` and `selfManagedAgents` are merged together when the underlying core is created, so an id present in both resolves to the `selfManagedAgents` entry.
+- The Inspector receives that same core instance. Angular reuses an existing
+  `cpk-web-inspector` element when present and removes only an element it created
+  when the root service is destroyed.
 
 ## Related
 
