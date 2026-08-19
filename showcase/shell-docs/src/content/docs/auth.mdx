@@ -32,10 +32,19 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   headers={{
     Authorization: `Bearer ${userToken}`,
   }}
+  useSingleEndpoint={false}
 >
   <YourApp />
 </CopilotKit>
 ```
+
+<Callout type="warn" title="Why the explicit useSingleEndpoint">
+  The `createCopilotRuntimeHandler` route below serves multi-route, the default. `<CopilotKit>` is the v1 wrapper and
+  asks for single-route transport unless told otherwise, so without this prop
+  its startup `/info` call 404s and no agents are discovered.
+  `<CopilotKitProvider>` detects the transport and needs no prop. See
+  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
 
 ## Backend
 

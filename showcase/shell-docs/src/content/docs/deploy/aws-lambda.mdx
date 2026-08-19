@@ -195,10 +195,21 @@ The Function URL is the origin; `basePath` is appended to it.
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit">
+<CopilotKit
+  runtimeUrl="https://<url-id>.lambda-url.<region>.on.aws/api/copilotkit"
+  useSingleEndpoint={false}
+>
   <YourApp />
 </CopilotKit>
 ```
+
+<Callout type="warn" title="Why the explicit useSingleEndpoint">
+  The Function URL handler above serves multi-route, the default. `<CopilotKit>` is the v1 wrapper and
+  asks for single-route transport unless told otherwise, so without this prop
+  its startup `/info` call 404s and no agents are discovered.
+  `<CopilotKitProvider>` detects the transport and needs no prop. See
+  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
