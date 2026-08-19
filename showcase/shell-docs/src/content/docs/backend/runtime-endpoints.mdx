@@ -13,6 +13,77 @@ them for you. When you self-host behind a reverse proxy, lock down auth, or debu
 a connection failure with `curl`, use this page to confirm what the runtime
 exposes.
 
+## Provider and handler pairs
+
+The browser provider and the Runtime handler have to agree on the **transport**.
+CopilotKit ships more than one name for each half, and they are not
+interchangeable — they pair up. Docs, starters and older apps each show a
+different pair, so this is the mapping:
+
+<FrontendOnly frontend="react">
+
+| Provider | `useSingleEndpoint` | Transport | Needs handler | Route file |
+| --- | --- | --- | --- | --- |
+| `<CopilotKit>` (v1 wrapper) | omitted → defaults to `true` | `single` | single-route | `route.ts`, `POST` |
+| `<CopilotKit>` (v1 wrapper) | `{false}` | `rest` | multi-route | `[[...slug]]/route.ts`, 4 verbs |
+| `<CopilotKitProvider>` (v2) | omitted | `auto` — detected from `/info` | either | matches the handler |
+| `<CopilotKitProvider>` (v2) | `{true}` | `single` | single-route | `route.ts`, `POST` |
+
+`<CopilotKit>` is a backward-compatible wrapper that renders
+`<CopilotKitProvider>` internally and pins `useSingleEndpoint` to `true` unless
+you pass the prop. That default is the one thing to remember: **the v1 wrapper
+asks for single-route transport even when your Runtime is multi-route.**
+
+Both ship from the same package entry point, so moving between them is an import
+change, not a migration.
+
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+
+Angular has no provider pairing to get wrong: `provideCopilotKit` discovers the
+transport from `/info` and exposes no `useSingleEndpoint` option. Only the
+handler half below applies to you.
+
+</FrontendOnly>
+
+### Which handlers serve which mode
+
+| Mode | Handlers |
+| --- | --- |
+| Multi-route (default) | `createCopilotRuntimeHandler`, `createCopilotHonoHandler`, `createCopilotExpressHandler`, `createCopilotNodeHandler`, `createCopilotNodeListener` |
+| Single-route | Any of the above with `mode: "single-route"` |
+| Single-route only, no option | `copilotRuntimeNextJSAppRouterEndpoint`, `copilotRuntimeNextJSPagesRouterEndpoint`, `copilotRuntimeNodeHttpEndpoint`, `copilotRuntimeNodeExpressEndpoint`, `copilotRuntimeNestEndpoint` |
+
+<Callout type="warn" title="The framework wrappers cannot do Rich Threads">
+  Every `copilotRuntime*Endpoint` wrapper builds its handler with
+  `mode: "single-route"` and exposes no option to change it, so a Runtime mounted
+  through one of them only ever honours the single-route envelope — never the
+  REST sub-routes. Setting `useSingleEndpoint={false}` on the provider does not
+  change that; it just points the browser at routes the wrapper will not serve.
+
+  Rich Threads therefore needs one of the handlers above, built on a v2
+  `CopilotRuntime` from `@copilotkit/runtime/v2`. That is a server-side change,
+  not a provider prop. See [Enable Rich Threads routes](#enable-rich-threads-routes).
+</Callout>
+
+You may also meet these deprecated aliases in older code:
+
+| Deprecated | Use instead |
+| --- | --- |
+| `createCopilotEndpoint` | `createCopilotHonoHandler` |
+| `createCopilotEndpointSingleRoute` | `createCopilotHonoHandler` with `mode: "single-route"` |
+| `createCopilotEndpointExpress` | `createCopilotExpressHandler` |
+| `createCopilotEndpointSingleRouteExpress` | `createCopilotExpressHandler` with `mode: "single-route"` |
+
+<Callout type="info" title="Mismatched pair? Read the symptom, not the code">
+  A mismatch fails at discovery, not at your application code. A multi-route
+  provider against a single-route Runtime 404s on `GET {basePath}/info`; a
+  single-route provider against a multi-route Runtime posts an envelope the
+  Runtime does not accept. See
+  [Connect route 404 on a fresh thread](#connect-route-404-on-a-fresh-thread).
+</Callout>
+
 ## Multi-route mode (default)
 
 By default the runtime runs in **multi-route** mode, exposing a separate route per

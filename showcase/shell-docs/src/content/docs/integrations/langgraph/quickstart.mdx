@@ -428,6 +428,15 @@ Before you begin, you'll need the following:
 
               Wrap your application with the CopilotKit provider:
 
+              <Callout type="info" title="Which provider goes with which handler?">
+                `<CopilotKit>` here is the backward-compatible wrapper: it defaults
+                `useSingleEndpoint` to `true`, which is the matching half of the
+                single-route `copilotRuntimeNextJSAppRouterEndpoint` above. `<CopilotKitProvider>`
+                is the v2 provider from the same package and detects the transport from
+                `/info` instead. They are not aliases — see
+                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+              </Callout>
+
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
               import { CopilotKit } from "@copilotkit/react-core/v2";
