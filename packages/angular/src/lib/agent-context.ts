@@ -1,6 +1,7 @@
-import { effect, inject, Injector, runInInjectionContext } from "@angular/core";
+import { inject, Injector, runInInjectionContext } from "@angular/core";
 import { Context } from "@ag-ui/client";
 import { CopilotKit } from "./copilotkit";
+import { explicitEffect } from "./explicit-effect";
 
 export interface ConnectAgentContextConfig {
   injector?: Injector;
@@ -21,13 +22,15 @@ export function connectAgentContext(
   runInInjectionContext(injector, () => {
     const copilotkit = inject(CopilotKit);
 
-    effect((teardown) => {
-      const contextValue = typeof context === "function" ? context() : context;
-      const id = copilotkit.core.addContext(contextValue);
+    explicitEffect(
+      () => (typeof context === "function" ? context() : context),
+      (contextValue, teardown) => {
+        const id = copilotkit.core.addContext(contextValue);
 
-      teardown(() => {
-        copilotkit.core.removeContext(id);
-      });
-    });
+        teardown(() => {
+          copilotkit.core.removeContext(id);
+        });
+      },
+    );
   });
 }
