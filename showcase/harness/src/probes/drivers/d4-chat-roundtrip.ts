@@ -603,6 +603,29 @@ const RETRY_MIN_BUDGET_MS = 750;
 const SEND_PRESS_MIN_BUDGET_MS = 50;
 
 /**
+ * Minimum wall-clock budget (ms) required to ATTEMPT the readiness
+ * `waitForSelector(SEND_ENABLED_SELECTOR)` that sits BETWEEN `type` and `press`.
+ * react-core now gates submission on runtime readiness, so `sendTurn` waits for
+ * the send control to become ENABLED before pressing Enter. A near-hang `type`
+ * (or a late resend) can drain the first-token envelope so that, by the time the
+ * readiness wait is reached, `Math.max(1, hardCeiling - now)` would floor that
+ * wait's timeout to ~1ms — a doomed action Playwright rejects with a
+ * page-fault-shaped "Timeout 1ms exceeded…" message that the outer catch then
+ * mis-classifies as a GENERIC `level-error`, indistinguishable from a real page
+ * fault (a spurious-red flap source). Below this floor `sendTurn` throws a
+ * distinctly-classified `ReadinessBudgetExhaustedError` (`errorDesc:
+ * delayed-readiness`) instead of issuing the doomed wait, so a send that could
+ * not observe readiness within its drained budget reds as an OBSERVABLE
+ * delayed-readiness case rather than a self-inflicted 1ms floor masquerading as
+ * a page fault.
+ *
+ * Sized ABOVE `SEND_PRESS_MIN_BUDGET_MS` (the readiness wait must observe an
+ * async DOM state transition, not just issue a keypress) yet small enough that a
+ * legitimately-small envelope with a fresh first send still attempts the wait.
+ */
+const SEND_READY_MIN_BUDGET_MS = 100;
+
+/**
  * Thrown by `sendTurn` when too little wall-clock budget remains to issue a
  * `type`/`press` action with a MEANINGFUL timeout — i.e. the remaining budget
  * to `hardCeiling` has dropped below `RETRY_MIN_BUDGET_MS`, so
@@ -648,6 +671,53 @@ function sendBudgetErrorDesc(
     (err as { errorDesc?: unknown }).errorDesc === "send-budget-exhausted"
   ) {
     return "send-budget-exhausted";
+  }
+  return undefined;
+}
+
+/**
+ * Thrown by `sendTurn` when too little wall-clock budget remains to ATTEMPT the
+ * readiness `waitForSelector(SEND_ENABLED_SELECTOR)` with a MEANINGFUL timeout
+ * — i.e. the remaining budget to `hardCeiling` has dropped below
+ * `SEND_READY_MIN_BUDGET_MS`, so `Math.max(1, hardCeiling - now)` would floor
+ * the wait to ~1ms. A ~1ms readiness wait is a doomed action Playwright rejects
+ * with a page-fault-shaped "Timeout 1ms exceeded…" message; the driver's outer
+ * catch would otherwise red-classify it as a GENERIC `level-error`,
+ * indistinguishable from a real page fault. Carrying a distinct `errorDesc`
+ * (duck-typed in the outer catch, mirroring `SendBudgetExhaustedError` /
+ * `TurnNotCompleteError.reason`) classifies the failure as `delayed-readiness`
+ * — an OBSERVABLE, non-`level-error` red for a send whose control never became
+ * enabled within its drained budget.
+ */
+class ReadinessBudgetExhaustedError extends Error {
+  readonly errorDesc = "delayed-readiness" as const;
+  constructor(remainingMs: number, minMs: number) {
+    super(
+      `send-turn readiness wait skipped: ${remainingMs}ms budget remaining ` +
+        `(< ${minMs}ms min) would floor the readiness waitForSelector timeout ` +
+        `to ~1ms (send never became enabled within budget)`,
+    );
+    this.name = "ReadinessBudgetExhaustedError";
+  }
+}
+
+/**
+ * Duck-typed extractor for a `ReadinessBudgetExhaustedError`'s distinct
+ * `errorDesc` (`delayed-readiness`), returning `undefined` for any other throw.
+ * Kept structural (a `readonly errorDesc` field check) rather than an
+ * `instanceof` so the outer catch stays decoupled from the concrete class — the
+ * SAME decoupling rationale as `sendBudgetErrorDesc`.
+ */
+function readinessBudgetErrorDesc(
+  err: unknown,
+): "delayed-readiness" | undefined {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "errorDesc" in err &&
+    (err as { errorDesc?: unknown }).errorDesc === "delayed-readiness"
+  ) {
+    return "delayed-readiness";
   }
   return undefined;
 }
@@ -1905,7 +1975,10 @@ async function runLevel(opts: {
     // is called; this in-send guard covers the type→press drain the retry check
     // can't see. `type` keeps the plain `Math.max(1, remaining)` floor
     // (Playwright treats 0 as "no timeout").
-    const sendTurn = async (): Promise<void> => {
+    const sendTurn = async (): Promise<{
+      runsFinished: number;
+      runStartCount: number;
+    }> => {
       const typeBudget = Math.max(1, hardCeiling - Date.now());
       await pg.type("textarea", message, { timeout: typeBudget });
       // READINESS GATE (react-core `isReady`): after typing, the send control is
@@ -1916,11 +1989,38 @@ async function runLevel(opts: {
       // (`:not([disabled])`) BEFORE pressing Enter so the send lands on the real
       // (bound) agent. Bounded by the remaining first-token envelope so a page
       // that never becomes ready reds on its own terms rather than hanging.
-      const readyBudget = Math.max(1, hardCeiling - Date.now());
+      //
+      // MIN-BUDGET GUARD (item-2) — BEFORE the readiness wait: a near-hang
+      // `type` (or a late resend) can drain the envelope so the wait's
+      // `Math.max(1, hardCeiling - now)` would floor to ~1ms — a doomed action
+      // Playwright rejects, which the outer catch then mis-classifies as a
+      // generic `level-error`. Once the budget for the readiness wait has drained
+      // below the floor, throw a DISTINCTLY-classified
+      // `ReadinessBudgetExhaustedError` (`errorDesc: delayed-readiness`) so a
+      // send whose control never became enabled within its drained budget reds as
+      // an observable delayed-readiness case, not a self-inflicted 1ms floor.
+      const readyRemaining = hardCeiling - Date.now();
+      if (readyRemaining < SEND_READY_MIN_BUDGET_MS) {
+        throw new ReadinessBudgetExhaustedError(
+          Math.max(0, readyRemaining),
+          SEND_READY_MIN_BUDGET_MS,
+        );
+      }
       await pg.waitForSelector(SEND_ENABLED_SELECTOR, {
         state: "visible",
-        timeout: readyBudget,
+        timeout: readyRemaining,
       });
+      // Per-attempt turn-lifecycle BASELINE (item-3): snapshot the page-global
+      // monotonic edge counters AFTER `type` + the enabled-send wait and
+      // IMMEDIATELY before the Enter press. Taking it earlier (before the
+      // readiness wait) let a run that COMPLETES DURING the wait — e.g. an
+      // auto-greeting / initial-mount run that finishes while the send control is
+      // still settling — land its finished/started edge AFTER the snapshot, so
+      // the poll's `> baseline` gate mistook that unrelated completion for THIS
+      // submitted turn finishing (empty DOM → false red). Snapshotting here folds
+      // any during-wait edge into the baseline, so only an edge that lands AFTER
+      // the Enter press counts as THIS turn's completion.
+      const baseline = await readBaseline();
       const pressRemaining = hardCeiling - Date.now();
       if (pressRemaining < SEND_PRESS_MIN_BUDGET_MS) {
         throw new SendBudgetExhaustedError(
@@ -1932,6 +2032,7 @@ async function runLevel(opts: {
       await pg.press("textarea", "Enter", {
         timeout: Math.max(1, pressRemaining),
       });
+      return baseline;
     };
     // ── ONE guarded `readTurnState()` wrapper (harmonized error handling) ─────
     // ALL three turn-state consumers below (`readBaseline`, `readTurnComplete`,
@@ -2015,11 +2116,11 @@ async function runLevel(opts: {
       }
       return { runsFinished: st.runsFinished, runStartCount: st.runStartCount };
     };
-    // Baseline snapshot for attempt 0, taken BEFORE the send so the agent
-    // provably cannot have fired RUN_STARTED / RUN_FINISHED for THIS turn yet —
-    // the completion gate then tests strictly-new edges past this baseline.
-    let attemptBaseline = await readBaseline();
-    await sendTurn();
+    // Baseline snapshot for attempt 0. `sendTurn` captures it AFTER `type` + the
+    // enabled-send wait and IMMEDIATELY before the Enter press (item-3), so a run
+    // that completes DURING the readiness wait is folded into the baseline and
+    // the completion gate tests strictly-new edges past THIS turn's actual send.
+    let attemptBaseline = await sendTurn();
 
     // probe.message.send is NOT emitted here: at press time the agent-message
     // POST has only just been ISSUED — its response (and thus its edge headers)
@@ -2352,11 +2453,6 @@ async function runLevel(opts: {
           if (hardCeiling - Date.now() < RETRY_MIN_BUDGET_MS) break;
           // Non-completion retry: the prior attempt's turn was observed
           // in-flight but never signalled completion (stalled/dropped stream).
-          // Re-baseline BEFORE the resend (SAME ordering rationale as attempt 0)
-          // so the retried attempt's completion gate tests strictly-new edges
-          // past the STALL's already-latched counters — a stale prior edge can
-          // never satisfy the retry.
-          attemptBaseline = await readBaseline();
           // Re-arm the message-POST edge-header capture for THIS (winning)
           // attempt: `messageSendEdge` / `lastMessagePostResp` were latched to
           // the FIRST (stalled) attempt's POST response, so a retry-rescued GREEN
@@ -2369,7 +2465,13 @@ async function runLevel(opts: {
           messageSendEdge = undefined;
           lastMessagePostResp = undefined;
           messageSendEmitted = false;
-          await sendTurn();
+          // Re-baseline for the resend — captured INSIDE `sendTurn`, after `type`
+          // + the enabled-send wait and immediately before the Enter press (item-3,
+          // SAME ordering as attempt 0). This tests strictly-new edges past the
+          // STALL's already-latched counters AND past any run that completes during
+          // THIS resend's readiness wait, so a stale prior edge can never satisfy
+          // the retry.
+          attemptBaseline = await sendTurn();
         }
         // Split the REMAINING budget evenly across the remaining attempts so the
         // retry can never push total wall-clock past `pageTimeoutMs`.
@@ -2621,12 +2723,17 @@ async function runLevel(opts: {
           failureSummary: truncateUtf8(msg, 1200),
           // Duck-type a distinct `errorDesc` off the thrown error (mirroring the
           // `TurnNotCompleteError.reason` decoupling): a `SendBudgetExhaustedError`
-          // is a self-inflicted min-budget skip (item-1), NOT a generic page
-          // fault, so it reports `send-budget-exhausted` rather than the catch-all
-          // `level-error`. An external abort still wins (the driver's hard-timeout).
+          // is a self-inflicted min-budget skip, NOT a generic page fault, so it
+          // reports `send-budget-exhausted`; a `ReadinessBudgetExhaustedError`
+          // (item-2) is a send whose control never became enabled within its
+          // drained budget, so it reports `delayed-readiness` — both preferred over
+          // the catch-all `level-error`. An external abort still wins (the driver's
+          // hard-timeout).
           errorDesc: abortSignal.aborted
             ? "abort"
-            : (sendBudgetErrorDesc(err) ?? "level-error"),
+            : (readinessBudgetErrorDesc(err) ??
+              sendBudgetErrorDesc(err) ??
+              "level-error"),
         },
         observedAt: now().toISOString(),
       },
