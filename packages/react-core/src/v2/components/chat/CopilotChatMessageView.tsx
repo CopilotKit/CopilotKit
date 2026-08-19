@@ -595,6 +595,13 @@ export function CopilotChatMessageView({
     // Conservative height estimate. Items are measured by ResizeObserver after
     // first render so the estimate only affects the initial total height.
     estimateSize: () => 100,
+    // Key items by message id instead of index: deduplicatedMessages can
+    // merge/remove entries mid-list (duplicate ids, HITL run syncs), which
+    // shifts every subsequent index. Index-keyed measurement caches then
+    // misattribute heights to the wrong message until re-measured, making the
+    // list jump while scrolling. Stable keys keep the virtualizer's per-item
+    // measurements (and React keys) attached to the right message.
+    getItemKey: (index) => deduplicatedMessages[index]?.id ?? index,
     overscan: 5,
     measureElement: (el: Element) => el?.getBoundingClientRect().height ?? 0,
     // Assume a 600 px viewport before the real element is measured so that
