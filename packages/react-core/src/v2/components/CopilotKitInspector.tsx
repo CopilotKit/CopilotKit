@@ -50,6 +50,12 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   }, []);
 
   React.useEffect(() => {
+    if (inspectorRef.current) {
+      inspectorRef.current.core = core ?? null;
+    }
+  }, [InspectorComponent, core]);
+
+  React.useEffect(() => {
     if (openRequest) {
       inspectorRef.current?.openInspector("message_toolbar", openRequest);
     }
@@ -58,9 +64,7 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   // During SSR (and until the client finishes loading), render nothing to keep markup consistent.
   if (!InspectorComponent) return null;
 
-  return (
-    <InspectorComponent ref={inspectorRef} {...rest} core={core ?? null} />
-  );
+  return <InspectorComponent ref={inspectorRef} {...rest} />;
 };
 
 CopilotKitInspector.displayName = "CopilotKitInspector";
