@@ -322,16 +322,18 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
     const localhostHosts = new Set(["localhost", "127.0.0.1"]);
     const isLocalhost = localhostHosts.has(window.location?.hostname ?? "");
+    const canShowLocalInspectorAction =
+      process.env.NODE_ENV === "development" && isLocalhost;
 
     if (showDevConsole === true) {
       // Explicitly show the inspector
       setShouldRenderInspector(true);
-      setIsLocalInspectorEnabled(isLocalhost);
+      setIsLocalInspectorEnabled(canShowLocalInspectorAction);
     } else if (showDevConsole === "auto") {
       // Show on localhost or 127.0.0.1 only
       if (isLocalhost) {
         setShouldRenderInspector(true);
-        setIsLocalInspectorEnabled(true);
+        setIsLocalInspectorEnabled(canShowLocalInspectorAction);
       } else {
         setShouldRenderInspector(false);
         setIsLocalInspectorEnabled(false);
