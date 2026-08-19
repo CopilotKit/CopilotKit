@@ -68,6 +68,7 @@ class AgentState(CopilotKitState):
     planSteps: List[Dict[str, Any]] = []
     currentStepIndex: int = -1
     planStatus: str = ""
+    planContinuationCount: int = 0
 
 
 def summarize_items_for_prompt(state: AgentState) -> str:
@@ -155,6 +156,10 @@ backend_tools = [
 # Extract tool names from backend_tools for comparison
 backend_tool_names = [tool.name for tool in backend_tools]
 
+# Keep this below LangGraph's default recursion limit: tool cycles consume two
+# graph steps each (chat_node -> tool_node -> chat_node).
+MAX_AUTOMATIC_PLAN_ITERATIONS = 8
+
 # Frontend tool allowlist to keep tool count under API limits and avoid noise
 FRONTEND_TOOL_ALLOWLIST = set(
     [
@@ -195,7 +200,7 @@ FRONTEND_TOOL_ALLOWLIST = set(
 
 async def chat_node(
     state: AgentState, config: RunnableConfig
-) -> Command[Literal["tool_node", "__end__"]]:
+) -> Command[Literal["chat_node", "tool_node", "__end__"]]:
     """
     Standard chat node based on the ReAct design pattern. It handles:
     - The model to use (and binds in CopilotKit actions and the tools defined above)
@@ -278,6 +283,10 @@ async def chat_node(
     plan_steps = state.get("planSteps", []) or []
     current_step_index = state.get("currentStepIndex", -1)
     plan_status = state.get("planStatus", "")
+    try:
+        plan_continue_count = int(state.get("planContinuationCount", 0) or 0)
+    except Exception:
+        plan_continue_count = 0
     field_schema = (
         "FIELD SCHEMA (authoritative):\n"
         "- project.data:\n"
@@ -441,6 +450,9 @@ async def chat_node(
                             "planSteps": state.get("planSteps", []),
                             "currentStepIndex": state.get("currentStepIndex", -1),
                             "planStatus": state.get("planStatus", ""),
+                            "planContinuationCount": state.get(
+                                "planContinuationCount", 0
+                            ),
                         },
                     )
     except Exception:
@@ -598,7 +610,74 @@ async def chat_node(
     except Exception:
         plan_updates = {}
 
-    # only route to tool node if tool is not in the tools list
+    # 5. If there are remaining steps, auto-continue; otherwise end the graph.
+    try:
+        effective_steps = plan_updates.get("planSteps", plan_steps)
+        effective_plan_status = plan_updates.get("planStatus", plan_status)
+        has_remaining = bool(effective_steps) and any(
+            (s.get("status") not in ("completed", "failed")) for s in effective_steps
+        )
+    except Exception:
+        effective_steps = plan_steps
+        effective_plan_status = plan_status
+        has_remaining = False
+
+    # This is a per-invocation limit, not a consecutive no-tool-call limit.
+    # Backend tools route back through chat_node, so resetting this counter on
+    # every tool call would allow a tool-spinning model to hit LangGraph's
+    # recursion limit before this workflow can terminate cleanly.
+    if (
+        effective_steps
+        and effective_plan_status != "completed"
+        and plan_continue_count >= MAX_AUTOMATIC_PLAN_ITERATIONS - 1
+    ):
+        all_steps_completed = all(
+            step.get("status") == "completed" for step in effective_steps
+        )
+        terminal_plan_status = "completed" if all_steps_completed else "failed"
+        terminal_plan_steps = effective_steps
+        if not all_steps_completed:
+            terminal_plan_steps = []
+            for step in effective_steps:
+                copied_step = dict(step)
+                if copied_step.get("status") not in ("completed", "failed"):
+                    copied_step["status"] = "failed"
+                    copied_step["note"] = (
+                        "Stopped after repeated automatic retries without plan progress."
+                    )
+                terminal_plan_steps.append(copied_step)
+
+        terminal_message = (
+            "All plan steps are complete, so I'm marking the plan completed "
+            "and ending the automatic follow-up instead of retrying again."
+            if all_steps_completed
+            else (
+                "I couldn't complete the plan automatically after several retries. "
+                "The unfinished steps have been marked failed so the workflow can stop cleanly. "
+                "Please retry with clearer instructions or adjust the plan."
+            )
+        )
+
+        return Command(
+            goto=END,
+            update={
+                "messages": [AIMessage(content=terminal_message)],
+                "items": state.get("items", []),
+                "globalTitle": state.get("globalTitle", ""),
+                "globalDescription": state.get("globalDescription", ""),
+                "itemsCreated": state.get("itemsCreated", 0),
+                "lastAction": state.get("lastAction", ""),
+                "planSteps": terminal_plan_steps,
+                "currentStepIndex": plan_updates.get(
+                    "currentStepIndex", current_step_index
+                ),
+                "planStatus": terminal_plan_status,
+                "planContinuationCount": 0,
+                "__last_tool_guidance": None,
+            },
+        )
+
+    # Only route to tool node if the response includes a backend tool call.
     if route_to_tool_node(response):
         print("routing to tool node")
         return Command(
@@ -615,22 +694,11 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": plan_continue_count + 1,
                 # guidance for follow-up after tool execution
                 "__last_tool_guidance": "If a deletion tool reports success (deleted:ID), acknowledge deletion even if the item no longer exists afterwards.",
             },
         )
-
-    # 5. If there are remaining steps, auto-continue; otherwise end the graph.
-    try:
-        effective_steps = plan_updates.get("planSteps", plan_steps)
-        effective_plan_status = plan_updates.get("planStatus", plan_status)
-        has_remaining = bool(effective_steps) and any(
-            (s.get("status") not in ("completed", "failed")) for s in effective_steps
-        )
-    except Exception:
-        effective_steps = plan_steps
-        effective_plan_status = plan_status
-        has_remaining = False
 
     # Determine if this response contains frontend tool calls that must be delivered to the client
     try:
@@ -660,6 +728,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": 0,
                 "__last_tool_guidance": (
                     "Frontend tool calls issued. Waiting for client tool results before continuing."
                 ),
@@ -683,6 +752,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": plan_continue_count + 1,
                 "__last_tool_guidance": (
                     "Plan is in progress. Proceed to the next step automatically. "
                     "Update the step status to in_progress, call necessary tools, and mark it completed when done."
@@ -715,6 +785,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": plan_continue_count + 1,
                 "__last_tool_guidance": (
                     "All steps are completed. Call complete_plan to mark the plan as finished, "
                     "then present a concise summary of outcomes."
@@ -741,6 +812,7 @@ async def chat_node(
             "currentStepIndex": state.get("currentStepIndex", -1),
             "planStatus": state.get("planStatus", ""),
             **plan_updates,
+            "planContinuationCount": 0,
             "__last_tool_guidance": None,
         },
     )
