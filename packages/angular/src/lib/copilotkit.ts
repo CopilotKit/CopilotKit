@@ -286,7 +286,7 @@ export class CopilotKit {
     this.#syncBuiltInActivityMessageRenderers();
     this.#syncBuiltInOpenGenerativeUI();
     scheduleInspectorMount({
-      config: this.#config,
+      enableInspector: this.#config.enableInspector,
       core: this.core,
       destroyRef: this.#destroyRef,
       document: this.#document,

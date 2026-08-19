@@ -149,7 +149,21 @@ describe("CopilotKitProvider", () => {
     });
 
     it("preserves the legacy showDevConsole auto host list", async () => {
-      const restore = stubHostname("0.0.0.0");
+      const restoreLocalhost = stubHostname("localhost");
+      try {
+        const localView = render(
+          <CopilotKitProvider showDevConsole="auto">child</CopilotKitProvider>,
+        );
+        await waitFor(() => {
+          expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+        });
+        localView.unmount();
+      } finally {
+        restoreLocalhost();
+      }
+
+      vi.mocked(defineWebInspector).mockClear();
+      const restoreAnyAddress = stubHostname("0.0.0.0");
       try {
         render(
           <CopilotKitProvider showDevConsole="auto">child</CopilotKitProvider>,
@@ -158,7 +172,7 @@ describe("CopilotKitProvider", () => {
         expect(document.querySelector("cpk-web-inspector")).toBeNull();
         expect(defineWebInspector).not.toHaveBeenCalled();
       } finally {
-        restore();
+        restoreAnyAddress();
       }
     });
 

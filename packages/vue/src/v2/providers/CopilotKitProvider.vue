@@ -111,34 +111,16 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   showDevConsole: undefined,
 });
 
-const shouldRenderInspector = ref(false);
-
-const updateInspectorVisibility = () => {
-  if (typeof window === "undefined") {
-    shouldRenderInspector.value = false;
-    return;
-  }
-  if (props.enableInspector !== undefined) {
-    shouldRenderInspector.value = props.enableInspector;
-    return;
-  }
+const shouldRenderInspector = computed(() => {
+  if (typeof window === "undefined") return false;
+  if (props.enableInspector !== undefined) return props.enableInspector;
   if (props.showDevConsole !== undefined) {
-    shouldRenderInspector.value =
-      props.showDevConsole === "auto"
-        ? LEGACY_AUTO_INSPECTOR_HOSTS.has(window.location?.hostname ?? "")
-        : props.showDevConsole;
-    return;
+    return props.showDevConsole === "auto"
+      ? LEGACY_AUTO_INSPECTOR_HOSTS.has(window.location?.hostname ?? "")
+      : props.showDevConsole;
   }
-  shouldRenderInspector.value = LOCAL_INSPECTOR_HOSTS.has(
-    window.location?.hostname ?? "",
-  );
-};
-
-watch(
-  [() => props.enableInspector, () => props.showDevConsole],
-  updateInspectorVisibility,
-  { immediate: true },
-);
+  return LOCAL_INSPECTOR_HOSTS.has(window.location?.hostname ?? "");
+});
 
 const initialFrontendTools = props.frontendTools;
 const initialHumanInTheLoop = props.humanInTheLoop;

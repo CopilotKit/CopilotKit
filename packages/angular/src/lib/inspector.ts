@@ -2,8 +2,6 @@ import { isPlatformBrowser } from "@angular/common";
 import { afterNextRender, type DestroyRef } from "@angular/core";
 import type { CopilotKitCore } from "@copilotkit/core";
 
-import type { CopilotKitConfig } from "./config";
-
 const LOCAL_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
 type InspectorElement = HTMLElement & {
@@ -20,7 +18,7 @@ export function shouldEnableInspector(
 }
 
 export function scheduleInspectorMount(input: {
-  config: CopilotKitConfig;
+  enableInspector?: boolean;
   core: CopilotKitCore;
   destroyRef: DestroyRef;
   document: Document;
@@ -29,7 +27,7 @@ export function scheduleInspectorMount(input: {
   if (!isPlatformBrowser(input.platformId)) return;
 
   const hostname = input.document.defaultView?.location?.hostname;
-  if (!shouldEnableInspector(input.config.enableInspector, hostname)) return;
+  if (!shouldEnableInspector(input.enableInspector, hostname)) return;
 
   let destroyed = false;
   let ownedInspector: InspectorElement | null = null;

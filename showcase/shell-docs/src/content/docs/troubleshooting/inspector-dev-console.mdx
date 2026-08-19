@@ -25,15 +25,13 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 React v2 still accepts `showDevConsole?: boolean | "auto"` as a deprecated
 compatibility alias. When both props are supplied, `enableInspector` wins.
 Otherwise, an explicit `showDevConsole` value keeps its existing behavior;
-`"auto"` uses the same local-host rule as an omitted `enableInspector`.
+`"auto"` retains its legacy behavior and enables only on `localhost` or
+`127.0.0.1` (not `0.0.0.0`).
 
 ## Vue
 
 ```vue
-<CopilotKitProvider
-  runtime-url="/api/copilotkit"
-  :enable-inspector="false"
->
+<CopilotKitProvider runtime-url="/api/copilotkit" :enable-inspector="false">
   <App />
 </CopilotKitProvider>
 ```
