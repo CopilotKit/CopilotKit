@@ -19,7 +19,7 @@ describe("CopilotKitInspector", () => {
   it("renders nothing until the web inspector module resolves", async () => {
     const wrapper = mount(CopilotKitInspector);
 
-    expect(wrapper.html()).toBe("<!--v-if-->");
+    expect(wrapper.find("cpk-web-inspector").exists()).toBe(false);
 
     await settleInspectorLoad();
 
@@ -45,13 +45,15 @@ describe("CopilotKitInspector", () => {
     await settleInspectorLoad();
 
     const inspector = wrapper.get("cpk-web-inspector");
-    const resolvedCore = (
-      inspector.element as HTMLElement & { core?: CopilotKitCoreVue }
-    ).core;
+    const inspectorElement = inspector.element as HTMLElement & {
+      autoAttachCore?: boolean;
+      core?: CopilotKitCoreVue;
+    };
 
     expect(inspector.attributes("data-testid")).toBe("inspector");
     expect(inspector.attributes("data-surface")).toBe("storybook");
-    expect(resolvedCore).toBeInstanceOf(CopilotKitCoreVue);
-    expect(resolvedCore?.runtimeUrl).toBe("/api/copilotkit");
+    expect(inspectorElement.autoAttachCore).toBe(false);
+    expect(inspectorElement.core).toBeInstanceOf(CopilotKitCoreVue);
+    expect(inspectorElement.core?.runtimeUrl).toBe("/api/copilotkit");
   });
 });

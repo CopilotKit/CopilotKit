@@ -1,4 +1,4 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,6 +26,8 @@ describe("CopilotKitProvider", () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   describe("Basic functionality", () => {
@@ -55,23 +57,20 @@ describe("CopilotKitProvider", () => {
   });
 
   describe("inspector visibility", () => {
-    function stubHostname(hostname: string): () => void {
-      const original = Object.getOwnPropertyDescriptor(window, "location");
-      Object.defineProperty(window, "location", {
-        value: { hostname },
-        configurable: true,
+    async function settleInspectorLoad(): Promise<void> {
+      await act(async () => {
+        await vi.dynamicImportSettled();
+        await new Promise((resolve) => setTimeout(resolve, 50));
       });
-      return () => {
-        if (original) Object.defineProperty(window, "location", original);
-      };
     }
 
     beforeEach(() => {
+      vi.stubEnv("NODE_ENV", "development");
       vi.mocked(defineWebInspector).mockClear();
     });
 
-    it("renders by default on local development hosts and passes the provider core", async () => {
-      const restore = stubHostname("0.0.0.0");
+    it("renders by default on any development host and passes the provider core before connection", async () => {
+      const restoreLocation = stubWindowLocation("http://192.168.1.25:3000");
       let providerCore: ReturnType<typeof useCopilotKit>["copilotkit"] | null =
         null;
       const Probe = () => {
@@ -88,93 +87,72 @@ describe("CopilotKitProvider", () => {
 
         await waitFor(() => {
           const inspector = document.querySelector<
-            HTMLElement & { core?: unknown }
+            HTMLElement & {
+              autoAttachCore?: boolean;
+              autoAttachCoreAtConnection?: boolean;
+              core?: unknown;
+              coreAtConnection?: unknown;
+            }
           >("cpk-web-inspector");
           expect(inspector?.core).toBe(providerCore);
+          expect(inspector?.autoAttachCore).toBe(false);
+          expect(inspector?.coreAtConnection).toBe(providerCore);
+          expect(inspector?.autoAttachCoreAtConnection).toBe(false);
         });
       } finally {
-        restore();
+        restoreLocation();
       }
     });
 
-    it("stays hidden by default on non-local hosts", async () => {
-      const restore = stubHostname("app.example.com");
-      try {
-        render(<CopilotKitProvider>child</CopilotKitProvider>);
-        await Promise.resolve();
-        expect(document.querySelector("cpk-web-inspector")).toBeNull();
-        expect(defineWebInspector).not.toHaveBeenCalled();
-      } finally {
-        restore();
-      }
-    });
-
-    it("honors explicit enableInspector values on any host", async () => {
-      const restore = stubHostname("app.example.com");
-      try {
-        const { rerender } = render(
-          <CopilotKitProvider enableInspector={true}>child</CopilotKitProvider>,
-        );
-        await waitFor(() => {
-          expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
-        });
-
-        rerender(
-          <CopilotKitProvider enableInspector={false}>
-            child
-          </CopilotKitProvider>,
-        );
-        await waitFor(() => {
-          expect(document.querySelector("cpk-web-inspector")).toBeNull();
-        });
-      } finally {
-        restore();
-      }
-    });
-
-    it("keeps showDevConsole as an alias and gives enableInspector precedence", async () => {
+    it("does not render or load when explicitly disabled in development", async () => {
       render(
-        <CopilotKitProvider showDevConsole={true} enableInspector={false}>
-          child
-        </CopilotKitProvider>,
+        <CopilotKitProvider enableInspector={false}>child</CopilotKitProvider>,
       );
-      await Promise.resolve();
+      await settleInspectorLoad();
       expect(document.querySelector("cpk-web-inspector")).toBeNull();
       expect(defineWebInspector).not.toHaveBeenCalled();
     });
 
-    it("preserves the legacy showDevConsole auto host list", async () => {
-      const restoreLocalhost = stubHostname("localhost");
-      try {
-        const localView = render(
-          <CopilotKitProvider showDevConsole="auto">child</CopilotKitProvider>,
-        );
-        await waitFor(() => {
-          expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
-        });
-        localView.unmount();
-      } finally {
-        restoreLocalhost();
-      }
-
-      vi.mocked(defineWebInspector).mockClear();
-      const restoreAnyAddress = stubHostname("0.0.0.0");
-      try {
-        render(
-          <CopilotKitProvider showDevConsole="auto">child</CopilotKitProvider>,
-        );
-        await Promise.resolve();
-        expect(document.querySelector("cpk-web-inspector")).toBeNull();
-        expect(defineWebInspector).not.toHaveBeenCalled();
-      } finally {
-        restoreAnyAddress();
-      }
+    it("never renders or loads in production, even when explicitly enabled", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={true}>
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
     });
 
-    it("does not render or load the inspector during SSR", () => {
+    it("does not let legacy showDevConsole disable the development Inspector", async () => {
+      render(
+        <CopilotKitProvider showDevConsole={false}>child</CopilotKitProvider>,
+      );
+      await waitFor(() => {
+        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+      });
+    });
+
+    it("does not let legacy showDevConsole enable the production Inspector", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("does not render or load the inspector during SSR", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubGlobal("window", undefined);
       const html = renderToString(
         <CopilotKitProvider enableInspector={true}>child</CopilotKitProvider>,
       );
+      await settleInspectorLoad();
       expect(html).not.toContain("cpk-web-inspector");
       expect(defineWebInspector).not.toHaveBeenCalled();
     });

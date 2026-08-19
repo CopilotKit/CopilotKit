@@ -5,10 +5,12 @@ props on the `CopilotKit` provider (from `@copilotkit/react-core/v2`).
 
 Two independent knobs:
 
-1. `showDevConsole` mounts the visual web inspector (floating panel).
+1. `enableInspector` disables the development-only visual Inspector when set
+   to `false`.
 2. `debug` controls console logging for the event pipeline.
 
-Both should be `'auto'` / off in production.
+The Inspector is always off in production. Configure `debug` separately for
+the logging behavior you need.
 
 ## Setup
 
@@ -20,7 +22,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      showDevConsole="auto"
       debug={{ events: true, lifecycle: true, verbose: false }}
     >
       {children}
@@ -29,8 +30,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`showDevConsole="auto"` enables the inspector only on `localhost` and
-`127.0.0.1`. In production it evaluates to `false`.
+The Inspector is enabled automatically in development browser builds on any
+host. Production builds never load it.
 
 ## Core Patterns
 
@@ -50,41 +51,34 @@ dump full message/tool-call payloads.
 ### Anchor the inspector on narrow viewports
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  showDevConsole="auto"
-  inspectorDefaultAnchor="bottom-left"
-/>
+<CopilotKit runtimeUrl="/api/copilotkit" inspectorDefaultAnchor="bottom-left" />
 ```
 
 ### Env-gate the inspector
 
 ```tsx
-<CopilotKit
-  runtimeUrl="/api/copilotkit"
-  showDevConsole={process.env.NODE_ENV !== "production"}
-/>
+<CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false} />
 ```
 
 ## Common Mistakes
 
-### HIGH — Shipping `showDevConsole={true}` to production
+### HIGH — Using `showDevConsole` to control the Inspector
 
 Wrong:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={true} />
+<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto" />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto" />
-// "auto" enables only on localhost / 127.0.0.1
+<CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false} />
 ```
 
-A hard `true` ships the Lit + markdown bundle to every end user and exposes
-a developer panel in production. `"auto"` is the right default.
+`showDevConsole` no longer controls Inspector visibility. Use
+`enableInspector={false}` to disable the development default; production is
+always guarded.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:301-321`
 

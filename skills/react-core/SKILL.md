@@ -58,7 +58,7 @@ your task — do not try to absorb the whole package from this file.
 
 1. **Provider shell** — the `CopilotKit` provider (from `@copilotkit/react-core/v2`) at or near the root (inside `"use client"` for
    Next.js App Router). Carries `runtimeUrl` (or `publicLicenseKey` for SPA), `headers`,
-   `credentials`, `properties`, `onError`, `debug`, `showDevConsole`.
+   `credentials`, `properties`, `onError`, `debug`, `enableInspector`.
 2. **Chat shell** — `CopilotChat` / `CopilotPopup` / `CopilotSidebar` or a composed
    `CopilotChatView` + slot primitives (`CopilotChatInput`, `CopilotChatMessageView`, etc.).
    All chat components ship from `@copilotkit/react-core/v2`. **`CopilotPanel` does not
@@ -74,7 +74,7 @@ your task — do not try to absorb the whole package from this file.
 | Mount the `CopilotKit` provider, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules              | `references/provider-setup.md`                                                          |
 | Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md`                                                         |
 | File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload                    | `references/attachments.md`                                                             |
-| Client-side debug tooling — `showDevConsole`, `debug` prop, lazy-loaded web inspector                     | `references/debug-mode.md`                                                              |
+| Client-side debug tooling — `enableInspector`, `debug` prop, lazy-loaded web inspector                    | `references/debug-mode.md`                                                              |
 | Read / subscribe to an agent (`useAgent`) and push global context (`useAgentContext`)                     | `references/agent-access.md`                                                            |
 | Feature-gate UI on declared agent capabilities (`useCapabilities`)                                        | `references/capabilities.md`                                                            |
 | Build a multi-agent UI (per-panel `useAgent`, agent-scoped tools, key-remount pattern)                    | `references/switching-agents.md` (+ `switching-agents-recipes.md` for concrete layouts) |

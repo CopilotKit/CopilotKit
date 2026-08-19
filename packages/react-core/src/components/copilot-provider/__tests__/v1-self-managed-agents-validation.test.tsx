@@ -27,21 +27,11 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   function renderKit(props: Partial<CopilotKitProps>) {
     return render(<CopilotKit {...props}>child</CopilotKit>);
-  }
-
-  function stubHostname(hostname: string): () => void {
-    const original = Object.getOwnPropertyDescriptor(window, "location");
-    Object.defineProperty(window, "location", {
-      value: { hostname },
-      configurable: true,
-    });
-    return () => {
-      if (original) Object.defineProperty(window, "location", original);
-    };
   }
 
   // A valid configuration must render without throwing AND without surfacing an
@@ -91,18 +81,14 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
   });
 
   it("delegates enableInspector to the v2 provider", async () => {
-    const restore = stubHostname("app.example.com");
-    try {
-      renderKit({
-        runtimeUrl: "http://localhost:3000/api/copilotkit",
-        enableInspector: true,
-      });
-      await waitFor(() => {
-        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
-      });
-      expect(defineWebInspector).toHaveBeenCalledTimes(1);
-    } finally {
-      restore();
-    }
+    vi.stubEnv("NODE_ENV", "development");
+    renderKit({
+      runtimeUrl: "http://localhost:3000/api/copilotkit",
+      enableInspector: true,
+    });
+    await waitFor(() => {
+      expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+    });
+    expect(defineWebInspector).toHaveBeenCalledTimes(1);
   });
 });

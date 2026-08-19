@@ -44,7 +44,8 @@ import { CopilotKitProvider } from "@copilotkit/vue/v2";
 You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicenseKey` (or a set of local agents), otherwise the provider warns in development and throws in production.
 
 <PropertyReference name="runtimeUrl" type="string">
-  The endpoint for the Copilot Runtime instance. When omitted but a public key is set, requests fall back to the Copilot Cloud chat endpoint.
+  The endpoint for the Copilot Runtime instance. When omitted but a public key
+  is set, requests fall back to the Copilot Cloud chat endpoint.
 </PropertyReference>
 
 <PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)">
@@ -59,11 +60,16 @@ You must provide at least one of `runtimeUrl`, `publicApiKey`, or `publicLicense
 </PropertyReference>
 
 <PropertyReference name="credentials" type="RequestCredentials">
-  Indicates whether the user agent should send or receive cookies for cross-origin requests. Set to `"include"` to enable HTTP-only cookie authentication (configure CORS with credentials on your runtime endpoint to match).
+  Indicates whether the user agent should send or receive cookies for
+  cross-origin requests. Set to `"include"` to enable HTTP-only cookie
+  authentication (configure CORS with credentials on your runtime endpoint to
+  match).
 </PropertyReference>
 
 <PropertyReference name="defaultThrottleMs" type="number">
-  Default throttle interval (in milliseconds) applied to `useAgent` composables that do not specify their own `throttleMs`. Must be a non-negative finite number; invalid values log an error and fall back to unthrottled.
+  Default throttle interval (in milliseconds) applied to `useAgent` composables
+  that do not specify their own `throttleMs`. Must be a non-negative finite
+  number; invalid values log an error and fall back to unthrottled.
 </PropertyReference>
 
 <PropertyReference name="publicApiKey" type="string">
@@ -81,7 +87,8 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="licenseToken" type="string">
-  Signed license token for offline verification of Enterprise Intelligence Platform features. Obtain it from https://dashboard.operations.copilotkit.ai.
+  Signed license token for offline verification of Enterprise Intelligence
+  Platform features. Obtain it from https://dashboard.operations.copilotkit.ai.
 </PropertyReference>
 
 <PropertyReference name="properties" type="Record<string, unknown>" default="{}">
@@ -101,52 +108,91 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="useSingleEndpoint" type="boolean">
-  Controls the runtime transport. `true` uses a single endpoint, `false` uses the REST transport, and when omitted the transport is auto-detected.
+  Controls the runtime transport. `true` uses a single endpoint, `false` uses
+  the REST transport, and when omitted the transport is auto-detected.
 </PropertyReference>
 
-<PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>" default="{}">
-  Local in-browser agents keyed by agent ID, for development only. These run client-side rather than through the runtime, so do not rely on them in production.
+<PropertyReference
+  name="agents__unsafe_dev_only"
+  type="Record<string, AbstractAgent>"
+  default="{}"
+>
+  Local in-browser agents keyed by agent ID, for development only. These run
+  client-side rather than through the runtime, so do not rely on them in
+  production.
 </PropertyReference>
 
-<PropertyReference name="selfManagedAgents" type="Record<string, AbstractAgent>" default="{}">
-  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only` (these take precedence on key collisions).
+<PropertyReference
+  name="selfManagedAgents"
+  type="Record<string, AbstractAgent>"
+  default="{}"
+>
+  Self-managed agents keyed by agent ID. Merged with `agents__unsafe_dev_only`
+  (these take precedence on key collisions).
 </PropertyReference>
 
 <PropertyReference name="renderToolCalls" type="VueToolCallRenderer<any>[]">
-  Renderers for tool calls, mapping a tool name and argument schema to a Vue component used to render the tool call in the UI.
+  Renderers for tool calls, mapping a tool name and argument schema to a Vue
+  component used to render the tool call in the UI.
 </PropertyReference>
 
-<PropertyReference name="renderActivityMessages" type="VueActivityMessageRenderer<unknown>[]" default="[]">
-  Renderers for activity messages, mapping an activity type and content schema to a Vue component. The built-in MCP Apps renderer is always merged in automatically; the A2UI and Open Generative UI renderers are merged in when those features are active.
+<PropertyReference
+  name="renderActivityMessages"
+  type="VueActivityMessageRenderer<unknown>[]"
+  default="[]"
+>
+  Renderers for activity messages, mapping an activity type and content schema
+  to a Vue component. The built-in MCP Apps renderer is always merged in
+  automatically; the A2UI and Open Generative UI renderers are merged in when
+  those features are active.
 </PropertyReference>
 
-<PropertyReference name="renderCustomMessages" type="VueCustomMessageRenderer[]" default="[]">
+<PropertyReference
+  name="renderCustomMessages"
+  type="VueCustomMessageRenderer[]"
+  default="[]"
+>
   Renderers for custom message types.
 </PropertyReference>
 
 <PropertyReference name="frontendTools" type="VueFrontendTool[]" default="[]">
-  Frontend tools available to the agent. Must be a stable array; to add or remove tools dynamically, use the [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) composable instead.
+  Frontend tools available to the agent. Must be a stable array; to add or
+  remove tools dynamically, use the
+  [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) composable instead.
 </PropertyReference>
 
-<PropertyReference name="humanInTheLoop" type="VueHumanInTheLoop[]" default="[]">
-  Human-in-the-loop tools that pause for user input before resolving. Must be a stable array; to add or remove them dynamically, use the [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) composable instead.
+<PropertyReference
+  name="humanInTheLoop"
+  type="VueHumanInTheLoop[]"
+  default="[]"
+>
+  Human-in-the-loop tools that pause for user input before resolving. Must be a
+  stable array; to add or remove them dynamically, use the
+  [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) composable
+  instead.
 </PropertyReference>
 
-<PropertyReference name="openGenerativeUI" type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }">
-  Configuration for Open Generative UI. `sandboxFunctions` exposes host functions to generated sandboxed UI (callable via `Websandbox.connection.remote`), and `designSkill` overrides the default design guidelines provided to the generation tool. `sandboxFunctions` must be a stable array.
+<PropertyReference
+  name="openGenerativeUI"
+  type="{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }"
+>
+  Configuration for Open Generative UI. `sandboxFunctions` exposes host
+  functions to generated sandboxed UI (callable via
+  `Websandbox.connection.remote`), and `designSkill` overrides the default
+  design guidelines provided to the generation tool. `sandboxFunctions` must be
+  a stable array.
 </PropertyReference>
 
 <PropertyReference name="enableInspector" type="boolean">
-  Controls the CopilotKit Inspector. `true` shows it on every browser host,
-  `false` hides it, and an omitted value shows it only on `localhost`,
-  `127.0.0.1`, or `0.0.0.0`. The Inspector is not loaded during SSR. In a Vue
-  template, pass this as `:enable-inspector="false"`.
+  Controls the CopilotKit Inspector in development browser builds. It is shown
+  by default unless set to `false`, and is never loaded in production or during
+  SSR, even when explicitly set to `true`. In a Vue template, pass this as
+  `:enable-inspector="false"`.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This compatibility alias retains its
-  existing behavior when `enableInspector` is omitted. `enableInspector` wins
-  when both props are supplied.
+<PropertyReference name="showDevConsole" type='boolean | "auto"'>
+  **Deprecated for Inspector control:** this prop no longer changes Inspector
+  visibility. Use `enableInspector` instead.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -190,8 +236,13 @@ function handleError(event: {
 
 </PropertyReference>
 
-<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default='{ horizontal: "right", vertical: "top" }'>
-  Default anchor corner for the inspector button and window. Used only on first load, before the user drags it to a custom position.
+<PropertyReference
+  name="inspectorDefaultAnchor"
+  type='{ horizontal: "left" | "right"; vertical: "top" | "bottom" }'
+  default='{ horizontal: "right", vertical: "top" }'
+>
+  Default anchor corner for the inspector button and window. Used only on first
+  load, before the user drags it to a custom position.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">

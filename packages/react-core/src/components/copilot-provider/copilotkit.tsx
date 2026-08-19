@@ -57,6 +57,7 @@ import {
   randomUUID,
   ConfigurationError,
   MissingPublicApiKeyError,
+  shouldEnableInspector,
 } from "@copilotkit/shared";
 import type { FrontendAction } from "../../types/frontend-action";
 import useFlatCategoryStore from "../../hooks/use-flat-category-store";
@@ -80,7 +81,11 @@ import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
-  const showInspector = shouldShowDevConsole(props.enableInspector);
+  const showInspector = shouldEnableInspector({
+    enableInspector: props.enableInspector,
+    isBrowser: typeof window !== "undefined",
+    isDevelopment: process.env.NODE_ENV === "development",
+  });
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
@@ -103,7 +108,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitV2Provider
             {...v2Props}
-            showDevConsole={showInspector}
+            enableInspector={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}
           >

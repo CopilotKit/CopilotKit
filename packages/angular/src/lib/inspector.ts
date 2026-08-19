@@ -1,33 +1,38 @@
 import { isPlatformBrowser } from "@angular/common";
-import { afterNextRender, type DestroyRef } from "@angular/core";
+import {
+  afterNextRender,
+  InjectionToken,
+  isDevMode,
+  type DestroyRef,
+} from "@angular/core";
 import type { CopilotKitCore } from "@copilotkit/core";
+import { shouldEnableInspector } from "@copilotkit/shared";
+import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
-const LOCAL_INSPECTOR_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
+type InspectorElement = WebInspectorElement;
 
-type InspectorElement = HTMLElement & {
-  core: CopilotKitCore | null;
-  autoAttachCore: boolean;
-};
-
-export function shouldEnableInspector(
-  enableInspector: boolean | undefined,
-  hostname: string | undefined,
-): boolean {
-  if (enableInspector !== undefined) return enableInspector;
-  return LOCAL_INSPECTOR_HOSTS.has(hostname ?? "");
-}
+export const ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE =
+  new InjectionToken<boolean>("CopilotKit Inspector development mode", {
+    factory: isDevMode,
+  });
 
 export function scheduleInspectorMount(input: {
   enableInspector?: boolean;
+  isDevelopment: boolean;
   core: CopilotKitCore;
   destroyRef: DestroyRef;
   document: Document;
   platformId: object;
 }): void {
-  if (!isPlatformBrowser(input.platformId)) return;
-
-  const hostname = input.document.defaultView?.location?.hostname;
-  if (!shouldEnableInspector(input.enableInspector, hostname)) return;
+  if (
+    !shouldEnableInspector({
+      enableInspector: input.enableInspector,
+      isBrowser: isPlatformBrowser(input.platformId),
+      isDevelopment: input.isDevelopment,
+    })
+  ) {
+    return;
+  }
 
   let destroyed = false;
   let ownedInspector: InspectorElement | null = null;
@@ -53,8 +58,7 @@ export function scheduleInspectorMount(input: {
             module.WEB_INSPECTOR_TAG,
           ) as unknown as InspectorElement);
 
-        inspector.autoAttachCore = false;
-        inspector.core = input.core;
+        module.configureWebInspectorElement(inspector, input.core);
 
         if (!existing) {
           input.document.body.appendChild(inspector);

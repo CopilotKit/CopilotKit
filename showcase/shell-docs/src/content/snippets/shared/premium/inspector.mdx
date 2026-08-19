@@ -12,15 +12,15 @@
 
 The CopilotKit Inspector is a built-in debugging tool that overlays on your app, giving you full visibility into what's happening between your frontend and your agents in real time.
 
-| Feature | Description |
-| --- | --- |
-| **Threads** | Inspect real Threads and their messages, AG-UI events, and state. |
-| **AG-UI Events** | View the raw AG-UI event stream between your frontend and agent in real time. |
-| **Available Agents** | See which agents are connected and available to your app. |
-| **Agent State** | Inspect your agent's current state as it updates. |
-| **Frontend Tools** | See what tools you've defined on the frontend and their parameter schemas. |
-| **Context** | View the context you've provided to the agent, including readables and document context. |
-| **Project Context** | See trusted organization, project, plan, Thread usage, expiry, and license-aware actions when the Runtime supplies them. |
+| Feature              | Description                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Threads**          | Inspect real Threads and their messages, AG-UI events, and state.                                                        |
+| **AG-UI Events**     | View the raw AG-UI event stream between your frontend and agent in real time.                                            |
+| **Available Agents** | See which agents are connected and available to your app.                                                                |
+| **Agent State**      | Inspect your agent's current state as it updates.                                                                        |
+| **Frontend Tools**   | See what tools you've defined on the frontend and their parameter schemas.                                               |
+| **Context**          | View the context you've provided to the agent, including readables and document context.                                 |
+| **Project Context**  | See trusted organization, project, plan, Thread usage, expiry, and license-aware actions when the Runtime supplies them. |
 
 ## Navigation and Threads
 
@@ -47,13 +47,13 @@ Threads footer. They render independently: usage can appear without identity,
 plan, license, or action metadata, and action-only metadata does not invent
 usage.
 
-| Usage state | Inspector behavior |
-| --- | --- |
-| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
-| Unlimited | Shows the trusted used count with **Unlimited** and no progress bar. |
-| Unknown limit | Shows the trusted used count with **Limit unavailable**, but invents no numeric limit or progress. |
-| Known expiry count | Shows the count, including `0 Expiring Soon`. |
-| Missing or malformed expiry | Hides the expiry value without hiding valid base usage. |
+| Usage state                 | Inspector behavior                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Finite                      | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
+| Unlimited                   | Shows the trusted used count with **Unlimited** and no progress bar.                                                        |
+| Unknown limit               | Shows the trusted used count with **Limit unavailable**, but invents no numeric limit or progress.                          |
+| Known expiry count          | Shows the count, including `0 Expiring Soon`.                                                                               |
+| Missing or malformed expiry | Hides the expiry value without hiding valid base usage.                                                                     |
 
 `Expiring Soon` describes a future retention-policy threshold in the next 24
 hours. It does not prove that the thread culler ran or that the Inspector locked
@@ -62,12 +62,12 @@ or deleted a Thread.
 When Threads is locked, the Runtime's license state controls the copy and any
 action:
 
-| License state | Inspector behavior |
-| --- | --- |
-| Active | Explains that the Runtime has no Threads endpoints and shows no locked action. |
-| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
-| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
-| Unknown | Shows neutral unavailable copy without an action. |
+| License state | Inspector behavior                                                             |
+| ------------- | ------------------------------------------------------------------------------ |
+| Active        | Explains that the Runtime has no Threads endpoints and shows no locked action. |
+| Not enabled   | Shows **Enable Intelligence** only for a matching trusted action.              |
+| Expired       | Shows **Renew** or **Manage Your Plan** only for a matching trusted action.    |
+| Unknown       | Shows neutral unavailable copy without an action.                              |
 
 A valid managed footer can show **Manage Your Plan** only for a matching trusted
 action. Managed Enterprise has no manage-plan action, and Team Self-Hosted has
@@ -90,8 +90,8 @@ Thread work.
 
 ## Showing or hiding the Inspector
 
-By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
-`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+By default, the Inspector appears in development browser builds on any host.
+Set `enableInspector` to `false` to hide it during development:
 
 ```tsx
 <CopilotKit
@@ -102,8 +102,8 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 </CopilotKit>
 ```
 
-Set `enableInspector` to `true` to show it on another host, including in a
-production build. CopilotKit always uses an explicit `true` or `false` value.
+The Inspector is never loaded in production or during server-side rendering,
+even when `enableInspector` is explicitly set to `true`.
 
 `NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY` is a browser-visible publishable key and is
 a **different credential** from the server-side `INTELLIGENCE_API_KEY` that

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../../components/chat/CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../CopilotKitProvider";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 const assistantMessage: AssistantMessage = {
   id: "assistant-message",
@@ -11,21 +12,11 @@ const assistantMessage: AssistantMessage = {
   content: "A response to inspect.",
 };
 
-const originalLocation = Object.getOwnPropertyDescriptor(window, "location");
-
-function renderAssistantMessage(
-  hostname: string,
-  showDevConsole: boolean | "auto" = true,
-) {
-  Object.defineProperty(window, "location", {
-    value: { hostname },
-    configurable: true,
-  });
-
+function renderAssistantMessage(enableInspector?: boolean) {
   return render(
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      showDevConsole={showDevConsole}
+      enableInspector={enableInspector}
     >
       <CopilotChatConfigurationProvider threadId="thread-id">
         <CopilotChatAssistantMessage message={assistantMessage} />
@@ -36,39 +27,29 @@ function renderAssistantMessage(
 
 afterEach(() => {
   vi.unstubAllEnvs();
-
-  if (originalLocation) {
-    Object.defineProperty(window, "location", originalLocation);
-  }
 });
 
 describe("CopilotKitProvider local Inspector action", () => {
-  it("renders in development on localhost when the Inspector is enabled", async () => {
+  it("renders in development on any browser host", async () => {
     vi.stubEnv("NODE_ENV", "development");
+    const restoreLocation = stubWindowLocation("http://192.168.1.25:3000");
 
-    renderAssistantMessage("localhost");
-    await act(async () => {});
+    try {
+      renderAssistantMessage();
+      await act(async () => {});
 
-    expect(
-      screen.getByRole("button", { name: /view in inspector/i }),
-    ).toBeDefined();
+      expect(
+        screen.getByRole("button", { name: /view in inspector/i }),
+      ).toBeDefined();
+    } finally {
+      restoreLocation();
+    }
   });
 
-  it("does not render in production, even on localhost", async () => {
+  it("does not render in production, even when explicitly enabled", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
-    renderAssistantMessage("localhost");
-    await act(async () => {});
-
-    expect(
-      screen.queryByRole("button", { name: /view in inspector/i }),
-    ).toBeNull();
-  });
-
-  it("does not render on a non-local domain, even in development", async () => {
-    vi.stubEnv("NODE_ENV", "development");
-
-    renderAssistantMessage("example.com");
+    renderAssistantMessage(true);
     await act(async () => {});
 
     expect(
@@ -79,7 +60,7 @@ describe("CopilotKitProvider local Inspector action", () => {
   it("does not render when the Inspector is disabled", async () => {
     vi.stubEnv("NODE_ENV", "development");
 
-    renderAssistantMessage("localhost", false);
+    renderAssistantMessage(false);
     await act(async () => {});
 
     expect(

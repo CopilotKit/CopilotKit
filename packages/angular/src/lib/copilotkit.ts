@@ -64,7 +64,10 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
-import { scheduleInspectorMount } from "./inspector";
+import {
+  scheduleInspectorMount,
+  ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+} from "./inspector";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -92,6 +95,9 @@ export class CopilotKit {
   readonly #destroyRef = inject(DestroyRef);
   readonly #document = inject(DOCUMENT);
   readonly #platformId = inject(PLATFORM_ID);
+  readonly #isInspectorDevelopmentMode = inject(
+    ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+  );
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
@@ -287,6 +293,7 @@ export class CopilotKit {
     this.#syncBuiltInOpenGenerativeUI();
     scheduleInspectorMount({
       enableInspector: this.#config.enableInspector,
+      isDevelopment: this.#isInspectorDevelopmentMode,
       core: this.core,
       destroyRef: this.#destroyRef,
       document: this.#document,

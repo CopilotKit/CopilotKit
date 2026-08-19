@@ -54,8 +54,9 @@ export interface CopilotKitConfig {
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
   /**
-   * Enable or disable the CopilotKit Inspector.
-   * When omitted, the inspector is shown on local development hosts only.
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
    */
   enableInspector?: boolean;
 }

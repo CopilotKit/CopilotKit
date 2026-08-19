@@ -17,7 +17,7 @@ You can find more information about self-hosting CopilotKit [here](/direct-to-ll
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>
+<CopilotKit runtimeUrl="<your-runtime-url>">// ... your app ...</CopilotKit>;
 ```
 
 ## Properties
@@ -188,6 +188,7 @@ This is an Enterprise Intelligence Platform feature.
 
 <PropertyReference name="enableInspector" type="boolean">
   Enable or disable the CopilotKit Inspector, letting you inspect AG-UI events,
-  view agent messages, check agent state, and visualize agent context. Defaults
-  to enabled.
+  view agent messages, check agent state, and visualize agent context. It is
+  enabled by default in development browser builds and is always disabled in
+  production and during server rendering.
 </PropertyReference>
