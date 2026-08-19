@@ -120,7 +120,7 @@ export function CopilotChat({
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
 
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: resolvedAgentId,
     throttleMs,
   });
@@ -1047,7 +1047,14 @@ export function CopilotChat({
     ...mergedProps,
     messages,
     // Input behavior props
-    onSubmitMessage: onSubmitInput,
+    // Gate submission on runtime readiness. While `isReady` is false the
+    // `agent` returned by useAgent is a provisional stand-in that `/info` will
+    // swap out; a message committed to it (and the composer cleared) is lost
+    // on that swap, surfacing as an empty assistant response. Withholding
+    // `onSubmitMessage` disables the send control (canSend keys off it) and
+    // makes Enter a no-op that preserves the composer text until the real
+    // agent is bound.
+    onSubmitMessage: isReady ? onSubmitInput : undefined,
     onStop: effectiveStopHandler,
     inputMode: effectiveMode,
     inputValue,
