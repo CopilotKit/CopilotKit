@@ -706,3 +706,53 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
   );
   expect(control).not.toContain("<FrameworkSetup");
 });
+
+test("renders executable Deep Agents state streaming in both languages", () => {
+  const loadSlug = "integrations/deepagents/generative-ui/state-rendering";
+  const doc = loadDoc(loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "deepagents/generative-ui/state-rendering",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug,
+      framework: "deepagents",
+    },
+    { framework: "deepagents" },
+  );
+
+  expect(output).toContain("class SearchesStateMiddleware(");
+  expect(output).toContain("AgentMiddleware[AgentState, Any, Any]");
+  expect(output).toContain("state_schema = AgentState");
+  expect(output).toContain("def report_research_progress(");
+  expect(output).toContain("runtime: ToolRuntime");
+  expect(output).toContain("Command(");
+  expect(output).toContain("tool_call_id=runtime.tool_call_id");
+  expect(output).toContain("tools=[report_research_progress]");
+  expect(output).toContain("SearchesStateMiddleware()");
+  expect(output).toContain("CopilotKitMiddleware()");
+  expect(output).toMatch(
+    /StateItem\(\s*state_key="searches",\s*tool="report_research_progress",\s*tool_argument="searches"/,
+  );
+
+  expect(output).toContain(
+    "const searchesStateMiddleware = createMiddleware({",
+  );
+  expect(output).toContain("const reportResearchProgress = tool(");
+  expect(output).toContain("runtime: ToolRuntime<typeof SearchesStateSchema>");
+  expect(output).toContain("new Command({");
+  expect(output).toContain("tool_call_id: runtime.toolCallId");
+  expect(output).toContain("tools: [reportResearchProgress]");
+  expect(output).toContain("copilotkitMiddleware");
+  expect(output).toMatch(
+    /stateItem\(\{\s*stateKey: "searches",\s*tool: "report_research_progress",\s*toolArgument: "searches"/,
+  );
+
+  expect(output).not.toContain("emit_research_progress");
+  expect(output).not.toContain("copilotkit_emit_state");
+  expect(output).not.toContain("copilotkitEmitState");
+  expect(output).not.toContain("chatNode");
+});
