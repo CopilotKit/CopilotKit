@@ -8,6 +8,7 @@ import {
   CvdiagProbeSession,
   wirePlaywrightPage,
   FIRST_TOKEN_GRACE_MS,
+  SEND_ENABLED_SELECTOR,
 } from "./d4-chat-roundtrip.js";
 import { filterEdgeHeaders } from "../../cvdiag/index.js";
 import { computeAbReport } from "../../cvdiag/ab-report.js";
@@ -3631,5 +3632,118 @@ describe("wirePlaywrightPage attach-fault telemetry (finding 3)", () => {
     await wired.goto("https://x.example.com/demos/agentic-chat", {});
     const st = await wired.readTurnState!();
     expect(st.sseAttachFailed).toBe(false);
+  });
+});
+
+// ── Readiness gate: send-control ordering ────────────────────────────────────
+//
+// react-core now gates chat submission on runtime readiness: while
+// `useAgent().isReady` is false, `CopilotChat` withholds `onSubmitMessage`,
+// which flips `canSend` false, renders `[data-testid="copilot-send-button"]`
+// with the HTML `disabled` attribute, and makes an Enter keypress a SILENT
+// no-op (the composer text is preserved, no turn starts, the assistant
+// response stays empty). A probe that types and immediately presses Enter
+// inside that provisional window sends into the void and the cell FALSELY reds.
+//
+// The driver's `sendTurn` therefore WAITS for the send control to become
+// ENABLED (`SEND_ENABLED_SELECTOR`, i.e. `:not([disabled])`) AFTER typing and
+// BEFORE pressing Enter. These tests pin that ordering with a fake page that
+// models the readiness gate: `press("Enter")` only COMMITS the turn (making the
+// assistant text observable) if the enabled-send wait happened first. Without
+// the wait (pre-fix driver) the Enter no-ops, the turn stays empty, and BOTH
+// the ordering assertion (the enabled-send wait is absent) and the green
+// assertion (empty response → red) fail — the local RED. With the wait the
+// ordering holds and the turn commits — the local GREEN.
+describe("d4 driver — readiness send-control ordering", () => {
+  interface OrderingProbe {
+    page: E2ePage;
+    /** Ordered log of page interactions: `type:*`, `waitForSelector:*`, `press:*`. */
+    calls: string[];
+  }
+
+  /**
+   * Fake page modelling the react-core readiness gate. The send control starts
+   * `disabled`; `waitForSelector(SEND_ENABLED_SELECTOR)` models Playwright
+   * blocking until the button is enabled — resolving it flips the internal
+   * "enabled" latch. `press("Enter")` commits the turn (makes `assistantText`
+   * observable through `evaluate`) ONLY if that latch is set, i.e. only if the
+   * driver waited for the enabled send control before pressing.
+   */
+  function makeOrderingPage(assistantText: string): OrderingProbe {
+    const calls: string[] = [];
+    let sendEnabledWaited = false;
+    let committed = false;
+    const page: E2ePage = {
+      async goto() {},
+      async type(sel, text) {
+        calls.push(`type:${sel}:${text}`);
+      },
+      async waitForSelector(sel) {
+        calls.push(`waitForSelector:${sel}`);
+        if (sel === SEND_ENABLED_SELECTOR) {
+          sendEnabledWaited = true;
+        }
+      },
+      async press(sel, key) {
+        calls.push(`press:${sel}:${key}`);
+        // Enter is a no-op unless the enabled-send wait happened first — the
+        // exact production behaviour of the readiness gate.
+        if (sendEnabledWaited) {
+          committed = true;
+        }
+      },
+      async textContent() {
+        return "";
+      },
+      async evaluate<R>(): Promise<R> {
+        return (committed ? assistantText : "") as unknown as R;
+      },
+      async close() {},
+    };
+    return { page, calls };
+  }
+
+  it("waits for the enabled send control BEFORE pressing Enter (type → wait-enabled → Enter)", async () => {
+    const probe = makeOrderingPage("Hello! Nice to meet you.");
+    const browser: E2eBrowser = {
+      async newContext(): Promise<E2eBrowserContext> {
+        return {
+          async newPage(): Promise<E2ePage> {
+            return probe.page;
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      // Keep the empty-response poll short so the pre-fix RED path fails fast
+      // (empty assistant text) instead of spinning the full page timeout.
+      textPollTimeoutMs: 100,
+    });
+    const writer = new CapturingWriter();
+
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+
+    // Ordering: the enabled-send wait must exist AND precede the Enter press.
+    const enabledWaitIdx = probe.calls.findIndex(
+      (c) => c === `waitForSelector:${SEND_ENABLED_SELECTOR}`,
+    );
+    const enterPressIdx = probe.calls.findIndex(
+      (c) => c === "press:textarea:Enter",
+    );
+    expect(enabledWaitIdx).toBeGreaterThanOrEqual(0);
+    expect(enterPressIdx).toBeGreaterThanOrEqual(0);
+    expect(enabledWaitIdx).toBeLessThan(enterPressIdx);
+
+    // And the readiness-gated turn actually commits → green (an early Enter
+    // would no-op, leaving an empty response → red).
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
   });
 });

@@ -483,6 +483,28 @@ export const D4_PROBED_DEMO_ROUTES = [
 ] as const;
 export type D4ProbedDemoRoute = (typeof D4_PROBED_DEMO_ROUTES)[number];
 
+/**
+ * Selector for the chat send control in its ENABLED state. `sendTurn` waits on
+ * this AFTER typing the message and BEFORE pressing Enter.
+ *
+ * WHY the wait exists: react-core now gates submission on runtime readiness —
+ * `CopilotChat` withholds `onSubmitMessage` while `useAgent().isReady` is false
+ * (the `agent` is a provisional stand-in `/info` will swap out). Withholding the
+ * handler flips `canSend` false, which renders the `[data-testid="copilot-send-button"]`
+ * with the HTML `disabled` attribute, and makes an Enter keypress a SILENT no-op:
+ * the composer text is preserved (not committed to the doomed provisional agent),
+ * so no turn starts and the assistant response stays empty. A probe that types
+ * and immediately presses Enter inside that provisional window sends into the
+ * void and the cell FALSELY reds. Waiting for the button to lose `disabled`
+ * (`:not([disabled])`) parks the send until the real agent is bound, so the Enter
+ * lands a real turn. The `data-testid` matches
+ * `CopilotChatInput.SendButton` (react-core `CopilotChatInput.tsx`); the
+ * `:not([disabled])` refinement matches only once `canSend` is true (readiness +
+ * non-empty composer), so it resolves precisely at the moment Enter will work.
+ */
+export const SEND_ENABLED_SELECTOR =
+  '[data-testid="copilot-send-button"]:not([disabled])' as const;
+
 // `PendingSseEvent`, `CvdiagProbeSession`, `defaultCvdiagBufferDir`, and
 // `nowMonoMs` were extracted to `../../cvdiag/probe-session.js` so the d5/d6
 // probe path can reuse the SAME probe-layer session. They are imported at the
@@ -1886,6 +1908,19 @@ async function runLevel(opts: {
     const sendTurn = async (): Promise<void> => {
       const typeBudget = Math.max(1, hardCeiling - Date.now());
       await pg.type("textarea", message, { timeout: typeBudget });
+      // READINESS GATE (react-core `isReady`): after typing, the send control is
+      // still `disabled` until the runtime reports ready — and an Enter keypress
+      // during that provisional window is a SILENT no-op (the message is never
+      // committed, the turn never starts, the assistant response stays empty →
+      // false red). Wait for the send button to become ENABLED
+      // (`:not([disabled])`) BEFORE pressing Enter so the send lands on the real
+      // (bound) agent. Bounded by the remaining first-token envelope so a page
+      // that never becomes ready reds on its own terms rather than hanging.
+      const readyBudget = Math.max(1, hardCeiling - Date.now());
+      await pg.waitForSelector(SEND_ENABLED_SELECTOR, {
+        state: "visible",
+        timeout: readyBudget,
+      });
       const pressRemaining = hardCeiling - Date.now();
       if (pressRemaining < SEND_PRESS_MIN_BUDGET_MS) {
         throw new SendBudgetExhaustedError(
