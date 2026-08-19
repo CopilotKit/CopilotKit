@@ -57,7 +57,10 @@ def _stream(chunk_size: int) -> tuple[list[dict], dict]:
         agent_name="agent",
         run_id="run-1",
         execution=execution,
-        event={"type": RuntimeEventTypes.ACTION_EXECUTION_START, "actionName": TOOL_NAME},
+        event={
+            "type": RuntimeEventTypes.ACTION_EXECUTION_START,
+            "actionName": TOOL_NAME,
+        },
     )
 
     frames = []
@@ -108,7 +111,9 @@ def test_intermediate_predictions_are_prefixes_of_the_final_value():
         assert isinstance(partial, str), f"expected a string, got {partial!r}"
         # Trailing whitespace handling differs across the allowed range, so compare
         # on the stripped prefix rather than the raw frame.
-        assert final.startswith(partial.rstrip()), f"{partial!r} is not a prefix of {final!r}"
+        assert final.startswith(partial.rstrip()), (
+            f"{partial!r} is not a prefix of {final!r}"
+        )
 
 
 def test_unterminated_escape_does_not_escape_predict_state():
@@ -119,7 +124,10 @@ def test_unterminated_escape_does_not_escape_predict_state():
         agent_name="agent",
         run_id="run-1",
         execution=execution,
-        event={"type": RuntimeEventTypes.ACTION_EXECUTION_START, "actionName": TOOL_NAME},
+        event={
+            "type": RuntimeEventTypes.ACTION_EXECUTION_START,
+            "actionName": TOOL_NAME,
+        },
     )
 
     # 0.0.8 raises JSONDecodeError here; 1.x parses it. Either way predict_state()
@@ -129,7 +137,10 @@ def test_unterminated_escape_does_not_escape_predict_state():
         agent_name="agent",
         run_id="run-1",
         execution=execution,
-        event={"type": RuntimeEventTypes.ACTION_EXECUTION_ARGS, "args": '{"task": "line\\'},
+        event={
+            "type": RuntimeEventTypes.ACTION_EXECUTION_ARGS,
+            "args": '{"task": "line\\',
+        },
     )
 
 
