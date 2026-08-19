@@ -731,3 +731,40 @@ test("renders executable Deep Agents state streaming in both languages", () => {
   expect(output).not.toContain("copilotkitEmitState");
   expect(output).not.toContain("chatNode");
 });
+
+test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch", () => {
+  const slug = "generative-ui/a2ui/fixed-schema";
+  const doc = loadDoc(slug);
+  expect(doc).not.toBeNull();
+
+  const page = {
+    url: `langgraph-python/${slug}`,
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: slug,
+    framework: "langgraph-python",
+  };
+  const langgraph = renderPageToLlmText(page);
+
+  // The gating tags themselves must never reach a Markdown consumer.
+  expect(langgraph).not.toContain("WhenFrameworkHas");
+
+  // langgraph-python is `a2ui_pattern: schema-loading`, so only that branch
+  // survives. Emitting all three used to put the `schema-inline` prose ("the
+  // host language doesn't ship a `load_schema` JSON loader") directly above a
+  // snippet that calls `a2ui.load_schema`, and the `llm-driven` prose above
+  // the very same fixed-schema code.
+  expect(langgraph).toContain("Load the schema JSON at startup");
+  expect(langgraph).not.toContain("Define the schema inline");
+  expect(langgraph).not.toContain("Generate the schema dynamically");
+
+  // A framework on a different pattern gets its own branch, not langgraph's.
+  const mastra = renderPageToLlmText(
+    { ...page, url: `mastra/${slug}`, framework: "mastra" },
+    { framework: "mastra" },
+  );
+  expect(mastra).toContain("Generate the schema dynamically");
+  expect(mastra).not.toContain("Load the schema JSON at startup");
+  expect(mastra).not.toContain("Define the schema inline");
+});
