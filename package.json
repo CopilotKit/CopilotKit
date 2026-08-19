@@ -36,6 +36,7 @@
     "attw": "nx run-many -t attw --projects=packages/**",
     "check:packages": "nx run-many -t publint,attw --projects=packages/**",
     "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
+    "check:intelligence-env-names": "tsx scripts/validate-intelligence-env-names.ts",
     "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
     "generate:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs generate",
     "check:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs check",
