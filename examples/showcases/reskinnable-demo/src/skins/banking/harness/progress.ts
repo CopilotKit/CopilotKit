@@ -10,14 +10,16 @@ import type { HarnessProgressEvent } from "./types";
  * handler therefore has NO channel into the run's AG-UI stream, so a naked tool
  * renders as TOOL_CALL_START → minutes of silence → TOOL_CALL_RESULT.
  *
- * WHY IT IS DELIBERATELY IN-PROCESS AND NON-DURABLE: the property being compared
- * is that harness progress never enters the thread, so a mid-run reload loses
- * it. A durable store (Redis, the REST ledger) would paper over exactly that and
- * the reviewer would judge Arm A on a strength it does not have. Keep it in
- * memory; one dev/demo instance is the only target.
+ * WHY IT IS DELIBERATELY IN-PROCESS AND NON-DURABLE: harness progress never
+ * enters the thread, so a mid-run reload loses it — that is a real limitation of
+ * shipping the harness as a tool, and it should read as one. A durable store
+ * (Redis, the REST ledger) would paper over it and make this look more capable
+ * than it is. Keep it in memory; one dev/demo instance is the only target.
  *
- * Arm C needs none of this — the converter puts these events in the thread. If
- * Arm C wins, delete this file, its route, and `harness-console.tsx`.
+ * The alternative shape — handing the harness stream to the runtime's tanstack
+ * factory as its own agent, so the converter puts these events in the thread and
+ * a reload replays them — needs none of this file. If that is ever adopted,
+ * delete this module, its route, and `harness-console.tsx` with it.
  */
 
 interface Channel {

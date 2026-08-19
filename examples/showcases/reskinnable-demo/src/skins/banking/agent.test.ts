@@ -33,15 +33,6 @@ describe("buildBankingPrompt", () => {
     expect(buildBankingPrompt()).toContain("analyzeOffsiteExpenses");
   });
 
-  it("names it under both, and not under factory alone", () => {
-    // `factory` is ARM C — a different agent slot entirely, so banking's classic
-    // prompt must stay clean there too.
-    set("factory");
-    expect(buildBankingPrompt()).not.toContain("analyzeOffsiteExpenses");
-    set("both");
-    expect(buildBankingPrompt()).toContain("analyzeOffsiteExpenses");
-  });
-
   it("keeps the rest of the prompt identical in both modes", () => {
     // The gate must APPEND, never rewrite: a diverging classic prompt would make
     // every other banking beat behave differently depending on this flag.

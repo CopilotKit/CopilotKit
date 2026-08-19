@@ -38,9 +38,10 @@ export const Q2_REPORT_MESSAGE =
   "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.";
 
 /**
- * The long-running harness pill's message, shared with Arm C's router. Lives
- * here for the same reason `Q2_REPORT_MESSAGE` does: the router matches it by
- * string equality, so there must be exactly one copy of the string in the tree.
+ * The long-running harness pill's message. Exported rather than inlined for the
+ * same reason `Q2_REPORT_MESSAGE` is: `./skin.test.tsx` asserts exactly one pill
+ * carries it, and that guard is the only thing standing between a retitled pill
+ * and a silently missing beat.
  */
 export const EXPENSE_PILL_MESSAGE =
   "Here's my personal card statement from the Austin offsite — work out " +

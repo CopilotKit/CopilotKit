@@ -1,18 +1,14 @@
 import { EXPENSE_CSV_PUBLIC_PATH } from "./types";
 
 /**
- * How BOTH arms get the statement in front of the harness.
+ * How the statement gets in front of the harness.
  *
- * SHARED on purpose, and it is the one piece of Arm A's plumbing Arm C also
- * uses: the two arms are only comparable if the CSV arrives identically, so a
- * second copy of this fetch — with its own port fallback and its own idea of
- * what a bad response means — would quietly make the comparison about the
- * fixture rather than about the streaming seam.
- *
- * It lives here rather than in `as-tool.ts` because that file is Arm A's and is
- * meant to be DELETABLE if Arm C wins; it lives here rather than in `types.ts`
- * because that module is imported by client components and must stay free of
- * server-side URL construction.
+ * It lives in its own module rather than inside `as-tool.ts` because that file is
+ * the tool wrapper and is meant to stay DELETABLE — the harness could instead be
+ * handed to the runtime's tanstack factory as its own agent, and this fetch would
+ * carry over unchanged. It does not live in `types.ts` either, because that
+ * module is imported by client components and must stay free of server-side URL
+ * construction.
  */
 
 /**

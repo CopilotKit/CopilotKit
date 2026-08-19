@@ -9,19 +9,22 @@ import type { HarnessProgressEvent, HarnessSummary } from "./types";
 import { prepareWorkspace, readSummary } from "./workspace";
 
 /**
- * ARM A. The harness as a `defineTool`.
+ * The harness as a `defineTool`.
  *
  * SERVER-SAFE: no client directive, no JSX, no React, no `.tsx` imports — it is
  * imported by banking's server-only agent module.
  *
- * The shape of this file IS the finding under comparison: `execute` returns one
- * resolved value, so every intermediate frame leaves through `publishProgress`
- * (a second transport) instead of the run's own event stream. Nothing here
- * reaches the thread, which is why a mid-run reload loses the journey and the
- * run replays as a single tool chip.
+ * The shape of this file carries a real limitation, and it is worth naming rather
+ * than hiding: `execute` returns one resolved value, so every intermediate frame
+ * leaves through `publishProgress` (a SECOND transport) instead of the run's own
+ * event stream. Nothing here reaches the thread, which is why a mid-run reload
+ * loses the journey and the run replays as a single tool chip.
  *
- * Arm C deletes this file and hands `createExpenseHarnessStream` to the
- * runtime's tanstack factory instead.
+ * The alternative is to hand `createExpenseHarnessStream` to the runtime's
+ * tanstack factory as a dedicated agent instead, which puts the same frames in
+ * the thread and makes them replayable. That shape was prototyped and removed to
+ * keep this change reviewable; it deletes this file, `progress.ts` and
+ * `harness-console.tsx` rather than modifying them.
  */
 
 export interface HarnessDeps {

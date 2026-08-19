@@ -1,39 +1,19 @@
 /**
  * Shared vocabulary for the long-running expense harness. SERVER-SAFE and
  * CLIENT-SAFE: plain types plus one pure parser, no JSX and no runtime imports,
- * so `agent.ts` (server), `harness-agent.ts` (server), and the report card
- * (client) can all import it.
- *
- * Every type here is shared by BOTH arms. Only `progress.ts` and `as-tool.ts`
- * are Arm-A-specific.
+ * so `agent.ts` (server) and the report card (client) can both import it.
  */
 
 /** Where the bundled fixture is served from. */
 export const EXPENSE_CSV_PUBLIC_PATH = "/sample-expenses-offsite.csv";
 
 /**
- * Arm A's side-channel id. A FIXED constant, not a per-run id: the console must
- * subscribe while the tool is still in flight, and a tool's `runId` only reaches
- * the client in its RESULT. One concurrent harness run per demo instance is a
- * correct constraint for a presenter demo, and it removes the id plumbing.
+ * The harness's side-channel id. A FIXED constant, not a per-run id: the console
+ * must subscribe while the tool is still in flight, and a tool's `runId` only
+ * reaches the client in its RESULT. One concurrent harness run per demo instance
+ * is a correct constraint for a presenter demo, and it removes the id plumbing.
  */
 export const HARNESS_RUN_CHANNEL = "banking-harness";
-
-/**
- * ARM C's agent id — a NON-skin key in `agentRegistry`.
- *
- * Deliberately not equal to any skin id: the shell's `agentId={skin.id}` binding
- * stays untouched and Arm C's page overrides it with a nested
- * `CopilotChatConfigurationProvider` instead (verified: react-core resolves
- * `agentId ?? parentConfig?.agentId ?? DEFAULT`, so a nested explicit id wins for
- * that subtree with zero shell edits).
- *
- * It shares its STRING with `HARNESS_RUN_CHANNEL` by coincidence of naming only
- * — they are different namespaces (an agent slot vs an SSE channel) and neither
- * reads the other. Kept as two constants so renaming one cannot silently move
- * the other.
- */
-export const HARNESS_AGENT_ID = "banking-harness";
 
 /** The offsite the harness reasons against. */
 export const OFFSITE = {

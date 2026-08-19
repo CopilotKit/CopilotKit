@@ -31,10 +31,11 @@ const controllerFor = (signal: AbortSignal): AbortController => {
 };
 
 /**
- * The ONE place the harness is launched. Shared verbatim by both arms — Arm A
- * drains it privately; Arm C hands it to `BuiltInAgent`'s tanstack stream
- * factory. Keeping the launch here is what makes the two arms a one-file diff
- * rather than two implementations.
+ * The ONE place the harness is launched, kept separate from the tool wrapper that
+ * drains it. That separation is not decoration: changing how the stream is
+ * CONSUMED — a tool that drains it privately, or a tanstack factory agent that
+ * puts its events in the thread — then becomes a change at the call site rather
+ * than a second implementation of the launch.
  *
  * `withSandbox()` is MANDATORY: `codexText` declares
  * `requires = [SandboxCapability]` and throws
