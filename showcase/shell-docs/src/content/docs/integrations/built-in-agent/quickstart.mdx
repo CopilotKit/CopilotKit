@@ -85,8 +85,8 @@ Before you begin, you'll need the following:
         <Callout type="warn" title="Already have an agent? Do not use BuiltInAgent">
           `BuiltInAgent` is CopilotKit's *own* agent — it calls the model
           directly. Registering it as `default` means chat talks to it, not to
-          any agent you already wrote. It replaces your agent; it does not
-          connect to one.
+          any agent you already wrote. It replaces your agent rather than
+          connecting to it.
 
           If you already have a LangGraph, CrewAI, Mastra, ADK, Pydantic AI or
           other agent, take the frontend steps from this page but get the runtime
