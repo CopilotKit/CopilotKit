@@ -56,6 +56,86 @@ describe("setup content bundle", () => {
       expect(source, framework).toContain("ClaudeAgentAdapter");
       expect(source, framework).toMatch(/```|~~~/);
       expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    }
+  });
+
+  it.each([
+    [
+      "claude-sdk-python",
+      [
+        "create_sdk_mcp_server(",
+        'options["mcp_servers"]',
+        'options["allowed_tools"]',
+        "ClaudeAgentAdapter(",
+        "sdk_tool_handler",
+        "register this schema as an executable backend tool",
+      ],
+    ],
+    [
+      "claude-sdk-typescript",
+      [
+        "createSdkMcpServer({",
+        "mcpServers: backendToolServer.mcpServers",
+        "allowedTools: backendToolServer.allowedTools",
+        "new ClaudeAgentAdapter({",
+        "sdkTool(",
+        "register this schema as an executable backend tool",
+      ],
+    ],
+  ])(
+    "bundles executable tool-rendering wiring for %s",
+    (framework, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        "tool-rendering-setup",
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
+
+  it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "claude-sdk-typescript",
+      "a2ui-fixed-schema-setup",
+      setupContent,
+    );
+
+    expect(source).toContain('if (toolName === "display_flight")');
+    expect(source).toContain("shouldUseClaudeAgentSdk({");
+    expect(source).toContain("runWithClaudeAgentSdk({");
+    expect(source).toContain("new ClaudeAgentAdapter({");
+    expect(source).toContain("createSdkMcpServer({");
+    expect(source).toContain("mcpServers: backendToolServer.mcpServers");
+    expect(source).toContain("allowedTools: backendToolServer.allowedTools");
+    expect(source).toContain("mcp__copilotkit__display_flight");
+    expect(source).toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(source).not.toContain("no MCP server");
+    expect(source).not.toContain("<DemoCode");
+
+    const publicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "claude-sdk-typescript");
+    for (const framework of publicFrameworks) {
+      expect(
+        resolveBundledSetupConcept(
+          framework,
+          "a2ui-fixed-schema-setup",
+          setupContent,
+        ),
+        framework,
+      ).toBe(null);
     }
   });
 

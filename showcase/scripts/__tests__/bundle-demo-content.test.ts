@@ -135,6 +135,44 @@ describe("Content Bundler", () => {
     }
   });
 
+  it("bundles the Strands TypeScript sub-agent documentation regions", () => {
+    const content = runBundlerAndRead();
+    const demo = content.demos["strands-typescript::subagents"];
+
+    expect(demo).toBeDefined();
+
+    const toolsFile = demo.files.find(
+      (file: any) => file.filename === "src/agent/tools.ts",
+    );
+    expect(toolsFile).toMatchObject({
+      filename: "src/agent/tools.ts",
+      language: "typescript",
+      highlighted: true,
+      highlightOrder: 1,
+    });
+    expect(toolsFile.content).not.toContain("@region[");
+
+    const setup = demo.regions["subagent-setup"];
+    expect(setup).toMatchObject({
+      file: "src/agent/tools.ts",
+      language: "typescript",
+    });
+    expect(setup.code).toContain("const SUBAGENT_SYSTEM_PROMPTS");
+    expect(setup.code).toContain("export function openaiClient");
+    expect(setup.code).toContain("async function runSubagent");
+    expect(setup.code).not.toContain("export const researchAgent");
+
+    const delegationTools = demo.regions["supervisor-delegation-tools"];
+    expect(delegationTools).toMatchObject({
+      file: "src/agent/tools.ts",
+      language: "typescript",
+    });
+    expect(delegationTools.code).toContain("export const researchAgent");
+    expect(delegationTools.code).toContain("export const writingAgent");
+    expect(delegationTools.code).toContain("export const critiqueAgent");
+    expect(delegationTools.code).not.toContain("export const SHOWCASE_TOOLS");
+  });
+
   // Regression guard — verifies the snapshot/restore hooks defined at the
   // top of this file actually heal drift that `bundle-demo-content.ts`
   // produces in shell/src/data/demo-content.json.

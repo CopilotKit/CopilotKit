@@ -371,13 +371,12 @@ export interface ServiceEntry {
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` except the `gateIgnore` `harness-workers` entry — the
-   * historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` — the historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
    * name); use the optional `gateIgnore: true` field only for
-   * deliberately-untracked third-party / domainless / single-env services.
+   * deliberately-untracked third-party or domainless services.
    */
   gateValidated: boolean;
   /**
@@ -418,7 +417,8 @@ export interface ServiceEntry {
    * a service with this name that is not WS4-managed). Default: false.
    *
    * Intentionally narrow: this exists for deliberately-untracked
-   * third-party relays, domainless workers, or single-env services. The
+   * third-party relays or domainless workers. Single-env services are fully
+   * supported by the gate: only their declared environments are validated. The
    * default for every WS4-managed service is `false` (omitted).
    */
   gateIgnore?: boolean;
@@ -1052,12 +1052,11 @@ export const SERVICES: Record<
   "showcase-crewai-conversational-flows": {
     serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
     autoUpdates: { staging: "disabled", prod: "disabled" },
-    // NOT built+pushed by showcase_build.yml's ALL_SERVICES matrix — this
-    // integration is only wired into the PR-check build (showcase_build_check.
-    // yml). So it is deliberately NOT in CI_BUILT_SERVICES (whose members must
-    // each carry a matching dispatch_name in showcase_build.yml), exactly like
-    // `webhooks`. ciBuilt:false keeps that invariant intact.
-    ciBuilt: false,
+    // Built and pushed by showcase_build.yml's ALL_SERVICES matrix. The
+    // production build workflow entry and dispatch name are added together,
+    // so this service belongs in CI_BUILT_SERVICES and follows the same
+    // staging redeploy path as the other showcase integrations.
+    ciBuilt: true,
     gateValidated: true,
     dispatchName: "crewai-conversational-flows",
     probeDriver: "agent",
@@ -2307,7 +2306,7 @@ export function computePromoteClosure(
   const skipped: ClosureSkip[] = [];
   for (const key of closure) {
     const entry = services[key];
-    // No prod env → cannot be promoted (the staging-only worker today).
+    // No prod env → cannot be promoted (a staging-only service today).
     const envs = entry.environments ?? {};
     if (!Object.hasOwn(envs, "prod")) {
       skipped.push({
