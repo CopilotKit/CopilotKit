@@ -1,7 +1,8 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
 import { ConfigurationError } from "@copilotkit/shared";
+import { defineWebInspector } from "@copilotkit/web-inspector";
 import { CopilotKit } from "../copilotkit";
 import type { CopilotKitProps } from "../copilotkit-props";
 
@@ -22,6 +23,7 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
     // keeping test output clean.
     vi.spyOn(console, "warn").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(defineWebInspector).mockClear();
   });
   afterEach(() => {
     vi.restoreAllMocks();
@@ -29,6 +31,17 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
 
   function renderKit(props: Partial<CopilotKitProps>) {
     return render(<CopilotKit {...props}>child</CopilotKit>);
+  }
+
+  function stubHostname(hostname: string): () => void {
+    const original = Object.getOwnPropertyDescriptor(window, "location");
+    Object.defineProperty(window, "location", {
+      value: { hostname },
+      configurable: true,
+    });
+    return () => {
+      if (original) Object.defineProperty(window, "location", original);
+    };
   }
 
   // A valid configuration must render without throwing AND without surfacing an
@@ -75,5 +88,21 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
 
   it("does not throw on the pre-existing publicApiKey path", () => {
     expectRendersCleanly({ publicApiKey: "ck_pub_test" });
+  });
+
+  it("delegates enableInspector to the v2 provider", async () => {
+    const restore = stubHostname("app.example.com");
+    try {
+      renderKit({
+        runtimeUrl: "http://localhost:3000/api/copilotkit",
+        enableInspector: true,
+      });
+      await waitFor(() => {
+        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+      });
+      expect(defineWebInspector).toHaveBeenCalledTimes(1);
+    } finally {
+      restore();
+    }
   });
 });
