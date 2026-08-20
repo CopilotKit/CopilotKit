@@ -11631,16 +11631,20 @@ ${argsString}</pre
       : this.playgroundIsLoadingThread
         ? "Loading thread..."
         : "Type a message...";
+    const sendDisabled =
+      !agentId ||
+      this.playgroundIsLoadingThread ||
+      (!this.playgroundIsRunning && !this.playgroundInput.trim());
 
     return html`
       <form
-        class=${centered ? "mt-6 w-full" : "bg-white px-4 pb-4 pt-2"}
+        class=${centered ? "mt-5 w-full" : "bg-white px-3 pb-3 pt-1.5"}
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800"
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-800"
                 role="alert"
                 data-playground-error
               >
@@ -11671,10 +11675,10 @@ ${argsString}</pre
             : nothing
         }
         <div
-          class="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] bg-white px-3 py-2 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+          class="mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
         >
           <textarea
-            class="min-h-[50px] max-h-32 flex-1 resize-none bg-transparent px-3 py-[13px] text-base leading-6 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
             rows="1"
             placeholder=${placeholder}
             aria-label="Playground message"
@@ -11685,17 +11689,17 @@ ${argsString}</pre
           ></textarea>
           <button
             type=${this.playgroundIsRunning ? "button" : "submit"}
-            class="mb-[5px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition duration-200 hover:scale-[1.03] hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100"
+            class=${`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
+              sendDisabled
+                ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
+                : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
+            }`}
             aria-label=${
               this.playgroundIsRunning
                 ? "Stop agent"
                 : "Send playground message"
             }
-            ?disabled=${
-              !agentId ||
-              this.playgroundIsLoadingThread ||
-              (!this.playgroundIsRunning && !this.playgroundInput.trim())
-            }
+            ?disabled=${sendDisabled}
             @click=${
               this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
             }
@@ -11704,7 +11708,7 @@ ${argsString}</pre
           </button>
         </div>
         <p
-          class="mx-auto max-w-3xl px-4 py-3 text-center text-xs leading-4 text-gray-500"
+          class="mx-auto max-w-3xl px-3 py-2 text-center text-[10px] leading-4 text-gray-500"
         >
           AI can make mistakes. Please verify important information.
         </p>
@@ -11799,18 +11803,18 @@ ${argsString}</pre
         class="cpk-playground-root flex h-full min-h-[420px] flex-col bg-white"
       >
         <header
-          class="cpk-playground-header flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3"
+          class="cpk-playground-header flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2"
         >
           <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <h2 class="text-sm font-semibold text-gray-900">Playground</h2>
+            <div class="flex items-center gap-1.5">
+              <h2 class="text-xs font-semibold text-gray-900">Playground</h2>
               <span
-                class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600"
+                class="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-medium text-gray-600"
                 >${runtimeMode.toUpperCase()}</span
               >
             </div>
             <div
-              class="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-gray-600"
+              class="mt-0.5 flex min-w-0 items-center gap-1.5 text-[9px] text-gray-600"
             >
               <span class="truncate">Agent: ${agentId ?? "waiting..."}</span>
               <span
@@ -11831,7 +11835,7 @@ ${argsString}</pre
                     >
                     <select
                       id="cpk-playground-thread-source"
-                      class="cpk-playground-thread-select max-w-[220px] rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
                       .value=${this.playgroundSourceThreadId ?? ""}
                       ?disabled=${busy}
                       @change=${this.handlePlaygroundThreadSourceChange}
@@ -11853,7 +11857,7 @@ ${argsString}</pre
             }
             <button
               type="button"
-              class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-3.5 [&>svg]:w-3.5"
               ?disabled=${busy || !agentId}
               @click=${() => this.startPlaygroundSession(true)}
             >
@@ -11867,10 +11871,11 @@ ${argsString}</pre
             ? html`
                 <div
                   role="alert"
-                  class="mx-4 mt-3 flex items-start gap-2.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs text-violet-950"
+                  class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
                   data-playground-ephemeral-notice
                 >
-                  <span class="mt-0.5 text-violet-600"
+                  <span
+                    class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
                     >${this.renderIcon("Clock3")}</span
                   >
                   <p class="min-w-0 flex-1 leading-relaxed">
@@ -11901,14 +11906,14 @@ ${argsString}</pre
         }
 
         <div
-          class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+          class="min-h-0 flex-1 overflow-y-auto px-3 py-3"
           data-playground-messages
         >
           ${
             this.playgroundIsLoadingThread
               ? html`
                   <div
-                    class="flex h-full items-center justify-center gap-2 text-xs text-gray-600"
+                    class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
                   >
                     <span
                       class="text-gray-500 [&>svg]:animate-spin"
@@ -11923,7 +11928,7 @@ ${argsString}</pre
                     <div
                       class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
                     >
-                      <p class="text-xl font-medium tracking-tight text-gray-900">
+                      <p class="text-base font-medium tracking-tight text-gray-900">
                         How can I help you today?
                       </p>
                       ${this.renderPlaygroundComposer(
@@ -11935,7 +11940,7 @@ ${argsString}</pre
                     </div>
                   `
                 : html`
-                    <div class="mx-auto flex max-w-3xl flex-col pb-6">
+                    <div class="mx-auto flex max-w-3xl flex-col pb-5">
                       ${visibleMessages.map((message, index) => {
                         const isUser = message.role === "user";
                         const isReasoning = message.role === "reasoning";
@@ -11968,7 +11973,7 @@ ${argsString}</pre
                           if (isStreaming) {
                             return html`
                               <section
-                                class="cpk-playground-message-enter my-1 text-sm text-gray-500"
+                                class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
                                 data-playground-message-role="reasoning"
                               >
                                 <div
@@ -11989,7 +11994,7 @@ ${argsString}</pre
                                 ${
                                   content
                                     ? html`<div
-                                        class="pb-2 pt-1 leading-6 text-gray-500"
+                                        class="pb-2 pt-1 leading-5 text-gray-500"
                                       >
                                         ${content}
                                       </div>`
@@ -12002,7 +12007,7 @@ ${argsString}</pre
                           return content
                             ? html`
                                 <details
-                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-sm text-gray-500"
+                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
                                   data-playground-message-role="reasoning"
                                 >
                                   <summary
@@ -12010,18 +12015,18 @@ ${argsString}</pre
                                   >
                                     <span>${label}</span>
                                     <span
-                                      class="cpk-playground-reasoning-chevron transition-transform duration-200"
+                                      class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
                                       >${this.renderIcon("ChevronRight")}</span
                                     >
                                   </summary>
-                                  <div class="pb-2 pt-1 leading-6 text-gray-500">
+                                  <div class="pb-2 pt-1 leading-5 text-gray-500">
                                     ${content}
                                   </div>
                                 </details>
                               `
                             : html`
                                 <div
-                                  class="cpk-playground-message-enter my-1 py-1 text-sm font-medium text-gray-500"
+                                  class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
                                   data-playground-message-role="reasoning"
                                 >
                                   ${label}
@@ -12045,9 +12050,9 @@ ${argsString}</pre
                           <article
                             class=${
                               isActivity
-                                ? "cpk-playground-message-enter mr-auto mt-4 flex max-w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                                ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
                                 : isUser
-                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-10"
+                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
                                   : "cpk-playground-message-enter w-full"
                             }
                             data-playground-message-role=${message.role}
@@ -12066,14 +12071,14 @@ ${argsString}</pre
                                 : isUser
                                   ? html`
                                       <div
-                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[18px] bg-gray-100 px-4 text-base leading-6 text-gray-900 ${
-                                          isMultiline ? "py-3" : "py-1.5"
+                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
+                                          isMultiline ? "py-2.5" : "py-1"
                                         }`}
                                       >${content}</div>
                                     `
                                   : html`
                                       <div
-                                        class="whitespace-pre-wrap break-words py-4 text-base leading-7 text-gray-800"
+                                        class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
                                       >${content}</div>
                                     `
                             }
@@ -12086,12 +12091,12 @@ ${argsString}</pre
                               showToolbar
                                 ? html`
                                     <div
-                                      class="-ml-1 flex min-h-8 w-full items-center gap-1 bg-transparent"
+                                      class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
                                       data-playground-assistant-toolbar
                                     >
                                       <button
                                         type="button"
-                                        class="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                        class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
                                         title="Copy message"
                                         aria-label="Copy message"
                                         @click=${(event: Event) =>
@@ -12115,7 +12120,7 @@ ${argsString}</pre
                                           ? html`
                                               <button
                                                 type="button"
-                                                class="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                                class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
                                                 title="Retry last prompt"
                                                 aria-label="Retry last prompt"
                                                 @click=${
@@ -12138,7 +12143,7 @@ ${argsString}</pre
                         this.playgroundIsRunning && lastReasoningIndex < 0
                           ? html`
                               <div
-                                class="cpk-playground-message-enter mt-4 flex items-center gap-1 px-1 py-1"
+                                class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
                                 aria-label="Agent is working"
                               >
                                 <span
@@ -12160,14 +12165,14 @@ ${argsString}</pre
                         suggestions.length > 0
                           ? html`
                               <div
-                                class="mt-4 flex flex-wrap items-center gap-2"
+                                class="mt-3 flex flex-wrap items-center gap-1.5"
                                 data-playground-suggestions
                               >
                                 ${suggestions.map(
                                   (suggestion) => html`
                                     <button
                                       type="button"
-                                      class="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
+                                      class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
                                       ?disabled=${suggestion.isLoading}
                                       aria-busy=${
                                         suggestion.isLoading ? "true" : "false"
