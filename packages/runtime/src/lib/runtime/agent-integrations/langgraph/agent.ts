@@ -35,6 +35,25 @@ import type {
 import { CustomEventNames } from "./consts";
 export { CustomEventNames };
 
+function normalizeLangGraphTool(tool: any): any {
+  if (!tool || typeof tool !== "object") return tool;
+
+  const functionSpec = tool.function;
+  if (!functionSpec || typeof functionSpec !== "object") return tool;
+
+  const normalized = { ...tool };
+
+  // LangGraph can expose OpenAI-style { function: { ... } } descriptors,
+  // while Python consumers commonly read the canonical fields at the top level.
+  for (const key of ["name", "description", "parameters"] as const) {
+    if (!(key in normalized) && key in functionSpec) {
+      normalized[key] = functionSpec[key];
+    }
+  }
+
+  return normalized;
+}
+
 export class LangGraphAgent extends AGUILangGraphAgent {
   constructor(config: LangGraphAgentConfig) {
     super(config);
@@ -228,10 +247,16 @@ export class LangGraphAgent extends AGUILangGraphAgent {
     ];
     const combinedTools = Array.from(
       new Map(
-        rawCombinedTools.map((t: any) => [
-          t?.id ?? t?.name ?? t?.key ?? JSON.stringify(t),
-          t,
-        ]),
+        rawCombinedTools.map((tool: any) => {
+          const normalizedTool = normalizeLangGraphTool(tool);
+          return [
+            normalizedTool?.id ??
+              normalizedTool?.name ??
+              normalizedTool?.key ??
+              JSON.stringify(normalizedTool),
+            normalizedTool,
+          ] as const;
+        }),
       ).values(),
     );
 

@@ -303,6 +303,32 @@ describe("langGraphDefaultMergeState", () => {
     expect(result.copilotkit.actions).toEqual(expect.arrayContaining(tools));
   });
 
+  it("exposes nested function metadata at the action top level", () => {
+    const { agent } = createAgent();
+    const tool = {
+      type: "function",
+      function: {
+        name: "lookupWeather",
+        description: "Look up the weather",
+        parameters: { type: "object", properties: {} },
+      },
+    };
+
+    withMockedParentMerge(agent, {
+      "ag-ui": { tools: [tool], context: [] },
+      tools: [],
+      messages: [],
+    });
+
+    const result = agent.langGraphDefaultMergeState({} as any, [], {} as any);
+    expect(result.copilotkit.actions[0]).toMatchObject({
+      name: "lookupWeather",
+      description: "Look up the weather",
+      parameters: { type: "object", properties: {} },
+    });
+    expect(result.copilotkit.actions[0].function).toEqual(tool.function);
+  });
+
   it("merges copilotkit context from ag-ui", () => {
     const { agent } = createAgent();
     const context = [{ description: "user info", value: "test" }];
