@@ -49,6 +49,33 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 /** Maximum time spent on the optional Inspector metadata provider request. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
+/** Maximum time spent consulting the deployment entitlement authority. */
+const RUNTIME_ENTITLEMENT_REQUEST_TIMEOUT_MS = 5_000;
+
+const RUNTIME_ENTITLEMENT_SOURCES = new Set([
+  "managedOrgSubscription",
+  "selfHostedDeploymentLicense",
+  "awsMarketplaceDeploymentLicense",
+] as const);
+
+export interface RuntimeEntitlement {
+  organizationId: string;
+  source:
+    | "managedOrgSubscription"
+    | "selfHostedDeploymentLicense"
+    | "awsMarketplaceDeploymentLicense";
+  active: boolean;
+  features: Record<string, boolean>;
+  limits: Record<string, number>;
+  planCode?: string;
+  entitlementSource?: string;
+}
+
+export type RuntimeEntitlementResult =
+  | { kind: "ok"; entitlement: RuntimeEntitlement }
+  | { kind: "notSupported" }
+  | { kind: "unavailable" };
+
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
@@ -679,6 +706,74 @@ export class CopilotKitIntelligence {
         );
       }
       throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  /**
+   * Read the deployment's server-authoritative runtime entitlement.
+   *
+   * A 404 preserves compatibility with Intelligence deployments predating the
+   * endpoint. Every other failure returns `unavailable`, allowing callers to
+   * fail closed without exposing provider response bodies or identifiers.
+   */
+  async getRuntimeEntitlement(): Promise<RuntimeEntitlementResult> {
+    const path = "/api/entitlements/runtime";
+    const abortController = new AbortController();
+    const timeoutMarker = Symbol("runtime-entitlement-timeout");
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(timeoutMarker);
+        abortController.abort();
+      }, RUNTIME_ENTITLEMENT_REQUEST_TIMEOUT_MS);
+    });
+
+    try {
+      const response = await Promise.race([
+        fetch(`${this.#apiUrl}${path}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${this.#apiKey}` },
+          signal: abortController.signal,
+        }),
+        timeout,
+      ]);
+
+      if (response.status === 404) {
+        return { kind: "notSupported" };
+      }
+
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, path },
+          "Intelligence runtime entitlement request failed",
+        );
+        return { kind: "unavailable" };
+      }
+
+      const body = await Promise.race([response.text(), timeout]);
+      const entitlement = parseRuntimeEntitlement(JSON.parse(body) as unknown);
+      if (!entitlement) {
+        logger.error(
+          { path, reason: "invalid-contract" },
+          "Intelligence runtime entitlement request failed",
+        );
+        return { kind: "unavailable" };
+      }
+
+      return { kind: "ok", entitlement };
+    } catch (error) {
+      logger.warn(
+        {
+          path,
+          reason: error === timeoutMarker ? "timeout" : "request-failed",
+        },
+        "Intelligence runtime entitlement request unavailable",
+      );
+      return { kind: "unavailable" };
     } finally {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
@@ -1342,6 +1437,72 @@ export class CopilotKitIntelligence {
 function configuredUrl(url: string | undefined): string | undefined {
   const trimmed = url?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function parseRuntimeEntitlement(input: unknown): RuntimeEntitlement | null {
+  if (!isRecord(input)) return null;
+
+  const allowedKeys = new Set([
+    "organizationId",
+    "source",
+    "active",
+    "features",
+    "limits",
+    "planCode",
+    "entitlementSource",
+  ]);
+  if (Object.keys(input).some((key) => !allowedKeys.has(key))) return null;
+
+  const source = input.source;
+  if (
+    typeof input.organizationId !== "string" ||
+    input.organizationId.length === 0 ||
+    typeof source !== "string" ||
+    !RUNTIME_ENTITLEMENT_SOURCES.has(source as RuntimeEntitlement["source"]) ||
+    typeof input.active !== "boolean" ||
+    !isBooleanRecord(input.features) ||
+    !isNumberRecord(input.limits) ||
+    !isOptionalNonEmptyString(input.planCode) ||
+    !isOptionalNonEmptyString(input.entitlementSource)
+  ) {
+    return null;
+  }
+
+  return {
+    organizationId: input.organizationId,
+    source: source as RuntimeEntitlement["source"],
+    active: input.active,
+    features: input.features,
+    limits: input.limits,
+    ...(input.planCode === undefined ? {} : { planCode: input.planCode }),
+    ...(input.entitlementSource === undefined
+      ? {}
+      : { entitlementSource: input.entitlementSource }),
+  };
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return typeof input === "object" && input !== null && !Array.isArray(input);
+}
+
+function isBooleanRecord(input: unknown): input is Record<string, boolean> {
+  return (
+    isRecord(input) &&
+    Object.values(input).every((value) => typeof value === "boolean")
+  );
+}
+
+function isNumberRecord(input: unknown): input is Record<string, number> {
+  return (
+    isRecord(input) &&
+    Object.values(input).every(
+      (value) => typeof value === "number" && Number.isFinite(value),
+    )
+  );
+}
+
+function isOptionalNonEmptyString(input: unknown): input is string | undefined {
+  return input === undefined || (typeof input === "string" && input.length > 0);
 }
 
 /**
