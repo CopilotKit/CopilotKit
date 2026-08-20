@@ -129,8 +129,8 @@ Auth: Cognito OIDC → Bearer token forwarded from browser through Lambda to Age
 ## Pinned SDK compatibility and offline licensing
 
 This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
-`1.62.2`. Those packages predate managed entitlement responses. Until the
-pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
+`1.68.1`. Those packages do not yet return managed entitlement responses. Until
+the pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
 `.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
 Threads entitlement check; it does not replace the managed API key.
 
