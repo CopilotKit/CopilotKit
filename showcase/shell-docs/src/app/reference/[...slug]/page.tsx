@@ -44,7 +44,7 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
-import { V1_REFERENCE_DEPRECATION } from "@/lib/v1-deprecation";
+import { V1_DEPRECATION_NOTICE_USE_V2_INSTEAD } from "@/lib/v1-deprecation-use-v2-instead";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
@@ -229,12 +229,14 @@ export default async function ReferenceSlugPage({
           {version === "v1" && (
             <div className="my-6">
               <Callout type="warning">
-                <strong>{V1_REFERENCE_DEPRECATION.title}</strong>{" "}
-                {V1_REFERENCE_DEPRECATION.summary}{" "}
-                {V1_REFERENCE_DEPRECATION.importGuidance}
+                <strong>{V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.title}</strong>{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.summary}{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.importGuidance}
                 <br />
-                <strong>{V1_REFERENCE_DEPRECATION.agentGuidance}</strong>{" "}
-                <Link href={V1_REFERENCE_DEPRECATION.href}>
+                <strong>
+                  {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.agentGuidance}
+                </strong>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.href}>
                   Open the v2 API reference.
                 </Link>
               </Callout>

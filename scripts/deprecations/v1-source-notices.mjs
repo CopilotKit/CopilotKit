@@ -11,20 +11,20 @@ const repoRoot = path.resolve(
 );
 
 const noticePattern =
-  /^\/\*\r?\n \* V1 SDK DEPRECATION NOTICE[\s\S]*? \* END V1 SDK DEPRECATION NOTICE\r?\n \*\/\r?\n*/;
+  /^\/\*\r?\n \* V1 SDK DEPRECATED\. USE V2 INSTEAD[\s\S]*? \* END V1 SDK DEPRECATED\. USE V2 INSTEAD NOTICE\r?\n \*\/\r?\n*/;
 
 function renderNotice(mapping) {
   return [
     "/*",
-    " * V1 SDK DEPRECATION NOTICE",
+    " * V1 SDK DEPRECATED. USE V2 INSTEAD",
     " *",
-    " * This file is part of the deprecated CopilotKit v1 SDK. Do not use it",
-    " * for new code. Use the exact v2 import and replacement source below.",
+    " * The CopilotKit v1 SDK is deprecated. Use v2 instead.",
+    " * Use the exact v2 import and replacement source below.",
     " *",
     " * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use",
     " * the exact v2 import below and read the linked v2 documentation first.",
     " *",
-    " * V1 import (deprecated):",
+    " * V1 import (deprecated; use V2 instead):",
     ` *   ${mapping.v1}`,
     " * V2 import:",
     ` *   ${mapping.v2}`,
@@ -33,7 +33,7 @@ function renderNotice(mapping) {
     ` * V2 docs: ${mapping.docs}`,
     ...mapping.notes.map((note) => ` * Migration note: ${note}`),
     " *",
-    " * END V1 SDK DEPRECATION NOTICE",
+    " * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE",
     " */",
   ].join("\n");
 }
