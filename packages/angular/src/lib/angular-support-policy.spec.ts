@@ -9,8 +9,8 @@ const angularSupportPolicySchema = z.object({
   testedRxjs: z.literal("7.8.1"),
   supportedMajors: z.tuple([
     z.object({
-      angular: z.literal("22.1.2"),
-      cdk: z.literal("22.1.2"),
+      angular: z.literal("22.0.0"),
+      cdk: z.literal("22.0.0"),
       major: z.literal(22),
       typescript: z.literal("6.0.3"),
     }),
@@ -46,8 +46,8 @@ test("publishes the supported Angular and TypeScript consumer matrix", () => {
     testedRxjs: "7.8.1",
     supportedMajors: [
       {
-        angular: "22.1.2",
-        cdk: "22.1.2",
+        angular: "22.0.0",
+        cdk: "22.0.0",
         major: 22,
         typescript: "6.0.3",
       },
@@ -65,8 +65,8 @@ test("keeps Angular peers exact and compiles the library at the support floor", 
     "@angular/core": angularPeerRange,
     rxjs: manifest.copilotkit.angularSupport.rxjs,
   });
-  expect(manifest.devDependencies["@angular/core"]).toBe("22.1.2");
-  expect(manifest.devDependencies["@angular/compiler-cli"]).toBe("22.1.2");
+  expect(manifest.devDependencies["@angular/core"]).toBe("22.0.0");
+  expect(manifest.devDependencies["@angular/compiler-cli"]).toBe("22.0.0");
   expect(manifest.devDependencies.typescript).toBe("6.0.3");
 });
 
