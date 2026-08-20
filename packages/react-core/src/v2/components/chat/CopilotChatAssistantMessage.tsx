@@ -26,6 +26,7 @@ import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
+import type { CopilotKitInspectorOpenRequest } from "../CopilotKitInspectorContext";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -56,6 +57,35 @@ export type CopilotChatAssistantMessageProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+/**
+ * Binds the Inspector action to the active chat without making the full
+ * assistant message subscribe to chat configuration changes.
+ */
+function BoundInspectorButton({
+  inspectorButton,
+  messageId,
+  openInspector,
+}: {
+  inspectorButton: CopilotChatAssistantMessageProps["inspectorButton"];
+  messageId: string;
+  openInspector: (request: CopilotKitInspectorOpenRequest) => void;
+}): React.ReactElement {
+  const chatConfiguration = useCopilotChatConfiguration();
+
+  return renderSlot(
+    inspectorButton,
+    CopilotChatAssistantMessage.InspectorButton,
+    {
+      onClick: () =>
+        openInspector({
+          messageId,
+          threadId: chatConfiguration?.threadId,
+          agentId: chatConfiguration?.agentId,
+        }),
+    },
+  );
+}
+
 export function CopilotChatAssistantMessage({
   message,
   messages,
@@ -81,7 +111,6 @@ export function CopilotChatAssistantMessage({
 }: CopilotChatAssistantMessageProps) {
   useKatexStyles();
   const { isInspectorEnabled, openInspector } = useCopilotKitInspector();
-  const chatConfiguration = useCopilotChatConfiguration();
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
@@ -112,17 +141,12 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  const boundInspectorButton = renderSlot(
-    inspectorButton,
-    CopilotChatAssistantMessage.InspectorButton,
-    {
-      onClick: () =>
-        openInspector({
-          messageId: message.id,
-          threadId: chatConfiguration?.threadId,
-          agentId: chatConfiguration?.agentId,
-        }),
-    },
+  const boundInspectorButton = (
+    <BoundInspectorButton
+      inspectorButton={inspectorButton}
+      messageId={message.id}
+      openInspector={openInspector}
+    />
   );
 
   const boundThumbsDownButton = renderSlot(
