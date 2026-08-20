@@ -15,6 +15,9 @@ import type {
   Thread as ThreadInterface,
   EmojiValue,
   EphemeralResult,
+  ReactElementLike,
+  PostFileResult,
+  ChannelNode,
 } from "@copilotkit/channels-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { RunLoopArgs } from "./run-loop.js";
@@ -31,9 +34,39 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { StateStore } from "./state/state-store.js";
 import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
+import type { RenderConfig, ResolvedRenderConfig } from "./render/config.js";
+import type { PostImageOptions } from "@copilotkit/channels-ui";
+import { resolveArbitraryElement } from "./render/detect.js";
+import { resolveRenders } from "./render/resolve-renders.js";
+import { validateRenderTree } from "./render/validate-render.js";
+import { defaultAllowImageUrl } from "./render/url-policy.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
+
+/**
+ * Warn once per platform that an image post produced no addressable message id.
+ * Once per platform, not per post: on a surface that structurally never reports
+ * one (the managed transport hands uploads to an async outbox) this would
+ * otherwise fire on every single image.
+ */
+const warnedNoMessageId = new Set<string>();
+function warnNoMessageId(platform: string): void {
+  if (warnedNoMessageId.has(platform)) return;
+  warnedNoMessageId.add(platform);
+  console.warn(
+    `[channel] post(image): the upload reported no message id on ${platform}; ` +
+      "the returned ref cannot be used for delete/react/update (the upload itself succeeded)",
+  );
+}
+
+async function defaultRenderImage(
+  node: unknown,
+  cfg: ResolvedRenderConfig,
+): Promise<Uint8Array> {
+  const { renderJsxToPng } = await import("./render/takumi.js");
+  return renderJsxToPng(node, cfg);
+}
 
 /** A Channel run requested Memory without an attached Intelligence backend. */
 export class ChannelMemoryUnavailableError extends Error {
@@ -131,6 +164,16 @@ export interface ThreadDeps {
   telemetry?: {
     capture(event: string, properties: Record<string, unknown>): void;
   };
+  /** Channel-wide image-render config (fonts + compiled CSS), from createChannel({ render }). */
+  render?: RenderConfig;
+  /**
+   * Test seam: override the image renderer. Defaults to a lazy import of the
+   * Takumi render module, so `takumi-js` loads only when an image is posted.
+   */
+  renderImage?: (
+    node: unknown,
+    cfg: ResolvedRenderConfig,
+  ) => Promise<Uint8Array>;
 }
 
 /** Stable rejection for surfaces that cannot hold one run open for a choice. */
@@ -177,6 +220,34 @@ export class Thread implements ThreadInterface {
     );
   }
 
+  /**
+   * Validate bound IR and rewrite every `<Render>` to a staged `image` node.
+   * `bound.root` may be one node or an array; the return matches `adapter.post`.
+   */
+  private async prepareNative(
+    root: ChannelNode | readonly ChannelNode[],
+  ): Promise<ChannelNode[]> {
+    const roots = Array.isArray(root) ? root : [root];
+    validateRenderTree(roots);
+    if (!containsType(roots, "render")) return roots;
+    if (!this.deps.adapter.stageFile) {
+      throw new Error(
+        `channels.render: ${this.platform} does not support stageFile`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    return resolveRenders(roots, {
+      renderJsxToPng: this.deps.renderImage ?? defaultRenderImage,
+      stageFile: (args) =>
+        this.deps.adapter.stageFile!(this.deps.replyTarget, args),
+      defaultWidth: 800,
+      defaultHeight: g.height ?? 480,
+      fonts: g.fonts,
+      stylesheets: g.stylesheets,
+      allowImageUrl: g.allowImageUrl,
+    });
+  }
+
   private trackOperation<T>(operation: () => Promise<T>): Promise<T> {
     if (!this.deps.adapter.trackThreadOperation) {
       try {
@@ -221,16 +292,68 @@ export class Thread implements ThreadInterface {
     }
   }
 
-  post(ui: Renderable): Promise<MessageRef> {
+  post(
+    ui: Renderable | ReactElementLike,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
     return this.trackOperation(async () => {
-      const bound = await this.bindForPost(ui);
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
+      const el = resolveArbitraryElement(ui);
+      if (el) return this.postImage(el, opts);
+      const bound = await this.bindForPost(ui as Renderable);
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
+  }
+
+  /**
+   * Render a resolved React element to a PNG via the configured (or default
+   * lazy Takumi) renderer, then upload it through `postFile`.
+   */
+  private async postImage(
+    node: unknown,
+    opts?: PostImageOptions,
+  ): Promise<MessageRef> {
+    // Fail fast BEFORE the (expensive) render if the surface can't upload files
+    // at all — no point rasterizing a PNG we could never post.
+    if (!this.deps.adapter.postFile) {
+      throw new Error(
+        `post(image): ${this.platform} does not support file upload`,
+      );
+    }
+    const g = this.deps.render ?? {};
+    const cfg: ResolvedRenderConfig = {
+      fonts: opts?.fonts ?? g.fonts ?? [],
+      stylesheets: opts?.stylesheets ?? g.stylesheets ?? [],
+      width: opts?.width ?? g.width ?? 720,
+      height: opts?.height ?? g.height ?? 480,
+      // Channel-wide only (not per-post): a fetch policy is a security boundary,
+      // and a per-call override is exactly the knob an injected tool argument
+      // would reach for.
+      allowImageUrl: g.allowImageUrl ?? defaultAllowImageUrl,
+    };
+    const renderFn = this.deps.renderImage ?? defaultRenderImage;
+    const bytes = await renderFn(node, cfg);
+    // Call the adapter directly. `this.postFile` also tracks the operation,
+    // and we are already inside `post()`'s `trackOperation`.
+    const res = await this.deps.adapter.postFile!(this.deps.replyTarget, {
+      bytes,
+      filename: opts?.filename ?? "image.png",
+      title: opts?.title,
+      altText: opts?.altText,
+    });
+    if (!res.ok) {
+      throw new Error(
+        `post(image): upload failed — ${res.error ?? "unknown error"}`,
+      );
+    }
+    // Only a *message* id is a usable MessageRef. Platforms that upload media
+    // separately from posting it (Slack, Telegram, WhatsApp) also return a
+    // media id in `fileId`, which their delete/react/update APIs reject — so
+    // never pass that off as a message id.
+    if (!res.messageId) warnNoMessageId(this.platform);
+    return { id: res.messageId ?? "" };
   }
 
   /** @internal Post a registered component through the normal bind and adapter path. */
@@ -247,10 +370,8 @@ export class Thread implements ThreadInterface {
         this.activeContinuation,
         renderContext,
       );
-      const ref = await this.deps.adapter.post(
-        this.deps.replyTarget,
-        bound.root,
-      );
+      const ir = await this.prepareNative(bound.root);
+      const ref = await this.deps.adapter.post(this.deps.replyTarget, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -258,8 +379,14 @@ export class Thread implements ThreadInterface {
 
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
     return this.trackOperation(async () => {
+      if (resolveArbitraryElement(ui)) {
+        throw new Error(
+          "thread.update does not support arbitrary JSX (an image post can't be edited in place). Post a new image instead.",
+        );
+      }
       const bound = await this.bindForPost(ui);
-      await this.deps.adapter.update(ref, bound.root);
+      const ir = await this.prepareNative(bound.root);
+      await this.deps.adapter.update(ref, ir);
       await this.bindReaction(ref.id, bound);
       return ref;
     });
@@ -286,12 +413,7 @@ export class Thread implements ThreadInterface {
     filename: string;
     title?: string;
     altText?: string;
-  }): Promise<{
-    ok: boolean;
-    fileId?: string;
-    assetId?: string;
-    error?: string;
-  }> {
+  }): Promise<PostFileResult> {
     return this.trackOperation(async () => {
       const adapter = this.deps.adapter;
       if (!adapter.postFile) {
@@ -380,6 +502,11 @@ export class Thread implements ThreadInterface {
     opts: { fallbackToDM: boolean },
   ): Promise<EphemeralResult | null> {
     return this.trackOperation(async () => {
+      if (resolveArbitraryElement(ui)) {
+        throw new Error(
+          "thread.postEphemeral does not support arbitrary JSX. Post an image with thread.post, or pass channel components.",
+        );
+      }
       const adapter = this.deps.adapter;
       if (!adapter.postEphemeral) {
         return {
@@ -463,6 +590,11 @@ export class Thread implements ThreadInterface {
       return Promise.reject(new ChannelAwaitChoiceNotSupportedError());
     }
     return this.trackOperation(async () => {
+      if (resolveArbitraryElement(ui)) {
+        throw new Error(
+          "thread.awaitChoice does not support arbitrary JSX — it needs interactive channel components (e.g. Button/Select). Use thread.post to send an image.",
+        );
+      }
       const p = new Promise<T>((resolve) =>
         this.deps.registerWaiter(
           this.deps.conversationKey,
@@ -879,6 +1011,22 @@ function promptMatchesInbound(
     message.contentParts !== undefined &&
     JSON.stringify(prompt) === JSON.stringify(message.contentParts)
   );
+}
+
+function containsType(nodes: readonly ChannelNode[], type: string): boolean {
+  for (const node of nodes) {
+    if (node.type === type) return true;
+    const raw = node.props.children;
+    const kids = Array.isArray(raw) ? raw : raw != null ? [raw] : [];
+    const next: ChannelNode[] = [];
+    for (const k of kids) {
+      if (typeof k === "object" && k !== null && "type" in k) {
+        next.push(k as ChannelNode);
+      }
+    }
+    if (containsType(next, type)) return true;
+  }
+  return false;
 }
 
 let transcriptWarned = false;

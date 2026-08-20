@@ -60,18 +60,37 @@ import {
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
+import { loadBrandRender } from "./render/brand.js";
 import { senderContext } from "./sender-context.js";
 import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
-import { closeBrowser } from "./render/browser.js";
 
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (!v) {
-    console.error(`Missing required env var: ${name}`);
+const firstEnv = (...names: string[]): string | undefined => {
+  for (const name of names) {
+    const value = process.env[name];
+    if (value) return value;
+  }
+  return undefined;
+};
+
+const required = (...names: string[]): string => {
+  const value = firstEnv(...names);
+  if (!value) {
+    console.error(`Missing required env var: ${names.join(" or ")}`);
     process.exit(1);
   }
-  return v;
+  return value;
 };
+
+/** Prefer a key that carries `cpk-{projectId}_...`. OpenTag's COPILOTKIT_API_KEY uses `cpk_` and cannot activate a Channel. */
+function intelligenceApiKey(): string {
+  const candidates = [
+    firstEnv("INTELLIGENCE_API_KEY"),
+    firstEnv("COPILOTKIT_API_KEY"),
+  ].filter((value): value is string => Boolean(value));
+  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
+  if (matching) return matching;
+  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
+}
 
 /** True only when every named env var is set and non-empty. */
 const have = (...names: string[]): boolean =>
@@ -91,6 +110,9 @@ async function main() {
   const adapters: PlatformAdapter[] = [];
   const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
+  // CopilotKit brand render config: the compiled Tailwind stylesheet + Plus
+  // Jakarta Sans, fed to every image post so cards/charts render on-brand.
+  const brand = await loadBrandRender();
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
     adapters.push(
@@ -163,7 +185,7 @@ async function main() {
     // routes there); locally it defaults to 3000. Fail loud on a malformed
     // PORT rather than letting `Number("abc")` → NaN reach `server.listen()`.
     const port = process.env.PORT ? Number(process.env.PORT) : 3000;
-    if (!Number.isInteger(port) || port < 0) {
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
       console.error(
         `Invalid PORT: "${process.env.PORT}" is not a valid port number`,
       );
@@ -224,6 +246,15 @@ async function main() {
     // and Telegram register them up front. The engine routes by name; adapters that
     // can't take commands ignore them.
     commands: appCommands,
+    // Takumi image rendering config, CopilotKit-branded. `brand.stylesheets` is
+    // the compiled Tailwind sheet (styles/brand.css) whose classes the cards use;
+    // `brand.fonts` is Plus Jakarta Sans (the brand typeface) loaded from
+    // assets/fonts. Charts render in the brand data-viz palette by default.
+    render: {
+      width: 760,
+      stylesheets: brand.stylesheets,
+      fonts: brand.fonts,
+    },
   });
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
@@ -245,7 +276,9 @@ async function main() {
       console.error("[channel] agent run failed", err);
       await thread
         .post("Sorry — I hit an error handling that. Please try again.")
-        .catch(() => {});
+        .catch((postErr: unknown) =>
+          console.error("[channel] failed to post agent error", postErr),
+        );
     }
   });
 
@@ -281,9 +314,12 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: required("COPILOTKIT_API_KEY"),
+    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
+    wsUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_WS_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ),
+    apiKey: intelligenceApiKey(),
   });
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:
@@ -314,14 +350,6 @@ async function main() {
       console.error("[channel] error stopping Channel", err);
       exitCode = 1;
     }
-    // Tear down the shared headless browser used for chart/diagram rendering.
-    // Best-effort, but surface a failure rather than swallow it.
-    await closeBrowser().catch((err: unknown) =>
-      console.error(
-        "[channel] browser cleanup failed (continuing shutdown)",
-        err,
-      ),
-    );
     process.exit(exitCode);
   };
   // A failed shutdown must not vanish, and must not leave the process alive: a

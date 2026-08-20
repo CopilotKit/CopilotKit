@@ -12,7 +12,6 @@ const fakes = vi.hoisted(() => {
     ready,
     stop,
     listener,
-    closeBrowser: vi.fn(async () => {}),
     createCopilotNodeListener: vi.fn(() => listener),
     // Captures the options `new CopilotRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
@@ -59,13 +58,19 @@ vi.mock("./modals/file-issue.js", () => ({
   fileIssueSubmit: vi.fn(),
   FILE_ISSUE_CALLBACK: "file-issue",
 }));
-vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
+vi.mock("./render/brand.js", () => ({
+  loadBrandRender: vi.fn(async () => ({ stylesheets: [], fonts: [] })),
+}));
 
 const envKeys = [
   "AGENT_URL",
   "COPILOTKIT_INTELLIGENCE_URL",
   "COPILOTKIT_INTELLIGENCE_WS_URL",
   "COPILOTKIT_API_KEY",
+  "INTELLIGENCE_API_KEY",
+  "INTELLIGENCE_API_URL",
+  "INTELLIGENCE_GATEWAY_WS_URL",
+  "INTELLIGENCE_CHANNEL_NAME",
 ] as const;
 
 describe("managed channel entrypoint", () => {
@@ -126,8 +131,45 @@ describe("managed channel entrypoint", () => {
     sigterm!();
     await vi.waitFor(() => expect(exit).toHaveBeenCalled());
     expect(fakes.stop).toHaveBeenCalledOnce();
-    expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("accepts OpenTag Intelligence env names", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    previousEnv.set("INTELLIGENCE_API_KEY", process.env.INTELLIGENCE_API_KEY);
+    previousEnv.set(
+      "INTELLIGENCE_CHANNEL_NAME",
+      process.env.INTELLIGENCE_CHANNEL_NAME,
+    );
+    delete process.env.COPILOTKIT_API_KEY;
+    delete process.env.COPILOTKIT_INTELLIGENCE_URL;
+    delete process.env.COPILOTKIT_INTELLIGENCE_WS_URL;
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.INTELLIGENCE_API_KEY = "cpk-opentag";
+    process.env.INTELLIGENCE_API_URL = "http://localhost:4201";
+    process.env.INTELLIGENCE_GATEWAY_WS_URL = "ws://localhost:4401";
+    process.env.INTELLIGENCE_CHANNEL_NAME = "open-tag";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    fakes.ready.mockClear();
+    fakes.CopilotKitIntelligence.mockClear();
+    vi.resetModules();
+    await import("./managed.js");
+
+    expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith({
+      apiUrl: "http://localhost:4201",
+      wsUrl: "ws://localhost:4401",
+      apiKey: "cpk-opentag",
+    });
+    expect(fakes.ready).toHaveBeenCalledOnce();
   });
 });

@@ -10,6 +10,7 @@ export const DISCORD_LIMITS = {
   buttonLabel: 80, // button label chars
   customId: 100, // custom_id chars
   headerText: 256, // header line chars (TextDisplay with `# ` prefix)
+  mediaGalleryItems: 10, // items per Media Gallery (Discord carousel stand-in)
 } as const;
 
 /** Truncate to max chars, appending an ellipsis marker if the input was longer. Never returns >max. */

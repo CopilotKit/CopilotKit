@@ -310,6 +310,122 @@ describe("renderAdaptiveCard", () => {
     const points = (card.body[0] as { data: unknown[] }).data;
     expect(points).toHaveLength(50);
   });
+
+  it("renders an image using dataUrl when url is absent", () => {
+    const card = renderAdaptiveCard([
+      {
+        type: "image",
+        props: {
+          dataUrl: "data:image/png;base64,AAA",
+          alt: "Hat",
+        },
+      },
+    ]);
+    expect(card.body[0]).toMatchObject({
+      type: "Image",
+      url: "data:image/png;base64,AAA",
+      altText: "Hat",
+    });
+  });
+
+  it("renders a filled carousel IR as Adaptive Card Carousel pages", () => {
+    const card = renderAdaptiveCard([
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "image",
+              props: {
+                alt: "Hat",
+                dataUrl: "data:image/png;base64,AAA",
+              },
+            },
+            {
+              type: "carouselCard",
+              props: {
+                children: [
+                  {
+                    type: "header",
+                    props: {
+                      children: [{ type: "text", props: { value: "Shoes" } }],
+                    },
+                  },
+                  {
+                    type: "image",
+                    props: {
+                      alt: "Red shoes",
+                      dataUrl: "data:image/png;base64,BBB",
+                    },
+                  },
+                  {
+                    type: "section",
+                    props: {
+                      children: [{ type: "text", props: { value: "On sale" } }],
+                    },
+                  },
+                  {
+                    type: "button",
+                    props: {
+                      onClick: { id: "ck:buy" },
+                      value: "buy-shoes",
+                      children: [{ type: "text", props: { value: "Buy" } }],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    expect(card.body[0]).toMatchObject({
+      type: "Carousel",
+      pages: [
+        {
+          type: "CarouselPage",
+          items: [
+            {
+              type: "Image",
+              url: "data:image/png;base64,AAA",
+              altText: "Hat",
+            },
+          ],
+        },
+        {
+          type: "CarouselPage",
+          items: [
+            {
+              type: "Image",
+              url: "data:image/png;base64,BBB",
+              altText: "Red shoes",
+            },
+            {
+              type: "TextBlock",
+              text: "Shoes",
+              weight: "Bolder",
+              size: "Large",
+            },
+            {
+              type: "TextBlock",
+              text: "On sale",
+              wrap: true,
+            },
+            {
+              type: "ActionSet",
+              actions: [
+                {
+                  type: "Action.Submit",
+                  title: "Buy",
+                  data: { ckActionId: "ck:buy", value: "buy-shoes" },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });
 
 describe("isPlainText", () => {

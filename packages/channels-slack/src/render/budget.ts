@@ -13,6 +13,10 @@ export const SLACK_LIMITS = {
   tableColumns: 20,
   tableRows: 100,
   cellText: 2000,
+  cardTitle: 150,
+  cardBody: 200,
+  cardActions: 3,
+  carouselSlides: 10,
 } as const;
 
 /** Truncate to max chars, appending an ellipsis marker if the input was longer. Never returns >max. */

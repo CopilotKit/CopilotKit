@@ -6,11 +6,11 @@ This is a starter template for building AI agents using Google's [ADK](https://g
 
 Three processes run behind a single `npm run dev` (via `concurrently`):
 
-| Process | Port | What it is |
-| --- | --- | --- |
-| `ui` | `4200` | The Angular app (`ng serve`) |
+| Process   | Port   | What it is                                                                    |
+| --------- | ------ | ----------------------------------------------------------------------------- |
+| `ui`      | `4200` | The Angular app (`ng serve`)                                                  |
 | `runtime` | `8200` | The standalone Copilot Runtime (`tsx server.ts`), served at `/api/copilotkit` |
-| `agent` | `8000` | The Python ADK agent (`uv`) |
+| `agent`   | `8000` | The Python ADK agent (`uv`)                                                   |
 
 The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), and the runtime proxies the ADK agent (`AGENT_URL`, default `http://localhost:8000/`).
 

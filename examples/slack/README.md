@@ -1,21 +1,18 @@
-# bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
+# bot-example — on-call triage assistant (Intelligence Slack)
 
 A runnable demo for [`@copilotkit/channels`](../../packages/channels): an on-call triage
-bot that turns incident chatter into tracked work. The umbrella supplies the
-platform-agnostic bot core and cross-platform JSX vocabulary; use its
-`@copilotkit/channels/slack`, `@copilotkit/channels/discord`,
-`@copilotkit/channels/telegram`, and `@copilotkit/channels/whatsapp` subpaths for
-the platform adapters.
+bot that turns incident chatter into tracked work.
 
-**One app, any platform — or all at once.** `createChannel` takes an array of
-adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
-present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
-when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
-are present. Everything else in `app/` (tools,
-components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
-platform-agnostic and shared verbatim — set the secrets for whichever
-platform(s) you want and run the same process. It connects to **Linear** and
-**Notion** over MCP and can:
+**Default path: Intelligence owns Slack.** `pnpm dev` runs `app/managed.ts`.
+This process has no Slack tokens. Intelligence signs Slack ingress, posts
+replies, and delivers turns here over its realtime transport. You only need
+an Intelligence API key and a local agent (`runtime.ts`).
+
+The optional self-hosted path (`pnpm direct`, `app/index.ts`) still talks to
+Slack, Discord, Telegram, and WhatsApp with local adapters when those
+secrets are set.
+
+It connects to **Linear** and **Notion** over MCP and can:
 
 - **Query Linear** — _"what's open in CPK this cycle?"_ → renders issues
   as a rich card (Block Kit on Slack, Components V2 on Discord, HTML on
@@ -34,19 +31,18 @@ performs any Linear/Notion write.
 ## How it fits together
 
 ```
-Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI──▶  runtime (runtime.ts)
-                                                          │  BuiltInAgent (LLM)
-                                                          ├── Linear  MCP  (hosted)
-                                                          └── Notion  MCP  (sidecar)
+Slack ──Intelligence──▶  bot (app/managed.ts)  ──AG-UI──▶  runtime (runtime.ts)
+                                                            │  BuiltInAgent (LLM)
+                                                            ├── Linear  MCP  (hosted)
+                                                            └── Notion  MCP  (sidecar)
 ```
 
-- **`app/`** — the platform-agnostic bot: `createChannel` + whichever of the
-  `slack()` / `discord()` / `telegram()` adapters have secrets, the
-  `read_thread` / `render_chart` / `render_diagram` / `render_table` tools,
-  the `issue_card` / `issue_list` / `page_list` render-tools, the
-  `confirm_write` HITL gate, and the bot's context. The components emit a
-  cross-platform JSX IR that each adapter renders natively. This is the
-  directory you'd copy to start your own bot.
+- **`app/managed.ts`** — default bot. `createChannel` with no local adapters.
+  Tools, commands, carousel, HITL, and context live here. Intelligence
+  delivers Slack turns over realtime.
+- **`app/index.ts`** — optional self-hosted bot. Same tools, plus local
+  `slack()` / `discord()` / `telegram()` / `whatsapp()` adapters when those
+  secrets are present.
 - **`runtime.ts`** — the agent backend: a single CopilotKit `BuiltInAgent`
   (LLM + Linear/Notion MCP), served over AG-UI. No Python, no LangGraph.
 - **`e2e/`** — live test harnesses. The Slack harness (`run.ts` /
@@ -54,17 +50,12 @@ Slack / Discord / Telegram ──@mention──▶  bot (app/)  ──AG-UI─�
   the Telegram harness (`telegram-run.ts`, `pnpm e2e:telegram`) is a
   manual-trigger smoke test — see [`e2e/TELEGRAM-README.md`](e2e/TELEGRAM-README.md).
 
-### The bot (`app/index.ts`)
+### The bot (`app/managed.ts`, default)
 
-The core shape is `createChannel` + one or more adapters + an `onMention`
-handler, then you **declare the Channel on the Intelligence runtime**, which owns
-its lifecycle. A Channel runs ONLY through the Intelligence runtime: the platform
-adapters stay direct (they keep their own credentials), but the runtime starts
-them — there is no `bot.start()`/`bot.stop()`. The snippet below is an
-**abridged, single-platform sketch** — the real `app/index.ts` builds the adapter
-list from whichever secrets are present (Slack, Discord, Telegram, and/or
-WhatsApp) and adds graceful shutdown; read the file for the full multi-platform
-wiring:
+The default bot has no local Slack adapter. Intelligence owns Slack. You
+declare a Channel, hand it to `CopilotRuntime`, and mount
+`createCopilotNodeListener`. Slack turns arrive over the Intelligence
+realtime transport.
 
 ```ts
 import { createServer } from "node:http";
@@ -72,7 +63,6 @@ import { createChannel, HttpAgent } from "@copilotkit/channels";
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import {
-  slack,
   defaultSlackTools,
   defaultSlackContext,
 } from "@copilotkit/channels/slack";
@@ -81,67 +71,41 @@ import { appContext } from "./context/app-context.js";
 
 const bot = createChannel({
   identifyUser: "platform",
-  name: "triage", // every declared Channel needs a unique name
-  adapters: [
-    slack({
-      botToken: process.env.SLACK_BOT_TOKEN!,
-      appToken: process.env.SLACK_APP_TOKEN!,
-      respondTo: {
-        directMessages: true,
-        appMentions: { reply: "thread" },
-        threadReplies: "mentionsOnly",
-      },
-    }),
-  ],
-  // One AG-UI agent per conversation, pointed at the runtime.
+  name: process.env.INTELLIGENCE_CHANNEL_NAME ?? "triage",
   agent: (threadId) => {
     const a = new HttpAgent({ url: process.env.AGENT_URL! });
     a.threadId = threadId;
     return a;
   },
-  // defaultSlackTools ships universal-Slack tools (e.g. lookup_slack_user
-  // for @-mentions); appTools adds this bot's tools. defaultSlackContext
-  // ships tagging/mrkdwn/thread-model guidance; appContext adds identity +
-  // triage policy.
   tools: [...defaultSlackTools, ...appTools],
   context: [...defaultSlackContext, ...appContext],
 });
 
-// One handler covers explicit @-mentions and normal DMs.
-// senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({
+    prompt: message.text,
     context: senderContext(message.user, thread.platform),
   });
 });
 
-// A Channel runs only through the Intelligence runtime, which OWNS its
-// lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
-  // apiUrl/wsUrl default to the managed Intelligence platform.
   apiKey: process.env.COPILOTKIT_API_KEY!,
 });
 const runtime = new CopilotRuntime({
-  agents: {}, // the Channel supplies its own agent
+  agents: {},
   intelligence,
   channels: [bot],
 });
-
-// Mounting the listener starts the Channel (and its adapters) and exposes
-// `.channels` to observe or shut it down; `ready()` waits until it is live.
-// No bot.start()/bot.stop().
 const listener = createCopilotNodeListener({
   runtime,
   basePath: "/api/copilotkit",
 });
-createServer(listener).listen(8300, "127.0.0.1");
+createServer(listener).listen(8300);
 await listener.channels.ready();
 ```
 
-The runnable Slack example keeps DMs and the assistant pane conversational, but
-channel/private-channel threads require `@Kite` on each follow-up by default.
-Set `respondTo.threadReplies: "afterBotReply"` to restore legacy behavior where
-plain replies in a thread can continue after the bot has posted there.
+The self-hosted path is `app/index.ts` (`pnpm direct`). That file still builds
+local adapters from `SLACK_*` / `DISCORD_*` / `TELEGRAM_*` / `WHATSAPP_*`.
 
 ### Tools (`app/tools/index.ts`)
 
@@ -154,11 +118,6 @@ adapter supplies at call time; tools reach platform power (post, postFile,
 - **`read_thread`** — fetches the messages in the current conversation thread
   so the agent can summarize/act on a real conversation (e.g. "write this
   thread up as a postmortem") instead of inventing content.
-- **`render_chart`** — the agent emits a Chart.js config; rendered to a PNG
-  **locally** in a headless browser (reusing the Playwright dep) and posted
-  inline.
-- **`render_diagram`** — the agent emits Mermaid; rendered to a PNG the same
-  way.
 - **`render_table`** — the agent emits columns + rows; rendered natively per
   platform (a Slack Table block, otherwise a monospace fallback).
 
@@ -192,6 +151,106 @@ you just created with `justCreated: true`), **`issue_list`** (several Linear
 issues), and **`page_list`** (Notion pages). The system prompt steers the
 agent to present results with these instead of prose.
 
+### Images from JSX — `render_mrr`
+
+Not every visualization fits the channel-UI vocabulary. **`render_mrr`**
+demonstrates posting **arbitrary app JSX as an image**: `<MrrCard/>` (a plain
+`react` component, not a `@copilotkit/channels` component) and an optional
+signups `<BarChart>` from `@copilotkit/channels/charts` are posted straight
+to `thread.post` — no wrapper, no explicit "render to image" call.
+
+```tsx
+export const renderMrrTool: ChannelTool<typeof schema> = {
+  name: "render_mrr",
+  description:
+    "Render an MRR summary card (and optional signups bar chart) as images and post them to the thread.",
+  parameters: schema,
+  async handler({ value, delta, series }, { thread }) {
+    await thread.post(<MrrCard value={value} delta={delta} />, {
+      filename: "mrr.png",
+      title: "MRR",
+    });
+    if (series?.length) {
+      await thread.post(<BarChart title="Signups / day" data={series} />, {
+        filename: "signups.png",
+      });
+    }
+    return (
+      "Posted the MRR card" + (series?.length ? " and signups chart." : ".")
+    );
+  },
+};
+```
+
+`thread.post` detects that `<MrrCard/>` and `<BarChart/>` return plain React
+elements (not the channels-ui vocabulary) and routes them through
+[Takumi](https://github.com/takumi-rs/takumi) — a static, in-process
+rasterizer — to a PNG, then uploads it through the same `postFile` path used
+everywhere else in this bot.
+
+**Source:** `app/tools/render-mrr.tsx`, `app/components/mrr-card.ts`.
+
+> `react` and `takumi-js` are dependencies of this example for that reason —
+> there is no headless browser (the old Playwright-based `render_chart` /
+> `render_diagram` tools are gone) at runtime; rendering happens in-process.
+
+### Showcase features: CopilotKit-branded cards + charts as images
+
+Three realistic "we run this in our own Slack" features (`app/showcase/`), each
+rendering a **CopilotKit-branded card** plus **charts** as images, and each
+triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
+matching `render_*` tool). Both paths share one `render*` fn.
+
+| Feature              | Slash / prompt                   | Data                                                    | Renders                                                                                                                                                    |
+| -------------------- | -------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PR review radar**  | `/prs` · "show the PR radar"     | GitHub PRs (public, no token)                           | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart                                                                                       |
+| **Weekly OSS pulse** | `/pulse` · "weekly pulse"        | GitHub + npm (public)                                   | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart                                                                            |
+| **Linear standup**   | `/standup` · "cycle standup"     | Linear (`LINEAR_API_KEY`)                               | per-team progress card (a meter per team) + done-vs-remaining stacked bar                                                                                  |
+| **Product carousel** | `/carousel` or "show a carousel" | Sample catalog (or items you pass to `render_carousel`) | native carousel: React `ProductCard` PNGs plus native headers, sale text, and Buy buttons. Works on `pnpm direct` (local Slack) and on Intelligence Slack. |
+
+The brand look comes from **Tailwind**: cards are authored with Tailwind classes
+(CopilotKit brand tokens in `styles/tailwind.css`), compiled to `styles/brand.css`
+with `pnpm build:css`, and fed — together with the **Plus Jakarta Sans** brand
+font (`assets/fonts/`) — to `createChannel({ render: { stylesheets, fonts } })`
+via `app/render/brand.ts`. Takumi resolves the Tailwind classes when it
+rasterizes. Charts default to the CopilotKit brand data-viz palette. Every
+feature reads **live** data and **falls back to sample data** (never throws) when
+the API is unreachable, labelling the card `sample data` so the degradation is
+visible.
+
+> After changing card classes, re-run `pnpm build:css` so the compiled
+> `styles/brand.css` (committed, fed at runtime) includes them.
+
+### Ad-hoc charts & diagrams: `render_chart` / `render_diagram`
+
+Beyond the fixed features above, the bot registers two **generic** data-viz
+tools from `@copilotkit/channels/charts` (`app/tools/index.ts`), so you can ask
+for a one-off visual:
+
+- **`render_chart`** — _"here's a CSV of signups by month, chart it as a bar
+  chart"_ → the agent parses the data and calls
+  `render_chart({ kind: "bar", data: [{label, value}, …], title })`, posting a
+  branded chart image. Supports `bar`/`line`/`pie`/`stacked`/`scatter`.
+- **`render_diagram`** — _"diagram our deploy pipeline"_ → the agent calls
+  `render_diagram({ nodes, edges, direction })`, posting a layered flow diagram
+  (boxes + arrows). Not arbitrary graph auto-layout (Takumi has no JS layout
+  engine).
+
+```ts
+// One render fn, two triggers — app/showcase/pr-radar.tsx
+export async function renderPrRadar(thread) {
+  const { prs, live } = await fetchPrRadar();           // live GitHub or sample
+  await thread.post(<PrRadarCard prs={prs} live={live} />, { filename: "pr-radar.png", width: 760, height: 150 + prs.length * 40 });
+  if (prs.length) await thread.post(<BarChart title="Open PRs by age" data={byAgeBucket(prs)} />, { filename: "pr-age.png" });
+}
+export const prRadarTool = defineChannelTool({ name: "render_pr_radar", /* … */ async handler(_, { thread }) { return renderPrRadar(thread); } });
+export const prsCommand   = defineChannelCommand({ name: "prs", /* … */ async handler({ thread }) { await renderPrRadar(thread); } });
+```
+
+**Source:** `app/showcase/` — `pr-radar.tsx`, `weekly-pulse.tsx`,
+`cycle-standup.tsx`, `lib.ts`; brand render config in `app/render/brand.ts` +
+`styles/`.
+
 ### Human-in-the-loop: `confirm_write`
 
 HITL is a **blocking frontend tool**. Before any Linear/Notion write the
@@ -223,7 +282,7 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Four app-owned slash commands, registered via `createChannel({ commands })`:
+App-owned slash commands, registered via `createChannel({ commands })`:
 
 - **`/agent <text>`** — a mention-free entry point; runs the agent with the
   command text as the prompt.
@@ -233,6 +292,14 @@ Four app-owned slash commands, registered via `createChannel({ commands })`:
   (only you see it); degrades to a DM on platforms without ephemeral messages.
 - **`/file-issue`** — opens a structured Linear issue form; degrades to a
   conversational flow on platforms without modal support (e.g. Telegram).
+- **`/prs`**, **`/pulse`**, **`/standup`** — the showcase features (see
+  [Showcase features](#showcase-features-shadcn-cards--charts-as-images)
+  below). Each renders a shadcn-style card + charts as images and is **also**
+  triggerable by prompt (the matching `render_*` tool), so the same feature
+  works whether you type the slash command or just ask the agent for it.
+- **`/carousel`** — mixed native channel UI and React snapshots. Each slide
+  is a native card with a `<Render>` of `<ProductCard/>` (Takumi PNG) plus a
+  real Buy button. Also available as the `render_carousel` tool.
 
 ```ts
 defineChannelCommand({
@@ -252,12 +319,13 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
-> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
-> Slack won't deliver an unregistered command, even over Socket Mode. The
-> easiest path is to paste the full `slack-app-manifest.yaml` when creating
-> (or updating) your app, which already declares all four. Discord and Telegram
-> register their commands up front via the adapter.
+> **Slack setup:** every command (`/agent`, `/triage`, `/preview`,
+> `/file-issue`, `/prs`, `/pulse`, `/standup`, `/carousel`) must be declared in your Slack
+> app under **Slash Commands** — Slack won't deliver an unregistered command,
+> even over Socket Mode. The easiest path is to paste the full
+> `slack-app-manifest.yaml` when creating (or updating) your app, which already
+> declares all of them. Discord and Telegram register their commands up front
+> via the adapter.
 
 ### The agent (`runtime.ts`)
 
@@ -271,11 +339,11 @@ model is `openai/gpt-5.5` (override with `AGENT_MODEL`).
 
 ## Local run
 
-Pieces: the **chat-platform app(s)** (Slack, Discord, and/or Telegram, created
-once), the optional **Notion MCP sidecar**, the **agent** (`runtime.ts`), and
-the **bot** (`app/`). Set up whichever platform(s) you want — the bot starts an
-adapter for each one whose secrets are present (so you can run any one, or
-several from one process).
+Default: Intelligence owns Slack. Pieces are the **agent** (`runtime.ts`) and
+the **bot** (`app/managed.ts`). You do not set `SLACK_*` for this path.
+
+The optional **Notion MCP sidecar** is only for Notion tools. Linear uses
+`LINEAR_API_KEY` directly.
 
 > **This example runs from the monorepo.** Its application-level Channels
 > dependency is `@copilotkit/channels`; the root export and platform subpaths all
@@ -323,7 +391,7 @@ several from one process).
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
 - The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
-  `/file-issue` — all four passed to `createChannel`) via `setMyCommands` on start
+  `/file-issue`, `/prs`, `/pulse`, `/standup` — all passed to `createChannel`) via `setMyCommands` on start
   (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
@@ -331,22 +399,19 @@ several from one process).
 
 ```bash
 cp .env.example .env
-# Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
-#   COPILOTKIT_API_KEY                         (REQUIRED — owns the Channel; free tier)
-#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
-#   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
-#   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
-#   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
-#   LINEAR_API_KEY          (linear.app → Settings → API → Personal API keys)
-#   NOTION_TOKEN            (notion.so → Settings → Connections → integrations)
-#   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
+# Required for the default Intelligence path:
+#   COPILOTKIT_API_KEY or INTELLIGENCE_API_KEY
+#   OPENAI_API_KEY
+#   AGENT_URL                         (default: local runtime on :8200)
+# Optional:
+#   INTELLIGENCE_CHANNEL_NAME         (default: triage)
+#   INTELLIGENCE_API_URL / INTELLIGENCE_GATEWAY_WS_URL
+#   LINEAR_API_KEY / NOTION_*
 ```
 
-A Channel runs only through the Intelligence runtime, so `COPILOTKIT_API_KEY` is
-**required** (free tier). There are no URLs to set — the SDK defaults to the
-managed Intelligence platform. The platform adapters stay direct — the runtime that owns the Channel starts each
-of them for you. Linear and Notion are independent — set only the ones you want;
-the agent wires up whichever credentials are present.
+`COPILOTKIT_API_KEY` (or the OpenTag alias `INTELLIGENCE_API_KEY`) is required.
+URLs default to the managed Intelligence platform. Slack tokens are not used
+on `pnpm dev`. Use `pnpm direct` only if you want local adapters.
 
 ### 3. Notion MCP sidecar (only if using Notion)
 
@@ -372,7 +437,13 @@ default `AGENT_URL`.
 ### 5. Bot
 
 ```bash
-pnpm --filter slack-example dev       # tsx watch app/index.ts
+pnpm --filter slack-example dev       # Intelligence path: app/managed.ts
+```
+
+Optional self-hosted adapters (needs `SLACK_*` / `DISCORD_*` / `TELEGRAM_*`):
+
+```bash
+pnpm --filter slack-example direct    # app/index.ts
 ```
 
 ### 6. Try it
@@ -400,30 +471,20 @@ policy when Slack and another surface must map to one application user.
 Caveat: a single API key cannot forge Linear's `creator`, so the bot authors
 created issues. True per-user attribution needs per-user OAuth.
 
-## Files → charts, diagrams & tables
+## Files → tables
 
 Upload a file and the bot analyzes it: images and **PDFs** go straight to the
 model, and CSV/JSON/text are decoded and handed over as text. The adapter is
 transport-only — it downloads the upload and delivers it to the agent as
-multimodal content; the **app** (the `render_*` tools above) decides what to
-do.
+multimodal content; the **app** (the `render_table` tool above) decides what
+to do.
 
 > **PDFs and images need a vision/document-capable model.** The default
 > `openai/gpt-5.5` reads both natively through this path, as do recent Claude
 > (`anthropic/claude-sonnet-4-6`) and Gemini (`google/gemini-2.5-*`) models.
 > An older text-only model will ignore the attached document.
 
-Try it: drop a CSV and say _"chart revenue by month"_, _"diagram this incident
-flow"_, or _"show the incidents as a table"_. The chart/diagram renderers need
-a Chromium binary:
-
-```bash
-npx playwright install chromium
-```
-
-Notes: the chart/diagram libraries load from a CDN into the local browser
-(override `CHART_JS_URL` / `MERMAID_URL`); your data is rendered locally and
-never sent to a rendering service.
+Try it: drop a CSV and say _"show the incidents as a table"_.
 
 ## Deploying
 
@@ -482,9 +543,7 @@ bot service (Railway):
    `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
    subscribe to the `messages` field.
 
-Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
-the same headless browser the Slack/Discord paths already run; their PNGs go
-out as WhatsApp images via the media upload.
+Health check: `GET https://<bot-domain>/` returns `ok`.
 
 ## Feature demos
 
