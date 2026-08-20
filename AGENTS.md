@@ -60,6 +60,7 @@ Before editing anything that looks like product docs, read [Documentation](.clau
 - For showcase-driven frameworks (`docs_mode: generated`), update the showcase source of truth: manifests, demos, feature coverage, source regions, registry inputs, shared/root MDX, and sparse framework overrides. Do not hand-edit generated files under `showcase/shell-docs/src/data/frameworks/`.
 - For authored frameworks (`docs_mode: authored`), edit `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For snippets, edit `showcase/shell-docs/src/content/snippets/`; snippets can feed root docs, authored framework pages, and showcase-driven framework pages.
+- When adding, renaming, or removing an Inspector pane, follow `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
 - **AG-UI protocol docs** are canonical upstream in `ag-ui-protocol/ag-ui`. The `showcase/shell-docs/src/content/ag-ui/` tree is a downstream mirror; change AG-UI upstream first, then sync the mirror back.
 - **Do not recreate `docs/content/docs/`**. Top-level `docs/` is only a symlink to shell-docs. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
 - To run shell-docs locally, follow `showcase/shell-docs/README.md` and use the shell-docs npm commands.

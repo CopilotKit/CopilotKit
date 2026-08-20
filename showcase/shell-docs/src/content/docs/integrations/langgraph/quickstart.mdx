@@ -5,6 +5,8 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 <OpsPlatformCTA
   variant="card"
   title="Ship LangGraph to production"
@@ -590,6 +592,11 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## Deploying to AWS?

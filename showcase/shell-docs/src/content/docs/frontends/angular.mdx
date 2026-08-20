@@ -5,6 +5,8 @@ icon: "lucide/Triangle"
 hideTOC: true
 ---
 
+import OpenInspectorStepAngular from "@/snippets/shared/inspector/open-inspector-step-angular.mdx";
+
 `@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it; without a selection, the guide uses CopilotKit's `BuiltInAgent`.
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
@@ -226,6 +228,9 @@ headless APIs, and it supports zoneless applications.
         Angular → Copilot Runtime → your selected agent backend.
       </Step>
     </WhenAngularBackend>
+    <Step>
+        <OpenInspectorStepAngular components={props.components} />
+    </Step>
 
 </Steps>
 

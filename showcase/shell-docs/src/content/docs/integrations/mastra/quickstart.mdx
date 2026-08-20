@@ -5,6 +5,8 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 import {
   TailoredContent,
   TailoredContentOption,
@@ -333,6 +335,11 @@ Before you begin, you'll need the following:
             </Accordion>
         </Accordions>
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## What's next?

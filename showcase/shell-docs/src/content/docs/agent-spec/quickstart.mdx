@@ -4,6 +4,8 @@ description: Set up Agent Spec + AG‑UI and connect a CopilotKit UI. Includes p
 icon: "lucide/Play"
 hideTOC: true
 ---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 <OpsPlatformCTA
   variant="card"
   title="Ship Agent Spec to production"
@@ -169,6 +171,11 @@ hideTOC: true
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
       
     </TailoredContentOption>
     <TailoredContentOption
@@ -456,6 +463,11 @@ hideTOC: true
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
   </TailoredContent>
   </Step>

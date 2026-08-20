@@ -60,6 +60,8 @@ Before editing framework docs, check the framework's `docs_mode`.
   reference navigation is generated from frontmatter, not `meta.json`.
 - For **snippets**, edit `showcase/shell-docs/src/content/snippets/`; snippets feed both
   shared/root pages and framework-specific pages.
+- When adding, renaming, or removing an Inspector pane, follow
+  `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
 - To **flip a framework to showcase-driven docs**, complete showcase coverage first, then
   change `docs_mode`, regenerate shell-docs data, and verify routes, sidebar entries, search
   results, snippets, and framework switching.
