@@ -310,7 +310,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
           ```
       </Step>
       <Step>
@@ -318,32 +318,29 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
           Create an API route to connect CopilotKit to your Pydantic AI agent:
 
-          ```tsx title="app/api/copilotkit/route.ts"
+          ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
           import {
             CopilotRuntime,
-            ExperimentalEmptyAdapter,
-            copilotRuntimeNextJSAppRouterEndpoint,
-          } from "@copilotkit/runtime";
+            createCopilotEndpoint,
+            InMemoryAgentRunner,
+          } from "@copilotkit/runtime/v2";
+          import { handle } from "hono/vercel";
           import { HttpAgent } from "@ag-ui/client";
-          import { NextRequest } from "next/server";
-
-          const serviceAdapter = new ExperimentalEmptyAdapter();
 
           const runtime = new CopilotRuntime({
             agents: {
               my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
-            }
+            },
+            runner: new InMemoryAgentRunner(),
           });
 
-          export const POST = async (req: NextRequest) => {
-            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-              runtime,
-              serviceAdapter,
-              endpoint: "/api/copilotkit",
-            });
+          const app = createCopilotEndpoint({
+            runtime,
+            basePath: "/api/copilotkit",
+          });
 
-            return handleRequest(req);
-          };
+          export const GET = handle(app);
+          export const POST = handle(app);
           ```
       </Step>
       <Step>
@@ -363,7 +360,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
               <html lang="en">
                 <body>
                   {/* [!code highlight:3] */}
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                     {children}
                   </CopilotKit>
                 </body>

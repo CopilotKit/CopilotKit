@@ -247,7 +247,7 @@ point the runtime at the LangSmith deployment URL.
         In your frontend app:
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime hono
         ```
       </Step>
 
@@ -257,14 +257,14 @@ point the runtime at the LangSmith deployment URL.
         CopilotKit Runtime is the server-side layer that connects your frontend to the LangSmith
         deployment. Create an API route:
 
-        ```typescript title="app/api/copilotkit/route.ts"
+        ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
           CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+          createCopilotEndpoint,
+          InMemoryAgentRunner,
+        } from "@copilotkit/runtime/v2";
+        import { handle } from "hono/vercel";
         import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-        import { NextRequest } from "next/server";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -274,16 +274,16 @@ point the runtime at the LangSmith deployment URL.
               langsmithApiKey: process.env.LANGSMITH_API_KEY!,
             }),
           },
+          runner: new InMemoryAgentRunner(),
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            serviceAdapter: new ExperimentalEmptyAdapter(),
-            endpoint: "/api/copilotkit",
-          });
-          return handleRequest(req);
-        };
+        const app = createCopilotEndpoint({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
+
+        export const GET = handle(app);
+        export const POST = handle(app);
         ```
 
         <Callout type="info" title="graphId must match langgraph.json">
@@ -304,7 +304,7 @@ point the runtime at the LangSmith deployment URL.
           return (
             <html lang="en">
               <body>
-                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                   {children}
                 </CopilotKit>
               </body>
@@ -354,7 +354,7 @@ point the runtime at the LangSmith deployment URL.
         ### Install CopilotKit
 
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime
+        npm install @copilotkit/react-core @copilotkit/runtime hono
         ```
       </Step>
 
@@ -363,14 +363,14 @@ point the runtime at the LangSmith deployment URL.
 
         Create an API route that points at your LangSmith deployment:
 
-        ```typescript title="app/api/copilotkit/route.ts"
+        ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
           CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+          createCopilotEndpoint,
+          InMemoryAgentRunner,
+        } from "@copilotkit/runtime/v2";
+        import { handle } from "hono/vercel";
         import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-        import { NextRequest } from "next/server";
 
         const runtime = new CopilotRuntime({
           agents: {
@@ -380,16 +380,16 @@ point the runtime at the LangSmith deployment URL.
               langsmithApiKey: process.env.LANGSMITH_API_KEY!,
             }),
           },
+          runner: new InMemoryAgentRunner(),
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            serviceAdapter: new ExperimentalEmptyAdapter(),
-            endpoint: "/api/copilotkit",
-          });
-          return handleRequest(req);
-        };
+        const app = createCopilotEndpoint({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
+
+        export const GET = handle(app);
+        export const POST = handle(app);
         ```
 
         <Callout type="info" title="graphId must match langgraph.json">
@@ -410,7 +410,7 @@ point the runtime at the LangSmith deployment URL.
           return (
             <html lang="en">
               <body>
-                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                   {children}
                 </CopilotKit>
               </body>

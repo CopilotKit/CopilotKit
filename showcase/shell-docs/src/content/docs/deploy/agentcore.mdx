@@ -151,13 +151,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         <FrontendOnly frontend="react">
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client rxjs
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client rxjs hono
         ```
         </FrontendOnly>
 
         <FrontendOnly frontend="angular">
         ```npm
-        npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @ag-ui/client rxjs
+        npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @ag-ui/client rxjs hono
         ```
         </FrontendOnly>
       </Step>
@@ -171,14 +171,14 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         Create an API route:
 
-        ```typescript title="app/api/copilotkit/route.ts"
+        ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
           CopilotRuntime,
-          ExperimentalEmptyAdapter,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+          createCopilotEndpoint,
+          InMemoryAgentRunner,
+        } from "@copilotkit/runtime/v2";
+        import { handle } from "hono/vercel";
         import { HttpAgent } from "@ag-ui/client";
-        import { NextRequest } from "next/server";
         import { AgentCoreRunner } from "./agent-core-runner";
 
         const runtime = new CopilotRuntime({
@@ -193,14 +193,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           runner: new AgentCoreRunner(),
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            serviceAdapter: new ExperimentalEmptyAdapter(),
-            endpoint: "/api/copilotkit",
-          });
-          return handleRequest(req);
-        };
+        const app = createCopilotEndpoint({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
+
+        export const GET = handle(app);
+        export const POST = handle(app);
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">
@@ -239,7 +238,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           type ToolCall,
           type ToolCallResultEvent,
         } from "@ag-ui/client";
-        import { InMemoryAgentRunner } from "@copilotkit/runtime";
+        import { InMemoryAgentRunner } from "@copilotkit/runtime/v2";
         import { concatMap, of } from "rxjs";
         import { randomUUID } from "node:crypto";
 
@@ -298,7 +297,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           return (
             <html lang="en">
               <body>
-                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                   {children}
                 </CopilotKit>
               </body>

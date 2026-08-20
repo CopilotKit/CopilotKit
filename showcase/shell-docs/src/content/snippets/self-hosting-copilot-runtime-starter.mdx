@@ -18,32 +18,30 @@ import { RiNextjsLine } from "react-icons/ri";
   <Tab value="Next.js App Router">
     Create a new route to handle the `/api/copilotkit` endpoint.
 
-    ```ts title="app/api/copilotkit/route.ts"
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
-    import { NextRequest } from "next/server";
+      createCopilotEndpoint,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { handle } from "hono/vercel";
 
     // You can use any service adapter here for multi-agent support.
-    const serviceAdapter = new ExperimentalEmptyAdapter();
 
     const runtime = new CopilotRuntime({
       agents: {
         // added in next step...
       },
+      runner: new InMemoryAgentRunner(),
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
-      return handleRequest(req);
-    };
+    export const GET = handle(app);
+    export const POST = handle(app);
     ```
 
   </Tab>

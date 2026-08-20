@@ -29,14 +29,15 @@ Key benefits:
 
     Use `.use()` to attach the `MCPAppsMiddleware` to your `BuiltInAgent`:
 
-    ```typescript title="app/api/copilotkit/route.ts"
+    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
+      createCopilotEndpoint,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { handle } from "hono/vercel";
     import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
-    import { NextRequest } from "next/server";
 
     const agent = new BuiltInAgent({
       model: "openai:gpt-5.4-mini",
@@ -55,16 +56,16 @@ Key benefits:
 
     const runtime = new CopilotRuntime({
       agents: { default: agent },
+      runner: new InMemoryAgentRunner(),
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        endpoint: "/api/copilotkit",
-      });
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
-      return handleRequest(req);
-    };
+    export const GET = handle(app);
+    export const POST = handle(app);
     ```
 
     <Callout type="info" title="Server ID">

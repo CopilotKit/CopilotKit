@@ -51,13 +51,13 @@ Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
 ```ts title="app/api/copilotkit/route.ts"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: {},
+  runner: new InMemoryAgentRunner(),
 });
 ```
 
@@ -73,7 +73,7 @@ The A2UI renderer activates automatically — no extra configuration needed on t
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }} useSingleEndpoint={false}>
   {children}
 </CopilotKit>;
 ```

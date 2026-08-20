@@ -11,13 +11,14 @@ You can design and preview A2UI schemas visually using the [A2UI Composer](https
 
 Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an object to customise:
 
-```typescript title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 // Simple — enable with defaults
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: true,
+  runner: new InMemoryAgentRunner(),
 });
 
 // Or customise — e.g. inject a render tool into the agent
@@ -26,6 +27,7 @@ const runtime = new CopilotRuntime({
   a2ui: {
     injectA2UITool: true,
   },
+  runner: new InMemoryAgentRunner(),
 });
 ```
 

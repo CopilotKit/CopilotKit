@@ -50,7 +50,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     ### Add the dependencies
 
     ```npm
-    npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mcp-apps-middleware
+    npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mcp-apps-middleware hono
     ```
 
   </Step>
@@ -67,14 +67,14 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     touch app/api/copilotkit/route.ts
     ```
 
-    ```typescript title="app/api/copilotkit/route.ts"
+    ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
+      createCopilotEndpoint,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
+    import { handle } from "hono/vercel";
     import { BuiltInAgent } from "@copilotkit/runtime/v2";
-    import { NextRequest } from "next/server";
 
     // 1. Create your agent
     const agent = new BuiltInAgent({
@@ -83,7 +83,6 @@ If you're looking to add an MCP App into an existing application, let's walk thr
     });
 
     // 2. Create a service adapter, empty if not relevant
-    const serviceAdapter = new ExperimentalEmptyAdapter();
 
     // 3. Create the runtime with mcpApps configured
     const runtime = new CopilotRuntime({
@@ -99,19 +98,17 @@ If you're looking to add an MCP App into an existing application, let's walk thr
           },
         ],
       },
+      runner: new InMemoryAgentRunner(),
     });
 
     // 4. Create the API route
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
-      return handleRequest(req);
-    };
-
+    export const GET = handle(app);
+    export const POST = handle(app);
     ```
 
     <Callout type="info" title="Server ID">
@@ -171,7 +168,7 @@ If you're looking to add an MCP App into an existing application, let's walk thr
             <html lang="en">
                 <body>
                     {/* [!code highlight:3] */}
-                    <CopilotKit runtimeUrl="/api/copilotkit">
+                    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
                         {children}
                     </CopilotKit>
                 </body>

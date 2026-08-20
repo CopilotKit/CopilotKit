@@ -47,14 +47,15 @@ Add a `runCode` [server tool](/server-tools) and register it on your `BuiltInAge
 tool creates a fresh sandbox, runs the code, returns stdout, and cleans the sandbox up — so every call is
 isolated.
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import {
   CopilotRuntime,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
 import { BuiltInAgent, defineTool } from "@copilotkit/runtime/v2"; // [!code highlight]
 import { Daytona } from "@daytonaio/sdk"; // [!code highlight]
-import { NextRequest } from "next/server";
 import { z } from "zod";
 
 const daytona = new Daytona(); // reads DAYTONA_API_KEY
@@ -88,16 +89,16 @@ const builtInAgent = new BuiltInAgent({
 
 const runtime = new CopilotRuntime({
   agents: { default: builtInAgent },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    endpoint: "/api/copilotkit",
-  });
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-  return handleRequest(req);
-};
+export const GET = handle(app);
+export const POST = handle(app);
 ```
 
 <Callout type="info" title="Sandbox networking on the free tier">

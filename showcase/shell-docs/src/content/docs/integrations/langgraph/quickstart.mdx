@@ -325,7 +325,7 @@ Before you begin, you'll need the following:
               ### Install CopilotKit packages
 
               ```npm
-              npm install @copilotkit/react-core @copilotkit/runtime
+              npm install @copilotkit/react-core @copilotkit/runtime hono
               ```
 
               The components used below (`CopilotKit`, `CopilotSidebar`) and the
@@ -356,17 +356,15 @@ Before you begin, you'll need the following:
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/route.ts"
+                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                   import {
                     CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                  } from "@copilotkit/runtime";
+                    createCopilotEndpoint,
+                    InMemoryAgentRunner,
+                  } from "@copilotkit/runtime/v2";
+                  import { handle } from "hono/vercel";
                   // [!code highlight]
                   import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-                  import { NextRequest } from "next/server";
-
-                  const serviceAdapter = new ExperimentalEmptyAdapter();
 
                   const runtime = new CopilotRuntime({
                     agents: {
@@ -376,32 +374,29 @@ Before you begin, you'll need the following:
                         graphId: "sample_agent",
                         langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                       }),
-                    }
+                    },
+                    runner: new InMemoryAgentRunner(),
                   });
 
-                  export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                      runtime,
-                      serviceAdapter,
-                      endpoint: "/api/copilotkit",
-                    });
+                  const app = createCopilotEndpoint({
+                    runtime,
+                    basePath: "/api/copilotkit",
+                  });
 
-                    return handleRequest(req);
-                  };
+                  export const GET = handle(app);
+                  export const POST = handle(app);
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                  createCopilotEndpoint,
+                  InMemoryAgentRunner,
+                } from "@copilotkit/runtime/v2";
+                import { handle } from "hono/vercel";
                 // [!code highlight]
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
@@ -409,18 +404,17 @@ Before you begin, you'll need the following:
                     sample_agent: new LangGraphHttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
-                  }
+                  },
+                  runner: new InMemoryAgentRunner(),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                const app = createCopilotEndpoint({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
+                export const GET = handle(app);
+                export const POST = handle(app);
               ```
               </Tab>
             </Tabs>
@@ -451,7 +445,7 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
                         {children}
                       </CopilotKit>
                     </body>

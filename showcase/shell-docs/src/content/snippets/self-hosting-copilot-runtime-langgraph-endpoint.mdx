@@ -18,18 +18,18 @@ import { RiNextjsLine } from "react-icons/ri";
   <Tab value="Next.js App Router">
     Create a new route to handle the `/api/copilotkit` endpoint.
 
-    ```ts title="app/api/copilotkit/route.ts"
+    ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
+      createCopilotEndpoint,
+      InMemoryAgentRunner,
       OpenAIAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-      LangGraphAgent
-    } from "@copilotkit/runtime";
+      LangGraphAgent,
+    } from "@copilotkit/runtime/v2";
+    import { handle } from "hono/vercel";
     import OpenAI from "openai";
-    import { NextRequest } from "next/server";
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const serviceAdapter = new OpenAIAdapter({ openai } as any);
 
     const runtime = new CopilotRuntime({
       agents: {
@@ -40,17 +40,16 @@ import { RiNextjsLine } from "react-icons/ri";
           graphId: 'my_agent', // usually the same as agent name
         })
       },
+      runner: new InMemoryAgentRunner(),
     });
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
+    const app = createCopilotEndpoint({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
 
-      return handleRequest(req);
-    };
+    export const GET = handle(app);
+    export const POST = handle(app);
     ```
 
   </Tab>
