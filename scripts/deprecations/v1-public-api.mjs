@@ -192,6 +192,34 @@ overrides.set("react-core:useCopilotChatSuggestions", {
   exampleLines: suggestionsExample,
 });
 
+overrides.set("react-core:useCoAgentStateRender", {
+  replacementName: "useAgent",
+  docs: "https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering",
+  source: "packages/react-core/src/v2/hooks/use-agent.tsx",
+  exampleLines: [
+    'import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";',
+    "",
+    "function AgentStateView() {",
+    "  const { agent } = useAgent({",
+    '    agentId: "basic_agent",',
+    "    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],",
+    "  });",
+    "  const state = agent.state;",
+    "",
+    "  return (",
+    "    <YourComponent",
+    "      agentStateProperty={state.agent_state_property}",
+    "      isRunning={agent.isRunning}",
+    "    />",
+    "  );",
+    "}",
+  ],
+  notes: [
+    "Use useAgent to subscribe to agent state and run-status changes, then render agent.state directly.",
+    "V2 uses ordinary React rendering instead of registering a chat-specific state renderer.",
+  ],
+});
+
 const compilerOptions = {
   allowArbitraryExtensions: true,
   jsx: ts.JsxEmit.ReactJSX,
