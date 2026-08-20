@@ -70,13 +70,22 @@ Open <http://localhost:3000>. `/` redirects to the default skin
 env-gated (Intelligence mode); see `.env.example` and the memory section below.
 
 **Install from HERE, not from the repo root.** This app is deliberately NOT a
-member of the root pnpm workspace (it is absent from `pnpm-workspace.yaml`) and
-ships its own `pnpm-lock.yaml`, because the subagent event surface the banking
-harness needs exists only on the `@ag-ui/*` / `@copilotkit/*` canary line and that
-must not leak into every other package in the monorepo. A root `pnpm install`
-therefore installs nothing for this app. `agent/uv.lock` pins the matching Python
-canaries for the same reason — see the note in `agent/pyproject.toml` for what
-silently breaks without them.
+member of the root pnpm workspace (it is absent from the repo's
+`pnpm-workspace.yaml`) and ships its own `pnpm-lock.yaml`, because the subagent
+event surface the banking harness needs exists only on the `@ag-ui/*` /
+`@copilotkit/*` canary line and that must not leak into every other package in
+the monorepo. A root `pnpm install` therefore installs nothing for this app.
+
+It also ships **its own `pnpm-workspace.yaml`**, which is what makes installing
+here work at all: pnpm walks _up_ looking for a workspace root, and without one
+of its own it finds the repo's, installs all 70 monorepo projects, and leaves
+this directory with no `node_modules` — after which every command fails as
+`eslint: not found`. That file is also where the canary `overrides` live in
+their supported home (`package.json`'s `pnpm` field is only still read because
+this app pins `packageManager: pnpm@10.10.0`).
+
+`agent/uv.lock` pins the matching Python canaries for the same reason — see the
+note in `agent/pyproject.toml` for what silently breaks without them.
 
 **`pnpm dev` alone is not enough for `banking`.** Six of the seven skins run
 their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
