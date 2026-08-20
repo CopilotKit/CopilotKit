@@ -222,8 +222,25 @@ export {
 export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
-   * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Use `useAgent` from `@copilotkit/react-core/v2` instead.
+   * Import and usage example:
+   * ```ts
+   * import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+   * function AgentStateView() {
+   *   const { agent } = useAgent({
+   *     agentId: "basic_agent",
+   *     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+   *   });
+   *   const state = agent.state;
+   *   return (
+   *     <YourComponent
+   *       agentStateProperty={state.agent_state_property}
+   *       isRunning={agent.isRunning}
+   *     />
+   *   );
+   * }
+   * ```
+   * See https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCoAgentStateRender,

@@ -253,9 +253,35 @@ test("semantic migrations use curated replacements instead of same-name guesses"
     "useAgentContext",
   );
   assert.equal(mappings.get("react-core:useCoAgent"), "useAgent");
+  assert.equal(mappings.get("react-core:useCoAgentStateRender"), "useAgent");
   assert.equal(
     mappings.get("react-core:useDefaultTool"),
     "useDefaultRenderTool",
+  );
+});
+
+test("useCoAgentStateRender points to the v2 state-rendering pattern", () => {
+  const item = inventory.inventories
+    .find(({ entrypoint }) => entrypoint.id === "react-core")
+    ?.exports.find(({ name }) => name === "useCoAgentStateRender");
+
+  assert.equal(item?.replacement?.name, "useAgent");
+  assert.equal(
+    item.replacement.docs,
+    "https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering",
+  );
+  assert.ok(
+    item.replacement.exampleLines.includes(
+      'import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";',
+    ),
+  );
+  assert.ok(
+    item.replacement.exampleLines.includes(
+      "    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],",
+    ),
+  );
+  assert.ok(
+    item.replacement.exampleLines.includes("  const state = agent.state;"),
   );
 });
 
