@@ -105,6 +105,11 @@ export type BuiltInAgentModel =
   // MiniMax models
   | "minimax/MiniMax-M3"
   | "minimax/MiniMax-M2.7"
+  // OrcaRouter gateway models
+  | "orcarouter/auto"
+  | "orcarouter/fusion"
+  | "orcarouter/fusion-flash"
+  | "orcarouter/fusion-mini"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -247,6 +252,23 @@ export function resolveModel(
       return minimax(model);
     }
 
+    case "orcarouter": {
+      // OrcaRouter is a gateway that exposes an OpenAI-compatible
+      // chat/completions API with a single key for a routed set of models
+      // (orcarouter/auto, orcarouter/fusion, ...).
+      const orcarouter = createOpenAI({
+        name: "orcarouter",
+        apiKey: apiKey || process.env.ORCAROUTER_API_KEY!,
+        baseURL:
+          process.env.ORCAROUTER_BASE_URL || "https://api.orcarouter.ai/v1",
+      });
+      // OrcaRouter model ids are namespaced (`orcarouter/auto`); the
+      // resolver already stripped the `orcarouter` prefix, so re-prefix it.
+      // Use `.chat()` (chat completions) — the default Responses API path is
+      // not supported by the gateway.
+      return orcarouter.chat(`orcarouter/${model}`);
+    }
+
     case "vertex": {
       const vertex = createVertex();
       return vertex(model);
@@ -254,7 +276,7 @@ export function resolveModel(
 
     default:
       throw new Error(
-        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini).`,
+        `Unknown provider "${provider}" in "${spec}". Supported: openai, anthropic, google (gemini), minimax, orcarouter.`,
       );
   }
 }
@@ -828,6 +850,7 @@ export interface BuiltInAgentClassicConfig {
    * - ANTHROPIC_API_KEY for Anthropic models
    * - GOOGLE_API_KEY for Google models
    * - MINIMAX_API_KEY for MiniMax models
+   * - ORCAROUTER_API_KEY for OrcaRouter models
    */
   apiKey?: string;
   /**
