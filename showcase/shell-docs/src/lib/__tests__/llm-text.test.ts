@@ -731,9 +731,9 @@ test.each(["google-adk", "langgraph-python", "mastra"])(
     );
 
     for (const dependency of [
-      'import { WeatherCard } from "./weather-card";',
-      'import { FlightListCard, type Flight } from "./flight-list-card";',
-      'import { parseJsonResult } from "../_shared/parse-json-result";',
+      'import { WeatherCard } from "./components/weather-card";',
+      'import { FlightListCard, type Flight } from "./components/flight-list-card";',
+      'import { parseJsonResult } from "./lib/parse-json-result";',
       "interface WeatherResult",
       "interface FlightSearchResult",
       "export function WeatherCard",

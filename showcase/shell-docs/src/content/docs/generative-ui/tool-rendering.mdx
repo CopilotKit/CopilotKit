@@ -5,6 +5,8 @@ description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
 ---
 
+import ToolRenderingPerToolExample from "@/snippets/shared/generative-ui/tool-rendering-per-tool-example.mdx";
+
 <InlineDemo demo="tool-rendering" />
 
 ## What is this?
@@ -17,7 +19,11 @@ result). This is the **Generative UI** variant CopilotKit calls **tool
 rendering**.
 
 <Callout type="info">
-  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+  **Free course:** See this pattern built end-to-end in [Build Interactive
+  Agents with Generative
+  UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/)
+  — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the
+  full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
 </Callout>
 
 ## When should I use this?
@@ -75,62 +81,10 @@ The most expressive path is one renderer per tool name. The primary
 receives the tool's parsed arguments, a live `status`, and (once the agent
 returns) the `result`:
 
-The frontend pattern is the same for every backend, so these examples use the
-LangGraph Python showcase as the canonical source. Start with the imports and
-result types shared by both renderers:
+The frontend pattern is the same for every backend. This shared, docs-only
+example includes every component, type, and helper that its renderers use:
 
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  region="tool-rendering-imports"
-  title="frontend/src/app/page.tsx — imports"
-/>
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  region="tool-rendering-result-types"
-  title="frontend/src/app/page.tsx — result types"
-/>
-
-The renderers use two UI components and a small helper that accepts either a
-JSON string or an already-parsed result. Their complete definitions are:
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  file="src/app/demos/tool-rendering/weather-card.tsx"
-/>
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  file="src/app/demos/tool-rendering/flight-list-card.tsx"
-/>
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  file="src/app/demos/_shared/parse-json-result.ts"
-/>
-
-Register the weather renderer once:
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  region="render-weather-tool"
-  title="frontend/src/app/page.tsx — weather renderer"
-/>
-
-The flight renderer follows the same pattern with a different component and schema:
-
-<Snippet
-  framework="langgraph-python"
-  cell="tool-rendering"
-  region="render-flight-tool"
-  title="frontend/src/app/page.tsx — flight renderer"
-/>
+<ToolRenderingPerToolExample />
 
 <Callout type="info">
   The `name` you pass to `useRenderTool` must match the tool name the agent
@@ -142,7 +96,10 @@ Per-tool renderers compose with a catch-all: named renderers claim the
 cell, the same `CustomCatchallRenderer` from above catches `get_stock_price`
 and `roll_dice`:
 
-<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
+<Snippet
+  region="catchall-renderer"
+  title="frontend/src/app/page.tsx — per-tool + catch-all"
+/>
 
 ## The backend tool definition
 
@@ -151,7 +108,10 @@ matching backend definition for `get_weather`: expose a tool named
 `get_weather`, return structured data, and let the frontend renderer with
 the same name paint the card.
 
-<Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
+<Snippet
+  region="weather-tool-backend"
+  title="backend/agent.py — weather tool"
+/>
 
 <FrameworkSetup concept="tool-rendering-setup" />
 

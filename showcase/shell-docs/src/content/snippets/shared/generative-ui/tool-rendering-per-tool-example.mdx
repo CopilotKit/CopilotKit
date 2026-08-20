@@ -1,0 +1,175 @@
+```tsx title="components/weather-card.tsx"
+export interface WeatherCardProps {
+  loading: boolean;
+  location: string;
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  conditions?: string;
+}
+
+export function WeatherCard({
+  loading,
+  location,
+  temperature,
+  humidity,
+  windSpeed,
+  conditions,
+}: WeatherCardProps) {
+  return (
+    <article className="rounded-xl border p-4">
+      <h3 className="font-semibold">{location || "Weather"}</h3>
+      {loading ? (
+        <p>Fetching weather...</p>
+      ) : (
+        <dl>
+          <div>
+            <dt>Conditions</dt>
+            <dd>{conditions ?? "--"}</dd>
+          </div>
+          <div>
+            <dt>Temperature</dt>
+            <dd>{temperature ?? "--"}&deg;F</dd>
+          </div>
+          <div>
+            <dt>Humidity</dt>
+            <dd>{humidity ?? "--"}%</dd>
+          </div>
+          <div>
+            <dt>Wind</dt>
+            <dd>{windSpeed ?? "--"} mph</dd>
+          </div>
+        </dl>
+      )}
+    </article>
+  );
+}
+```
+
+```tsx title="components/flight-list-card.tsx"
+export interface Flight {
+  airline?: string;
+  flight?: string;
+  depart?: string;
+  arrive?: string;
+  price_usd?: number;
+}
+
+export interface FlightListCardProps {
+  loading: boolean;
+  origin: string;
+  destination: string;
+  flights: Flight[];
+}
+
+export function FlightListCard({
+  loading,
+  origin,
+  destination,
+  flights,
+}: FlightListCardProps) {
+  return (
+    <article className="rounded-xl border p-4">
+      <h3 className="font-semibold">
+        {origin || "?"} → {destination || "?"}
+      </h3>
+      {loading ? (
+        <p>Searching...</p>
+      ) : (
+        <ul>
+          {flights.map((flight, index) => (
+            <li key={`${flight.flight ?? "flight"}-${index}`}>
+              {flight.airline ?? "--"} {flight.flight ?? ""}:{" "}
+              {flight.depart ?? "?"} → {flight.arrive ?? "?"}
+              {flight.price_usd !== undefined ? ` ($${flight.price_usd})` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+    </article>
+  );
+}
+```
+
+```ts title="lib/parse-json-result.ts"
+export function parseJsonResult<T>(result: unknown): T {
+  if (!result) return {} as T;
+
+  try {
+    return (typeof result === "string" ? JSON.parse(result) : result) as T;
+  } catch {
+    return {} as T;
+  }
+}
+```
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { WeatherCard } from "./components/weather-card";
+import { FlightListCard, type Flight } from "./components/flight-list-card";
+import { parseJsonResult } from "./lib/parse-json-result";
+
+interface WeatherResult {
+  city?: string;
+  temperature?: number;
+  humidity?: number;
+  wind_speed?: number;
+  conditions?: string;
+}
+
+interface FlightSearchResult {
+  origin?: string;
+  destination?: string;
+  flights?: Flight[];
+}
+
+export function ToolRenderers() {
+  useRenderTool(
+    {
+      name: "get_weather",
+      parameters: z.object({ location: z.string() }),
+      render: ({ parameters, result, status }) => {
+        const parsed = parseJsonResult<WeatherResult>(result);
+        return (
+          <WeatherCard
+            loading={status !== "complete"}
+            location={parameters?.location ?? parsed.city ?? ""}
+            temperature={parsed.temperature}
+            humidity={parsed.humidity}
+            windSpeed={parsed.wind_speed}
+            conditions={parsed.conditions}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  useRenderTool(
+    {
+      name: "search_flights",
+      parameters: z.object({
+        origin: z.string(),
+        destination: z.string(),
+      }),
+      render: ({ parameters, result, status }) => {
+        const parsed = parseJsonResult<FlightSearchResult>(result);
+        return (
+          <FlightListCard
+            loading={status !== "complete"}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
+            flights={parsed.flights ?? []}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
