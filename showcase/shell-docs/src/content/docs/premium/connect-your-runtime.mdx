@@ -72,20 +72,13 @@ separate organization or project id to pass.
 ## Confirm the credential is actually used
 
 A build that compiles and a chat that replies both prove nothing about
-Intelligence — SSE mode does the same. Confirm consumption instead:
+Intelligence — a runtime in SSE mode does all of that with the key unread. So a
+green round trip in the browser is not evidence on its own.
 
-```bash title="Terminal"
-npx copilotkit verify
-```
-
-`verify` makes an authenticated call to the platform with the key your project
-resolves and reports whether the runtime is wired for Intelligence at all. A
-green round trip in the browser with `intelligence` unset is a false pass.
-
-You can also confirm from the product side: open your project in the
-[cloud-hosted dashboard](/premium/managed-intelligence-platform) and check that a
-thread appears after you send a message. If no thread appears, the runtime is in
-SSE mode.
+Confirm it from the product side instead. Open your project in the
+[cloud-hosted dashboard](/premium/managed-intelligence-platform) and send a
+message in your app. A thread should appear. If none does, the runtime never
+reached the platform and is running in SSE mode, whatever the browser showed.
 
 ## Self-hosted deployments
 
