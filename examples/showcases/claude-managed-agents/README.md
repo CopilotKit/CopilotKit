@@ -112,9 +112,10 @@ npm install && npm run build && npm start
 
 Set `ANTHROPIC_API_KEY` plus the two generated agent identity variables. Set
 `ALLOWED_ORIGINS` to the deployed frontend origin. The server then requires that exact origin
-and `Sec-Fetch-Site: same-origin` on runtime requests. It also limits iframe parents to CopilotKit
-docs and local previews by default; override `FRAME_ANCESTORS` only for another approved host.
-These browser controls are not user authentication because custom clients can forge the headers.
+on runtime requests, including when the frontend and runtime are hosted separately. It also limits
+iframe parents to CopilotKit docs and local previews by default; override `FRAME_ANCESTORS` only
+for another approved host. These browser controls are not user authentication because custom
+clients can forge the headers.
 
 When Railway supplies `RAILWAY_ENVIRONMENT_ID`, the per-IP limiter uses Railway's `X-Real-IP`
 client header and normalizes IPv6 addresses with `express-rate-limit`. It deliberately ignores

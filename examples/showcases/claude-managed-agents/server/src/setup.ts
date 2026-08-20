@@ -23,6 +23,30 @@ export interface AgentIds {
   agentId: string;
 }
 
+export function parseAgentIds(value: unknown): AgentIds {
+  const environmentId =
+    typeof value === "object" && value !== null && "environmentId" in value
+      ? value.environmentId
+      : undefined;
+  const agentId =
+    typeof value === "object" && value !== null && "agentId" in value
+      ? value.agentId
+      : undefined;
+
+  if (
+    typeof environmentId !== "string" ||
+    environmentId.trim().length === 0 ||
+    typeof agentId !== "string" ||
+    agentId.trim().length === 0
+  ) {
+    throw new Error(
+      "Invalid agent IDs: expected non-empty environmentId and agentId strings.",
+    );
+  }
+
+  return { environmentId, agentId };
+}
+
 const DEFAULT_MODEL = "claude-fable-5";
 
 const ASSISTANT_SYSTEM = `You are a careful, plain-spoken personal finance assistant. Your job is
@@ -197,5 +221,5 @@ export function loadAgentIds(): AgentIds {
         "ANTHROPIC_ENVIRONMENT_ID and ANTHROPIC_AGENT_ID.",
     );
   }
-  return JSON.parse(fs.readFileSync(AGENT_IDS_PATH, "utf8")) as AgentIds;
+  return parseAgentIds(JSON.parse(fs.readFileSync(AGENT_IDS_PATH, "utf8")));
 }

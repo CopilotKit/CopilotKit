@@ -30,8 +30,7 @@ export function createBrowserRequestGuard(
     }
 
     const origin = request.get("origin");
-    const fetchSite = request.get("sec-fetch-site");
-    if (!origin || !allowed.has(origin) || fetchSite !== "same-origin") {
+    if (!origin || !allowed.has(origin)) {
       response.status(403).json({ error: "Forbidden browser origin" });
       return;
     }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { AgentCreateParams } from "@anthropic-ai/sdk/resources/beta/agents/agents";
 
-import { provisionAgentResources } from "./setup.ts";
+import { parseAgentIds, provisionAgentResources } from "./setup.ts";
 
 function createCapturingClient() {
   let agentParams: AgentCreateParams | undefined;
@@ -68,6 +68,20 @@ test("defaults to claude-fable-5 when no Anthropic model is configured", async (
   await provisionAgentResources(client, { log() {}, error() {} }, {});
 
   assert.equal(getAgentParams()?.model, "claude-fable-5");
+});
+
+test("rejects malformed persisted agent IDs", () => {
+  assert.throws(
+    () => parseAgentIds({}),
+    /expected non-empty environmentId and agentId strings/,
+  );
+});
+
+test("accepts valid persisted agent IDs", () => {
+  assert.deepEqual(
+    parseAgentIds({ environmentId: "env_test", agentId: "agent_test" }),
+    { environmentId: "env_test", agentId: "agent_test" },
+  );
 });
 
 test("deletes the environment when agent creation fails", async () => {

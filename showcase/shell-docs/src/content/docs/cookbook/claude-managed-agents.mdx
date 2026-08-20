@@ -226,11 +226,11 @@ On Railway, the per-IP limiter uses Railway's `X-Real-IP` header and normalizes 
 
 <Callout type="warning" title="Protect the runtime before going public">
   The example endpoint has no user authentication, and every message spends your Anthropic API credits.
-  When `ALLOWED_ORIGINS` is set, the server rejects requests without the matching origin and same-origin Fetch
-  Metadata. Those browser checks are not authentication because custom clients can forge the headers. The public
-  demo therefore adds route-specific per-IP and process-wide in-memory limits. The counters reset on restart and
-  are not shared across replicas, and the 2,000-start allowance is not a fixed dollar ceiling. Scope the API key to
-  a dedicated, non-default
+  When `ALLOWED_ORIGINS` is set, the server rejects requests without the exact matching Origin header, including
+  when the frontend and runtime are hosted separately. That browser check is not authentication because custom
+  clients can forge the header. The public demo therefore adds route-specific per-IP and process-wide in-memory
+  limits. The counters reset on restart and are not shared across replicas, and the 2,000-start allowance is not a
+  fixed dollar ceiling. Scope the API key to a dedicated, non-default
   [Anthropic workspace](https://platform.claude.com/docs/en/manage-claude/workspaces) with the desired monthly spend
   limit as the durable cost backstop. Put the runtime behind your application session check before using this
   pattern in production.

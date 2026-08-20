@@ -31,7 +31,7 @@ async function startTestServer(allowedOrigins?: readonly string[]) {
   };
 }
 
-test("allows only same-origin browser requests when an origin allowlist is configured", async (t) => {
+test("allows an exact allowlisted origin from a separately hosted frontend", async (t) => {
   const deploymentOrigin = "https://claude-cookbook.example.com";
   const { server, url } = await startTestServer([deploymentOrigin]);
   t.after(() => server.close());
@@ -64,7 +64,7 @@ test("allows only same-origin browser requests when an origin allowlist is confi
   assert.equal(allowedResponse.status, 204);
   assert.equal(missingOriginResponse.status, 403);
   assert.equal(wrongOriginResponse.status, 403);
-  assert.equal(crossSiteResponse.status, 403);
+  assert.equal(crossSiteResponse.status, 204);
 });
 
 test("keeps headerless local requests working when no origin allowlist is configured", async (t) => {
