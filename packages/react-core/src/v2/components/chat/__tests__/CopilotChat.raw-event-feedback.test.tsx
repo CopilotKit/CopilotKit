@@ -210,7 +210,7 @@ describe("CopilotChatMessageView feedback raw event", () => {
     view.unmount();
   });
 
-  it("keeps assistant slot props stable across unrelated configuration changes", () => {
+  it("keeps assistant slot props stable across unrelated provider configuration changes", () => {
     thumbsUpButtonRenderCount = 0;
     const agent = new FeedbackAgent();
     const onThumbsUp = vi.fn();
@@ -219,11 +219,13 @@ describe("CopilotChatMessageView feedback raw event", () => {
       thumbsUpButton: CountingThumbsUpButton,
     };
     const view = render(
-      <CopilotKitProvider agents__unsafe_dev_only={{ "feedback-agent": agent }}>
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ "feedback-agent": agent }}
+        defaultThrottleMs={0}
+      >
         <CopilotChatConfigurationProvider
           agentId="feedback-agent"
           threadId="feedback-thread"
-          labels={{ chatInputPlaceholder: "first" }}
         >
           <CopilotChatMessageView
             messages={[
@@ -239,11 +241,13 @@ describe("CopilotChatMessageView feedback raw event", () => {
     expect(initialRenderCount).toBeGreaterThan(0);
 
     view.rerender(
-      <CopilotKitProvider agents__unsafe_dev_only={{ "feedback-agent": agent }}>
+      <CopilotKitProvider
+        agents__unsafe_dev_only={{ "feedback-agent": agent }}
+        defaultThrottleMs={16}
+      >
         <CopilotChatConfigurationProvider
           agentId="feedback-agent"
           threadId="feedback-thread"
-          labels={{ chatInputPlaceholder: "second" }}
         >
           <CopilotChatMessageView
             messages={[
