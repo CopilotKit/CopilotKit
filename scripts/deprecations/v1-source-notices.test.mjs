@@ -42,8 +42,21 @@ function jsDocCommentText(comment) {
   return comment?.map((part) => part.text).join("") ?? "";
 }
 
+function deprecationFragment(mapping) {
+  return [
+    ` * @deprecated The v1 SDK is deprecated. Use v2 instead. ${mapping.deprecationGuidance}`,
+    " *",
+    " * ```tsx",
+    ...mapping.deprecationExample.map((exampleLine) =>
+      ` * ${exampleLine}`.trimEnd(),
+    ),
+    " * ```",
+    ` * See ${mapping.docs}`,
+  ].join("\n");
+}
+
 function sourceWithoutPilotChanges(source, mapping) {
-  const warning = ` * @deprecated The v1 SDK is deprecated. Use v2 instead. ${mapping.deprecationGuidance} See ${mapping.docs}`;
+  const warning = deprecationFragment(mapping);
   return source
     .replace(noticePattern, "")
     .replace(`${warning}\n`, "")
@@ -104,6 +117,15 @@ for (const mapping of pilotMappings) {
     const warning = jsDocCommentText(deprecatedTag.comment);
     assert.match(warning, /The v1 SDK is deprecated\. Use v2 instead\./);
     assert.ok(warning.includes(mapping.deprecationGuidance));
+    assert.ok(source.includes(deprecationFragment(mapping)));
+    assert.ok(mapping.deprecationExample.includes(mapping.v2));
+    assert.ok(
+      mapping.deprecationExample.some((exampleLine) =>
+        exampleLine.includes(mapping.deprecationUsage),
+      ),
+    );
+    assert.ok(warning.includes(mapping.v2));
+    assert.ok(warning.includes(mapping.deprecationUsage));
     assert.ok(warning.includes(mapping.docs));
   });
 

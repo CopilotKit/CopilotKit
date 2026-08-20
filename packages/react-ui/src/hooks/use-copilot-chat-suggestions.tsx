@@ -85,7 +85,21 @@ import {
 } from "@copilotkit/react-core";
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useConfigureSuggestions` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useConfigureSuggestions` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+ *
+ * function Suggestions() {
+ *   useConfigureSuggestions({
+ *     suggestions: [
+ *       { title: "Help", message: "Help me get started" },
+ *     ],
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
  */
 export function useCopilotChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,

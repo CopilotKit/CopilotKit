@@ -49,7 +49,21 @@ function toV1Event<TEventValue>(event: InterruptEvent<TEventValue>) {
 }
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useInterrupt` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useInterrupt` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useInterrupt } from "@copilotkit/react-core/v2";
+ *
+ * function ApprovalInterrupt() {
+ *   useInterrupt({
+ *     render: ({ resolve }) => (
+ *       <button onClick={() => resolve({ approved: true })}>Approve</button>
+ *     ),
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
  */
 export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,

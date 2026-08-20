@@ -64,7 +64,23 @@ export type UseFrontendToolArgs<T extends Parameter[] | [] = []> = {
 >;
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useFrontendTool } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function MyComponent() {
+ *   useFrontendTool({
+ *     name: "myTool",
+ *     description: "Run my tool",
+ *     parameters: z.object({}),
+ *     handler: async () => "done",
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
  */
 export function useFrontendTool<const T extends Parameter[] = []>(
   tool: UseFrontendToolArgs<T>,

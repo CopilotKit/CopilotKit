@@ -83,7 +83,25 @@ type HitlRendererArgs =
 type HitlRenderer = FunctionComponent<HitlRendererArgs>;
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function Confirmation() {
+ *   useHumanInTheLoop({
+ *     name: "confirmAction",
+ *     description: "Ask the user to confirm",
+ *     parameters: z.object({}),
+ *     render: ({ respond }) => (
+ *       <button onClick={() => respond?.(true)}>Confirm</button>
+ *     ),
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop
  */
 export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   tool: UseHumanInTheLoopArgs<T>,

@@ -133,7 +133,20 @@ export interface UseCopilotReadableOptions {
 
 /**
  * Adds the given information to the Copilot context to make it readable by Copilot.
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useAgentContext` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useAgentContext
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useAgentContext` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useAgentContext } from "@copilotkit/react-core/v2";
+ *
+ * function UserContext() {
+ *   useAgentContext({
+ *     description: "The current user",
+ *     value: { name: "Ada" },
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useAgentContext
  */
 export function useCopilotReadable(
   {
