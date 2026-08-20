@@ -17,8 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import type { Descendant } from "slate";
-import { Editor } from "slate";
+import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
 import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
@@ -31,10 +30,12 @@ import {
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
-import type { BaseAutosuggestionsConfig } from "../../types/base";
-import { defaultBaseAutosuggestionsConfig } from "../../types/base";
-import type { AutosuggestionState } from "../../types/base/autosuggestion-state";
-import type { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "../../types/base";
+import { AutosuggestionState } from "../../types/base/autosuggestion-state";
+import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
 import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";

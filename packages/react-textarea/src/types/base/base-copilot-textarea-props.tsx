@@ -16,9 +16,9 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { TextareaHTMLAttributes } from "react";
-import type { BaseAutosuggestionsConfig } from ".";
-import type { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import { TextareaHTMLAttributes } from "react";
+import { BaseAutosuggestionsConfig } from ".";
+import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 
 /**
  * `BaseCopilotTextareaProps` defines the properties for the `BaseCopilotTextarea` component.

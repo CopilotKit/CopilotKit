@@ -16,7 +16,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { DocumentPointer } from "@copilotkit/react-core";
+import { DocumentPointer } from "@copilotkit/react-core";
 
 export interface InsertionEditorState {
   textBeforeCursor: string;

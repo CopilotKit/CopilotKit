@@ -35,8 +35,8 @@
  * );
  * ```
  */
-import type { TextMessage } from "../../../graphql/types/converted";
-import type {
+import { TextMessage } from "../../../graphql/types/converted";
+import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,

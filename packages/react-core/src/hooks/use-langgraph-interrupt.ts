@@ -28,7 +28,7 @@
  */
 
 import React, { useCallback, useRef } from "react";
-import type { LangGraphInterruptRender } from "../types/interrupt-action";
+import { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
 import type {
   InterruptEvent,

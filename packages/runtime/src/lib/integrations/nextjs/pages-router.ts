@@ -21,8 +21,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { CreateCopilotRuntimeServerOptions } from "../shared";
-import { getCommonConfig } from "../shared";
+import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
