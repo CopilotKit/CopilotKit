@@ -132,9 +132,9 @@ test("Inspector Callout snippets name the shipped pane and skip unshipped work",
   expect(
     read("snippets/shared/inspector/open-inspector-pane-frontend-tools.mdx"),
   ).toContain("Frontend Tools");
-  expect(read("snippets/shared/inspector/open-inspector-pane-state.mdx")).toContain(
-    "**State**",
-  );
+  expect(
+    read("snippets/shared/inspector/open-inspector-pane-state.mdx"),
+  ).toContain("**State**");
   expect(
     read("snippets/shared/inspector/open-inspector-pane-context.mdx"),
   ).toContain("**Context**");

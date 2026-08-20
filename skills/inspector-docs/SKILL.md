@@ -65,11 +65,11 @@ Angular uses the Angular step snippet, which links the Angular Inspector install
 
 ## Red Flags
 
-| Signal | What it means | Do instead |
-|---|---|---|
+| Signal                                                                 | What it means                                        | Do instead                                                        |
+| ---------------------------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------- |
 | Callout names Playground, Fork, emit events, or another unshipped idea | Docs would advertise work that is not in the overlay | Stop. Record the idea under Unshipped in `references/pane-map.md` |
-| "Click the Inspector button" on React Native or Channels | Those surfaces have no web overlay | Skip the Open Inspector step |
-| Callout names a pane the overlay does not show | The pointer is a lie | Rewrite the Callout to a shipped pane, or remove it |
+| "Click the Inspector button" on React Native or Channels               | Those surfaces have no web overlay                   | Skip the Open Inspector step                                      |
+| Callout names a pane the overlay does not show                         | The pointer is a lie                                 | Rewrite the Callout to a shipped pane, or remove it               |
 
 ## Error Handling
 

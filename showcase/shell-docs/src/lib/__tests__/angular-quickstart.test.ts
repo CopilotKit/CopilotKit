@@ -31,8 +31,8 @@ describe("backend-scoped Angular quickstart", () => {
   it("imports the Angular Open Inspector step after the first chat", () => {
     expect(quickstartSource).toContain("open-inspector-step-angular.mdx");
     expect(quickstartSource).toContain("<OpenInspectorStepAngular");
-    expect(quickstartSource.indexOf("<OpenInspectorStepAngular")).toBeGreaterThan(
-      quickstartSource.indexOf("send a"),
-    );
+    expect(
+      quickstartSource.indexOf("<OpenInspectorStepAngular"),
+    ).toBeGreaterThan(quickstartSource.indexOf("send a"));
   });
 });
