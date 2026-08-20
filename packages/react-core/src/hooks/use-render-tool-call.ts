@@ -10,12 +10,12 @@
  * V1 import (deprecated; use V2 instead):
  *   import { useRenderToolCall } from "@copilotkit/react-core";
  * V2 import:
- *   import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *   import { useRenderTool } from "@copilotkit/react-core/v2";
  *
- * V2 replacement source: packages/react-core/src/v2/hooks/use-frontend-tool.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
- * Migration note: There is no 1:1 replacement. V2 useRenderToolCall has different semantics.
- * Migration note: Use useFrontendTool or useHumanInTheLoop to register a renderer in v2.
+ * V2 replacement source: packages/react-core/src/v2/hooks/use-render-tool.tsx
+ * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
+ * Migration note: Use useRenderTool to register a renderer for an existing backend tool in v2.
+ * Migration note: The v2 hook named useRenderToolCall is a different, low-level consumer API.
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
@@ -46,24 +46,24 @@ export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
 };
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` or `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useRenderTool` from `@copilotkit/react-core/v2` instead.
  *
  * ```tsx
- * import { useFrontendTool } from "@copilotkit/react-core/v2";
+ * import { useRenderTool } from "@copilotkit/react-core/v2";
  * import { z } from "zod";
  *
  * function StatusTool() {
- *   useFrontendTool({
+ *   useRenderTool({
  *     name: "showStatus",
- *     description: "Show the current status",
  *     parameters: z.object({}),
- *     handler: async () => "ready",
- *     render: ({ result }) => <div>{result}</div>,
+ *     render: ({ status, result }) => (
+ *       <div>{status === "complete" ? result : "Running..."}</div>
+ *     ),
  *   });
  *   return null;
  * }
  * ```
- * See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
  */
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
   tool: UseRenderToolCallArgs<T>,

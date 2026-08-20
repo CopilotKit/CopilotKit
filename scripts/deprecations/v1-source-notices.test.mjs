@@ -80,6 +80,19 @@ for (const mapping of pilotMappings) {
       assert.ok(source.includes(`Migration note: ${note}`));
     }
 
+    if (mapping.v1Reference) {
+      const reference = readFileSync(
+        path.join(repoRoot, mapping.v1Reference),
+        "utf8",
+      );
+      assert.ok(reference.includes(mapping.v2));
+      assert.ok(reference.includes(mapping.docs));
+      assert.doesNotMatch(
+        reference,
+        /To register renderers in v2, use \[`useFrontendTool`/,
+      );
+    }
+
     const notice = source.slice(
       0,
       source.indexOf("END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE"),
