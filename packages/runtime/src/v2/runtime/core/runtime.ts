@@ -166,6 +166,16 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /**
+   * Properties added to every telemetry event this runtime sends.
+   *
+   * For what is true of the whole process rather than of one event. A product
+   * built on this runtime can name itself here and then be told apart in the
+   * events that already go, rather than sending events of its own.
+   *
+   * No effect when telemetry is off: nothing is sent, so nothing carries this.
+   */
+  telemetryProperties?: Record<string, unknown>;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -401,6 +411,13 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // runtime events even with a license token configured.
     if (this.resolvedLicenseToken) {
       telemetry.setLicenseToken(this.resolvedLicenseToken);
+    }
+
+    // Set here rather than per event, beside the license token and for the same
+    // reason: it describes the caller, not the call, and every event should
+    // carry it whichever handler fired.
+    if (options.telemetryProperties) {
+      telemetry.setGlobalProperties(options.telemetryProperties);
     }
 
     if (process.env.NODE_ENV !== "production") {

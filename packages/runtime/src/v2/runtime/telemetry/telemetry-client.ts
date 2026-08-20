@@ -31,6 +31,18 @@ export class TelemetryClient {
   // anonymous without re-parsing per event. Null when the token is
   // absent or yielded no telemetry_id.
   private telemetryId: string | null = null;
+  // Properties merged into every event this client sends.
+  //
+  // For facts about the caller that are true for the whole process rather than
+  // for one event: which product is embedding the runtime, for instance. A
+  // distribution built on top of this can then be told apart in the existing
+  // events instead of sending its own, which is the difference between one
+  // extra field and a second pipeline nobody asked for.
+  //
+  // Per-event properties win on conflict. A caller describing one event knows
+  // more than a value set once at construction, and silently overriding the
+  // specific with the general would be the wrong way round.
+  private globalProperties: Record<string, unknown> = {};
 
   constructor({
     telemetryDisabled,
@@ -46,6 +58,17 @@ export class TelemetryClient {
   private shouldSendEvent() {
     if (this.sampleRate >= 1) return true;
     return Math.random() < this.sampleRate;
+  }
+
+  /**
+   * Add properties carried by every subsequent event.
+   *
+   * Merged rather than replaced, so two callers setting different fields do not
+   * erase each other. Set once at runtime construction in practice; nothing
+   * here is per-request.
+   */
+  setGlobalProperties(properties: Record<string, unknown>) {
+    this.globalProperties = { ...this.globalProperties, ...properties };
   }
 
   setLicenseToken(licenseToken: string) {
@@ -64,7 +87,10 @@ export class TelemetryClient {
 
     await lambdaClient.send({
       event,
-      properties: properties as Record<string, unknown>,
+      properties: {
+        ...this.globalProperties,
+        ...(properties as Record<string, unknown>),
+      },
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       licenseToken: this.licenseToken ?? undefined,
