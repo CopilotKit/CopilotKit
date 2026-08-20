@@ -45,6 +45,9 @@ export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
     : (props: ActionRenderProps<T>) => React.ReactElement;
 };
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` or `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ */
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
   tool: UseRenderToolCallArgs<T>,
   dependencies?: any[],

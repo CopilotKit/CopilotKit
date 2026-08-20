@@ -419,6 +419,9 @@ export type ImageUpload = {
   bytes: string;
 };
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotChat` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ */
 export function CopilotChat({
   instructions,
   suggestions = "auto",
