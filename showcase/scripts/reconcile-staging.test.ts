@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  applyDebounce,
+  DEFAULT_DEBOUNCE_THRESHOLD,
   pickNewestSuccessDigest,
   reconcileExitCode,
   reconcileStaging,
@@ -7,9 +9,11 @@ import {
   stagingReconcileServices,
 } from "./reconcile-staging";
 import type {
+  DebounceCounts,
   RedeployReport,
   ReconcileDeps,
   ServiceDigestPair,
+  UnconfirmedService,
 } from "./reconcile-staging";
 import { CI_BUILT_SERVICES, SERVICES } from "./railway-envs";
 import { runRedeploy } from "./redeploy-env";
@@ -741,5 +745,258 @@ describe("pickNewestSuccessDigest", () => {
       },
     ];
     expect(pickNewestSuccessDigest(edges)).toBeNull();
+  });
+});
+
+// ── applyDebounce: the pure consecutive-cycle decision ──────────────────────
+const u = (service: string, reason = "x"): UnconfirmedService => ({
+  service,
+  reason,
+});
+
+describe("applyDebounce (pure consecutive-cycle debounce)", () => {
+  it("DEFAULT_DEBOUNCE_THRESHOLD is 2 (a single blip is silent; persistence pages within ~30 min)", () => {
+    expect(DEFAULT_DEBOUNCE_THRESHOLD).toBe(2);
+  });
+
+  it("threshold 1 = no debounce: every unconfirmed service is immediately pageable", () => {
+    const { nextCounts, pageable } = applyDebounce({
+      unconfirmed: [u("a"), u("b")],
+      priorCounts: {},
+      threshold: 1,
+    });
+    expect(pageable.map((p) => p.service).sort()).toEqual(["a", "b"]);
+    expect(nextCounts).toEqual({ a: 1, b: 1 });
+  });
+
+  it("threshold 2, first cycle: increments to 1 and pages NOTHING (below threshold)", () => {
+    const { nextCounts, pageable } = applyDebounce({
+      unconfirmed: [u("a")],
+      priorCounts: {},
+      threshold: 2,
+    });
+    expect(pageable).toEqual([]);
+    expect(nextCounts).toEqual({ a: 1 });
+  });
+
+  it("threshold 2, second consecutive cycle: reaches 2 and PAGES", () => {
+    const { nextCounts, pageable } = applyDebounce({
+      unconfirmed: [u("a")],
+      priorCounts: { a: 1 },
+      threshold: 2,
+    });
+    expect(pageable.map((p) => p.service)).toEqual(["a"]);
+    expect(nextCounts).toEqual({ a: 2 });
+  });
+
+  it("a service that clears is reset (absent from nextCounts), not carried forward", () => {
+    // `a` was unconfirmed last cycle (count 1) but is NOT unconfirmed now → its
+    // count resets. `b` is newly unconfirmed → 1.
+    const { nextCounts, pageable } = applyDebounce({
+      unconfirmed: [u("b")],
+      priorCounts: { a: 1 },
+      threshold: 2,
+    });
+    expect(nextCounts).toEqual({ b: 1 });
+    expect(pageable).toEqual([]);
+  });
+
+  it("counts one consecutive cycle per service even with multiple reasons, and keeps all reasons once pageable", () => {
+    const { nextCounts, pageable } = applyDebounce({
+      unconfirmed: [u("a", "reason-1"), u("a", "reason-2")],
+      priorCounts: { a: 1 },
+      threshold: 2,
+    });
+    // ONE increment for the service (2, not 3) despite two entries…
+    expect(nextCounts).toEqual({ a: 2 });
+    // …and once pageable, BOTH reasons are retained.
+    expect(pageable).toEqual([u("a", "reason-1"), u("a", "reason-2")]);
+  });
+});
+
+// ── reconcileStaging debounce: single-cycle blips are silenced, persistence
+// still pages (drives the SHIPPED function through the digest-resolver boundary,
+// not a reimplemented decision). ────────────────────────────────────────────
+describe("reconcileStaging debounce (single-cycle blip silent, persistence pages)", () => {
+  /**
+   * Build deps whose deployed-digest resolver returns null for `service` (the
+   * exact harness-workers mid-redeploy race), with the debounce wired to an
+   * in-memory `state` object that persists between cycles like actions/cache.
+   */
+  function makeBlipDeps(
+    service: string,
+    state: { counts: DebounceCounts },
+    slackCalls: string[],
+    threshold = DEFAULT_DEBOUNCE_THRESHOLD,
+  ): ReconcileDeps {
+    const serviceId = SERVICES[service].serviceId;
+    return {
+      services: [service],
+      // GENUINE BOUNDARY: deployed digest resolves to null for one cycle.
+      fetchDeployedDigest: async (id: string) =>
+        id === serviceId ? null : DIGEST_A,
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: async (svcs) => ({
+        attempted: svcs.length,
+        succeeded: svcs.length,
+        failed: 0,
+        records: svcs.map((s) => ({ service: s, status: "ok" as const })),
+      }),
+      postSlackAlert: async (text: string) => {
+        slackCalls.push(text);
+        return true;
+      },
+      debounceThreshold: threshold,
+      loadDebounceState: async () => state.counts,
+      saveDebounceState: async (counts) => {
+        state.counts = counts;
+      },
+      log: () => {},
+    };
+  }
+
+  it("SINGLE-cycle null deployed digest (the race) → NO page, exit 0, count carried at 1", async () => {
+    const state = { counts: {} as DebounceCounts };
+    const slackCalls: string[] = [];
+    const summary = await reconcileStaging(
+      makeBlipDeps("harness-workers", state, slackCalls),
+    );
+
+    // The raw invariant still SEES it (surfaced for logging)…
+    expect(summary.unconfirmed.map((s) => s.service)).toContain(
+      "harness-workers",
+    );
+    // …but it is debounced: nothing pageable, no Slack, green exit.
+    expect(summary.pageableUnconfirmed).toEqual([]);
+    expect(slackCalls).toEqual([]);
+    expect(summary.alerted).toBe(false);
+    expect(reconcileExitCode(summary)).toBe(0);
+    // State advanced to 1 so a second consecutive cycle will trip the threshold.
+    expect(state.counts).toEqual({ "harness-workers": 1 });
+  });
+
+  it("TWO consecutive null-digest cycles → PAGES on the 2nd, exit non-zero (persistent drift not silenced)", async () => {
+    const state = { counts: {} as DebounceCounts };
+
+    const slack1: string[] = [];
+    const s1 = await reconcileStaging(
+      makeBlipDeps("harness-workers", state, slack1),
+    );
+    expect(slack1).toEqual([]);
+    expect(reconcileExitCode(s1)).toBe(0);
+
+    const slack2: string[] = [];
+    const s2 = await reconcileStaging(
+      makeBlipDeps("harness-workers", state, slack2),
+    );
+    // 2nd consecutive cycle reaches the threshold → pages + fails loud.
+    expect(s2.pageableUnconfirmed.map((p) => p.service)).toContain(
+      "harness-workers",
+    );
+    expect(slack2).toHaveLength(1);
+    expect(slack2[0]).toContain("harness-workers");
+    expect(s2.alerted).toBe(true);
+    expect(reconcileExitCode(s2)).not.toBe(0);
+  });
+
+  it("a blip that CLEARS on the next cycle never pages and resets the counter", async () => {
+    const state = { counts: {} as DebounceCounts };
+
+    // Cycle 1: null-digest blip → debounced, count 1.
+    const slack1: string[] = [];
+    await reconcileStaging(makeBlipDeps("harness-workers", state, slack1));
+    expect(slack1).toEqual([]);
+    expect(state.counts).toEqual({ "harness-workers": 1 });
+
+    // Cycle 2: the service is now healthy (deployed === latest) → all-current.
+    const serviceId = SERVICES["harness-workers"].serviceId;
+    const slack2: string[] = [];
+    const s2 = await reconcileStaging({
+      services: ["harness-workers"],
+      fetchDeployedDigest: async (id: string) =>
+        id === serviceId ? DIGEST_B : DIGEST_A,
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: async (svcs) => ({
+        attempted: svcs.length,
+        succeeded: svcs.length,
+        failed: 0,
+        records: svcs.map((sv) => ({ service: sv, status: "ok" as const })),
+      }),
+      postSlackAlert: async (text: string) => {
+        slack2.push(text);
+        return true;
+      },
+      debounceThreshold: DEFAULT_DEBOUNCE_THRESHOLD,
+      loadDebounceState: async () => state.counts,
+      saveDebounceState: async (counts) => {
+        state.counts = counts;
+      },
+      log: () => {},
+    });
+
+    expect(s2.unconfirmed).toEqual([]);
+    expect(slack2).toEqual([]);
+    expect(reconcileExitCode(s2)).toBe(0);
+    // Counter reset — the blip left no residue.
+    expect(state.counts).toEqual({});
+  });
+
+  it("REGRESSION: a PERSISTENT stale digest whose remediation keeps FAILING pages on the 2nd cycle (real drift is not silenced)", async () => {
+    // harness-workers is genuinely LAGGING (deployed !== latest) and its
+    // remediation redeploy FAILS every cycle — the PR #5352 stale-image class.
+    // This must NOT be silenced by the debounce: it persists, so it pages on the
+    // 2nd consecutive cycle.
+    const serviceId = SERVICES["harness-workers"].serviceId;
+    const state = { counts: {} as DebounceCounts };
+    const makeLagDeps = (slackCalls: string[]): ReconcileDeps => ({
+      services: ["harness-workers"],
+      fetchDeployedDigest: async (id: string) =>
+        id === serviceId ? DIGEST_A : DIGEST_B, // lags :latest
+      fetchLatestDigest: async () => DIGEST_B,
+      redeployStaging: async () => ({
+        attempted: 1,
+        succeeded: 0,
+        failed: 1,
+        records: [
+          { service: "harness-workers", status: "error", error: "HTTP 500" },
+        ],
+      }),
+      postSlackAlert: async (text: string) => {
+        slackCalls.push(text);
+        return true;
+      },
+      debounceThreshold: DEFAULT_DEBOUNCE_THRESHOLD,
+      loadDebounceState: async () => state.counts,
+      saveDebounceState: async (counts) => {
+        state.counts = counts;
+      },
+      log: () => {},
+    });
+
+    // Cycle 1: lagging + failed remediation → unconfirmed, but still debounced
+    // (below threshold). Remediation was ATTEMPTED (self-heal not gated).
+    const slack1: string[] = [];
+    const s1 = await reconcileStaging(makeLagDeps(slack1));
+    expect(s1.lagging).toEqual(["harness-workers"]);
+    expect(s1.unconfirmed.map((x) => x.service)).toContain("harness-workers");
+    expect(s1.pageableUnconfirmed).toEqual([]);
+    // A lag fired the informational alert-AND-remediate notice even on cycle 1,
+    // but the fail-loud "unconfirmed" page is debounced → exit stays 0.
+    expect(reconcileExitCode(s1)).toBe(0);
+
+    // Cycle 2: still lagging + still failing → persists → pages + fails loud.
+    const slack2: string[] = [];
+    const s2 = await reconcileStaging(makeLagDeps(slack2));
+    expect(s2.pageableUnconfirmed.map((p) => p.service)).toContain(
+      "harness-workers",
+    );
+    expect(slack2).toHaveLength(1);
+    expect(reconcileExitCode(s2)).not.toBe(0);
+  });
+
+  it("in-scope set is not narrowed by the debounce (harness-workers still reconciled)", () => {
+    // The debounce changes WHEN a verdict pages, never WHICH services are in
+    // scope — harness-workers (the imageOf consumer) must remain reconciled.
+    expect(stagingReconcileServices()).toContain("harness-workers");
   });
 });

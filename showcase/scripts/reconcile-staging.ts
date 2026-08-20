@@ -29,15 +29,39 @@
  * A service is treated as LAGGING on a plain digest MISMATCH
  * (`deployedDigest !== latestDigest`). A precise "how long has it been
  * lagging?" signal is not cheaply available from a single Railway read, so v1
- * uses the mismatch alone. The 15-minute cadence itself provides the debounce:
- * a service that is mid-redeploy (its new deployment not yet SUCCESS) simply
- * matches on the next cycle, and re-running the staging redeploy is idempotent
- * (it just triggers another redeploy of an image that is already `:latest`), so
- * a transient duplicate is harmless. A deployed digest that cannot be resolved
- * (no SUCCESS deployment / no `meta.imageDigest`) is recorded as an ERROR and
- * SURFACED — it is NOT silently counted as up-to-date and it is NOT redeployed
- * (re-deploying on that ambiguous signal would risk churn without a clear win),
- * but it never masquerades as a healthy "current with :latest" service.
+ * uses the mismatch alone. Re-running the staging redeploy is idempotent (it
+ * just triggers another redeploy of an image that is already `:latest`), so a
+ * transient duplicate remediation is harmless. A deployed digest that cannot be
+ * resolved (no SUCCESS deployment / no `meta.imageDigest`) is recorded as an
+ * ERROR and SURFACED — it is NOT silently counted as up-to-date and it is NOT
+ * redeployed (re-deploying on that ambiguous signal would risk churn without a
+ * clear win), but it never masquerades as a healthy "current with :latest"
+ * service.
+ *
+ * ── Debounce (why a single blip must not page) ──────────────────────────────
+ * The fail-loud "unconfirmed" verdict is DEBOUNCED across consecutive reconcile
+ * cycles. A service pages only when its unconfirmed condition PERSISTS for
+ * `DEFAULT_DEBOUNCE_THRESHOLD` (2) consecutive cycles — i.e. within ~30 min.
+ * This exists because a SINGLE reconcile cycle sees several benign transients
+ * that clear by the next cycle and must not page: chiefly the redeploy race on
+ * a service that keeps exactly one SUCCESS deployment at a time (e.g.
+ * `harness-workers`) — mid-redeploy the prior SUCCESS has flipped to REMOVED
+ * while the new one is still in-progress, so the deployed digest resolves to
+ * null for exactly one cycle; and the transient Railway-read classes (an HTTP
+ * 500, a request timeout, a platform "deploys paused" blip). All of these land
+ * in the `unconfirmed` set, so the debounce is applied UNIFORMLY at the verdict
+ * level rather than per-cause. A condition that PERSISTS — genuine producer/
+ * consumer drift (the PR #5352 stale-image class) or a sustained outage — is
+ * unconfirmed on two consecutive cycles and pages on the 2nd, so real drift is
+ * never silenced. Remediation of a genuine lag is NOT debounced (it is
+ * idempotent and self-heals every cycle); only the fail-loud page + non-zero
+ * exit wait for persistence.
+ *
+ * The consecutive-cycle counter is per-service and must survive BETWEEN
+ * stateless scheduled runs, so the workflow persists it via `actions/cache`
+ * (a tiny JSON file whose path is passed as `RECONCILE_DEBOUNCE_STATE`) — see
+ * `applyDebounce`, `loadDebounceState`/`saveDebounceState`, and the cache
+ * restore/save steps in showcase_reconcile_staging.yml.
  *
  * The newest running digest is the newest SUCCESS deployment BY `createdAt`
  * (descending) — Railway's `deployments()` connection order is not contracted,
@@ -49,10 +73,11 @@
  * remediation redeploy CLEANLY fixed it (no failures, no drops). A cleanly
  * remediated lag still posts an INFORMATIONAL Slack alert (alert-AND-remediate)
  * yet exits 0. Any service that is NOT confirmed current or cleanly remediated
- * — for ANY reason — lands in the single `unconfirmed` set, which drives BOTH a
- * Slack alert naming the services + the reason AND a non-zero exit. There are
- * no scattered per-cause special-cases: the exit code and the alert are derived
- * from that one set.
+ * — for ANY reason — lands in the single `unconfirmed` set, which (once it has
+ * PERSISTED past the debounce threshold — see the Debounce note above) drives
+ * BOTH a Slack alert naming the services + the reason AND a non-zero exit. There
+ * are no scattered per-cause special-cases: the exit code and the alert are both
+ * derived from the debounced subset of that one set (`pageableUnconfirmed`).
  *
  * A service is NOT confirmed current when:
  *   • it is LAGGING (`deployed !== latest`) and its remediation redeploy did
@@ -99,6 +124,8 @@
  */
 
 import { fileURLToPath } from "url";
+import { promises as fs } from "fs";
+import { dirname } from "path";
 import {
   CI_BUILT_SERVICES,
   ENV_ID_BY_NAME,
@@ -116,6 +143,59 @@ import { makeLiveRedeploy, runRedeploy } from "./redeploy-env";
 import type { RedeployServiceRecord } from "./redeploy-env";
 
 // ── Pure decision core (unit-tested without network) ───────────────────────
+
+/**
+ * Default consecutive-cycle debounce threshold for the fail-loud "unconfirmed"
+ * verdict: a service pages only once its unconfirmed condition has PERSISTED
+ * across this many consecutive reconcile cycles. At the 15-minute cadence, 2
+ * means a single-cycle blip stays silent and a persistent condition pages within
+ * ~30 min. Overridable at runtime via the `RECONCILE_DEBOUNCE_THRESHOLD` env
+ * var (see `main`). The pure library default (`reconcileStaging`) is 1 —
+ * "no debounce, page on the first cycle" — so the invariant unit tests exercise
+ * the raw verdict; production wires this constant.
+ */
+export const DEFAULT_DEBOUNCE_THRESHOLD = 2;
+
+/**
+ * Per-service consecutive-unconfirmed counts, carried BETWEEN scheduled runs.
+ * Keyed by SSOT service key (or a synthetic label like `(scope)`); the value is
+ * how many consecutive cycles that service has been unconfirmed, INCLUDING the
+ * current one. A service that is confirmed current on a cycle is absent (reset
+ * to 0). Persisted as a small JSON object via `actions/cache`.
+ */
+export type DebounceCounts = Record<string, number>;
+
+/**
+ * The debounce decision, pure and unit-testable. Given the PRIOR per-service
+ * consecutive-unconfirmed counts and THIS cycle's `unconfirmed` set, returns:
+ *   • `nextCounts` — the counts to persist for the next cycle: every service
+ *     unconfirmed this cycle is incremented (prior + 1), every service NOT
+ *     unconfirmed this cycle is reset (simply absent). A single service may
+ *     appear in `unconfirmed` more than once (different reasons); it counts as
+ *     ONE consecutive cycle.
+ *   • `pageable` — the subset of `unconfirmed` whose service has now reached the
+ *     threshold. This is the set that actually drives the Slack page + non-zero
+ *     exit. Below the threshold the entry is retained for logging but does not
+ *     page (the blip is debounced). All reasons for a pageable service are kept.
+ */
+export function applyDebounce(args: {
+  unconfirmed: UnconfirmedService[];
+  priorCounts: DebounceCounts;
+  threshold: number;
+}): { nextCounts: DebounceCounts; pageable: UnconfirmedService[] } {
+  const { unconfirmed, priorCounts, threshold } = args;
+  const nextCounts: DebounceCounts = {};
+  const pageable: UnconfirmedService[] = [];
+  for (const u of unconfirmed) {
+    // First entry for this service this cycle establishes its incremented count;
+    // repeat entries reuse it so one service is one consecutive cycle.
+    const count = Object.hasOwn(nextCounts, u.service)
+      ? nextCounts[u.service]
+      : (nextCounts[u.service] = (priorCounts[u.service] ?? 0) + 1);
+    if (count >= threshold) pageable.push(u);
+  }
+  return { nextCounts, pageable };
+}
 
 /**
  * A resolved (service, deployedDigest, latestDigest) tuple for one staging
@@ -178,6 +258,27 @@ export interface ReconcileDeps {
   postSlackAlert: (text: string) => Promise<boolean>;
   /** Progress logger. Defaults to console.log. */
   log?: (line: string) => void;
+  /**
+   * Consecutive-cycle debounce threshold for the fail-loud "unconfirmed"
+   * verdict (see `applyDebounce`). Defaults to 1 — "no debounce, page on the
+   * first cycle" — so the invariant unit tests exercise the raw verdict.
+   * Production wires `DEFAULT_DEBOUNCE_THRESHOLD` (2) so a single-cycle blip
+   * stays silent and only a persistent condition pages.
+   */
+  debounceThreshold?: number;
+  /**
+   * Load the PRIOR per-service consecutive-unconfirmed counts persisted by the
+   * previous scheduled run (via `actions/cache`). Returns {} when there is no
+   * prior state. When omitted, prior counts default to {} (each cycle stands
+   * alone — only meaningful with `debounceThreshold` 1).
+   */
+  loadDebounceState?: () => Promise<DebounceCounts>;
+  /**
+   * Persist the UPDATED per-service consecutive-unconfirmed counts for the next
+   * scheduled run to read. Called once per cycle, before the run exits, so the
+   * counter survives between stateless runs. When omitted, state is not saved.
+   */
+  saveDebounceState?: (counts: DebounceCounts) => Promise<void>;
 }
 
 /**
@@ -219,6 +320,21 @@ export interface ReconcileSummary {
    * contract) — there are no separate per-cause special-cases.
    */
   unconfirmed: UnconfirmedService[];
+  /**
+   * THE DEBOUNCED INVARIANT SET: the subset of `unconfirmed` whose service has
+   * been unconfirmed for `debounceThreshold` consecutive cycles and therefore
+   * actually PAGES this cycle. The Slack alert and the exit code are derived
+   * from THIS set, not the raw `unconfirmed` — a single-cycle blip is present in
+   * `unconfirmed` (for logging) but absent here (debounced). With the default
+   * threshold of 1 this equals `unconfirmed`.
+   */
+  pageableUnconfirmed: UnconfirmedService[];
+  /**
+   * The per-service consecutive-unconfirmed counts to persist for the next
+   * cycle (the output of `applyDebounce`). Threaded out for the CI log so an
+   * operator can see a below-threshold service being debounced (e.g. "1/2").
+   */
+  debounceCounts: DebounceCounts;
   /**
    * True when the in-scope set was empty (`services.length === 0`) — the run
    * checked nothing, which is NOT green. Recorded as its own field for the
@@ -462,7 +578,10 @@ export function buildReconcileAlert(args: {
  * See the invariant in the file header.
  */
 export function reconcileExitCode(summary: ReconcileSummary): number {
-  if (summary.unconfirmed.length > 0) return 1;
+  // Derived from the DEBOUNCED set: a single-cycle blip is in `unconfirmed` but
+  // not yet in `pageableUnconfirmed`, so it does not fail the run. A condition
+  // that persists past the threshold is pageable and fails loud.
+  if (summary.pageableUnconfirmed.length > 0) return 1;
   if (summary.lagging.length > 0 && !summary.alerted) return 1;
   return 0;
 }
@@ -586,21 +705,55 @@ export async function reconcileStaging(
     confirmedCurrent,
   });
 
-  // Alert whenever the run is not a clean silent no-op: any unconfirmed service
-  // (fail-loud) OR any lag (informational alert-AND-remediate). A single alert
-  // covers both.
-  let alerted = false;
-  if (unconfirmed.length > 0 || lagging.length > 0) {
-    if (unconfirmed.length > 0) {
+  // ── DEBOUNCE the fail-loud verdict across consecutive cycles ───────────────
+  // A single-cycle blip (the harness-workers redeploy race, a transient Railway
+  // HTTP 500 / timeout, a platform "deploys paused" hiccup) all surface as
+  // `unconfirmed` and clear by the next cycle — they must NOT page. Only a
+  // condition that PERSISTS past the threshold (genuine drift, a sustained
+  // outage) pages. Applied uniformly at the verdict level rather than per-cause.
+  // Remediation of a real lag already ran ABOVE and is unaffected — only the
+  // page + non-zero exit wait for persistence. Threshold defaults to 1 (no
+  // debounce) for the pure/test path; production wires DEFAULT_DEBOUNCE_THRESHOLD.
+  const threshold = deps.debounceThreshold ?? 1;
+  const priorCounts = (await deps.loadDebounceState?.()) ?? {};
+  const { nextCounts, pageable: pageableUnconfirmed } = applyDebounce({
+    unconfirmed,
+    priorCounts,
+    threshold,
+  });
+  // Persist the updated counts BEFORE returning so the counter survives to the
+  // next stateless scheduled run (the caller exits right after this returns).
+  await deps.saveDebounceState?.(nextCounts);
+
+  // Log any unconfirmed service still being debounced (below threshold) so an
+  // operator can see it building toward a page rather than a silent gap.
+  const debounced = unconfirmed.filter(
+    (u) => !pageableUnconfirmed.some((p) => p.service === u.service),
+  );
+  if (debounced.length > 0) {
+    for (const u of debounced) {
       log(
-        `\n${unconfirmed.length} staging service(s) NOT confirmed current (of ${services.length} in scope).`,
+        `  debounced (${nextCounts[u.service] ?? 0}/${threshold} cycles, not yet paging): ${u.service}: ${u.reason}`,
+      );
+    }
+  }
+
+  // Alert whenever the run is not a clean silent no-op: any PAGEABLE (debounced)
+  // unconfirmed service (fail-loud) OR any lag (informational alert-AND-
+  // remediate). A single alert covers both. A below-threshold blip alone stays
+  // silent.
+  let alerted = false;
+  if (pageableUnconfirmed.length > 0 || lagging.length > 0) {
+    if (pageableUnconfirmed.length > 0) {
+      log(
+        `\n${pageableUnconfirmed.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (of ${services.length} in scope).`,
       );
     }
     alerted = await deps.postSlackAlert(
       buildReconcileAlert({
         lagging,
         redeployReport,
-        unconfirmed,
+        unconfirmed: pageableUnconfirmed,
         scope: services.length,
       }),
     );
@@ -618,6 +771,8 @@ export async function reconcileStaging(
     alerted,
     redeployReport,
     unconfirmed,
+    pageableUnconfirmed,
+    debounceCounts: nextCounts,
     emptyScope,
   };
 }
@@ -801,9 +956,72 @@ async function livePostSlackAlert(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * The debounce state file path, from `RECONCILE_DEBOUNCE_STATE` (set by the
+ * workflow to a path inside the `actions/cache`-backed directory). Null when
+ * unset — a local one-shot run then carries no cross-run state (each run stands
+ * alone), which combined with the >1 threshold simply means a local blip never
+ * pages. In CI the env is always set so the counter persists between cycles.
+ */
+function debounceStatePath(): string | null {
+  const p = (process.env.RECONCILE_DEBOUNCE_STATE || "").trim();
+  return p === "" ? null : p;
+}
+
+/**
+ * Read the prior per-service consecutive-unconfirmed counts. Returns {} on the
+ * first run, a cache miss, or an unparseable/malformed file — a fresh start,
+ * never a throw (a bad state file must not take down the self-heal). Only
+ * finite non-negative numeric counts are accepted.
+ */
+async function liveLoadDebounceState(path: string): Promise<DebounceCounts> {
+  try {
+    const raw = await fs.readFile(path, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      parsed === null ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed)
+    ) {
+      return {};
+    }
+    const out: DebounceCounts = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Persist the updated counts for the next scheduled cycle to read. */
+async function liveSaveDebounceState(
+  path: string,
+  counts: DebounceCounts,
+): Promise<void> {
+  await fs.mkdir(dirname(path), { recursive: true });
+  await fs.writeFile(path, JSON.stringify(counts), "utf8");
+}
+
+/**
+ * The runtime debounce threshold: `RECONCILE_DEBOUNCE_THRESHOLD` when it parses
+ * to a positive integer, else `DEFAULT_DEBOUNCE_THRESHOLD` (2).
+ */
+function resolveDebounceThreshold(): number {
+  const raw = (process.env.RECONCILE_DEBOUNCE_THRESHOLD || "").trim();
+  if (raw !== "") {
+    const n = Number.parseInt(raw, 10);
+    if (Number.isInteger(n) && n >= 1) return n;
+  }
+  return DEFAULT_DEBOUNCE_THRESHOLD;
+}
+
 async function main(): Promise<void> {
   const token = getRailwayToken();
   const redeploy = makeLiveRedeploy(token);
+  const statePath = debounceStatePath();
+  const threshold = resolveDebounceThreshold();
 
   const deps: ReconcileDeps = {
     fetchDeployedDigest: (serviceId, environmentId) =>
@@ -824,6 +1042,15 @@ async function main(): Promise<void> {
       };
     },
     postSlackAlert: livePostSlackAlert,
+    debounceThreshold: threshold,
+    // Only wire cross-run persistence when a state path is configured (CI). A
+    // local run without it carries no state — each cycle stands alone.
+    loadDebounceState: statePath
+      ? () => liveLoadDebounceState(statePath)
+      : undefined,
+    saveDebounceState: statePath
+      ? (counts) => liveSaveDebounceState(statePath, counts)
+      : undefined,
   };
 
   console.log(
@@ -831,8 +1058,16 @@ async function main(): Promise<void> {
   );
   const summary = await reconcileStaging(deps);
   console.log(
-    `\nchecked=${summary.checked} lagging=${summary.lagging.length} errors=${summary.errors.length} redeployed=${summary.redeployed} alerted=${summary.alerted} unconfirmed=${summary.unconfirmed.length} emptyScope=${summary.emptyScope}`,
+    `\nchecked=${summary.checked} lagging=${summary.lagging.length} errors=${summary.errors.length} redeployed=${summary.redeployed} alerted=${summary.alerted} unconfirmed=${summary.unconfirmed.length} pageable=${summary.pageableUnconfirmed.length} threshold=${threshold} emptyScope=${summary.emptyScope}`,
   );
+  if (
+    summary.unconfirmed.length > 0 &&
+    summary.pageableUnconfirmed.length < summary.unconfirmed.length
+  ) {
+    console.log(
+      `debounce state: ${JSON.stringify(summary.debounceCounts)} (services below ${threshold} consecutive cycles are suppressed this cycle)`,
+    );
+  }
   if (summary.errors.length > 0) {
     for (const e of summary.errors) {
       console.error(`  digest-read error: ${e.service}: ${e.error}`);
@@ -844,11 +1079,11 @@ async function main(): Promise<void> {
     // Fail loud so the scheduled run goes RED and the alert isn't the only
     // signal (see the invariant in the file header). Every non-green cause
     // flows through the ONE `unconfirmed` set, so report it directly.
-    if (summary.unconfirmed.length > 0) {
+    if (summary.pageableUnconfirmed.length > 0) {
       console.error(
-        `${summary.unconfirmed.length} staging service(s) NOT confirmed current (alerted=${summary.alerted}):`,
+        `${summary.pageableUnconfirmed.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (alerted=${summary.alerted}):`,
       );
-      for (const u of summary.unconfirmed) {
+      for (const u of summary.pageableUnconfirmed) {
         console.error(`  unconfirmed: ${u.service}: ${u.reason}`);
       }
     } else if (summary.lagging.length > 0 && !summary.alerted) {
