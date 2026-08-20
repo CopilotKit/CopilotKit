@@ -1,9 +1,11 @@
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextFetchEvent, NextRequest } from "next/server";
 import { seoRedirects } from "@/lib/seo-redirects";
 import { stripRouteGroupSegmentsFromPathname } from "@/lib/route-groups";
 import { getRuntimeConfigForMiddleware } from "@/lib/runtime-config";
 import registry from "@/data/registry.json";
+import { getPublicClerkSatelliteConfig } from "@/lib/public-clerk-satellite";
 
 // ---------------------------------------------------------------------------
 // shell-docs middleware
@@ -176,7 +178,7 @@ function pathIsFrameworkScoped(pathname: string): boolean {
 // Middleware
 // ---------------------------------------------------------------------------
 
-export function middleware(
+function docsMiddleware(
   request: NextRequest,
   event: NextFetchEvent,
 ): NextResponse {
@@ -294,6 +296,17 @@ export function middleware(
 
   return response;
 }
+
+const clerkSatelliteConfig = getPublicClerkSatelliteConfig();
+
+// The callback never calls auth.protect(), so Clerk can sync the shared
+// session while every Docs route stays public.
+export const middleware = clerkSatelliteConfig
+  ? clerkMiddleware(
+      (_auth, request, event) => docsMiddleware(request, event),
+      clerkSatelliteConfig,
+    )
+  : docsMiddleware;
 
 export const config = {
   matcher: [
