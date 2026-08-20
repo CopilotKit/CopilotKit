@@ -1,6 +1,6 @@
 export const pilotMappings = [
   {
-    file: "packages/react-core/src/hooks/use-frontend-tool.ts",
+    file: "packages/react-core/src/v1-deprecated/hooks/use-frontend-tool.ts",
     v1: 'import { useFrontendTool } from "@copilotkit/react-core";',
     v2: 'import { useFrontendTool } from "@copilotkit/react-core/v2";',
     source: "packages/react-core/src/v2/hooks/use-frontend-tool.tsx",
@@ -30,7 +30,7 @@ export const pilotMappings = [
     ],
   },
   {
-    file: "packages/react-core/src/hooks/use-human-in-the-loop.ts",
+    file: "packages/react-core/src/v1-deprecated/hooks/use-human-in-the-loop.ts",
     v1: 'import { useHumanInTheLoop } from "@copilotkit/react-core";',
     v2: 'import { useHumanInTheLoop } from "@copilotkit/react-core/v2";',
     source: "packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx",
@@ -62,7 +62,7 @@ export const pilotMappings = [
     ],
   },
   {
-    file: "packages/react-core/src/hooks/use-render-tool-call.ts",
+    file: "packages/react-core/src/v1-deprecated/hooks/use-render-tool-call.ts",
     v1: 'import { useRenderToolCall } from "@copilotkit/react-core";',
     v2: 'import { useRenderTool } from "@copilotkit/react-core/v2";',
     source: "packages/react-core/src/v2/hooks/use-render-tool.tsx",
@@ -96,7 +96,7 @@ export const pilotMappings = [
     ],
   },
   {
-    file: "packages/react-core/src/hooks/use-copilot-readable.ts",
+    file: "packages/react-core/src/v1-deprecated/hooks/use-copilot-readable.ts",
     v1: 'import { useCopilotReadable } from "@copilotkit/react-core";',
     v2: 'import { useAgentContext } from "@copilotkit/react-core/v2";',
     source: "packages/react-core/src/v2/hooks/use-agent-context.tsx",
@@ -121,7 +121,7 @@ export const pilotMappings = [
     notes: ["V2 models readable application state as agent context."],
   },
   {
-    file: "packages/react-core/src/hooks/use-langgraph-interrupt.ts",
+    file: "packages/react-core/src/v1-deprecated/hooks/use-langgraph-interrupt.ts",
     v1: 'import { useLangGraphInterrupt } from "@copilotkit/react-core";',
     v2: 'import { useInterrupt } from "@copilotkit/react-core/v2";',
     source: "packages/react-core/src/v2/hooks/use-interrupt.tsx",
@@ -198,7 +198,7 @@ export const pilotMappings = [
     ],
   },
   {
-    file: "packages/runtime/src/lib/runtime/copilot-runtime.ts",
+    file: "packages/runtime/src/v1-deprecated/lib/runtime/copilot-runtime.ts",
     v1: 'import { CopilotRuntime } from "@copilotkit/runtime";',
     v2: 'import { CopilotRuntime } from "@copilotkit/runtime/v2";',
     source: "packages/runtime/src/v2/runtime/core/runtime.ts",

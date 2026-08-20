@@ -63,7 +63,7 @@ export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 // Surfaced in console disclosure and the in-product opt-out panel.
 // Keep in sync with the live shell-docs telemetry page
 // (`showcase/shell-docs/src/content/docs/integrations/built-in-agent/telemetry.mdx`).
-// Mirror constant: packages/runtime/src/lib/telemetry-disclosure.ts
+// Mirror constant: packages/runtime/src/v1-deprecated/lib/telemetry-disclosure.ts
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
