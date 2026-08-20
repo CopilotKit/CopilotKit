@@ -146,7 +146,7 @@ The following example shows a data-fetch frontend tool paired with a matching `s
         from langchain.agents import create_agent
         from copilotkit import CopilotKitMiddleware, CopilotKitState
 
-        graph = create_agent( # Works the same for "create_react_agent" or similar options
+        graph = create_agent( # create_agent supersedes the deprecated create_react_agent, which accepts neither middleware= nor system_prompt=
             model="openai:gpt-4o",
             tools=[],  # backend tools go here
             middleware=[CopilotKitMiddleware()],
@@ -168,7 +168,7 @@ The following example shows a data-fetch frontend tool paired with a matching `s
         import { createAgent } from "langchain";
         import { copilotkitMiddleware, CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
 
-        export const graph = createAgent({ // Works the same for "create_react_agent" or similar options
+        export const graph = createAgent({ // createAgent supersedes the deprecated createReactAgent, which accepts neither middleware nor systemPrompt
           model: "openai:gpt-4o",
           tools: [],  // backend tools go here
           stateSchema: CopilotKitStateSchema,
