@@ -76,28 +76,40 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup pnpm
-        # Omit `version:` so pnpm/action-setup inherits from `packageManager`
-        # via corepack. NOTE: the root pins pnpm@10.33.4 and THIS APP pins
-        # pnpm@10.10.0 — two different resolvers in one repo, and the older one
-        # is load-bearing here: 10.10.0 still reads `pnpm.overrides` from
-        # package.json, which is the only place `@ag-ui/core`, `@ag-ui/encoder`
-        # and `@ag-ui/proto` are pinned to the canary (`@ag-ui/client` is a
-        # direct dependency, those three are not). Because every step below
-        # runs inside the app directory, corepack resolves the app's pin.
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          package_json_file: examples/showcases/reskinnable-demo/package.json
-
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: "pnpm"
+
+      - name: Activate this app's pnpm via corepack
+        # NOT `pnpm/action-setup`, and that is measured rather than stylistic.
+        # The root pins pnpm@10.33.4 and THIS APP pins pnpm@10.10.0 — two
+        # resolvers in one repo, and the older one is load-bearing here: 10.10.0
+        # still reads `pnpm.overrides` from package.json, the only place
+        # `@ag-ui/core`, `@ag-ui/encoder` and `@ag-ui/proto` are pinned to the
+        # canary (`@ag-ui/client` is a direct dependency; those three are not).
+        #
+        # `pnpm/action-setup@v6.0.10` with `package_json_file:` pointed at this
+        # app still installed the ROOT's 10.33.4 (run 32398188492), and it
+        # cannot take a `version:` alongside a `packageManager` field. corepack
+        # reads the nearest package.json instead, which is this app's, and
+        # honours its `+sha512` integrity hash.
+        run: |
+          set -euo pipefail
+          corepack enable pnpm
+          corepack install
+          pnpm --version
+
+      - name: Cache the pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
           # THIS APP'S lockfile, not the root one. They are different files
           # since the app left the workspace, and keying on the root lockfile
           # would restore a cache that has none of these canary versions in it.
-          cache-dependency-path: "examples/showcases/reskinnable-demo/pnpm-lock.yaml"
+          key: ${{ runner.os }}-pnpm-reskin-${{ hashFiles('examples/showcases/reskinnable-demo/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-reskin-
 
       - name: Assert the app's own pnpm is in use
         # Turns the one genuine uncertainty in this job into a gate instead of a
@@ -195,5 +207,14 @@ jobs:
       - name: Import the agent module
         # Cheap smoke: catches a syntax error or a dropped dependency in
         # `agent/` that no other gate in this repo would ever see, since the
-        # app is TypeScript and this service is Python.
+        # app is TypeScript and this service is Python. Importing `main` also
+        # exercises its module-level wiring — the `clone()` workaround, the
+        # `emit_raw_events` / `emit_subagent_events` flags, the endpoint mount.
+        #
+        # The placeholder key is required, not decorative: `main.py` calls
+        # `build_agent()` at import time and `build_agent` raises without
+        # OPENAI_API_KEY (run 32398188492). Nothing here reaches the network —
+        # constructing a ChatOpenAI does not validate the key.
+        env:
+          OPENAI_API_KEY: ci-import-smoke-not-a-real-key
         run: uv run python -c "import agent, main; print('agent + main import clean')"
