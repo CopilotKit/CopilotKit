@@ -5,9 +5,25 @@ open-source packages.
 - We do not sell or share telemetry data with third parties.
 - We do not use cookies or trackers for open-source telemetry.
 
-Runtime events may carry the telemetry ID from a configured Intelligence or
-license token. Runtime events without that ID are sampled. Inspector events use
-a persistent anonymous Inspector ID stored in your browser.
+Runtime uses the first nonblank telemetry identity that is valid in an HTTP
+header, in this order: explicit `telemetryId`, `CPK_TELEMETRY_ID`, then the
+identity carried by `COPILOTKIT_LICENSE_TOKEN`.
+
+`CPK_TELEMETRY_ID` is optional and non-secret. The CopilotKit CLI does not
+create or write `CPK_TELEMETRY_ID`, and a value you choose does not automatically
+link Runtime events to a CLI scaffold event. Setting it does not enable
+telemetry, grant product access, or replace the project's Intelligence API key.
+
+Current managed Threads starters receive `COPILOTKIT_LICENSE_TOKEN`, which can
+supply the fallback identity. When it does, Runtime sends identified events
+without sampling. Runtime samples events identified by an explicit `telemetryId`
+or `CPK_TELEMETRY_ID` at the configured rate. With none of these identities,
+Runtime sends anonymous sampled telemetry.
+
+The Inspector stores a random browser ID in local storage and sends it directly
+with feature-use events. CopilotKit signup links can carry that ID so we can
+measure the path from Inspector use to signup. Inspector delivery does not
+depend on `CPK_TELEMETRY_ID`.
 
 ## Inspector metadata events
 
@@ -43,10 +59,10 @@ disables telemetry for both the CopilotRuntime and Inspector. We also respect
 
 ## How to adjust the telemetry sample rate
 
-The default sample rate for Runtime events without a telemetry ID is `0.05`
-(5%). Runtime callers with a telemetry ID bypass sampling. Set
+The default sample rate is `0.05` (5%). Runtime samples anonymous and
+standalone-identified events. License-identified events bypass sampling. Set
 `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to a value from 0 through 1 to change the
-anonymous Runtime sample rate.
+sample rate.
 
 ## Get in touch
 

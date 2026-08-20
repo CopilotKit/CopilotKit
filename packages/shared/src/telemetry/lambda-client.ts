@@ -8,12 +8,12 @@
 // private.
 //
 // Two attribution modes:
-//   - Identified: a CopilotKit license token is configured. The token is
-//     a JWT (header.payload.sig) whose payload carries `telemetry_id`.
-//     The SDK base64url-decodes the payload — without verifying the
-//     Ed25519 signature, which is the license-verifier's job — and
-//     emits the id via `X-CopilotKit-Telemetry-Id`. The Lambda uses it
-//     to enrich events with the customer's email.
+//   - Identified: a standalone telemetry id or a CopilotKit license token is
+//     configured. Standalone identity takes precedence. License tokens are
+//     JWTs (header.payload.sig) whose payload carries `telemetry_id`; the SDK
+//     base64url-decodes the payload — without verifying the Ed25519 signature,
+//     which is the license-verifier's job. The resolved identity is emitted
+//     only via `X-CopilotKit-Telemetry-Id`.
 //   - Anonymous: no license token, or a malformed/non-JWT one. No
 //     telemetry-id header; events still flow, attribution is best-effort
 //     from request-level signals (IP, UA).
@@ -30,6 +30,7 @@ const TELEMETRY_SINK_URL =
   "https://telemetry.copilotkit.ai/ingest";
 
 const FETCH_TIMEOUT_MS = 3000;
+const TELEMETRY_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export interface LambdaSendOptions {
   event: string;
@@ -37,11 +38,40 @@ export interface LambdaSendOptions {
   globalProperties?: Record<string, unknown>;
   packageName?: string;
   packageVersion?: string;
+  /** Standalone analytics identity, resolved before any legacy license claim. */
+  telemetryId?: string;
   // The CopilotKit license token (Ed25519-signed JWT), when one is
   // configured on the runtime. The sender base64url-decodes the payload
   // segment to extract `telemetry_id`; missing or malformed tokens
   // produce an anonymous send.
   licenseToken?: string;
+}
+
+/**
+ * Return the first telemetry identity accepted by the ingest service.
+ *
+ * Empty and whitespace-only values are unconfigured placeholders and must not
+ * suppress a later identity source. Leading and trailing HTTP spaces and tabs
+ * are removed before validation. The ingest service accepts 1 to 128 ASCII
+ * letters, digits, underscores, and hyphens.
+ *
+ * @internal
+ */
+export function firstNonBlankTelemetryId(
+  ...candidates: ReadonlyArray<string | undefined>
+): string | undefined {
+  for (const candidate of candidates) {
+    if (candidate === undefined) {
+      continue;
+    }
+
+    const normalized = candidate.replace(/^[\t ]+|[\t ]+$/g, "");
+    if (TELEMETRY_ID_PATTERN.test(normalized)) {
+      return normalized;
+    }
+  }
+
+  return undefined;
 }
 
 // These fields aren't used by the telemetry service, so we strip them
@@ -64,7 +94,7 @@ function stripCloudKeys(
 // Pull telemetry_id out of a CopilotKit license token without verifying
 // the signature. The token shape is a standard JWT
 // (`<header>.<payload>.<sig>`) with base64url-encoded segments; the
-// payload is JSON with a `telemetry_id` string field.
+// payload is UTF-8 JSON with a telemetry_id accepted by the ingest service.
 //
 // Verification (Ed25519, key rotation, expiry) is the license-verifier
 // package's job. For telemetry attribution we only need the claimed id —
@@ -78,17 +108,26 @@ export function parseTelemetryIdFromLicense(token?: string): string | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   try {
-    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = parts[1];
+    if (!/^[A-Za-z0-9_-]+$/.test(payload) || payload.length % 4 === 1) {
+      return null;
+    }
+
+    let b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
     const padding = (4 - (b64.length % 4)) % 4;
     b64 += "=".repeat(padding);
     const json =
-      typeof atob === "function"
-        ? atob(b64)
-        : Buffer.from(b64, "base64").toString("utf8");
+      typeof Buffer !== "undefined"
+        ? Buffer.from(b64, "base64").toString("utf8")
+        : new TextDecoder().decode(
+            Uint8Array.from(atob(b64), (character) => character.charCodeAt(0)),
+          );
     const decoded = JSON.parse(json) as { telemetry_id?: unknown };
-    return typeof decoded.telemetry_id === "string"
-      ? decoded.telemetry_id
-      : null;
+    const telemetryId =
+      typeof decoded.telemetry_id === "string"
+        ? decoded.telemetry_id
+        : undefined;
+    return firstNonBlankTelemetryId(telemetryId) ?? null;
   } catch {
     return null;
   }
@@ -122,7 +161,9 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
       ts: Math.floor(Date.now() / 1000),
     });
 
-    const telemetryId = parseTelemetryIdFromLicense(opts.licenseToken);
+    const telemetryId =
+      firstNonBlankTelemetryId(opts.telemetryId) ??
+      parseTelemetryIdFromLicense(opts.licenseToken);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": opts.packageName

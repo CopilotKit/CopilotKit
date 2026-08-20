@@ -8,11 +8,13 @@
  * - oss.runtime.agent_execution_stream_errored - when an agent execution fails
  */
 
-import { type AgentRunner, InMemoryAgentRunner } from "../../v2/runtime";
+import { InMemoryAgentRunner } from "../../v2/runtime";
+import type { AgentRunner } from "../../v2/runtime";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";
 import type { AgentExecutionResponseInfo } from "@copilotkit/shared/src/telemetry/events";
+import type { TelemetryCapture } from "@copilotkit/shared";
 
 /**
  * Configuration options for TelemetryAgentRunner
@@ -28,6 +30,9 @@ export interface TelemetryAgentRunnerConfig {
    * Optional LangSmith API key (will be hashed for telemetry)
    */
   langsmithApiKey?: string;
+
+  /** Runtime-bound telemetry capture. Defaults to the legacy singleton. */
+  telemetry?: TelemetryCapture;
 }
 
 /**
@@ -45,9 +50,11 @@ export interface TelemetryAgentRunnerConfig {
 export class TelemetryAgentRunner implements AgentRunner {
   private readonly _runner: AgentRunner;
   private readonly hashedLgcKey: string | undefined;
+  private readonly telemetry: TelemetryCapture;
 
   constructor(config?: TelemetryAgentRunnerConfig) {
     this._runner = config?.runner ?? new InMemoryAgentRunner();
+    this.telemetry = config?.telemetry ?? telemetry;
     this.hashedLgcKey = config?.langsmithApiKey
       ? createHash("sha256").update(config.langsmithApiKey).digest("hex")
       : undefined;
@@ -64,7 +71,7 @@ export class TelemetryAgentRunner implements AgentRunner {
     let streamErrored = false;
 
     // Capture stream started event
-    telemetry.capture("oss.runtime.agent_execution_stream_started", {
+    this.telemetry.capture("oss.runtime.agent_execution_stream_started", {
       hashedLgcKey: this.hashedLgcKey,
     });
 
@@ -104,7 +111,7 @@ export class TelemetryAgentRunner implements AgentRunner {
       catchError((error) => {
         // Capture stream error event
         streamErrored = true;
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+        this.telemetry.capture("oss.runtime.agent_execution_stream_errored", {
           ...streamInfo,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -113,7 +120,7 @@ export class TelemetryAgentRunner implements AgentRunner {
       finalize(() => {
         // Capture stream ended event (only if not errored)
         if (!streamErrored) {
-          telemetry.capture(
+          this.telemetry.capture(
             "oss.runtime.agent_execution_stream_ended",
             streamInfo,
           );
