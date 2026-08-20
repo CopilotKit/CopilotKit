@@ -58,16 +58,26 @@ state in the shell (`bookstore`); every other registered skin is REST-backed.
 ## Quick start
 
 ```bash
-pnpm install          # from the repo root — this is a workspace package
-cp .env.example .env  # then fill in OPENAI_API_KEY
-pnpm dev
+pnpm install            # from the repo root — this is a workspace package
+cp .env.example .env    # then fill in OPENAI_API_KEY
+(cd agent && uv sync)   # banking's agent — see below
+pnpm dev &              # the app
+(cd agent && .venv/bin/python main.py)   # banking's agent on :8124
 ```
 
 Open <http://localhost:3000>. `/` redirects to the default skin
-(`banking`; set in `src/shell/skins-config.ts`). This default OSS mode needs only
-`OPENAI_API_KEY` — an SSE runtime with an in-memory agent runner, no external
-services. Durable cross-thread memory is env-gated (Intelligence mode); see
-`.env.example` and the memory section below.
+(`banking`; set in `src/shell/skins-config.ts`). Durable cross-thread memory is
+env-gated (Intelligence mode); see `.env.example` and the memory section below.
+
+**`pnpm dev` alone is not enough for `banking`.** Six of the seven skins run
+their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
+Banking's agent is a Python LangChain deep agent in `agent/`, reached over AG-UI
+as an ordinary `HttpAgent` on :8124 (`src/skins/banking/agent.ts` explains why the
+whole agent moved out of process). Without it the app still boots and the
+dashboard still renders — only sending a message to the DEFAULT skin fails.
+
+For the self-hosted memory path, `./run-demo.sh` starts everything in one command
+(embedder, Intelligence stack, the agent, the dev server) and is safe to re-run.
 
 ## Switching skins
 
