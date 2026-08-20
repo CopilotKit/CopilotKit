@@ -375,6 +375,7 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 
 /**
  * Central runtime object passed to all request handlers.
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotRuntime` from `@copilotkit/runtime/v2` instead. See https://docs.copilotkit.ai/runtime-server-adapter
  */
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   params?: CopilotRuntimeConstructorParams<T>;
