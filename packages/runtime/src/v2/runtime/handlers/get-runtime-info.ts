@@ -15,7 +15,7 @@ import { VERSION } from "../core/runtime";
 import { isTelemetryDisabled } from "../telemetry/telemetry-client";
 import { supportsLocalThreadEndpoints } from "../runner/agent-runner";
 
-function resolveLicenseStatus(
+function resolveLocalLicenseStatus(
   runtime: CopilotRuntimeLike,
 ): RuntimeLicenseStatus {
   if (!runtime.licenseChecker) return "none";
@@ -26,6 +26,27 @@ function resolveLicenseStatus(
   if (status.error) return "invalid";
   if (status.warningSeverity === "info") return "none";
   return "unknown";
+}
+
+async function resolveLicenseStatus(
+  runtime: CopilotRuntimeLike,
+): Promise<RuntimeLicenseStatus> {
+  if (!isIntelligenceRuntime(runtime)) {
+    return resolveLocalLicenseStatus(runtime);
+  }
+
+  try {
+    const result = await runtime.intelligence.getRuntimeEntitlement();
+    if (result.kind === "ok") {
+      return result.entitlement.active ? "valid" : "invalid";
+    }
+    if (result.kind === "unavailable") {
+      return "unknown";
+    }
+    return resolveLocalLicenseStatus(runtime);
+  } catch {
+    return "unknown";
+  }
 }
 
 interface HandleGetRuntimeInfoParameters {
@@ -76,6 +97,9 @@ export async function handleGetRuntimeInfo({
 
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
+    const licenseStatus = isIntelligenceRuntime(runtime)
+      ? await resolveLicenseStatus(runtime)
+      : undefined;
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
@@ -115,9 +139,7 @@ export async function handleGetRuntimeInfo({
           }
         : {}),
       openGenerativeUIEnabled: webEnabled && !!runtime.openGenerativeUI,
-      ...(isIntelligenceRuntime(runtime)
-        ? { licenseStatus: resolveLicenseStatus(runtime) }
-        : {}),
+      ...(isIntelligenceRuntime(runtime) ? { licenseStatus } : {}),
       telemetryDisabled: isTelemetryDisabled(),
     };
 
