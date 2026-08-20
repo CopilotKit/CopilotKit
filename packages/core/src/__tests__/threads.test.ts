@@ -322,10 +322,9 @@ describe("thread store", () => {
     });
 
     await flushEffects();
-    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual([
-      "thread-2",
-      "thread-1",
-    ]);
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
 
     getChannel().serverPush("thread_metadata", {
       operation: "created",
@@ -346,11 +345,9 @@ describe("thread store", () => {
     });
 
     await flushEffects();
-    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual([
-      "thread-same",
-      "thread-2",
-      "thread-1",
-    ]);
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-same", "thread-2", "thread-1"],
+    );
   });
 
   it("notifies run-activity subscribers without mutating the thread list", async () => {

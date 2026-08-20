@@ -1197,10 +1197,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         filter(
           ([action, state]) =>
             action.sessionId === state.sessionId &&
-            threadMetadataTargetsAgent(
-              action.payload,
-              state.context?.agentId,
-            ),
+            threadMetadataTargetsAgent(action.payload, state.context?.agentId),
         ),
         map(([action, state]) => {
           if (action.payload.operation === "deleted") {
