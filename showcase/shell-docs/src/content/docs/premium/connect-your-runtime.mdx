@@ -6,13 +6,12 @@ doc_type: how-to
 premium: true
 ---
 
-A CopilotKit runtime does **not** use Intelligence because a key is present in
-your environment. It uses Intelligence because you construct a
-`CopilotKitIntelligence` client and pass it to the runtime. Without that
-construction the runtime runs in SSE mode, threads live only in memory, and a
-provisioned `INTELLIGENCE_API_KEY` sits unread.
+Connecting a runtime to Intelligence takes two things: construct a
+`CopilotKitIntelligence` client with your project API key, and pass it to your
+runtime as `intelligence`. The runtime reads the key from the client you pass,
+not from the environment.
 
-This page is the wiring step. For what the platform is and why you would use it,
+This page is that wiring step. For what the platform is and why you would use it,
 see the [Enterprise Intelligence Platform overview](/premium/overview) and the
 [architecture page](/premium/intelligence-platform).
 
