@@ -712,6 +712,67 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
   expect(control).not.toContain("<FrameworkSetup");
 });
 
+test.each(["google-adk", "langgraph-python", "mastra"])(
+  "renders one dependency-complete canonical tool-rendering example for %s",
+  (framework) => {
+    const doc = loadDoc("generative-ui/tool-rendering");
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/tool-rendering`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/tool-rendering",
+        framework,
+      },
+      { framework },
+    );
+
+    for (const dependency of [
+      'import { WeatherCard } from "../components/weather-card";',
+      'import { FlightListCard, type Flight } from "../components/flight-list-card";',
+      'import { parseJsonResult } from "../lib/parse-json-result";',
+      'import { ToolRenderers } from "./tool-renderers";',
+      "interface WeatherResult",
+      "interface FlightSearchResult",
+      "export function WeatherCard",
+      "export function FlightListCard",
+      "export function parseJsonResult",
+      "export default function Page",
+      '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
+      "<ToolRenderers />",
+      '<CopilotChat agentId="tool-rendering" />',
+    ]) {
+      expect(output, `${framework}: ${dependency}`).toContain(dependency);
+    }
+
+    expect(
+      output.match(/const parsed = parseJsonResult<WeatherResult>\(result\);/g),
+    ).toHaveLength(1);
+    expect(
+      output.match(
+        /const parsed = parseJsonResult<FlightSearchResult>\(result\);/g,
+      ),
+    ).toHaveLength(1);
+    expect(output).not.toContain("snippet skipped");
+
+    if (framework === "google-adk") {
+      expect(output).toContain("from google.adk.tools import ToolContext");
+      expect(output).not.toContain("from langchain.tools import tool");
+    } else if (framework === "langgraph-python") {
+      expect(output).toContain("from langchain.tools import tool");
+      expect(output).not.toContain("from google.adk.tools import ToolContext");
+    } else {
+      expect(output).toContain(
+        'import { createTool } from "@mastra/core/tools";',
+      );
+      expect(output).not.toContain("from google.adk.tools import ToolContext");
+    }
+  },
+);
+
 test("renders executable Deep Agents state streaming in both languages", () => {
   const loadSlug = "integrations/deepagents/generative-ui/state-rendering";
   const doc = loadDoc(loadSlug);
