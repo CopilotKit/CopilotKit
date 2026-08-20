@@ -45,6 +45,8 @@ export async function handleConnectAgent({
       return connectRequest;
     }
 
+    agent.threadId = connectRequest.input.threadId;
+
     if (isIntelligenceRuntime(runtime)) {
       return handleIntelligenceConnect({
         runtime,

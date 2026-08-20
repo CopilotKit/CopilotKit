@@ -47,6 +47,7 @@ export function handleSseConnect({
       runtime.runner.connect({
         threadId,
         agentId,
+        agent,
         // Forward-looking plumbing: we compute the merged header set (server
         // `agent.headers` win on collision, case-insensitively; non-colliding
         // inbound headers still forward — see `mergeForwardableHeaders`, #5712)
@@ -68,6 +69,7 @@ export function handleSseConnect({
           runtime.forwardHeadersPolicy ??
             resolveForwardHeadersPolicy(undefined),
         ),
+        agent,
       }),
   });
 }

@@ -861,7 +861,23 @@ export class InMemoryAgentRunner extends AgentRunner {
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
-      // No store means no events
+      // Fall back to the agent's public connect entry point when available.
+      if (request.agent) {
+        void request.agent
+          .connectAgent(
+            {},
+            {
+              onEvent: ({ event }) => connectionSubject.next(event),
+            },
+          )
+          .then(
+            () => connectionSubject.complete(),
+            (error) => connectionSubject.error(error),
+          );
+        return connectionSubject.asObservable();
+      }
+
+      // No store and no agent — return empty
       connectionSubject.complete();
       return connectionSubject.asObservable();
     }
