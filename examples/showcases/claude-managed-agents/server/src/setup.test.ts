@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import type { AgentCreateParams } from "@anthropic-ai/sdk/resources/beta/agents/agents";
 
-import { parseAgentIds, provisionAgentResources } from "./setup.ts";
+import {
+  parseAgentIds,
+  provisionAgentResources,
+  readAgentIdsFile,
+} from "./setup.ts";
 
 function createCapturingClient() {
   let agentParams: AgentCreateParams | undefined;
@@ -81,6 +88,18 @@ test("accepts valid persisted agent IDs", () => {
   assert.deepEqual(
     parseAgentIds({ environmentId: "env_test", agentId: "agent_test" }),
     { environmentId: "env_test", agentId: "agent_test" },
+  );
+});
+
+test("rejects malformed persisted agent-ID files", (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "agent-ids-test-"));
+  t.after(() => fs.rmSync(directory, { recursive: true }));
+  const file = path.join(directory, "agent-ids.json");
+  fs.writeFileSync(file, JSON.stringify({ environmentId: "env_test" }));
+
+  assert.throws(
+    () => readAgentIdsFile(file),
+    /expected non-empty environmentId and agentId strings/,
   );
 });
 
