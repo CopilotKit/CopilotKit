@@ -80,7 +80,6 @@ import { CopilotListeners } from "../CopilotListeners";
 
 export function CopilotKit({ children, ...props }: CopilotKitProps) {
   const enabled = shouldShowDevConsole(props.showDevConsole);
-  const showInspector = shouldShowDevConsole(props.enableInspector);
 
   // Use API key if provided, otherwise use the license key
   const publicApiKey = props.publicApiKey || props.publicLicenseKey;
@@ -113,7 +112,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
           */}
           <CopilotKitV2Provider
             {...v2Props}
-            showDevConsole={showInspector}
+            enableInspector={props.enableInspector}
             renderCustomMessages={renderArr}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>

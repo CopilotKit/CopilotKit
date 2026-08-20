@@ -244,7 +244,6 @@ export default defineConfig([
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
         "katex/dist/katex.min.css": "katexCss",
         streamdown: "streamdown",
-        "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",
       };

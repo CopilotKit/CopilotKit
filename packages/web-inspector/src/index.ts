@@ -4986,7 +4986,7 @@ export class WebInspectorElement extends LitElement {
   private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
     new Set();
   private pendingSelectedContext: string | null = null;
-  private autoAttachCore = true;
+  public autoAttachCore = true;
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
@@ -13947,6 +13947,20 @@ export function defineWebInspector(
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
+}
+
+/**
+ * Bind a host-owned core before an Inspector is connected to the DOM. Disabling
+ * auto-attachment first prevents `connectedCallback` from briefly selecting a
+ * different global core.
+ */
+export function configureWebInspectorElement(
+  inspector: WebInspectorElement,
+  core: CopilotKitCore | null,
+): WebInspectorElement {
+  inspector.autoAttachCore = false;
+  inspector.core = core;
+  return inspector;
 }
 
 defineWebInspector();

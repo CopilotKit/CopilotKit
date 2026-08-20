@@ -59,7 +59,7 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
-import { schemaToJsonSchema } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 // Adapts zod-to-json-schema's zod-specific signature to the injectable
@@ -88,7 +88,6 @@ const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
 const EMPTY_PROPERTIES: Readonly<Record<string, unknown>> = Object.freeze({});
 const EMPTY_AGENTS: Readonly<Record<string, AbstractAgent>> = Object.freeze({});
-
 const DEFAULT_DESIGN_SKILL = `When generating UI with generateSandboxedUi, follow these design principles inspired by shadcn/ui:
 
 - Use a minimal, flat aesthetic. Avoid drop shadows and gradients — rely on subtle borders (1px solid, light gray like #e5e7eb) to define surfaces.
@@ -173,7 +172,17 @@ export interface CopilotKitProviderProps {
      */
     designSkill?: string;
   };
+  /**
+   * @deprecated This prop no longer controls the Inspector. Use
+   * `enableInspector` instead.
+   */
   showDevConsole?: boolean | "auto";
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
   /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
@@ -288,7 +297,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   frontendTools,
   humanInTheLoop,
   openGenerativeUI,
-  showDevConsole = false,
+  enableInspector,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -296,8 +305,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   inspectorDefaultAnchor,
   debug,
 }) => {
+  // Keep the server render and the first client render identical. The
+  // Inspector is browser-only, so resolve its development policy after
+  // hydration instead of branching on `window` during render.
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
-  const [isLocalInspectorEnabled, setIsLocalInspectorEnabled] = useState(false);
+
+  useEffect(() => {
+    setShouldRenderInspector(
+      shouldEnableInspector({
+        enableInspector,
+        isBrowser: true,
+        isDevelopment: process.env.NODE_ENV === "development",
+      }),
+    );
+  }, [enableInspector]);
+
+  const isLocalInspectorEnabled = shouldRenderInspector;
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -314,36 +337,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-    const isLocalhost = localhostHosts.has(window.location?.hostname ?? "");
-    const canShowLocalInspectorAction =
-      process.env.NODE_ENV === "development" && isLocalhost;
-
-    if (showDevConsole === true) {
-      // Explicitly show the inspector
-      setShouldRenderInspector(true);
-      setIsLocalInspectorEnabled(canShowLocalInspectorAction);
-    } else if (showDevConsole === "auto") {
-      // Show on localhost or 127.0.0.1 only
-      if (isLocalhost) {
-        setShouldRenderInspector(true);
-        setIsLocalInspectorEnabled(canShowLocalInspectorAction);
-      } else {
-        setShouldRenderInspector(false);
-        setIsLocalInspectorEnabled(false);
-      }
-    } else {
-      // showDevConsole is false or undefined (default false)
-      setShouldRenderInspector(false);
-      setIsLocalInspectorEnabled(false);
-    }
-  }, [showDevConsole]);
 
   const requestInspectorOpen = useCallback(
     (request: CopilotKitInspectorOpenRequest) => {
