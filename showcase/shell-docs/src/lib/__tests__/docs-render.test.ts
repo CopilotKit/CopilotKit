@@ -599,6 +599,7 @@ describe("framework nav", () => {
       );
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
       expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).not.toContain('export INTELLIGENCE_API_KEY="cpk-..."');
       expect(source).toContain(
         "does not need an Enterprise Intelligence URL or API key",
       );

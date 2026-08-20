@@ -28,7 +28,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `init` (aliased as `create`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
 </Callout>
 
 <Steps>
@@ -81,15 +81,24 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Use the generated environment
 
-    The CLI writes the hosted platform URLs and project-scoped runtime API key to `.env`.
+    `init` and its `create` alias write the hosted platform URLs, `SL_ENABLED`,
+    and project-scoped runtime API key to `.env`.
 
     ```bash title=".env"
     INTELLIGENCE_API_URL=https://...
     INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    INTELLIGENCE_API_KEY=cpk_...
+    CPK_INTELLIGENCE_API_KEY=cpk_...
+    CPK_TELEMETRY_ID=...
+    SL_ENABLED=true
     ```
 
-    Keep `INTELLIGENCE_API_KEY` on the server side. It is a runtime key for the selected project, not a frontend token.
+    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. The project key connects
+    the Runtime to Intelligence. `CPK_TELEMETRY_ID` is an optional, non-secret
+    analytics identity.
+
+    Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token
+    is only for offline or self-hosted licensing and does not replace the
+    managed project API key.
   </Step>
 
   <Step>
@@ -162,7 +171,7 @@ For the full adoption flow, see [Import & Synchronize Thread History](/threads-i
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
 | `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
 | `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
-| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
+| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that still require one. |
 | `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
 
 Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
