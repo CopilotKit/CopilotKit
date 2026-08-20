@@ -10,7 +10,10 @@ import { TelemetryClient } from "../telemetry-client";
  * events describing the same runs.
  *
  * Asserted at the send boundary rather than on the instance, because a field
- * held correctly and dropped on the way out is the failure that matters.
+ * held correctly and dropped on the way out is the failure that matters. And
+ * asserted on `globalProperties` specifically: the sink reads that field as the
+ * pass-through bag for `oss.runtime.*`, so landing them in `properties` instead
+ * would send them somewhere nothing downstream looks for them.
  */
 describe("telemetry global properties", () => {
   let send: ReturnType<typeof vi.spyOn>;
@@ -32,12 +35,18 @@ describe("telemetry global properties", () => {
    * missing call fails as a missing call rather than as a property read on
    * undefined two lines later.
    */
-  function sentProperties(): Record<string, unknown> {
+  function sent(): {
+    properties: Record<string, unknown>;
+    globalProperties: Record<string, unknown>;
+  } {
     expect(send).toHaveBeenCalledTimes(1);
     const [payload] = send.mock.calls[0] as [
-      { properties: Record<string, unknown> },
+      {
+        properties: Record<string, unknown>;
+        globalProperties: Record<string, unknown>;
+      },
     ];
-    return payload.properties;
+    return payload;
   }
 
   afterEach(() => {
@@ -50,10 +59,9 @@ describe("telemetry global properties", () => {
 
     await telemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
+    expect(sent()).toMatchObject({
       event: "oss.runtime.agent_execution_stream_started",
-      properties: { accessibility_title: "OpenBot" },
+      globalProperties: { accessibility_title: "OpenBot" },
     });
   });
 
@@ -69,8 +77,10 @@ describe("telemetry global properties", () => {
       "cloud.api_key_provided": false,
     });
 
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
-      properties: { accessibility_title: "OpenBot", agentsAmount: 3 },
+    // Separate fields, and both arrive. The sink spreads them together.
+    expect(sent()).toMatchObject({
+      globalProperties: { accessibility_title: "OpenBot" },
+      properties: { agentsAmount: 3 },
     });
   });
 
@@ -81,8 +91,8 @@ describe("telemetry global properties", () => {
 
     await telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
 
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
-      properties: {
+    expect(sent()).toMatchObject({
+      globalProperties: {
         accessibility_title: "OpenBot",
         deployment_shape: "self-hosted",
       },
@@ -90,10 +100,14 @@ describe("telemetry global properties", () => {
   });
 
   /*
-   * The specific beats the general. A caller describing one event knows more
-   * than a value set once at construction, so a global must not overwrite it.
+   * Kept apart on the wire, so a shared key is not resolved here at all.
+   *
+   * It resolves in the sink, which spreads the global bag last for
+   * `oss.runtime.*` and therefore lets the global win. That is worth pinning:
+   * it is the opposite of what the name "global" suggests to most readers, and
+   * it is why the field docs say not to reuse an event's own key.
    */
-  it("lets an event's own property win on conflict", async () => {
+  it("keeps a shared key on both fields rather than resolving it", async () => {
     const telemetry = client();
     telemetry.setGlobalProperties({ agentsAmount: 99 });
 
@@ -105,7 +119,8 @@ describe("telemetry global properties", () => {
       "cloud.api_key_provided": false,
     });
 
-    expect(sentProperties().agentsAmount).toBe(3);
+    expect(sent().properties.agentsAmount).toBe(3);
+    expect(sent().globalProperties.agentsAmount).toBe(99);
   });
 
   it("sends nothing at all when telemetry is disabled", async () => {
@@ -123,6 +138,6 @@ describe("telemetry global properties", () => {
   it("adds nothing when none are set", async () => {
     await client().capture("oss.runtime.agent_execution_stream_started", {});
 
-    expect(sentProperties()).toEqual({});
+    expect(sent().globalProperties).toEqual({});
   });
 });

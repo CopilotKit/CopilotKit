@@ -39,9 +39,12 @@ export class TelemetryClient {
   // events instead of sending its own, which is the difference between one
   // extra field and a second pipeline nobody asked for.
   //
-  // Per-event properties win on conflict. A caller describing one event knows
-  // more than a value set once at construction, and silently overriding the
-  // specific with the general would be the wrong way round.
+  // Sent as `global_properties`, a field of its own, so these stay separable
+  // from an event's own properties all the way to the sink.
+  //
+  // Do not reuse a key an event already sets: the fanout spreads this bag last
+  // for `oss.runtime.*`, so a collision resolves in favour of the global and
+  // does so silently. Names here should describe the caller, not the call.
   private globalProperties: Record<string, unknown> = {};
 
   constructor({
@@ -87,10 +90,14 @@ export class TelemetryClient {
 
     await lambdaClient.send({
       event,
-      properties: {
-        ...this.globalProperties,
-        ...(properties as Record<string, unknown>),
-      },
+      properties: properties as Record<string, unknown>,
+      // Its own field on the wire rather than folded into `properties`, which
+      // is what the sink expects: for `oss.runtime.*` the fanout treats
+      // `global_properties` as the SDK's pass-through bag and spreads it into
+      // the analytics event, and v1's client sends package name and version the
+      // same way. Folding it in would work and would put a process-level fact
+      // in the per-event slot, where nothing downstream expects to find one.
+      globalProperties: this.globalProperties,
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       licenseToken: this.licenseToken ?? undefined,
