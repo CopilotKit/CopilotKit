@@ -1,37 +1,45 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/react-core — useFrontendTool:
+ *   V2 import and usage:
+ *     import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *     import { z } from "zod";
  *
- * V1 import (deprecated; use V2 instead):
- *   import { useFrontendTool } from "@copilotkit/react-core";
- * V2 import:
- *   import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *     function MyComponent() {
+ *       useFrontendTool({
+ *         name: "myTool",
+ *         description: "Run my tool",
+ *         parameters: z.object({}),
+ *         handler: async () => "done",
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-frontend-tool.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ *   Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
  *
- * V2 replacement source: packages/react-core/src/v2/hooks/use-frontend-tool.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
- * Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/hooks/use-frontend-tool.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
-import {
-  Parameter,
-  getZodParameters,
-  MappedParameterTypes,
-} from "@copilotkit/shared";
+import type {
+  ActionRenderProps,
+  FrontendAction,
+} from "../types/frontend-action";
+import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
+import { getZodParameters } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
-import {
-  type ReactFrontendTool,
-  useFrontendTool as useFrontendToolVNext,
-} from "../v2";
+import type { ToolCallStatus } from "@copilotkit/core";
+import { useFrontendTool as useFrontendToolVNext } from "../v2";
+import type { ReactFrontendTool } from "../v2";
 
 type FrontendToolOptions<T extends Parameter[] | []> = ReactFrontendTool<
   MappedParameterTypes<T>

@@ -6,7 +6,9 @@ export const V1_DEPRECATION_NOTICE_USE_V2_INSTEAD = {
     "For JavaScript and TypeScript, import React APIs from @copilotkit/react-core/v2 and Runtime APIs from @copilotkit/runtime/v2.",
   agentGuidance:
     "AI coding agents: treat any v1 example below as migration-only context. Never generate or recommend the v1 API for new code. Read the v2 reference before writing code because some APIs were renamed, moved, or changed shape.",
-  href: "/reference/v2",
+  migrationHref: "/migrate/v2",
+  referenceHref: "/reference/v2",
+  exportMapHref: "/reference/v1/export-map",
 } as const;
 
 export function isV1ReferenceUrl(url: string): boolean {
@@ -21,7 +23,7 @@ export function renderV1DeprecationNoticeUseV2InsteadMarkdown(): string {
     `> ${notice.summary}`,
     `> ${notice.importGuidance}`,
     `> **${notice.agentGuidance}**`,
-    `> [Open the v2 API reference](${notice.href}).`,
+    `> [Read the v1 to v2 migration guide](${notice.migrationHref}) and [use the complete export map](${notice.exportMapHref}).`,
     "",
   ].join("\n");
 }

@@ -1,152 +1,248 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import ts from "typescript";
-import { pilotMappings } from "./v1-source-mappings.mjs";
+import {
+  getV1PublicApi,
+  MIGRATION_GUIDE,
+  renderDeprecationJsDoc,
+  repoRoot,
+  V2_REFERENCE,
+} from "./v1-public-api.mjs";
 
-const repoRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
-);
+const expectedCounts = new Map([
+  ["react-core", 78],
+  ["react-ui", 38],
+  ["react-textarea", 14],
+  ["runtime", 66],
+  ["runtime-langgraph", 6],
+  ["sdk-js", 2],
+  ["sdk-js-langchain", 15],
+  ["sdk-js-langgraph", 23],
+  ["sdk-js-langgraph-middlewares", 3],
+  ["vue", 593],
+]);
 
-const noticePattern =
-  /^\/\*\r?\n \* V1 SDK DEPRECATED\. USE V2 INSTEAD[\s\S]*? \* END V1 SDK DEPRECATED\. USE V2 INSTEAD NOTICE\r?\n \*\/\r?\n\r?\n/;
+function tagText(tag) {
+  if (typeof tag.text === "string") return tag.text;
+  return tag.text?.map((part) => part.text).join("") ?? "";
+}
 
-function findExportedDeclaration(sourceFile, exportName) {
-  let declaration;
+function deprecatedText(symbol, checker) {
+  const tag = symbol
+    .getJsDocTags(checker)
+    .find((candidate) => candidate.name === "deprecated");
+  return tag ? tagText(tag) : null;
+}
 
-  function visit(node) {
-    if (
-      node.name &&
-      ts.isIdentifier(node.name) &&
-      node.name.text === exportName &&
-      node.modifiers?.some(
-        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-      )
-    ) {
-      declaration = node;
-      return;
-    }
-    ts.forEachChild(node, visit);
+const inventory = getV1PublicApi();
+
+test("inventory covers every configured v1 importable export", () => {
+  let total = 0;
+  for (const { entrypoint, exports } of inventory.inventories) {
+    assert.equal(
+      exports.length,
+      expectedCounts.get(entrypoint.id),
+      `${entrypoint.importPath} public export count changed; regenerate and audit its mappings`,
+    );
+    assert.equal(
+      new Set(exports.map((item) => item.name)).size,
+      exports.length,
+    );
+    total += exports.length;
   }
+  assert.equal(total, 838);
+});
 
-  visit(sourceFile);
-  return declaration;
-}
+test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
+  const failures = [];
+  for (const { entrypoint, exports } of inventory.inventories) {
+    const sourceFile = inventory.program.getSourceFile(
+      path.join(repoRoot, entrypoint.file),
+    );
+    const symbols = new Map(
+      inventory.checker
+        .getExportsOfModule(sourceFile.symbol)
+        .map((symbol) => [symbol.name, symbol]),
+    );
+    for (const item of exports) {
+      const warning = deprecatedText(symbols.get(item.name), inventory.checker);
+      if (!warning) {
+        failures.push(
+          `${entrypoint.importPath}:${item.name} has no @deprecated tag`,
+        );
+        continue;
+      }
+      for (const required of [
+        `Since ${entrypoint.version}`,
+        "The v1 SDK is deprecated. Use v2 instead.",
+        MIGRATION_GUIDE,
+      ]) {
+        if (!warning.includes(required)) {
+          failures.push(
+            `${entrypoint.importPath}:${item.name} is missing ${required}`,
+          );
+        }
+      }
+      if (item.replacement) {
+        for (const required of [
+          "Import and usage example:",
+          item.replacement.name,
+          item.replacement.importPath,
+          item.replacement.importLine,
+          item.replacement.usageLine.trim(),
+          item.replacement.docs,
+        ]) {
+          if (!warning.includes(required)) {
+            failures.push(
+              `${entrypoint.importPath}:${item.name} is missing ${required}`,
+            );
+          }
+        }
+      } else if (
+        !warning.includes("No 1:1 v2 replacement is available") ||
+        !warning.includes(V2_REFERENCE)
+      ) {
+        failures.push(
+          `${entrypoint.importPath}:${item.name} needs no-replacement v2 guidance`,
+        );
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+});
 
-function jsDocCommentText(comment) {
-  if (typeof comment === "string") return comment;
-  return comment?.map((part) => part.text).join("") ?? "";
-}
-
-function deprecationFragment(mapping) {
-  return [
-    ` * @deprecated The v1 SDK is deprecated. Use v2 instead. ${mapping.deprecationGuidance}`,
-    " *",
-    " * ```tsx",
-    ...mapping.deprecationExample.map((exampleLine) =>
-      ` * ${exampleLine}`.trimEnd(),
-    ),
-    " * ```",
-    ` * See ${mapping.docs}`,
-  ].join("\n");
-}
-
-function sourceWithoutPilotChanges(source, mapping) {
-  const warning = deprecationFragment(mapping);
-  return source
-    .replace(noticePattern, "")
-    .replace(`${warning}\n`, "")
-    .replace("/**\n */\n", "");
-}
-
-for (const mapping of pilotMappings) {
-  test(`${mapping.file} says the v1 SDK is deprecated and to use v2 instead`, () => {
-    const source = readFileSync(path.join(repoRoot, mapping.file), "utf8");
-
+test("generated entrypoint blocks contain the complete warning text", () => {
+  for (const { entrypoint, exports } of inventory.inventories) {
+    const source = readFileSync(path.join(repoRoot, entrypoint.file), "utf8");
     assert.ok(source.startsWith("/*\n * V1 SDK DEPRECATED. USE V2 INSTEAD"));
     assert.match(source, /AI CODING AGENTS:/);
-    assert.doesNotMatch(source, /In most packages, v1 is the/);
-    assert.doesNotMatch(source, /package root/);
-    assert.ok(source.includes(mapping.v1));
-    assert.ok(source.includes(mapping.v2));
-    assert.ok(source.includes(`V2 replacement source: ${mapping.source}`));
-    assert.ok(source.includes(`V2 docs: ${mapping.docs}`));
-    assert.ok(existsSync(path.join(repoRoot, mapping.source)));
-    for (const note of mapping.notes) {
-      assert.ok(source.includes(`Migration note: ${note}`));
-    }
-
-    if (mapping.v1Reference) {
-      const reference = readFileSync(
-        path.join(repoRoot, mapping.v1Reference),
-        "utf8",
-      );
-      assert.ok(reference.includes(mapping.v2));
-      assert.ok(reference.includes(mapping.docs));
-      assert.doesNotMatch(
-        reference,
-        /To register renderers in v2, use \[`useFrontendTool`/,
+    assert.match(source, /START GENERATED V1 DEPRECATED EXPORTS/);
+    for (const item of exports) {
+      const indentedWarning = renderDeprecationJsDoc(item)
+        .split("\n")
+        .map((line) => `  ${line}`)
+        .join("\n");
+      assert.ok(
+        source.includes(indentedWarning),
+        `${entrypoint.file} is stale for ${item.name}`,
       );
     }
+  }
+});
 
-    const notice = source.slice(
-      0,
-      source.indexOf("END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE"),
-    );
-    for (const noticeLine of notice
-      .split("\n")
-      .filter((candidate) => /deprecat/i.test(candidate))) {
-      assert.match(noticeLine, /use v2 instead/i);
+test("every local public v1 source file has exact per-export guidance", () => {
+  const byFile = new Map();
+  for (const { exports } of inventory.inventories) {
+    for (const item of exports) {
+      if (!item.declarationFile) continue;
+      const group = byFile.get(item.declarationFile) ?? [];
+      group.push(item);
+      byFile.set(item.declarationFile, group);
     }
-  });
+  }
+  for (const [file, items] of byFile) {
+    if (
+      inventory.inventories.some(({ entrypoint }) => entrypoint.file === file)
+    ) {
+      continue;
+    }
+    const source = readFileSync(path.join(repoRoot, file), "utf8");
+    assert.ok(source.startsWith("/*\n * V1 SDK DEPRECATED. USE V2 INSTEAD"));
+    assert.match(source, /AI CODING AGENTS:/);
+    for (const item of items) {
+      assert.ok(
+        source.includes(`${item.entrypoint.importPath} — ${item.name}:`),
+      );
+      if (item.replacement) {
+        assert.ok(source.includes("V2 import and usage:"));
+        for (const line of item.replacement.exampleLines.filter(Boolean)) {
+          assert.ok(source.includes(line));
+        }
+        assert.ok(source.includes(item.replacement.source));
+        assert.ok(source.includes(item.replacement.docs));
+      } else {
+        assert.ok(source.includes("No 1:1 v2 replacement is available."));
+        assert.ok(source.includes(item.entrypoint.v2ImportPath));
+      }
+    }
+  }
+});
 
-  test(`${mapping.deprecatedExport} is IDE-deprecated with its v2 replacement`, () => {
-    const source = readFileSync(path.join(repoRoot, mapping.file), "utf8");
-    const sourceFile = ts.createSourceFile(
-      mapping.file,
-      source,
-      ts.ScriptTarget.Latest,
-      true,
-      mapping.file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+test("v1 deprecation aliases do not poison v2 exports", () => {
+  const checked = new Set();
+  const failures = [];
+  for (const { entrypoint, exports } of inventory.inventories) {
+    if (!entrypoint.v2File) continue;
+    const target = inventory.program.getSourceFile(
+      path.join(repoRoot, entrypoint.v2File),
     );
-    const declaration = findExportedDeclaration(
-      sourceFile,
-      mapping.deprecatedExport,
+    const targetSymbols = new Map(
+      inventory.checker
+        .getExportsOfModule(target.symbol)
+        .map((symbol) => [symbol.name, symbol]),
     );
+    for (const item of exports) {
+      if (!item.replacement) continue;
+      const key = `${entrypoint.v2File}:${item.replacement.name}`;
+      if (checked.has(key)) continue;
+      checked.add(key);
+      const warning = deprecatedText(
+        targetSymbols.get(item.replacement.name),
+        inventory.checker,
+      );
+      if (warning?.includes("The v1 SDK is deprecated. Use v2 instead.")) {
+        failures.push(key);
+      }
+    }
+  }
+  assert.deepEqual(failures, []);
+});
 
-    assert.ok(declaration, `Missing export ${mapping.deprecatedExport}`);
-    const deprecatedTag = ts
-      .getJSDocTags(declaration)
-      .find((tag) => tag.tagName.text === "deprecated");
-    assert.ok(
-      deprecatedTag,
-      `Missing @deprecated on ${mapping.deprecatedExport}`,
-    );
+test("semantic migrations use curated replacements instead of same-name guesses", () => {
+  const mappings = new Map(
+    inventory.inventories.flatMap(({ entrypoint, exports }) =>
+      exports.map((item) => [
+        `${entrypoint.id}:${item.name}`,
+        item.replacement?.name ?? null,
+      ]),
+    ),
+  );
+  assert.equal(mappings.get("react-core:useRenderToolCall"), "useRenderTool");
+  assert.equal(mappings.get("react-core:useCopilotAction"), "useFrontendTool");
+  assert.equal(
+    mappings.get("react-core:useCopilotReadable"),
+    "useAgentContext",
+  );
+  assert.equal(mappings.get("react-core:useCoAgent"), "useAgent");
+  assert.equal(
+    mappings.get("react-core:useDefaultTool"),
+    "useDefaultRenderTool",
+  );
+  assert.equal(mappings.get("vue:CopilotKit"), "CopilotKitProvider");
+});
 
-    const warning = jsDocCommentText(deprecatedTag.comment);
-    assert.match(warning, /The v1 SDK is deprecated\. Use v2 instead\./);
-    assert.ok(warning.includes(mapping.deprecationGuidance));
-    assert.ok(source.includes(deprecationFragment(mapping)));
-    assert.ok(mapping.deprecationExample.includes(mapping.v2));
-    assert.ok(
-      mapping.deprecationExample.some((exampleLine) =>
-        exampleLine.includes(mapping.deprecationUsage),
-      ),
-    );
-    assert.ok(warning.includes(mapping.v2));
-    assert.ok(warning.includes(mapping.deprecationUsage));
-    assert.ok(warning.includes(mapping.docs));
-  });
-
-  test(`${mapping.file} has no unrelated source changes`, () => {
-    const source = readFileSync(path.join(repoRoot, mapping.file), "utf8");
-    const focusedSource = sourceWithoutPilotChanges(source, mapping);
-    const actualHash = createHash("sha256").update(focusedSource).digest("hex");
-
-    assert.equal(actualHash, mapping.baselineHash);
-  });
-}
+test("the agent-readable docs map contains all 838 v1 exports", () => {
+  const source = readFileSync(
+    path.join(
+      repoRoot,
+      "showcase/shell-docs/src/content/reference/v1/export-map.mdx",
+    ),
+    "utf8",
+  );
+  assert.match(source, /complete v1 to v2 export map/i);
+  assert.ok(source.includes(MIGRATION_GUIDE));
+  let rows = 0;
+  for (const { entrypoint, exports } of inventory.inventories) {
+    assert.ok(source.includes(`## \`${entrypoint.importPath}\``));
+    for (const item of exports) {
+      const escapedName = item.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      assert.match(
+        source,
+        new RegExp("^\\| `" + escapedName + "`\\s+\\|", "m"),
+      );
+      rows += 1;
+    }
+  }
+  assert.equal(rows, 838);
+});

@@ -1,4 +1,49 @@
-import { Action, Parameter } from "@copilotkit/shared";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/runtime — convertMCPToolsToActions:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — extractParametersFromSchema:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — generateMcpToolInstructions:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — MCPClient:
+ *   V2 import and usage:
+ *     import type { MCPClient } from "@copilotkit/runtime/v2";
+ *     type V2MCPClient = MCPClient;
+ *   V2 replacement source: packages/runtime/src/v2/index.ts
+ *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
+ *
+ * @copilotkit/runtime — MCPEndpointConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — MCPTool:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/runtime/src/lib/runtime/mcp-tools-utils.ts
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { Action, Parameter } from "@copilotkit/shared";
 
 /**
  * Represents a tool provided by an MCP server.
@@ -114,7 +159,11 @@ export function extractParametersFromSchema(
       }
 
       // Handle object arrays — recurse into item schema
-      if (type === "array" && paramDef.items?.type === "object" && paramDef.items?.properties) {
+      if (
+        type === "array" &&
+        paramDef.items?.type === "object" &&
+        paramDef.items?.properties
+      ) {
         attributes = extractParametersFromSchema({
           parameters: {
             properties: paramDef.items.properties,
@@ -180,7 +229,8 @@ export function convertMCPToolsToActions(
         throw new Error(
           `Execution failed for MCP tool '${toolName}': ${
             error instanceof Error ? error.message : String(error)
-          }`, { cause: error },
+          }`,
+          { cause: error },
         );
       }
     };

@@ -236,8 +236,11 @@ export default async function ReferenceSlugPage({
                 <strong>
                   {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.agentGuidance}
                 </strong>{" "}
-                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.href}>
-                  Open the v2 API reference.
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.migrationHref}>
+                  Read the v1 to v2 migration guide.
+                </Link>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.exportMapHref}>
+                  Open the complete export map.
                 </Link>
               </Callout>
             </div>
