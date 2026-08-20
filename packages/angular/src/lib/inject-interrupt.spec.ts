@@ -33,12 +33,14 @@ class FakeAgent {
   addMessage = vi.fn();
 
   interrupt(id: string): void {
+    const runId = "run-id";
     const interrupts = [{ id, reason: "approval" }] as Interrupt[];
     this.subscriber?.onRunFinishedEvent?.({
       outcome: "interrupt",
       interrupts,
+      input: { runId },
     } as never);
-    this.subscriber?.onRunFinalized?.({} as never);
+    this.subscriber?.onRunFinalized?.({ input: { runId } } as never);
   }
 }
 
@@ -87,6 +89,7 @@ describe("injectInterrupt", () => {
     expect(enabled).toHaveBeenCalledTimes(1);
     expect(runAgent).toHaveBeenCalledWith({
       agent,
+      runId: "run-id",
       resume: [{ interruptId: "approve", payload: "yes", status: "resolved" }],
     });
 

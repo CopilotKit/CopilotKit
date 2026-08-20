@@ -7,8 +7,9 @@ import type {
 } from "@ag-ui/client";
 import { describe, expect, it, vi } from "vitest";
 
-import { InterruptController, InterruptExpiredError } from "./interrupt";
 import type { InterruptRunOptions } from "./interrupt";
+import { InterruptController, InterruptExpiredError } from "./interrupt";
+import { assertDefined } from "./utils";
 
 class FakeAgent {
   readonly messages: Message[] = [];
@@ -59,12 +60,17 @@ function setup(
   };
 }
 
-function finalizeStandard(agent: FakeAgent, interrupts: Interrupt[]): void {
+function finalizeStandard(
+  agent: FakeAgent,
+  interrupts: Interrupt[],
+  runId = "run-id",
+): void {
   agent.subscriber?.onRunFinishedEvent?.({
     outcome: "interrupt",
     interrupts,
+    input: { runId },
   } as never);
-  agent.subscriber?.onRunFinalized?.({} as never);
+  agent.subscriber?.onRunFinalized?.({ input: { runId } } as never);
 }
 
 function finalizeLegacy(agent: FakeAgent, value: unknown): void {
@@ -83,8 +89,11 @@ describe("InterruptController", () => {
     agent.subscriber?.onRunFinishedEvent?.({
       outcome: "interrupt",
       interrupts: [makeInterrupt("one"), makeInterrupt("two")],
+      input: { runId: "run-id" },
     } as never);
-    agent.subscriber?.onRunFinalized?.({} as never);
+    agent.subscriber?.onRunFinalized?.({
+      input: { runId: "run-id" },
+    } as never);
 
     expect(controller.event()).toEqual({
       name: "on_interrupt",
@@ -134,6 +143,7 @@ describe("InterruptController", () => {
       }),
     ]);
     expect(run).toHaveBeenCalledWith(agent, {
+      runId: "run-id",
       resume: [
         { interruptId: "one", status: "resolved", payload: { approved: true } },
         { interruptId: "two", status: "cancelled" },
@@ -143,6 +153,38 @@ describe("InterruptController", () => {
     startResume();
     await Promise.all([resumePromise, duplicatePromise]);
     expect(controller.hasInterrupt()).toBe(false);
+  });
+
+  it("preserves the interrupted run id when resuming", async () => {
+    const { agent, controller, run, startResume } = setup();
+    const interruptControllerSubscriber = agent.subscriber;
+    assertDefined(interruptControllerSubscriber);
+
+    const interruptedRunId = "run-awaiting-approval";
+    interruptControllerSubscriber.onRunFinishedEvent?.({
+      outcome: "interrupt",
+      interrupts: [makeInterrupt("approve-refund")],
+      input: { runId: interruptedRunId },
+    } as never);
+    interruptControllerSubscriber.onRunFinalized?.({
+      input: { runId: interruptedRunId },
+    } as never);
+
+    const resumePromise = controller.resolve({ approved: true });
+
+    expect(run).toHaveBeenCalledWith(agent, {
+      runId: interruptedRunId,
+      resume: [
+        {
+          interruptId: "approve-refund",
+          status: "resolved",
+          payload: { approved: true },
+        },
+      ],
+    });
+
+    startResume();
+    await resumePromise;
   });
 
   it("does not add tool messages for backend-owned interrupts", async () => {
