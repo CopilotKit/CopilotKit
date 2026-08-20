@@ -2,12 +2,10 @@
  * V1 SDK DEPRECATION NOTICE
  *
  * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
- * for new code. Use the v2 SDK instead. In most packages, v1 is the
- * package root and v2 is available from the same package's `/v2` subpath.
- * Follow this file's specific migration mapping below.
+ * for new code. Use the exact v2 import and replacement source below.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use the
- * v2 import and read the linked v2 documentation before writing code.
+ * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
+ * the exact v2 import below and read the linked v2 documentation first.
  *
  * V1 import (deprecated):
  *   import { useLangGraphInterrupt } from "@copilotkit/react-core";

@@ -16,6 +16,8 @@ for (const mapping of pilotMappings) {
 
     assert.ok(source.startsWith("/*\n * V1 SDK DEPRECATION NOTICE"));
     assert.match(source, /AI CODING AGENTS:/);
+    assert.doesNotMatch(source, /In most packages, v1 is the/);
+    assert.doesNotMatch(source, /package root/);
     assert.ok(source.includes(mapping.v1));
     assert.ok(source.includes(mapping.v2));
     assert.ok(source.includes(`V2 replacement source: ${mapping.source}`));
