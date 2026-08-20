@@ -10,6 +10,7 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { createLicenseContextValue } from "@copilotkit/shared";
 
 // Mock transcription service
 class MockTranscriptionService extends TranscriptionService {
@@ -597,7 +598,7 @@ describe("handleGetRuntimeInfo", () => {
   test.each([
     [{ kind: "ok", entitlement: { active: true } }, "valid"],
     [{ kind: "ok", entitlement: { active: false } }, "invalid"],
-    [{ kind: "unavailable" }, "unknown"],
+    [{ kind: "unavailable" }, "invalid"],
   ] as const)(
     "projects Intelligence entitlement result %# into licenseStatus=%s",
     async (result, expectedStatus) => {
@@ -627,6 +628,9 @@ describe("handleGetRuntimeInfo", () => {
 
       expect(response.status).toBe(200);
       expect(data.licenseStatus).toBe(expectedStatus);
+      expect(
+        createLicenseContextValue(data.licenseStatus).checkFeature("msteams"),
+      ).toBe(expectedStatus === "valid");
       expect(JSON.stringify(data)).not.toMatch(
         /organizationId|source|features|limits|planCode|entitlementSource|awsMarketplace/iu,
       );
