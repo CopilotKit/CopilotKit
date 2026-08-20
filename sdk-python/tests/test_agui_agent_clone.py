@@ -72,9 +72,7 @@ def test_init_forwards_upstream_flags():
     Without the passthrough, emit_raw_events=False — the OSS-607 payload
     opt-out — cannot be set by any CopilotKit user at all.
     """
-    agent = LangGraphAGUIAgent(
-        name="test", graph=_make_graph(), emit_raw_events=False
-    )
+    agent = LangGraphAGUIAgent(name="test", graph=_make_graph(), emit_raw_events=False)
     assert agent.emit_raw_events is False
 
 
@@ -84,7 +82,5 @@ def test_init_forwards_upstream_flags():
 )
 def test_clone_carries_upstream_flags():
     """A non-default flag must survive the clone, or it resets every request."""
-    agent = LangGraphAGUIAgent(
-        name="test", graph=_make_graph(), emit_raw_events=False
-    )
+    agent = LangGraphAGUIAgent(name="test", graph=_make_graph(), emit_raw_events=False)
     assert agent.clone().emit_raw_events is False
