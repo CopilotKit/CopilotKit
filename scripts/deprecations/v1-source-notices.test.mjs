@@ -21,7 +21,6 @@ const expectedCounts = new Map([
   ["sdk-js-langchain", 15],
   ["sdk-js-langgraph", 23],
   ["sdk-js-langgraph-middlewares", 3],
-  ["vue", 593],
 ]);
 
 function tagText(tag) {
@@ -89,7 +88,7 @@ test("inventory covers every configured v1 importable export", () => {
     );
     total += exports.length;
   }
-  assert.equal(total, 838);
+  assert.equal(total, 245);
 });
 
 test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
@@ -257,10 +256,9 @@ test("semantic migrations use curated replacements instead of same-name guesses"
     mappings.get("react-core:useDefaultTool"),
     "useDefaultRenderTool",
   );
-  assert.equal(mappings.get("vue:CopilotKit"), "CopilotKitProvider");
 });
 
-test("the agent-readable docs map contains all 838 v1 exports", () => {
+test("the agent-readable docs map contains all 245 v1 exports", () => {
   const source = readFileSync(
     path.join(
       repoRoot,
@@ -282,5 +280,5 @@ test("the agent-readable docs map contains all 838 v1 exports", () => {
       rows += 1;
     }
   }
-  assert.equal(rows, 838);
+  assert.equal(rows, 245);
 });

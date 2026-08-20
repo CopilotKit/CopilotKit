@@ -149,22 +149,6 @@ export const v1Entrypoints = [
       "packages/sdk-js/dist/langgraph-middlewares.d.cts",
     ],
   },
-  {
-    id: "vue",
-    file: "packages/vue/src/index.ts",
-    packageRoot: "packages/vue",
-    importPath: "@copilotkit/vue",
-    v2File: "packages/vue/src/v2/index.ts",
-    v2ImportPath: "@copilotkit/vue/v2",
-    v2Source: "packages/vue/src/v2/index.ts",
-    docsKind: "vue",
-    version: "1.68.2",
-    reexportV2From: "./v2",
-    distFiles: [
-      "packages/vue/dist/index.d.mts",
-      "packages/vue/dist/index.d.cts",
-    ],
-  },
 ];
 
 const overrides = new Map(
@@ -175,10 +159,6 @@ const overrides = new Map(
     ["react-core:useCopilotChat", "useAgent"],
     ["react-core:useCopilotChatSuggestions", "useConfigureSuggestions"],
     ["react-core:useDefaultTool", "useDefaultRenderTool"],
-    ["vue:CopilotKit", "CopilotKitProvider"],
-    ["vue:CopilotKitProps", "CopilotKitProviderProps"],
-    ["vue:useCopilotAction", "useFrontendTool"],
-    ["vue:useCopilotReadable", "useAgentContext"],
   ].map(([key, replacementName]) => [key, { replacementName }]),
 );
 
