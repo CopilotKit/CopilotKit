@@ -34,6 +34,7 @@ import {
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { ReferenceVersionSelector } from "@/components/reference-version-selector";
+import { V1ReferenceDeprecationNotice } from "@/components/v1-reference-deprecation-notice";
 import {
   REFERENCE_VERSIONS,
   buildReferencePageTree,
@@ -215,6 +216,8 @@ export default async function ReferenceSlugPage({
               );
             })}
           </nav>
+
+          <V1ReferenceDeprecationNotice version={version} />
 
           <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
             {title}
