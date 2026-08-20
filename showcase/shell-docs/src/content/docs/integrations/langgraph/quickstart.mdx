@@ -425,10 +425,13 @@ Before you begin, you'll need the following:
               Wrap your application with the CopilotKit provider:
 
               <Callout type="info" title="Which provider goes with which handler?">
-                `<CopilotKit>` here is the backward-compatible wrapper. It sets no transport
-                by default, so it detects the single-route `copilotRuntimeNextJSAppRouterEndpoint`
-                above on its own. `<CopilotKitProvider>` is the v2 provider from the same
-                package and detects the transport the same way. They are not aliases — see
+                `<CopilotKit>` here is the backward-compatible wrapper, and every
+                released version pins it to the single-route transport — which is why
+                it needs the explicit `useSingleEndpoint={false}` below to reach the
+                multi-route `createCopilotEndpoint` route above.
+                `<CopilotKitProvider>` is the v2 provider from the same package and
+                detects the transport from `/info` on its own. They are not aliases —
+                see
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 

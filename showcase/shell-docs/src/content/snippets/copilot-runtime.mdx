@@ -59,11 +59,17 @@ Then point your frontend at the endpoint:
 
 <Callout type="warn">
   `useSingleEndpoint={false}` selects the REST transport, which is what
-  `createCopilotEndpoint` serves. This provider currently defaults the flag to
-  `true`, i.e. the single-route transport, which posts everything to the bare
-  `runtimeUrl` — a multi-route runtime answers that with a 404. If you would rather
-  keep a single POST-only URL, mount the runtime with
-  [`createCopilotEndpointSingleRoute`](/reference) instead and omit this prop.
+  `createCopilotEndpoint` serves. Pass it explicitly: in released versions
+  `<CopilotKit>` pins the flag to `true` — the single-route transport, which
+  posts everything to the bare `runtimeUrl` — and a multi-route runtime answers
+  that with a 404 while `GET /info` still returns 200, so the app looks
+  connected. `<CopilotKitProvider>` already negotiates the transport from
+  `/info` when the prop is omitted, and `<CopilotKit>` will too, at which point
+  this stays correct but stops being necessary. See [Provider and handler
+  pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+
+  To keep a single POST-only URL instead, mount the runtime with
+  `createCopilotEndpointSingleRoute` at a plain `route.ts` and omit this prop.
 </Callout>
 </FrontendOnly>
 
