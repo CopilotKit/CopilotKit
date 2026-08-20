@@ -527,6 +527,94 @@ test("real metadata renders the exact labels, full identity, and supplied option
   }
 });
 
+test("a message focus request scrolls and pulses once per request", async () => {
+  prepareDom();
+  const scrollIntoView = vi.fn();
+  const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+    HTMLElement.prototype,
+    "scrollIntoView",
+  );
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
+  const detail = new CpkThreadInspector();
+  detail.threadId = "thread-focused-message";
+  detail.focusMessageId = "assistant-message-1";
+  detail.focusRequestId = 1;
+  detail.provider = {
+    getEvents: vi.fn().mockResolvedValue([
+      {
+        type: "TEXT_MESSAGE_START",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          role: "assistant",
+        },
+      },
+      {
+        type: "TEXT_MESSAGE_CONTENT",
+        timestamp: "2026-06-25T10:00:01.000Z",
+        payload: {
+          messageId: "assistant-message-1",
+          delta: "Focused response",
+        },
+      },
+    ]),
+  };
+  document.body.append(detail);
+
+  try {
+    await vi.waitFor(() => {
+      const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+        '[data-message-id="assistant-message-1"]',
+      );
+      expect(focusedMessage).not.toBeNull();
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    });
+
+    const focusedMessage = detail.shadowRoot?.querySelector<HTMLElement>(
+      '[data-message-id="assistant-message-1"]',
+    );
+    focusedMessage?.dispatchEvent(new Event("animationend"));
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    scrollIntoView.mockClear();
+    detail.agentEventsInput = [...detail.agentEventsInput];
+    await detail.updateComplete;
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "center" });
+    expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+      false,
+    );
+
+    detail.focusRequestId = 2;
+    await detail.updateComplete;
+    await vi.waitFor(() => {
+      expect(focusedMessage?.classList.contains("cpk-td__focus-pulse")).toBe(
+        true,
+      );
+    });
+  } finally {
+    detail.remove();
+    if (originalScrollIntoView) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollIntoView",
+        originalScrollIntoView,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
 test("missing metadata falls back to Untitled and the full thread ID without optional account facts", async () => {
   prepareDom();
   const threadId = "thread-fallback-full-0987654321-zyxwvutsrqponmlkjihgfedcba";

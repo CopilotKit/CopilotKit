@@ -197,6 +197,12 @@
       "enum": ["schema-loading", "schema-inline", "llm-driven", null],
       "description": "Implementation pattern used by this integration for `a2ui-fixed-schema`. Set only when the feature is wired. `schema-loading` = backend loads schema JSON at startup; `schema-inline` = schema is declared inline as a typed literal in source; `llm-driven` = backend generates the schema via a secondary LLM call. Consumed by docs `<WhenFrameworkHas>` to gate per-pattern prose."
     },
+    "a2ui_agent_form": {
+      "type": ["string", "null"],
+      "enum": ["langgraph-state-graph", null],
+      "description": "Set only when this integration's docs should also show how to attach the A2UI tool to a hand-built graph instead of the cell's agent factory. `langgraph-state-graph` = the docs render a Python LangGraph `StateGraph` + `ToolNode` form alongside the `create_agent` snippet. Language-specific: do not set it on an integration whose language differs from the rendered snippet. Consumed by docs `<WhenFrameworkHas>`.",
+      "default": null
+    },
     "interrupt_pattern": {
       "type": ["string", "null"],
       "enum": ["native", "promise-based", null],

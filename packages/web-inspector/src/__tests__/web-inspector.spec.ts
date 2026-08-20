@@ -10,6 +10,7 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type { InspectorOpenSource } from "../lib/telemetry.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Types for accessing LitElement-private reactive properties ---
@@ -350,6 +351,38 @@ describe("WebInspectorElement", () => {
       "STEP_FINISHED",
       "STEP_STARTED",
     ]);
+  });
+
+  it("opens the requested message's thread", async () => {
+    const { agent } = createMockAgent("alpha");
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    inspector.openInspector("message_toolbar", {
+      threadId: "thread-1",
+      agentId: "alpha",
+      messageId: "assistant-message-1",
+    });
+    await inspector.updateComplete;
+
+    const focusInternals = inspector as unknown as {
+      isOpen: boolean;
+      selectedMenu: string;
+      selectedContext: string;
+      selectedThreadId: string | null;
+      focusedThreadMessageId: string | null;
+      threadFocusRequestId: number;
+    };
+
+    expect(focusInternals.isOpen).toBe(true);
+    expect(focusInternals.selectedMenu).toBe("threads");
+    expect(focusInternals.selectedContext).toBe("alpha");
+    expect(focusInternals.selectedThreadId).toBe("thread-1");
+    expect(focusInternals.focusedThreadMessageId).toBe("assistant-message-1");
+    expect(focusInternals.threadFocusRequestId).toBe(1);
   });
 
   it("normalizes context, persists state, and copies context values", async () => {
@@ -1589,7 +1622,7 @@ type OpenTelemetryInternals = {
   isOpen: boolean;
   announcementTimestamp: string | null;
   fetchAnnouncement: () => Promise<void>;
-  openInspector: (source: "floating_button" | "announcement_preview") => void;
+  openInspector: (source: InspectorOpenSource) => void;
 };
 
 describe("WebInspectorElement open + banner surface telemetry", () => {
@@ -1716,6 +1749,19 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
       open_source: "announcement_preview",
     });
+  });
+
+  it("attributes an open from an assistant message toolbar", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
+
+    inspector.openInspector("message_toolbar");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "message_toolbar",
+    });
+    expect(internals.isOpen).toBe(true);
   });
 
   it("counts one open per open, and nothing for an already-open panel", async () => {
