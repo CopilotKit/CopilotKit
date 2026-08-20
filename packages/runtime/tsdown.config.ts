@@ -2,6 +2,8 @@ import { defineConfig } from "tsdown";
 import fs from "node:fs";
 import path from "node:path";
 
+const runtimeFormats: Array<"esm" | "cjs"> = ["esm", "cjs"];
+
 // The source tree makes the legacy implementation explicit under
 // src/v1-deprecated, but
 // the published package must retain its historical dist/* layout. Runtime uses
@@ -11,8 +13,9 @@ import path from "node:path";
 function preservePublishedV1Layout(distDir: string) {
   const v1DeprecatedDir = path.join(distDir, "v1-deprecated");
   if (!fs.existsSync(v1DeprecatedDir)) {
-    // build:done runs for concurrent outputs; another callback may have already flattened it.
-    return;
+    throw new Error(
+      `Missing required deprecated v1 build output directory: ${v1DeprecatedDir}`,
+    );
   }
   const movedFiles = new Map<string, string>();
 
@@ -80,6 +83,45 @@ function preservePublishedV1Layout(distDir: string) {
   rewriteImports(distDir);
 }
 
+export function createPublishedV1LayoutBuildDoneHook(
+  distDir: string,
+  expectedFormats: readonly string[],
+) {
+  const expected = new Set(expectedFormats);
+  if (expected.size === 0 || expected.size !== expectedFormats.length) {
+    throw new Error("Expected build formats must be non-empty and unique");
+  }
+  const completed = new Set<string>();
+
+  return ({ options }: { options: { format: string } }) => {
+    // tsdown accepts `esm` in user config but normalizes it to `es` in the
+    // resolved hook context.
+    const format = options.format === "es" ? "esm" : options.format;
+    if (!expected.has(format)) {
+      throw new Error(`Unexpected runtime build format: ${format}`);
+    }
+    if (completed.has(format)) {
+      throw new Error(
+        `Runtime build format completed twice before its peers: ${format}`,
+      );
+    }
+
+    completed.add(format);
+    if (completed.size < expected.size) return;
+
+    completed.clear();
+    preservePublishedV1Layout(distDir);
+  };
+}
+
+// tsdown expands the format array into concurrent configs and shallow-copies
+// this hook into each one. Sharing one closure ensures the published layout is
+// mutated once, only after every format completes, then resets for watch cycles.
+const publishV1LayoutAfterAllFormats = createPublishedV1LayoutBuildDoneHook(
+  path.resolve("dist"),
+  runtimeFormats,
+);
+
 export default defineConfig({
   entry: {
     index: "src/v1-deprecated-compatibility.ts",
@@ -89,14 +131,14 @@ export default defineConfig({
     "v2/node": "src/v2/node.ts",
     langgraph: "src/v1-deprecated/langgraph.ts",
   },
-  format: ["esm", "cjs"],
+  format: runtimeFormats,
   dts: true,
   sourcemap: true,
   target: "es2022",
   outDir: "dist",
   unbundle: true,
   hooks: {
-    "build:done": () => preservePublishedV1Layout(path.resolve("dist")),
+    "build:done": publishV1LayoutAfterAllFormats,
   },
   banner: ({ format, fileName }) => {
     // tsdown/rolldown reorders bare side-effect imports to the end of the entry chunk,
