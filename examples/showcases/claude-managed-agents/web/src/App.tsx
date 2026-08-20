@@ -1,5 +1,9 @@
 import React from "react";
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+} from "@copilotkit/react-core/v2";
 import { VizToolRenderers } from "./viz/renderers";
 
 // Same-origin by default (the dev proxy and single-process deploys both serve
@@ -10,24 +14,21 @@ const runtimeUrl =
 
 export const App: React.FC = () => (
   <CopilotKitProvider runtimeUrl={runtimeUrl}>
-    <VizToolRenderers />
-    <div className="app">
-      <header>
-        <h1>
-          Finance assistant{" "}
-          <span className="header-dim">· Claude Managed Agents × AG-UI</span>
-        </h1>
-        <p>A helpful personal finance agent to bounce ideas off of.</p>
-      </header>
-      <div className="chat-shell">
-        <CopilotChat
-          agentId="financial-assistant"
-          labels={{
-            chatInputPlaceholder:
-              "Share your financial picture or ask about planning for the future…",
-          }}
-        />
-      </div>
-    </div>
+    <CopilotChatConfigurationProvider
+      agentId="financial-assistant"
+      labels={{
+        welcomeMessageText:
+          "Explore investment planning with a Claude Managed Agent. Try the starter below.",
+        chatInputPlaceholder:
+          "Ask about planning for the future or share your financial picture…",
+      }}
+    >
+      <VizToolRenderers />
+      <main className="app">
+        <section className="chat-shell">
+          <CopilotChat />
+        </section>
+      </main>
+    </CopilotChatConfigurationProvider>
   </CopilotKitProvider>
 );

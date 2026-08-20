@@ -90,6 +90,7 @@ export const VizToolRenderers: React.FC = () => {
   useConfigureSuggestions(
     {
       available: "always",
+      consumerAgentId: "financial-assistant",
       suggestions: [
         {
           title: "Project monthly investing",

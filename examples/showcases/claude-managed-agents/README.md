@@ -5,6 +5,8 @@ The deployable demo behind the
 It connects a hosted Claude Managed Agent to a CopilotKit chat over AG-UI and renders the
 agent's compound-growth calculation as an interactive chart.
 
+![The finance assistant rendering an interactive compound-growth projection](./demo.png)
+
 This example is adapted from Anthropic's
 [Claude Managed Agents × CopilotKit quickstart](https://github.com/anthropics/claude-quickstarts/tree/main/managed-agents/copilot-kit-ag-ui)
 and reduced to one focused Cookbook interaction.

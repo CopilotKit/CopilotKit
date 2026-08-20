@@ -9,9 +9,9 @@ export const SERIES = {
 } as const;
 
 export const INK = {
-  primary: "#23211c",
-  secondary: "#6f6a5f",
-  grid: "#e9e6dd",
+  primary: "#010507",
+  secondary: "#57575b",
+  grid: "#e2e2ea",
   surface: "#ffffff",
 } as const;
 
