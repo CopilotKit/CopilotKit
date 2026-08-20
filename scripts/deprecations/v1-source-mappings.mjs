@@ -8,6 +8,21 @@ export const pilotMappings = [
     deprecatedExport: "useFrontendTool",
     deprecationGuidance:
       "Use `useFrontendTool` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useFrontendTool } from "@copilotkit/react-core/v2";',
+      'import { z } from "zod";',
+      "",
+      "function MyComponent() {",
+      "  useFrontendTool({",
+      '    name: "myTool",',
+      '    description: "Run my tool",',
+      "    parameters: z.object({}),",
+      '    handler: async () => "done",',
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useFrontendTool({",
     baselineHash:
       "2012ac1d00c567bf031c3ef1140503c9ffd473bcf83ac06a404c7d00fd08d751",
     notes: [
@@ -23,6 +38,23 @@ export const pilotMappings = [
     deprecatedExport: "useHumanInTheLoop",
     deprecationGuidance:
       "Use `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useHumanInTheLoop } from "@copilotkit/react-core/v2";',
+      'import { z } from "zod";',
+      "",
+      "function Confirmation() {",
+      "  useHumanInTheLoop({",
+      '    name: "confirmAction",',
+      '    description: "Ask the user to confirm",',
+      "    parameters: z.object({}),",
+      "    render: ({ respond }) => (",
+      "      <button onClick={() => respond?.(true)}>Confirm</button>",
+      "    ),",
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useHumanInTheLoop({",
     baselineHash:
       "1c30d48bc18106bec473e6f28e039aab787ceb25e093025b73324b53545b2a76",
     notes: [
@@ -38,6 +70,22 @@ export const pilotMappings = [
     deprecatedExport: "useRenderToolCall",
     deprecationGuidance:
       "Use `useFrontendTool` or `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useFrontendTool } from "@copilotkit/react-core/v2";',
+      'import { z } from "zod";',
+      "",
+      "function StatusTool() {",
+      "  useFrontendTool({",
+      '    name: "showStatus",',
+      '    description: "Show the current status",',
+      "    parameters: z.object({}),",
+      '    handler: async () => "ready",',
+      "    render: ({ result }) => <div>{result}</div>,",
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useFrontendTool({",
     baselineHash:
       "470c524bbe576cc8ef4c855f8965bf83bfe1e81d219b496386e5760b729343ce",
     notes: [
@@ -54,6 +102,18 @@ export const pilotMappings = [
     deprecatedExport: "useCopilotReadable",
     deprecationGuidance:
       "Use `useAgentContext` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useAgentContext } from "@copilotkit/react-core/v2";',
+      "",
+      "function UserContext() {",
+      "  useAgentContext({",
+      '    description: "The current user",',
+      '    value: { name: "Ada" },',
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useAgentContext({",
     baselineHash:
       "a33ac0247fbf4ca6b4e3ed1c77f5aa4d6b874bac62fd06b3f86950f694487eb2",
     notes: ["V2 models readable application state as agent context."],
@@ -67,6 +127,19 @@ export const pilotMappings = [
     deprecatedExport: "useLangGraphInterrupt",
     deprecationGuidance:
       "Use `useInterrupt` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useInterrupt } from "@copilotkit/react-core/v2";',
+      "",
+      "function ApprovalInterrupt() {",
+      "  useInterrupt({",
+      "    render: ({ resolve }) => (",
+      "      <button onClick={() => resolve({ approved: true })}>Approve</button>",
+      "    ),",
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useInterrupt({",
     baselineHash:
       "ca913337d0e2eb27dfb9c9018c364dd44738cea5d0252572689fbb012ee37953",
     notes: ["Use the framework-neutral v2 interrupt API."],
@@ -80,6 +153,19 @@ export const pilotMappings = [
     deprecatedExport: "useCopilotChatSuggestions",
     deprecationGuidance:
       "Use `useConfigureSuggestions` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { useConfigureSuggestions } from "@copilotkit/react-core/v2";',
+      "",
+      "function Suggestions() {",
+      "  useConfigureSuggestions({",
+      "    suggestions: [",
+      '      { title: "Help", message: "Help me get started" },',
+      "    ],",
+      "  });",
+      "  return null;",
+      "}",
+    ],
+    deprecationUsage: "useConfigureSuggestions({",
     baselineHash:
       "ec7c54a928bf5397ff1f093e0f11d641e410f3a0e4fc24a912a257e9a1a2b6f8",
     notes: ["This replacement moves from react-ui to react-core/v2."],
@@ -93,6 +179,15 @@ export const pilotMappings = [
     deprecatedExport: "CopilotChat",
     deprecationGuidance:
       "Use `CopilotChat` from `@copilotkit/react-core/v2` instead.",
+    deprecationExample: [
+      'import { CopilotChat } from "@copilotkit/react-core/v2";',
+      'import "@copilotkit/react-core/v2/styles.css";',
+      "",
+      "function App() {",
+      '  return <CopilotChat agentId="my-agent" />;',
+      "}",
+    ],
+    deprecationUsage: "<CopilotChat",
     baselineHash:
       "83f150648637705a48591b1e3e23e5f0b58bcf2e42d3f3dc9463a5f280528f6f",
     notes: [
@@ -109,6 +204,12 @@ export const pilotMappings = [
     deprecatedExport: "CopilotRuntime",
     deprecationGuidance:
       "Use `CopilotRuntime` from `@copilotkit/runtime/v2` instead.",
+    deprecationExample: [
+      'import { CopilotRuntime } from "@copilotkit/runtime/v2";',
+      "",
+      "const runtime = new CopilotRuntime({ agents: {} });",
+    ],
+    deprecationUsage: "new CopilotRuntime({",
     baselineHash:
       "0790657078be9014c49eadef755c713fe30f469f0192a65d0ca004e470fa1a47",
     notes: [
