@@ -95,4 +95,6 @@ one-way UI-to-agent channel that auto-unregisters on unmount.
 See **[Agent read-only context](/shared-state/agent-readonly)** for the
 full pattern.
 
-<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />
+{/* exclude must be a comma-separated STRING — the MDX pipeline strips
+    expression attributes like exclude={[...]} (next-mdx-remote blockJS). */}
+<IntegrationGrid path="shared-state" exclude="agno, agent-spec, spring-ai, langroid" />
