@@ -1352,6 +1352,18 @@ export class CopilotKitCore {
     return this.stateManager.getRunIdForMessage(agentId, threadId, messageId);
   }
 
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    return this.stateManager.getRawEventForMessage(
+      agentId,
+      threadId,
+      messageId,
+    );
+  }
+
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
   }
