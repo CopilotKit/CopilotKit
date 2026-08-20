@@ -40,6 +40,7 @@ journey regardless of which level produced a line.
 import os
 import pathlib
 import time
+from typing import Any
 
 from deepagents import create_deep_agent
 from deepagents.backends import LocalShellBackend
@@ -209,6 +210,119 @@ def search_merchant(query: str) -> list[dict]:
         }
         for r in results.get("results", [])
     ]
+
+
+# --- attached documents ------------------------------------------------------
+# BEAT 3d's bundled Q2 invoice reaches this service as an AG-UI
+# `DocumentInputContent` and must not be handed to the model as an IMAGE.
+#
+# `ag_ui_langgraph.utils.convert_agui_multimodal_to_langchain` routes every media
+# type — image, audio, video AND document — through LangChain's `image_url`
+# block, on the stated premise that it is "the only media block type LangChain
+# supports". That premise is out of date as of langchain-core 1.x, which has a
+# standard `file` block, and for a PDF the result is a hard failure:
+#
+#     openai.BadRequestError: 400 - Invalid MIME type. Only image types are
+#     supported. (code: invalid_image_format)
+#
+# Measured against this venv (langchain-core 1.6.0, langchain-openai 1.5.2) with
+# the demo's own `sample-invoice-q2.pdf`: the `image_url` encoding 400s, while
+# both the LangChain standard `file` block and OpenAI's native file part answer
+# with the invoice's real vendor and total. So this repairs the block rather than
+# dropping the attachment.
+#
+# WHY IT IS WORTH A MIDDLEWARE and not a `pass` with a comment: the exception is
+# raised inside the model node, which kills the SSE stream. The host sees
+# `RUN_ERROR: terminated` with no cause, the browser renders NOTHING — no error
+# bubble, no failed message — and worse, the crashed run is still checkpointed,
+# so every LATER message on that thread replays the same rejected content and
+# dies the same way. One click on the Q2 pill therefore kills the whole
+# conversation, permanently, and the only visible symptom is a chat that stopped
+# answering. Restarting this service is what clears it (`MemorySaver` is
+# in-process), which is a terrible thing to need mid-demo.
+#
+# The durable fix belongs upstream in `ag_ui_langgraph`, and is open as
+# ag-ui-protocol/ag-ui#2476 (both adapters, plus the return leg so a non-image
+# attachment survives MESSAGES_SNAPSHOT). This service installs the adapter from
+# PyPI — `ag-ui-langgraph>=0.0.43`, no path or editable link — so the fix cannot
+# reach this venv until it is published.
+#
+# DELETE this middleware once `agent/pyproject.toml` resolves a version carrying
+# that fix. It is a stopgap, not a design. Once the adapter emits `file` blocks
+# there is nothing here left to match, so what remains is dead code that still
+# walks every message of every model call — and, worse, a reader's evidence that
+# the adapter is still broken.
+_IMAGE_MIME_PREFIX = "image/"
+
+
+def _repair_media_block(block: Any) -> Any:
+    """Turn an `image_url` block carrying a NON-image data URL into a file block.
+
+    Only `data:` URLs are touched. A bare `https://` URL announces no MIME type,
+    so there is nothing to decide on — and images by URL are the case that
+    already works. Anything unrecognised is returned untouched, because passing
+    the block through preserves today's behaviour while dropping it would silently
+    lose the officer's attachment.
+    """
+    if not isinstance(block, dict) or block.get("type") != "image_url":
+        return block
+    holder = block.get("image_url")
+    url = holder.get("url") if isinstance(holder, dict) else holder
+    if not isinstance(url, str) or not url.startswith("data:"):
+        return block
+
+    header, _, data = url.partition(",")
+    mime = header[len("data:") :].split(";")[0]
+    if not mime or mime.startswith(_IMAGE_MIME_PREFIX):
+        return block
+
+    # `filename` is synthesized because the converter drops AG-UI's
+    # `InputContent.metadata` on purpose (upstream issue #2100 — a stray
+    # top-level `metadata` key makes strict providers 400), so the real filename
+    # is already gone by the time this runs. The extension is what the provider
+    # reads, and the name only has to be plausible.
+    extension = mime.rsplit("/", 1)[-1].split("+")[0] or "bin"
+    return {
+        "type": "file",
+        "base64": data,
+        "mime_type": mime,
+        "filename": f"attachment.{extension}",
+    }
+
+
+@wrap_model_call
+async def _repair_document_attachments(request, handler):
+    """Rewrite non-image media blocks on every message before the model call.
+
+    ASYNC for the same reason as `_stamp_run_start` below: a sync-only
+    `wrap_model_call` raises `NotImplementedError` under the endpoint's
+    `astream`.
+
+    It runs over EVERY message rather than the newest one because the offending
+    content is checkpointed — on the second turn of a thread that carried an
+    attachment, the bad block arrives from LangGraph's own state rather than from
+    the host, and a newest-message-only repair would fix the first turn and let
+    every later one fail.
+    """
+    repaired: list[Any] = []
+    changed = False
+    for message in request.messages:
+        content = getattr(message, "content", None)
+        if not isinstance(content, list):
+            repaired.append(message)
+            continue
+        blocks = [_repair_media_block(block) for block in content]
+        if blocks == content:
+            repaired.append(message)
+            continue
+        # `model_copy` keeps the message's id, so the AG-UI stream and the
+        # checkpoint still agree on which message this is.
+        repaired.append(message.model_copy(update={"content": blocks}))
+        changed = True
+
+    if not changed:
+        return await handler(request)
+    return await handler(request.override(messages=repaired))
 
 
 # --- run clock ---------------------------------------------------------------
@@ -622,7 +736,12 @@ def build_agent():
         # on this agent only: the analyst has no business calling
         # `showTransactions` or writing durable memories, and leaving it off
         # keeps its context to the job.
-        middleware=[CopilotKitMiddleware()],
+        #
+        # `_repair_document_attachments` belongs on this agent only for the same
+        # kind of reason: an attachment arrives on the officer's message to the
+        # top level, and the analyst's statement comes over `curl` into its own
+        # shell rather than as a content block.
+        middleware=[_repair_document_attachments, CopilotKitMiddleware()],
         # REQUIRED, not optional: `ag_ui_langgraph` calls `graph.aget_state()`
         # on every run to diff agent state for the AG-UI stream, and LangGraph
         # raises `ValueError: No checkpointer set` without one. The failure is a
