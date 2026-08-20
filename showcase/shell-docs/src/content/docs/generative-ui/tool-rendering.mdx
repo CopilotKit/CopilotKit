@@ -75,11 +75,62 @@ The most expressive path is one renderer per tool name. The primary
 receives the tool's parsed arguments, a live `status`, and (once the agent
 returns) the `result`:
 
-<Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
+The frontend pattern is the same for every backend, so these examples use the
+LangGraph Python showcase as the canonical source. Start with the imports and
+result types shared by both renderers:
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  region="tool-rendering-imports"
+  title="frontend/src/app/page.tsx — imports"
+/>
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  region="tool-rendering-result-types"
+  title="frontend/src/app/page.tsx — result types"
+/>
+
+The renderers use two UI components and a small helper that accepts either a
+JSON string or an already-parsed result. Their complete definitions are:
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  file="src/app/demos/tool-rendering/weather-card.tsx"
+/>
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  file="src/app/demos/tool-rendering/flight-list-card.tsx"
+/>
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  file="src/app/demos/_shared/parse-json-result.ts"
+/>
+
+Register the weather renderer once:
+
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  region="render-weather-tool"
+  title="frontend/src/app/page.tsx — weather renderer"
+/>
 
 The flight renderer follows the same pattern with a different component and schema:
 
-<Snippet region="render-flight-tool" title="frontend/src/app/page.tsx — flight renderer" />
+<Snippet
+  framework="langgraph-python"
+  cell="tool-rendering"
+  region="render-flight-tool"
+  title="frontend/src/app/page.tsx — flight renderer"
+/>
 
 <Callout type="info">
   The `name` you pass to `useRenderTool` must match the tool name the agent

@@ -193,6 +193,7 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/demos/tool-rendering/weather-card.tsx
       - src/app/demos/tool-rendering/flight-list-card.tsx
+      - src/app/demos/_shared/parse-json-result.ts
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: "Generative UI: Tool calls + reasoning"
