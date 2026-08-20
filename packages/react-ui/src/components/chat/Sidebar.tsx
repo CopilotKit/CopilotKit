@@ -1,3 +1,30 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — CopilotSidebar:
+ *   V2 import and usage:
+ *     import { CopilotSidebar } from "@copilotkit/react-core/v2";
+ *     <CopilotSidebar />;
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotSidebar.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotSidebar
+ *
+ * @copilotkit/react-ui — CopilotSidebarProps:
+ *   V2 import and usage:
+ *     import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
+ *     type V2CopilotSidebarProps = CopilotSidebarProps;
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotSidebar.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-ui/src/components/chat/Sidebar.tsx
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotSidebar.gif" width="500" />

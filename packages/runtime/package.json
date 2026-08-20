@@ -65,7 +65,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint runtime,runtime-langgraph",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",

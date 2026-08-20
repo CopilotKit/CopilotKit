@@ -1,20 +1,27 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/react-core — useCopilotReadable:
+ *   V2 import and usage:
+ *     import { useAgentContext } from "@copilotkit/react-core/v2";
  *
- * V1 import (deprecated; use V2 instead):
- *   import { useCopilotReadable } from "@copilotkit/react-core";
- * V2 import:
- *   import { useAgentContext } from "@copilotkit/react-core/v2";
+ *     function UserContext() {
+ *       useAgentContext({
+ *         description: "The current user",
+ *         value: { name: "Ada" },
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-agent-context.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useAgentContext
+ *   Migration note: V2 models readable application state as agent context.
  *
- * V2 replacement source: packages/react-core/src/v2/hooks/use-agent-context.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useAgentContext
- * Migration note: V2 models readable application state as agent context.
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/hooks/use-copilot-readable.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

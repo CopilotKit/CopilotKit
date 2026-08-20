@@ -1,3 +1,23 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useCopilotAction:
+ *   V2 import and usage:
+ *     import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *     useFrontendTool({});
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-frontend-tool.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/hooks/use-copilot-action.ts
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * Example usage of useCopilotAction with complex parameters:
  *
@@ -131,20 +151,17 @@
  * This hooks enables you to dynamically generate UI elements and render them in the copilot chat. For more information, check out the [Generative UI](/guides/generative-ui) page.
  */
 import { useEffect, useRef, useState } from "react";
-import { Parameter } from "@copilotkit/shared";
-import {
+import type { Parameter } from "@copilotkit/shared";
+import type {
   CatchAllFrontendAction,
   FrontendAction,
 } from "../types/frontend-action";
-import { useFrontendTool, UseFrontendToolArgs } from "./use-frontend-tool";
-import {
-  useRenderToolCall,
-  UseRenderToolCallArgs,
-} from "./use-render-tool-call";
-import {
-  useHumanInTheLoop,
-  UseHumanInTheLoopArgs,
-} from "./use-human-in-the-loop";
+import type { UseFrontendToolArgs } from "./use-frontend-tool";
+import { useFrontendTool } from "./use-frontend-tool";
+import type { UseRenderToolCallArgs } from "./use-render-tool-call";
+import { useRenderToolCall } from "./use-render-tool-call";
+import type { UseHumanInTheLoopArgs } from "./use-human-in-the-loop";
+import { useHumanInTheLoop } from "./use-human-in-the-loop";
 import { useCopilotContext } from "../context";
 
 // Helper to determine which component and action config to use
