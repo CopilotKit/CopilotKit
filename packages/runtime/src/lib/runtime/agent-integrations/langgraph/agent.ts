@@ -7,8 +7,10 @@
  *
  * @copilotkit/runtime/langgraph — LangGraphAgent:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -27,9 +29,8 @@ import type {
 import {
   LangGraphAgent as AGUILangGraphAgent,
   LangGraphHttpAgent,
-  type LangGraphAgentConfig,
-  type State,
 } from "@ag-ui/langgraph";
+import type { LangGraphAgentConfig, State } from "@ag-ui/langgraph";
 import type { Message as LangGraphMessage } from "@langchain/langgraph-sdk/dist/types.messages";
 import type { ThreadState } from "@langchain/langgraph-sdk";
 

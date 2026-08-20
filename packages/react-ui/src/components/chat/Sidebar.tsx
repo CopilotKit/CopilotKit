@@ -17,7 +17,8 @@
  *     import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
  *     type V2CopilotSidebarProps = CopilotSidebarProps;
  *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotSidebar.tsx
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

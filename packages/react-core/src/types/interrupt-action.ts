@@ -7,46 +7,60 @@
  *
  * @copilotkit/react-core — LangGraphInterruptAction:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — LangGraphInterruptActionSetter:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — LangGraphInterruptActionSetterArgs:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — LangGraphInterruptRender:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — LangGraphInterruptRenderHandlerProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — LangGraphInterruptRenderProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — QueuedInterruptEvent:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
-import { AgentSession } from "../context/copilot-context";
+import type { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
+import type { AgentSession } from "../context/copilot-context";
 
 export interface LangGraphInterruptRenderHandlerProps<TEventValue = any> {
   event: LangGraphInterruptEvent<TEventValue>;

@@ -8,12 +8,14 @@
  * @copilotkit/runtime — TelemetryAgentRunner:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — TelemetryAgentRunnerConfig:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -30,7 +32,8 @@
  * - oss.runtime.agent_execution_stream_errored - when an agent execution fails
  */
 
-import { type AgentRunner, InMemoryAgentRunner } from "../../v2/runtime";
+import { InMemoryAgentRunner } from "../../v2/runtime";
+import type { AgentRunner } from "../../v2/runtime";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";

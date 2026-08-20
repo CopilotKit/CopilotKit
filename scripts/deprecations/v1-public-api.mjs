@@ -10,6 +10,7 @@ export const repoRoot = path.resolve(
 );
 
 export const MIGRATION_GUIDE = "https://docs.copilotkit.ai/migrate/v2";
+export const V2_DOCS = "https://docs.copilotkit.ai/";
 export const V2_REFERENCE = "https://docs.copilotkit.ai/reference/v2";
 
 export const v1Entrypoints = [
@@ -162,6 +163,334 @@ const overrides = new Map(
   ].map(([key, replacementName]) => [key, { replacementName }]),
 );
 
+const relatedConcepts = {
+  agentContext: {
+    label: "Agent context",
+    url: "https://docs.copilotkit.ai/agent-app-context",
+  },
+  chat: {
+    label: "Chat UI",
+    url: "https://docs.copilotkit.ai/prebuilt-components/chat",
+  },
+  humanInTheLoop: {
+    label: "Human-in-the-loop",
+    url: "https://docs.copilotkit.ai/human-in-the-loop",
+  },
+  langGraph: {
+    label: "LangGraph agents",
+    url: "https://docs.copilotkit.ai/agent-spec/langgraph",
+  },
+  mcp: {
+    label: "Model Context Protocol",
+    url: "https://docs.copilotkit.ai/agentic-protocols/mcp",
+  },
+  provider: {
+    label: "CopilotKit provider",
+    url: "https://docs.copilotkit.ai/reference/v2/components/CopilotKit",
+  },
+  runtime: {
+    label: "Runtime server adapter",
+    url: "https://docs.copilotkit.ai/runtime-server-adapter",
+  },
+  stateRendering: {
+    label: "State rendering",
+    url: "https://docs.copilotkit.ai/generative-ui/state-rendering",
+  },
+  suggestions: {
+    label: "Chat suggestions",
+    url: "https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions",
+  },
+  threads: {
+    label: "Conversation threads",
+    url: "https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer",
+  },
+  toolBasedUi: {
+    label: "Tool-based generative UI",
+    url: "https://docs.copilotkit.ai/generative-ui/tool-based",
+  },
+  toolRendering: {
+    label: "Tool rendering",
+    url: "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+  },
+};
+
+function addRelatedConcept(entrypointId, names, relatedDocs) {
+  for (const name of names) {
+    const key = `${entrypointId}:${name}`;
+    overrides.set(key, { ...overrides.get(key), relatedDocs });
+  }
+}
+
+addRelatedConcept(
+  "react-core",
+  [
+    "CoagentInChatRenderFunction",
+    "CoAgentStateRendersContext",
+    "CoAgentStateRendersContextValue",
+    "CoAgentStateRendersProvider",
+    "useCoAgentStateRenders",
+  ],
+  relatedConcepts.stateRendering,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "ActionRenderProps",
+    "ActionRenderPropsNoArgs",
+    "ActionRenderPropsNoArgsWait",
+    "ActionRenderPropsWait",
+    "CatchAllActionRenderProps",
+    "RenderFunctionStatus",
+    "useLazyToolRenderer",
+  ],
+  relatedConcepts.toolRendering,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "CatchAllFrontendAction",
+    "FrontendAction",
+    "FrontendActionAvailability",
+    "CopilotTask",
+    "CopilotTaskConfig",
+  ],
+  relatedConcepts.toolBasedUi,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "LangGraphInterruptAction",
+    "LangGraphInterruptActionSetter",
+    "LangGraphInterruptActionSetterArgs",
+    "LangGraphInterruptRender",
+    "LangGraphInterruptRenderHandlerProps",
+    "LangGraphInterruptRenderProps",
+    "QueuedInterruptEvent",
+  ],
+  relatedConcepts.humanInTheLoop,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "defaultCopilotContextCategories",
+    "DocumentPointer",
+    "Tree",
+    "TreeNode",
+    "useMakeCopilotDocumentReadable",
+  ],
+  relatedConcepts.agentContext,
+);
+addRelatedConcept(
+  "react-core",
+  ["CopilotContext", "CopilotContextParams", "useCopilotContext"],
+  relatedConcepts.provider,
+);
+addRelatedConcept(
+  "react-core",
+  ["CopilotApiConfig", "useCopilotRuntimeClient"],
+  relatedConcepts.runtime,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "ChatSuggestions",
+    "CopilotChatSuggestionConfiguration",
+    "SUGGESTION_RETRY_CONFIG",
+    "UseCopilotChatSuggestionsConfiguration",
+  ],
+  relatedConcepts.suggestions,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "CopilotMessagesContext",
+    "CopilotMessagesContextParams",
+    "OnReloadMessages",
+    "OnStopGeneration",
+    "useCopilotChatHeadless_c",
+    "useCopilotChatInternal",
+    "UseCopilotChatOptions",
+    "UseCopilotChatOptions_c",
+    "UseCopilotChatReturn",
+    "UseCopilotChatReturn_c",
+    "useCopilotMessagesContext",
+  ],
+  relatedConcepts.chat,
+);
+addRelatedConcept(
+  "react-core",
+  [
+    "ThreadsContext",
+    "ThreadsContextValue",
+    "ThreadsProvider",
+    "ThreadsProviderProps",
+  ],
+  relatedConcepts.threads,
+);
+addRelatedConcept(
+  "react-ui",
+  [
+    "AssistantMessageProps",
+    "ButtonProps",
+    "ChatError",
+    "ComponentsMap",
+    "CopilotKitCSSProperties",
+    "CopilotModal",
+    "CopilotModalProps",
+    "CopilotObservabilityHooks",
+    "ErrorMessageProps",
+    "HeaderProps",
+    "ImageRenderer",
+    "ImageRendererProps",
+    "InputProps",
+    "Markdown",
+    "MessagesProps",
+    "Renderer",
+    "RenderMessageProps",
+    "useChatContext",
+    "UserMessageProps",
+    "WindowProps",
+  ],
+  relatedConcepts.chat,
+);
+addRelatedConcept(
+  "react-ui",
+  [
+    "CopilotChatSuggestion",
+    "RenderSuggestion",
+    "RenderSuggestionsList",
+    "RenderSuggestionsListProps",
+    "SuggestionsProps",
+  ],
+  relatedConcepts.suggestions,
+);
+
+const runtimeMigrationExports = [
+  "AnthropicAdapter",
+  "AnthropicAdapterParams",
+  "AnthropicPromptCachingConfig",
+  "BedrockAdapter",
+  "BedrockAdapterParams",
+  "buildSchema",
+  "CommonConfig",
+  "config",
+  "convertServiceAdapterError",
+  "copilotKitEndpoint",
+  "CopilotRequestContextProperties",
+  "CopilotRuntimeChatCompletionRequest",
+  "CopilotRuntimeChatCompletionResponse",
+  "CopilotRuntimeConstructorParams_BASE",
+  "copilotRuntimeNestEndpoint",
+  "copilotRuntimeNextJSAppRouterEndpoint",
+  "copilotRuntimeNextJSPagesRouterEndpoint",
+  "copilotRuntimeNodeExpressEndpoint",
+  "copilotRuntimeNodeHttpEndpoint",
+  "CopilotServiceAdapter",
+  "CreateCopilotRuntimeServerOptions",
+  "EmptyAdapter",
+  "ExperimentalEmptyAdapter",
+  "ExperimentalOllamaAdapter",
+  "getCommonConfig",
+  "getSdkClientOptions",
+  "GoogleGenerativeAIAdapter",
+  "GraphQLContext",
+  "GroqAdapter",
+  "GroqAdapterParams",
+  "LangChainAdapter",
+  "OpenAIAdapter",
+  "OpenAIAdapterParams",
+  "OpenAIAssistantAdapter",
+  "OpenAIAssistantAdapterParams",
+  "RemoteChain",
+  "RemoteChainParameters",
+  "resolveEndpointType",
+  "UnifyAdapter",
+  "UnifyAdapterParams",
+];
+addRelatedConcept("runtime", runtimeMigrationExports, relatedConcepts.runtime);
+addRelatedConcept(
+  "runtime",
+  [
+    "convertMCPToolsToActions",
+    "extractParametersFromSchema",
+    "generateMcpToolInstructions",
+    "MCPEndpointConfig",
+    "MCPTool",
+  ],
+  relatedConcepts.mcp,
+);
+addRelatedConcept(
+  "runtime",
+  [
+    "CustomEventNames",
+    "LangGraphAgent",
+    "LangGraphHttpAgent",
+    "langGraphPlatformEndpoint",
+    "PredictStateTool",
+    "TextMessageEvents",
+    "ToolCallEvents",
+  ],
+  relatedConcepts.langGraph,
+);
+addRelatedConcept(
+  "runtime-langgraph",
+  [
+    "CustomEventNames",
+    "LangGraphAgent",
+    "LangGraphHttpAgent",
+    "PredictStateTool",
+    "TextMessageEvents",
+    "ToolCallEvents",
+  ],
+  relatedConcepts.langGraph,
+);
+
+const sdkLangGraphMigrationExports = [
+  "convertActionsToDynamicStructuredTools",
+  "convertActionToDynamicStructuredTool",
+  "copilotKitCustomizeConfig",
+  "copilotkitCustomizeConfig",
+  "copilotKitEmitMessage",
+  "copilotkitEmitMessage",
+  "copilotKitEmitState",
+  "copilotkitEmitState",
+  "copilotKitEmitToolCall",
+  "copilotkitEmitToolCall",
+  "copilotKitExit",
+  "copilotkitExit",
+  "copilotKitInterrupt",
+  "copilotkitMiddleware",
+  "CopilotKitProperties",
+  "CopilotKitPropertiesAnnotation",
+  "CopilotKitPropertiesSchema",
+  "CopilotKitSchemaState",
+  "CopilotKitSchemaUpdate",
+  "CopilotKitState",
+  "CopilotKitStateAnnotation",
+  "CopilotKitStateSchema",
+  "createCopilotkitMiddleware",
+  "ExposeStateOption",
+  "IntermediateStateConfig",
+  "OptionsConfig",
+  "StandardSerializableSchema",
+  "zodState",
+];
+addRelatedConcept(
+  "sdk-js-langchain",
+  sdkLangGraphMigrationExports,
+  relatedConcepts.langGraph,
+);
+addRelatedConcept(
+  "sdk-js-langgraph",
+  sdkLangGraphMigrationExports,
+  relatedConcepts.langGraph,
+);
+addRelatedConcept(
+  "sdk-js-langgraph-middlewares",
+  ["stateItem", "StateItem", "stateStreamingMiddleware"],
+  relatedConcepts.langGraph,
+);
+
 for (const mapping of pilotMappings) {
   const entrypointId = mapping.file.startsWith("packages/react-core/")
     ? "react-core"
@@ -194,7 +523,7 @@ overrides.set("react-core:useCopilotChatSuggestions", {
 
 overrides.set("react-core:useCoAgentStateRender", {
   replacementName: "useAgent",
-  docs: "https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering",
+  docs: relatedConcepts.stateRendering.url,
   source: "packages/react-core/src/v2/hooks/use-agent.tsx",
   exampleLines: [
     'import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";',
@@ -527,6 +856,7 @@ export function getV1PublicApi() {
                 notes: override?.notes ?? [],
               }
             : null,
+          relatedDocs: hasReplacement ? null : (override?.relatedDocs ?? null),
           docs,
         };
       })
@@ -552,12 +882,26 @@ export function renderDeprecationJsDoc(item) {
         .filter((line) => line.length > 0)
         .map((line) => ` * ${line}`),
       " * ```",
-      ` * See ${item.replacement.docs}`,
     );
+    if (item.replacement.docs === V2_REFERENCE) {
+      lines.push(
+        ` * V2 docs: ${V2_DOCS}`,
+        ` * V2 reference docs: ${V2_REFERENCE}`,
+      );
+    } else {
+      lines.push(` * See ${item.replacement.docs}`);
+    }
   } else {
+    lines.push(" * No 1:1 v2 replacement is available.");
+    if (item.relatedDocs) {
+      lines.push(
+        ` * Related v2 docs (${item.relatedDocs.label}): ${item.relatedDocs.url}`,
+      );
+    }
     lines.push(
-      " * No 1:1 v2 replacement is available.",
-      ` * Start with \`${entrypoint.v2ImportPath}\` and the v2 reference: ${V2_REFERENCE}`,
+      ` * Start with \`${entrypoint.v2ImportPath}\`.`,
+      ` * V2 docs: ${V2_DOCS}`,
+      ` * V2 reference docs: ${V2_REFERENCE}`,
     );
   }
   lines.push(` * Migration guide: ${MIGRATION_GUIDE}`, " */");

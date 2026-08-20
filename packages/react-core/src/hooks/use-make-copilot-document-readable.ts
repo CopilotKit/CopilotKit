@@ -7,8 +7,10 @@
  *
  * @copilotkit/react-core — useMakeCopilotDocumentReadable:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -17,7 +19,7 @@
 
 import { useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { DocumentPointer } from "../types";
+import type { DocumentPointer } from "../types";
 
 /**
  * Makes a document readable by Copilot.

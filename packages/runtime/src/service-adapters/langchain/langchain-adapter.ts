@@ -7,8 +7,10 @@
  *
  * @copilotkit/runtime — LangChainAdapter:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -49,8 +51,8 @@
  */
 
 import type { BaseMessage } from "@langchain/core/messages";
-import { CopilotServiceAdapter } from "../service-adapter";
-import {
+import type { CopilotServiceAdapter } from "../service-adapter";
+import type {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
@@ -60,7 +62,7 @@ import {
   streamLangChainResponse,
 } from "./utils";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
-import { LangChainReturnType } from "./types";
+import type { LangChainReturnType } from "./types";
 import { randomUUID } from "@copilotkit/shared";
 
 interface ChainFnParameters {

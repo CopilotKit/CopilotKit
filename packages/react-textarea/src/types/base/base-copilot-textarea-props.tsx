@@ -8,16 +8,17 @@
  * @copilotkit/react-textarea — BaseCopilotTextareaProps:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { TextareaHTMLAttributes } from "react";
-import { BaseAutosuggestionsConfig } from ".";
-import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import type { TextareaHTMLAttributes } from "react";
+import type { BaseAutosuggestionsConfig } from ".";
+import type { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 
 /**
  * `BaseCopilotTextareaProps` defines the properties for the `BaseCopilotTextarea` component.

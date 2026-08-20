@@ -7,8 +7,10 @@
  *
  * @copilotkit/runtime — copilotKitEndpoint:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — CopilotRuntime:
  *   V2 import and usage:
@@ -21,18 +23,24 @@
  *
  * @copilotkit/runtime — CopilotRuntimeConstructorParams_BASE:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — langGraphPlatformEndpoint:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — resolveEndpointType:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

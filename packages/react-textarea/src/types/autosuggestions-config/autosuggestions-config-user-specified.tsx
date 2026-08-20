@@ -8,26 +8,29 @@
  * @copilotkit/react-textarea — AutosuggestionsConfigUserSpecified:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-textarea — InsertionsApiConfigUserSpecified:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-textarea — SuggestionsApiConfigUserSpecified:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { AutosuggestionsConfig } from ".";
-import { InsertionsApiConfig } from "./insertions-api-config";
-import { SuggestionsApiConfig } from "./suggestions-api-config";
+import type { AutosuggestionsConfig } from ".";
+import type { InsertionsApiConfig } from "./insertions-api-config";
+import type { SuggestionsApiConfig } from "./suggestions-api-config";
 
 // Mostly mirrors a partial SuggestionsApiConfig, but with some fields MANDATORY.
 export interface SuggestionsApiConfigUserSpecified extends Partial<SuggestionsApiConfig> {}

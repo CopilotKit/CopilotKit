@@ -7,18 +7,24 @@
  *
  * @copilotkit/runtime — convertMCPToolsToActions:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Model Context Protocol): https://docs.copilotkit.ai/agentic-protocols/mcp
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — extractParametersFromSchema:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Model Context Protocol): https://docs.copilotkit.ai/agentic-protocols/mcp
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — generateMcpToolInstructions:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Model Context Protocol): https://docs.copilotkit.ai/agentic-protocols/mcp
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — MCPClient:
  *   V2 import and usage:
@@ -29,20 +35,24 @@
  *
  * @copilotkit/runtime — MCPEndpointConfig:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Model Context Protocol): https://docs.copilotkit.ai/agentic-protocols/mcp
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — MCPTool:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Model Context Protocol): https://docs.copilotkit.ai/agentic-protocols/mcp
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { Action, Parameter } from "@copilotkit/shared";
+import type { Action, Parameter } from "@copilotkit/shared";
 
 /**
  * Represents a tool provided by an MCP server.
