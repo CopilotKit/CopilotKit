@@ -235,6 +235,12 @@ export interface CopilotKitProviderProps {
    */
   enableInspector?: boolean;
   /**
+   * Whether to automatically mount the Intelligence indicator in chat.
+   *
+   * @default true
+   */
+  showIntelligenceIndicator?: boolean;
+  /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
    */
@@ -345,6 +351,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   openGenerativeUI,
   enableInspector,
   agentId,
+  showIntelligenceIndicator = true,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -1050,8 +1057,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({
+      copilotkit,
+      executingToolCallIds,
+      showIntelligenceIndicator,
+    }),
+    [copilotkit, executingToolCallIds, showIntelligenceIndicator],
   );
 
   // License context — driven by server-reported authority via /info endpoint
