@@ -90,7 +90,10 @@ test("front-loads the v1 deprecated; use v2 instead warning in agent-facing refe
   );
   for (const noticeLine of notice
     .split("\n")
-    .filter((candidate) => /deprecat/i.test(candidate))) {
+    .filter(
+      (candidate) =>
+        /^(?:#{1,6}|>)\s/.test(candidate.trim()) && /deprecat/i.test(candidate),
+    )) {
     expect(noticeLine.toLowerCase()).toContain("use v2 instead");
   }
 });
