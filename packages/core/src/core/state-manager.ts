@@ -139,18 +139,24 @@ export class StateManager {
     });
 
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
+      onRunStartedEvent: ({ event, input, state }) => {
         if (revoked) return;
         const pendingForAgent = this.pendingContinuations.get(agent);
         const internalContinuation = [...(pendingForAgent ?? [])].find(
           (pending) => pending.expectedInput === input,
         );
         internalContinuation?.cancel();
-        if (
+
+        if (internalContinuation) {
+          // An internal continuation re-stamps onto the run id it continues, so
+          // the follow-up does not have to reuse that id on the wire.
+          subRunId =
+            internalContinuation.expectedRunId ?? event.runId ?? input.runId;
+        } else if (
           runFinished &&
           input.runId === subRunId &&
-          !internalContinuation &&
-          !isContinuation(input)
+          !isContinuation(input) &&
+          (event.runId == null || event.runId === subRunId)
         ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
@@ -160,12 +166,8 @@ export class StateManager {
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
         } else {
-          // An internal continuation re-stamps onto the run id it continues, so
-          // the follow-up does not have to REUSE that id on the wire to look
-          // like one run. Reusing it on the wire made the transport treat the
-          // follow-up as the same run and re-deliver the already-applied half,
-          // which duplicated its tool calls and lost the continuation's own.
-          subRunId = internalContinuation?.expectedRunId ?? input.runId;
+          // A connect replay may contain multiple server runs under one input.runId.
+          subRunId = event.runId || input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
@@ -351,9 +353,20 @@ export class StateManager {
 
     const { threadId, runId } = input;
 
-    // Associate all messages in the snapshot with this run
+    // Cumulative snapshots repeat messages from earlier runs, so only assign
+    // messages that do not already have a run association.
     for (const message of event.messages) {
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+      if (
+        this.getRunIdForMessage(agent.agentId, threadId, message.id) ===
+        undefined
+      ) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
     }
   }
 
