@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pretypecheck": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-angular-source-content.ts && tsx ../scripts/bundle-setup-content.ts && tsx ../scripts/generate-search-index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate-aeo-contract": "tsx scripts/validate-aeo-contract.ts"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
@@ -40,6 +41,7 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "ajv": "^8.17.1",
     "jsdom": "^29.1.1",
     "oxlint": "^1.51.0",
     "postcss": "^8.5.0",
