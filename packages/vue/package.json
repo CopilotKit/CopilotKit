@@ -61,7 +61,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vite build && pnpm build:css && pnpm build:types && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint vue",
+    "build": "vite build && pnpm build:css && pnpm build:types",
     "build:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css -m && node scripts/scope-preflight.mjs ./dist/styles.css",
     "build:types": "vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly --outDir dist --skipLibCheck && node -e \"const fs=require('fs');fs.cpSync('./dist/index.d.ts','./dist/index.d.mts');fs.cpSync('./dist/index.d.ts','./dist/index.d.cts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.mts');fs.cpSync('./dist/v2/index.d.ts','./dist/v2/index.d.cts')\"",
     "dev:css": "npx @tailwindcss/cli -i ./src/styles/globals.css -o ./dist/styles.css --watch --minify",
