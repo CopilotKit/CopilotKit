@@ -30,6 +30,13 @@ export function createBrowserRequestGuard(
     }
 
     const origin = request.get("origin");
+    // Browsers omit Origin on same-origin GETs. Runtime discovery is read-only;
+    // keep every request that can start an agent run behind the allowlist.
+    if (!origin && request.method === "GET" && request.path === "/info") {
+      next();
+      return;
+    }
+
     if (!origin || !allowed.has(origin)) {
       response.status(403).json({ error: "Forbidden browser origin" });
       return;

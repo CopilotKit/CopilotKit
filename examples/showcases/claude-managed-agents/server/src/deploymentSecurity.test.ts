@@ -19,6 +19,9 @@ async function startTestServer(allowedOrigins?: readonly string[]) {
   app.post("/api/copilotkit", (_request, response) => {
     response.sendStatus(204);
   });
+  app.get("/api/copilotkit/info", (_request, response) => {
+    response.sendStatus(204);
+  });
 
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -74,6 +77,19 @@ test("keeps headerless local requests working when no origin allowlist is config
   const response = await fetch(`${url}/api/copilotkit`, { method: "POST" });
 
   assert.equal(response.status, 204);
+});
+
+test("allows headerless runtime discovery without opening headerless runs", async (t) => {
+  const { server, url } = await startTestServer([
+    "https://claude-cookbook.example.com",
+  ]);
+  t.after(() => server.close());
+
+  const infoResponse = await fetch(`${url}/api/copilotkit/info`);
+  const runResponse = await fetch(`${url}/api/copilotkit`, { method: "POST" });
+
+  assert.equal(infoResponse.status, 204);
+  assert.equal(runResponse.status, 403);
 });
 
 test("allows the cookbook to be framed only by CopilotKit docs and local previews", async (t) => {
