@@ -10,7 +10,10 @@ import path from "node:path";
 // directory is added as a public package export.
 function preservePublishedV1Layout(distDir: string) {
   const v1DeprecatedDir = path.join(distDir, "v1-deprecated");
-  if (!fs.existsSync(v1DeprecatedDir)) return;
+  if (!fs.existsSync(v1DeprecatedDir)) {
+    // build:done runs for concurrent outputs; another callback may have already flattened it.
+    return;
+  }
   const movedFiles = new Map<string, string>();
 
   const moveTree = (source: string, destination: string) => {
