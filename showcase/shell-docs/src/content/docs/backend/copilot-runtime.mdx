@@ -82,9 +82,9 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
 <FrontendOnly frontend="react">
 <Callout type="warn" title="Switching to a v2 handler also switches the transport">
   The legacy factories are single-route; the v2 handlers are multi-route by
-  default. The `<CopilotKit>` above asks for single-route unless told otherwise,
-  so add `useSingleEndpoint={false}` when you switch — or move to
-  `<CopilotKitProvider>`, which detects the transport. See
+  default. The `<CopilotKit>` above sets no transport, so it detects the switch
+  on its own — but if you have pinned `useSingleEndpoint={true}` anywhere, drop
+  it or flip it to `{false}` when you move to a v2 handler. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 </FrontendOnly>

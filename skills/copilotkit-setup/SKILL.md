@@ -221,7 +221,7 @@ const app = createCopilotHonoHandler({
 export const POST = handle(app);
 ```
 
-When using single-route, the frontend must set `useSingleEndpoint` on the provider (see Step 3).
+The frontend provider negotiates this automatically; set `useSingleEndpoint` on it only to pin single-route transport explicitly (see Step 3).
 
 #### Standalone Express Server
 
@@ -316,10 +316,10 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    // useSingleEndpoint={false} matches the multi-route backend above.
-    // The v1-compat CopilotKit bridge defaults useSingleEndpoint to true,
-    // which would 404 against multi-route endpoints.
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    // No useSingleEndpoint: the provider negotiates the transport, so it
+    // matches the multi-route backend above (the default) or a single-route
+    // one. Pass the prop only to pin one mode deliberately.
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
@@ -338,14 +338,14 @@ When the runtime runs on a separate server (e.g., Express on port 4000):
 </CopilotKit>
 ```
 
-Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`).
+Omitting `useSingleEndpoint` lets the provider negotiate the transport, which works against either handler mode. Set it to `true` only to pin single-route transport (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`), or to `false` to pin the multi-route REST routes.
 
 #### CopilotKit key props
 
 | Prop                | Type                                                       | Description                                                                                                          |
 | ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `runtimeUrl`        | `string`                                                   | URL of the CopilotKit runtime endpoint                                                                               |
-| `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
+| `useSingleEndpoint` | `boolean`                                                  | Omit to negotiate the transport (works with either handler mode); `true` pins single-route, `false` pins multi-route |
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
 | `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |

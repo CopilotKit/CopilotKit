@@ -37,10 +37,10 @@ Single-route mode is useful when your platform only allows a single route handle
 
 <FrontendOnly frontend="react">
 <Callout type="warn" title="The mode you pick here binds the frontend">
-  The v1 `<CopilotKit>` wrapper defaults to single-route transport, so it needs
-  `useSingleEndpoint={false}` against a multi-route handler — and no prop at all
-  once you pass `mode: "single-route"`. `<CopilotKitProvider>` detects the mode
-  either way. The full mapping is in
+  Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode when you pass
+  no transport prop, so either one follows whichever mode you pick here. Pin it
+  with `useSingleEndpoint` only if you want to skip that detection — and then it
+  has to match. The full mapping is in
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 </FrontendOnly>
