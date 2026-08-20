@@ -709,24 +709,31 @@ describe("pickNewestSuccessDigest", () => {
     expect(pickNewestSuccessDigest(edges)).toBe(DIGEST_A);
   });
 
-  it("prefers a valid newer SUCCESS over an unparseable one regardless of input order", () => {
-    // Same invariant with the valid edge first — the invalid one must still
-    // never be selected.
+  it("A18: an EMPTY-STRING createdAt (the other unparseable form) leading the list never wins 'newest'", () => {
+    // A DISCRIMINATING companion to the case above, covering the empty-string
+    // unparseable variant (Railway can return "" for meta-less deployments). The
+    // invalid edge is listed FIRST: under the buggy `return t` comparator its
+    // NaN leaves the 2-element sort order undefined, so `""`-edge stays at index
+    // 0 and its DIGEST_B is wrongly selected. NaN-safe ordering sorts it to the
+    // bottom so the valid SUCCESS wins. (A valid-edge-FIRST ordering can NOT
+    // discriminate this: a NaN comparator preserves an already-correct 2-element
+    // order, so the valid edge would win by accident — hence the invalid edge
+    // must lead.)
     const edges = [
-      {
-        node: {
-          id: "valid-newer",
-          status: "SUCCESS",
-          meta: { imageDigest: DIGEST_A },
-          createdAt: "2026-07-19T00:00:00.000Z",
-        },
-      },
       {
         node: {
           id: "nan-createdAt",
           status: "SUCCESS",
           meta: { imageDigest: DIGEST_B },
           createdAt: "",
+        },
+      },
+      {
+        node: {
+          id: "valid-newer",
+          status: "SUCCESS",
+          meta: { imageDigest: DIGEST_A },
+          createdAt: "2026-07-19T00:00:00.000Z",
         },
       },
     ];
@@ -998,5 +1005,154 @@ describe("reconcileStaging debounce (single-cycle blip silent, persistence pages
     // The debounce changes WHEN a verdict pages, never WHICH services are in
     // scope — harness-workers (the imageOf consumer) must remain reconciled.
     expect(stagingReconcileServices()).toContain("harness-workers");
+  });
+});
+
+// ── reconcileStaging debounce-BYPASS regression: a below-threshold cycle must
+// NEVER red-exit and NEVER post an empty/invalid Slack alert — EVEN when the
+// remediation redeploy THROWS or the Slack POST returns non-2xx. These drive the
+// SHIPPED reconcileStaging/reconcileExitCode at THRESHOLD 2 (the existing suite
+// only used threshold 1, which is why it missed the bypass). Persistence must
+// still page on the 2nd cycle so real drift is never silenced. ────────────────
+describe("reconcileStaging debounce-bypass (below-threshold never reds or posts empty)", () => {
+  const SVC = "showcase-ag2";
+  const svcId = SERVICES[SVC].serviceId;
+
+  // A lagging service whose remediation redeploy THROWS (token expiry /
+  // unreachable Railway) — the exact path that used to render an EMPTY alert
+  // (redeployReport null gates out both sections) and red-exit off raw `lagging`.
+  const mkThrowDeps = (
+    state: { counts: DebounceCounts },
+    slack: string[],
+    threshold = DEFAULT_DEBOUNCE_THRESHOLD,
+  ): ReconcileDeps => ({
+    services: [SVC],
+    fetchDeployedDigest: async (id: string) =>
+      id === svcId ? DIGEST_A : DIGEST_B, // lags
+    fetchLatestDigest: async () => DIGEST_B,
+    redeployStaging: async () => {
+      throw new Error("Railway redeploy exploded");
+    },
+    // Records EVERY call so the test can prove no empty payload was ever posted.
+    postSlackAlert: async (text: string) => {
+      slack.push(text);
+      return text.trim() !== "";
+    },
+    debounceThreshold: threshold,
+    loadDebounceState: async () => state.counts,
+    saveDebounceState: async (c) => {
+      state.counts = c;
+    },
+    log: () => {},
+  });
+
+  // A lagging service that is CLEANLY remediated but whose informational
+  // alert-AND-remediate POST returns a transient non-2xx — the sibling path that
+  // used to red the run on cycle 1 via the raw `lagging && !alerted` exit check.
+  const mkRemediatedSlackFailsDeps = (
+    state: { counts: DebounceCounts },
+    slack: string[],
+    threshold = DEFAULT_DEBOUNCE_THRESHOLD,
+  ): ReconcileDeps => ({
+    services: [SVC],
+    fetchDeployedDigest: async (id: string) =>
+      id === svcId ? DIGEST_A : DIGEST_B, // lags
+    fetchLatestDigest: async () => DIGEST_B,
+    redeployStaging: async (svcs) => ({
+      attempted: svcs.length,
+      succeeded: svcs.length,
+      failed: 0,
+      records: svcs.map((s) => ({ service: s, status: "ok" as const })),
+    }),
+    postSlackAlert: async (text: string) => {
+      slack.push(text);
+      return false; // transient non-2xx
+    },
+    debounceThreshold: threshold,
+    loadDebounceState: async () => state.counts,
+    saveDebounceState: async (c) => {
+      state.counts = c;
+    },
+    log: () => {},
+  });
+
+  it("redeploy THROWS on a below-threshold cycle → NEVER posts an empty alert AND exits 0 (bypass closed)", async () => {
+    const state = { counts: {} as DebounceCounts };
+    const slack: string[] = [];
+    const summary = await reconcileStaging(mkThrowDeps(state, slack));
+
+    expect(summary.lagging).toEqual([SVC]);
+    // The lagging service is surfaced (unconfirmed via the redeploy-throw)…
+    expect(summary.unconfirmed.map((x) => x.service)).toContain(SVC);
+    // …but debounced: nothing pageable, exit 0 (was exit 1 before the fix).
+    expect(summary.pageableUnconfirmed).toEqual([]);
+    expect(reconcileExitCode(summary)).toBe(0);
+    // No post at all this cycle — and in particular NEVER an empty payload
+    // (before the fix this posted "" → Slack non-2xx → alerted=false → red).
+    expect(slack).toEqual([]);
+    expect(slack).not.toContain("");
+    expect(summary.alerted).toBe(false);
+    // Counter advanced so a 2nd consecutive cycle will trip the threshold.
+    expect(state.counts[SVC]).toBe(1);
+  });
+
+  it("benign remediated lag whose alert returns non-2xx on a below-threshold cycle → exits 0 (no cycle-1 red)", async () => {
+    const state = { counts: {} as DebounceCounts };
+    const slack: string[] = [];
+    const summary = await reconcileStaging(
+      mkRemediatedSlackFailsDeps(state, slack),
+    );
+
+    expect(summary.lagging).toEqual([SVC]);
+    // It DID post the informational alert-AND-remediate notice (a real, NON-EMPTY
+    // body) — remediation is not debounced, so the info notice fires every cycle.
+    expect(slack).toHaveLength(1);
+    expect(slack[0]).not.toBe("");
+    expect(slack[0]).toContain(SVC);
+    // Delivery failed, but on a below-threshold cycle that must NOT red the run
+    // (before the fix, raw `lagging && !alerted` returned exit 1 here).
+    expect(summary.alerted).toBe(false);
+    expect(summary.pageableUnconfirmed).toEqual([]);
+    expect(reconcileExitCode(summary)).toBe(0);
+  });
+
+  it("a persistently-undelivered lag alert PAGES on the 2nd consecutive cycle (undelivered alert still fails loud once persisted)", async () => {
+    const state = { counts: {} as DebounceCounts };
+
+    const slack1: string[] = [];
+    const s1 = await reconcileStaging(
+      mkRemediatedSlackFailsDeps(state, slack1),
+    );
+    expect(reconcileExitCode(s1)).toBe(0);
+
+    const slack2: string[] = [];
+    const s2 = await reconcileStaging(
+      mkRemediatedSlackFailsDeps(state, slack2),
+    );
+    // The undelivered-alert condition (the synthetic `(alert)` key) reached the
+    // threshold → pageable → red. Real drift/undelivered-notice is not silenced.
+    expect(s2.pageableUnconfirmed.map((p) => p.service)).toContain("(alert)");
+    expect(reconcileExitCode(s2)).not.toBe(0);
+    // Never posted an empty payload across either cycle.
+    expect([...slack1, ...slack2]).not.toContain("");
+  });
+
+  it("a redeploy that THROWS on TWO consecutive cycles PAGES on the 2nd with a NON-EMPTY alert naming the lagging service", async () => {
+    const state = { counts: {} as DebounceCounts };
+
+    const slack1: string[] = [];
+    const s1 = await reconcileStaging(mkThrowDeps(state, slack1));
+    expect(reconcileExitCode(s1)).toBe(0);
+    expect(slack1).toEqual([]); // nothing to say on cycle 1
+
+    const slack2: string[] = [];
+    const s2 = await reconcileStaging(mkThrowDeps(state, slack2));
+    // 2nd consecutive throw → the lagging service reaches the threshold → pages.
+    expect(s2.pageableUnconfirmed.map((p) => p.service)).toContain(SVC);
+    expect(reconcileExitCode(s2)).not.toBe(0);
+    // The cycle-2 page is a real, NON-EMPTY body naming the lagging service.
+    expect(slack2).toHaveLength(1);
+    expect(slack2[0]).not.toBe("");
+    expect(slack2[0]).toContain(SVC);
   });
 });

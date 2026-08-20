@@ -95,15 +95,21 @@
  *   • a per-service Railway/GHCR read threw;
  *   • the in-scope set was EMPTY (`emptyScope`, i.e. `services.length === 0` — a
  *     run that checked nothing is NOT green, mirroring the autoUpdates gate's
- *     zero-checked floor). NOTE: an all-errored run (scope non-empty but every
- *     service faulted) is NOT `emptyScope` — each faulted service contributes
- *     its own entry to the `unconfirmed` set via `errors`.
+ *     zero-checked floor). Like every unconfirmed condition it is DEBOUNCED: the
+ *     `(scope)` entry pages + red-exits only once it has PERSISTED past the
+ *     threshold (a single-cycle empty scope stays silent). NOTE: an all-errored
+ *     run (scope non-empty but every service faulted) is NOT `emptyScope` — each
+ *     faulted service contributes its own entry to the `unconfirmed` set via
+ *     `errors`.
  *
  * A LAGGING service whose remediation redeploy CLEARLY succeeded (no failures,
  * no drops) is confirmed-in-progress: the run still posts an informational
  * alert (alert-AND-remediate) but exits 0, and it will match `:latest` on the
- * next cycle. An UNDELIVERED alert alongside a lag also fails loud (see
- * `alerted`).
+ * next cycle. An UNDELIVERED alert alongside a lag also fails loud, but it too
+ * is DEBOUNCED: the undelivered-alert condition is folded into the invariant set
+ * under the synthetic `(alert)` key, so a single transient Slack non-2xx on a
+ * benign remediated lag does NOT red the first cycle — it pages only once it
+ * persists past the threshold (see `alerted` / `reconcileStaging`).
  *
  * `alerted` reflects ACTUAL delivery: it is true only when the Slack webhook
  * POST returned 2xx. A missing webhook, a non-2xx response, or a thrown request
@@ -117,10 +123,14 @@
  * SLACK_WEBHOOK_OSS_ALERTS (incoming webhook for the alert — the SAME secret
  * showcase_build.yml posts its failure alerts through).
  *
- * Exit code: 0 on a clean reconcile (including a fully-remediated lag). A hard
- * operator/config error (missing Railway token, unreachable Railway), a
- * systemic failure, a partial redeploy failure, or an undelivered lag alert all
- * fail loud with a non-zero exit (see the fail-loud contract above).
+ * Exit code: 0 on a clean reconcile (including a fully-remediated lag), and on
+ * any below-threshold cycle whose unconfirmed condition has not YET persisted
+ * past the debounce threshold. A partial redeploy failure, a redeploy that
+ * threw, a per-service read fault, or an undelivered lag alert fail loud with a
+ * non-zero exit ONLY once the condition has persisted (see the Debounce note and
+ * the fail-loud contract above). A hard operator/config error (missing Railway
+ * token, unreachable Railway) is NOT debounced — it exits 1 immediately from
+ * `main` before the reconcile decision core runs.
  */
 
 import { fileURLToPath } from "url";
@@ -314,10 +324,14 @@ export interface ReconcileSummary {
    */
   redeployReport: RedeployReport | null;
   /**
-   * THE INVARIANT SET: every in-scope service NOT positively confirmed current,
-   * with its reason. A run is green iff this is empty. The exit code and the
-   * alert are both derived from it (see `reconcileExitCode` / the header
-   * contract) — there are no separate per-cause special-cases.
+   * THE INVARIANT SET: every in-scope service NOT positively confirmed current
+   * this cycle, with its reason — PLUS the synthetic `(alert)` entry when a lag
+   * was remediated but its Slack alert did not deliver. This is the RAW,
+   * pre-debounce set: it is surfaced for logging (an operator sees a condition
+   * building toward a page), but the exit code and the Slack page are derived
+   * from the DEBOUNCED subset (`pageableUnconfirmed`), not from this set — a
+   * single-cycle blip is present here yet does not red the run. There are no
+   * separate per-cause special-cases: every non-green cause flows through here.
    */
   unconfirmed: UnconfirmedService[];
   /**
@@ -337,8 +351,10 @@ export interface ReconcileSummary {
   debounceCounts: DebounceCounts;
   /**
    * True when the in-scope set was empty (`services.length === 0`) — the run
-   * checked nothing, which is NOT green. Recorded as its own field for the
-   * alert text; it also contributes an entry to `unconfirmed`.
+   * checked nothing, which is NOT green. Recorded as its own field for the alert
+   * text; it also contributes a `(scope)` entry to `unconfirmed`, which is
+   * DEBOUNCED like every other condition (it pages only once it persists past
+   * the threshold).
    */
   emptyScope: boolean;
 }
@@ -402,16 +418,21 @@ export function stagingReconcileServices(): string[] {
 
 /**
  * Compute the ONE invariant set — every in-scope service NOT positively
- * confirmed current, with its reason — from the raw reconcile facts. This is
- * the single place the "not confirmed current" cases from the header contract
- * are enumerated; the exit code and the alert both derive from its result.
+ * confirmed current, with its reason — from the raw reconcile facts. This is the
+ * single place the "not confirmed current" cases from the header contract are
+ * enumerated. It returns the RAW (pre-debounce) set; `reconcileStaging` then
+ * DEBOUNCES it (via `applyDebounce`) and the exit code and the Slack page derive
+ * from that debounced subset (`pageableUnconfirmed`), so a single-cycle blip
+ * surfaced here does not itself red the run.
  *
  * Sources of "unconfirmed":
  *   • per-service digest-read faults (`errors`) — null/unresolvable deployed
  *     digest, null/empty GHCR `:latest`, a thrown read, or a bogus SSOT key;
  *   • a remediation redeploy that THREW before reporting (`redeployError`) —
  *     every lagging service is unconfirmed (remediation did not run to a
- *     result), so the invariant still alerts + exits non-zero (A17);
+ *     result), so once that condition PERSISTS past the debounce threshold the
+ *     invariant pages + exits non-zero (A17). A below-threshold throw cycle is
+ *     debounced: it neither red-exits nor posts an (empty) alert;
  *   • a lagging service NOT positively confirmed remediated — it lacks a
  *     `status:"ok"` per-service record in `redeployReport.records` (it was
  *     dropped/skipped, or its own redeploy failed). This is matched
@@ -571,19 +592,19 @@ export function buildReconcileAlert(args: {
 }
 
 /**
- * The scheduled run's exit code, derived purely from the ONE invariant. Fail
- * loud (non-zero) whenever any in-scope service is unconfirmed, or when a lag
- * was found but its alert never delivered; 0 only when every service was
- * confirmed current (or a lag was cleanly remediated AND its alert delivered).
- * See the invariant in the file header.
+ * The scheduled run's exit code, derived PURELY from the debounced invariant set
+ * (`pageableUnconfirmed`). Fail loud (non-zero) iff at least one condition has
+ * PERSISTED past the debounce threshold and is therefore pageable this cycle; 0
+ * otherwise. A below-threshold blip — a transient read fault, a one-cycle
+ * redeploy race, a redeploy that threw, or a benign remediated lag whose
+ * informational alert got a transient non-2xx — is present in `unconfirmed` (for
+ * logging) but not yet in `pageableUnconfirmed`, so it does NOT red the run until
+ * it persists. An undelivered lag alert is itself folded into the invariant set
+ * under the `(alert)` key (see `reconcileStaging`), so it too is debounced rather
+ * than reding the very first cycle. See the invariant in the file header.
  */
 export function reconcileExitCode(summary: ReconcileSummary): number {
-  // Derived from the DEBOUNCED set: a single-cycle blip is in `unconfirmed` but
-  // not yet in `pageableUnconfirmed`, so it does not fail the run. A condition
-  // that persists past the threshold is pageable and fails loud.
-  if (summary.pageableUnconfirmed.length > 0) return 1;
-  if (summary.lagging.length > 0 && !summary.alerted) return 1;
-  return 0;
+  return summary.pageableUnconfirmed.length > 0 ? 1 : 0;
 }
 
 /**
@@ -594,10 +615,15 @@ export function reconcileExitCode(summary: ReconcileSummary): number {
  * `unconfirmed` entries (they never mask another service's lag and never read
  * as a healthy "current" service). A lag is remediated by a scoped redeploy; a
  * redeploy that fails or drops a lagging service, and an empty in-scope set,
- * also land in `unconfirmed`. A single Slack alert names the unconfirmed
- * services + reasons and the lag/remediation outcome, and the exit code is
- * derived from the same set. All I/O is injected via `deps` so the decision →
- * action wiring is unit-tested offline.
+ * also land in `unconfirmed`. That raw set is then DEBOUNCED across consecutive
+ * cycles (`applyDebounce`): a condition pages + red-exits only once it has
+ * persisted past `debounceThreshold`, so a single-cycle blip stays silent. A
+ * single Slack alert names the PAGEABLE (debounced) unconfirmed services +
+ * reasons and the lag/remediation outcome, and the exit code is derived from the
+ * same debounced set — a below-threshold cycle never red-exits and never posts an
+ * empty/invalid alert, even when the redeploy throws or the Slack POST returns
+ * non-2xx. All I/O is injected via `deps` so the decision → action wiring is
+ * unit-tested offline.
  */
 export async function reconcileStaging(
   deps: ReconcileDeps,
@@ -716,8 +742,73 @@ export async function reconcileStaging(
   // debounce) for the pure/test path; production wires DEFAULT_DEBOUNCE_THRESHOLD.
   const threshold = deps.debounceThreshold ?? 1;
   const priorCounts = (await deps.loadDebounceState?.()) ?? {};
-  const { nextCounts, pageable: pageableUnconfirmed } = applyDebounce({
+  // First debounce pass over the base invariant set → the subset that PAGES this
+  // cycle. The Slack page names ONLY these: a below-threshold blip is retained in
+  // `unconfirmed` for logging but is never named in the page.
+  const { pageable: pageableBase } = applyDebounce({
     unconfirmed,
+    priorCounts,
+    threshold,
+  });
+
+  // Alert whenever the run has something to SAY this cycle — derived from the
+  // DEBOUNCED set (not raw `lagging`):
+  //   • a PAGEABLE (debounced) unconfirmed condition → the fail-loud page, OR
+  //   • a lag we have an actual redeploy RESULT for → the informational
+  //     alert-AND-remediate notice. Remediation is NOT debounced (it self-heals
+  //     every cycle), so this notice fires the cycle a lag is remediated.
+  // A below-threshold blip whose redeploy THREW carries no report and nothing
+  // pageable, so it says nothing this cycle: we skip the post rather than emit an
+  // empty/invalid Slack payload (the old bypass posted "" and red-exited).
+  let alerted = false;
+  let alertAttempted = false;
+  if (
+    pageableBase.length > 0 ||
+    (lagging.length > 0 && redeployReport !== null)
+  ) {
+    if (pageableBase.length > 0) {
+      log(
+        `\n${pageableBase.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (of ${services.length} in scope).`,
+      );
+    }
+    const alertText = buildReconcileAlert({
+      lagging,
+      redeployReport,
+      unconfirmed: pageableBase,
+      scope: services.length,
+    });
+    // Never POST an empty/invalid payload. The fire condition above already
+    // guarantees a non-empty body (a page renders the unconfirmed section; a lag
+    // with a report renders the lagging section) — this is a belt-and-suspenders
+    // guard so no future path can slip an empty alert through.
+    if (alertText !== "") {
+      alertAttempted = true;
+      alerted = await deps.postSlackAlert(alertText);
+    }
+  } else {
+    log(
+      `\nAll ${pairs.length} checked staging service(s) current with :latest.`,
+    );
+  }
+
+  // An UNDELIVERED lag alert is itself a fail-loud condition (a drift notice we
+  // could not deliver), but it is DEBOUNCED like every other verdict so a single
+  // transient Slack non-2xx on a benign remediated lag does NOT red the run on
+  // cycle 1. Fold it into the invariant set under its own synthetic `(alert)` key
+  // and re-derive the debounced verdict from `priorCounts`, so the exit code
+  // stays a pure function of the debounced set (see `reconcileExitCode`). Because
+  // `applyDebounce` keys off `priorCounts` (not the first pass's output), the
+  // base services get identical counts in both passes — only `(alert)` is added.
+  const unconfirmedFinal: UnconfirmedService[] = [...unconfirmed];
+  if (alertAttempted && !alerted && lagging.length > 0) {
+    unconfirmedFinal.push({
+      service: "(alert)",
+      reason:
+        "a lagging service was remediated but the Slack drift alert did not deliver (non-2xx) — failing loud (once persisted) so the notice is not silently lost",
+    });
+  }
+  const { nextCounts, pageable: pageableUnconfirmed } = applyDebounce({
+    unconfirmed: unconfirmedFinal,
     priorCounts,
     threshold,
   });
@@ -727,7 +818,7 @@ export async function reconcileStaging(
 
   // Log any unconfirmed service still being debounced (below threshold) so an
   // operator can see it building toward a page rather than a silent gap.
-  const debounced = unconfirmed.filter(
+  const debounced = unconfirmedFinal.filter(
     (u) => !pageableUnconfirmed.some((p) => p.service === u.service),
   );
   if (debounced.length > 0) {
@@ -738,31 +829,6 @@ export async function reconcileStaging(
     }
   }
 
-  // Alert whenever the run is not a clean silent no-op: any PAGEABLE (debounced)
-  // unconfirmed service (fail-loud) OR any lag (informational alert-AND-
-  // remediate). A single alert covers both. A below-threshold blip alone stays
-  // silent.
-  let alerted = false;
-  if (pageableUnconfirmed.length > 0 || lagging.length > 0) {
-    if (pageableUnconfirmed.length > 0) {
-      log(
-        `\n${pageableUnconfirmed.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (of ${services.length} in scope).`,
-      );
-    }
-    alerted = await deps.postSlackAlert(
-      buildReconcileAlert({
-        lagging,
-        redeployReport,
-        unconfirmed: pageableUnconfirmed,
-        scope: services.length,
-      }),
-    );
-  } else {
-    log(
-      `\nAll ${pairs.length} checked staging service(s) current with :latest.`,
-    );
-  }
-
   return {
     checked: pairs.length,
     lagging,
@@ -770,7 +836,7 @@ export async function reconcileStaging(
     redeployed,
     alerted,
     redeployReport,
-    unconfirmed,
+    unconfirmed: unconfirmedFinal,
     pageableUnconfirmed,
     debounceCounts: nextCounts,
     emptyScope,
@@ -1078,18 +1144,13 @@ async function main(): Promise<void> {
   if (code !== 0) {
     // Fail loud so the scheduled run goes RED and the alert isn't the only
     // signal (see the invariant in the file header). Every non-green cause
-    // flows through the ONE `unconfirmed` set, so report it directly.
-    if (summary.pageableUnconfirmed.length > 0) {
-      console.error(
-        `${summary.pageableUnconfirmed.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (alerted=${summary.alerted}):`,
-      );
-      for (const u of summary.pageableUnconfirmed) {
-        console.error(`  unconfirmed: ${u.service}: ${u.reason}`);
-      }
-    } else if (summary.lagging.length > 0 && !summary.alerted) {
-      console.error(
-        `lag detected (${summary.lagging.join(", ")}) but the Slack alert did not deliver.`,
-      );
+    // flows through the ONE debounced `pageableUnconfirmed` set — including an
+    // undelivered lag alert (the `(alert)` key) — so report it directly.
+    console.error(
+      `${summary.pageableUnconfirmed.length} staging service(s) NOT confirmed current for ${threshold}+ consecutive cycles (alerted=${summary.alerted}):`,
+    );
+    for (const u of summary.pageableUnconfirmed) {
+      console.error(`  unconfirmed: ${u.service}: ${u.reason}`);
     }
   }
   // The run is green ONLY when every in-scope service was confirmed current
