@@ -36,8 +36,8 @@ import path from "path";
 import matter from "gray-matter";
 import {
   isV1ReferenceUrl,
-  renderV1ReferenceDeprecationMarkdown,
-} from "@/lib/v1-deprecation";
+  renderV1DeprecationNoticeUseV2InsteadMarkdown,
+} from "@/lib/v1-deprecation-use-v2-instead";
 import {
   CHANNEL_FRONTENDS,
   CHANNEL_GUIDE_ROUTES,
@@ -962,10 +962,10 @@ export function renderPageToLlmText(
   const header: string[] = [`# ${title}`];
   if (description) header.push("", `> ${description}`);
   header.push("");
-  const deprecationNotice = isV1ReferenceUrl(page.url)
-    ? renderV1ReferenceDeprecationMarkdown()
+  const v1DeprecationNoticeUseV2Instead = isV1ReferenceUrl(page.url)
+    ? renderV1DeprecationNoticeUseV2InsteadMarkdown()
     : "";
-  return `${header.join("\n")}${deprecationNotice}${body.trimEnd()}\n`;
+  return `${header.join("\n")}${v1DeprecationNoticeUseV2Instead}${body.trimEnd()}\n`;
 }
 
 /**

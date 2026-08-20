@@ -1,13 +1,13 @@
 /*
- * V1 SDK DEPRECATION NOTICE
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * This file is part of the deprecated CopilotKit v1 SDK. Do not use it
- * for new code. Use the exact v2 import and replacement source below.
+ * The CopilotKit v1 SDK is deprecated. Use v2 instead.
+ * Use the exact v2 import and replacement source below.
  *
  * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
  * the exact v2 import below and read the linked v2 documentation first.
  *
- * V1 import (deprecated):
+ * V1 import (deprecated; use V2 instead):
  *   import { useFrontendTool } from "@copilotkit/react-core";
  * V2 import:
  *   import { useFrontendTool } from "@copilotkit/react-core/v2";
@@ -16,7 +16,7 @@
  * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
  * Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
  *
- * END V1 SDK DEPRECATION NOTICE
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
 import React, { useEffect, useMemo, useRef } from "react";
