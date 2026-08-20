@@ -179,7 +179,7 @@ function renderExportMap(inventories) {
     }
     lines.push("");
   }
-  return `${lines.join("\n")}\n`;
+  return `${lines.join("\n").trimEnd()}\n`;
 }
 
 const checkOnly = process.argv.includes("--check");
