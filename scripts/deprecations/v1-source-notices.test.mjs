@@ -89,6 +89,27 @@ test("dual-version packages keep v1 internal and expose only root compatibility 
   }
 });
 
+test("version-neutral React Core contracts stay outside v1-deprecated", () => {
+  const neutralContract = path.join(
+    repoRoot,
+    "packages/react-core/src/__tests__/threadid-propagation.contract.test.tsx",
+  );
+  const deprecatedContract = path.join(
+    repoRoot,
+    "packages/react-core/src/v1-deprecated/__tests__/threadid-propagation.contract.test.tsx",
+  );
+
+  assert.ok(
+    existsSync(neutralContract),
+    "the v2 threadId propagation contract must remain at the neutral package boundary",
+  );
+  assert.equal(
+    existsSync(deprecatedContract),
+    false,
+    "the v2 threadId propagation contract must not be classified as deprecated v1 coverage",
+  );
+});
+
 test("inventory covers every public v1 package entrypoint", () => {
   const configured = new Set(
     v1Entrypoints.map((entrypoint) => entrypoint.importPath),
