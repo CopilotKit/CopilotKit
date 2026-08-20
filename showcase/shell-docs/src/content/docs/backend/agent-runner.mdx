@@ -55,7 +55,7 @@ own runner backed by a shared datastore.
 
 ## Choosing a runner
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -78,7 +78,7 @@ store. That store is **bounded by default**, so a long-lived server evicts old
 history instead of growing until the Node.js heap is exhausted. Pass limits to
 the constructor when the defaults don't match your workload:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, BuiltInAgent, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -157,7 +157,7 @@ history is unacceptable, move to a durable backend. The first-party
 SQLite file so history survives restarts on a single instance — install its
 `better-sqlite3` peer dependency and give it a real, non-`:memory:` `dbPath`:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
 import { SqliteAgentRunner } from "@copilotkit/sqlite-runner";
 
