@@ -53,7 +53,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ANTHROPIC_MODEL=claude-opus-4-8
           ```
 
           The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
@@ -138,7 +138,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ANTHROPIC_MODEL=claude-opus-4-8
           ```
         </Step>
 
@@ -171,7 +171,7 @@ Before you begin, you'll need the following:
           adapter = ClaudeAgentAdapter(
               name="claude_agent",
               options={
-                  "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+                  "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
                   "system_prompt": "You are a helpful assistant embedded in a CopilotKit app.",
                   "tools": [],
                   "permission_mode": "dontAsk",

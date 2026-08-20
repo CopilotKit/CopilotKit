@@ -313,7 +313,7 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4", {
+      model: anthropic("claude-sonnet-4-6", {
         thinking: { type: "enabled", budgetTokens: 10000 },
       }),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
@@ -339,7 +339,7 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: anthropicText("claude-sonnet-4"),
+      adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
       modelOptions: { thinking: { type: "enabled", budgetTokens: 10000 } },
@@ -476,8 +476,8 @@ const agent = new BuiltInAgent({
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
     const adapter =
-      props.model === "anthropic/claude-sonnet-4"
-        ? anthropicText("claude-sonnet-4")
+      props.model === "anthropic/claude-sonnet-4-6"
+        ? anthropicText("claude-sonnet-4-6")
         : openaiText((props.model as string) ?? "gpt-4o");
 
     const modelOptions: Record<string, unknown> = {};
@@ -502,7 +502,7 @@ Forward properties from the frontend provider:
 <FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
 <CopilotKit
-  properties={{ model: "anthropic/claude-sonnet-4", temperature: 0.3 }}
+  properties={{ model: "anthropic/claude-sonnet-4-6", temperature: 0.3 }}
   useSingleEndpoint={false}
 >
   <CopilotChat />
@@ -522,7 +522,7 @@ Forward properties from the frontend provider:
 provideCopilotKit({
   runtimeUrl: "/api/copilotkit",
   properties: {
-    model: "anthropic/claude-sonnet-4",
+    model: "anthropic/claude-sonnet-4-6",
     temperature: 0.3,
   },
 })
