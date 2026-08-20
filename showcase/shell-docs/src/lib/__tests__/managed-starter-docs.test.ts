@@ -134,3 +134,17 @@ test("documents the managed CLI credential without an offline license token", ()
     expect(source).not.toContain("COPILOTKIT_LICENSE_TOKEN=...");
   }
 });
+
+test("uses the managed API key prefix in thread import examples", () => {
+  const sources = readSources([
+    "docs/integrations/adk/threads-import.mdx",
+    "docs/integrations/langgraph/threads-import.mdx",
+    "snippets/shared/cli/cli.mdx",
+    "snippets/shared/threads/threads-import.mdx",
+  ]);
+
+  for (const source of sources) {
+    expect(source).toContain('INTELLIGENCE_API_KEY="cpk_..."');
+    expect(source).not.toContain('INTELLIGENCE_API_KEY="cpk-..."');
+  }
+});
