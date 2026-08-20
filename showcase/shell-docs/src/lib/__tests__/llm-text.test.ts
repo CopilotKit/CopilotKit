@@ -744,9 +744,7 @@ test.each(["google-adk", "langgraph-python", "mastra"])(
     }
 
     expect(
-      output.match(
-        /const parsed = parseJsonResult<WeatherResult>\(result\);/g,
-      ),
+      output.match(/const parsed = parseJsonResult<WeatherResult>\(result\);/g),
     ).toHaveLength(1);
     expect(
       output.match(

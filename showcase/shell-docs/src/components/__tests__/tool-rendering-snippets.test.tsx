@@ -3,9 +3,7 @@ import { expect, test } from "vitest";
 
 import { Snippet } from "../snippet";
 
-function visualSnippetCode(
-  props: Parameters<typeof Snippet>[0],
-): string {
+function visualSnippetCode(props: Parameters<typeof Snippet>[0]): string {
   const element = Snippet(props) as ReactElement<{ code?: string }>;
   expect(element.props.code).toBeTypeOf("string");
   return element.props.code ?? "";
@@ -53,9 +51,7 @@ test("the Google ADK visual route renders the canonical frontend snippets and it
     region: "weather-tool-backend",
   });
 
-  expect(imports).toContain(
-    'import { WeatherCard } from "./weather-card";',
-  );
+  expect(imports).toContain('import { WeatherCard } from "./weather-card";');
   expect(imports).toContain(
     'import { parseJsonResult } from "../_shared/parse-json-result";',
   );
