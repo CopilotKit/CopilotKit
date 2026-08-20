@@ -7,4 +7,6 @@ export {
   type SubscribeToThreadsRequest,
   type SubscribeToThreadsResponse,
   type UpdateThreadRequest,
+  type RuntimeEntitlement,
+  type RuntimeEntitlementResult,
 } from "./client";

@@ -1287,3 +1287,99 @@ test("inspector-metadata client rejects invalid and unknown schemas", async () =
   await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
   await expect(client.getInspectorMetadata()).resolves.toBeUndefined();
 });
+
+const activeRuntimeEntitlement = {
+  organizationId: "7",
+  source: "awsMarketplaceDeploymentLicense" as const,
+  active: true,
+  features: { msteams: true, deployment_via_helm_chart: true },
+  limits: { "threads.max_count": 25_000 },
+  planCode: "team_deployment",
+};
+
+test("runtime-entitlement client authenticates and accepts only the sanitized contract", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(
+    new Response(JSON.stringify(activeRuntimeEntitlement), { status: 200 }),
+  );
+
+  await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+    kind: "ok",
+    entitlement: activeRuntimeEntitlement,
+  });
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://api.example.com/api/entitlements/runtime",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer server-api-key" },
+      signal: expect.any(AbortSignal),
+    },
+  );
+});
+
+test("runtime-entitlement client treats 404 as compatible absence", async () => {
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response(null, { status: 404 }));
+
+  await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+    kind: "notSupported",
+  });
+});
+
+test("runtime-entitlement client fails closed without retaining provider bodies", async () => {
+  const { client } = setupInspectorMetadataClient();
+  const sensitiveMarker = "aws-secret-provider-body-9a77";
+  const loggerError = vi
+    .spyOn(logger, "error")
+    .mockImplementation(() => undefined);
+
+  try {
+    fetchMock
+      .mockResolvedValueOnce(new Response(sensitiveMarker, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...activeRuntimeEntitlement,
+            consumptionToken: sensitiveMarker,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response("{", { status: 200 }));
+
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
+
+    expect(JSON.stringify(loggerError.mock.calls)).not.toContain(
+      sensitiveMarker,
+    );
+  } finally {
+    loggerError.mockRestore();
+  }
+});
+
+test("runtime-entitlement client aborts and fails closed when authority stalls", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockImplementation(() => new Promise<Response>(() => undefined));
+
+  try {
+    const request = client.getRuntimeEntitlement();
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(request).resolves.toEqual({ kind: "unavailable" });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
