@@ -324,12 +324,13 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
   if (!options.telemetryDisabled) {
     window.localStorage.setItem(TELEMETRY_DISCLOSURE_KEY, "true");
   }
-  if (options.initialMenu !== undefined) {
-    window.localStorage.setItem(
-      INSPECTOR_STATE_KEY,
-      JSON.stringify({ selectedMenu: options.initialMenu }),
-    );
-  }
+  // A returning developer, whose persisted tab is honoured. Threads by
+  // default because that is what this suite measures; the first-run landing
+  // tab is now What's new.
+  window.localStorage.setItem(
+    INSPECTOR_STATE_KEY,
+    JSON.stringify({ selectedMenu: options.initialMenu ?? "threads" }),
+  );
   stubReducedMotion();
 
   const endpoints = options.endpoints ?? ENABLED_ENDPOINTS;

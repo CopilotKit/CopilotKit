@@ -319,7 +319,7 @@ function renderedStyleProperty(
   }
 }
 
-test("first launch shows grouped navigation with Threads, its CTA, and no account placeholders", async () => {
+test("first launch lands on What's new and shows grouped navigation without account placeholders", async () => {
   const context = await setup();
   try {
     await context.open();
@@ -345,11 +345,20 @@ test("first launch shows grouped navigation with Threads, its CTA, and no accoun
     );
 
     expect(groupControls.map((control) => control.textContent?.trim())).toEqual(
-      ["Threads", "Agents", "Learning"],
+      ["What's new", "Threads", "Agents", "Learning"],
     );
     expect(groupControls[0]?.getAttribute("aria-current")).toBe("page");
-    expect(groupControls[1]?.hasAttribute("aria-current")).toBe(false);
-    expect(groupControls[2]?.hasAttribute("aria-current")).toBe(false);
+    expect(
+      groupControls
+        .slice(1)
+        .every((control) => !control.hasAttribute("aria-current")),
+    ).toBe(true);
+    // The Threads CTA belongs to the Threads group, which is no longer where a
+    // fresh developer lands.
+    expect(
+      primaryNavigation.querySelector("[data-inspector-thread-cta]"),
+    ).toBeNull();
+    await context.selectGroup("threads");
     expect(
       requireElement(
         primaryNavigation.querySelector<HTMLAnchorElement>(
@@ -374,6 +383,9 @@ test("trusted identity and plan render in the dark account strip with all window
   const context = await setup({ metadata: trustedMetadata() });
   try {
     await context.open();
+    // The Threads usage footer lives on the Threads tab, which is no longer
+    // where a fresh developer lands.
+    await context.selectGroup("threads");
 
     const root = requireElement(
       context.inspector.shadowRoot,
@@ -430,9 +442,9 @@ test("trusted identity and plan render in the dark account strip with all window
         "opacity",
       ),
     ).toBe("1");
-    expect(renderedStyleProperty(root, ".announcement-toggle", "color")).toBe(
-      "rgb(85, 88, 178)",
-    );
+    expect(
+      renderedStyleProperty(root, ".announcement-content a", "color"),
+    ).toBe("rgb(85, 88, 178)");
     expect(identity.textContent).toContain("Acme Inc.");
     expect(identity.textContent).toContain("Support");
     expect(plan.textContent?.trim()).toBe("Enterprise");
@@ -561,8 +573,13 @@ test("Agent children hide only the leaves that depend on missing optional source
   }
 });
 
-test("persisted legacy leaves restore their exact views while missing, malformed, stale, and invalid state opens Threads", async () => {
+test("persisted legacy leaves restore their exact views while missing, malformed, stale, and invalid state opens What's new", async () => {
   const validLeaves = [
+    {
+      leaf: "whats-new",
+      group: "whats-new",
+      marker: "No announcements right now.",
+    },
     { leaf: "ag-ui-events", group: "agents", marker: "No events yet" },
     { leaf: "agents", group: "agents", marker: "No agent selected" },
     {
@@ -657,8 +674,8 @@ test("persisted legacy leaves restore their exact views while missing, malformed
         context.inspector.shadowRoot,
         "Web Inspector shadow root was not rendered",
       );
-      expectCurrentNavigation(root, "threads", "threads");
-      expect(storedSelectedMenu()).toBe("threads");
+      expectCurrentNavigation(root, "whats-new", "whats-new");
+      expect(storedSelectedMenu()).toBe("whats-new");
     } finally {
       context.teardown();
     }
@@ -720,6 +737,9 @@ test("labelled native navigation exposes keyboard focus and current state withou
   const context = await setup({ frontendTools: true, catalog: true });
   try {
     await context.open();
+    // The Threads CTA is a Threads-group affordance, and a fresh developer now
+    // lands on What's new.
+    await context.selectGroup("threads");
 
     const root = requireElement(
       context.inspector.shadowRoot,
@@ -765,7 +785,7 @@ test("labelled native navigation exposes keyboard focus and current state withou
       "Dock control was not rendered",
     );
 
-    expect(groups).toHaveLength(3);
+    expect(groups).toHaveLength(4);
     expect(
       groups.every((control) => control instanceof HTMLButtonElement),
     ).toBe(true);

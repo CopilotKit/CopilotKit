@@ -1257,11 +1257,15 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(launcher, `${key}: launcher`).toBeDefined();
           launcher?.click();
           await flushInspector(inspector);
+          // A fresh profile lands on What's new, so this lab selects the
+          // Threads group it is here to drive.
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
+          threadsButton?.click();
+          await flushInspector(inspector);
           expect(
             threadsButton?.classList.contains("inspector-nav-control-active"),
-            `${key}: Threads default`,
+            `${key}: Threads selected`,
           ).toBe(true);
 
           const expectedStoreCount = scenario.capability === "enabled" ? 1 : 0;
