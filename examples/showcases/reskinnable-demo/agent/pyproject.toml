@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Banking offsite-expenses deep agent for the reskinnable demo"
 requires-python = ">=3.12"
 dependencies = [
-  "ag-ui-langgraph>=0.0.43",
+  # PINNED EXACTLY, and the pin is load-bearing — see the canary note below.
+  "ag-ui-langgraph==0.0.43.dev1786716392",
+  "ag-ui-protocol==0.1.20.dev1786716392",
   "copilotkit>=0.1.95",
   "deepagents>=0.7.7",
   "fastapi>=0.115.14",
@@ -14,6 +16,32 @@ dependencies = [
   "tavily-python>=0.3.0",
   "uvicorn[standard]>=0.40.0",
 ]
+
+# ── Why the two AG-UI pins are `==` and not `>=` ────────────────────────────
+#
+# The subagent event surface this demo is built on exists only on the canary
+# line. The RELEASED `ag-ui-langgraph==0.0.43` does not have it — measured:
+#
+#     emit_subagent_events accepted by LangGraphAgent.__init__:  False
+#     subagent symbols in ag_ui.core:                            NONE
+#
+# and `>=0.0.43` resolves to exactly that release. The failure is SILENT rather
+# than loud, which is why this needs a pin and not a note: `main.py` sets
+# `emit_subagent_events` as an ATTRIBUTE (copilotkit's `LangGraphAGUIAgent.__init__`
+# takes only four kwargs), so on a release without the feature the assignment
+# succeeds, lands on an object nobody consults, and the service starts clean. The
+# stream then carries no `subagentRunId`, the CLI console cannot tell the
+# harness's work from the parent's, and a reopened thread collapses a
+# multi-minute run to one tool message. Every gate passes.
+#
+# `ag-ui-protocol` is pinned as a DIRECT dependency for the same reason even
+# though nothing here imports it by name: it is what carries the SUBAGENT_* event
+# types, and the adapter asks only for `>=0.1.15`, so leaving it transitive
+# resolves the release and undoes the pin above.
+#
+# This mirrors the JS half, which pins the matching canaries in the demo's own
+# `pnpm-lock.yaml` (`@ag-ui/client 0.0.59-canary.1786716392.0`). Both halves move
+# together or neither does. Drop both pins once the surface ships in a release.
 
 [tool.setuptools]
 py-modules = ["agent", "main"]

@@ -58,7 +58,7 @@ state in the shell (`bookstore`); every other registered skin is REST-backed.
 ## Quick start
 
 ```bash
-pnpm install            # from the repo root — this is a workspace package
+pnpm install            # IN THIS DIRECTORY — not the repo root (see below)
 cp .env.example .env    # then fill in OPENAI_API_KEY
 (cd agent && uv sync)   # banking's agent — see below
 pnpm dev &              # the app
@@ -68,6 +68,15 @@ pnpm dev &              # the app
 Open <http://localhost:3000>. `/` redirects to the default skin
 (`banking`; set in `src/shell/skins-config.ts`). Durable cross-thread memory is
 env-gated (Intelligence mode); see `.env.example` and the memory section below.
+
+**Install from HERE, not from the repo root.** This app is deliberately NOT a
+member of the root pnpm workspace (it is absent from `pnpm-workspace.yaml`) and
+ships its own `pnpm-lock.yaml`, because the subagent event surface the banking
+harness needs exists only on the `@ag-ui/*` / `@copilotkit/*` canary line and that
+must not leak into every other package in the monorepo. A root `pnpm install`
+therefore installs nothing for this app. `agent/uv.lock` pins the matching Python
+canaries for the same reason — see the note in `agent/pyproject.toml` for what
+silently breaks without them.
 
 **`pnpm dev` alone is not enough for `banking`.** Six of the seven skins run
 their agent in-process, so `OPENAI_API_KEY` plus an SSE runtime is all they need.
