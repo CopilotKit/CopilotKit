@@ -7,7 +7,7 @@ import {
 import { Pinecone } from "@pinecone-database/pinecone";
 import { posts } from "@/app/lib/data/data";
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
@@ -18,7 +18,7 @@ if (!ANTHROPIC_API_KEY || !PINECONE_API_KEY) {
 }
 
 const serviceAdapter = new AnthropicAdapter({
-  model: "claude-3-5-sonnet-20240620",
+  model: "claude-opus-4-8",
 });
 
 const pinecone = new Pinecone({ apiKey: PINECONE_API_KEY });
