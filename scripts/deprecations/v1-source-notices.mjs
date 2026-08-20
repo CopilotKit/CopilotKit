@@ -9,6 +9,7 @@ import {
   MIGRATION_GUIDE,
   renderDeprecationJsDoc,
   repoRoot,
+  V2_DOCS,
   V2_REFERENCE,
 } from "./v1-public-api.mjs";
 
@@ -27,7 +28,8 @@ function renderEntrypointNotice(entrypoint, count) {
     " * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.",
     ` * This entrypoint currently exposes ${count} deprecated public exports.`,
     ` * V2 source entrypoint: ${entrypoint.v2Source}`,
-    ` * V2 reference: ${V2_REFERENCE}`,
+    ` * V2 docs: ${V2_DOCS}`,
+    ` * V2 reference docs: ${V2_REFERENCE}`,
     ` * Migration guide: ${MIGRATION_GUIDE}`,
     " *",
     " * AI CODING AGENTS: Never copy, suggest, or generate imports from this v1",
@@ -55,18 +57,29 @@ function renderSourceNotice(items) {
       for (const line of item.replacement.exampleLines) {
         lines.push(line ? ` *     ${line}` : " *");
       }
-      lines.push(
-        ` *   V2 replacement source: ${item.replacement.source}`,
-        ` *   V2 docs: ${item.replacement.docs}`,
-      );
+      lines.push(` *   V2 replacement source: ${item.replacement.source}`);
+      if (item.replacement.docs === V2_REFERENCE) {
+        lines.push(
+          ` *   V2 docs: ${V2_DOCS}`,
+          ` *   V2 reference docs: ${V2_REFERENCE}`,
+        );
+      } else {
+        lines.push(` *   V2 docs: ${item.replacement.docs}`);
+      }
       for (const note of item.replacement.notes) {
         lines.push(` *   Migration note: ${note}`);
       }
     } else {
+      lines.push(" *   No 1:1 v2 replacement is available.");
+      if (item.relatedDocs) {
+        lines.push(
+          ` *   Related v2 docs (${item.relatedDocs.label}): ${item.relatedDocs.url}`,
+        );
+      }
       lines.push(
-        " *   No 1:1 v2 replacement is available.",
         ` *   Start at: ${item.entrypoint.v2ImportPath}`,
-        ` *   V2 docs: ${V2_REFERENCE}`,
+        ` *   V2 docs: ${V2_DOCS}`,
+        ` *   V2 reference docs: ${V2_REFERENCE}`,
       );
     }
     lines.push(" *");
@@ -151,8 +164,8 @@ function renderExportMap(inventories) {
     "",
     "This page is generated from the public package entrypoints. It is the exhaustive",
     "migration index for humans and coding agents. A row only names a v2 replacement",
-    "when that export actually exists; otherwise it directs you to the v2 migration guide",
-    "instead of guessing at a superficially similar API.",
+    "when that export actually exists. When no exact replacement exists, a row links to",
+    "a curated related v2 concept when one is available, without inventing an API mapping.",
     "",
     `[Read the step-by-step migration guide](${MIGRATION_GUIDE}).`,
     "",
@@ -171,9 +184,21 @@ function renderExportMap(inventories) {
       const source = item.replacement
         ? `\`${item.replacement.source}\``
         : `\`${entrypoint.v2Source}\``;
-      const docs = item.replacement?.docs ?? V2_REFERENCE;
+      const docs = item.replacement
+        ? item.replacement.docs === V2_REFERENCE
+          ? `[V2 docs](${V2_DOCS})<br />[V2 reference docs](${V2_REFERENCE})`
+          : `[Open v2 API docs](${item.replacement.docs})`
+        : [
+            item.relatedDocs
+              ? `[${escapeTableCell(item.relatedDocs.label)}](${item.relatedDocs.url})`
+              : null,
+            `[V2 docs](${V2_DOCS})`,
+            `[V2 reference docs](${V2_REFERENCE})`,
+          ]
+            .filter(Boolean)
+            .join("<br />");
       lines.push(
-        `| \`${escapeTableCell(item.name)}\` | ${escapeTableCell(replacement)} | ${escapeTableCell(source)} | [Open v2 docs](${docs}) |`,
+        `| \`${escapeTableCell(item.name)}\` | ${escapeTableCell(replacement)} | ${escapeTableCell(source)} | ${docs} |`,
       );
     }
     lines.push("");

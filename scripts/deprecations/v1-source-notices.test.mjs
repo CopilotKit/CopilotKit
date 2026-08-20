@@ -7,6 +7,7 @@ import {
   MIGRATION_GUIDE,
   renderDeprecationJsDoc,
   repoRoot,
+  V2_DOCS,
   V2_REFERENCE,
   v1Entrypoints,
 } from "./v1-public-api.mjs";
@@ -36,6 +37,8 @@ function deprecatedText(symbol, checker) {
 }
 
 const inventory = getV1PublicApi();
+const STATE_RENDERING_DOCS =
+  "https://docs.copilotkit.ai/generative-ui/state-rendering";
 
 test("inventory covers every public v1 package entrypoint", () => {
   const configured = new Set(
@@ -138,7 +141,8 @@ test("every v1 importable export has an IDE-visible use-v2 deprecation", () => {
         }
       } else if (
         !warning.includes("No 1:1 v2 replacement is available") ||
-        !warning.includes(V2_REFERENCE)
+        !warning.includes(`V2 docs: ${V2_DOCS}`) ||
+        !warning.includes(`V2 reference docs: ${V2_REFERENCE}`)
       ) {
         failures.push(
           `${entrypoint.importPath}:${item.name} needs no-replacement v2 guidance`,
@@ -202,6 +206,15 @@ test("every local public v1 source file has exact per-export guidance", () => {
       } else {
         assert.ok(source.includes("No 1:1 v2 replacement is available."));
         assert.ok(source.includes(item.entrypoint.v2ImportPath));
+        assert.ok(source.includes(`V2 docs: ${V2_DOCS}`));
+        assert.ok(source.includes(`V2 reference docs: ${V2_REFERENCE}`));
+        if (item.relatedDocs) {
+          assert.ok(
+            source.includes(
+              `Related v2 docs (${item.relatedDocs.label}): ${item.relatedDocs.url}`,
+            ),
+          );
+        }
       }
     }
   }
@@ -266,10 +279,7 @@ test("useCoAgentStateRender points to the v2 state-rendering pattern", () => {
     ?.exports.find(({ name }) => name === "useCoAgentStateRender");
 
   assert.equal(item?.replacement?.name, "useAgent");
-  assert.equal(
-    item.replacement.docs,
-    "https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering",
-  );
+  assert.equal(item.replacement.docs, STATE_RENDERING_DOCS);
   assert.ok(
     item.replacement.exampleLines.includes(
       'import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";',
@@ -285,6 +295,119 @@ test("useCoAgentStateRender points to the v2 state-rendering pattern", () => {
   );
 });
 
+test("related v2 concepts guide state-rendering APIs without inventing replacements", () => {
+  const relatedStateRenderingExports = new Set([
+    "CoagentInChatRenderFunction",
+    "CoAgentStateRendersContext",
+    "CoAgentStateRendersContextValue",
+    "CoAgentStateRendersProvider",
+    "useCoAgentStateRenders",
+  ]);
+  const exports = inventory.inventories.find(
+    ({ entrypoint }) => entrypoint.id === "react-core",
+  ).exports;
+
+  for (const name of relatedStateRenderingExports) {
+    const item = exports.find((candidate) => candidate.name === name);
+    assert.equal(item?.replacement, null);
+    assert.deepEqual(item?.relatedDocs, {
+      label: "State rendering",
+      url: STATE_RENDERING_DOCS,
+    });
+    assert.ok(
+      renderDeprecationJsDoc(item).includes(
+        `Related v2 docs (State rendering): ${STATE_RENDERING_DOCS}`,
+      ),
+    );
+  }
+});
+
+test("related v2 concepts cover other clear migration families", () => {
+  const expected = new Map([
+    [
+      "react-core:FrontendAction",
+      {
+        label: "Tool-based generative UI",
+        url: "https://docs.copilotkit.ai/generative-ui/tool-based",
+      },
+    ],
+    [
+      "react-core:LangGraphInterruptRender",
+      {
+        label: "Human-in-the-loop",
+        url: "https://docs.copilotkit.ai/human-in-the-loop",
+      },
+    ],
+    [
+      "react-ui:AssistantMessageProps",
+      {
+        label: "Chat UI",
+        url: "https://docs.copilotkit.ai/prebuilt-components/chat",
+      },
+    ],
+    [
+      "runtime:OpenAIAdapter",
+      {
+        label: "Runtime server adapter",
+        url: "https://docs.copilotkit.ai/runtime-server-adapter",
+      },
+    ],
+    [
+      "runtime:MCPTool",
+      {
+        label: "Model Context Protocol",
+        url: "https://docs.copilotkit.ai/agentic-protocols/mcp",
+      },
+    ],
+    [
+      "sdk-js-langgraph:copilotkitMiddleware",
+      {
+        label: "LangGraph agents",
+        url: "https://docs.copilotkit.ai/agent-spec/langgraph",
+      },
+    ],
+  ]);
+  const actual = new Map(
+    inventory.inventories.flatMap(({ entrypoint, exports }) =>
+      exports.map((item) => [
+        `${entrypoint.id}:${item.name}`,
+        item.relatedDocs,
+      ]),
+    ),
+  );
+
+  for (const [key, relatedDocs] of expected) {
+    assert.deepEqual(actual.get(key), relatedDocs, key);
+  }
+});
+
+test("the generic v2 reference is never mislabeled as the v2 docs homepage", () => {
+  const staleLabel = `V2 docs: ${V2_REFERENCE}`;
+
+  for (const { entrypoint, exports } of inventory.inventories) {
+    const entrypointSource = readFileSync(
+      path.join(repoRoot, entrypoint.file),
+      "utf8",
+    );
+    assert.ok(
+      !entrypointSource.includes(staleLabel),
+      `${entrypoint.file} still contains ${staleLabel}`,
+    );
+
+    for (const item of exports) {
+      const warning = renderDeprecationJsDoc(item);
+      assert.ok(
+        !warning.includes(staleLabel),
+        `${entrypoint.importPath}:${item.name} still contains ${staleLabel}`,
+      );
+      if (item.replacement?.docs === V2_REFERENCE) {
+        assert.ok(warning.includes(`V2 docs: ${V2_DOCS}`));
+        assert.ok(warning.includes(`V2 reference docs: ${V2_REFERENCE}`));
+      }
+    }
+  }
+});
+
 test("the agent-readable docs map contains all 245 v1 exports", () => {
   const source = readFileSync(
     path.join(
@@ -295,6 +418,10 @@ test("the agent-readable docs map contains all 245 v1 exports", () => {
   );
   assert.match(source, /complete v1 to v2 export map/i);
   assert.ok(source.includes(MIGRATION_GUIDE));
+  assert.equal(V2_DOCS, "https://docs.copilotkit.ai/");
+  assert.ok(source.includes(`[V2 docs](${V2_DOCS})`));
+  assert.ok(source.includes(`[V2 reference docs](${V2_REFERENCE})`));
+  assert.ok(source.includes(`[State rendering](${STATE_RENDERING_DOCS})`));
   let rows = 0;
   for (const { entrypoint, exports } of inventory.inventories) {
     assert.ok(source.includes(`## \`${entrypoint.importPath}\``));

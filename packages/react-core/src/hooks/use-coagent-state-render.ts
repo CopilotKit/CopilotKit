@@ -24,7 +24,7 @@
  *       );
  *     }
  *   V2 replacement source: packages/react-core/src/v2/hooks/use-agent.tsx
- *   V2 docs: https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering
+ *   V2 docs: https://docs.copilotkit.ai/generative-ui/state-rendering
  *   Migration note: Use useAgent to subscribe to agent state and run-status changes, then render agent.state directly.
  *   Migration note: V2 uses ordinary React rendering instead of registering a chat-specific state renderer.
  *

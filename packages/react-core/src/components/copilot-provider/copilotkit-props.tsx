@@ -10,7 +10,8 @@
  *     import type { CopilotKitProps } from "@copilotkit/react-core/v2";
  *     type V2CopilotKitProps = CopilotKitProps;
  *   V2 replacement source: packages/react-core/src/components/copilot-provider/copilotkit-props.tsx
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

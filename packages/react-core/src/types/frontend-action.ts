@@ -7,48 +7,66 @@
  *
  * @copilotkit/react-core — ActionRenderProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ActionRenderPropsNoArgs:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ActionRenderPropsNoArgsWait:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ActionRenderPropsWait:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — CatchAllActionRenderProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — CatchAllFrontendAction:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — FrontendAction:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — FrontendActionAvailability:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — RenderFunctionStatus:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -56,12 +74,12 @@
  */
 
 import { ActionInputAvailability } from "@copilotkit/runtime-client-gql";
-import {
+import type {
   Action,
   Parameter,
   MappedParameterTypes,
-  actionParametersToJsonSchema,
 } from "@copilotkit/shared";
+import { actionParametersToJsonSchema } from "@copilotkit/shared";
 import React from "react";
 
 interface InProgressState<T extends Parameter[] | [] = []> {

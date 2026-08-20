@@ -7,23 +7,31 @@
  *
  * @copilotkit/react-core — ThreadsContext:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ThreadsContextValue:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ThreadsProvider:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — ThreadsProviderProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — useThreads:
  *   V2 import and usage:
@@ -37,14 +45,8 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useState,
-  ReactNode,
-  SetStateAction,
-} from "react";
+import type { ReactNode, SetStateAction } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 import { randomUUID } from "@copilotkit/shared";
 
 export interface ThreadsContextValue {

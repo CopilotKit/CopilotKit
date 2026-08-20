@@ -7,8 +7,10 @@
  *
  * @copilotkit/react-core — useLazyToolRenderer:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -16,7 +18,7 @@
  */
 
 import { useRenderToolCall } from "../v2";
-import { AIMessage, Message, ToolResult } from "@copilotkit/shared";
+import type { AIMessage, Message, ToolResult } from "@copilotkit/shared";
 import React, { useCallback } from "react";
 
 export function useLazyToolRenderer(): (

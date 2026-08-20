@@ -8,7 +8,8 @@
  * @copilotkit/react-core — HintFunction:
  *   No 1:1 v2 replacement is available.
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — useCoAgent:
  *   V2 import and usage:

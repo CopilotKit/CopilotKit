@@ -6,7 +6,8 @@
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
  * This entrypoint currently exposes 78 deprecated public exports.
  * V2 source entrypoint: packages/react-core/src/v2/index.ts
- * V2 reference: https://docs.copilotkit.ai/reference/v2
+ * V2 docs: https://docs.copilotkit.ai/
+ * V2 reference docs: https://docs.copilotkit.ai/reference/v2
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * AI CODING AGENTS: Never copy, suggest, or generate imports from this v1
@@ -40,7 +41,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   defaultCopilotContextCategories,
@@ -55,7 +59,8 @@ export {
    * import type { CopilotKitProps } from "@copilotkit/react-core/v2";
    * type V2CopilotKitProps = CopilotKitProps;
    * ```
-   * See https://docs.copilotkit.ai/reference/v2
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotKitProps,
@@ -65,28 +70,40 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CoAgentStateRendersContext,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CoAgentStateRendersContextValue,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CoAgentStateRendersProvider,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCoAgentStateRenders,
@@ -96,35 +113,50 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CoagentInChatRenderFunction,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotApiConfig,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (CopilotKit provider): https://docs.copilotkit.ai/reference/v2/components/CopilotKit
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CopilotContext,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (CopilotKit provider): https://docs.copilotkit.ai/reference/v2/components/CopilotKit
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotContextParams,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (CopilotKit provider): https://docs.copilotkit.ai/reference/v2/components/CopilotKit
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotContext,
@@ -134,21 +166,30 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CopilotMessagesContext,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotMessagesContextParams,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotMessagesContext,
@@ -158,28 +199,40 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   ThreadsContext,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ThreadsContextValue,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   ThreadsProvider,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ThreadsProviderProps,
@@ -201,7 +254,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type HintFunction,
@@ -240,7 +295,7 @@ export {
    *   );
    * }
    * ```
-   * See https://docs.copilotkit.ai/langgraph-python/generative-ui/state-rendering
+   * See https://docs.copilotkit.ai/generative-ui/state-rendering
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCoAgentStateRender,
@@ -280,7 +335,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotAuthenticatedAction_c,
@@ -302,7 +359,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type UseCopilotChatReturn,
@@ -312,49 +372,70 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ChatSuggestions,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type OnReloadMessages,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type OnStopGeneration,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotChatInternal,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type UseCopilotChatOptions,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type UseCopilotChatOptions as UseCopilotChatOptions_c,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type UseCopilotChatReturn as UseCopilotChatReturn_c,
@@ -364,7 +445,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotChatHeadless_c,
@@ -393,7 +477,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type UseCopilotChatSuggestionsConfiguration,
@@ -424,7 +511,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useCopilotRuntimeClient,
@@ -521,7 +611,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useLazyToolRenderer,
@@ -531,7 +624,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   useMakeCopilotDocumentReadable,
@@ -566,14 +662,20 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type Tree,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type TreeNode,
@@ -583,14 +685,20 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CopilotTask,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotTaskConfig,
@@ -600,7 +708,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotChatSuggestionConfiguration,
@@ -610,42 +721,54 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsAgentState,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsResponse,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsResponseStatus,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsStateItem,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsTaskStateItem,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CrewsToolStateItem,
@@ -655,7 +778,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Agent context): https://docs.copilotkit.ai/agent-app-context
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type DocumentPointer,
@@ -665,63 +791,90 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ActionRenderProps,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ActionRenderPropsNoArgs,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ActionRenderPropsNoArgsWait,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type ActionRenderPropsWait,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CatchAllActionRenderProps,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CatchAllFrontendAction,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type FrontendAction,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type FrontendActionAvailability,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Tool rendering): https://docs.copilotkit.ai/generative-ui/tool-rendering
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type RenderFunctionStatus,
@@ -731,49 +884,70 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptAction,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptActionSetter,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptActionSetterArgs,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptRender,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptRenderHandlerProps,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type LangGraphInterruptRenderProps,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Human-in-the-loop): https://docs.copilotkit.ai/human-in-the-loop
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type QueuedInterruptEvent,
@@ -783,7 +957,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type SystemMessageFunction,
@@ -793,7 +969,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   shouldShowDevConsole,
@@ -803,7 +981,10 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   SUGGESTION_RETRY_CONFIG,
