@@ -39,7 +39,7 @@ Users can configure suggestions via `useCopilotChatSuggestions` hook which regis
 - **@react-core**
   - [copilot-context.tsx](mdc:packages/react-core/src/v1-deprecated/context/copilot-context.tsx) - Where the actual suggestions are stored, the "provider" or "context"
   - [use-copilot-chat.ts](mdc:packages/react-core/src/v1-deprecated/hooks/use-copilot-chat.ts) - Hook that controls and contains logic for suggestions, often referred to as "headless UI"
-  - [suggestions.ts](mdc:packages/react-core/src/v1-deprecated/utils/suggestions.ts) - Core suggestion generation logic with streaming validation and error handling
+  - [use-configure-chat-suggestions.tsx](mdc:packages/react-core/src/v1-deprecated/hooks/use-configure-chat-suggestions.tsx) - V1 compatibility bridge that configures v2 suggestion generation and reloads suggestions when the target agent becomes available
   - [suggestions-constants.ts](mdc:packages/react-core/src/v1-deprecated/utils/suggestions-constants.ts) - Retry configuration constants
 
 ## How Suggestions Work
