@@ -17,6 +17,8 @@ export {
   type SubscribeToThreadsRequest,
   type SubscribeToThreadsResponse,
   type UpdateThreadRequest,
+  type RuntimeEntitlement,
+  type RuntimeEntitlementResult,
 } from "./intelligence-platform";
 
 // Re-export `@ai-sdk/mcp` stable types so consumers don't need to depend on

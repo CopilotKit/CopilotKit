@@ -1383,3 +1383,21 @@ test("runtime-entitlement client aborts and fails closed when authority stalls",
     vi.useRealTimers();
   }
 });
+
+test("runtime-entitlement client aborts and fails closed when the response body stalls", async () => {
+  vi.useFakeTimers();
+  const { client } = setupInspectorMetadataClient();
+  fetchMock.mockResolvedValue(new Response(new ReadableStream<Uint8Array>()));
+
+  try {
+    const request = client.getRuntimeEntitlement();
+    await vi.advanceTimersByTimeAsync(5_000);
+    await expect(request).resolves.toEqual({ kind: "unavailable" });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.signal.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

@@ -34,7 +34,7 @@ type RuntimeEntitlement = {
     | "selfHostedDeploymentLicense"
     | "awsMarketplaceDeploymentLicense";
   active: boolean;
-  features: string[];
+  features: Record<string, boolean>;
   limits: Record<string, number>;
   planCode?: string;
   entitlementSource?: string;
@@ -68,7 +68,7 @@ Expected: FAIL because `getRuntimeEntitlement()` does not exist.
 | -------------------------------------------- | ------------------------------- |
 | Intelligence entitlement active              | `valid`                         |
 | Intelligence entitlement inactive            | `invalid`                       |
-| Intelligence authority unavailable/malformed | `unknown`                       |
+| Intelligence authority unavailable/malformed | `invalid`                       |
 | Intelligence endpoint 404                    | current local checker result    |
 | Non-Intelligence runtime                     | current local checker result    |
 
