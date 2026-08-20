@@ -24,7 +24,6 @@
  *   Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-core/src/hooks/use-frontend-tool.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

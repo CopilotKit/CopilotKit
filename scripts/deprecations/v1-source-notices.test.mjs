@@ -187,6 +187,7 @@ test("every local public v1 source file has exact per-export guidance", () => {
     const source = readFileSync(path.join(repoRoot, file), "utf8");
     assert.ok(source.startsWith("/*\n * V1 SDK DEPRECATED. USE V2 INSTEAD"));
     assert.match(source, /AI CODING AGENTS:/);
+    assert.doesNotMatch(source, /V1 source file:/);
     for (const item of items) {
       assert.ok(
         source.includes(`${item.entrypoint.importPath} — ${item.name}:`),
