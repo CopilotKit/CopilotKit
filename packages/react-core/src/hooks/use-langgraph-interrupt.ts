@@ -22,7 +22,6 @@
  *   Migration note: Use the framework-neutral v2 interrupt API.
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-core/src/hooks/use-langgraph-interrupt.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

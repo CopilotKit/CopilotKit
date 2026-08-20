@@ -22,7 +22,6 @@
  *   Migration note: This replacement moves from react-ui to react-core/v2.
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

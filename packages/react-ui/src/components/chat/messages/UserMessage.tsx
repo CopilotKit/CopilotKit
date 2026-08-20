@@ -13,7 +13,6 @@
  *   V2 docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-ui/src/components/chat/messages/UserMessage.tsx
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

@@ -38,7 +38,7 @@ function renderEntrypointNotice(entrypoint, count) {
   ].join("\n");
 }
 
-function renderSourceNotice(file, items) {
+function renderSourceNotice(items) {
   const lines = [
     "/*",
     " * V1 SDK DEPRECATED. USE V2 INSTEAD",
@@ -73,7 +73,6 @@ function renderSourceNotice(file, items) {
   }
   lines.push(
     ` * Migration guide: ${MIGRATION_GUIDE}`,
-    ` * V1 source file: ${file}`,
     " *",
     " * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE",
     " */",
@@ -205,7 +204,7 @@ for (const [file, items] of sourceItems) {
   const absolutePath = path.join(repoRoot, file);
   const current = readFileSync(absolutePath, "utf8");
   const body = current.replace(noticePattern, "").replace(/^\s+/, "");
-  expectedFiles.set(file, `${renderSourceNotice(file, items)}\n\n${body}`);
+  expectedFiles.set(file, `${renderSourceNotice(items)}\n\n${body}`);
 }
 
 for (const { entrypoint, exports } of inventories) {
