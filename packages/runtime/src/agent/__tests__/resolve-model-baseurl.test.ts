@@ -3,10 +3,23 @@ import { resolveModel } from "../index";
 
 // Mock the SDK provider factories so we can assert the options resolveModel passes them
 // (the returned LanguageModel does not expose baseURL publicly, so we verify at the factory).
-const createOpenAI = vi.fn((_opts?: unknown) => (modelId: string) => ({
-  modelId,
-  provider: "openai",
-}));
+const createOpenAI = vi.fn((_opts?: unknown) => {
+  // A callable provider factory that also exposes `.chat()` — the OrcaRouter
+  // branch uses `.chat()` (chat completions) while the OpenAI / MiniMax
+  // branches invoke the factory as a plain callable.
+  const callable = ((modelId: string) => ({
+    modelId,
+    provider: "openai",
+  })) as unknown as {
+    (modelId: string): { modelId: string; provider: string };
+    chat(modelId: string): { modelId: string; provider: string };
+  };
+  callable.chat = (modelId: string) => ({
+    modelId,
+    provider: "orcarouter.chat",
+  });
+  return callable;
+});
 const createAnthropic = vi.fn((_opts?: unknown) => (modelId: string) => ({
   modelId,
   provider: "anthropic",
@@ -39,6 +52,8 @@ describe("resolveModel — custom baseURL via env", () => {
     process.env.GOOGLE_API_KEY = "test-google-key";
     process.env.MINIMAX_API_KEY = "test-minimax-key";
     delete process.env.MINIMAX_BASE_URL;
+    process.env.ORCAROUTER_API_KEY = "test-orcarouter-key";
+    delete process.env.ORCAROUTER_BASE_URL;
   });
 
   afterEach(() => {
@@ -99,6 +114,35 @@ describe("resolveModel — custom baseURL via env", () => {
 
     expect(createOpenAI).toHaveBeenCalledWith(
       expect.objectContaining({ baseURL: "https://api.minimaxi.com/v1" }),
+    );
+  });
+
+  it.each(["auto", "fusion", "fusion-flash", "fusion-mini"])(
+    "resolves OrcaRouter model orcarouter/%s with the gateway endpoint",
+    (modelId) => {
+      const model = resolveModel(`orcarouter/${modelId}`);
+
+      expect(createOpenAI).toHaveBeenCalledWith({
+        name: "orcarouter",
+        apiKey: "test-orcarouter-key",
+        baseURL: "https://api.orcarouter.ai/v1",
+      });
+      // The gateway expects the fully-namespaced id (`orcarouter/auto`), which
+      // the resolver re-prefixes after stripping the `orcarouter` provider part.
+      expect(model).toMatchObject({
+        modelId: `orcarouter/${modelId}`,
+        provider: "orcarouter.chat",
+      });
+    },
+  );
+
+  it("passes ORCAROUTER_BASE_URL to the OrcaRouter provider", () => {
+    process.env.ORCAROUTER_BASE_URL = "https://orcarouter.internal/v1";
+
+    resolveModel("orcarouter:auto");
+
+    expect(createOpenAI).toHaveBeenCalledWith(
+      expect.objectContaining({ baseURL: "https://orcarouter.internal/v1" }),
     );
   });
 });

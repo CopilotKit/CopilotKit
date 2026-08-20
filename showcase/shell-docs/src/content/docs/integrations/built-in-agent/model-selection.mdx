@@ -76,6 +76,27 @@ const agent = new BuiltInAgent({
 });
 ```
 
+### OrcaRouter
+
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible gateway that routes
+each request to the best model for the task through a single API key. It also runs
+gateway-level, zero-trust security for AI agents on the same endpoint — screening
+every prompt/response and governing every tool call on a default-deny basis, with
+no application code changes.
+
+| Model                     | Specifier                       |
+| ------------------------- | ------------------------------- |
+| OrcaRouter Auto (routed)  | `orcarouter:auto`               |
+| OrcaRouter Fusion         | `orcarouter:fusion`             |
+| OrcaRouter Fusion Flash   | `orcarouter:fusion-flash`       |
+| OrcaRouter Fusion Mini    | `orcarouter:fusion-mini`        |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "orcarouter:auto",
+});
+```
+
 ## Environment Variables
 
 Set the API key for your chosen provider:
@@ -95,6 +116,11 @@ MINIMAX_API_KEY=...
 
 # Optional: use the China endpoint
 MINIMAX_BASE_URL=https://api.minimaxi.com/v1
+
+# OrcaRouter
+ORCAROUTER_API_KEY=sk-orca-...
+# Optional: custom endpoint (defaults to https://api.orcarouter.ai/v1)
+# ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
 ```
 
 Alternatively, pass the API key directly in your configuration:
@@ -191,6 +217,8 @@ The Built-in Agent resolves model strings to AI SDK provider instances:
 | `"openai:gpt-4.1"` | `@ai-sdk/openai` | `openai("gpt-4.1")` |
 | `"anthropic:claude-sonnet-4-5"` | `@ai-sdk/anthropic` | `anthropic("claude-sonnet-4-5")` |
 | `"google:gemini-2.5-pro"` | `@ai-sdk/google` | `google("gemini-2.5-pro")` |
+| `"minimax:MiniMax-M3"` | `@ai-sdk/openai` | `minimax("MiniMax-M3")` |
+| `"orcarouter:auto"` | `@ai-sdk/openai` | `orcarouter.chat("orcarouter/auto")` |
 
 Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
 
