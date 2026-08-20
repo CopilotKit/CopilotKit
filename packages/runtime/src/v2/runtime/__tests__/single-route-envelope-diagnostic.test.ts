@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { createCopilotEndpoint } from "../endpoints";
 import { CopilotRuntime } from "../core/runtime";
+import { detectSingleRouteEnvelope } from "../endpoints/single-route-helpers";
 
 /**
  * A single-route client (`useSingleEndpoint`) POSTs a `{ method }` envelope at
@@ -81,6 +82,20 @@ describe("single-route envelope against a multi-route runtime", () => {
     const response = await postEnvelope({ method: "definitely/not/a/method" });
     const body = (await response.json()) as Record<string, string>;
     expect(body.code).toBeUndefined();
+  });
+
+  it("degrades to a plain 404 when middleware already drained the body", async () => {
+    // `clone()` throws TypeError("unusable") once the body has been read, so a
+    // before-request middleware that consumed it must cost us the diagnostic,
+    // never turn a 404 into a 500.
+    const request = new Request("https://example.com/api/copilotkit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method: "info" }),
+    });
+    await request.json();
+
+    await expect(detectSingleRouteEnvelope(request)).resolves.toBeNull();
   });
 
   it("does not diagnose a non-JSON POST", async () => {

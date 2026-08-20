@@ -207,7 +207,9 @@ The Function URL is the origin; `basePath` is appended to it.
   The Function URL handler above serves multi-route, the default. `<CopilotKit>` is the v1 wrapper and
   asks for single-route transport unless told otherwise, so without this prop
   its startup `/info` call 404s and no agents are discovered.
-  `<CopilotKitProvider>` detects the transport and needs no prop. See
+  `<CopilotKitProvider>` detects the transport and needs no prop. Drop the prop
+  if you took the buffered front door below and mounted the handler with
+  `mode: "single-route"`. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 </FrontendOnly>
