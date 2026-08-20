@@ -18,4 +18,15 @@
     <DemoCode file="src/agents/shared_state_streaming_agent.py" region="state-streaming-middleware" />
 
   </Step>
+  <Step>
+    ### Stop after the final model response
+
+    The example imports `stop_on_terminal_text` from `agents.shared_chat` and
+    registers it as `after_model_callback`. Add this helper in that module so
+    Gemini ends the agent loop after its final text response instead of
+    issuing the same tool call again.
+
+    <DemoCode file="src/agents/shared_chat.py" region="stop-on-terminal-text" />
+
+  </Step>
 </Steps>

@@ -42,6 +42,23 @@ test("the visual FrameworkSetup path stays empty for other frameworks", async ()
   expect(mocks.mdxRemote).not.toHaveBeenCalled();
 });
 
+test("the visual FrameworkSetup path renders the Google ADK termination callback", async () => {
+  const result = await FrameworkSetup({
+    concept: "state-streaming-setup",
+    currentFramework: "google-adk",
+  });
+  expect(result).not.toBeNull();
+  if (!result) {
+    throw new Error("Expected Google ADK state-streaming setup content");
+  }
+  const source = (result.props as { children?: unknown }).children;
+
+  expect(source).toContain("def stop_on_terminal_text(");
+  expect(source).toContain("after_model_callback=stop_on_terminal_text");
+  expect(source).not.toContain("@region[");
+  expect(mocks.mdxRemote).toHaveBeenCalledOnce();
+});
+
 test.each([
   ["claude-sdk-python", "create_sdk_mcp_server("],
   ["claude-sdk-typescript", "createSdkMcpServer({"],

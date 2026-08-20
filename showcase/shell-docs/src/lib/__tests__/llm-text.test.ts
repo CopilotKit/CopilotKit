@@ -823,6 +823,43 @@ test("renders executable Deep Agents state streaming in both languages", () => {
   expect(output).not.toContain("chatNode");
 });
 
+test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
+  "renders the Google ADK termination callback on %s without leaking it",
+  (loadSlug) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const render = (framework: string) =>
+      renderPageToLlmText(
+        {
+          url: `${framework}/${loadSlug}`,
+          title: doc!.fm.title,
+          description: doc!.fm.description,
+          filePath: doc!.filePath,
+          loadSlug,
+          framework,
+        },
+        { framework },
+      );
+
+    const googleAdk = render("google-adk");
+    expect(googleAdk).toContain("def stop_on_terminal_text(");
+    expect(googleAdk).toContain("after_model_callback=stop_on_terminal_text");
+    expect(googleAdk).not.toContain("<FrameworkSetup");
+    expect(googleAdk).not.toContain("@region[");
+
+    const otherPublicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "google-adk");
+    for (const framework of otherPublicFrameworks) {
+      const output = render(framework);
+      expect(output, framework).not.toContain("def stop_on_terminal_text(");
+      expect(output, framework).not.toContain("<FrameworkSetup");
+    }
+  },
+);
+
 test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch", () => {
   const slug = "generative-ui/a2ui/fixed-schema";
   const doc = loadDoc(slug);

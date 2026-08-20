@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 
+# @region[stop-on-terminal-text]
 def stop_on_terminal_text(
     callback_context: CallbackContext, llm_response: LlmResponse
 ) -> Optional[LlmResponse]:
@@ -122,6 +123,9 @@ def stop_on_terminal_text(
             "end_invocation; ADK private-API shape may have drifted."
         )
     return None
+
+
+# @endregion[stop-on-terminal-text]
 
 
 def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
