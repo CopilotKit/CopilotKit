@@ -1,0 +1,137 @@
+---
+title: Channel Tasks
+description: Match ambient Slack or Teams activity, run scheduled work, manage Tasks, and opt into provider-surface history.
+---
+
+Channel Tasks run application code for ambient Slack or Microsoft Teams events
+and scheduled work. They require a managed CopilotKit Intelligence Channel.
+Direct provider adapters do not support Tasks.
+
+## Configure Tasks
+
+Pass one TanStack AI text model and register exactly one `onTask` handler:
+
+```ts title="channel.ts"
+import { createChannel } from "@copilotkit/channels";
+import { taskMatcherModel } from "./models.js";
+import { chooseAgent, chooseTools } from "./task-policy.js";
+
+const channel = createChannel({
+  name: "support-agent",
+  identifyUser: "platform",
+  tasks: { model: taskMatcherModel },
+});
+
+channel.onTask(async ({ task, cause, thread }) => {
+  await thread.runAgent({
+    agent: chooseAgent({ task, actor: cause.actor }),
+    tools: chooseTools({ task, actor: cause.actor }),
+    prompt: task.goal,
+  });
+});
+```
+
+Startup fails if the Channel has only the model or only the handler. The
+matcher makes one structured-output model call for each eligible event that has
+candidates. It selects at most one stored Task. No match or matcher failure
+runs the normal message or reaction handler.
+
+Event Tasks accept new messages and added reactions. Edits, deletes, removed
+reactions, system events, and this Channel's own output do not enter matching.
+An event Task runs in the event's canonical Thread and exposes its provider
+actor through `cause.actor`.
+
+Scheduled Tasks use the same handler with `cause.kind === "schedule"` and
+`cause.actor === null`. `thread.post()` creates a fresh provider root. A later
+reply continues the canonical Thread bound to that root.
+
+## Task shape
+
+```ts
+type ChannelTask = {
+  id: string;
+  surfaceId: string;
+  goal: string;
+  when:
+    | {
+        kind: "event";
+        event: "message" | "reaction_added";
+        rule: string;
+      }
+    | {
+        kind: "schedule";
+        cron: string;
+        timeZone: string;
+      };
+  enabled: boolean;
+  createdBy:
+    | { kind: "provider_actor"; actor: ChannelTaskActor }
+    | { kind: "application"; applicationId: string };
+  createdAt: string;
+  updatedAt: string;
+};
+```
+
+Each Task belongs to one whole provider surface: a Slack channel or direct
+message, or a Teams channel or personal chat. `surfaceId` is an opaque
+Intelligence ID. It never contains a raw provider route or credential.
+
+## Programmatic Task management
+
+Programmatic calls accept the surface that the application selected:
+
+```ts
+const task = await channel.tasks.create({
+  surfaceId,
+  goal: "Triage requests that block production",
+  when: {
+    kind: "event",
+    event: "message",
+    rule: "The message says production is blocked",
+  },
+});
+
+await channel.tasks.list({ surfaceId });
+await channel.tasks.update({ taskId: task.id, enabled: false });
+await channel.tasks.delete({ taskId: task.id });
+```
+
+The four Task tools are opt-in. Add only the tools that the chosen agent may
+use:
+
+```ts
+for (const tool of channel.tasks.tools) channel.tool(tool);
+```
+
+The tools are named `create_channel_task`, `list_channel_tasks`,
+`update_channel_task`, and `delete_channel_task`. The model supplies Task fields
+and Task IDs. The runtime supplies the current project, Channel, provider actor,
+application identity, and surface. Model arguments cannot change that scope.
+
+## Provider-surface history
+
+Provider history is a separate opt-in tool:
+
+```ts
+channel.tool(channel.readChannelMessagesTool);
+```
+
+`read_channel_messages` accepts only a page `limit` and opaque `cursor`. It
+reads Slack roots and replies, Slack direct-message history, Teams channel
+roots and replies, or Teams personal-chat history from the current surface.
+It returns normalized messages in chronological order.
+
+The tool does not inject history into the Task prompt. The application must
+give the tool to the selected agent. Provider rate limits return a retryable
+error; Intelligence does not retry the provider call inside the request.
+
+## Delivery and charging
+
+Task matching, no-match results, cron ticks, wakes, claims, and no-op handlers
+do not consume a Channel turn. The delivery consumes one turn before its first
+agent run or requested provider effect. One agent run plus more provider
+effects in the same delivery still consumes one turn.
+
+Scheduled wakes are live and best effort. A disconnected runtime or failed
+wake loses that tick. Tasks do not add catch-up, run history, outcome records,
+or a recovery queue.

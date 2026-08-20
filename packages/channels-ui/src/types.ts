@@ -61,6 +61,14 @@ export type AgentContentPart =
   | { type: "video"; source: MediaDataSource }
   | { type: "document"; source: MediaDataSource };
 
+/** A modal upload with provider URLs removed and its content ready for an agent. */
+export interface ChannelUploadedFile {
+  readonly name: string;
+  readonly mimeType: string;
+  readonly size: number;
+  readonly contentParts: AgentContentPart[];
+}
+
 export interface IncomingMessage {
   text: string;
   /** Canonical application user for this event, or null when identity did not map. */

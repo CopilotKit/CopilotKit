@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { ComponentType, ButtonStyle } from "discord.js";
-import { renderComponents } from "./components-v2.js";
+import { renderComponents, renderDiscordMessage } from "./components-v2.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 
 const text = (value: string): ChannelNode => ({
@@ -16,6 +16,108 @@ const node = (
 });
 
 describe("renderComponents", () => {
+  it("renders a portable chart as a 1200x675 PNG attachment with alt text", () => {
+    const result = renderDiscordMessage([
+      node("message", {
+        children: node("chart", {
+          type: "verticalBar",
+          title: "Deploys by service",
+          xAxisTitle: "Service",
+          yAxisTitle: "Deploys",
+          data: [
+            { label: "API", value: 12 },
+            { label: "Web", value: 8 },
+          ],
+        }),
+      }),
+    ]);
+
+    expect(result.attachments).toHaveLength(1);
+    const attachment = result.attachments[0]!;
+    expect(attachment.filename).toBe("chart-1.png");
+    expect(attachment.mimeType).toBe("image/png");
+    expect(Array.from(attachment.bytes.slice(0, 8))).toEqual([
+      137, 80, 78, 71, 13, 10, 26, 10,
+    ]);
+    const view = new DataView(
+      attachment.bytes.buffer,
+      attachment.bytes.byteOffset,
+      attachment.bytes.byteLength,
+    );
+    expect(view.getUint32(16)).toBe(1200);
+    expect(view.getUint32(20)).toBe(675);
+    expect(attachment.altText).toContain("Deploys by service");
+    expect(attachment.altText).toContain("API: 12");
+
+    const json = (
+      result.components[0] as { toJSON(): { components: unknown[] } }
+    ).toJSON();
+    expect(json.components).toContainEqual(
+      expect.objectContaining({
+        type: ComponentType.MediaGallery,
+        items: [
+          expect.objectContaining({
+            media: { url: "attachment://chart-1.png" },
+            description: attachment.altText,
+          }),
+        ],
+      }),
+    );
+  }, 15_000);
+
+  it.each(["verticalBar", "horizontalBar", "line", "pie", "donut"])(
+    "renders the portable %s chart type",
+    (type) => {
+      const result = renderDiscordMessage([
+        node("chart", {
+          type,
+          title: `${type} totals`,
+          data: [
+            { label: "Core", value: 7 },
+            { label: "Cloud", value: 3 },
+          ],
+        }),
+      ]);
+
+      expect(result.attachments).toHaveLength(1);
+      expect(Array.from(result.attachments[0]!.bytes.slice(0, 8))).toEqual([
+        137, 80, 78, 71, 13, 10, 26, 10,
+      ]);
+      expect(result.attachments[0]!.altText).toBe(
+        `${type} totals. Core: 7, Cloud: 3`,
+      );
+    },
+  );
+
+  it.each([
+    ["empty", { type: "line", data: [] }, /requires 1 to 50 data points/],
+    [
+      "non-finite",
+      { type: "verticalBar", data: [{ label: "Core", value: NaN }] },
+      /value must be finite/,
+    ],
+    [
+      "non-positive radial",
+      { type: "pie", data: [{ label: "Core", value: 0 }] },
+      /value must be positive/,
+    ],
+    [
+      "unsupported type",
+      { type: "scatter", data: [{ label: "Core", value: 1 }] },
+      /unsupported chart type/,
+    ],
+    ["missing data", { type: "line" }, /data must be an array/],
+    [
+      "non-string label",
+      { type: "line", data: [{ label: 42, value: 1 }] },
+      /label must be a string/,
+    ],
+  ])("rejects %s chart data before delivery", (_name, props, expected) => {
+    expect(() => renderDiscordMessage([node("chart", props)])).toThrow(
+      expected as RegExp,
+    );
+  });
+
   it("wraps a header + section in a container with text displays", () => {
     const ir: ChannelNode[] = [
       node("message", {
@@ -110,6 +212,37 @@ describe("renderComponents", () => {
     expect(select.type).toBe(ComponentType.StringSelect);
     expect(select.max_values).toBe(2);
     expect(select.min_values).toBe(0);
+  });
+
+  it.each([
+    ["placeholder", { placeholder: "Write a summary", name: "summary" }],
+    ["name", { name: "summary" }],
+    ["default", {}],
+  ])("renders a portable input button labeled from %s", (_source, props) => {
+    const json = renderComponents([
+      node("input", {
+        ...props,
+        multiline: true,
+        onSubmit: { id: "ck:input-action" },
+      }),
+    ]).toJSON();
+    const row = json.components.find(
+      (component: any) => component.type === ComponentType.ActionRow,
+    ) as any;
+
+    expect(row.components[0]).toEqual(
+      expect.objectContaining({
+        type: ComponentType.Button,
+        label:
+          _source === "placeholder"
+            ? "Write a summary"
+            : _source === "name"
+              ? "summary"
+              : "Enter response",
+        style: ButtonStyle.Primary,
+        custom_id: "ck-input:ck:input-action:1",
+      }),
+    );
   });
 
   it("chunks more than 5 buttons into multiple action rows", () => {

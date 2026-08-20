@@ -25,6 +25,7 @@ function delivery(): PreparedChannelDelivery {
     deliveryExpiresAt: "2099-07-29T17:00:00.000Z",
     channelId: "channel_support",
     channelName: "support",
+    surfaceId: "surface_support_01",
     canonicalThreadId: "thread_teams_final",
     appUserId: "teams:user-1",
     adapter: "teams",

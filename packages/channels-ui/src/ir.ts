@@ -10,7 +10,7 @@ export type Renderable =
   | string
   | ChannelNode
   | ChannelNode[]
-  | { raw: unknown; provider?: "slack" | "teams" };
+  | { raw: unknown; provider?: "slack" | "teams" | "discord" };
 export const Fragment: unique symbol = Symbol.for(
   "copilotkit.channels-ui.Fragment",
 );

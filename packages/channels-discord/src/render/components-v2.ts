@@ -12,7 +12,10 @@ import {
   MediaGalleryItemBuilder,
   MessageFlags,
 } from "discord.js";
-import type { MessageActionRowComponentBuilder } from "discord.js";
+import type {
+  APIMessageTopLevelComponent,
+  MessageActionRowComponentBuilder,
+} from "discord.js";
 import type { ChannelNode } from "@copilotkit/channels-ui";
 import {
   DISCORD_LIMITS,
@@ -21,6 +24,16 @@ import {
   clampArray,
 } from "./budget.js";
 import { discordMarkdown } from "../markdown.js";
+import {
+  containsDiscordNative,
+  renderDiscordNativeMessage,
+} from "../native-codec.js";
+import { renderDiscordChart } from "./chart.js";
+import type {
+  DiscordAttachmentDescriptor,
+  DiscordChartInput,
+} from "./chart.js";
+import { encodePortableInputControl } from "../portable-input.js";
 
 /**
  * Running totals enforced across a single message render. Discord rejects the
@@ -35,9 +48,6 @@ interface RenderBudget {
 }
 
 const OVERFLOW_TEXT = "_…content truncated_";
-
-/** Guards one-time warnings so they don't fire on every render. */
-let warnedInputSkipped = false;
 
 /** True once the message is full; callers must stop adding components. */
 function budgetFull(budget: RenderBudget): boolean {
@@ -109,6 +119,13 @@ function addText(
  * limits apply via truncate/clamp; nothing is silently dropped.
  */
 export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
+  return renderPortableComponents(ir, []);
+}
+
+function renderPortableComponents(
+  ir: ChannelNode[],
+  attachments: DiscordAttachmentDescriptor[],
+): ContainerBuilder {
   const container = new ContainerBuilder();
 
   // <Message accent="#hex"> → container accent color.
@@ -123,18 +140,32 @@ export function renderComponents(ir: ChannelNode[]): ContainerBuilder {
     textChars: 0,
     overflowed: false,
   };
-  for (const node of ir) addNode(node, container, budget);
+  for (const node of ir) addNode(node, container, budget, attachments);
   return container;
 }
 
+export interface DiscordMessageRenderResult {
+  readonly components: Array<ContainerBuilder | APIMessageTopLevelComponent>;
+  readonly flags: number;
+  readonly attachments: readonly DiscordAttachmentDescriptor[];
+}
+
 /** Ready-to-send payload for channel.send / message.edit. */
-export function renderDiscordMessage(ir: ChannelNode[]): {
-  components: ContainerBuilder[];
-  flags: number;
-} {
+export function renderDiscordMessage(
+  ir: ChannelNode[],
+): DiscordMessageRenderResult {
+  if (containsDiscordNative(ir)) {
+    return {
+      components: renderDiscordNativeMessage(ir),
+      flags: MessageFlags.IsComponentsV2,
+      attachments: [],
+    };
+  }
+  const attachments: DiscordAttachmentDescriptor[] = [];
   return {
-    components: [renderComponents(ir)],
+    components: [renderPortableComponents(ir, attachments)],
     flags: MessageFlags.IsComponentsV2,
+    attachments,
   };
 }
 
@@ -142,11 +173,14 @@ function addNode(
   node: ChannelNode,
   container: ContainerBuilder,
   budget: RenderBudget,
+  attachments: DiscordAttachmentDescriptor[],
 ): void {
   if (typeof node.type !== "string") return; // non-intrinsic — already expanded
   // <Message> is a structural wrapper; recurse into it without charging budget.
   if (node.type === "message") {
-    for (const child of childNodes(node)) addNode(child, container, budget);
+    for (const child of childNodes(node)) {
+      addNode(child, container, budget, attachments);
+    }
     return;
   }
   // Message-level budget reached — emit one overflow marker and stop adding.
@@ -249,6 +283,28 @@ function addNode(
       }
       return;
     }
+    case "chart": {
+      const cost = 2;
+      if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        signalOverflow(budget, container);
+        return;
+      }
+      const filename = `chart-${attachments.length + 1}.png`;
+      const attachment = renderDiscordChart(
+        props as unknown as DiscordChartInput,
+        filename,
+      );
+      attachments.push(attachment);
+      budget.components += cost;
+      container.addMediaGalleryComponents(
+        new MediaGalleryBuilder().addItems(
+          new MediaGalleryItemBuilder()
+            .setURL(`attachment://${filename}`)
+            .setDescription(attachment.altText),
+        ),
+      );
+      return;
+    }
     case "actions": {
       for (const row of buildActionRows(childNodes(node))) {
         // Discord counts the ActionRow PLUS every nested button/select toward the
@@ -279,14 +335,28 @@ function addNode(
       return;
     }
     case "input": {
-      // Free-standing text inputs are modal-only on Discord; modals are deferred
-      // to a follow-up. Log once and skip (total renderer).
-      if (!warnedInputSkipped) {
-        warnedInputSkipped = true;
-        console.warn(
-          "[bot-discord] <Input> is modal-only; skipped (modals not in v1).",
-        );
+      const actionId = idFromHandler(props.onSubmit);
+      if (!actionId) return;
+      const cost = 2;
+      if (budget.components + cost > DISCORD_LIMITS.componentsPerMessage - 1) {
+        signalOverflow(budget, container);
+        return;
       }
+      const label = truncateText(
+        String(props.placeholder || props.name || "Enter response"),
+        DISCORD_LIMITS.buttonLabel,
+      );
+      budget.components += cost;
+      container.addActionRowComponents(
+        new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(
+              encodePortableInputControl(actionId, props.multiline === true),
+            )
+            .setLabel(label)
+            .setStyle(ButtonStyle.Primary),
+        ),
+      );
       return;
     }
     default:

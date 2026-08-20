@@ -29,6 +29,7 @@ import type {
 import { toPlatformEmoji } from "@copilotkit/channels-ui";
 import { DiscordConversationStore } from "./conversation-store.js";
 import type { DiscordHistoryMessage } from "./conversation-store.js";
+import type { FileDeliveryConfig } from "./download-files.js";
 import { attachDiscordListener } from "./discord-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction, decodeModalSubmit } from "./interaction.js";
@@ -47,6 +48,65 @@ import {
 import { discordMarkdown } from "./markdown.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import type { ReplyTarget } from "./types.js";
+import {
+  decodePortableInputControl,
+  decodePortableInputModalAction,
+  DISCORD_INPUT_FIELD_ID,
+  renderPortableInputModal,
+} from "./portable-input.js";
+
+export const DISCORD_MODAL_INSTANCE_PREFIX = "ck-modal:";
+const DISCORD_MODAL_BINDING_TTL_MS = 15 * 60 * 1000;
+
+interface DiscordModalBinding {
+  readonly callbackId: string;
+  readonly privateMetadata?: string;
+  readonly channelId: string;
+  readonly expiresAt: number;
+}
+
+/** Render Discord message JSON and map generated attachments to discord.js files. */
+function allowedMentions(userIds: ReadonlySet<string>) {
+  return {
+    parse: [] as const,
+    users: [...userIds],
+    roles: [] as string[],
+    repliedUser: false,
+  };
+}
+
+function withAllowedMentions(
+  payload: unknown,
+  userIds: ReadonlySet<string>,
+): Record<string, unknown> {
+  return {
+    ...(typeof payload === "string"
+      ? { content: payload }
+      : typeof payload === "object" && payload !== null
+        ? payload
+        : {}),
+    allowedMentions: allowedMentions(userIds),
+  };
+}
+
+/** Render one rich message with deny-by-default Discord mention parsing. */
+function renderMessagePayload(ir: ChannelNode[], userIds: ReadonlySet<string>) {
+  const { components, flags, attachments } = renderDiscordMessage(ir);
+  return {
+    components,
+    flags,
+    allowedMentions: allowedMentions(userIds),
+    ...(attachments.length > 0
+      ? {
+          files: attachments.map((attachment) => ({
+            attachment: Buffer.from(attachment.bytes),
+            name: attachment.filename,
+            description: attachment.altText,
+          })),
+        }
+      : {}),
+  };
+}
 
 export interface DiscordAdapterOptions {
   botToken: string;
@@ -54,6 +114,8 @@ export interface DiscordAdapterOptions {
   /** When set, slash commands register to this guild instantly (dev); else global. */
   guildId?: string;
   interruptEventNames?: ReadonlySet<string>;
+  /** Inbound message and modal-upload download limits and fetch override. */
+  filesConfig?: FileDeliveryConfig;
 }
 
 /**
@@ -132,6 +194,8 @@ export class DiscordAdapter implements PlatformAdapter {
   private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
   private readonly userCache = new Map<string, ProviderActor>();
+  private readonly allowedMentionUserIds = new Set<string>();
+  private readonly modalBindings = new Map<string, DiscordModalBinding>();
   /**
    * Tracks live component interactions so a handler can open a modal (which
    * must be the interaction's INITIAL response, within ~3s) before the adapter
@@ -165,7 +229,7 @@ export class DiscordAdapter implements PlatformAdapter {
     this.store = new DiscordConversationStore({
       fetchHistory: (channelId) => this.fetchHistory(channelId),
       botUserId: () => this.botUserId,
-      filesConfig: undefined,
+      filesConfig: opts.filesConfig,
     });
   }
 
@@ -286,6 +350,22 @@ export class DiscordAdapter implements PlatformAdapter {
     this.client.on("interactionCreate", async (i: any) => {
       if (typeof i?.isButton !== "function") return;
       if (i.isButton() || i.isStringSelectMenu?.()) {
+        const portableInput = i.isButton()
+          ? decodePortableInputControl(String(i.customId ?? ""))
+          : undefined;
+        if (portableInput) {
+          try {
+            await i.showModal(
+              renderPortableInputModal({
+                ...portableInput,
+                label: String(i.component?.label ?? "Enter response"),
+              }),
+            );
+          } catch (err) {
+            console.error("[bot-discord] portable input modal failed:", err);
+          }
+          return;
+        }
         const triggerId = this.pending.register(i);
         try {
           const evt = this.decodeInteraction(i);
@@ -302,16 +382,55 @@ export class DiscordAdapter implements PlatformAdapter {
         }
         await this.pending.settle(triggerId);
       } else if (i.isModalSubmit?.()) {
-        try {
-          await sink.onModalSubmit(decodeModalSubmit(i)); // result ignored — Discord can't re-open with errors
-        } catch (err) {
-          console.error("[bot-discord] modal submit dispatch failed:", err);
+        const portableInputAction = decodePortableInputModalAction(
+          String(i.customId ?? ""),
+        );
+        if (portableInputAction) {
+          const submitted = await decodeModalSubmit(i, this.opts.filesConfig);
+          try {
+            if (!i.replied && !i.deferred) {
+              if (i.isFromMessage?.()) await i.deferUpdate();
+              else await i.deferReply({ flags: MessageFlags.Ephemeral });
+            }
+            await sink.onInteraction({
+              id: portableInputAction,
+              conversationKey: submitted.conversationKey ?? "",
+              replyTarget: submitted.replyTarget ?? {
+                channelId: String(i.channelId ?? ""),
+              },
+              value: submitted.values[DISCORD_INPUT_FIELD_ID],
+              actor: submitted.actor,
+              identityContext: submitted.identityContext,
+              messageRef: i.message?.id
+                ? { id: i.message.id, channelId: String(i.channelId ?? "") }
+                : undefined,
+              triggerId: undefined,
+            });
+          } catch (err) {
+            console.error("[bot-discord] portable input dispatch failed:", err);
+            try {
+              await i.followUp?.({
+                content:
+                  "This input is no longer available. Run the action again.",
+                flags: MessageFlags.Ephemeral,
+              });
+            } catch {
+              // The interaction token expired; the logged error remains actionable.
+            }
+          }
+          return;
         }
-        // Ack must match the modal's origin: `deferUpdate` is only valid for a
-        // modal opened FROM a message component (button/select). A modal opened
-        // from a slash command has no originating message, so `deferUpdate`
-        // throws there — use `deferReply` (ephemeral) instead. Guard the ack so
-        // it can never become an unhandled rejection in the event listener.
+        const isBoundModal = String(i.customId ?? "").startsWith(
+          DISCORD_MODAL_INSTANCE_PREFIX,
+        );
+        const modalBinding = isBoundModal
+          ? this.consumeModalBinding(
+              String(i.customId),
+              String(i.channelId ?? ""),
+            )
+          : undefined;
+        // Acknowledge before decoding files or running app code. Modal upload
+        // hydration and handlers may exceed Discord's three-second deadline.
         try {
           if (!i.replied && !i.deferred) {
             if (i.isFromMessage?.()) await i.deferUpdate();
@@ -319,6 +438,32 @@ export class DiscordAdapter implements PlatformAdapter {
           }
         } catch (err) {
           console.error("[bot-discord] modal submit ack failed:", err);
+        }
+        if (isBoundModal && !modalBinding) {
+          try {
+            await i.followUp?.({
+              content:
+                "This modal is no longer available. Run the action again.",
+              flags: MessageFlags.Ephemeral,
+            });
+          } catch {
+            // The interaction token expired; the missing binding is still safe.
+          }
+          return;
+        }
+        try {
+          const submitted = await decodeModalSubmit(i, this.opts.filesConfig);
+          await sink.onModalSubmit(
+            modalBinding
+              ? {
+                  ...submitted,
+                  callbackId: modalBinding.callbackId,
+                  privateMetadata: modalBinding.privateMetadata,
+                }
+              : submitted,
+          ); // result ignored — Discord can't re-open with errors
+        } catch (err) {
+          console.error("[bot-discord] modal submit dispatch failed:", err);
         }
       }
     });
@@ -337,8 +482,9 @@ export class DiscordAdapter implements PlatformAdapter {
   async post(target: BotReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const t = target as ReplyTarget;
     const channel = await this.fetchSendable(t.channelId);
-    const { components, flags } = renderDiscordMessage(ir);
-    const msg = await channel.send({ components, flags });
+    const msg = await channel.send(
+      renderMessagePayload(ir, this.allowedMentionUserIds),
+    );
     return { id: msg.id, channelId: t.channelId };
   }
 
@@ -348,8 +494,7 @@ export class DiscordAdapter implements PlatformAdapter {
     if (!ref.id) return;
     const channel = await this.fetchSendable(this.channelIdOf(ref));
     const msg = await channel.messages.fetch(ref.id);
-    const { components, flags } = renderDiscordMessage(ir);
-    await msg.edit({ components, flags });
+    await msg.edit(renderMessagePayload(ir, this.allowedMentionUserIds));
   }
 
   async stream(
@@ -366,13 +511,17 @@ export class DiscordAdapter implements PlatformAdapter {
     const handles = new Map<string, { edit(p: unknown): Promise<unknown> }>();
     const stream = new ChunkedMessageStream({
       postPlaceholder: async (text) => {
-        const m = await channel.send(text);
+        const m = await channel.send(
+          withAllowedMentions(text, this.allowedMentionUserIds),
+        );
         if (!firstId) firstId = m.id;
         handles.set(m.id, m);
         return m.id;
       },
       updateAt: async (id, text) => {
-        await handles.get(id)?.edit(text);
+        await handles
+          .get(id)
+          ?.edit(withAllowedMentions(text, this.allowedMentionUserIds));
       },
       transform: (s) => discordMarkdown(autoCloseOpenMarkdown(s)),
     });
@@ -403,13 +552,16 @@ export class DiscordAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     // Resolve the channel lazily inside a thin wrapper so createRunRenderer stays sync.
     const channelPromise = this.fetchSendable(t.channelId);
+    const allowedMentionUserIds = this.allowedMentionUserIds;
     return createRunRenderer({
       channel: {
         async sendTyping() {
           await (await channelPromise).sendTyping?.();
         },
         async send(payload) {
-          return (await channelPromise).send(payload) as never;
+          return (await channelPromise).send(
+            withAllowedMentions(payload, allowedMentionUserIds),
+          ) as never;
         },
       },
       interruptEventNames: this.opts.interruptEventNames,
@@ -424,12 +576,21 @@ export class DiscordAdapter implements PlatformAdapter {
     const query = q.query.trim();
     if (!query) return undefined;
     // Search guild members by username/displayName across cached guilds.
-    for (const guild of this.client.guilds.cache.values()) {
+    const configuredGuild = this.opts.guildId
+      ? this.client.guilds.cache.get(this.opts.guildId)
+      : undefined;
+    const guilds = this.opts.guildId
+      ? configuredGuild
+        ? [configuredGuild]
+        : []
+      : [...this.client.guilds.cache.values()];
+    for (const guild of guilds) {
       try {
         const found = await guild.members.search({ query, limit: 1 });
         const member = found.first();
         if (member) {
           const user = member.user;
+          this.allowedMentionUserIds.add(user.id);
           return {
             id: user.id,
             kind: user.bot ? "bot" : "human",
@@ -577,8 +738,7 @@ export class DiscordAdapter implements PlatformAdapter {
     try {
       const u = await this.client.users.fetch(userId);
       const dm = await u.createDM();
-      const { components, flags } = renderDiscordMessage(ir);
-      await dm.send({ components, flags });
+      await dm.send(renderMessagePayload(ir, this.allowedMentionUserIds));
       return {
         ok: true,
         usedFallback: true,
@@ -594,7 +754,7 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async openModal(
-    _target: BotReplyTarget,
+    target: BotReplyTarget,
     triggerId: string,
     ir: ChannelNode[],
   ): Promise<{ ok: boolean; error?: string }> {
@@ -604,6 +764,18 @@ export class DiscordAdapter implements PlatformAdapter {
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+    const root = ir.find((node) => node.type === "modal");
+    const rootProps = root?.props ?? {};
+    const modalInstanceId = `${DISCORD_MODAL_INSTANCE_PREFIX}${globalThis.crypto.randomUUID()}`;
+    modal.setCustomId(modalInstanceId);
+    this.modalBindings.set(modalInstanceId, {
+      callbackId: String(rootProps.callbackId ?? ""),
+      ...(rootProps.privateMetadata !== undefined
+        ? { privateMetadata: String(rootProps.privateMetadata) }
+        : {}),
+      channelId: (target as ReplyTarget).channelId,
+      expiresAt: Date.now() + DISCORD_MODAL_BINDING_TTL_MS,
+    });
     let shown: boolean;
     try {
       const show = (i: { id: string }) =>
@@ -619,8 +791,10 @@ export class DiscordAdapter implements PlatformAdapter {
         (await this.pending.respondWith(triggerId, show)) ||
         (await this.commandPending.respondWith(triggerId, show));
     } catch (err) {
+      this.modalBindings.delete(modalInstanceId);
       return { ok: false, error: (err as Error).message };
     }
+    if (!shown) this.modalBindings.delete(modalInstanceId);
     return shown
       ? { ok: true }
       : {
@@ -628,6 +802,20 @@ export class DiscordAdapter implements PlatformAdapter {
           error:
             "interaction already acknowledged (open the modal before other work)",
         };
+  }
+
+  /** Atomically consume one live modal binding in its original conversation. */
+  private consumeModalBinding(
+    instanceId: string,
+    channelId: string,
+  ): DiscordModalBinding | undefined {
+    const binding = this.modalBindings.get(instanceId);
+    if (!binding) return undefined;
+    this.modalBindings.delete(instanceId);
+    if (binding.expiresAt < Date.now() || binding.channelId !== channelId) {
+      return undefined;
+    }
+    return binding;
   }
 
   async resolveUser(userId: string): Promise<ProviderActor> {

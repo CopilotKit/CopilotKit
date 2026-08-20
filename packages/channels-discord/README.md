@@ -148,6 +148,39 @@ ready-to-send Discord Components V2 payload (`{ components, flags }`) with the
 | `Image`                | `MediaGallery` with a single item                       |
 | `Divider`              | `Separator`                                             |
 | `Table`                | `TextDisplay` — fenced code block via `discordMarkdown` |
+| `Input`                | Button that opens a one-field modal                     |
+| `Chart`                | 1200×675 PNG attachment                                 |
+
+`Chart` supports vertical bar, horizontal bar, line, pie, and donut output. The
+renderer keeps the title, labels, values, axis titles, and alt text in the SVG
+source before it encodes the attached PNG.
+
+### Discord-native JSX
+
+Import provider-specific nodes from `@copilotkit/channels-discord` or
+`@copilotkit/channels/discord`:
+
+```tsx
+import { Discord } from "@copilotkit/channels-discord";
+
+const view = (
+  <Discord.Message.Container accent_color={0x5865f2}>
+    <Discord.Message.TextDisplay content="Choose a reviewer" />
+    <Discord.Message.ActionRow>
+      <Discord.Message.UserSelect onSelect={selectReviewer} />
+    </Discord.Message.ActionRow>
+  </Discord.Message.Container>
+);
+```
+
+`Discord.Message.*` includes ActionRow, Button, StringSelect, UserSelect,
+RoleSelect, MentionableSelect, ChannelSelect, Section, TextDisplay, Thumbnail,
+MediaGallery, File, Separator, and Container. `Discord.Modal.*` includes
+TextDisplay, Label, TextInput, all five select types, FileUpload, RadioGroup,
+CheckboxGroup, and Checkbox. `Discord.Object.*` supplies typed option and media
+objects. `Discord.Raw` accepts reviewed, non-interactive JSON. The serializer
+reserves `type`, `custom_id`, flags, and `allowed_mentions`; use `onClick`,
+`onSelect`, and `value` in JSX.
 
 ### Per-element budget
 
@@ -196,6 +229,11 @@ command. The call must happen **before any other response** (within Discord's
 3-second acknowledgement window) — open the modal first, then do long-running
 work in a follow-up message.
 
+Portable `Select` and `RadioButtons` fields and every stable
+`Discord.Modal.*` input are supported. File uploads reach handlers as
+`ChannelUploadedFile[]`: each item includes name, MIME type, size, and hydrated
+agent content parts. Discord CDN URLs do not cross the adapter boundary.
+
 > **Validation re-open is not supported on Discord.** When a user submits a
 > modal, a `bot.onModalSubmit` handler may return `{ errors }`, but Discord has
 > no API to re-open the same modal with per-field validation errors (unlike
@@ -203,10 +241,10 @@ work in a follow-up message.
 > ignored by the adapter — the modal is acknowledged with `deferUpdate`
 > regardless. Validate inputs before calling `openModal`, or post a follow-up
 > message to report any submission errors.
->
-> Only `TextInput` fields are supported in Discord modals. `ModalSelect` and
-> `RadioButtons` elements are rejected at render time with a `ModalRenderError`
-> (which `openModal` surfaces as `{ ok: false, error }`).
+
+Message `<Input>` uses a reserved opaque control. The adapter opens its modal
+before normal interaction dispatch and sends the submitted string to the
+original `onSubmit` handler. An expired control gets a short ephemeral error.
 
 ### Ephemeral messages
 
@@ -264,7 +302,9 @@ only through capability-gated `thread` methods, which this adapter backs:
   `channel.messages.fetch`), each a `ThreadMessage` (`{ user?, text, ts?,
 isBot? }`).
 - `thread.lookupUser(query)` — resolve a name/handle to a `ProviderActor` by
-  searching guild members.
+  searching the configured guild. Discord sends mentions with `parse: []` and
+  allows only user IDs returned by this lookup; user text cannot ping
+  `@everyone`, roles, or unapproved users.
 - `thread.postFile({ bytes, filename, title?, altText? })` — upload a file
   into the channel as an attachment.
 
@@ -305,13 +345,9 @@ in `ctx.text`.
 
 ## What's NOT in v1
 
-- **Modal limitations** — text-input modals are supported (up to 5 fields).
-  `ModalSelect` and `RadioButtons` elements are rejected at render time.
-  Validation re-open (`response_action: "errors"`) is not supported — Discord
-  has no API for it; submit errors should be posted as a follow-up message
-  instead.
+- Modal dismissal events and validation re-open. Discord exposes neither API;
+  post a follow-up message when submitted values fail app validation.
 - OAuth / multi-guild install (single bot token only)
-- Durable (Redis/DB) `ActionStore` — in-memory only; actions expire on restart
 - Proactive posting (bot replies only to turns it's part of)
 - Auto-sharding (single `Client` instance)
 - Native interaction-ephemeral (`supportsEphemeral` is `false`; use

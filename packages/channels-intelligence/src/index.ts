@@ -58,6 +58,10 @@ export {
 } from "./delivery-transport.js";
 export type { ChannelProviderDeliveryDetails } from "./delivery-transport.js";
 export { ChannelFileDeliveryUnknownError } from "./delivery-adapter.js";
+export { ChannelTaskHttpClient } from "./channel-tasks.js";
+export type { ChannelTaskHttpClientOptions } from "./channel-tasks.js";
+export { ChannelHistoryHttpClient } from "./channel-history.js";
+export type { ChannelHistoryHttpClientOptions } from "./channel-history.js";
 export type {
   ChannelDeliveryTranscript,
   ChannelTranscriptActor,

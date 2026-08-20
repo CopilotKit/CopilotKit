@@ -11,6 +11,7 @@ import type { RichTextRun } from "../markdown-to-rich-text.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
 import { serializeSlackNativeNode } from "../native-codec.js";
 import { validateSlackBlockKit } from "../block-kit-validation.js";
+import { validateSlackDataVisualization } from "../data-visualization.js";
 
 /**
  * Stable `action_id` of the native AI feedback row's `feedback_buttons`
@@ -279,6 +280,10 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       out.push({ type: "divider" } as KnownBlock);
       return;
     }
+    case "chart": {
+      out.push(renderPortableChart(node));
+      return;
+    }
     case "input": {
       out.push({
         type: "input",
@@ -356,6 +361,52 @@ function renderNode(node: ChannelNode, out: KnownBlock[]): void {
       // Unknown intrinsic — skip silently (total renderer).
       return;
   }
+}
+
+/** Render portable chart data through Slack's native data visualization block. */
+function renderPortableChart(node: ChannelNode): KnownBlock {
+  const props = node.props ?? {};
+  const portableType = String(props.type ?? "verticalBar");
+  if (
+    !["verticalBar", "horizontalBar", "line", "pie", "donut"].includes(
+      portableType,
+    )
+  ) {
+    throw new Error(`Slack received unsupported chart type "${portableType}".`);
+  }
+  const title = truncateText(String(props.title || "Chart"), 50);
+  const rawData = Array.isArray(props.data)
+    ? (props.data as Array<{ label?: unknown; value?: unknown }>)
+    : [];
+  const limit = portableType === "pie" || portableType === "donut" ? 12 : 20;
+  const data = rawData.slice(0, limit).map((point) => ({
+    label: truncateText(String(point.label ?? ""), 20),
+    value: point.value,
+  }));
+  const chart =
+    portableType === "pie" || portableType === "donut"
+      ? { type: "pie", segments: data }
+      : {
+          type: portableType === "line" ? "line" : "bar",
+          series: [
+            {
+              name: truncateText(String(props.yAxisTitle || "Value"), 20),
+              data,
+            },
+          ],
+          axis_config: {
+            categories: data.map((point) => point.label),
+            ...(props.xAxisTitle
+              ? { x_label: truncateText(String(props.xAxisTitle), 50) }
+              : {}),
+            ...(props.yAxisTitle
+              ? { y_label: truncateText(String(props.yAxisTitle), 50) }
+              : {}),
+          },
+        };
+  const block = { type: "data_visualization", title, chart };
+  validateSlackDataVisualization(block, "Slack.Portable");
+  return block as unknown as KnownBlock;
 }
 
 /**

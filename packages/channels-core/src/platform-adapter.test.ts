@@ -9,6 +9,7 @@ describe("FakeAdapter", () => {
       onTurn: (t) => {
         got = t.userText;
       },
+      onScheduledTask: () => {},
       onInteraction: () => {},
       onWelcome: () => {},
       onCommand: () => {},
@@ -28,6 +29,7 @@ describe("FakeAdapter", () => {
     let id: string | undefined;
     await a.start({
       onTurn: () => {},
+      onScheduledTask: () => {},
       onInteraction: (e) => {
         id = e.id;
       },

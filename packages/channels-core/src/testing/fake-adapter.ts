@@ -24,6 +24,7 @@ import type {
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
+  IncomingScheduledTask,
   ModalSubmitResult,
 } from "../platform-adapter.js";
 import type { CommandSpec } from "../commands.js";
@@ -41,6 +42,9 @@ type FakeIngressSink = {
   ): void | Promise<void>;
   onInteraction(
     event: OptionalIdentity<InteractionEvent>,
+  ): void | Promise<void>;
+  onScheduledTask(
+    event: OptionalIdentity<IncomingScheduledTask>,
   ): void | Promise<void>;
   onCommand(event: OptionalIdentity<IncomingCommand>): void | Promise<void>;
   onThreadStarted(

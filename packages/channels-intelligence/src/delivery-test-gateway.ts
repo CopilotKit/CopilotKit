@@ -77,13 +77,25 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
   async deliver(delivery: PreparedChannelDelivery): Promise<void> {
     const expectedLeaves = this.leaves + 1;
     this.currentDelivery = delivery;
-    this.invitationHandler?.({
-      protocol: "channel_delivery_v1",
-      deliveryId: delivery.deliveryId,
-      canonicalThreadId: delivery.canonicalThreadId,
-      channelName: delivery.channelName,
-      adapter: delivery.adapter,
-    });
+    this.invitationHandler?.(
+      delivery.turn.input.kind === "scheduled_task"
+        ? {
+            protocol: "channel_delivery_v1",
+            kind: "scheduled_task",
+            deliveryId: delivery.deliveryId,
+            surfaceId: delivery.surfaceId,
+            channelName: delivery.channelName,
+            adapter: delivery.adapter,
+          }
+        : {
+            protocol: "channel_delivery_v1",
+            deliveryId: delivery.deliveryId,
+            canonicalThreadId: delivery.canonicalThreadId,
+            surfaceId: delivery.surfaceId,
+            channelName: delivery.channelName,
+            adapter: delivery.adapter,
+          },
+    );
     const deadline = Date.now() + 1_000;
     while (this.leaves !== expectedLeaves) {
       if (Date.now() >= deadline) {
@@ -97,7 +109,7 @@ export class DeliveryTestGateway implements RealtimeGatewaySession {
 /** Build one valid prepared delivery for SDK integration tests. */
 export function preparedDelivery(
   suffix: string,
-  adapter: "slack" | "teams",
+  adapter: "slack" | "teams" | "discord",
   input:
     | PreparedChannelDelivery["turn"]["input"]
     | {
@@ -142,6 +154,7 @@ export function preparedDelivery(
     appUserId: `app_user_${idSuffix}`,
     channelId: "channel_support",
     channelName: "support",
+    surfaceId: "surface_support_01",
     adapter,
     tenant: { id: `tenant_${idSuffix}` },
     installation: { id: `installation_${idSuffix}` },

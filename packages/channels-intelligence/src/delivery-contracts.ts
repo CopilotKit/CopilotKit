@@ -5,6 +5,9 @@ export const CHANNEL_DELIVERY_PROTOCOL = "channel_delivery_v1" as const;
 export const SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY =
   "slack_stream_append_full_text_v1" as const;
 
+/** Declares that this Runtime can execute managed Discord deliveries. */
+export const DISCORD_DELIVERY_CAPABILITY = "discord_delivery_v1" as const;
+
 /** Fixed one-use delivery join-token lifetime. */
 export const CHANNEL_DELIVERY_JOIN_TOKEN_TTL_SECONDS = 60;
 
@@ -109,6 +112,46 @@ export type ChannelProviderPayload =
       kind: "slack.image.create" | "teams.image.create";
       fileHandle: string;
       altText: string;
+    }
+  | {
+      kind: "discord.message.create";
+      content?: string;
+      components?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+      flags?: 32_768;
+      attachmentHandles?: readonly string[];
+      allowedUserMentions?: readonly string[];
+    }
+  | {
+      kind: "discord.message.replace";
+      providerReference: string;
+      content?: string;
+      components?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+      flags?: 32_768;
+      attachmentHandles?: readonly string[];
+      allowedUserMentions?: readonly string[];
+    }
+  | {
+      kind: "discord.message.delete";
+      providerReference: string;
+    }
+  | {
+      kind: "discord.file.create";
+      fileHandle: string;
+      filename: string;
+      description?: string;
+    }
+  | { kind: "discord.typing.start" }
+  | {
+      kind: "discord.reaction.add" | "discord.reaction.remove";
+      providerReference: string;
+      reaction: string;
+    }
+  | { kind: "discord.user.lookup"; query: string }
+  | {
+      kind: "discord.modal.open";
+      title: string;
+      customId: string;
+      components: ReadonlyArray<Readonly<Record<string, unknown>>>;
     };
 
 export type ChannelTerminalPayload = {
@@ -379,6 +422,54 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.fileHandle, 1, 128) &&
         boundedString(value.altText, 1, 2_000)
       );
+    case "discord.message.create":
+      return isDiscordMessagePayload(value, false);
+    case "discord.message.replace":
+      return isDiscordMessagePayload(value, true);
+    case "discord.message.delete":
+      return (
+        hasExactFields(value, ["kind", "providerReference"]) &&
+        validReference(value.providerReference)
+      );
+    case "discord.file.create":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "fileHandle", "filename", "description"],
+          ["description"],
+        ) &&
+        boundedString(value.fileHandle, 1, 128) &&
+        boundedString(value.filename, 1, 512) &&
+        optionalBoundedString(value.description, 1_024)
+      );
+    case "discord.typing.start":
+      return hasExactFields(value, ["kind"]);
+    case "discord.reaction.add":
+    case "discord.reaction.remove":
+      return (
+        hasExactFields(value, ["kind", "providerReference", "reaction"]) &&
+        validReference(value.providerReference) &&
+        isValidReactionName(value.reaction)
+      );
+    case "discord.user.lookup":
+      return (
+        hasExactFields(value, ["kind", "query"]) &&
+        typeof value.query === "string" &&
+        boundedString(value.query, 1, 100) &&
+        value.query.trim().length > 0
+      );
+    case "discord.modal.open":
+      return (
+        hasExactFields(value, ["kind", "title", "customId", "components"]) &&
+        typeof value.title === "string" &&
+        boundedString(value.title, 1, 45) &&
+        value.title.trim().length > 0 &&
+        boundedString(value.customId, 1, 100) &&
+        Array.isArray(value.components) &&
+        value.components.length >= 1 &&
+        value.components.length <= 40 &&
+        value.components.every(isRecord)
+      );
     case "channel.delivery.terminal":
       return (
         hasExactFields(value, ["kind", "status", "code"]) &&
@@ -398,6 +489,41 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
     default:
       return false;
   }
+}
+
+function isDiscordMessagePayload(
+  value: Record<string, unknown>,
+  replace: boolean,
+): boolean {
+  const fields = [
+    "kind",
+    ...(replace ? ["providerReference"] : []),
+    "content",
+    "components",
+    "flags",
+    "attachmentHandles",
+    "allowedUserMentions",
+  ];
+  return (
+    hasExactFields(value, fields, [
+      "content",
+      "components",
+      "flags",
+      "attachmentHandles",
+      "allowedUserMentions",
+    ]) &&
+    (!replace || validReference(value.providerReference)) &&
+    optionalBoundedString(value.content, 2_000) &&
+    optionalRecordArray(value.components, 40) &&
+    (value.flags === undefined || value.flags === 32_768) &&
+    optionalBoundedStringArray(value.attachmentHandles, 10, 128) &&
+    (value.allowedUserMentions === undefined ||
+      (Array.isArray(value.allowedUserMentions) &&
+        value.allowedUserMentions.length <= 100 &&
+        value.allowedUserMentions.every(
+          (userId) => typeof userId === "string" && /^\d{17,20}$/.test(userId),
+        )))
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
