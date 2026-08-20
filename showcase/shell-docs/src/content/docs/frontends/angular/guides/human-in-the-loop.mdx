@@ -11,7 +11,7 @@ Angular has two paths with different owners.
 | Pattern | Who chooses the pause? | Angular API |
 | --- | --- | --- |
 | Human-in-the-loop tool | The agent calls a registered browser tool | `registerHumanInTheLoop` |
-| Interrupt | The backend agent emits an AG-UI interrupt | `injectInterrupt` |
+| Interrupt | The backend agent emits an AG-UI interrupt | `AgentStore.interruptController`, `injectInterrupt` |
 
 Use a tool when the model should decide whether to ask. Use an interrupt when
 the backend workflow must stop at a fixed checkpoint.
@@ -88,11 +88,58 @@ There is no handler. CopilotKit supplies one that waits for `respond`, returns
 the decision to the agent, and continues the run. The registration is removed
 when the owning injector is destroyed.
 
-## Handle an interrupt
+## Handle an interrupt from the store
+
+An interrupt is a state of one conversation: this agent, this thread, this run
+is waiting for a decision. The store that already exposes that conversation's
+messages and state exposes its pending interrupt too, so a component that holds
+a store needs nothing else:
+
+```ts title="src/app/ticket-approval.component.ts"
+import { Component } from "@angular/core";
+import { injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-ticket-approval",
+  template: `
+    @let interrupts = store().interruptController;
+
+    @if (interrupts.hasInterrupt()) {
+      <section>
+        <p>{{ interrupts.interrupt()?.message }}</p>
+        <button type="button" (click)="interrupts.resolve({ approved: true })">
+          Approve
+        </button>
+        <button type="button" (click)="interrupts.cancel()">Reject</button>
+      </section>
+    }
+  `,
+})
+export class TicketApprovalComponent {
+  protected readonly store = injectAgentStore("ticketing");
+}
+```
+
+The controller is created and connected with the store, then destroyed when the
+store is torn down or replaced. Standard AG-UI interrupts already retained by
+the agent are visible immediately, and legacy `on_interrupt` events are observed
+for the store's full lifetime.
+
+## Handle an interrupt with a typed controller
 
 `injectInterrupt` subscribes to one agent and exposes the pending decision as
 signals. It supports standard AG-UI interrupts and the legacy
-`on_interrupt` custom event.
+`on_interrupt` custom event. Use it when the store default is not enough — a
+typed payload, an `enabled` filter, or a `handler` that prepares data for the
+view.
+
+<Callout type="warn">
+  Do not render an `injectInterrupt` controller and
+  `store().interruptController` for the same decision. Both independently
+  observe the agent, so the same interrupt becomes visible in both and two UI
+  actions could attempt to resume it. Render only the specialized controller
+  when you need filtering or typed handling.
+</Callout>
 
 ```ts title="src/app/interrupt-panel.component.ts"
 import { Component } from "@angular/core";
@@ -128,7 +175,7 @@ type ReviewRequest = {
 })
 export class InterruptPanelComponent {
   protected readonly controller =
-    injectInterrupt<ReviewRequest>({ agentId: "default" });
+    injectInterrupt<ReviewRequest>("default");
 
   protected asReviewRequest(value: unknown): ReviewRequest {
     return typeof value === "object" && value !== null

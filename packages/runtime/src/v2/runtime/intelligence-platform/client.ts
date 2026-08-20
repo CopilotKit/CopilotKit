@@ -462,7 +462,7 @@ interface ThreadEnvelope {
  * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
  *
  * const intelligence = new CopilotKitIntelligence({
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -478,7 +478,7 @@ interface ThreadEnvelope {
  * const intelligence = new CopilotKitIntelligence({
  *   apiUrl: "https://intelligence.internal",
  *   wsUrl: "wss://realtime.intelligence.internal",
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  * ```
  */

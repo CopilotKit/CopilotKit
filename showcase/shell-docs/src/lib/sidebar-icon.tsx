@@ -157,6 +157,17 @@ const ICONS: Record<string, React.ReactNode> = {
       className="h-4 w-4 shrink-0 rounded-[3px] object-cover"
     />
   ),
+  "custom/claude-managed-agents": (
+    <Image
+      src="/logos/claude.svg"
+      alt=""
+      aria-hidden="true"
+      width={16}
+      height={16}
+      unoptimized
+      className="h-4 w-4 shrink-0 object-contain"
+    />
+  ),
   "custom/arcade": (
     <Image
       src="/logos/arcade.png"

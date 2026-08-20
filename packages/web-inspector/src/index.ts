@@ -1,4 +1,4 @@
-import { LitElement, css, html, nothing, unsafeCSS } from "lit";
+import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
@@ -56,6 +56,12 @@ import {
   isValidDockMode,
 } from "./lib/persistence.js";
 import type { PersistedState } from "./lib/persistence.js";
+import {
+  buildPopOutFeatures,
+  ensureBrandFont,
+  openPopOutWindow,
+} from "./lib/pop-out.js";
+import type { PopOutHandle } from "./lib/pop-out.js";
 import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
 import type {
   InspectorMetadataAction,
@@ -109,6 +115,15 @@ import type {
 export type { Anchor } from "./lib/types.js";
 export { buildCapabilityRows as ɵbuildCapabilityRows };
 export type { CapabilityToolRow as ɵCapabilityToolRow };
+
+export type InspectorOpenOptions = {
+  /** Select the thread that contains the message. */
+  threadId?: string;
+  /** Narrow the Threads view to the agent that owns the thread. */
+  agentId?: string;
+  /** Scroll the selected thread timeline to this message when available. */
+  messageId?: string;
+};
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
@@ -569,6 +584,7 @@ type TimelineItemKind =
 
 type TimelineItem = {
   id: string;
+  messageId?: string;
   kind: TimelineItemKind;
   title: string;
   body?: string;
@@ -942,9 +958,36 @@ function formatTimestamp(ts: string | number): string {
   );
 }
 
+/**
+ * Lit's constructable stylesheets belong to the document that created them.
+ * These child elements move between the app and pop-out documents, so keep
+ * their styles as shadow-root style nodes that travel with the live element.
+ */
+abstract class PortableLitElement extends LitElement {
+  protected override createRenderRoot(): HTMLElement | DocumentFragment {
+    const elementClass = this.constructor as unknown as {
+      elementStyles: readonly (CSSStyleSheet | { cssText: string })[];
+      shadowRootOptions: ShadowRootInit;
+    };
+    const renderRoot =
+      this.shadowRoot ?? this.attachShadow(elementClass.shadowRootOptions);
+
+    for (const style of elementClass.elementStyles) {
+      const styleElement = this.ownerDocument.createElement("style");
+      styleElement.textContent =
+        "cssText" in style
+          ? style.cssText
+          : Array.from(style.cssRules, (rule) => rule.cssText).join("");
+      renderRoot.append(styleElement);
+    }
+
+    return renderRoot;
+  }
+}
+
 // ─── cpk-thread-list ────────────────────────────────────────────────────────
 
-class CpkThreadList extends LitElement {
+class CpkThreadList extends PortableLitElement {
   static properties = {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
@@ -1284,7 +1327,7 @@ class CpkThreadList extends LitElement {
 // Renders the selected thread's read-only timeline, state, raw AG-UI events,
 // and compact technical metadata. External hosts provide a ThreadDebuggerProvider;
 // the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
-export class CpkThreadInspector extends LitElement {
+export class CpkThreadInspector extends PortableLitElement {
   static properties = {
     threadId: { attribute: false },
     provider: { attribute: false },
@@ -1295,6 +1338,8 @@ export class CpkThreadInspector extends LitElement {
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
+    focusMessageId: { attribute: false },
+    focusRequestId: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -1333,6 +1378,8 @@ export class CpkThreadInspector extends LitElement {
    * so the conversation view reflects live streaming output.
    */
   liveMessageVersion = 0;
+  focusMessageId: string | null = null;
+  focusRequestId = 0;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -1355,6 +1402,8 @@ export class CpkThreadInspector extends LitElement {
   private _eventsNotAvailable = false;
   /** True when the /state endpoint returned 501 — don't fall back to live data. */
   private _stateNotAvailable = false;
+  private _scrolledFocusRequestId = 0;
+  private _highlightedFocusRequestId = -1;
   /**
    * Briefly true after a tab switch so the active-tab highlight + a generic
    * "Loading…" placeholder paint before the heavy per-tab render runs. Without
@@ -1798,6 +1847,37 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__status--error {
       color: #c0333a;
+    }
+
+    @keyframes cpk-td-focus-pulse {
+      0% {
+        outline-color: rgba(100, 48, 171, 0);
+        box-shadow: 0 0 0 rgba(100, 48, 171, 0);
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      24%,
+      50% {
+        outline-color: rgba(100, 48, 171, 0.78);
+        box-shadow: 0 7px 20px rgba(100, 48, 171, 0.2);
+      }
+      100% {
+        outline-color: rgba(100, 48, 171, 0);
+        box-shadow: 0 0 0 rgba(100, 48, 171, 0);
+      }
+    }
+
+    .cpk-td__focus-pulse {
+      position: relative;
+      z-index: 1;
+      outline: 2px solid transparent;
+      outline-offset: 3px;
+      animation: cpk-td-focus-pulse 760ms linear;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__focus-pulse {
+        animation-duration: 320ms;
+      }
     }
 
     /* ── Conversation bubbles ────────────────────────────────────────── */
@@ -2353,6 +2433,47 @@ export class CpkThreadInspector extends LitElement {
       this._messagesAbort = null;
       void this.fetchMessages(this.threadId, true);
     }
+
+    const focusedContentChanged =
+      _changed.has("_fetchedEvents") ||
+      _changed.has("agentEventsInput") ||
+      _changed.has("_conversation");
+    if (
+      this.focusMessageId &&
+      (this.focusRequestId > this._scrolledFocusRequestId ||
+        focusedContentChanged)
+    ) {
+      if (this._tab !== "timeline") {
+        this._activatedTabs = new Set([...this._activatedTabs, "timeline"]);
+        this._tab = "timeline";
+        this.requestUpdate();
+      }
+      requestAnimationFrame(() => this.scrollToFocusedMessage());
+    }
+  }
+
+  private scrollToFocusedMessage(): void {
+    if (!this.focusMessageId) return;
+    const message = Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLElement>("[data-message-id]") ?? [],
+    ).find((candidate) => candidate.dataset.messageId === this.focusMessageId);
+    if (!message) return;
+    message.scrollIntoView?.({ block: "center" });
+    this._scrolledFocusRequestId = this.focusRequestId;
+    this.pulseFocusedMessage(message);
+  }
+
+  private pulseFocusedMessage(message: HTMLElement): void {
+    if (this.focusRequestId === this._highlightedFocusRequestId) return;
+    this._highlightedFocusRequestId = this.focusRequestId;
+    message.classList.remove("cpk-td__focus-pulse");
+    void message.offsetWidth;
+    message.classList.add("cpk-td__focus-pulse");
+    message.addEventListener(
+      "animationend",
+      () => message.classList.remove("cpk-td__focus-pulse"),
+      { once: true },
+    );
   }
 
   connectedCallback(): void {
@@ -2822,6 +2943,7 @@ export class CpkThreadInspector extends LitElement {
       if (!item) {
         item = {
           id: `message-${key}`,
+          messageId: key,
           kind: "message",
           title: `${role || "message"} message`,
           body: "",
@@ -3498,6 +3620,7 @@ export class CpkThreadInspector extends LitElement {
         class="cpk-td__timeline-item ${
           isWarning ? "cpk-td__timeline-item--warning" : ""
         }"
+        data-message-id=${item.messageId ?? nothing}
       >
         <div class="cpk-td__timeline-header">
           <span class="cpk-td__timeline-kind"
@@ -3691,6 +3814,7 @@ export class CpkThreadInspector extends LitElement {
         class="cpk-td__bubble ${
           isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
         }"
+        data-message-id=${item.id}
       >
         <div
           class="cpk-td__bubble-inner ${
@@ -4126,7 +4250,7 @@ export {
 /** Memory kind values including the "all" sentinel used by the filter UI. */
 type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
 
-class CpkMemoryList extends LitElement {
+class CpkMemoryList extends PortableLitElement {
   static properties = {
     memories: { attribute: false },
     recallResults: { attribute: false },
@@ -4832,6 +4956,9 @@ export class WebInspectorElement extends LitElement {
   private selectedThreadId: string | null = null;
   private selectedRealThreadIsExplicit = false;
   private selectedLocalExampleThreadId: string | null = null;
+  private requestedThreadId: string | null = null;
+  private focusedThreadMessageId: string | null = null;
+  private threadFocusRequestId = 0;
   private threadListWidth = 290;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
@@ -4852,6 +4979,8 @@ export class WebInspectorElement extends LitElement {
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
+  private popOut: PopOutHandle | null = null;
+  private inspectorPortal: HTMLDivElement | null = null;
   private previousBodyMargins: { left: string; bottom: string } | null = null;
   private transitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
@@ -5421,6 +5550,17 @@ export class WebInspectorElement extends LitElement {
     if (!this.areThreadEndpointsAvailable()) return;
     const { displayThreads } = this.getActiveThreadsState();
     const previousSelectedThreadId = this.selectedThreadId;
+
+    if (this.requestedThreadId !== null) {
+      this.selectedThreadId = this.requestedThreadId;
+      this.selectedRealThreadIsExplicit = true;
+      if (
+        displayThreads.some((thread) => thread.id === this.requestedThreadId)
+      ) {
+        this.requestedThreadId = null;
+      }
+      return;
+    }
 
     if (
       this.selectedLocalExampleThreadId !== null &&
@@ -6328,6 +6468,35 @@ export class WebInspectorElement extends LitElement {
     return this.agentEvents.get(this.selectedContext) ?? [];
   }
 
+  private focusThread(options: InspectorOpenOptions): void {
+    if (!options.threadId) return;
+    this.pendingPersistedMenu = null;
+    this.selectedMenu = "threads";
+    this.settingsOpen = false;
+    this.lastSelectedMenuByGroup.threads = "threads";
+    this.contextMenuOpen = false;
+    this.selectedLocalExampleThreadId = null;
+    this.exampleTourActive = false;
+    this.selectedContext =
+      options.agentId &&
+      this.contextOptions.some((option) => option.key === options.agentId)
+        ? options.agentId
+        : "all-agents";
+    this.requestedThreadId = options.threadId;
+    this.selectedThreadId = options.threadId;
+    this.selectedRealThreadIsExplicit = true;
+    this.focusedThreadMessageId = options.messageId ?? null;
+    this.threadFocusRequestId += 1;
+
+    const { displayThreads } = this.getActiveThreadsState();
+    if (displayThreads.some((thread) => thread.id === options.threadId)) {
+      this.requestedThreadId = null;
+    }
+
+    this.persistState();
+    this.requestUpdate();
+  }
+
   private filterEvents(events: InspectorEvent[]): InspectorEvent[] {
     const query = this.eventFilterText.trim().toLowerCase();
 
@@ -6613,9 +6782,41 @@ ${argsString}</pre
     return payload;
   }
 
-  private async copyToClipboard(text: string, eventId: string): Promise<void> {
+  /** Prefer the window that owns the UI: the popup while popped out. */
+  private getClipboard(event?: Event): Clipboard | undefined {
+    if (this.isPoppedOut) {
+      const popped = this.popOut?.win.navigator.clipboard;
+      if (popped) {
+        return popped;
+      }
+    }
+    const view = event && "view" in event ? (event as UIEvent).view : null;
+    const viewClipboard = view?.navigator.clipboard;
+    if (viewClipboard) {
+      return viewClipboard;
+    }
+    // Clipboard is required on Navigator in lib.dom, but missing in some runtimes.
+    if (typeof navigator !== "undefined" && "clipboard" in navigator) {
+      return navigator.clipboard;
+    }
+    return undefined;
+  }
+
+  private async copyToClipboard(
+    text: string,
+    eventId: string,
+    event?: Event,
+  ): Promise<void> {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard) {
+      console.error(
+        "Failed to copy to clipboard:",
+        "Clipboard API is not available",
+      );
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(text);
+      await clipboard.writeText(text);
       this.copiedEvents.add(eventId);
       this.requestUpdate();
 
@@ -7443,6 +7644,15 @@ ${argsString}</pre
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
+      window.addEventListener("beforeunload", this.handleAppBeforeUnload);
+      const viteHot = (
+        import.meta as ImportMeta & {
+          hot?: { on: (event: string, handler: () => void) => void };
+        }
+      ).hot;
+      if (viteHot) {
+        viteHot.on("vite:beforeUpdate", this.handleAppBeforeUnload);
+      }
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
@@ -7454,24 +7664,19 @@ ${argsString}</pre
   }
 
   private ensureBrandFonts(): void {
-    const FONT_LINK_ID = "cpk-inspector-brand-fonts";
-    if (document.getElementById(FONT_LINK_ID)) return;
-    const link = document.createElement("link");
-    link.id = FONT_LINK_ID;
-    link.rel = "stylesheet";
-    link.href =
-      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap";
-    document.head.appendChild(link);
+    ensureBrandFont(document);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.closePopOut();
     if (typeof window !== "undefined") {
       window.removeEventListener("resize", this.handleResize);
       window.removeEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
+      window.removeEventListener("beforeunload", this.handleAppBeforeUnload);
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -7549,7 +7754,11 @@ ${argsString}</pre
   }
 
   render() {
-    return this.isOpen ? this.renderWindow() : this.renderButton();
+    return this.isOpen
+      ? html`
+          <div data-inspector-portal-anchor></div>
+        `
+      : this.renderButton();
   }
 
   protected willUpdate(): void {
@@ -7557,6 +7766,7 @@ ${argsString}</pre
   }
 
   protected updated(): void {
+    this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
 
@@ -7565,7 +7775,7 @@ ${argsString}</pre
       return;
     }
 
-    const navigation = this.shadowRoot?.querySelector<HTMLElement>(
+    const navigation = this.activeRoot.querySelector<HTMLElement>(
       'nav[aria-label="Agent navigation"]',
     );
     if (!navigation) {
@@ -7746,17 +7956,30 @@ ${argsString}</pre
   private renderWindow() {
     const windowState = this.contextState.window;
     const isDocked = this.dockMode !== "floating";
+    const isPoppedOut = this.isPoppedOut;
     const isTransitioning = this.hasAttribute("data-transitioning");
+    const disableDrag = isDocked || isPoppedOut;
 
-    const windowStyles = isDocked
-      ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
-      : {
-          width: `${Math.round(windowState.size.width)}px`,
-          height: `${Math.round(windowState.size.height)}px`,
-          minWidth: `${MIN_WINDOW_WIDTH}px`,
-          minHeight: `${MIN_WINDOW_HEIGHT}px`,
+    const windowStyles = isPoppedOut
+      ? {
+          position: "fixed",
+          inset: "0",
+          width: "100%",
+          height: "100%",
+          minWidth: "0",
+          minHeight: "0",
+          borderRadius: "0",
           overflowX: "hidden",
-        };
+        }
+      : isDocked
+        ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
+        : {
+            width: `${Math.round(windowState.size.width)}px`,
+            height: `${Math.round(windowState.size.height)}px`,
+            minWidth: `${MIN_WINDOW_WIDTH}px`,
+            minHeight: `${MIN_WINDOW_HEIGHT}px`,
+            overflowX: "hidden",
+          };
 
     const hasContextDropdown = this.contextOptions.some(
       (option) => option.key !== "all-agents",
@@ -7784,7 +8007,7 @@ ${argsString}</pre
         data-transitioning=${isTransitioning}
       >
         ${
-          isDocked
+          isDocked && !isPoppedOut
             ? html`
               <div
                 class="dock-resize-handle pointer-events-auto"
@@ -7803,17 +8026,17 @@ ${argsString}</pre
         >
           <div
             class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
-              isDocked
+              disableDrag
                 ? ""
                 : this.isDragging && this.pointerContext === "window"
                   ? "cursor-grabbing"
                   : "cursor-grab"
             }"
             data-drag-context="window"
-            @pointerdown=${isDocked ? undefined : this.handlePointerDown}
-            @pointermove=${isDocked ? undefined : this.handlePointerMove}
-            @pointerup=${isDocked ? undefined : this.handlePointerUp}
-            @pointercancel=${isDocked ? undefined : this.handlePointerCancel}
+            @pointerdown=${disableDrag ? undefined : this.handlePointerDown}
+            @pointermove=${disableDrag ? undefined : this.handlePointerMove}
+            @pointerup=${disableDrag ? undefined : this.handlePointerUp}
+            @pointercancel=${disableDrag ? undefined : this.handlePointerCancel}
           >
             <div
               class="inspector-account-strip flex flex-wrap items-center gap-3 px-4 py-3"
@@ -7834,7 +8057,25 @@ ${argsString}</pre
                   ${agentSelector}
                 </div>
                 <div class="flex items-center gap-1">
-                  ${this.renderDockControls()}
+                  ${
+                    isPoppedOut
+                      ? nothing
+                      : html`
+                          ${this.renderDockControls()}
+                          <button
+                            class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                            type="button"
+                            aria-label="Detach Inspector into its own window"
+                            title="Detach into its own window"
+                            data-testid="cpk-inspector-pop-out"
+                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                            .click=${this.requestPopOut}
+                            @click=${this.requestPopOut}
+                          >
+                            ${this.renderIcon("PictureInPicture2")}
+                          </button>
+                        `
+                  }
                   <button
                     class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       this.settingsOpen
@@ -7844,21 +8085,30 @@ ${argsString}</pre
                     type="button"
                     aria-label="Settings"
                     aria-pressed=${this.settingsOpen}
+                    title="Settings"
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${this.handleSettingsToggle}
                   >
-                    ${this.renderIcon("Settings")}
+                    <span class="inspector-account-control-icon" aria-hidden="true">
+                      ${this.renderIcon("Settings")}
+                    </span>
                   </button>
-                  <button
-                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                    type="button"
-                    aria-label="Close Web Inspector"
-                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                    @pointerdown=${this.handleClosePointerDown}
-                    @click=${this.handleCloseClick}
-                  >
-                    ${this.renderIcon("X")}
-                  </button>
+                  ${
+                    isPoppedOut
+                      ? nothing
+                      : html`
+                          <button
+                            class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                            type="button"
+                            aria-label="Close Web Inspector"
+                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                            @pointerdown=${this.handleClosePointerDown}
+                            @click=${this.handleCloseClick}
+                          >
+                            ${this.renderIcon("X")}
+                          </button>
+                        `
+                  }
                 </div>
               </div>
             </div>
@@ -7978,27 +8228,33 @@ ${argsString}</pre
             </div>
           </div>
         </div>
-        <div
-          class="resize-handle pointer-events-auto absolute bottom-1 right-1 flex h-5 w-5 cursor-nwse-resize items-center justify-center text-gray-400 transition hover:text-gray-600"
-          role="presentation"
-          aria-hidden="true"
-          @pointerdown=${this.handleResizePointerDown}
-          @pointermove=${this.handleResizePointerMove}
-          @pointerup=${this.handleResizePointerUp}
-          @pointercancel=${this.handleResizePointerCancel}
-        >
-          <svg
-            class="h-3 w-3"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-width="1.5"
-          >
-            <path d="M5 15L15 5" />
-            <path d="M9 15L15 9" />
-          </svg>
-        </div>
+        ${
+          isPoppedOut
+            ? nothing
+            : html`
+                <div
+                  class="resize-handle pointer-events-auto absolute bottom-1 right-1 flex h-5 w-5 cursor-nwse-resize items-center justify-center text-gray-400 transition hover:text-gray-600"
+                  role="presentation"
+                  aria-hidden="true"
+                  @pointerdown=${this.handleResizePointerDown}
+                  @pointermove=${this.handleResizePointerMove}
+                  @pointerup=${this.handleResizePointerUp}
+                  @pointercancel=${this.handleResizePointerCancel}
+                >
+                  <svg
+                    class="h-3 w-3"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.5"
+                  >
+                    <path d="M5 15L15 5" />
+                    <path d="M9 15L15 9" />
+                  </svg>
+                </div>
+              `
+        }
       </section>
     `;
   }
@@ -8269,6 +8525,139 @@ ${argsString}</pre
     this.closeInspector();
   };
 
+  private get isPoppedOut(): boolean {
+    return this.popOut !== null && !this.popOut.win.closed;
+  }
+
+  private get activeRoot(): ParentNode {
+    if (this.isPoppedOut) {
+      return this.popOut!.win.document;
+    }
+    return this.renderRoot;
+  }
+
+  private getPopOutCssTexts(): string[] {
+    const fromStatic = WebInspectorElement.styles.map((sheet) =>
+      "cssText" in sheet ? String(sheet.cssText) : "",
+    );
+    const overlay = `
+    html, body { margin: 0; height: 100%; background: #ffffff; }
+    .inspector-window {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      min-height: 0 !important;
+      border-radius: 0 !important;
+    }
+  `;
+    return [...fromStatic.filter(Boolean), overlay];
+  }
+
+  // Also bound as button.click so a blocked popup throws out of element.click().
+  // jsdom swallows errors from click event listeners.
+  private requestPopOut = (): void => {
+    if (this.isPoppedOut) return;
+    const size = this.contextState.window.size;
+    const handle = openPopOutWindow({
+      open: window.open.bind(window),
+      features: buildPopOutFeatures(size),
+      title: "CopilotKit Inspector",
+      cssTexts: this.getPopOutCssTexts(),
+      sourceDocument: document,
+      onClose: () => this.handlePopOutClosed(),
+    });
+    this.popOut = handle;
+    try {
+      defineWebInspector(handle.win.customElements);
+      if (this.dockMode !== "floating") {
+        this.removeDockStyles();
+      }
+      handle.win.addEventListener(
+        "pointerdown",
+        this.handleGlobalPointerDown as EventListener,
+      );
+      this.syncInspectorPortal();
+      this.requestUpdate();
+    } catch (error) {
+      this.popOut = null;
+      this.unbindPopOutPointerDown(handle.win);
+      handle.close();
+      if (this.isConnected && this.isOpen && this.dockMode !== "floating") {
+        this.applyDockStyles();
+      }
+      this.requestUpdate();
+      throw error;
+    }
+  };
+
+  private unbindPopOutPointerDown(win: Window): void {
+    try {
+      win.removeEventListener(
+        "pointerdown",
+        this.handleGlobalPointerDown as EventListener,
+      );
+    } catch {
+      // Popup window may already be gone.
+    }
+  }
+
+  private handlePopOutClosed = (): void => {
+    const handle = this.popOut;
+    if (!handle) return;
+    this.popOut = null;
+    this.unbindPopOutPointerDown(handle.win);
+    this.syncInspectorPortal();
+    if (this.isConnected && this.isOpen && this.dockMode !== "floating") {
+      this.applyDockStyles();
+    }
+    this.requestUpdate();
+  };
+
+  private closePopOut(): void {
+    const handle = this.popOut;
+    if (!handle) return;
+    this.handlePopOutClosed();
+    handle.close();
+  }
+
+  private handleAppBeforeUnload = (): void => {
+    this.closePopOut();
+  };
+
+  private syncInspectorPortal(): void {
+    if (!this.inspectorPortal) {
+      const portal = (this.ownerDocument ?? document).createElement("div");
+      portal.dataset.inspectorPortal = "true";
+      portal.style.display = "contents";
+      this.inspectorPortal = portal;
+    }
+
+    if (!this.isOpen) {
+      render(nothing, this.inspectorPortal, {
+        host: this,
+        creationScope: this.ownerDocument ?? document,
+      });
+      this.inspectorPortal.remove();
+      return;
+    }
+
+    render(this.renderWindow(), this.inspectorPortal, {
+      host: this,
+      creationScope: this.ownerDocument ?? document,
+    });
+
+    const target = this.isPoppedOut
+      ? this.popOut!.win.document.body
+      : this.renderRoot.querySelector<HTMLElement>(
+          "[data-inspector-portal-anchor]",
+        );
+    if (target && this.inspectorPortal.parentNode !== target) {
+      target.appendChild(this.inspectorPortal);
+    }
+  }
+
   private handleResizePointerDown = (event: PointerEvent) => {
     event.stopPropagation();
     event.preventDefault();
@@ -8372,6 +8761,9 @@ ${argsString}</pre
   };
 
   private handleResize = () => {
+    if (this.isPoppedOut) {
+      return;
+    }
     this.measureContext("button");
     this.applyAnchorPosition("button");
 
@@ -8642,6 +9034,9 @@ ${argsString}</pre
   }
 
   private updateHostTransform(context: ContextKey = this.activeContext): void {
+    if (this.isPoppedOut) {
+      return;
+    }
     if (context !== this.activeContext) {
       return;
     }
@@ -8703,6 +9098,9 @@ ${argsString}</pre
   }
 
   private applyAnchorPosition(context: ContextKey): void {
+    if (this.isPoppedOut) {
+      return;
+    }
     if (typeof window === "undefined") {
       return;
     }
@@ -8731,7 +9129,17 @@ ${argsString}</pre
     this.draggedDuringInteraction = false;
   }
 
-  private openInspector(source: InspectorOpenSource): void {
+  public openInspector(
+    source: InspectorOpenSource,
+    options: InspectorOpenOptions = {},
+  ): void {
+    if (options.threadId) {
+      this.focusThread(options);
+    }
+
+    if (this.isPoppedOut) {
+      return;
+    }
     if (this.isOpen) {
       return;
     }
@@ -8773,6 +9181,9 @@ ${argsString}</pre
   }
 
   private closeInspector(): void {
+    if (this.isPoppedOut) {
+      return;
+    }
     if (!this.isOpen) {
       return;
     }
@@ -9677,7 +10088,7 @@ ${argsString}</pre
       THREADS_EXAMPLE_TOUR_STEPS[0]!;
     if (!step) return;
     void this.updateComplete.then(() => {
-      const details = this.shadowRoot?.querySelector("cpk-thread-details") as
+      const details = this.activeRoot.querySelector("cpk-thread-details") as
         | (ɵCpkThreadDetails & { selectTab?: (id: ThreadDetailsTab) => void })
         | null;
       details?.selectTab?.(step.tab);
@@ -9738,6 +10149,8 @@ ${argsString}</pre
     threadId: string,
     showingExamples: boolean,
   ): void {
+    this.requestedThreadId = null;
+    this.focusedThreadMessageId = null;
     if (
       showingExamples &&
       this.selectedThreadId === threadId &&
@@ -10095,7 +10508,7 @@ ${argsString}</pre
 
   /** Reconciles the rendered media node with its current lifecycle. */
   private syncThreadsExampleOverviewVideo(): void {
-    const video = this.shadowRoot?.querySelector<HTMLVideoElement>(
+    const video = this.activeRoot.querySelector<HTMLVideoElement>(
       ".cpk-threads-overview-video",
     );
     if (!video) {
@@ -10249,7 +10662,9 @@ ${argsString}</pre
   }
 
   /** Copy the static, docs-backed Rich Threads repair prompt. */
-  private handleThreadsSetupPromptCopy = async (): Promise<void> => {
+  private handleThreadsSetupPromptCopy = async (
+    event?: Event,
+  ): Promise<void> => {
     const generation = (this.threadsSetupPromptCopyGeneration += 1);
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
@@ -10258,13 +10673,14 @@ ${argsString}</pre
     this.threadsSetupPromptCopyState = "idle";
     this.requestUpdate();
 
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) {
       this.showThreadsSetupPromptCopyState("error", generation);
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
+      await clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
       this.showThreadsSetupPromptCopyState("copied", generation);
     } catch {
       this.showThreadsSetupPromptCopyState("error", generation);
@@ -11323,6 +11739,8 @@ ${argsString}</pre
                     .liveMessageVersion=${
                       this.liveMessageVersion.get(selectedThread.id) ?? 0
                     }
+                    .focusMessageId=${this.focusedThreadMessageId}
+                    .focusRequestId=${this.threadFocusRequestId}
                     .agentStateInput=${this.getLatestStateForAgent(
                       selectedThread.agentId,
                     )}
@@ -11554,7 +11972,8 @@ ${argsString}</pre
                 return html`
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
-                    @click=${() => this.toggleRowExpansion(event.id)}
+                    @click=${(clickEvent: Event) =>
+                      this.toggleRowExpansion(event.id, clickEvent)}
                   >
                     <td
                       class="border-l border-r border-b border-gray-200 px-3 py-2"
@@ -11595,7 +12014,11 @@ ${prettyEvent}</pre
                                 }"
                                 @click=${(e: Event) => {
                                   e.stopPropagation();
-                                  this.copyToClipboard(prettyEvent, event.id);
+                                  this.copyToClipboard(
+                                    prettyEvent,
+                                    event.id,
+                                    e,
+                                  );
                                 }}
                               >
                                 ${
@@ -12069,7 +12492,7 @@ ${prettyEvent}</pre
 
     if (key === "ag-ui-events" || key === "agents") {
       requestAnimationFrame(() => {
-        const scroller = this.shadowRoot?.getElementById("cpk-main-scroll");
+        const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
         if (scroller) scroller.scrollTop = 0;
       });
     }
@@ -12861,7 +13284,7 @@ ${prettyEvent}</pre
                     class="cpk-copy-btn"
                     @click=${(e: Event) => {
                       e.stopPropagation();
-                      void this.copyContextValue(id, `${id}:id`);
+                      void this.copyContextValue(id, `${id}:id`, e);
                     }}
                   >
                     ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
@@ -12879,7 +13302,7 @@ ${prettyEvent}</pre
                           class="cpk-copy-btn"
                           @click=${(e: Event) => {
                             e.stopPropagation();
-                            void this.copyContextValue(context.value, id);
+                            void this.copyContextValue(context.value, id, e);
                           }}
                         >
                           ${
@@ -12972,15 +13395,17 @@ ${prettyEvent}</pre
   private async copyContextValue(
     value: unknown,
     contextId: string,
+    event?: Event,
   ): Promise<void> {
-    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) {
       console.warn("Clipboard API is not available in this environment.");
       return;
     }
 
     const serialized = this.formatContextValue(value);
     try {
-      await navigator.clipboard.writeText(serialized);
+      await clipboard.writeText(serialized);
       this.copiedContextItems.add(contextId);
       this.requestUpdate();
       setTimeout(() => {
@@ -13007,9 +13432,12 @@ ${prettyEvent}</pre
     }
 
     const clickedDropdown = event.composedPath().some((node) => {
+      const candidate = node as {
+        getAttribute?: (name: string) => string | null;
+      };
       return (
-        node instanceof HTMLElement &&
-        node.dataset?.contextDropdownRoot === "true"
+        typeof candidate.getAttribute === "function" &&
+        candidate.getAttribute("data-context-dropdown-root") === "true"
       );
     });
 
@@ -13019,9 +13447,14 @@ ${prettyEvent}</pre
     }
   };
 
-  private toggleRowExpansion(eventId: string): void {
+  private toggleRowExpansion(eventId: string, event?: Event): void {
     // Don't toggle if user is selecting text
-    const selection = window.getSelection();
+    const target = event?.currentTarget;
+    const ownerDocument =
+      target && "ownerDocument" in target
+        ? (target as Node).ownerDocument
+        : this.ownerDocument;
+    const selection = ownerDocument?.getSelection();
     if (selection && selection.toString().length > 0) {
       return;
     }
@@ -13353,9 +13786,16 @@ ${prettyEvent}</pre
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
-    const target = event.target instanceof HTMLElement ? event.target : null;
-    const button = target?.closest(".announcement-code__copy");
-    if (!(button instanceof HTMLButtonElement)) {
+    const target = event.target as {
+      closest?: (selector: string) => Element | null;
+    } | null;
+    const closest =
+      typeof target?.closest === "function"
+        ? target.closest(".announcement-code__copy")
+        : null;
+    const button =
+      closest?.tagName === "BUTTON" ? (closest as HTMLButtonElement) : null;
+    if (!button) {
       // banner_clicked fires once per banner per cta-type per mount. Dedup
       // prevents accidental multi-clicks from inflating funnel counts beyond
       // one "body" signal and one "dismiss" signal per banner.
@@ -13370,14 +13810,15 @@ ${prettyEvent}</pre
       return;
     }
     const showCopied = () => {
+      const view = button.ownerDocument.defaultView ?? window;
       const existing = this.copyResetTimeouts.get(button);
       if (existing !== undefined) {
-        window.clearTimeout(existing);
+        view.clearTimeout(existing);
       }
       button.setAttribute("data-copied", "true");
       button.setAttribute("aria-label", "Code copied");
       button.textContent = "Copied";
-      const id = window.setTimeout(() => {
+      const id = view.setTimeout(() => {
         button.removeAttribute("data-copied");
         button.setAttribute("aria-label", "Copy code");
         button.textContent = "Copy";
@@ -13385,8 +13826,9 @@ ${prettyEvent}</pre
       }, 1500);
       this.copyResetTimeouts.set(button, id);
     };
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(code).then(showCopied, () => {
+    const clipboard = this.getClipboard(event);
+    if (clipboard?.writeText) {
+      clipboard.writeText(code).then(showCopied, () => {
         // ignore — clipboard may be unavailable (insecure context, denied
         // permission, focus loss); button silently stays in idle state.
       });

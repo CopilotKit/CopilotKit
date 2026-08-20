@@ -28,6 +28,7 @@ import type {
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
+import { runtimeInfoError } from "./utils/runtime-info-error";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -564,9 +565,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     return (await response.json()) as RuntimeInfo;
   }
@@ -603,9 +602,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     this.transport = "single";
     this.singleEndpointUrl = this.runtimeUrl;

@@ -16,7 +16,7 @@
  * `.stop()`) — there is no `bot.start()`/`bot.stop()` and no standalone path.
  *
  * Requires `OPENAI_API_KEY` (the BuiltInAgent's LLM) AND an Intelligence key
- * (`COPILOTKIT_API_KEY` — free tier; the platform URLs default to the managed
+ * (`INTELLIGENCE_API_KEY` — free tier; the platform URLs default to the managed
  * service), which the runtime that owns the Channel is configured with. No
  * Microsoft credentials are needed to test in the M365 Agents Playground:
  *
@@ -64,25 +64,32 @@ if (!process.env.OPENAI_API_KEY) {
   process.exit(1);
 }
 
-// A Channel runs ONLY through the Intelligence runtime — the runtime that owns
-// the Channel's lifecycle is configured with an Intelligence key. Fail fast
-// here rather than deep in activation. Free tier is enough for this demo.
-const required = (name: string): string => {
-  const v = process.env[name];
-  if (!v) {
+/**
+ * Resolves the Intelligence project key.
+ *
+ * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
+ */
+const requiredIntelligenceKey = (): string => {
+  const key =
+    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+  if (!key) {
     console.error(
-      `Missing ${name}.\n` +
+      "Missing required env var: INTELLIGENCE_API_KEY\n" +
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
-        "  export COPILOTKIT_API_KEY=cpk-...   (or add it to examples/teams/.env)\n" +
-        "No URLs to set: the SDK defaults to the managed Intelligence platform. A\n" +
-        "self-hosted deployment exports COPILOTKIT_INTELLIGENCE_URL AND\n" +
-        "COPILOTKIT_INTELLIGENCE_WS_URL — they are DIFFERENT hosts, so the websocket\n" +
-        "URL cannot be derived from the API URL.",
+        "  Run `copilotkit project select` to provision one, or set it manually.\n" +
+        "No URLs to set: the SDK defaults to the managed Intelligence platform.",
     );
     process.exit(1);
   }
-  return v;
+  if (!process.env.INTELLIGENCE_API_KEY) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+    );
+  }
+  return key;
 };
 
 const port = Number(process.env.PORT ?? 3978);
@@ -248,7 +255,7 @@ bot.onMessage(async ({ thread, message }) => {
 const intelligence = new CopilotKitIntelligence({
   apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
   wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-  apiKey: required("COPILOTKIT_API_KEY"),
+  apiKey: requiredIntelligenceKey(),
 });
 
 // Declare the Channel on the Intelligence runtime. The runtime OWNS the

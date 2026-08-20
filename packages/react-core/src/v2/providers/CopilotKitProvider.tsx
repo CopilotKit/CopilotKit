@@ -5,6 +5,7 @@ import type { FrontendTool } from "@copilotkit/core";
 import type React from "react";
 import {
   useMemo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useReducer,
@@ -19,6 +20,8 @@ export type { CopilotKitContextValue } from "../context";
 export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
+import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
+import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
@@ -294,6 +297,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   debug,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
+  const [isLocalInspectorEnabled, setIsLocalInspectorEnabled] = useState(false);
+  const [inspectorOpenRequest, setInspectorOpenRequest] =
+    useState<CopilotKitInspectorOpenRequest | null>(null);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   // Bumped by onCatalogComponentsChanged so the filtered catalog re-derives
@@ -314,22 +320,45 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       return;
     }
 
+    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
+    const isLocalhost = localhostHosts.has(window.location?.hostname ?? "");
+    const canShowLocalInspectorAction =
+      process.env.NODE_ENV === "development" && isLocalhost;
+
     if (showDevConsole === true) {
       // Explicitly show the inspector
       setShouldRenderInspector(true);
+      setIsLocalInspectorEnabled(canShowLocalInspectorAction);
     } else if (showDevConsole === "auto") {
       // Show on localhost or 127.0.0.1 only
-      const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-      if (localhostHosts.has(window.location.hostname)) {
+      if (isLocalhost) {
         setShouldRenderInspector(true);
+        setIsLocalInspectorEnabled(canShowLocalInspectorAction);
       } else {
         setShouldRenderInspector(false);
+        setIsLocalInspectorEnabled(false);
       }
     } else {
       // showDevConsole is false or undefined (default false)
       setShouldRenderInspector(false);
+      setIsLocalInspectorEnabled(false);
     }
   }, [showDevConsole]);
+
+  const requestInspectorOpen = useCallback(
+    (request: CopilotKitInspectorOpenRequest) => {
+      setInspectorOpenRequest({ ...request });
+    },
+    [],
+  );
+
+  const inspectorContextValue = useMemo(
+    () => ({
+      isLocalInspectorEnabled,
+      openInspector: requestInspectorOpen,
+    }),
+    [isLocalInspectorEnabled, requestInspectorOpen],
+  );
 
   // Normalize array props to stable references with clear dev warnings
   const renderToolCallsList = useStableArrayProp<ReactToolCallRenderer<any>>(
@@ -919,13 +948,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
-          {children}
-          {shouldRenderInspector ? (
-            <CopilotKitInspector
-              core={copilotkit}
-              defaultAnchor={inspectorDefaultAnchor}
-            />
-          ) : null}
+          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+            {children}
+            {shouldRenderInspector ? (
+              <CopilotKitInspector
+                core={copilotkit}
+                defaultAnchor={inspectorDefaultAnchor}
+                openRequest={inspectorOpenRequest}
+              />
+            ) : null}
+          </CopilotKitInspectorContextProvider>
           {/* License warnings — driven by server-reported status */}
           {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
             <LicenseWarningBanner type="no_license" />
