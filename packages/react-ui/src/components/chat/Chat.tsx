@@ -19,7 +19,6 @@
  *   Migration note: Replace the stylesheet import with "@copilotkit/react-core/v2/styles.css".
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-ui/src/components/chat/Chat.tsx
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

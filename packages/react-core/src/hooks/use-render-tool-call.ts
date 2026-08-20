@@ -26,7 +26,6 @@
  *   Migration note: The v2 hook named useRenderToolCall is a different, low-level consumer API.
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
- * V1 source file: packages/react-core/src/hooks/use-render-tool-call.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
