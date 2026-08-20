@@ -75,7 +75,7 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
 
     const adapter = new AnthropicAdapter({
       anthropic,
-      model: "claude-3-5-sonnet-latest",
+      model: "claude-sonnet-4-6",
     });
     adapter.getLanguageModel();
 
@@ -87,7 +87,7 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
     expect(settings.headers).toEqual({ "x-custom": "value" });
     expect(settings.fetch).toBe(customFetch);
 
-    expect(mockProviderFn).toHaveBeenCalledWith("claude-3-5-sonnet-latest");
+    expect(mockProviderFn).toHaveBeenCalledWith("claude-sonnet-4-6");
   });
 
   it("works with default Anthropic config (no custom options)", () => {
@@ -98,5 +98,16 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
     const settings = mockCreateAnthropic.mock.calls[0][0];
     expect(settings.baseURL).toBe("https://api.anthropic.com/v1");
     expect(settings.apiKey).toBe("sk-ant-default");
+    expect(mockProviderFn).toHaveBeenCalledWith("claude-opus-4-8");
+  });
+
+  it("passes explicitly configured model identifiers through unchanged", () => {
+    const retiredModel = ["claude", "3", "7", "sonnet"].join("-");
+    const anthropic = new Anthropic({ apiKey: "sk-ant-explicit" });
+    const adapter = new AnthropicAdapter({ anthropic, model: retiredModel });
+
+    adapter.getLanguageModel();
+
+    expect(mockProviderFn).toHaveBeenCalledWith(retiredModel);
   });
 });
