@@ -2327,12 +2327,31 @@ export class CpkThreadInspector extends PortableLitElement {
     @keyframes cpk-playground-message-enter {
       from {
         opacity: 0;
-        transform: translateY(6px);
+        filter: blur(2px);
+        transform: translateY(4px);
       }
       to {
         opacity: 1;
+        filter: blur(0);
         transform: translateY(0);
       }
+    }
+
+    @keyframes cpk-playground-thinking {
+      0%,
+      60%,
+      100% {
+        opacity: 0.28;
+        transform: translateY(0);
+      }
+      30% {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+    }
+
+    .cpk-playground-root {
+      container-type: inline-size;
     }
 
     .cpk-playground-message-enter {
@@ -2340,8 +2359,45 @@ export class CpkThreadInspector extends PortableLitElement {
         both;
     }
 
+    .cpk-playground-thinking-dot {
+      animation: cpk-playground-thinking 1.2s ease-in-out infinite;
+    }
+
+    .cpk-playground-thinking-dot:nth-child(2) {
+      animation-delay: 0.12s;
+    }
+
+    .cpk-playground-thinking-dot:nth-child(3) {
+      animation-delay: 0.24s;
+    }
+
+    .cpk-playground-reasoning summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
+      transform: rotate(90deg);
+    }
+
+    @container (max-width: 560px) {
+      .cpk-playground-header {
+        align-items: stretch;
+      }
+
+      .cpk-playground-actions {
+        width: 100%;
+      }
+
+      .cpk-playground-thread-select {
+        min-width: 0;
+        max-width: none;
+        flex: 1;
+      }
+    }
+
     @media (prefers-reduced-motion: reduce) {
-      .cpk-playground-message-enter {
+      .cpk-playground-message-enter,
+      .cpk-playground-thinking-dot {
         animation: none;
       }
     }
@@ -5304,6 +5360,8 @@ export class WebInspectorElement extends LitElement {
   private playgroundMessages: InspectorMessage[] = [];
   private playgroundInput = "";
   private playgroundIsRunning = false;
+  private playgroundRunStartedAt: number | null = null;
+  private playgroundReasoningDurations: Map<string, number> = new Map();
   private playgroundIsLoadingThread = false;
   private playgroundError: string | null = null;
   private playgroundSourceThreadId: string | null = null;
@@ -6170,6 +6228,10 @@ export class WebInspectorElement extends LitElement {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
       },
+      onSuggestionsChanged: () => this.requestUpdate(),
+      onSuggestionsStartedLoading: () => this.requestUpdate(),
+      onSuggestionsFinishedLoading: () => this.requestUpdate(),
+      onSuggestionsConfigChanged: () => this.requestUpdate(),
       onThreadStoreRegistered: ({ agentId, store }) => {
         if (!this.areThreadEndpointsAvailable()) return;
         this.subscribeToThreadStore(agentId, store);
@@ -11286,6 +11348,8 @@ ${argsString}</pre
     this.playgroundAgentId = null;
     this.playgroundMessages = [];
     this.playgroundIsRunning = false;
+    this.playgroundRunStartedAt = null;
+    this.playgroundReasoningDurations.clear();
   }
 
   private syncPlaygroundMessages(): void {
@@ -11463,6 +11527,7 @@ ${argsString}</pre
     if (!core || !agent || this.playgroundIsRunning) return;
 
     this.playgroundIsRunning = true;
+    this.playgroundRunStartedAt = Date.now();
     this.playgroundError = null;
     this.requestUpdate();
     try {
@@ -11473,12 +11538,21 @@ ${argsString}</pre
     } finally {
       this.playgroundIsRunning = false;
       this.syncPlaygroundMessages();
+      const reasoningMessage = [...this.playgroundMessages]
+        .toReversed()
+        .find((message) => message.role === "reasoning");
+      if (reasoningMessage?.id && this.playgroundRunStartedAt !== null) {
+        this.playgroundReasoningDurations.set(
+          reasoningMessage.id,
+          Date.now() - this.playgroundRunStartedAt,
+        );
+      }
+      this.playgroundRunStartedAt = null;
+      this.requestUpdate();
     }
   };
 
-  private handlePlaygroundSubmit = (event: SubmitEvent): void => {
-    event.preventDefault();
-    const content = this.playgroundInput.trim();
+  private sendPlaygroundMessage(content: string): void {
     if (
       !content ||
       this.playgroundIsRunning ||
@@ -11501,6 +11575,15 @@ ${argsString}</pre
     this.playgroundInput = "";
     this.syncPlaygroundMessages();
     void this.runPlaygroundAgent();
+  }
+
+  private handlePlaygroundSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    this.sendPlaygroundMessage(this.playgroundInput.trim());
+  };
+
+  private handlePlaygroundSuggestion = (message: string): void => {
+    this.sendPlaygroundMessage(message.trim());
   };
 
   private handlePlaygroundInput = (event: Event): void => {
@@ -11536,6 +11619,98 @@ ${argsString}</pre
   private handlePlaygroundStop = (): void => {
     this.playgroundAgent?.abortRun();
   };
+
+  private renderPlaygroundComposer(
+    agentId: string | null,
+    busy: boolean,
+    hasRetry: boolean,
+    centered = false,
+  ) {
+    const placeholder = !agentId
+      ? "Waiting for an agent..."
+      : this.playgroundIsLoadingThread
+        ? "Loading thread..."
+        : "Type a message...";
+
+    return html`
+      <form
+        class=${centered ? "mt-6 w-full" : "bg-white px-4 pb-4 pt-2"}
+        @submit=${this.handlePlaygroundSubmit}
+      >
+        ${
+          this.playgroundError
+            ? html`<div
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800"
+                role="alert"
+                data-playground-error
+              >
+                <span class="mt-0.5 shrink-0 text-rose-600"
+                  >${this.renderIcon("TriangleAlert")}</span
+                >
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold">Agent run failed</p>
+                  <p class="mt-0.5 break-words leading-relaxed text-rose-700">
+                    ${this.playgroundError}
+                  </p>
+                </div>
+                ${
+                  hasRetry
+                    ? html`
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
+                          ?disabled=${busy}
+                          @click=${this.handlePlaygroundRetry}
+                        >
+                          Retry
+                        </button>
+                      `
+                    : nothing
+                }
+              </div>`
+            : nothing
+        }
+        <div
+          class="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] bg-white px-3 py-2 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+        >
+          <textarea
+            class="min-h-[50px] max-h-32 flex-1 resize-none bg-transparent px-3 py-[13px] text-base leading-6 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            rows="1"
+            placeholder=${placeholder}
+            aria-label="Playground message"
+            .value=${this.playgroundInput}
+            ?disabled=${!agentId || busy}
+            @input=${this.handlePlaygroundInput}
+            @keydown=${this.handlePlaygroundKeyDown}
+          ></textarea>
+          <button
+            type=${this.playgroundIsRunning ? "button" : "submit"}
+            class="mb-[5px] flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition duration-200 hover:scale-[1.03] hover:bg-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 active:scale-95 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 disabled:opacity-100"
+            aria-label=${
+              this.playgroundIsRunning
+                ? "Stop agent"
+                : "Send playground message"
+            }
+            ?disabled=${
+              !agentId ||
+              this.playgroundIsLoadingThread ||
+              (!this.playgroundIsRunning && !this.playgroundInput.trim())
+            }
+            @click=${
+              this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
+            }
+          >
+            ${this.renderIcon(this.playgroundIsRunning ? "Square" : "ArrowUp")}
+          </button>
+        </div>
+        <p
+          class="mx-auto max-w-3xl px-4 py-3 text-center text-xs leading-4 text-gray-500"
+        >
+          AI can make mistakes. Please verify important information.
+        </p>
+      </form>
+    `;
+  }
 
   private renderMainContent() {
     if (this.settingsOpen) {
@@ -11594,6 +11769,7 @@ ${argsString}</pre
       (message) =>
         message.role === "user" ||
         message.role === "assistant" ||
+        message.role === "reasoning" ||
         message.role === "activity",
     );
     const hasRetry =
@@ -11603,27 +11779,50 @@ ${argsString}</pre
     const runtimeMode = this._core?.runtimeMode ?? "sse";
     const runtimeLabel = this._core?.runtimeUrl ?? "Self-managed agent";
     const busy = this.playgroundIsRunning || this.playgroundIsLoadingThread;
+    const suggestions =
+      agentId && this._core
+        ? this._core.getSuggestions(agentId).suggestions
+        : [];
+    const lastAssistantIndex = visibleMessages.reduce(
+      (last, message, index) => (message.role === "assistant" ? index : last),
+      -1,
+    );
+    const lastReasoningIndex = visibleMessages.reduce(
+      (last, message, index) => (message.role === "reasoning" ? index : last),
+      -1,
+    );
+    const showWelcome =
+      !this.playgroundIsLoadingThread && visibleMessages.length === 0;
 
     return html`
-      <div class="flex h-full min-h-[420px] flex-col bg-gray-50">
+      <div
+        class="cpk-playground-root flex h-full min-h-[420px] flex-col bg-white"
+      >
         <header
-          class="flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3"
+          class="cpk-playground-header flex flex-wrap items-center gap-3 border-b border-gray-200 bg-white px-4 py-3"
         >
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <h2 class="text-sm font-semibold text-gray-900">Playground</h2>
               <span
                 class="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-600"
-                >${runtimeMode}</span
+                >${runtimeMode.toUpperCase()}</span
               >
             </div>
-            <div class="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-gray-500">
-              <span class="truncate">Agent: ${agentId ?? "waiting…"}</span>
-              <span aria-hidden="true">·</span>
+            <div
+              class="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-gray-600"
+            >
+              <span class="truncate">Agent: ${agentId ?? "waiting..."}</span>
+              <span
+                class="h-3 w-px shrink-0 bg-gray-200"
+                aria-hidden="true"
+              ></span>
               <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div
+            class="cpk-playground-actions ml-auto flex min-w-0 items-center gap-2"
+          >
             ${
               sourceThreads.length > 0
                 ? html`
@@ -11632,16 +11831,19 @@ ${argsString}</pre
                     >
                     <select
                       id="cpk-playground-thread-source"
-                      class="max-w-[220px] rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none focus:border-gray-400"
+                      class="cpk-playground-thread-select max-w-[220px] rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
                       .value=${this.playgroundSourceThreadId ?? ""}
                       ?disabled=${busy}
                       @change=${this.handlePlaygroundThreadSourceChange}
                     >
-                      <option value="">New conversation</option>
+                      <option value="">Load a thread...</option>
                       ${sourceThreads.map(
                         (thread) => html`
                           <option value=${thread.id}>
-                            ${thread.name ?? "Untitled thread"}
+                            ${
+                              thread.name?.trim() ||
+                              `Thread ${thread.id.slice(0, 8)}`
+                            }
                           </option>
                         `,
                       )}
@@ -11651,7 +11853,7 @@ ${argsString}</pre
             }
             <button
               type="button"
-              class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               ?disabled=${busy || !agentId}
               @click=${() => this.startPlaygroundSession(true)}
             >
@@ -11665,17 +11867,17 @@ ${argsString}</pre
             ? html`
                 <div
                   role="alert"
-                  class="mx-4 mt-3 flex items-start gap-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs text-violet-950"
+                  class="mx-4 mt-3 flex items-start gap-2.5 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs text-violet-950"
                   data-playground-ephemeral-notice
                 >
                   <span class="mt-0.5 text-violet-600"
                     >${this.renderIcon("Clock3")}</span
                   >
                   <p class="min-w-0 flex-1 leading-relaxed">
-                    This thread is ephemeral and will be deleted when your local
-                    session ends. Want durable threads?
+                    Scratch threads are ephemeral and will be deleted when your
+                    local session ends. Need durable history?
                     <a
-                      class="font-semibold underline underline-offset-2"
+                      class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
                       href=${this.getThreadsIntelligenceSignupUrl()}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -11684,7 +11886,7 @@ ${argsString}</pre
                   </p>
                   <button
                     type="button"
-                    class="rounded p-0.5 text-violet-500 hover:bg-violet-100 hover:text-violet-800"
+                    class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
                     aria-label="Dismiss ephemeral thread notice"
                     @click=${() => {
                       this.playgroundShowEphemeralNotice = false;
@@ -11705,60 +11907,291 @@ ${argsString}</pre
           ${
             this.playgroundIsLoadingThread
               ? html`
-                  <div class="flex h-full items-center justify-center text-xs text-gray-500">
-                    Loading thread into a new scratch session…
+                  <div
+                    class="flex h-full items-center justify-center gap-2 text-xs text-gray-600"
+                  >
+                    <span
+                      class="text-gray-500 [&>svg]:animate-spin"
+                      aria-hidden="true"
+                      >${this.renderIcon("LoaderCircle")}</span
+                    >
+                    Loading thread into a scratch session...
                   </div>
                 `
               : visibleMessages.length === 0
                 ? html`
                     <div
-                      class="flex h-full flex-col items-center justify-center gap-2 text-center"
+                      class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
                     >
                       <p class="text-xl font-medium tracking-tight text-gray-900">
                         How can I help you today?
                       </p>
-                      <p class="max-w-sm text-xs leading-relaxed text-gray-500">
-                        Chatting with ${agentId ?? "your agent"} in an isolated
-                        Inspector thread.
-                      </p>
+                      ${this.renderPlaygroundComposer(
+                        agentId,
+                        busy,
+                        hasRetry,
+                        true,
+                      )}
                     </div>
                   `
                 : html`
-                    <div class="mx-auto flex max-w-3xl flex-col gap-7">
-                      ${visibleMessages.map((message) => {
+                    <div class="mx-auto flex max-w-3xl flex-col pb-6">
+                      ${visibleMessages.map((message, index) => {
                         const isUser = message.role === "user";
-                        const content =
-                          message.role === "activity"
-                            ? `Activity: ${message.activityType ?? "unknown"}`
-                            : message.contentText;
+                        const isReasoning = message.role === "reasoning";
+                        const isActivity = message.role === "activity";
+                        const content = isActivity
+                          ? (message.activityType ?? "Agent activity")
+                          : message.contentText;
+                        if (
+                          !isReasoning &&
+                          !content &&
+                          message.toolCalls.length === 0
+                        ) {
+                          return nothing;
+                        }
+                        if (isReasoning) {
+                          const isStreaming =
+                            this.playgroundIsRunning &&
+                            index === lastReasoningIndex;
+                          const duration = message.id
+                            ? this.playgroundReasoningDurations.get(message.id)
+                            : undefined;
+                          const durationLabel =
+                            duration === undefined || duration < 1000
+                              ? "a few seconds"
+                              : `${Math.round(duration / 1000)} seconds`;
+                          const label = isStreaming
+                            ? "Thinking…"
+                            : `Thought for ${durationLabel}`;
+
+                          if (isStreaming) {
+                            return html`
+                              <section
+                                class="cpk-playground-message-enter my-1 text-sm text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                <div
+                                  class="inline-flex items-center gap-1 py-1 font-medium"
+                                >
+                                  <span>${label}</span>
+                                  ${
+                                    content
+                                      ? nothing
+                                      : html`
+                                          <span
+                                            class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
+                                            aria-hidden="true"
+                                          ></span>
+                                        `
+                                  }
+                                </div>
+                                ${
+                                  content
+                                    ? html`<div
+                                        class="pb-2 pt-1 leading-6 text-gray-500"
+                                      >
+                                        ${content}
+                                      </div>`
+                                    : nothing
+                                }
+                              </section>
+                            `;
+                          }
+
+                          return content
+                            ? html`
+                                <details
+                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-sm text-gray-500"
+                                  data-playground-message-role="reasoning"
+                                >
+                                  <summary
+                                    class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                  >
+                                    <span>${label}</span>
+                                    <span
+                                      class="cpk-playground-reasoning-chevron transition-transform duration-200"
+                                      >${this.renderIcon("ChevronRight")}</span
+                                    >
+                                  </summary>
+                                  <div class="pb-2 pt-1 leading-6 text-gray-500">
+                                    ${content}
+                                  </div>
+                                </details>
+                              `
+                            : html`
+                                <div
+                                  class="cpk-playground-message-enter my-1 py-1 text-sm font-medium text-gray-500"
+                                  data-playground-message-role="reasoning"
+                                >
+                                  ${label}
+                                </div>
+                              `;
+                        }
+                        const isMultiline =
+                          content.includes("\n") || content.length > 72;
+                        const copyKey = `playground-message-${
+                          message.id ?? index
+                        }`;
+                        const showToolbar =
+                          !isUser &&
+                          !isActivity &&
+                          Boolean(content) &&
+                          !(
+                            this.playgroundIsRunning &&
+                            index === lastAssistantIndex
+                          );
                         return html`
                           <article
                             class=${
-                              isUser
-                                ? "cpk-playground-message-enter ml-auto max-w-[80%] rounded-[18px] bg-gray-100 px-4 py-2.5 text-sm leading-relaxed text-gray-900"
-                                : "cpk-playground-message-enter mr-auto w-full text-sm leading-7 text-gray-800"
+                              isActivity
+                                ? "cpk-playground-message-enter mr-auto mt-4 flex max-w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                                : isUser
+                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-10"
+                                  : "cpk-playground-message-enter w-full"
                             }
                             data-playground-message-role=${message.role}
                           >
-                            <div class="whitespace-pre-wrap break-words">
-                              ${content || (busy ? "…" : "")}
-                            </div>
+                            ${
+                              isActivity
+                                ? html`
+                                    <span class="text-gray-500"
+                                      >${this.renderIcon("Activity")}</span
+                                    >
+                                    <span class="font-medium text-gray-700"
+                                      >Activity</span
+                                    >
+                                    <span class="truncate">${content}</span>
+                                  `
+                                : isUser
+                                  ? html`
+                                      <div
+                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[18px] bg-gray-100 px-4 text-base leading-6 text-gray-900 ${
+                                          isMultiline ? "py-3" : "py-1.5"
+                                        }`}
+                                      >${content}</div>
+                                    `
+                                  : html`
+                                      <div
+                                        class="whitespace-pre-wrap break-words py-4 text-base leading-7 text-gray-800"
+                                      >${content}</div>
+                                    `
+                            }
                             ${
                               !isUser && message.toolCalls.length > 0
                                 ? this.renderToolCallDetails(message.toolCalls)
+                                : nothing
+                            }
+                            ${
+                              showToolbar
+                                ? html`
+                                    <div
+                                      class="-ml-1 flex min-h-8 w-full items-center gap-1 bg-transparent"
+                                      data-playground-assistant-toolbar
+                                    >
+                                      <button
+                                        type="button"
+                                        class="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                        title="Copy message"
+                                        aria-label="Copy message"
+                                        @click=${(event: Event) =>
+                                          this.copyToClipboard(
+                                            content,
+                                            copyKey,
+                                            event,
+                                          )}
+                                      >
+                                        ${
+                                          this.copiedEvents.has(copyKey)
+                                            ? this.renderIcon("Check")
+                                            : this.renderIcon("Copy")
+                                        }
+                                      </button>
+                                      ${
+                                        index === lastAssistantIndex &&
+                                        hasRetry &&
+                                        !busy &&
+                                        !this.playgroundError
+                                          ? html`
+                                              <button
+                                                type="button"
+                                                class="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                                title="Retry last prompt"
+                                                aria-label="Retry last prompt"
+                                                @click=${
+                                                  this.handlePlaygroundRetry
+                                                }
+                                              >
+                                                ${this.renderIcon("RotateCcw")}
+                                              </button>
+                                            `
+                                          : nothing
+                                      }
+                                    </div>
+                                  `
                                 : nothing
                             }
                           </article>
                         `;
                       })}
                       ${
-                        this.playgroundIsRunning
+                        this.playgroundIsRunning && lastReasoningIndex < 0
                           ? html`
                               <div
-                                class="cpk-playground-message-enter flex items-center px-1 py-1"
+                                class="cpk-playground-message-enter mt-4 flex items-center gap-1 px-1 py-1"
                                 aria-label="Agent is working"
                               >
-                                <span class="h-[11px] w-[11px] animate-pulse rounded-full bg-gray-900"></span>
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                              </div>
+                            `
+                          : nothing
+                      }
+                      ${
+                        !busy &&
+                        lastAssistantIndex >= 0 &&
+                        suggestions.length > 0
+                          ? html`
+                              <div
+                                class="mt-4 flex flex-wrap items-center gap-2"
+                                data-playground-suggestions
+                              >
+                                ${suggestions.map(
+                                  (suggestion) => html`
+                                    <button
+                                      type="button"
+                                      class="inline-flex h-8 items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 text-xs font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
+                                      ?disabled=${suggestion.isLoading}
+                                      aria-busy=${
+                                        suggestion.isLoading ? "true" : "false"
+                                      }
+                                      @click=${() =>
+                                        this.handlePlaygroundSuggestion(
+                                          suggestion.message,
+                                        )}
+                                    >
+                                      ${
+                                        suggestion.isLoading
+                                          ? html`<span
+                                              class="[&>svg]:animate-spin"
+                                              aria-hidden="true"
+                                              >${this.renderIcon(
+                                                "LoaderCircle",
+                                              )}</span
+                                            >`
+                                          : nothing
+                                      }
+                                      <span>${suggestion.title}</span>
+                                    </button>
+                                  `,
+                                )}
                               </div>
                             `
                           : nothing
@@ -11768,70 +12201,11 @@ ${argsString}</pre
           }
         </div>
 
-        <form
-          class="bg-gray-50 px-4 pb-4 pt-2"
-          @submit=${this.handlePlaygroundSubmit}
-        >
-          ${
-            this.playgroundError
-              ? html`<div
-                  class="mx-auto mb-2 max-w-3xl rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
-                  role="alert"
-                >
-                  ${this.playgroundError}
-                </div>`
-              : nothing
-          }
-          <div
-            class="mx-auto flex max-w-3xl items-end gap-2 rounded-[28px] bg-white p-2 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
-          >
-            <textarea
-              class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm leading-relaxed text-gray-900 outline-none placeholder:text-gray-400"
-              rows="1"
-              placeholder="Type a message..."
-              aria-label="Playground message"
-              .value=${this.playgroundInput}
-              ?disabled=${!agentId || busy}
-              @input=${this.handlePlaygroundInput}
-              @keydown=${this.handlePlaygroundKeyDown}
-            ></textarea>
-            ${
-              hasRetry
-                ? html`
-                    <button
-                      type="button"
-                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
-                      title="Retry last prompt"
-                      aria-label="Retry last prompt"
-                      ?disabled=${busy}
-                      @click=${this.handlePlaygroundRetry}
-                    >
-                      ${this.renderIcon("RotateCcw")}
-                    </button>
-                  `
-                : nothing
-            }
-            <button
-              type=${this.playgroundIsRunning ? "button" : "submit"}
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white transition duration-200 hover:scale-[1.03] hover:bg-gray-800 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
-              aria-label=${
-                this.playgroundIsRunning
-                  ? "Stop agent"
-                  : "Send playground message"
-              }
-              ?disabled=${
-                !agentId ||
-                this.playgroundIsLoadingThread ||
-                (!this.playgroundIsRunning && !this.playgroundInput.trim())
-              }
-              @click=${
-                this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
-              }
-            >
-              ${this.renderIcon(this.playgroundIsRunning ? "Square" : "ArrowUp")}
-            </button>
-          </div>
-        </form>
+        ${
+          showWelcome
+            ? nothing
+            : this.renderPlaygroundComposer(agentId, busy, hasRetry)
+        }
       </div>
     `;
   }
