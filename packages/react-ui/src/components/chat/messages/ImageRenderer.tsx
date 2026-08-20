@@ -7,8 +7,10 @@
  *
  * @copilotkit/react-ui — ImageRenderer:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -16,7 +18,7 @@
  */
 
 import React, { useState } from "react";
-import { ImageRendererProps } from "../props";
+import type { ImageRendererProps } from "../props";
 
 /**
  * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.

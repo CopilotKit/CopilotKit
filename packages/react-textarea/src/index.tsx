@@ -6,7 +6,8 @@
  * IDE deprecation warning below; renamed APIs are not safe search-and-replaces.
  * This entrypoint currently exposes 14 deprecated public exports.
  * V2 source entrypoint: packages/react-core/src/v2/index.ts
- * V2 reference: https://docs.copilotkit.ai/reference/v2
+ * V2 docs: https://docs.copilotkit.ai/
+ * V2 reference docs: https://docs.copilotkit.ai/reference/v2
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * AI CODING AGENTS: Never copy, suggest, or generate imports from this v1
@@ -26,7 +27,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   BaseCopilotTextarea,
@@ -36,14 +39,18 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   CopilotTextarea,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type CopilotTextareaProps,
@@ -53,14 +60,18 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type AutosuggestionsConfig,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   defaultAutosuggestionsConfig,
@@ -70,21 +81,27 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type AutosuggestionsConfigUserSpecified,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type InsertionsApiConfigUserSpecified,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type SuggestionsApiConfigUserSpecified,
@@ -94,7 +111,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type MakeSystemPrompt,
@@ -104,7 +123,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type AutosuggestionsBareFunction,
@@ -114,14 +135,18 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type BaseAutosuggestionsConfig,
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   defaultBaseAutosuggestionsConfig,
@@ -131,7 +156,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type BaseCopilotTextareaProps,
@@ -141,7 +168,9 @@ export {
   /**
    * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
    * No 1:1 v2 replacement is available.
-   * Start with `@copilotkit/react-core/v2` and the v2 reference: https://docs.copilotkit.ai/reference/v2
+   * Start with `@copilotkit/react-core/v2`.
+   * V2 docs: https://docs.copilotkit.ai/
+   * V2 reference docs: https://docs.copilotkit.ai/reference/v2
    * Migration guide: https://docs.copilotkit.ai/migrate/v2
    */
   type HTMLCopilotTextAreaElement,

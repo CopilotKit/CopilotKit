@@ -7,39 +7,46 @@
  *
  * @copilotkit/react-core — CoAgentStateRendersContext:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — CoAgentStateRendersContextValue:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — CoAgentStateRendersProvider:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — useCoAgentStateRenders:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (State rendering): https://docs.copilotkit.ai/generative-ui/state-rendering
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
+import type { ReactNode, RefObject } from "react";
 import React, {
   createContext,
   useContext,
   useCallback,
   useState,
   useRef,
-  ReactNode,
-  RefObject,
 } from "react";
-import { CoAgentStateRender } from "../types/coagent-action";
+import type { CoAgentStateRender } from "../types/coagent-action";
 
 interface StateRenderClaim {
   stateRenderId: string;

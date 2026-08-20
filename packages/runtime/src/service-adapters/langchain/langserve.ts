@@ -7,20 +7,24 @@
  *
  * @copilotkit/runtime — RemoteChain:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/runtime — RemoteChainParameters:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { Parameter, Action } from "@copilotkit/shared";
+import type { Parameter, Action } from "@copilotkit/shared";
 
 export interface RemoteChainParameters {
   name: string;

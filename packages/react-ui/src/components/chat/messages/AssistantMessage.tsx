@@ -10,7 +10,8 @@
  *     import { AssistantMessage } from "@copilotkit/react-core/v2";
  *     const v2AssistantMessage = AssistantMessage;
  *   V2 replacement source: packages/react-core/src/v2/index.ts
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

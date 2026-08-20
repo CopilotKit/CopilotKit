@@ -7,68 +7,94 @@
  *
  * @copilotkit/sdk-js/langchain — CopilotKitProperties:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langchain — CopilotKitPropertiesAnnotation:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langchain — CopilotKitPropertiesSchema:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langchain — CopilotKitState:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langchain — CopilotKitStateAnnotation:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — CopilotKitProperties:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — CopilotKitPropertiesAnnotation:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — CopilotKitPropertiesSchema:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — CopilotKitState:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — CopilotKitStateAnnotation:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — IntermediateStateConfig:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — OptionsConfig:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/sdk-js/langgraph — StandardSerializableSchema:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
  *   Start at: @copilotkit/runtime/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *

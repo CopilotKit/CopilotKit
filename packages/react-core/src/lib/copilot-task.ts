@@ -7,13 +7,17 @@
  *
  * @copilotkit/react-core — CopilotTask:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-core — CopilotTaskConfig:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Tool-based generative UI): https://docs.copilotkit.ai/generative-ui/tool-based
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -68,23 +72,23 @@
  * Have a look at the [Presentation Example App](https://github.com/CopilotKit/CopilotKit/blob/main/examples/v1/next-openai/src/app/presentation/page.tsx) for a more complete example.
  */
 
-import {
+import type {
   ActionExecutionMessage,
-  CopilotRuntimeClient,
   Message,
+  ForwardedParametersInput,
+} from "@copilotkit/runtime-client-gql";
+import {
+  CopilotRuntimeClient,
   Role,
   TextMessage,
   convertGqlOutputToMessages,
   convertMessagesToGqlInput,
   filterAgentStateMessages,
   CopilotRequestType,
-  ForwardedParametersInput,
 } from "@copilotkit/runtime-client-gql";
-import {
-  FrontendAction,
-  processActionsForRuntimeRequest,
-} from "../types/frontend-action";
-import { CopilotContextParams } from "../context";
+import type { FrontendAction } from "../types/frontend-action";
+import { processActionsForRuntimeRequest } from "../types/frontend-action";
+import type { CopilotContextParams } from "../context";
 import { defaultCopilotContextCategories } from "../components";
 
 export interface CopilotTaskConfig {

@@ -7,13 +7,17 @@
  *
  * @copilotkit/react-ui — CopilotModal:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * @copilotkit/react-ui — CopilotModalProps:
  *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
  *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
@@ -22,7 +26,7 @@
 
 import React, { useMemo, useCallback, useEffect, useRef } from "react";
 import { ChatContextProvider, useChatContext } from "./ChatContext";
-import {
+import type {
   ButtonProps,
   HeaderProps,
   WindowProps,
@@ -33,7 +37,8 @@ import { Button as DefaultButton } from "./Button";
 import { Header as DefaultHeader } from "./Header";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
-import { CopilotChat, CopilotChatProps } from "./Chat";
+import type { CopilotChatProps } from "./Chat";
+import { CopilotChat } from "./Chat";
 import { AssistantMessage as DefaultAssistantMessage } from "./messages/AssistantMessage";
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { useCopilotContext } from "@copilotkit/react-core";
@@ -164,7 +169,7 @@ const CopilotModalInner = ({
     <>
       <div className="copilotKitModalChildrenWrapper">{memoizedChildren}</div>
       <div className={className}>
-        <Button></Button>
+        <Button />
         <Window
           clickOutsideToClose={clickOutsideToClose}
           shortcut={shortcut}

@@ -10,14 +10,15 @@
  *     import { UserMessage } from "@copilotkit/react-core/v2";
  *     const v2UserMessage = UserMessage;
  *   V2 replacement source: packages/react-core/src/v2/index.ts
- *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
  *
  * Migration guide: https://docs.copilotkit.ai/migrate/v2
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import { UserMessageProps } from "../props";
+import type { UserMessageProps } from "../props";
 import { AttachmentRenderer } from "../AttachmentRenderer";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];
