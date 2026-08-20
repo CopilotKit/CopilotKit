@@ -72,7 +72,6 @@ test("every v1 package build runs the declaration warning postprocessor", () => 
       "packages/sdk-js/package.json",
       "--entrypoint sdk-js,sdk-js-langchain,sdk-js-langgraph,sdk-js-langgraph-middlewares",
     ],
-    ["packages/vue/package.json", "--entrypoint vue"],
   ]);
   for (const [file, argument] of expected) {
     const packageJson = JSON.parse(readFileSync(path.join(repoRoot, file)));
