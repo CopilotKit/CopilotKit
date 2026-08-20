@@ -40,16 +40,14 @@ test("normalizes surrounding HTTP whitespace in a legacy license identity", () =
   );
 });
 
-test("decodes a UTF-8 legacy identity in the browser fallback", () => {
+test("rejects an ingest-invalid UTF-8 legacy identity in the browser fallback", () => {
   const payload = Buffer.from(
     JSON.stringify({ telemetry_id: "tenant-é" }),
   ).toString("base64url");
   vi.stubGlobal("Buffer", undefined);
 
   try {
-    expect(parseTelemetryIdFromLicense(`header.${payload}.sig`)).toBe(
-      "tenant-é",
-    );
+    expect(parseTelemetryIdFromLicense(`header.${payload}.sig`)).toBeNull();
   } finally {
     vi.unstubAllGlobals();
   }
@@ -308,6 +306,18 @@ const lambdaIdentityTransportCases = [
   {
     label: "legacy license identity with a header-invalid standalone identity",
     explicitTelemetryId: "bad\nid",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with an ingest-invalid standalone identity",
+    explicitTelemetryId: "team.prod",
+    licenseTelemetryId: "license-telemetry-id",
+    expectedTelemetryId: "license-telemetry-id",
+  },
+  {
+    label: "legacy license identity with an overlong standalone identity",
+    explicitTelemetryId: "a".repeat(129),
     licenseTelemetryId: "license-telemetry-id",
     expectedTelemetryId: "license-telemetry-id",
   },

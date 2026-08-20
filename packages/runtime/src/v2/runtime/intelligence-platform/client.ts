@@ -858,6 +858,142 @@ export class CopilotKitIntelligence {
     }
   }
 
+  /**
+   * Resolve the Runtime entitlement projection for this project.
+   *
+   * Concurrent calls share one request. Active grants cache for 30 seconds;
+   * inactive results and failures cache for 5 seconds. Callers receive copies
+   * so they cannot mutate cached authority.
+   */
+  async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const now = Date.now();
+    if (
+      this.#runtimeEntitlementsCache &&
+      now < this.#runtimeEntitlementsCache.expiresAt
+    ) {
+      return cloneRuntimeEntitlementResponse(
+        this.#runtimeEntitlementsCache.response,
+      );
+    }
+    if (
+      this.#runtimeEntitlementsFailure &&
+      now < this.#runtimeEntitlementsFailure.expiresAt
+    ) {
+      throw cloneRuntimeEntitlementError(
+        this.#runtimeEntitlementsFailure.error,
+      );
+    }
+
+    const request =
+      this.#runtimeEntitlementsInFlight ??
+      this.#fetchRuntimeEntitlements()
+        .then((response) => {
+          this.#runtimeEntitlementsFailure = undefined;
+          this.#runtimeEntitlementsCache = {
+            response,
+            expiresAt:
+              Date.now() +
+              (grantsRuntimeAccess(response)
+                ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+                : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+          };
+          return response;
+        })
+        .catch((error: unknown) => {
+          this.#runtimeEntitlementsFailure = {
+            error,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          throw error;
+        });
+    this.#runtimeEntitlementsInFlight = request;
+    try {
+      return cloneRuntimeEntitlementResponse(await request);
+    } catch (error) {
+      throw cloneRuntimeEntitlementError(error);
+    } finally {
+      if (this.#runtimeEntitlementsInFlight === request) {
+        this.#runtimeEntitlementsInFlight = undefined;
+      }
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const path = "/api/entitlements/runtime";
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await response.body?.cancel();
+        logger.error(
+          { status: response.status, path },
+          "Runtime entitlement request failed",
+        );
+        throw new PlatformRequestError(
+          `Runtime entitlement request failed with status ${response.status}`,
+          response.status,
+          isRetryableRuntimeEntitlementStatus(response.status),
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+
+      const normalized = normalizeRuntimeEntitlementTransport(payload);
+      if (!normalized) {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+      return normalized;
+    } catch (error) {
+      if (error instanceof PlatformRequestError) {
+        throw error;
+      }
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new PlatformRequestError(
+          "Runtime entitlement request timed out",
+          504,
+          true,
+        );
+      }
+      throw new PlatformRequestError(
+        "Runtime entitlement request failed",
+        502,
+        true,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async #request<T>(
     method: string,
     path: string,

@@ -4,7 +4,7 @@ import { expect, test } from "vitest";
 
 const TELEMETRY_DOC = path.resolve(
   import.meta.dirname,
-  "../../content/docs/(other)/telemetry/index.mdx",
+  "../../content/snippets/shared/telemetry/anonymous.mdx",
 );
 
 test("documents Runtime telemetry identity precedence and sampling", () => {

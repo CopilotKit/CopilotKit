@@ -1,6 +1,7 @@
 import { describe, it, expect, test, vi, beforeEach } from "vitest";
 import { logger } from "@copilotkit/shared";
-import { CopilotKitIntelligence } from "../client";
+import { CopilotKitIntelligence, PlatformRequestError } from "../client";
+import { findForbiddenPublicKeyPaths } from "../../__tests__/runtime-entitlement-test-utils";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);

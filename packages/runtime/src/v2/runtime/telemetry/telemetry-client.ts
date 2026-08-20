@@ -54,6 +54,8 @@ export class TelemetryClient {
   // Standalone identity sent as a transport claim. It does not grant sampling
   // authority.
   private telemetryId: string | null = null;
+  // License-derived identity used only as sampling authority.
+  private licenseTelemetryId: string | null = null;
   // Properties merged into every event this client sends.
   //
   // For facts about the caller that are true for the whole process rather than
@@ -97,9 +99,28 @@ export class TelemetryClient {
     this.globalProperties = { ...this.globalProperties, ...properties };
   }
 
-  setLicenseToken(licenseToken: string) {
-    this.licenseToken = licenseToken;
-    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
+  /** Atomically replace the process-wide telemetry identity. */
+  setTelemetryIdentity(identity: TelemetryIdentity): void {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
+  }
+
+  /** @deprecated Prefer {@link setTelemetryIdentity}. */
+  setLicenseToken(licenseToken: string): void {
+    this.setTelemetryIdentity({ licenseToken });
+  }
+
+  /** Create an immutable capture scope for one Runtime instance. */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
   }
 
   async capture<K extends keyof AnalyticsEvents>(
@@ -123,13 +144,6 @@ export class TelemetryClient {
     // Only a legacy license token with telemetry_id bypasses sampleRate.
     if (!identity.licenseTelemetryId && !this.shouldSendEvent()) return;
 
-    // License-authorized events ship at full fidelity. Anonymous and
-    // standalone-identified events report the configured sample rate so the
-    // sink can extrapolate volume without treating identity as event data.
-    const effectiveSampleRate = identity.licenseTelemetryId
-      ? 1
-      : this.sampleRate;
-
     await lambdaClient.send({
       event,
       properties: properties as Record<string, unknown>,
@@ -145,7 +159,7 @@ export class TelemetryClient {
       globalProperties: {
         ...this.globalProperties,
         ...computeSamplingMeta({
-          telemetryId: this.telemetryId,
+          telemetryId: identity.licenseTelemetryId,
           sampleRate: this.sampleRate,
         }),
         telemetry_emitter: TELEMETRY_EMITTER_V2,

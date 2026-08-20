@@ -30,6 +30,7 @@ const TELEMETRY_SINK_URL =
   "https://telemetry.copilotkit.ai/ingest";
 
 const FETCH_TIMEOUT_MS = 3000;
+const TELEMETRY_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export interface LambdaSendOptions {
   event: string;
@@ -47,13 +48,12 @@ export interface LambdaSendOptions {
 }
 
 /**
- * Return the first configured standalone telemetry identity in HTTP form.
+ * Return the first telemetry identity accepted by the ingest service.
  *
  * Empty and whitespace-only values are unconfigured placeholders and must not
  * suppress a later identity source. Leading and trailing HTTP spaces and tabs
- * are removed before the selected value is stored or sent. Values outside the
- * HTTP field-value byte range are skipped so Fetch can still send the event
- * anonymously.
+ * are removed before validation. The ingest service accepts 1 to 128 ASCII
+ * letters, digits, underscores, and hyphens.
  *
  * @internal
  */
@@ -66,34 +66,12 @@ export function firstNonBlankTelemetryId(
     }
 
     const normalized = candidate.replace(/^[\t ]+|[\t ]+$/g, "");
-    if (normalized.trim().length > 0 && isValidHttpFieldValue(normalized)) {
+    if (TELEMETRY_ID_PATTERN.test(normalized)) {
       return normalized;
     }
   }
 
   return undefined;
-}
-
-/**
- * Check the byte domain Fetch can carry in an HTTP field value.
- *
- * HTTP field values permit horizontal tabs, visible ASCII, and obs-text bytes.
- * Other controls, DEL, and code points outside ByteString make Fetch reject.
- */
-function isValidHttpFieldValue(value: string): boolean {
-  for (const character of value) {
-    const codePoint = character.codePointAt(0);
-    if (
-      codePoint !== 0x09 &&
-      (codePoint === undefined ||
-        codePoint < 0x20 ||
-        codePoint === 0x7f ||
-        codePoint > 0xff)
-    ) {
-      return false;
-    }
-  }
-  return true;
 }
 
 // These fields aren't used by the telemetry service, so we strip them
@@ -116,7 +94,7 @@ function stripCloudKeys(
 // Pull telemetry_id out of a CopilotKit license token without verifying
 // the signature. The token shape is a standard JWT
 // (`<header>.<payload>.<sig>`) with base64url-encoded segments; the
-// payload is UTF-8 JSON with a nonblank, HTTP-safe `telemetry_id` string field.
+// payload is UTF-8 JSON with a telemetry_id accepted by the ingest service.
 //
 // Verification (Ed25519, key rotation, expiry) is the license-verifier
 // package's job. For telemetry attribution we only need the claimed id —
