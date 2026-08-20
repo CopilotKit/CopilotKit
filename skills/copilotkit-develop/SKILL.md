@@ -66,10 +66,10 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    // useSingleEndpoint={false} matches the multi-route backend above. The
-    // v1-compat CopilotKit bridge defaults it to true (single transport),
-    // which would 404 against a multi-route handler.
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    // No useSingleEndpoint: the provider negotiates the transport, so this
+    // works against a multi-route handler (the default) and a single-route one
+    // alike. Pass the prop only to pin one mode deliberately.
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <YourApp />
     </CopilotKit>
   );

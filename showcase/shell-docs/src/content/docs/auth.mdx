@@ -38,11 +38,10 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 </CopilotKit>
 ```
 
-<Callout type="warn" title="Why the explicit useSingleEndpoint">
-  The `createCopilotRuntimeHandler` route below serves multi-route, the default. `<CopilotKit>` is the v1 wrapper and
-  asks for single-route transport unless told otherwise, so without this prop
-  its startup `/info` call 404s and no agents are discovered.
-  `<CopilotKitProvider>` detects the transport and needs no prop. See
+<Callout type="info" title="About the explicit useSingleEndpoint">
+  The `createCopilotRuntimeHandler` route below serves multi-route, the default. Both `<CopilotKit>` and `<CopilotKitProvider>` negotiate the transport when the
+  prop is omitted, so this `{false}` is optional: it pins the multi-route REST
+  routes rather than probing for them. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 

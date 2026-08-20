@@ -6,7 +6,28 @@ near the root of the React tree. Every CopilotKit hook (`useAgent`,
 (`CopilotChat`, `CopilotPopup`, `CopilotSidebar`) must be rendered inside
 this provider.
 
-> **Which provider component?** Always use `CopilotKit` imported from `@copilotkit/react-core/v2`. It is the compatibility bridge across v1 and v2 and a strict superset of the other provider APIs. Do **not** use `CopilotKit` from the package root (`@copilotkit/react-core`, legacy v1) or `CopilotKitProvider` from `/v2` (a subset of the functionality).
+> **Which provider component?** Use `CopilotKit` imported from `@copilotkit/react-core/v2`. It is the compatibility bridge across v1 and v2 and a superset of `CopilotKitProvider`, which is also exported from `/v2` and is a perfectly good choice if you do not need the v1 bridge. Do **not** use `CopilotKit` from the package root (`@copilotkit/react-core`) — that is the legacy v1 entry point and will not work with v2 hooks or components.
+
+## Transport
+
+You do not normally configure the transport. Both providers leave
+`useSingleEndpoint` unset by default, and the client then negotiates: it probes
+`GET {runtimeUrl}/info` and falls back to the single-route `POST` envelope. That
+works against a multi-route handler (the default for every `createCopilot*`
+handler) and a single-route one alike.
+
+Set the prop only to pin one mode deliberately:
+
+| `useSingleEndpoint`       | Transport                    | Requires                                      |
+| ------------------------- | ---------------------------- | --------------------------------------------- |
+| omitted (**recommended**) | negotiated                   | either handler mode                           |
+| `{true}`                  | single-route `POST` envelope | a handler mounted with `mode: "single-route"` |
+| `{false}`                 | multi-route REST routes      | a handler in the default multi-route mode     |
+
+Pinning the wrong one is the classic first-run failure: a single-route envelope
+sent to a multi-route runtime matches no route, so the runtime 404s while
+`GET /info` still returns 200 and the app looks connected. If you see that, drop
+the prop rather than guessing the other value.
 
 All v2 imports use the `@copilotkit/react-core/v2` subpath. Imports from the
 package root are v1 and will not work with v2 hooks or components.
