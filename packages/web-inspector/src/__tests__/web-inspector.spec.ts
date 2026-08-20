@@ -2092,6 +2092,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.localStorage.setItem(
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        selectedMenu: "threads",
+        hasOpenedInspector: true,
+      }),
+    );
     fetchMock = vi.fn(() =>
       Promise.resolve({
         ok: true,
@@ -2244,7 +2252,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
@@ -2254,7 +2264,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     const ctaLabels = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
     ).map((anchor) => anchor.textContent?.trim());
-    expect(ctaLabels).toEqual(["Talk to an Engineer"]);
+    expect(
+      ctaLabels.filter((label) => label === "Talk to an Engineer"),
+    ).toEqual(["Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
@@ -2284,7 +2296,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -2323,7 +2337,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     localStorage.setItem(
       "cpk:inspector:state",
-      JSON.stringify({ selectedMenu: "ag-ui-events" }),
+      JSON.stringify({
+        selectedMenu: "ag-ui-events",
+        hasOpenedInspector: true,
+      }),
     );
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
@@ -2375,7 +2392,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2474,7 +2493,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       selectedThreadId: string | null;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2513,7 +2534,16 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   });
 
   it("persists example tour dismissal so it does not auto-open again", async () => {
-    const stored = new Map<string, string>();
+    const stored = new Map<string, string>([
+      [
+        "cpk:inspector:state",
+        JSON.stringify({
+          isOpen: true,
+          selectedMenu: "threads",
+          hasOpenedInspector: true,
+        }),
+      ],
+    ]);
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => stored.get(key) ?? null,
       setItem: (key: string, value: string) => stored.set(key, value),
@@ -2538,7 +2568,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2633,7 +2665,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2843,6 +2877,9 @@ async function mountMemories(
   };
   internals.isOpen = true;
   internals.handleMenuSelect("memories");
+  (el as unknown as { selectedMenu: string }).selectedMenu = "memories";
+  el.requestUpdate();
+  await el.updateComplete;
 
   await el.updateComplete;
   return el;
@@ -2918,13 +2955,13 @@ describe("WebInspectorElement memories — tab presence", () => {
     const buttons = Array.from(
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
-    const learningButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Learning"),
+    const memoryButton = buttons.find((btn) =>
+      btn.textContent?.trim().includes("Memory"),
     );
 
     expect(
-      learningButton,
-      "Learning primary navigation should render",
+      memoryButton,
+      "Memory workbench navigation should render",
     ).toBeDefined();
   });
 });
@@ -3368,7 +3405,10 @@ describe("WebInspectorElement memories — active-on-boot subscription", () => {
     // connectedCallback, before any user interaction) restores the Memories tab
     // as the active tab — reproducing the stuck-indicator boot scenario.
     const store: Record<string, string> = {
-      "cpk:inspector:state": JSON.stringify({ selectedMenu: "memories" }),
+      "cpk:inspector:state": JSON.stringify({
+        selectedMenu: "memories",
+        hasOpenedInspector: true,
+      }),
     };
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] ?? null,
@@ -3770,7 +3810,13 @@ describe("ɵbuildCapabilityRows", () => {
 describe("WebInspectorElement Capabilities tab", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    const store: Record<string, string> = {};
+    const store: Record<string, string> = {
+      "cpk:inspector:state": JSON.stringify({
+        isOpen: true,
+        selectedMenu: "capabilities",
+        hasOpenedInspector: true,
+      }),
+    };
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store[k] ?? null,
       setItem: (k: string, v: string) => {
@@ -3835,9 +3881,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const text = inspector.shadowRoot?.textContent ?? "";
     expect(text).toContain("Frontend tools");
@@ -3852,9 +3901,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3876,9 +3928,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3889,19 +3944,25 @@ describe("WebInspectorElement Capabilities tab", () => {
     expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
   });
 
-  it("hides the catalog section when catalogComponents is empty", async () => {
+  it("hides Capabilities when the A2UI catalog is empty", async () => {
     const { core } = createCapabilitiesCore();
     (core as { catalogComponents: unknown[] }).catalogComponents = [];
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
-    const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Frontend tools");
+    const root = inspector.shadowRoot;
+    const text = root?.textContent ?? "";
+    expect(
+      root?.querySelector('button[data-inspector-menu-key="capabilities"]'),
+    ).toBeNull();
     expect(text).not.toContain("A2UI catalog components");
   });
 });

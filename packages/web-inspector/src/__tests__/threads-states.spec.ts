@@ -559,7 +559,7 @@ async function setupSettledState(
   opener.click();
   await flushInspector(inspector);
   const threadsButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threadsButton) throw new Error("Threads group was not rendered");
   threadsButton.click();
@@ -715,7 +715,7 @@ async function setupLoadingState(
       await flushInspector(inspector);
 
       const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[data-inspector-group="threads"]',
+        'button[data-inspector-menu-key="threads"]',
       );
       if (!threads) throw new Error("Threads group was not rendered");
       threads.click();
@@ -1052,7 +1052,7 @@ test.each(lockedCapabilityCases)(
         has_threads: false,
         usage_bucket: "empty",
         expiry_bucket: "zero",
-        group_key: "threads",
+        group_key: "workbench",
         leaf_key: "threads",
         thread_service_status: case_.threadServiceStatus,
         intelligence_status: case_.intelligenceStatus,

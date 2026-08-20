@@ -371,7 +371,7 @@ describe("typed helpers", () => {
       has_threads: false,
       usage_bucket: "empty",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
     trackThreadsEnabledViewed({
@@ -380,7 +380,7 @@ describe("typed helpers", () => {
       has_threads: true,
       usage_bucket: "within_limit",
       expiry_bucket: "positive",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
 
@@ -429,7 +429,7 @@ describe("typed helpers", () => {
       has_threads: false,
       usage_bucket: "empty",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
     expect(payloads[5]!.properties).toMatchObject({
@@ -438,7 +438,7 @@ describe("typed helpers", () => {
       has_threads: true,
       usage_bucket: "within_limit",
       expiry_bucket: "positive",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
   });

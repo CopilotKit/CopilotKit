@@ -50,6 +50,8 @@ export const TELEMETRY_EVENTS = {
   threadsExampleTourCompleted: "oss.inspector.threads_example_tour_completed",
   threadsExampleTourReopened: "oss.inspector.threads_example_tour_reopened",
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
+  homeViewed: "oss.inspector.home_viewed",
+  homeCtaClicked: "oss.inspector.home_cta_clicked",
   metadataModuleViewed: "oss.inspector.metadata_module_viewed",
   metadataActionClicked: "oss.inspector.metadata_action_clicked",
 } as const;
@@ -225,6 +227,8 @@ export type InspectorOpenedTelemetryProps = {
   runtime_url_type?: RuntimeUrlType;
   /** True when an unseen announcement was on screen at open time. */
   has_unseen_announcement?: boolean;
+  /** True when this is the first Inspector open after install or upgrade. */
+  first_open?: boolean;
 };
 
 /**
@@ -247,8 +251,9 @@ export type ThreadsUsageBucket =
   | "unlimited"
   | "unknown_limit";
 export type ThreadsExpiryBucket = "unavailable" | "zero" | "positive";
-export type InspectorGroupKey = "whats-new" | "threads" | "agents" | "learning";
+export type InspectorGroupKey = "home" | "workbench" | "inspect";
 export type InspectorLeafKey =
+  | "home"
   | "whats-new"
   | "threads"
   | "ag-ui-events"
@@ -281,7 +286,8 @@ export type InspectorThreadTelemetryProps = Readonly<{
     | "threads_locked"
     | "threads_header"
     | "threads_empty"
-    | "threads_populated";
+    | "threads_populated"
+    | "sidebar_footer";
   cta?: "signup" | "talk_to_engineer";
   telemetry_disabled?: boolean;
   has_threads?: boolean;
@@ -509,6 +515,27 @@ export type InspectorMetadataActionKind =
   | "manage_plan"
   | "renew"
   | "enable_intelligence";
+
+export type InspectorHomeTelemetryProps = Readonly<{
+  action_kind?: InspectorMetadataActionKind;
+  group_key?: InspectorGroupKey;
+  leaf_key?: InspectorLeafKey;
+}>;
+
+export function trackHomeViewed(props: InspectorHomeTelemetryProps = {}): void {
+  track(TELEMETRY_EVENTS.homeViewed, {
+    group_key: props.group_key ?? "home",
+    leaf_key: props.leaf_key ?? "home",
+  });
+}
+
+export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
+  track(TELEMETRY_EVENTS.homeCtaClicked, {
+    action_kind: props.action_kind,
+    group_key: props.group_key ?? "home",
+    leaf_key: props.leaf_key ?? "home",
+  });
+}
 
 export type InspectorMetadataModuleViewedTelemetryProps = Readonly<{
   module: InspectorMetadataTelemetryModule;

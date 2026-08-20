@@ -45,6 +45,7 @@ type InspectorPopOutContext = {
   windowOpen: ReturnType<typeof vi.fn<OpenWindow>>;
   open: () => Promise<void>;
   selectGroup: (key: string) => Promise<void>;
+  selectLeaf: (key: string) => Promise<void>;
   clickDetach: () => Promise<void>;
   firePageHide: () => void;
   firePopOutPointerDown: (path?: EventTarget[]) => void;
@@ -388,6 +389,11 @@ async function setup(
         `button[data-inspector-group="${key}"]`,
         `Inspector group was not rendered: ${key}`,
       ),
+    selectLeaf: (key) =>
+      clickInShadow(
+        `button[data-inspector-menu-key="${key}"]`,
+        `Inspector leaf was not rendered: ${key}`,
+      ),
     clickDetach: async () => {
       requireDetach(requireShadow(inspector)).click();
       await inspector.updateComplete;
@@ -484,7 +490,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("threads");
+      await context.selectLeaf("threads");
       await context.clickDetach();
 
       await waitFor(
@@ -501,7 +507,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("threads");
+      await context.selectLeaf("threads");
 
       const inPageThreadList = requireElement(
         requireShadow(context.inspector).querySelector("cpk-thread-list"),
@@ -690,7 +696,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("agents");
+      await context.selectLeaf("ag-ui-events");
 
       const mock = createMockAgent("alpha");
       context.core.addAgent__unsafe_dev_only({
@@ -1025,7 +1031,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("agents");
+      await context.selectLeaf("ag-ui-events");
       const mock = createMockAgent("alpha");
       context.core.addAgent__unsafe_dev_only({
         id: "alpha",

@@ -901,7 +901,9 @@ test("counts one real Phoenix join and reset closes its scenario socket", async 
       entries: [],
     });
     await socketClosed;
-    expect(lab.runtime.openSocketCount()).toBe(0);
+    await vi.waitFor(() => {
+      expect(lab.runtime.openSocketCount()).toBe(0);
+    });
   } finally {
     await stopLabServer(lab);
   }
@@ -1313,8 +1315,37 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(launcher, `${key}: launcher`).toBeDefined();
           launcher?.click();
           await flushInspector(inspector);
-          // A fresh profile lands on What's new, so this lab selects the
-          // Threads group it is here to drive.
+          const homeButton = inspectorButton(inspector, "Home");
+          expect(homeButton, `${key}: Home nav`).toBeDefined();
+          expect(
+            homeButton?.classList.contains("inspector-nav-control-active"),
+            `${key}: Home default`,
+          ).toBe(true);
+          const identity = scenario.inspectorMetadata?.identity;
+          if (identity) {
+            await vi.waitFor(() => {
+              expect(
+                collectDeep(
+                  inspector.shadowRoot!,
+                  '[aria-label="Inspector account details"]',
+                ),
+                `${key}: account presence`,
+              ).toHaveLength(1);
+            });
+            const homeText = inspectorText(inspector);
+            expect(homeText, `${key}: organization`).toContain(
+              identity.organizationName,
+            );
+            expect(homeText, `${key}: project`).toContain(identity.projectName);
+          } else {
+            expect(
+              collectDeep(
+                inspector.shadowRoot!,
+                '[aria-label="Inspector account details"]',
+              ),
+              `${key}: account presence`,
+            ).toHaveLength(0);
+          }
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
@@ -1361,14 +1392,12 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(root, key).not.toBeNull();
           if (!root) throw new Error(`${key}: missing Inspector Shadow Root.`);
           const text = inspectorText(inspector);
-          const navigation = collectDeep(
-            root,
-            '[aria-label="Inspector primary navigation"]',
-          );
+          const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
           expect(text, `${key}: Threads nav`).toContain("Threads");
-          expect(text, `${key}: Agents nav`).toContain("Agents");
-          expect(text, `${key}: Learning nav`).toContain("Learning");
+          expect(text, `${key}: Agent nav`).toContain("Agent");
+          expect(text, `${key}: Memory nav`).toContain("Memory");
+          expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
             expect(text, `${key}: overview heading`).toContain(
@@ -1414,21 +1443,6 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
               setupPrompts[0]?.textContent?.trim(),
               `${key}: setup prompt label`,
             ).toBe("Copy prompt for your agent");
-          }
-
-          const identity = scenario.inspectorMetadata?.identity;
-          const account = collectDeep(
-            root,
-            '[aria-label="Inspector account details"]',
-          );
-          expect(account, `${key}: account presence`).toHaveLength(
-            identity ? 1 : 0,
-          );
-          if (identity) {
-            expect(text, `${key}: organization`).toContain(
-              identity.organizationName,
-            );
-            expect(text, `${key}: project`).toContain(identity.projectName);
           }
 
           const usage = scenario.inspectorMetadata?.usage;
