@@ -505,16 +505,34 @@ export class RunHandler {
       };
       agentSubscriber.onRunStartedEvent = async (params) => {
         started = true;
-        logicalRunId = params.input.runId;
+        // A continuation keeps reporting under the run it continues; only an
+        // ordinary run adopts the id the transport assigned it.
+        if (!continuationHandoff) {
+          logicalRunId = params.input.runId;
+        }
         return onRunStartedEvent?.(params);
       };
+      // An internal continuation (a human-in-the-loop tool resolved and this is
+      // the recursive follow-up) deliberately does NOT pin the originating run
+      // id on the wire. Pinning it made the transport treat the follow-up as a
+      // resumption of a run it had already completed: it re-delivered that
+      // run's applied half — duplicating every tool call already on the
+      // message, each duplicate carrying empty arguments — and the follow-up's
+      // own tool call never reached client state, so its card never rendered.
+      //
+      // One logical run is still what everything downstream sees: the state
+      // manager re-stamps the continuation's events onto `runId` (passed to
+      // markNextRunAsContinuation), and `logicalRunId` below keeps the result
+      // reported under it. So external tracing still gets a single run without
+      // the wire having to lie about which invocation this is.
+      const pinRunIdOnWire = runId !== undefined && !continuationHandoff;
       const agentRunInput = {
         forwardedProps: {
           ...this._internal.properties,
           ...forwardedProps,
         },
         ...(resume !== undefined ? { resume } : {}),
-        ...(runId !== undefined ? { runId } : {}),
+        ...(pinRunIdOnWire ? { runId } : {}),
         tools: this.buildFrontendTools(agent.agentId),
         context: this._internal.getContextForAgent(agent.agentId),
       };

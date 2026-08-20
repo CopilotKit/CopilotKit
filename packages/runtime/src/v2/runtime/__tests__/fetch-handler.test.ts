@@ -1,6 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import type { InspectorMetadataV1 } from "@copilotkit/shared";
+import { describe, it, expect, test, vi } from "vitest";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import { CopilotKitIntelligence } from "../intelligence-platform";
 import type { AbstractAgent } from "@ag-ui/client";
 
 /* ------------------------------------------------------------------------------------------------
@@ -794,4 +796,127 @@ describe("createCopilotRuntimeHandler — error handling", () => {
     const response = await handler(get("http://localhost/api/info"));
     expect(response.status).toBe(403);
   });
+});
+
+function setupInspectorMetadataRoute() {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://api.example.com",
+    wsUrl: "wss://ws.example.com",
+    apiKey: "server-api-key",
+  });
+  const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+  });
+  const metadata = {
+    schemaVersion: 1,
+    identity: { organizationName: "Acme", projectName: "Support" },
+    license: { state: "valid" },
+  } satisfies InspectorMetadataV1;
+
+  return { getInspectorMetadata, metadata, runtime };
+}
+
+test("fetch-handler routes multi-route inspector metadata through hooks without forwarding browser auth", async () => {
+  const { getInspectorMetadata, metadata, runtime } =
+    setupInspectorMetadataRoute();
+  getInspectorMetadata.mockResolvedValue(metadata);
+  const onBeforeHandler = vi.fn();
+  const onResponse = vi.fn();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+    hooks: { onBeforeHandler, onResponse },
+  });
+  const request = new Request(
+    "https://runtime.example/api/copilotkit/inspector-metadata",
+    {
+      method: "GET",
+      headers: { Authorization: "Bearer browser-token" },
+    },
+  );
+
+  const response = await handler(request);
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.json()).resolves.toEqual(metadata);
+  expect(getInspectorMetadata).toHaveBeenCalledWith();
+  expect(onBeforeHandler.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+  expect(onResponse.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+});
+
+test("fetch-handler rejects POST on the multi-route inspector metadata endpoint", async () => {
+  const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "multi-route",
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit/inspector-metadata"),
+  );
+
+  expect(response.status).toBe(405);
+  expect(response.headers.get("Allow")).toBe("GET");
+  expect(getInspectorMetadata).not.toHaveBeenCalled();
+});
+
+test("fetch-handler dispatches single-route inspector metadata", async () => {
+  const { getInspectorMetadata, metadata, runtime } =
+    setupInspectorMetadataRoute();
+  getInspectorMetadata.mockResolvedValue(metadata);
+  const onBeforeHandler = vi.fn();
+  const onResponse = vi.fn();
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+    hooks: { onBeforeHandler, onResponse },
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit", {
+      method: "inspector/metadata",
+    }),
+  );
+
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.json()).resolves.toEqual(metadata);
+  expect(getInspectorMetadata).toHaveBeenCalledWith();
+  expect(onBeforeHandler.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+  expect(onResponse.mock.calls[0]?.[0].route).toEqual({
+    method: "inspector/metadata",
+  });
+});
+
+test("fetch-handler keeps single-route provider failures isolated", async () => {
+  const { getInspectorMetadata, runtime } = setupInspectorMetadataRoute();
+  getInspectorMetadata.mockRejectedValue(new Error("provider unavailable"));
+  const handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+  });
+
+  const response = await handler(
+    post("https://runtime.example/api/copilotkit", {
+      method: "inspector/metadata",
+    }),
+  );
+
+  expect(response.status).toBe(204);
+  expect(response.headers.get("Cache-Control")).toBe("no-store, private");
+  await expect(response.text()).resolves.toBe("");
 });

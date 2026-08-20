@@ -75,7 +75,6 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
           "__copilotkit_follow_up",
         );
       }
-      expect(input.runId).toBe("logical-hitl-run");
     };
 
     await copilotKitCore.runAgent({
@@ -84,10 +83,20 @@ describe("CopilotKitCore.runAgent - Follow-up Logic", () => {
     });
 
     expect(agent.runAgentCalls).toHaveLength(2);
-    expect(agent.runAgentCalls.map((input) => input.runId)).toEqual([
-      "logical-hitl-run",
-      "logical-hitl-run",
-    ]);
+    // The originating run is pinned on the first invocation. The follow-up
+    // deliberately does NOT pin it again: reusing the id on the wire made the
+    // transport treat the follow-up as a resumption of a run it had already
+    // finished, so it re-delivered that run's applied half (duplicating its
+    // tool calls, each duplicate carrying empty arguments) and the follow-up's
+    // own tool call never reached client state.
+    //
+    // Logical identity is preserved a layer up instead: the continuation is
+    // registered against the originating id and the state manager re-stamps its
+    // events onto it, so state/message association and external tracing still
+    // see ONE run. StateManager's "re-stamps a continuation onto the run it
+    // continues" test covers that end.
+    expect(agent.runAgentCalls[0]!.runId).toBe("logical-hitl-run");
+    expect(agent.runAgentCalls[1]!.runId).toBeUndefined();
   });
 
   it("should not trigger recursive call when tool.followUp is false", async () => {

@@ -4,10 +4,12 @@ The supported platform-neutral foundation behind `@copilotkit/channels`.
 Most applications should use the batteries-included `@copilotkit/channels` package;
 install core directly when building an adapter or intentionally selecting one platform.
 
-**Every Channel requires a CopilotKit Intelligence connection** (an API key — a
-free tier is available). There is no standalone / DIY run path: a Channel is
-started and owned by the `CopilotRuntime` once Intelligence is configured, not
-by calling a method on the Channel itself. See "Running a Channel" below.
+**Channels run through a channel runner.** CopilotKit Intelligence provides the
+managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+each Channel once Intelligence is configured — see "Running a Channel" below.
+Building and operating your own channel runner on the SDK primitives is also a
+supported path; teams choosing it own their state, persistence, concurrency,
+locking, retries, and race-condition handling.
 
 ## Selective install
 
@@ -65,10 +67,9 @@ A `Channel` has no public `start()` / `stop()` — lifecycle is runtime-owned
 
 ## Running a Channel
 
-A Channel only runs when it's declared on an Intelligence-configured
-`CopilotRuntime`; there is no `channel.start()` and no standalone/DIY runner.
-Pass the `Channel` in `channels`, then drive activation through the returned
-handler:
+In the managed path, a Channel runs when it's declared on an
+Intelligence-configured `CopilotRuntime`. Pass the `Channel` in `channels`,
+then drive activation through the returned handler:
 
 ```ts
 import { createChannel } from "@copilotkit/channels-core";

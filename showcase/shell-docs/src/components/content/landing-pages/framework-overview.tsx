@@ -115,6 +115,7 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
   "langgraph-typescript": "langgraph-js",
   "google-adk": "adk",
   strands: "aws-strands-py",
+  "strands-typescript": "aws-strands-ts",
   "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
   "ms-agent-python": "microsoft-agent-framework-py",
   mastra: "mastra",
@@ -123,6 +124,10 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
   agno: "agno",
   ag2: "ag2",
 };
+
+export function cliFrameworkForDocsSlug(slug: string): string | undefined {
+  return DOCS_SLUG_TO_CLI_FRAMEWORK[slug];
+}
 
 export function FrameworkOverview({
   data,
@@ -182,7 +187,7 @@ export function FrameworkOverview({
   // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
   // single command chip — those commands aren't interchangeable with the CLI.
   const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
-  const createFramework = DOCS_SLUG_TO_CLI_FRAMEWORK[currentFramework];
+  const createFramework = cliFrameworkForDocsSlug(currentFramework);
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",

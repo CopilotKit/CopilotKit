@@ -30,6 +30,8 @@ import {
   hydrateProbeLastRuns,
   verifyWorkerRegistered,
   drainFleetWorker,
+  makeRecycleExit,
+  latchOnce,
   DRAIN_DEREGISTER_TIMEOUT_MS,
 } from "./orchestrator.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
@@ -60,7 +62,7 @@ import {
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
 import type { WorkerRegistryReadPb } from "./orchestrator.js";
-import type { State, ProbeResult } from "./types/index.js";
+import type { State, ProbeResult, Logger } from "./types/index.js";
 import type {
   StatusWriter,
   OverlayWriteOutcome,
@@ -3599,6 +3601,163 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
       workerId: "worker-drain-idle",
       abandoningJobId: null,
     });
+  });
+});
+
+/**
+ * `makeRecycleExit` — the WORKER_MAX_JOBS recycle `exit` dep injected into the
+ * worker loop. It must run the deregister-first graceful teardown
+ * (`gracefulTeardown` → `drainFleetWorker`) BEFORE exiting, and it must ALWAYS
+ * exit (with the non-zero recycle code) even if the teardown rejects — otherwise
+ * a failed drain would strand a recycled worker that never surrenders to the
+ * platform restart policy.
+ */
+describe("makeRecycleExit — deregister BEFORE process.exit", () => {
+  const silentLogger: Logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+
+  it("runs gracefulTeardown (deregister) BEFORE process-exit and forwards the recycle code", async () => {
+    const order: string[] = [];
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      order.push("teardown");
+    });
+    const processExit = vi.fn((code: number): void => {
+      order.push(`exit:${code}`);
+    });
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit(42);
+
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(42));
+    // Teardown ran FIRST, then the exit — the ordering the roster-row fix needs.
+    expect(order).toEqual(["teardown", "exit:42"]);
+    expect(gracefulTeardown).toHaveBeenCalledTimes(1);
+  });
+
+  it("STILL exits with the non-zero code even if gracefulTeardown REJECTS (finally-guaranteed restart)", async () => {
+    const processExit = vi.fn<(code: number) => void>();
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      throw new Error("deregister blew up");
+    });
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit(42);
+
+    // The rejected teardown does not swallow the exit — Railway still restarts.
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(42));
+  });
+});
+
+/**
+ * TEARDOWN ONCE-LATCH (`latchOnce`) — `gracefulTeardown` in `runWorker` is
+ * reachable from BOTH the WORKER_MAX_JOBS recycle exit (`makeRecycleExit`) AND
+ * the SIGTERM/SIGINT handler (bootFleet's `drainAndExit` → the handle's
+ * `stop()`). The signal handler's own `draining` guard protects only its own
+ * re-entry, NOT a recycle firing concurrently with a SIGTERM — so without a
+ * latch the shared deregister + pool.shutdown sequence would run TWICE. These
+ * tests compose the REAL `makeRecycleExit` + `latchOnce` + `drainFleetWorker`
+ * exactly as `runWorker` wires them and pin the once-only invariant.
+ */
+describe("teardown once-latch (recycle + SIGTERM do not double-teardown)", () => {
+  const silentLogger: Logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+
+  function makeTeardownSpies() {
+    const registration = {
+      stop: vi.fn(),
+      deregister: vi.fn(async () => {}),
+    };
+    const shutdownPool = vi.fn(async () => {});
+    const worker = { drain: vi.fn(), stop: vi.fn(async () => {}) };
+    return { registration, shutdownPool, worker };
+  }
+
+  it("runs drainFleetWorker's deregister + pool shutdown EXACTLY ONCE when the recycle exit and the SIGTERM stop() both fire", async () => {
+    const { registration, shutdownPool, worker } = makeTeardownSpies();
+    // EXACT runWorker wiring: one shared latched teardown behind both callers.
+    const gracefulTeardown = latchOnce(() =>
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    );
+    const processExit = vi.fn<(code: number) => void>();
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    // Fire the recycle exit (path 1) and the handle's stop() (path 2 — SIGTERM)
+    // concurrently, then await both settling.
+    exit(0); // makeRecycleExit calls gracefulTeardown() then processExit
+    await gracefulTeardown(); // the handle's stop() awaits the same teardown
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
+
+    // The shared teardown ran once: deregister (roster delete) and pool shutdown
+    // each fired exactly once despite two callers. Pre-latch this was 2 each.
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+    expect(worker.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("MUTATION GUARD: without the latch (raw thunk) the same two callers double-teardown", async () => {
+    // This is the RED the latch fixes: wiring the two callers to the RAW,
+    // un-latched teardown thunk makes drainFleetWorker run twice — proving the
+    // test above is non-vacuous (it fails if `latchOnce` is removed).
+    const { registration, shutdownPool, worker } = makeTeardownSpies();
+    const rawTeardown = () =>
+      drainFleetWorker({ worker, registration, shutdownPool });
+    const processExit = vi.fn<(code: number) => void>();
+    const exit = makeRecycleExit({
+      gracefulTeardown: rawTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit(0);
+    await rawTeardown();
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
+
+    expect(registration.deregister).toHaveBeenCalledTimes(2);
+    expect(shutdownPool).toHaveBeenCalledTimes(2);
+  });
+
+  it("memoizes a REJECTING teardown so a second caller observes the same failure without re-running it", async () => {
+    // A teardown that rejects (e.g. worker.stop() threw) is memoized too: the
+    // second caller awaits the SAME rejected promise rather than re-running a
+    // partial teardown. drainFleetWorker still ran its deregister + pool
+    // shutdown exactly once.
+    const { registration, shutdownPool } = makeTeardownSpies();
+    const worker = {
+      drain: vi.fn(),
+      stop: vi.fn(async () => {
+        throw new Error("teardown exploded");
+      }),
+    };
+    const gracefulTeardown = latchOnce(() =>
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    );
+
+    await expect(gracefulTeardown()).rejects.toThrow("teardown exploded");
+    await expect(gracefulTeardown()).rejects.toThrow("teardown exploded");
+
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+    expect(worker.stop).toHaveBeenCalledTimes(1);
   });
 });
 

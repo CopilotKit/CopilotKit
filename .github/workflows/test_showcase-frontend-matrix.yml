@@ -104,8 +104,13 @@ jobs:
             --max-shards 1 \
             --output "$RUNNER_TEMP/frontend-matrix-plan.json"
 
+      # No --with-deps: it shells out to apt, which on the runners cannot always
+      # reach azure.archive.ubuntu.com and retries for many minutes — long enough to
+      # burn this job's whole timeout before a test runs. Chromium's system libraries
+      # are already present on the Ubuntu runner image, so downloading the browser is
+      # all this step needs.
       - name: Install Chromium
-        run: pnpm --dir pr/showcase/harness exec playwright install --with-deps chromium
+        run: pnpm --dir pr/showcase/harness exec playwright install chromium
 
       - name: Stage frozen shared sources
         run: |

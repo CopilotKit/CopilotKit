@@ -15,8 +15,6 @@ import type {
   ToolCallStartEvent,
   ToolCallResultEvent,
   RunErrorEvent,
-  StateSnapshotEvent,
-  StateDeltaEvent,
   Interrupt,
   ResumeEntry,
 } from "@ag-ui/client";
@@ -53,6 +51,7 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -103,6 +102,9 @@ export type BuiltInAgentModel =
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
+  // MiniMax models
+  | "minimax/MiniMax-M3"
+  | "minimax/MiniMax-M2.7"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -234,6 +236,15 @@ export function resolveModel(
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
+    }
+
+    case "minimax": {
+      const minimax = createOpenAI({
+        name: "minimax",
+        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
+        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+      });
+      return minimax(model);
     }
 
     case "vertex": {
@@ -816,6 +827,7 @@ export interface BuiltInAgentClassicConfig {
    * - OPENAI_API_KEY for OpenAI models
    * - ANTHROPIC_API_KEY for Anthropic models
    * - GOOGLE_API_KEY for Google models
+   * - MINIMAX_API_KEY for MiniMax models
    */
   apiKey?: string;
   /**
@@ -1432,7 +1444,7 @@ export class BuiltInAgent extends AbstractAgent {
               ]),
           );
           const pendingInterrupts: Interrupt[] = [];
-
+          const normalizeStateEvent = createStateEventNormalizer(input.state);
           const toolCallStates = new Map<
             string,
             {
@@ -1680,11 +1692,15 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const snapshot = toolResult.snapshot;
                   if (snapshot !== undefined) {
-                    const stateSnapshotEvent: StateSnapshotEvent = {
+                    const stateSnapshotEvent: BaseEvent = {
                       type: EventType.STATE_SNAPSHOT,
                       snapshot,
                     };
-                    subscriber.next(stateSnapshotEvent);
+                    for (const event of normalizeStateEvent(
+                      stateSnapshotEvent,
+                    )) {
+                      subscriber.next(event);
+                    }
                   }
                 } else if (
                   toolName === "AGUISendStateDelta" &&
@@ -1693,11 +1709,13 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const delta = toolResult.delta;
                   if (delta !== undefined) {
-                    const stateDeltaEvent: StateDeltaEvent = {
+                    const stateDeltaEvent: BaseEvent = {
                       type: EventType.STATE_DELTA,
                       delta,
                     };
-                    subscriber.next(stateDeltaEvent);
+                    for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                      subscriber.next(event);
+                    }
                   }
                 }
 
@@ -1928,6 +1946,7 @@ export class BuiltInAgent extends AbstractAgent {
                 result.fullStream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
               );
               break;
             }
@@ -1937,6 +1956,7 @@ export class BuiltInAgent extends AbstractAgent {
                 stream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
               );
               break;
             }

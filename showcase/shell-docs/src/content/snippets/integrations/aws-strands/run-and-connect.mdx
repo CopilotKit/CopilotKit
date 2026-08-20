@@ -12,9 +12,18 @@ If you don't already have CopilotKit and your agent connected, choose one of the
   <Accordion title="I want to start from scratch">
     Run the following command to clone a brand new project with a pre-configured agent:
 
-    ```bash
-    npx copilotkit create -f aws-strands-py
-    ```
+    <Tabs groupId="language_strands_agent" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```bash
+        npx copilotkit create --framework aws-strands-py
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```bash
+        npx copilotkit create --framework aws-strands-ts
+        ```
+      </Tab>
+    </Tabs>
 
   </Accordion>
 </Accordions>

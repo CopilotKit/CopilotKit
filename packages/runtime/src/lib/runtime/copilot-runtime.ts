@@ -1,6 +1,6 @@
 /**
  * <Callout type="info">
- *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/concepts/copilot-runtime).
+ *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
  * </Callout>
  *
  * ## Usage
@@ -37,7 +37,13 @@ import {
   CopilotRuntime as CopilotRuntimeVNext,
   InMemoryAgentRunner,
 } from "../../v2/runtime";
+import {
+  createRuntimeErrorReporter,
+  runtimeErrorReporterOption,
+} from "../../v2/runtime/core/runtime-error-reporter";
+import type { RuntimeErrorReporterOptions } from "../../v2/runtime/core/runtime-error-reporter";
 import type {
+  CopilotIntelligenceRuntimeOptions,
   CopilotRuntimeOptions,
   CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
   AgentRunner,
@@ -332,6 +338,18 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
    *  – the `Record<string, AbstractAgent>` constraint in `both
    */
   agents?: AgentsConfig;
+
+  intelligence?: CopilotIntelligenceRuntimeOptions["intelligence"];
+  identifyUser?: CopilotIntelligenceRuntimeOptions["identifyUser"];
+  memory?: CopilotIntelligenceRuntimeOptions["memory"];
+  channels?: CopilotIntelligenceRuntimeOptions["channels"];
+  ɵlearning?: CopilotIntelligenceRuntimeOptions["ɵlearning"];
+  generateThreadNames?: CopilotIntelligenceRuntimeOptions["generateThreadNames"];
+  maxReconnectMs?: CopilotIntelligenceRuntimeOptions["maxReconnectMs"];
+  maxRejoinMs?: CopilotIntelligenceRuntimeOptions["maxRejoinMs"];
+  lockTtlSeconds?: CopilotIntelligenceRuntimeOptions["lockTtlSeconds"];
+  lockKeyPrefix?: CopilotIntelligenceRuntimeOptions["lockKeyPrefix"];
+  lockHeartbeatIntervalSeconds?: CopilotIntelligenceRuntimeOptions["lockHeartbeatIntervalSeconds"];
 }
 
 /**
@@ -343,13 +361,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   // Cache MCP tools per endpoint to avoid re-fetching repeatedly
   private mcpToolsCache: Map<string, BuiltInAgentClassicConfig["tools"]> =
     new Map();
-  private runtimeArgs: CopilotRuntimeOptions;
+  private runtimeArgs: CopilotRuntimeOptions & RuntimeErrorReporterOptions;
   private _instance: CopilotRuntimeVNext;
 
-  constructor(
-    params?: CopilotRuntimeConstructorParams<T> &
-      PartialBy<CopilotRuntimeOptions, "agents">,
-  ) {
+  constructor(params?: CopilotRuntimeConstructorParams<T>) {
     logRuntimeTelemetryDisclosure();
 
     const agents = params?.agents ?? {};
@@ -395,9 +410,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       telemetry.setLicenseToken(resolvedLicenseToken);
     }
 
-    this.runtimeArgs = {
+    const sharedRuntimeArgs = {
       agents: mergedAgents,
-      runner,
       licenseToken: params?.licenseToken,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
@@ -414,7 +428,34 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       a2ui: params?.a2ui,
       mcpApps: params?.mcpApps,
       openGenerativeUI: params?.openGenerativeUI,
+      [runtimeErrorReporterOption]: createRuntimeErrorReporter(params?.onError),
+      forwardHeaders: params?.forwardHeaders,
+      exposeMemoryRoutes: params?.exposeMemoryRoutes,
     };
+    if (params?.intelligence !== undefined) {
+      // The compatibility constructor keeps Intelligence identity optional at
+      // compile time, while the v2 runtime checks that callers supply web
+      // identity, Channels, or both. Preserve that runtime validation here.
+      this.runtimeArgs = {
+        ...sharedRuntimeArgs,
+        intelligence: params.intelligence,
+        identifyUser: params.identifyUser,
+        memory: params.memory,
+        channels: params.channels,
+        ɵlearning: params.ɵlearning,
+        generateThreadNames: params.generateThreadNames,
+        maxReconnectMs: params.maxReconnectMs,
+        maxRejoinMs: params.maxRejoinMs,
+        lockTtlSeconds: params.lockTtlSeconds,
+        lockKeyPrefix: params.lockKeyPrefix,
+        lockHeartbeatIntervalSeconds: params.lockHeartbeatIntervalSeconds,
+      } as CopilotRuntimeOptions;
+    } else {
+      this.runtimeArgs = {
+        ...sharedRuntimeArgs,
+        runner,
+      };
+    }
     this.params = params;
     this.observability = params?.observability_c;
   }

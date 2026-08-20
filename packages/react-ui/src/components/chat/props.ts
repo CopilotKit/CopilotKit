@@ -118,14 +118,20 @@ export interface MessagesProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state
@@ -214,14 +220,20 @@ export interface AssistantMessageProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * The feedback state for this message ("thumbsUp" or "thumbsDown")
@@ -310,14 +322,20 @@ export interface RenderMessageProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state

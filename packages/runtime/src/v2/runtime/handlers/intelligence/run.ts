@@ -13,6 +13,10 @@ import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
+import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
+import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
+import { resolveLearningContainerId } from "../../core/learning";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -55,6 +59,7 @@ interface HandleIntelligenceRunParams {
   agentId: string;
   agent: AbstractAgent;
   input: RunAgentInput;
+  startTime?: number;
 }
 
 export async function handleIntelligenceRun({
@@ -63,6 +68,7 @@ export async function handleIntelligenceRun({
   agentId,
   agent,
   input,
+  startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -80,11 +86,30 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  let learningContainerId: string | undefined;
+  try {
+    learningContainerId = await resolveLearningContainerId(runtime.learning, {
+      surface: "web",
+      request,
+      threadId: input.threadId,
+      runId: input.runId,
+      agentId,
+      userId,
+    });
+  } catch (error) {
+    logger.error("Failed to resolve Learning Container:", error);
+    return Response.json(
+      { error: "Failed to resolve Learning Container" },
+      { status: 500 },
+    );
+  }
+
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     });
 
     if (created && runtime.generateThreadNames && !thread.name?.trim()) {
@@ -101,11 +126,19 @@ export async function handleIntelligenceRun({
     }
   } catch (error) {
     logger.error("Failed to get or create thread:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Failed to initialize thread",
       },
-      { status: 502 },
+      {
+        status:
+          platformStatus !== undefined &&
+          platformStatus >= 400 &&
+          platformStatus < 500
+            ? platformStatus
+            : 502,
+      },
     );
   }
 
@@ -118,6 +151,7 @@ export async function handleIntelligenceRun({
       runId: input.runId,
       userId,
       agentId,
+      ...(learningContainerId !== undefined ? { learningContainerId } : {}),
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
@@ -128,11 +162,14 @@ export async function handleIntelligenceRun({
     joinToken = lockResult.joinToken;
   } catch (error) {
     logger.error("Thread lock denied:", error);
+    const platformStatus = getPlatformErrorStatus(error);
     return Response.json(
       {
         error: "Thread lock denied",
       },
-      { status: 409 },
+      {
+        status: platformStatus === 409 ? 409 : 502,
+      },
     );
   }
 
@@ -244,6 +281,23 @@ export async function handleIntelligenceRun({
     ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
   };
 
+  const runtimeErrorReporter = getRuntimeErrorReporter(runtime);
+  let agentErrorReported = false;
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: canonicalThreadId,
+      runId: canonicalRunId,
+      phase,
+      startTime,
+    });
+  };
+
   try {
     const runStart = hasRunnerStartupBoundary(runtime.runner)
       ? runtime.runner.runWithStartupBoundary(runRequest)
@@ -257,16 +311,31 @@ export async function handleIntelligenceRun({
         if (event.type === EventType.RUN_STARTED) {
           runStarted.current = true;
         }
-        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-          clearHeartbeat();
-          immediateStartupErrorMessage =
+        if (event.type === EventType.RUN_ERROR) {
+          const message =
             "message" in event && typeof event.message === "string"
               ? event.message
               : "Runner failed before the run started";
-          immediateStartupCleanup = cleanupLock("runner-start-failed");
+          reportAgentError(
+            new Error(message),
+            runStarted.current
+              ? "intelligence.subscription"
+              : "intelligence.startup",
+          );
+          if (!runStarted.current) {
+            clearHeartbeat();
+            immediateStartupErrorMessage = message;
+            immediateStartupCleanup = cleanupLock("runner-start-failed");
+          }
         }
       },
       error: (error) => {
+        reportAgentError(
+          error,
+          runStarted.current
+            ? "intelligence.subscription"
+            : "intelligence.startup",
+        );
         clearHeartbeat();
         if (!runStarted.current) {
           immediateStartupErrorMessage =
@@ -288,6 +357,7 @@ export async function handleIntelligenceRun({
 
     await runStart.startup;
   } catch (error) {
+    reportAgentError(error, "intelligence.startup");
     clearHeartbeat();
     await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
     logger.error("Error starting agent runner:", error);

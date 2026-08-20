@@ -10,6 +10,7 @@ import {
 import type { ReactActivityMessageRenderer } from "@copilotkit/react-core/v2";
 import type { Skin } from "@/shell/skin-contract";
 import { getSkin } from "@/shell/registry";
+import { isSkinLockedOut, useLockedSkin } from "@/shell/locked-skin-context";
 import { SkinProvider } from "@/shell/skin-provider";
 import { ShellFrame } from "@/shell/layout/shell-frame";
 import { LayoutPreferencesProvider } from "@/shell/layout/layout-preferences";
@@ -17,6 +18,7 @@ import { ChatPanel } from "@/shell/chat/chat-panel";
 import { ChatInboxProvider } from "@/shell/chat/chat-inbox-context";
 import { TOOL_CALL_RENDERERS } from "@/shell/chat/tool-activity";
 import { CanvasProvider } from "@/shell/canvas/canvas-context";
+import { SubagentActivityProvider } from "@/shell/subagents/subagent-activity";
 import { CanvasRegion } from "@/shell/canvas/canvas";
 import { useThreadSelection } from "@/shell/threads/use-thread-selection";
 
@@ -129,6 +131,10 @@ function SkinRuntime({
   children: React.ReactNode;
 }) {
   const RuntimeProviders = skin.RuntimeProviders ?? PassThrough;
+  // The locked tab title is set on the server in the root layout's
+  // generateMetadata (keyed on LOCK_SKIN), so SSR/crawlers see the brand. Only
+  // the per-skin favicon is swapped client-side below, since Next's metadata
+  // API is server-only and this per-skin layout is a client component.
   return (
     <div className={skin.themeClass}>
       <FaviconSync emoji={skin.identity.favicon} />
@@ -201,21 +207,36 @@ function SkinCopilotRuntime({
             onCreateThread={createThread}
           >
             <CanvasProvider>
-              <Providers>
-                <SkinSuggestions skin={skin} />
-                <Tools />
-                <LayoutPreferencesProvider>
-                  <ShellFrame
-                    activeSkinId={skin.id}
-                    chat={<ChatPanel threadId={threadId} />}
-                    app={
-                      <Layout>
-                        <CanvasRegion>{children}</CanvasRegion>
-                      </Layout>
-                    }
-                  />
-                </LayoutPreferencesProvider>
-              </Providers>
+              {/*
+                Above BOTH consumers on purpose: the skin's `Tools` (whose
+                renderers read which tool calls came from a subagent) and the
+                shared `ChatPanel` (which suppresses subagent narration inline).
+                One event subscription feeds both; mounting it lower would mean
+                two subscriptions disagreeing about the same run.
+              */}
+              {/*
+                KEYED BY THREAD so switching conversations gives a fresh
+                accumulator instead of inheriting the previous run's console.
+                Remounting is deliberate — it is React's answer to "reset state
+                when an input changes" and keeps a `setState` out of an effect.
+              */}
+              <SubagentActivityProvider key={threadId}>
+                <Providers>
+                  <SkinSuggestions skin={skin} />
+                  <Tools />
+                  <LayoutPreferencesProvider>
+                    <ShellFrame
+                      activeSkinId={skin.id}
+                      chat={<ChatPanel threadId={threadId} />}
+                      app={
+                        <Layout>
+                          <CanvasRegion>{children}</CanvasRegion>
+                        </Layout>
+                      }
+                    />
+                  </LayoutPreferencesProvider>
+                </Providers>
+              </SubagentActivityProvider>
             </CanvasProvider>
           </ChatInboxProvider>
         </SkinProvider>
@@ -232,8 +253,15 @@ export default function SkinLayout({
   params: Promise<{ skin: string }>;
 }) {
   const { skin: skinId } = use(params);
+  const lockedSkin = useLockedSkin();
   const skin = getSkin(skinId);
   if (!skin) notFound();
+  // On a LOCK_SKIN deploy only one skin exists, so the others are as absent as a
+  // nonsense segment — same 404, uniform semantics. `notFound()` throws before
+  // `SkinRuntime` renders, so this client path never mounts a CopilotKitProvider,
+  // a thread, or an agent registration for a disowned skin. (The server-side
+  // agent registry is unaffected — LOCK_SKIN gates the UI, not the registry.)
+  if (isSkinLockedOut(skin.id, lockedSkin)) notFound();
   return (
     <SkinRuntime key={skin.id} skin={skin}>
       {children}

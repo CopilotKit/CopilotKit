@@ -15,6 +15,8 @@ export const ALLOWED_MULTI_FILE_REGION_KEYS = new Set([
   "claude-sdk-python::open-gen-ui-advanced::sandbox-function-registration",
   "claude-sdk-typescript::headless-complete::custom-bubbles",
   "claude-sdk-typescript::open-gen-ui-advanced::sandbox-function-registration",
+  "crewai-conversational-flows::headless-complete::custom-bubbles",
+  "crewai-conversational-flows::open-gen-ui-advanced::sandbox-function-registration",
   "crewai-crews::headless-complete::custom-bubbles",
   "crewai-crews::open-gen-ui-advanced::sandbox-function-registration",
   "google-adk::headless-complete::custom-bubbles",

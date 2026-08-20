@@ -3,7 +3,8 @@ import "./theme.css"; // side-effect import registers the .theme-logistics block
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAgentContext } from "@copilotkit/react-core/v2";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import { HelpCircle, RotateCcw } from "lucide-react";
 import { useSkin } from "@/shell/skin-provider";
 import { usePresenterReset } from "@/shell/presenter-reset-context";
@@ -22,11 +23,26 @@ const SIDEBAR_WIDTH_PX = 240;
 
 export function LogisticsLayout({ children }: { children: ReactNode }) {
   const skin = useSkin();
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const { currentPlanner, planners, setPlannerId } = usePlannerAuth();
   const resetEnabled = usePresenterReset();
   const askCopilot = useAskCopilot();
   const Logo = skin.identity.logo;
+
+  // ── BEAT 3b, part 1 — the agent's view of WHICH page is open ─────────────
+  // Without this the skin has only GLOBAL readables and answers "what's on my
+  // screen?" identically everywhere, which reads as working right up until the
+  // presenter navigates and asks twice. `restHead` comes from useSkinSegments,
+  // which strips a LEADING skin id rather than slicing a fixed offset, so it is
+  // correct whether or not the pathname carries the prefix (LOCK_SKIN serves the
+  // locked skin at `/`, with no segment to slice off).
+  useAgentContext({
+    description:
+      "The page the planner is looking at right now, as a route segment. " +
+      "An empty segment is the Control Tower (the index).",
+    value: restHead,
+  });
 
   const handleReset = async () => {
     if (
@@ -41,8 +57,9 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
       if (res.ok) {
         // Hard navigate to the skin root for a pristine client slate (fresh
         // store, cleared canvas, new thread on next message) AND the clean
-        // starting URL the demo should always open on.
-        window.location.assign(`/${skin.id}`);
+        // starting URL the demo should always open on — which is `/` itself on
+        // a locked single-tenant deploy.
+        window.location.assign(skinHref());
       } else {
         window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
       }
@@ -70,10 +87,8 @@ export function LogisticsLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="flex flex-col gap-0.5">
           {skin.nav.map((route) => {
-            const href = route.segment
-              ? `/${skin.id}/${route.segment}`
-              : `/${skin.id}`;
-            const active = pathname === href;
+            const href = skinHref(route.segment);
+            const active = restHead === route.segment;
             const Icon = route.icon;
             return (
               <Link

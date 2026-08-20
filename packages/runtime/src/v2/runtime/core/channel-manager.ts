@@ -5,6 +5,8 @@ import {
 } from "./channel-activation-config";
 import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
+import { telemetry } from "../telemetry";
+import type { AnalyticsEvents } from "../telemetry";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
@@ -28,16 +30,28 @@ import type {
   ReplyContinuationOptions,
   ResolvedChannelMemory,
 } from "@copilotkit/channels";
+import type { CopilotRuntimeLearningConfig } from "./learning";
+import { resolveLearningContainerId } from "./learning";
 
 /**
  * Lifecycle status of a single Channel activation, or of the manager overall.
  *
  * - `connecting`: activation in flight, not yet settled.
- * - `online`: activation resolved AND the managed session can currently send.
- *   A drop moves the Channel to `reconnecting` (not `online`); a successful
- *   rejoin restores `online`.
+ * - `online`: activation resolved, the managed session can currently send, AND
+ *   the gateway did not report the Channel as missing a managed provider. A drop
+ *   moves the Channel to `reconnecting` (not `online`); a successful rejoin
+ *   restores `online`.
  * - `setup_required`: the Channel is declared but has no managed provider yet —
- *   a valid degraded state, not a failure.
+ *   a valid degraded state, not a failure. Reached when the gateway reports the
+ *   provider as unattached/disabled/undeclared on the control join reply (see
+ *   {@link ChannelLegs}), or when the activation engine throws a
+ *   `SETUP_REQUIRED` error.
+ *
+ *   NOTE: between the 2026-07-29 realtime-boundary cutover and the introduction
+ *   of {@link ChannelLegs}, this state had NO producer — the engine stopped
+ *   classifying it and nothing else set it, so a Channel with no Slack app at
+ *   all reported `online`. Do not reintroduce a code path that describes
+ *   `setup_required` without one that can actually emit it.
  * - `reconnecting`: the managed session dropped and Phoenix is retrying — not
  *   currently sendable. The manager does NOT re-activate (reconnection is
  *   delegated to the Phoenix connection layer); it only reflects the health the
@@ -60,18 +74,140 @@ export type ChannelStatus =
   | "error";
 
 /**
+ * Managed provider attachment state for one Channel, as reported by the gateway
+ * on the control join reply.
+ *
+ * `unknown` is this package's own value for "the gateway did not tell us" — a
+ * gateway predating the provider-state contract, one whose lookup failed, or a
+ * non-gateway handle. It must never be read as "no provider attached".
+ */
+export type ChannelProviderLeg =
+  | "attached"
+  | "unhealthy"
+  | "not_attached"
+  | "disabled"
+  | "channel_not_declared"
+  | "unknown";
+
+/**
+ * The two independent things that have to be true for a managed Channel to
+ * work, reported separately so a caller can assert the one it cares about.
+ *
+ * `status` is the fold of the two and matches this Channel's entry in
+ * {@link ChannelsControl.status}'s `channels` map.
+ *
+ * The legs exist because they are genuinely separable: the control socket can be
+ * joined and sendable while no Slack/Teams app is bound to the Channel at all.
+ * Before they were split, `overall: "online"` proved only the socket, and
+ * onboarding guidance used it to certify end-to-end success.
+ */
+export interface ChannelLegs {
+  /** Fold of {@link transport} and {@link provider}. */
+  status: ChannelStatus;
+  /** Runtime ⇄ Gateway control socket for this Channel. */
+  transport: ChannelStatus;
+  /** Whether a managed provider is bound to this Channel. */
+  provider: ChannelProviderLeg;
+}
+
+/**
+ * Recognised provider states, used to validate what crosses the seam.
+ *
+ * Deliberately duplicates `PROVIDER_STATES` in
+ * `@copilotkit/channels-intelligence`'s `realtime-gateway.ts` rather than
+ * importing it: this package must not take a static dependency on
+ * channels-intelligence (it is reached only through a dynamic import), so the
+ * `providerStates` seam is duck-typed as `Record<string, string>`.
+ *
+ * A state added there needs adding here too, plus a `case` in
+ * {@link foldChannelLegs}. Until both land it fails OPEN — an unrecognised state
+ * becomes `unknown` and the Channel keeps its transport-derived status, rather
+ * than being wrongly certified or condemned.
+ */
+const PROVIDER_LEGS: ReadonlySet<string> = new Set<ChannelProviderLeg>([
+  "attached",
+  "unhealthy",
+  "not_attached",
+  "disabled",
+  "channel_not_declared",
+]);
+
+/**
+ * Fold a Channel's transport and provider legs into its single status.
+ *
+ * The transport leg dominates whenever it is not `online`: while the control
+ * socket is connecting, retrying, stopped, or failed, whatever the gateway last
+ * said about the provider is stale or irrelevant — the Channel cannot serve a
+ * turn either way, and reporting `setup_required` for a Channel that is actually
+ * mid-reconnect would hide the outage.
+ *
+ * Once the transport is `online` the provider leg decides, which is the whole
+ * point of the split: a joined socket with no provider bound is
+ * `setup_required`, not `online`.
+ *
+ * `unknown` keeps the transport-derived answer. That is what makes an older
+ * gateway (or a gateway whose lookup failed) behave exactly as it did before
+ * provider states existed, instead of turning every Channel into
+ * `setup_required`.
+ *
+ * @param transport - Control-socket status for the Channel.
+ * @param provider - Reported provider attachment state.
+ * @returns The folded Channel status.
+ */
+export function foldChannelLegs(
+  transport: ChannelStatus,
+  provider: ChannelProviderLeg,
+): ChannelStatus {
+  if (transport !== "online") {
+    return transport;
+  }
+  switch (provider) {
+    case "attached":
+    case "unknown":
+      return "online";
+    case "unhealthy":
+      return "error";
+    case "not_attached":
+    case "disabled":
+    case "channel_not_declared":
+      return "setup_required";
+  }
+}
+
+/**
  * The lifecycle control surface a Channel host uses to drive and observe
  * managed Channel activation.
  */
 export interface ChannelsControl {
   /**
-   * Resolve once every declared Channel has settled to a terminal, non-connecting
-   * state (`online` or `setup_required`). Rejects if any Channel is in `error`,
-   * or — when `timeoutMs` is given — if the whole set has not settled in time.
+   * Resolve once every declared Channel has settled its ACTIVATION — that is,
+   * each Channel either activated or failed to. Rejects if any Channel failed to
+   * activate, or — when `timeoutMs` is given — if the whole set has not settled
+   * in time.
+   *
+   * Readiness is about activation, NOT about provider health: a Channel whose
+   * transport joined but whose provider leg is `unhealthy` folds to a status of
+   * `error` (see {@link foldChannelLegs}) while its activation settled normally.
+   * So `ready()` resolving and `status().overall === "error"` can both be true at
+   * once, by design — provider attachment is the Gateway's answer to a question
+   * asked after activation, and it can change at any later rejoin. Assert
+   * end-to-end reachability with {@link ChannelsControl.status}, not here.
    */
   ready(opts?: { timeoutMs?: number }): Promise<void>;
-  /** Snapshot the overall status and the per-Channel status map. */
-  status(): { overall: ChannelStatus; channels: Record<string, ChannelStatus> };
+  /**
+   * Snapshot the overall status, the per-Channel status map, and the per-Channel
+   * transport/provider legs.
+   *
+   * `overall === "online"` does NOT by itself prove a Channel can receive
+   * provider traffic unless the provider leg is `attached`: read `detail` when
+   * you need to assert that a Channel is genuinely reachable from Slack/Teams,
+   * because a `provider` of `unknown` leaves `status` transport-derived.
+   */
+  status(): {
+    overall: ChannelStatus;
+    channels: Record<string, ChannelStatus>;
+    detail: Record<string, ChannelLegs>;
+  };
   /** Tear down every activated Channel. Idempotent. */
   stop(): Promise<void>;
 }
@@ -146,6 +282,20 @@ export interface ChannelsHandle {
       detail?: { reason?: string; code?: string },
     ) => void,
   ): void;
+  /**
+   * Optional seam: managed provider attachment state per declared Channel, as
+   * reported on the newest gateway control join reply.
+   *
+   * A getter, so each read reflects the current join reply — the gateway's join
+   * hooks re-fire on every auto-rejoin, so a Channel provisioned while the
+   * runtime was disconnected is picked up without re-activating.
+   *
+   * `undefined` (or an absent method) means "not reported", NOT "no provider".
+   * A gateway predating this contract, a gateway whose database read failed, and
+   * a non-gateway/test handle all land here, and all must fall back to
+   * transport-only status rather than claim a Channel is unprovisioned.
+   */
+  providerStates?(): Readonly<Record<string, string>> | undefined;
 }
 
 /** Constructor arguments for {@link ChannelManager}. */
@@ -156,6 +306,8 @@ export interface ChannelManagerArgs {
   channels: Channel[];
   /** Standard runtime AgentRunner used by managed Channel executions. */
   runner?: AgentRunner;
+  /** Selects one stable Learning Container ID for each Channel run. */
+  learning?: CopilotRuntimeLearningConfig;
   /** Standard thread-lock TTL forwarded to Channel AgentRunner heartbeats. */
   lockTtlSeconds?: number;
   /** Standard thread-lock heartbeat cadence used by Channel AgentRunner calls. */
@@ -201,6 +353,8 @@ interface ChannelEntry {
   handleStopped: boolean;
   /** Epoch ms this outage episode began; unset while the session is healthy. */
   downSince?: number;
+  /** Cause of THIS outage episode, replayed on each "still down" reminder. */
+  downCause?: string;
   /** Next "still down" logger for this outage; cleared on recovery/teardown. */
   reconnectLogTimer?: ReturnType<typeof setTimeout>;
   /** Delay before the next reminder; doubles after each emitted reminder. */
@@ -318,6 +472,7 @@ export async function defaultActivateChannel(
     lockTtlSeconds?: number;
     lockHeartbeatIntervalSeconds?: number;
     lockKeyPrefix?: string;
+    learning?: CopilotRuntimeLearningConfig;
   },
 ): Promise<ChannelsHandle> {
   let mod: ChannelsIntelligenceModule;
@@ -364,6 +519,7 @@ export async function defaultActivateChannel(
         services.lockHeartbeatIntervalSeconds ?? 15,
         args,
         services.lockKeyPrefix,
+        services.learning,
       ),
     loadHistory: async ({ deliveryId, threadId, appUserId }) => {
       const history = await services.intelligence.getThreadMessages({
@@ -488,17 +644,27 @@ async function runCanonicalChannelAgent(
   lockHeartbeatIntervalSeconds: number,
   args: CanonicalRunArgs,
   lockKeyPrefix?: string,
+  learning?: CopilotRuntimeLearningConfig,
 ): Promise<{
   iterations: number;
   interrupted: boolean;
   deliveryError?: unknown;
 }> {
+  const learningContainerId = await resolveLearningContainerId(learning, {
+    surface: "channel",
+    threadId: args.threadId,
+    runId: args.runId,
+    agentId: args.agentId,
+    userId: args.userId,
+    deliveryId: args.deliveryId,
+  });
   const lock = await intelligence.ɵacquireThreadLock({
     threadId: args.threadId,
     runId: args.runId,
     userId: args.userId,
     agentId: args.agentId,
     channelDeliveryId: args.deliveryId,
+    ...(learningContainerId !== undefined ? { learningContainerId } : {}),
     ttlSeconds: lockTtlSeconds,
     ...(lockKeyPrefix !== undefined ? { lockKeyPrefix } : {}),
   });
@@ -923,6 +1089,7 @@ function withTimeout<T>(
 export class ChannelManager implements ChannelsControl {
   private readonly intelligence: CopilotKitIntelligence;
   private readonly runner?: AgentRunner;
+  private readonly learning?: CopilotRuntimeLearningConfig;
   private readonly lockTtlSeconds: number;
   private readonly lockHeartbeatIntervalSeconds: number;
   private readonly lockKeyPrefix?: string;
@@ -941,6 +1108,7 @@ export class ChannelManager implements ChannelsControl {
   constructor(args: ChannelManagerArgs) {
     this.intelligence = args.intelligence;
     this.runner = args.runner;
+    this.learning = args.learning;
     this.lockTtlSeconds = args.lockTtlSeconds ?? 20;
     this.lockHeartbeatIntervalSeconds = args.lockHeartbeatIntervalSeconds ?? 15;
     this.lockKeyPrefix = args.lockKeyPrefix;
@@ -962,6 +1130,9 @@ export class ChannelManager implements ChannelsControl {
             ? {
                 runner: this.runner,
                 intelligence: this.intelligence,
+                ...(this.learning !== undefined
+                  ? { learning: this.learning }
+                  : {}),
                 lockTtlSeconds: this.lockTtlSeconds,
                 lockHeartbeatIntervalSeconds: this.lockHeartbeatIntervalSeconds,
                 ...(this.lockKeyPrefix !== undefined
@@ -1289,21 +1460,46 @@ export class ChannelManager implements ChannelsControl {
    * Snapshot status. Every declared Channel appears keyed by name in
    * `channels` after its combined adapter lifecycle starts.
    *
+   * Each Channel's entry is the fold of its transport and provider legs (see
+   * {@link foldChannelLegs}), and `detail` reports those legs separately so a
+   * caller can assert the one it cares about.
+   *
    * `overall` is folded over ALL declared Channels (see {@link computeOverall}),
    * by precedence `error` > `reconnecting` > `setup_required` > `connecting` >
-   * `online`. `online` means every Channel can currently send. `reconnecting`
-   * outranks `setup_required` because a dropped-but-retrying Channel is an active
-   * outage, louder than a steadily-degraded unprovisioned one. With no declared
-   * Channels at all, `overall` is `online` (nothing
-   * is degraded); once every Channel has been stopped, `overall` is `stopped`.
+   * `online`. `online` means every Channel can currently send AND none was
+   * reported as missing its managed provider. `reconnecting` outranks
+   * `setup_required` because a dropped-but-retrying Channel is an active outage,
+   * louder than a steadily-degraded unprovisioned one. With no declared Channels
+   * at all, `overall` is `online` (nothing is degraded); once every Channel has
+   * been stopped, `overall` is `stopped`.
+   *
+   * `overall === "online"` is only end-to-end proof when every Channel's
+   * `provider` leg is `attached`. A gateway that reports no provider state leaves
+   * the legs `unknown` and `overall` transport-derived, exactly as before this
+   * contract existed — so a caller that must be certain checks `detail`.
    */
   status(): {
     overall: ChannelStatus;
     channels: Record<string, ChannelStatus>;
+    detail: Record<string, ChannelLegs>;
   } {
     const channels: Record<string, ChannelStatus> = {};
+    const detail: Record<string, ChannelLegs> = {};
     for (const [name, entry] of this.entries) {
-      channels[name] = entry.status;
+      // KNOWN LIMITATION, dead today: the legacy `ChannelSetupRequiredError` /
+      // `code === "SETUP_REQUIRED"` path writes `setup_required` into
+      // `entry.status`, which is reported verbatim as the transport leg — so such
+      // a Channel reads `transport: "setup_required", provider: "unknown"`, a
+      // provider condition parked on the transport leg. Nothing emits it (the
+      // activation engine stopped throwing it at the 2026-07-29
+      // realtime-boundary cutover) and the folded `status` is right either way,
+      // so this is cosmetic. A future producer should report provider attachment
+      // through the `providerStates` seam rather than `entry.status`.
+      const transport = entry.status;
+      const provider = this.providerLeg(name, entry);
+      const status = foldChannelLegs(transport, provider);
+      channels[name] = status;
+      detail[name] = { status, transport, provider };
     }
     // A stopped manager is `stopped` regardless of whether it was ever activated.
     // stop() before activate() (e.g. SIGTERM during startup) leaves `entries`
@@ -1312,7 +1508,7 @@ export class ChannelManager implements ChannelsControl {
     // activate→stop, every entry is already `stopped` and the fold agrees, so
     // this is also consistent with the populated case.)
     if (this.stopped) {
-      return { overall: "stopped", channels };
+      return { overall: "stopped", channels, detail };
     }
     // Before activate() has run, `entries` is empty. Folding an empty set gives
     // `online` — correct for a manager that declares NO channels (nothing is
@@ -1322,9 +1518,40 @@ export class ChannelManager implements ChannelsControl {
     // Report `connecting` ("not started") for that case so `status()` is honest
     // before any `ready()`.
     if (!this.activated && this.channels.length > 0) {
-      return { overall: "connecting", channels };
+      return { overall: "connecting", channels, detail };
     }
-    return { overall: this.computeOverall(Object.values(channels)), channels };
+    return {
+      overall: this.computeOverall(Object.values(channels)),
+      channels,
+      detail,
+    };
+  }
+
+  /**
+   * Read one Channel's provider leg from its handle.
+   *
+   * Defensive on every axis, because a wrong answer here silently changes what
+   * `status()` certifies: a handle without the seam, a gateway that reported
+   * nothing, a name the gateway did not mention, an unrecognised value, or a
+   * throwing getter all yield `unknown` — which {@link foldChannelLegs} treats as
+   * "keep the transport-derived status", i.e. pre-provider-state behaviour.
+   *
+   * @param name - The Channel name (map key).
+   * @param entry - The Channel's activation entry.
+   * @returns The provider leg, or `"unknown"` when it cannot be established.
+   */
+  private providerLeg(name: string, entry: ChannelEntry): ChannelProviderLeg {
+    let states: Readonly<Record<string, string>> | undefined;
+    try {
+      states = entry.handle?.providerStates?.();
+    } catch {
+      // A misbehaving handle must never break a status snapshot.
+      return "unknown";
+    }
+    const reported = states?.[name];
+    return reported !== undefined && PROVIDER_LEGS.has(reported)
+      ? (reported as ChannelProviderLeg)
+      : "unknown";
   }
 
   /**
@@ -1387,15 +1614,34 @@ export class ChannelManager implements ChannelsControl {
       if (state === "reconnecting") {
         entry.status = "reconnecting";
         entry.downSince ??= Date.now();
+        // Remembered for the repeat line below: an operator reading a reminder
+        // hours into an outage should not have to find the first line to learn
+        // the cause.
+        if (cause !== undefined) entry.downCause = cause;
         this.log?.(
           `channel "${name}" managed session dropped; reconnecting (Phoenix auto-rejoin)${because}`,
         );
+        this.captureChannelTelemetry("oss.runtime.channel_session_dropped", {
+          ...(detail?.reason !== undefined ? { reason: detail.reason } : {}),
+          ...(detail?.code !== undefined ? { code: detail.code } : {}),
+        });
         this.startReconnectLog(name, entry);
       } else if (state === "online") {
         entry.status = "online";
         this.clearReconnectLog(entry);
+        // Read BEFORE clearing `downSince`, and only when an outage was
+        // actually in progress — a session may report `online` with no
+        // preceding drop, which is not a recovery.
+        const downSince = entry.downSince;
         entry.downSince = undefined;
+        entry.downCause = undefined;
         this.log?.(`channel "${name}" managed session back online`);
+        if (downSince !== undefined) {
+          this.captureChannelTelemetry(
+            "oss.runtime.channel_session_recovered",
+            { downForMs: Date.now() - downSince },
+          );
+        }
       } else if (state === "gave_up") {
         // `error` here means "not sendable", NOT "dead": Phoenix keeps retrying
         // underneath and a successful rejoin restores `online`. Say so, or the
@@ -1407,6 +1653,28 @@ export class ChannelManager implements ChannelsControl {
         );
       }
     });
+  }
+
+  /**
+   * Report a Channel connection event. A managed session that drops is
+   * otherwise invisible outside the host process — the `log` seam reaches only
+   * whoever reads that process's stdout, which for a self-hosted runtime is
+   * nobody who can act on it.
+   *
+   * Fire-and-forget, and failures are swallowed: telemetry must never break a
+   * live session. Same contract as `fireInstanceCreatedTelemetry`. The `try`
+   * also covers a `capture` that throws synchronously or returns no promise.
+   */
+  private captureChannelTelemetry<
+    K extends
+      | "oss.runtime.channel_session_dropped"
+      | "oss.runtime.channel_session_recovered",
+  >(event: K, props: AnalyticsEvents[K]): void {
+    try {
+      void telemetry.capture(event, props).catch(() => {});
+    } catch {
+      // Swallow — a telemetry transport must not take the session with it.
+    }
   }
 
   /** Rendered downtime for this outage episode (`"45s"`), or `"unknown"`. */
@@ -1433,7 +1701,8 @@ export class ChannelManager implements ChannelsControl {
         return;
       }
       this.log?.(
-        `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying`,
+        `channel "${name}" managed session still down after ${this.downFor(entry)}; Phoenix is retrying` +
+          (entry.downCause !== undefined ? ` — ${entry.downCause}` : ""),
       );
       entry.reconnectLogDelayMs = Math.min(
         delayMs * 2,

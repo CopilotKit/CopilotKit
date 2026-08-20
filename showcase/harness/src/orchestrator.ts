@@ -109,6 +109,8 @@ import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
   DEFAULT_WORKER_GC_AFTER_MS,
+  DEFAULT_PID_SATURATION_RATIO,
+  DEFAULT_PID_SATURATION_CLEAR_RATIO,
 } from "./fleet/control-plane/fleet-health.js";
 import type { RestartWorkerHook } from "./fleet/control-plane/fleet-health.js";
 import {
@@ -1752,6 +1754,17 @@ export const BROWSER_POOL_UNRECOVERABLE_KEY =
 export const BROWSER_POOL_ALERT_WEBHOOK_ENV =
   "SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE";
 
+/**
+ * PB status key the control-plane's WORKER PID-SATURATION alarm is written
+ * under. Kept separate from the two browser-pool keys because it describes a
+ * different failure: the pool is fine (it launches, it serves contexts) while
+ * the CONTAINER is running out of PIDs underneath it. The browser-pool keys only
+ * go red once the pool itself can no longer function, which a PID-starved worker
+ * reaches long after its probes have started aborting on timeout — the ~36h of
+ * lead time this key exists to surface.
+ */
+export const WORKER_PID_SATURATION_KEY = "system:worker-pid-saturation";
+
 /** Breaker counters + resource gauges surfaced in the terminal alarm so an
  *  operator sees how hard the pool tried before giving up AND the PROVEN wedge
  *  signal (the cgroup PID/thread ceiling) that caused it. */
@@ -2764,6 +2777,24 @@ export async function runControlPlane(
   // §9 family-silence monitor below) must judge worker staleness against the
   // SAME window, never the DEFAULT_ constant.
   const workerStaleAfterMs = resolveWorkerStaleAfterMs();
+  // #oss-alerts plumbing, constructed HERE (ahead of its other two consumers,
+  // the §9 family-silence monitor and the D0-gone monitor further down) because
+  // fleet-health's PID-saturation hook is the first thing that needs it. Both
+  // are pure constructions over `pb` / `logger` with no ordering constraints of
+  // their own; the webhook URL resolves from SLACK_WEBHOOK_OSS_ALERTS at SEND
+  // time, so hoisting cannot change what the later consumers see.
+  const alertStateStore = createAlertStateStore(pb);
+  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  const postOssAlert = async (text: string): Promise<void> => {
+    await ossAlertsTarget.send(
+      { payload: { text }, contentType: "application/json" },
+      { kind: "slack_webhook", webhook: "oss_alerts" },
+    );
+  };
+  const pidSaturationRatio = resolveRatioEnv(
+    "WORKER_PID_SATURATION_RATIO",
+    DEFAULT_PID_SATURATION_RATIO,
+  );
   const fleetHealth = createFleetHealthMonitor({
     pb,
     claim,
@@ -2771,6 +2802,69 @@ export async function runControlPlane(
     staleAfterMs: workerStaleAfterMs,
     gcAfterMs: resolveWorkerGcAfterMs(),
     restartWorker: resolveWorkerRestartHook(logger),
+    pidSaturationRatio,
+    pidSaturationClearRatio: resolveRatioEnv(
+      "WORKER_PID_SATURATION_CLEAR_RATIO",
+      DEFAULT_PID_SATURATION_CLEAR_RATIO,
+    ),
+    // PID-SATURATION ALARM ROUTING. Mirrors the browser-pool terminal alarm's
+    // shape — a durable `system:` status row PLUS an operator ping — with one
+    // deliberate difference: the ping goes to #oss-alerts (the channel the
+    // family-silence and D0-gone monitors already post to, wired from the
+    // SLACK_WEBHOOK_OSS_ALERTS secret that exists), NOT to
+    // SLACK_WEBHOOK_BROWSER_POOL_UNRECOVERABLE, which is referenced nowhere in
+    // this repo outside its own definition and is therefore unset everywhere.
+    // An alarm nobody receives is the gap this PR closes; routing it to a
+    // known-unwired webhook would reproduce that gap exactly.
+    //
+    // Both legs are best-effort and INDEPENDENT: a failed Slack post must not
+    // cost us the durable row (the dashboard signal), and vice versa. The
+    // monitor wraps the whole hook anyway, so a throw here can never abort the
+    // health cycle — but each leg carries its own catch so one failure doesn't
+    // silently skip the other.
+    onPidSaturation: async (report) => {
+      const message =
+        `worker ${report.workerId} PID-SATURATED — ` +
+        `pids.current=${report.pidsCurrent}/pids.max=${report.pidsMax} ` +
+        `(${(report.ratio * 100).toFixed(1)}%, alarm at ${(report.threshold * 100).toFixed(0)}%). ` +
+        "This worker's probes will abort on timeout once it can no longer fork; " +
+        "redeploy harness-workers to clear it.";
+      try {
+        await statusWriter.write({
+          key: WORKER_PID_SATURATION_KEY,
+          state: "red",
+          signal: {
+            severity: "critical",
+            errorMessage: message,
+            workerId: report.workerId,
+            pidsCurrent: report.pidsCurrent,
+            pidsMax: report.pidsMax,
+            ratio: report.ratio,
+            threshold: report.threshold,
+            lastHeartbeatAt: report.lastHeartbeatAt,
+            saturatedSince: report.observedAt,
+          },
+          observedAt: report.observedAt,
+        });
+      } catch (err) {
+        logger.warn("fleet.control-plane.pid-saturation-status-write-failed", {
+          workerId: report.workerId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        await postOssAlert(`:rotating_light: ${message}`);
+      } catch (err) {
+        // `createSlackWebhookTarget` THROWS when SLACK_WEBHOOK_OSS_ALERTS is
+        // unset (it logs `slack-webhook.env-unset` first) — same posture the
+        // family-silence monitor swallows. Alerting ships disabled locally;
+        // the durable status row above still lands.
+        logger.warn("fleet.control-plane.pid-saturation-alert-failed", {
+          workerId: report.workerId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
   });
 
   // CATALOG-AWARE ENUMERATION: the per-service unit enumerator resolves the
@@ -2967,18 +3061,13 @@ export async function runControlPlane(
   // which the monitor swallows per its post-failure discipline — alerting
   // ships disabled, the monitor still evaluates (so /health's
   // fleetRuns.lastEvaluatedAt stays live).
-  const alertStateStore = createAlertStateStore(pb);
-  const ossAlertsTarget = createSlackWebhookTarget({ logger });
+  // `alertStateStore` + `ossAlertsTarget` are constructed above (hoisted so
+  // fleet-health's PID-saturation hook can share the SAME #oss-alerts target).
   const familySilence = createFamilySilenceMonitor({
     summary: familySummary,
     schedules,
     alertStore: alertStateStore,
-    postAlert: async (text: string): Promise<void> => {
-      await ossAlertsTarget.send(
-        { payload: { text }, contentType: "application/json" },
-        { kind: "slack_webhook", webhook: "oss_alerts" },
-      );
-    },
+    postAlert: postOssAlert,
     // Boot grace (1× resolved period per family) anchored at construction.
     bootAtMs: Date.now(),
     logger,
@@ -3005,12 +3094,7 @@ export async function runControlPlane(
       // Reuse the SAME #oss-alerts webhook target the family-silence monitor
       // posts through — throws on send failure so `last_alert_at` never advances
       // on a dropped Slack post (§7 dedupe discipline).
-      postAlert: async (text: string): Promise<void> => {
-        await ossAlertsTarget.send(
-          { payload: { text }, contentType: "application/json" },
-          { kind: "slack_webhook", webhook: "oss_alerts" },
-        );
-      },
+      postAlert: postOssAlert,
       // The SAME shared memoized family-summary the routes + silence monitor use
       // — the §2.5 producer-liveness source.
       summary: familySummary,
@@ -3588,6 +3672,21 @@ function resolveWorkerGcAfterMs(): number {
 }
 
 /**
+ * Resolve a fleet-health PID-saturation RATIO knob (a fraction of a worker's
+ * cgroup `pids.max`). Shared by the alarm threshold and its hysteresis clear
+ * threshold since both parse identically. An unparseable or out-of-(0,1)
+ * override falls back to the default rather than handing
+ * `createFleetHealthMonitor` a value that trips its fail-loud guard and takes
+ * the whole control-plane down over a typo'd env var.
+ */
+function resolveRatioEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  const parsed = raw ? Number(raw) : NaN;
+  if (Number.isFinite(parsed) && parsed > 0 && parsed < 1) return parsed;
+  return fallback;
+}
+
+/**
  * Resolve the best-effort worker-restart hook fleet-health fires for a wedged
  * worker. In STAGING a wedged worker is recovered by a Railway
  * `serviceInstanceRedeploy`; the wiring is env-guarded so it only engages when
@@ -3896,6 +3995,67 @@ export async function drainFleetWorker(args: {
 }
 
 /**
+ * Memoize a zero-arg async thunk so it runs AT MOST ONCE, no matter how many
+ * callers (concurrent or sequential) invoke the returned function.
+ *
+ * This is the once-latch for `gracefulTeardown` below. That teardown is
+ * reachable from BOTH the WORKER_MAX_JOBS recycle exit (`makeRecycleExit`) AND
+ * the SIGTERM/SIGINT signal handler (`bootFleet`'s `drainAndExit` → the handle's
+ * `stop()`). The signal handler has its OWN `draining` boolean guard, but that
+ * guard protects only its own re-entry — it does NOT stop a recycle firing
+ * concurrently with (or moments before) a SIGTERM from running the whole
+ * deregister + `pool.shutdown()` sequence a SECOND time. The downstream is
+ * already idempotent / `.catch`-wrapped so a double-teardown does not crash, but
+ * the once-only invariant must be EXPLICIT: latching here makes every caller
+ * share the first invocation's promise, so `drainFleetWorker` (roster delete +
+ * pool shutdown) runs exactly once and concurrent callers all await the same
+ * outcome. A rejection is memoized too — a later caller observes (and logs) the
+ * same teardown failure rather than re-running a partial teardown.
+ */
+export function latchOnce<T>(fn: () => Promise<T>): () => Promise<T> {
+  let inflight: Promise<T> | undefined;
+  return (): Promise<T> => {
+    if (inflight === undefined) inflight = fn();
+    return inflight;
+  };
+}
+
+/**
+ * Build the injectable `exit` dep for the worker loop's WORKER_MAX_JOBS recycle.
+ *
+ * The recycle must NOT bare-`process.exit`: that skips the roster deregister and
+ * leaves a stale `workers` row for ~180s until fleet-health reclaims it, tripping
+ * a transient false-red on the dashboard every recycle. Instead run the SAME
+ * deregister-first graceful teardown as SIGTERM (`gracefulTeardown`, which wraps
+ * `drainFleetWorker` — roster delete + pool shutdown) BEFORE exiting.
+ *
+ * The `finally` GUARANTEES the (non-zero) exit even if the teardown rejects, so a
+ * failed drain still surrenders the container to Railway's restart policy — the
+ * recycle's whole purpose. Teardown is best-effort; the exit is load-bearing.
+ * `processExit` is injectable so the recycle path is unit-testable without
+ * killing the test process (defaults to `process.exit`).
+ */
+export function makeRecycleExit(deps: {
+  gracefulTeardown: () => Promise<void>;
+  logger: Logger;
+  processExit?: (code: number) => void;
+}): (code: number) => void {
+  const doExit = deps.processExit ?? ((code: number) => process.exit(code));
+  return (code: number): void => {
+    void deps
+      .gracefulTeardown()
+      .catch((err) =>
+        logErrorWithStack(
+          deps.logger,
+          "showcase-harness.fleet.worker.recycle-drain-failed",
+          err,
+        ),
+      )
+      .finally(() => doExit(code));
+  };
+}
+
+/**
  * Worker role entrypoint: runs the BrowserPool and pulls per-service jobs from
  * the control-plane queue.
  *
@@ -4128,6 +4288,51 @@ export async function runWorker(
   });
 
   let worker: Awaited<ReturnType<typeof runFleetWorker>>;
+
+  // SINGLE SOURCE OF TRUTH for this worker's deregister-first graceful teardown:
+  // drain (stop claiming) → registration.stop() → deregister (roster delete) →
+  // fleet worker.stop() → pool shutdown (WE own the pool since we injected
+  // budgetSource, so drainFleetWorker's shutdownPool is the one that runs it).
+  // Used by BOTH the handle's stop() (the SIGTERM path in bootFleet) AND the
+  // recycle `exit` dep injected below, so a WORKER_MAX_JOBS recycle tears down
+  // IDENTICALLY to SIGTERM — deregistering cleanly instead of stranding a stale
+  // roster row for fleet-health to reclaim at its 180s stale window (a transient
+  // false-red on every recycle). `worker` is captured by reference (assigned by
+  // the runFleetWorker call below); this closure only dereferences it at
+  // teardown time, long after boot.
+  //
+  // ONCE-LATCH (latchOnce): BOTH the recycle exit (makeRecycleExit below) and
+  // the SIGTERM/SIGINT handler (bootFleet's drainAndExit → this handle's stop())
+  // reference this SAME closure. The signal handler's `draining` boolean only
+  // guards its own re-entry — it cannot stop a recycle firing concurrently with
+  // a SIGTERM from running the whole deregister + pool.shutdown sequence twice.
+  // Latching makes the shared teardown run at most once; concurrent callers all
+  // await the first invocation's promise.
+  const gracefulTeardown = latchOnce(
+    (): Promise<void> =>
+      drainFleetWorker({
+        worker,
+        registration,
+        shutdownPool: () =>
+          pool.shutdown().catch((err) => {
+            logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+            // CVDIAG: the worker's pool shutdown threw — chromium processes may
+            // be stranded. Surface the swallowed error with the worker_id.
+            console.log(
+              formatCvdiag({
+                component: "harness-orchestrator:worker-pool-shutdown-failed",
+                boundary: "als-snapshot",
+                status: "error",
+                error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
+              }),
+            );
+          }),
+      }),
+  );
+
   try {
     worker = await runFleetWorker(config, {
       queue,
@@ -4135,6 +4340,13 @@ export async function runWorker(
       port,
       logger,
       env,
+      // WORKER_MAX_JOBS recycle exit: run the SAME deregister-first graceful
+      // teardown as SIGTERM (deregister roster row + pool shutdown) BEFORE
+      // exiting non-zero so Railway restarts a fresh container. Without this the
+      // recycle used a bare process.exit that skipped deregister, leaving a
+      // stale roster row for ~180s that could trip a transient false-red on the
+      // fleet dashboard on every recycle.
+      exit: makeRecycleExit({ gracefulTeardown, logger }),
       // Inject the pool we own as the budget gate and the driver REGISTRY
       // (driverKind → { driver, payloadToInput }) we built above — fleet
       // runWorker skips constructing its own pool when both are supplied.
@@ -4210,28 +4422,10 @@ export async function runWorker(
       // job-settle heartbeat — which now fires AFTER the delete — is latched
       // into a logged no-op.
       // We injected BOTH budgetSource and drivers, so fleet runWorker did NOT
-      // construct its own pool — WE own it and shut it down here (last).
-      await drainFleetWorker({
-        worker,
-        registration,
-        shutdownPool: () =>
-          pool.shutdown().catch((err) => {
-            logger.error("showcase-harness.fleet.worker.pool-shutdown-failed", {
-              workerId,
-              err: err instanceof Error ? err.message : String(err),
-            });
-            // CVDIAG: the worker's pool shutdown threw — chromium processes may
-            // be stranded. Surface the swallowed error with the worker_id.
-            console.log(
-              formatCvdiag({
-                component: "harness-orchestrator:worker-pool-shutdown-failed",
-                boundary: "als-snapshot",
-                status: "error",
-                error: `workerId=${workerId} ${err instanceof Error ? err.message : String(err)}`,
-              }),
-            );
-          }),
-      });
+      // construct its own pool — WE own it and shut it down here (last). Shared
+      // with the recycle `exit` dep via `gracefulTeardown` (single source of
+      // truth) so SIGTERM and WORKER_MAX_JOBS recycle tear down identically.
+      await gracefulTeardown();
     },
   };
 }

@@ -1,5 +1,6 @@
 import type { AbstractAgent, ToolCall } from "@ag-ui/client";
 import type {
+  InspectorMetadataV1,
   IntelligenceRuntimeInfo,
   RuntimeMode,
   RuntimeLicenseStatus,
@@ -18,6 +19,7 @@ export enum ToolCallStatus {
 
 export type CopilotRuntimeTransport = "rest" | "single" | "auto";
 export type {
+  InspectorMetadataV1,
   RuntimeMode,
   IntelligenceRuntimeInfo,
   RuntimeLicenseStatus,

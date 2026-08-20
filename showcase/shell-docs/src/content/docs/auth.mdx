@@ -32,10 +32,19 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
   headers={{
     Authorization: `Bearer ${userToken}`,
   }}
+  useSingleEndpoint={false}
 >
   <YourApp />
 </CopilotKit>
 ```
+
+<Callout type="warn" title="Why the explicit useSingleEndpoint">
+  The `createCopilotRuntimeHandler` route below serves multi-route, the default. `<CopilotKit>` is the v1 wrapper and
+  asks for single-route transport unless told otherwise, so without this prop
+  its startup `/info` call 404s and no agents are discovered.
+  `<CopilotKitProvider>` detects the transport and needs no prop. See
+  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
 
 ## Backend
 
@@ -81,29 +90,33 @@ export const GET = (req: NextRequest) => handler(req);
 
 ## Frontend
 
-Pass your token via the `properties` prop. CopilotKit forwards it to LangGraph as a Bearer token automatically.
+Pass your token via the `headers` prop. CopilotKit attaches it to every runtime request, and the runtime forwards the `Authorization` header on to your agent — whether that's a LangGraph deployment or a self-hosted AG-UI endpoint.
 
 ```tsx title="frontend/src/app/page.tsx"
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
 <CopilotKit
   runtimeUrl="/api/copilotkit"
-  properties={{
-    authorization: userToken,
+  headers={{
+    Authorization: `Bearer ${userToken}`,
   }}
 >
   <YourApp />
 </CopilotKit>
 ```
 
+<Callout type="warning" title="`properties` is not an auth channel">
+Older versions of this guide passed the token as `properties={{ authorization: userToken }}`. The runtime delivers `properties` to the agent as AG-UI `forwardedProps` — run payload data, not a request header — so nothing turns them into a Bearer credential. Use `headers` for auth. Headers the server configured on the agent itself still win on collision, so a service-to-service token can't be overridden from the browser.
+</Callout>
+
 ## Backend
 
 LangGraph supports two deployment modes. The frontend code above is the same in both, but the backend wiring differs in where the resolved user identity lands. Pick the tab that matches where your agent runs.
 
-<Tabs items={['LangGraph Platform', 'Self-hosted']}>
+<Tabs items={['LangGraph Platform', 'Self-hosted (FastAPI)']}>
 <Tab value="LangGraph Platform">
 
-On LangGraph Platform, authentication is a managed service. You declare an `@auth.authenticate` handler, and Platform runs it on every request before the graph starts. The handler returns a user object that becomes available to every node in the run.
+On LangGraph Platform (and on `langgraph dev`), authentication is a managed service. You declare an `@auth.authenticate` handler, and the server runs it on every request before the graph starts. The forwarded `Authorization` header arrives as the handler's `authorization` argument, and the handler's return value becomes available to every node in the run.
 
 ```python title="backend/auth.py"
 from langgraph_sdk import Auth
@@ -125,13 +138,13 @@ async def authenticate(authorization: str | None):
     }
 ```
 
-The return value of the handler shows up in every node's `config["configuration"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
+The return value of the handler shows up in every node's `config["configurable"]["langgraph_auth_user"]`. From there, scoping tool access or filtering data is straightforward:
 
 ```python title="backend/agent.py"
 from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    user_info = config["configuration"]["langgraph_auth_user"]
+    user_info = config["configurable"]["langgraph_auth_user"]
     user_id = user_info["identity"]
     user_role = user_info.get("role")
     # agent logic with user context
@@ -141,45 +154,71 @@ async def my_agent_node(state: AgentState, config: RunnableConfig):
 For full handler details, see the [LangGraph Platform Authentication documentation](https://docs.langchain.com/langsmith/auth#authentication).
 
 </Tab>
-<Tab value="Self-hosted">
+<Tab value="Self-hosted (FastAPI)">
 
-When you self-host the agent, there's no managed auth handler to plug into. Instead, you forward the raw token onto every run by configuring the agent dynamically — the request's `properties.authorization` becomes part of `langgraph_config["configurable"]`, where every node can read it back later.
+When you self-host the agent behind FastAPI, there's no managed auth handler to plug into — validation is your job, and the natural place for it is the endpoint that serves the AG-UI stream. `add_langgraph_fastapi_endpoint` mounts that endpoint for you, but it takes one pre-built agent and gives you no per-request hook, so replace it with the equivalent route of your own: a FastAPI dependency verifies the `Authorization` header the runtime forwarded, and the resolved user is baked into a per-request agent's `config`.
 
-```python title="backend/demo.py"
-from copilotkit import CopilotKitRemoteEndpoint, LangGraphAGUIAgent
+```python title="backend/main.py"
+from typing import Optional
 
-sdk = CopilotKitRemoteEndpoint(
-    agents=lambda context: [
-        LangGraphAGUIAgent(
-            name="sample_agent",
-            description="Agent with authentication support",
-            graph=graph,
-            langgraph_config={
-                "configurable": {
-                    "copilotkit_auth": context["properties"].get("authorization"),
-                },
-            },
-        ),
-    ],
-)
+from ag_ui.core.types import RunAgentInput
+from ag_ui.encoder import EventEncoder
+from copilotkit import LangGraphAGUIAgent
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import StreamingResponse
+
+from src.agent import graph
+
+app = FastAPI()
+
+def current_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    return validate_your_token(authorization.removeprefix("Bearer ").strip())  # your validation
+
+@app.post("/")
+async def run_agent(
+    input_data: RunAgentInput,
+    request: Request,
+    user: dict = Depends(current_user),
+):
+    encoder = EventEncoder(accept=request.headers.get("accept"))
+
+    # One agent per request: the verified identity rides on this run only, and
+    # each request gets its own isolated streaming state.
+    agent = LangGraphAGUIAgent(
+        name="sample_agent",
+        graph=graph,
+        config={"configurable": {"auth_user": user}},
+    )
+
+    async def event_generator():
+        async for event in agent.run(input_data):
+            yield encoder.encode(event)
+
+    return StreamingResponse(event_generator(), media_type=encoder.get_content_type())
 ```
 
-Validation is your job in this mode. Inside any node, pull the token out of `config["configurable"]` and run it through your verifier. Decide the policy explicitly: reject unauthenticated calls, or fall through to an `anonymous` branch as the example below does.
+Unauthenticated requests never reach the graph — they get a 401 from the dependency. Authenticated ones arrive with an already-verified user on the config, so nodes read identity instead of re-validating a raw token:
 
-```python title="backend/agent.py"
+```python title="backend/src/agent.py"
 from langchain_core.runnables import RunnableConfig
 
 async def my_agent_node(state: AgentState, config: RunnableConfig):
-    auth_token = config["configurable"].get("copilotkit_auth")
-    if auth_token:
-        user_info = validate_your_token(auth_token)
-        user_id = user_info["user_id"]
-        user_role = user_info.get("role")
-    else:
-        user_id = "anonymous"
-        user_role = None
+    user = config["configurable"]["auth_user"]
+    user_id = user["user_id"]
+    user_role = user.get("role")
+    # agent logic with user context
     return state
 ```
+
+<Callout type="info" title="If you only need the 401 gate">
+When nodes don't need the identity — you just want unauthenticated traffic rejected — keep `add_langgraph_fastapi_endpoint` and hang the dependency off the app: `FastAPI(dependencies=[Depends(current_user)])`. The gate applies, but nothing lands on the run config, so `config["configurable"]` stays empty of user context.
+</Callout>
+
+<Callout type="warning" title="`CopilotKitRemoteEndpoint` no longer works here">
+Guides written for CopilotKit v1 wrapped the graph in `CopilotKitRemoteEndpoint(agents=lambda context: [...])`. That path is retired: `copilotkit` no longer exports `LangGraphAgent` (`ImportError`), and the current `LangGraphAGUIAgent` exposes `run()` rather than the `execute()` that `CopilotKitRemoteEndpoint` calls — giving `AgentExecutionException: 'LangGraphAGUIAgent' object has no attribute 'execute'`. Use the endpoint above instead.
+</Callout>
 
 </Tab>
 </Tabs>
@@ -414,10 +453,188 @@ def delete_record(record_id: str, *, user: User):
 
 This composes with [Human in the loop](/human-in-the-loop): gate on auth first, surface a confirmation card next, execute last.
 
+## Thread authorization
+
+Verifying *who* the caller is doesn't yet stop them reaching *someone else's conversation*. How much of that you have to build depends on which runtime you're running.
+
+| Runtime | Who scopes threads to a user |
+| --- | --- |
+| `CopilotRuntime` with `intelligence` | Mostly the runtime, via [`identifyUser`](#the-intelligence-platform-scopes-most-thread-routes) — with three routes you still have to guard. |
+| Anything else — SSE runtime, custom store, local in-memory runner | You do. See [Scope threads yourself](#scope-threads-yourself). |
+
+### The Intelligence Platform scopes most thread routes
+
+The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence,
+  identifyUser: async (request) => {
+    const session = await verifyAppSession(request); // Your server-side auth.
+    if (!session?.user) throw new Error("Unauthorized"); // Backstop; see below.
+
+    return { id: session.user.id, name: session.user.name };
+  },
+});
+```
+
+<Callout type="warn" title="`identifyUser` is not an authentication gate">
+  Most routes resolve the caller through `identifyUser`, but **not all of them do** — and the
+  ones that don't never invoke your callback at all. Rejecting unauthenticated requests is
+  `onRequest`'s job: it runs before routing, on every route, without exception. Treat
+  `identifyUser` as the thing that *names* an already-authenticated caller, never as the thing
+  that decides whether a caller gets in.
+</Callout>
+
+Where a route does resolve the caller, what matters next is whether that id is actually *carried to the platform* as a scope:
+
+| Route | Scoped to the resolved user? |
+| --- | --- |
+| `agent/run`, `agent/connect` | Yes |
+| `threads/list` | Yes — and filtered by `agentId`, so `useThreads` returns the caller's threads rather than the project's |
+| `threads/messages` | Yes |
+| `threads/update` (rename via `PATCH`, delete via `DELETE`), `threads/archive` | Yes |
+| Thread subscription token | Yes |
+| `threads/events`, `threads/state` | **No** — resolves the caller, then ignores it |
+| `agent/stop` | **No** — never resolves a caller at all |
+
+<Callout type="warn" title="Three routes are not user-scoped">
+  **`threads/events` and `threads/state`** back the [inspector](/inspector). Both resolve the
+  caller and then discard the result, reading the thread by id alone — the runtime calls the
+  platform's project-authenticated `_inspect` endpoints, which take no user parameter. Any
+  caller can read the full event log and current agent state of any thread in the project,
+  given its `threadId`.
+
+  **`agent/stop`** never resolves a caller. It goes straight to `runner.stop({ threadId })`,
+  which aborts whichever run the runtime is tracking under that thread id. Any caller who
+  learns an active `threadId` can kill that run mid-flight.
+
+  Guard all three yourself. The `onBeforeHandler` pattern below applies on the Intelligence
+  path too, narrowed to these routes:
+
+  ```ts
+  onBeforeHandler: async ({ request, route }) => {
+    // Switch rather than an array `includes`, so `route` narrows and
+    // `route.threadId` type-checks — all three variants carry one.
+    switch (route.method) {
+      case "threads/events":
+      case "threads/state":
+      case "agent/stop":
+        break;
+      default:
+        return;
+    }
+
+    // None of these is scoped platform-side; check your own ownership record.
+    const user = await verifyRequest(request);
+    if (!(await userOwnsThread(user.id, route.threadId))) {
+      throw new Response("Not found", { status: 404 });
+    }
+  },
+  ```
+
+  Without an ownership record of your own, reject these routes outright rather than leaving
+  them open.
+</Callout>
+
+For everything in the Yes rows there is no ownership table to build. What you own is `identifyUser` itself:
+
+- **Derive the id from a server-verified credential.** The callback receives the raw `Request`; whatever it returns is trusted from there on. Reading a user id straight out of a header or request body hands every caller the ability to name themselves.
+- **Return a stable id.** It is the key threads hang off. Change it — swapping an email for a subject claim, say — and that user's existing threads stop resolving.
+- **Send the `401` from `onRequest`.** Beyond the status codes being wrong — an `identifyUser` that throws surfaces as a `500`, a malformed id as a `400` — routes like `agent/stop` never call it, so a check placed only here isn't reached on every request. Authenticate in `onRequest`, which runs on every route and can throw a `Response` directly, and keep the throw inside `identifyUser` as a backstop.
+
+<Callout type="warn">
+  A static `identifyUser` value is suitable only for a single-user demo. In a multi-user
+  application every request must resolve the authenticated user, or those users share one
+  thread scope.
+</Callout>
+
+See [Scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) for the full runtime contract.
+
+### Scope threads yourself
+
+Without the Intelligence Platform there is no server-side binding between a `threadId` and a user. A `threadId` is just an opaque id travelling in a request: if user A learns user B's, every thread route accepts it. The rest of this section is the pattern for a custom store, a plain SSE runtime, or the local in-memory runner — and it's also what you narrow to `threads/events`, `threads/state`, and `agent/stop` if you *are* on the platform.
+
+#### Own the mapping
+
+Whatever stores your threads, keep a record of who each one belongs to. The minimum is a table your runtime can query:
+
+```sql
+create table thread_owners (
+  thread_id text primary key,
+  user_id   text not null
+);
+create index on thread_owners (user_id);
+```
+
+Write a row when a conversation is first created — see [minting a thread with your own API](/threads-lifecycle#creating-a-thread-with-your-own-api-on-the-first-message) for where that hooks into the chat lifecycle.
+
+#### Enforce it in `onBeforeHandler`
+
+`onRequest` runs before routing, so it can't see which thread is being addressed. `onBeforeHandler` runs after, and receives a `route` that names the operation and — for thread-scoped routes — the `threadId`:
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: async ({ request }) => {
+      // Authenticate first: reject anonymous callers outright.
+      const user = await verifyRequest(request);
+      if (!user) throw new Response("Unauthorized", { status: 401 });
+    },
+
+    onBeforeHandler: async ({ request, route }) => {
+      const user = await verifyRequest(request);
+
+      // Routes that name a thread directly.
+      if ("threadId" in route) {
+        if (!(await userOwnsThread(user.id, route.threadId))) {
+          throw new Response("Forbidden", { status: 403 });
+        }
+        return;
+      }
+
+      // agent/run and agent/connect carry the thread in the body instead.
+      if (route.method === "agent/run" || route.method === "agent/connect") {
+        // Clone: the handler still needs to read the original body.
+        const { threadId } = await request.clone().json();
+        if (threadId && !(await userOwnsThread(user.id, threadId))) {
+          throw new Response("Forbidden", { status: 403 });
+        }
+      }
+    },
+  },
+});
+```
+
+The routes that carry a `threadId` on `route` are `agent/stop`, `threads/update`, `threads/archive`, `threads/messages`, `threads/events`, and `threads/state`.
+
+<Callout type="warn" title="A thread id is not a secret">
+  Treat `threadId` as a public identifier, like a database primary key in a URL. It travels
+  through the browser, appears in logs, and is trivially enumerable if you mint sequential
+  ids. Authorization has to be an explicit ownership check — never "they knew the id, so they
+  must own it". Minting UUIDs makes guessing impractical but is not itself a control.
+</Callout>
+
+#### Filter the thread list
+
+`threads/list` has no `threadId` to check, so `onBeforeHandler` has nothing to authorize against. Off the platform the route returns whatever the configured store holds — the local in-memory runner filters by `agentId` only, and a custom store returns exactly what you wrote. Build the list from your own ownership table instead, and drive the chat with the selected id.
+
+Filter server-side. Hiding rows in the UI leaves the underlying route open.
+
+<Callout type="info">
+  With no platform thread store, the ownership table above *is* your thread list. See
+  [Self-managed thread persistence](/threads-self-managed).
+</Callout>
+
 ## Security checklist
 
 - **Always validate** the token on the backend. Never trust the frontend's claim.
 - **Scope every read and write** to the resolved user. Auth context only matters if you actually use it to filter data.
+- **Authenticate in `onRequest`.** It is the only hook that runs on every route. `identifyUser` names a caller; it does not gate one, and some routes never invoke it.
+- **Bind threads to a user.** On the Intelligence Platform that means a correct `identifyUser`, plus your own guard on `threads/events`, `threads/state`, and `agent/stop`; off it, an ownership check on every thread route rather than only at login. See [Thread authorization](#thread-authorization).
 - **Don't log raw tokens.** Log the resolved user id (or `anonymous`) instead.
 - **Use HTTPS in production.** The Bearer token is sensitive.
 - **Refresh strategy.** Your frontend is responsible for rotating expired tokens before they reach the agent. CopilotKit doesn't refresh on your behalf.
