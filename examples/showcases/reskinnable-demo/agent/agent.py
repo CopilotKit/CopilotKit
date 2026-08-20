@@ -338,18 +338,33 @@ def submit_expense_report(verdicts: list[dict]) -> dict:
             row["amount"] = round(float(row.get("amount", 0) or 0), 2)
         except (TypeError, ValueError):
             row["amount"] = 0.0
-        # `merchantKind` is a KIND ("hotel", "pharmacy"), and the report card
-        # prints it inline beside the merchant name. A run that could not
-        # establish one writes the literal string "unclear" into it, which
-        # renders as `Cardinal & Ash unclear` — noise dressed as a finding. An
-        # absent kind is the honest representation, and the widget already
-        # handles it.
-        if str(row.get("merchantKind", "")).strip().lower() in {
-            "",
-            "unclear",
-            "unknown",
-            "none",
-        }:
+        # `merchantKind` is a KIND — "hotel", "pharmacy" — and the report card
+        # prints it inline beside the merchant name, where it has room for about
+        # two words. A run that could not establish one must leave it ABSENT;
+        # the widget already handles that, and an absent kind is the honest
+        # representation of "we looked and could not tell".
+        #
+        # Matching exact strings was not enough. With no search tool the model
+        # wrote a bare "unclear"; with a real one it hedges in prose instead —
+        # measured: "unknown (likely wellness-related business)" and "unknown
+        # (likely bookbindery/bookshop retail, but not established for this
+        # exact merchant)". Both start with a non-answer and neither is a kind,
+        # but an exact-match filter passes them straight through into a 60-char
+        # label glued to the merchant name.
+        #
+        # So: reject on the leading token, reject on hedging language anywhere,
+        # and reject anything too long to be a kind. Length is the backstop that
+        # catches the next phrasing nobody predicted.
+        kind = str(row.get("merchantKind", "")).strip()
+        lowered = kind.lower()
+        non_answer = (
+            not kind
+            or lowered.startswith(("unknown", "unclear", "none", "n/a", "not "))
+            or "not established" in lowered
+            or "could not" in lowered
+            or len(kind) > 40
+        )
+        if non_answer:
             row.pop("merchantKind", None)
         clean.append(row)
 

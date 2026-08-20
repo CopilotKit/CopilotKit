@@ -7,6 +7,7 @@ the same AG-UI stream as any other agent in the app.
 """
 
 import os
+import pathlib
 
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from copilotkit import LangGraphAGUIAgent
@@ -16,7 +17,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent import build_agent
 
-load_dotenv()
+# Read the DEMO's `.env` as well as this service's own.
+#
+# The app and this agent need the same keys (`OPENAI_API_KEY` for both,
+# `TAVILY_API_KEY` for merchant research), and asking an operator to keep two
+# env files in sync is a trap: the failure is silent and looks like the agent
+# ignoring a key that is plainly sitting in `.env`.
+#
+# `agent/.env` is loaded FIRST and wins on conflict (python-dotenv does not
+# override already-set values), so this service can still be pointed somewhere
+# else — a different model, a separate quota — without touching the app's file.
+_HERE = pathlib.Path(__file__).parent
+load_dotenv(_HERE / ".env")
+load_dotenv(_HERE.parent / ".env")
 
 app = FastAPI(
     title="Northwind offsite-expenses agent",
