@@ -14,19 +14,22 @@ name: "Showcase: Reconcile staging (scheduled self-heal)"
 #
 # See showcase/scripts/reconcile-staging.ts for the decision rule + threshold.
 #
-# The fail-loud "unconfirmed" verdict is DEBOUNCED across consecutive cycles: a
-# single-cycle blip (the harness-workers redeploy race, a transient Railway HTTP
-# 500 / timeout, a platform "deploys paused" hiccup) stays silent; only a
-# condition that persists across DEFAULT_DEBOUNCE_THRESHOLD (2) consecutive
-# cycles pages. The per-service consecutive-cycle counter is stateless per run,
-# so it is persisted between scheduled runs via actions/cache (restore before /
-# save after the reconcile) — see the RECONCILE_DEBOUNCE_STATE steps below.
+# The fail-loud "unconfirmed" verdict is DEBOUNCED over a SLIDING WINDOW of the
+# most recent cycles: a single-cycle blip (the harness-workers redeploy race, a
+# transient Railway HTTP 500 / timeout, a platform "deploys paused" hiccup) stays
+# silent; a service pages once it has been unconfirmed on at least
+# DEFAULT_DEBOUNCE_THRESHOLD (N=2) of the last DEFAULT_DEBOUNCE_WINDOW (M=3)
+# cycles — an N-of-M window, so BOTH two consecutive cycles AND non-consecutive
+# FLAPPING ([true, false, true] = 2/3) page. The per-service window is a small
+# boolean[] (one entry per recent cycle, true = unconfirmed) that is stateless
+# per run, so it is persisted between scheduled runs via actions/cache (restore
+# before / save after the reconcile) — see the RECONCILE_DEBOUNCE_STATE steps below.
 
 on:
   schedule:
     # Every 15 minutes — one reconcile cycle. A single-cycle transient stays
-    # silent and only pages if it persists to the next cycle (see the Debounce
-    # note in reconcile-staging.ts).
+    # silent and only pages once a service is unconfirmed on N of the last M
+    # cycles (default 2 of 3) — see the Debounce note in reconcile-staging.ts.
     - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
@@ -70,12 +73,13 @@ jobs:
         working-directory: showcase/scripts
         run: npm ci
 
-      # Restore the per-service consecutive-unconfirmed counter written by the
-      # previous scheduled run. The key is UNIQUE per run (run_id + attempt) so
-      # the exact-key restore never hits and the post-job save always writes a
-      # fresh entry; `restore-keys` prefix-matches to load the MOST RECENT prior
-      # counter. A first-ever run (or an evicted cache) restores nothing and the
-      # reconcile starts from an empty counter — a fresh start, not a failure.
+      # Restore the per-service sliding debounce window written by the previous
+      # scheduled run (a small JSON map of service → recent-outcome boolean[]).
+      # The key is UNIQUE per run (run_id + attempt) so the exact-key restore
+      # never hits and the post-job save always writes a fresh entry;
+      # `restore-keys` prefix-matches to load the MOST RECENT prior window. A
+      # first-ever run (or an evicted cache) restores nothing and the reconcile
+      # starts from an empty window — a fresh start, not a failure.
       - name: Restore reconcile debounce state
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -96,18 +100,19 @@ jobs:
           # Incoming webhook for the reconcile alert — the SAME secret
           # showcase_build.yml posts its #oss-alerts failure alerts through.
           SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-          # Cross-run debounce counter file (restored above / saved below). The
-          # script reads prior counts here and rewrites them before it exits, so
-          # a single-cycle blip is silenced and a persistent condition pages on
-          # the 2nd consecutive cycle. Absolute path — the step's cwd is
-          # showcase/scripts but the cache path is workspace-relative.
+          # Cross-run debounce window file (restored above / saved below). The
+          # script reads the prior per-service window here and rewrites it before
+          # it exits, so a single-cycle blip is silenced and a condition that
+          # persists OR flaps pages once it reaches N of the last M cycles
+          # (default 2 of 3). Absolute path — the step's cwd is showcase/scripts
+          # but the cache path is workspace-relative.
           RECONCILE_DEBOUNCE_STATE: ${{ github.workspace }}/showcase/scripts/.reconcile-debounce/state.json
         run: npx tsx reconcile-staging.ts
 
-      # Persist the updated counter for the next cycle. `if: always()` is
-      # REQUIRED: when a persistent condition finally pages, the reconcile step
-      # EXITS NON-ZERO, and the counter must still be saved so the next cycle
-      # keeps counting (and keeps paging) rather than resetting to zero. The
+      # Persist the updated window for the next cycle. `if: always()` is
+      # REQUIRED: when a condition finally pages, the reconcile step EXITS
+      # NON-ZERO, and the window must still be saved so the next cycle keeps its
+      # history (and keeps paging) rather than resetting to an empty window. The
       # unique per-run key guarantees this save is never a no-op "cache already
       # exists" skip.
       - name: Save reconcile debounce state

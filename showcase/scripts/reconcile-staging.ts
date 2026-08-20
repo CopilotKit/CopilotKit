@@ -148,9 +148,15 @@
  * A partial redeploy failure, a redeploy that threw, a per-service read fault, or
  * an undelivered lag alert fail loud with a non-zero exit ONLY once the condition
  * has reached the N-of-M window (see the Debounce note and the fail-loud contract
- * above). A hard operator/config error (missing Railway token, unreachable
- * Railway) is NOT debounced — it exits 1 immediately from `main` before the
- * reconcile decision core runs.
+ * above). A per-service Railway read that ERRORS — an unreachable API, an HTTP
+ * 500, a request timeout, a "deploys paused" blip — is caught per-service and
+ * folded into that same debounced `errors`/`unconfirmed` set, so it too pages
+ * only once it reaches the N-of-M window; a TOTAL Railway outage therefore exits
+ * 0 on the early cycles and pages on cycle 2 (intended — transient Railway faults
+ * were among the false pages this debounce suppresses). The ONE thing NOT
+ * debounced is a hard config error — a MISSING/INVALID Railway TOKEN — which
+ * exits 1 immediately from `getRailwayToken`/`main` before the reconcile decision
+ * core runs.
  *
  * ── Known limitation (OUT of scope here — separate follow-up) ────────────────
  * A PERSISTENT lag whose remediation redeploy is ACCEPTED (`runRedeploy` reports

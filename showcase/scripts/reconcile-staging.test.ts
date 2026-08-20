@@ -1185,6 +1185,10 @@ describe("reconcileStaging debounce (single-cycle blip silent, persistence pages
         return true;
       },
       debounceThreshold: DEFAULT_DEBOUNCE_THRESHOLD,
+      // Model the PRODUCTION N=2/M=3 window (not N=2/M=2, which `debounceWindow`
+      // would default to when omitted) so this exercises the shipped policy: two
+      // consecutive unconfirmed cycles reach 2/3 and page on the 2nd cycle.
+      debounceWindow: DEFAULT_DEBOUNCE_WINDOW,
       loadDebounceState: async () => state.counts,
       saveDebounceState: async (counts) => {
         state.counts = counts;
