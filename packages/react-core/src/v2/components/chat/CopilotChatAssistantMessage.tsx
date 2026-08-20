@@ -1,5 +1,5 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -83,6 +83,15 @@ export function CopilotChatAssistantMessage({
   const { isLocalInspectorEnabled, openInspector } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
 
+  const handleThumbsUp = useCallback(
+    () => onThumbsUp?.(message),
+    [message, onThumbsUp],
+  );
+  const handleThumbsDown = useCallback(
+    () => onThumbsDown?.(message),
+    [message, onThumbsDown],
+  );
+
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
     CopilotChatAssistantMessage.MarkdownRenderer,
@@ -108,7 +117,7 @@ export function CopilotChatAssistantMessage({
     thumbsUpButton,
     CopilotChatAssistantMessage.ThumbsUpButton,
     {
-      onClick: onThumbsUp ? () => onThumbsUp(message) : undefined,
+      onClick: onThumbsUp ? handleThumbsUp : undefined,
     },
   );
 
@@ -129,7 +138,7 @@ export function CopilotChatAssistantMessage({
     thumbsDownButton,
     CopilotChatAssistantMessage.ThumbsDownButton,
     {
-      onClick: onThumbsDown ? () => onThumbsDown(message) : undefined,
+      onClick: onThumbsDown ? handleThumbsDown : undefined,
     },
   );
 
