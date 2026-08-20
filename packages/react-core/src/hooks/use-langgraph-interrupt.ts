@@ -20,7 +20,7 @@
  */
 
 import React, { useCallback, useRef } from "react";
-import type { LangGraphInterruptRender } from "../types/interrupt-action";
+import { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
 import type {
   InterruptEvent,
@@ -48,6 +48,9 @@ function toV1Event<TEventValue>(event: InterruptEvent<TEventValue>) {
   };
 }
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useInterrupt` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
+ */
 export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   _dependencies?: any[],
