@@ -2,43 +2,69 @@ The Copilot Runtime is the backend layer that connects your frontend application
 
 ## Setting Up the Runtime
 
-The runtime is a lightweight server endpoint that you add to your backend. Here's a minimal example using Next.js:
+The runtime is a lightweight server endpoint that you add to your backend. It needs
+two packages — the runtime itself, and `hono`, which the Next.js handler is built on:
 
-```ts title="app/api/copilotkit/route.ts"
+```npm
+npm install @copilotkit/runtime hono
+```
+
+<Callout type="info">
+  `hono` is a dependency of `@copilotkit/runtime` rather than a peer, so with
+  npm's flat `node_modules` the import below may resolve without it. Install it
+  explicitly — under pnpm or Yarn PnP it will not.
+</Callout>
+
+Here's a minimal example using Next.js. The route lives at a **catch-all** path and
+exports **both** verbs, so the runtime can serve its sub-routes (`/info`, agent runs,
+threads) rather than a single URL:
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
-
-const serviceAdapter = new ExperimentalEmptyAdapter();
+  createCopilotEndpoint,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
     // your agents go here
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
+const app = createCopilotEndpoint({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-  return handleRequest(req);
-};
+export const GET = handle(app);
+export const POST = handle(app);
 ```
+
+With the route in place, `GET /api/copilotkit/info` returns a JSON description of the
+runtime and the agents it has registered. That route is how tooling — and the frontend's
+transport auto-detection — discovers your runtime, so it is the quickest way to confirm
+the endpoint is wired up.
 
 Then point your frontend at the endpoint:
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
   <YourApp />
 </CopilotKit>
 ```
+
+<Callout type="warn">
+  `useSingleEndpoint={false}` selects the REST transport, which is what
+  `createCopilotEndpoint` serves. This provider currently defaults the flag to
+  `true`, i.e. the single-route transport, which posts everything to the bare
+  `runtimeUrl` — a multi-route runtime answers that with a 404. If you would rather
+  keep a single POST-only URL, mount the runtime with
+  [`createCopilotEndpointSingleRoute`](/reference) instead and omit this prop.
+</Callout>
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -57,7 +83,7 @@ For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the
 
 If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: {
     // Frontend APIs use this agent when no other agent id is selected.
@@ -94,7 +120,7 @@ The runtime supports two first-class middleware options you can enable directly 
 
 Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: {}, // enables A2UI rendering for all agents
@@ -114,7 +140,11 @@ only when you want to override its defaults:
 
 <FrontendOnly frontend="react">
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  useSingleEndpoint={false}
+  a2ui={{ theme: myCustomTheme }}
+>
   {children}
 </CopilotKit>
 ```
@@ -133,7 +163,7 @@ provideCopilotKit({
 
 Pass `mcpApps` to configure MCP servers for all agents from a single place:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   mcpApps: {

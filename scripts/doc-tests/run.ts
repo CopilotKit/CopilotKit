@@ -47,6 +47,27 @@ const SCRIPT_TIMEOUT_MS = 30_000;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Seed a snippet directory with a minimal package.json.
+ *
+ * Replaces `npm init -y`, which derives the package name from the directory
+ * name and rejects anything npm considers invalid. Snippet directories are
+ * named after the fence title, and a Next.js route handler's title is a path
+ * ending in a catch-all segment — `app/api/copilotkit/[[...slug]]/route.ts` —
+ * so the leaf directory is literally `[[...slug]]` and `npm init -y` fails
+ * with "Invalid name". The name is irrelevant to what these snippets test, so
+ * fix it rather than deriving it.
+ */
+function initSnippetPackage(snippetDir: string): void {
+  const pkgPath = path.join(snippetDir, "package.json");
+  if (fs.existsSync(pkgPath)) return;
+  fs.writeFileSync(
+    pkgPath,
+    JSON.stringify({ name: "doctest-snippet", version: "1.0.0" }, null, 2),
+    "utf-8",
+  );
+}
+
 function validateDepName(dep: string): string {
   if (!/^[@\w][\w./-]*(?:@[\w.^~>=<*-]+)?$/.test(dep)) {
     throw new Error(`Invalid dependency name: ${dep}`);
@@ -54,10 +75,26 @@ function validateDepName(dep: string): string {
   return dep;
 }
 
+/**
+ * Find a snippet's `doctest.json`, searching upward to {@link OUTPUT_DIR}.
+ *
+ * The sidecar is copied once per page, into the page's directory. A snippet
+ * whose fence title is a path — `app/api/copilotkit/[[...slug]]/route.ts` —
+ * lives several directories below that, so looking only in the snippet's own
+ * directory silently finds no config, installs no dependencies, and fails the
+ * snippet with "Cannot find module" rather than reporting a missing sidecar.
+ */
 function loadDoctestConfig(snippetDir: string): DoctestConfig {
-  const configPath = path.join(snippetDir, "doctest.json");
-  if (fs.existsSync(configPath)) {
-    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  let dir = path.resolve(snippetDir);
+  const root = path.resolve(OUTPUT_DIR);
+  while (dir.startsWith(root)) {
+    const configPath = path.join(dir, "doctest.json");
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
   return {};
 }
@@ -209,7 +246,7 @@ async function runTypeScriptServer(
 
   try {
     // Init and install deps
-    execSync("npm init -y", { cwd: snippetDir, stdio: "pipe" });
+    initSnippetPackage(snippetDir);
 
     const deps = config.typescript?.deps || config.node?.deps || [];
     if (deps.length > 0) {
@@ -305,7 +342,7 @@ async function runScript(
         timeout: SCRIPT_TIMEOUT_MS,
       });
     } else {
-      execSync("npm init -y", { cwd: snippetDir, stdio: "pipe" });
+      initSnippetPackage(snippetDir);
       const deps = config.typescript?.deps || config.node?.deps || [];
       if (deps.length > 0) {
         const safeDeps = deps.map(validateDepName);
@@ -344,7 +381,7 @@ async function runComponent(
   const id = path.basename(snippetDir);
 
   try {
-    execSync("npm init -y", { cwd: snippetDir, stdio: "pipe" });
+    initSnippetPackage(snippetDir);
 
     const deps = config.typescript?.deps || [];
     const baseDeps = ["typescript", "@types/react", "@types/node"];

@@ -255,7 +255,12 @@ export function writeExtractedBlocks(
 
     // Concatenate code from all blocks sharing this title
     const code = groupBlocks.map((b) => b.code).join("\n\n");
+    // A fence title is a path as often as it is a bare filename — a Next.js
+    // route handler is documented as `app/api/copilotkit/[[...slug]]/route.ts`,
+    // and that path IS the thing being taught, so it cannot be flattened away.
+    // Create the intermediate directories rather than failing on ENOENT.
     const filePath = path.join(dir, title);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, code, "utf-8");
 
     // Copy doctest.json sidecar if it exists
