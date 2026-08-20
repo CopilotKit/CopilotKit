@@ -16,7 +16,7 @@ export const V2_REFERENCE = "https://docs.copilotkit.ai/reference/v2";
 export const v1Entrypoints = [
   {
     id: "react-core",
-    file: "packages/react-core/src/index.tsx",
+    file: "packages/react-core/src/v1-deprecated-compatibility.ts",
     packageRoot: "packages/react-core",
     importPath: "@copilotkit/react-core",
     v2File: "packages/react-core/src/v2/index.ts",
@@ -61,7 +61,7 @@ export const v1Entrypoints = [
   },
   {
     id: "runtime",
-    file: "packages/runtime/src/index.ts",
+    file: "packages/runtime/src/v1-deprecated-compatibility.ts",
     packageRoot: "packages/runtime",
     importPath: "@copilotkit/runtime",
     v2File: "packages/runtime/src/v2/index.ts",
@@ -76,7 +76,7 @@ export const v1Entrypoints = [
   },
   {
     id: "runtime-langgraph",
-    file: "packages/runtime/src/langgraph.ts",
+    file: "packages/runtime/src/v1-deprecated/langgraph.ts",
     packageRoot: "packages/runtime",
     importPath: "@copilotkit/runtime/langgraph",
     v2File: "packages/runtime/src/v2/index.ts",
@@ -491,6 +491,23 @@ addRelatedConcept(
   relatedConcepts.langGraph,
 );
 
+// Keep the deprecated entrypoints wired through their historical local
+// compatibility modules. The replacement still points to v2, but routing the
+// v1 export itself through v2 (or directly through a dependency) changes the
+// generated declaration graph and can alter runtime side effects.
+overrides.set("runtime:AgentFactoryContext", {
+  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
+});
+overrides.set("runtime:AgentsConfig", {
+  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
+});
+overrides.set("runtime:AgentsFactory", {
+  directSource: "./v1-deprecated/lib/runtime/copilot-runtime",
+});
+overrides.set("runtime-langgraph:LangGraphHttpAgent", {
+  directSource: "./lib/runtime/agent-integrations/langgraph/agent",
+});
+
 for (const mapping of pilotMappings) {
   const entrypointId = mapping.file.startsWith("packages/react-core/")
     ? "react-core"
@@ -752,7 +769,9 @@ export function getV1PublicApi() {
           );
         }
         const declarationFile = declaration.getSourceFile().fileName;
+        const override = overrides.get(`${entrypoint.id}:${symbol.name}`);
         const directSource =
+          override?.directSource ??
           entrypoint.forcedDirectSource ??
           rootSpecifier?.source ??
           sourceSpecifier(
@@ -766,7 +785,6 @@ export function getV1PublicApi() {
             `No source module for ${entrypoint.importPath}:${symbol.name}`,
           );
         }
-        const override = overrides.get(`${entrypoint.id}:${symbol.name}`);
         const replacementName = override?.replacementName ?? symbol.name;
         const targetSymbol = targetByName.get(replacementName);
         const hasReplacement = Boolean(targetSymbol);
