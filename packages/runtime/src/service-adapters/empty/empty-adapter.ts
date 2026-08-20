@@ -38,7 +38,7 @@
  * return new EmptyAdapter();
  * ```
  */
-import type {
+import {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,

@@ -21,7 +21,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
+import { BaseCopilotTextareaApiConfig } from "./autosuggestions-bare-function";
 import { defaultCopilotContextCategories } from "@copilotkit/react-core";
 import { isMacOS } from "@copilotkit/shared";
 

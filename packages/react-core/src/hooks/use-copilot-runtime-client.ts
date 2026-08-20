@@ -16,17 +16,13 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type {
+import {
+  CopilotRuntimeClient,
   CopilotRuntimeClientOptions,
   GraphQLError,
 } from "@copilotkit/runtime-client-gql";
-import { CopilotRuntimeClient } from "@copilotkit/runtime-client-gql";
 import { useToast } from "../components/toast/toast-provider";
 import { useMemo, useRef } from "react";
-import type {
-  CopilotErrorHandler,
-  CopilotErrorEvent,
-} from "@copilotkit/shared";
 import {
   ErrorVisibility,
   CopilotKitApiDiscoveryError,
@@ -34,6 +30,8 @@ import {
   CopilotKitAgentDiscoveryError,
   CopilotKitError,
   CopilotKitErrorCode,
+  CopilotErrorHandler,
+  CopilotErrorEvent,
 } from "@copilotkit/shared";
 import { shouldShowDevConsole } from "../utils/dev-console";
 

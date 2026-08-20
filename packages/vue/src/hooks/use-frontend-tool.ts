@@ -30,8 +30,12 @@
  * then delegates to the v2 composable.
  */
 import type { WatchSource } from "vue";
-import { getZodParameters, parseJson } from "@copilotkit/shared";
-import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
+import {
+  type Parameter,
+  type MappedParameterTypes,
+  getZodParameters,
+  parseJson,
+} from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
 import type { VueFrontendTool } from "../v2/types";
 

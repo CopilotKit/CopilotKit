@@ -50,8 +50,8 @@
  */
 
 import type { BaseMessage } from "@langchain/core/messages";
-import type { CopilotServiceAdapter } from "../service-adapter";
-import type {
+import { CopilotServiceAdapter } from "../service-adapter";
+import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
 } from "../service-adapter";
@@ -61,7 +61,7 @@ import {
   streamLangChainResponse,
 } from "./utils";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
-import type { LangChainReturnType } from "./types";
+import { LangChainReturnType } from "./types";
 import { randomUUID } from "@copilotkit/shared";
 
 interface ChainFnParameters {

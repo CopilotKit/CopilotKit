@@ -18,7 +18,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { UserMessageProps } from "../props";
+import { UserMessageProps } from "../props";
 import { AttachmentRenderer } from "../AttachmentRenderer";
 
 type UserMessageContent = NonNullable<UserMessageProps["message"]>["content"];

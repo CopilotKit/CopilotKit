@@ -21,7 +21,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { Parameter, Action } from "@copilotkit/shared";
+import { Parameter, Action } from "@copilotkit/shared";
 
 export interface RemoteChainParameters {
   name: string;
