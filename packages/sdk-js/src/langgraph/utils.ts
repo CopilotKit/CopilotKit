@@ -1,3 +1,91 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/sdk-js/langchain — convertActionsToDynamicStructuredTools:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — convertActionToDynamicStructuredTool:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitCustomizeConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitMessage:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitState:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitToolCall:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitExit:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — convertActionsToDynamicStructuredTools:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — convertActionToDynamicStructuredTool:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitCustomizeConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitMessage:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitState:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitToolCall:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitExit:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotKitInterrupt:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/sdk-js/src/langgraph/utils.ts
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {

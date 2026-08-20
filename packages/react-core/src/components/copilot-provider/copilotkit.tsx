@@ -1,3 +1,28 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — CopilotKit:
+ *   V2 import and usage:
+ *     import { CopilotKit } from "@copilotkit/react-core/v2";
+ *     <CopilotKit />;
+ *   V2 replacement source: packages/react-core/src/components/copilot-provider/copilotkit.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotKit
+ *
+ * @copilotkit/react-core — defaultCopilotContextCategories:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/components/copilot-provider/copilotkit.tsx
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * This component will typically wrap your entire application (or a sub-tree of your application where you want to have a copilot). It provides the copilot context to all other components and hooks.
  *

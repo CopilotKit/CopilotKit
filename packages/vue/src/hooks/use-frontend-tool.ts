@@ -1,3 +1,28 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/vue — useFrontendTool:
+ *   V2 import and usage:
+ *     import { useFrontendTool } from "@copilotkit/vue/v2";
+ *     useFrontendTool({});
+ *   V2 replacement source: packages/vue/src/v2/hooks/use-frontend-tool.ts
+ *   V2 docs: https://docs.copilotkit.ai/reference/vue/hooks/useFrontendTool
+ *
+ * @copilotkit/vue — UseFrontendToolArgs:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/vue/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/vue/src/hooks/use-frontend-tool.ts
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * V1 compatibility wrapper for useFrontendTool.
  *
@@ -5,12 +30,8 @@
  * then delegates to the v2 composable.
  */
 import type { WatchSource } from "vue";
-import {
-  type Parameter,
-  type MappedParameterTypes,
-  getZodParameters,
-  parseJson,
-} from "@copilotkit/shared";
+import { getZodParameters, parseJson } from "@copilotkit/shared";
+import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
 import type { VueFrontendTool } from "../v2/types";
 

@@ -1,20 +1,41 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/runtime — copilotKitEndpoint:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
  *
- * V1 import (deprecated; use V2 instead):
- *   import { CopilotRuntime } from "@copilotkit/runtime";
- * V2 import:
- *   import { CopilotRuntime } from "@copilotkit/runtime/v2";
+ * @copilotkit/runtime — CopilotRuntime:
+ *   V2 import and usage:
+ *     import { CopilotRuntime } from "@copilotkit/runtime/v2";
  *
- * V2 replacement source: packages/runtime/src/v2/runtime/core/runtime.ts
- * V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
- * Migration note: V2 uses AG-UI runtime handlers instead of the v1 GraphQL adapter setup.
+ *     const runtime = new CopilotRuntime({ agents: {} });
+ *   V2 replacement source: packages/runtime/src/v2/runtime/core/runtime.ts
+ *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
+ *   Migration note: V2 uses AG-UI runtime handlers instead of the v1 GraphQL adapter setup.
+ *
+ * @copilotkit/runtime — CopilotRuntimeConstructorParams_BASE:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — langGraphPlatformEndpoint:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — resolveEndpointType:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/runtime/src/lib/runtime/copilot-runtime.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

@@ -76,6 +76,10 @@ test("front-loads the v1 deprecated; use v2 instead warning in agent-facing refe
   expect(output).toContain("# v1 SDK deprecated. Use v2 instead");
   expect(output).toContain("AI coding agents");
   expect(output).toContain("@copilotkit/react-core/v2");
+  expect(output).toContain("[Read the v1 to v2 migration guide](/migrate/v2)");
+  expect(output).toContain(
+    "[use the complete export map](/reference/v1/export-map)",
+  );
   expect(output.indexOf("# v1 SDK deprecated. Use v2 instead")).toBeLessThan(
     output.indexOf("## Usage"),
   );

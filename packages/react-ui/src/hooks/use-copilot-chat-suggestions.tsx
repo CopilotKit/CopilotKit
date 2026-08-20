@@ -1,20 +1,28 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/react-ui — useCopilotChatSuggestions:
+ *   V2 import and usage:
+ *     import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
  *
- * V1 import (deprecated; use V2 instead):
- *   import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
- * V2 import:
- *   import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+ *     function Suggestions() {
+ *       useConfigureSuggestions({
+ *         suggestions: [
+ *           { title: "Help", message: "Help me get started" },
+ *         ],
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-configure-suggestions.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ *   Migration note: This replacement moves from react-ui to react-core/v2.
  *
- * V2 replacement source: packages/react-core/src/v2/hooks/use-configure-suggestions.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
- * Migration note: This replacement moves from react-ui to react-core/v2.
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-ui/src/hooks/use-copilot-chat-suggestions.tsx
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
@@ -79,10 +87,8 @@
  * The hook registers the configuration with the chat context upon component mount and
  * removes it on unmount, ensuring a clean and efficient lifecycle management.
  */
-import {
-  useCopilotChatSuggestions as useCoreCopilotChatSuggestions,
-  type UseCopilotChatSuggestionsConfiguration,
-} from "@copilotkit/react-core";
+import { useCopilotChatSuggestions as useCoreCopilotChatSuggestions } from "@copilotkit/react-core";
+import type { UseCopilotChatSuggestionsConfiguration } from "@copilotkit/react-core";
 
 /**
  * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useConfigureSuggestions` from `@copilotkit/react-core/v2` instead.

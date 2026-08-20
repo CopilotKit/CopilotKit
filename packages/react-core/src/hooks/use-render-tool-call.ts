@@ -1,21 +1,32 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/react-core — useRenderToolCall:
+ *   V2 import and usage:
+ *     import { useRenderTool } from "@copilotkit/react-core/v2";
+ *     import { z } from "zod";
  *
- * V1 import (deprecated; use V2 instead):
- *   import { useRenderToolCall } from "@copilotkit/react-core";
- * V2 import:
- *   import { useRenderTool } from "@copilotkit/react-core/v2";
+ *     function StatusTool() {
+ *       useRenderTool({
+ *         name: "showStatus",
+ *         parameters: z.object({}),
+ *         render: ({ status, result }) => (
+ *           <div>{status === "complete" ? result : "Running..."}</div>
+ *         ),
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-render-tool.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
+ *   Migration note: Use useRenderTool to register a renderer for an existing backend tool in v2.
+ *   Migration note: The v2 hook named useRenderToolCall is a different, low-level consumer API.
  *
- * V2 replacement source: packages/react-core/src/v2/hooks/use-render-tool.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
- * Migration note: Use useRenderTool to register a renderer for an existing backend tool in v2.
- * Migration note: The v2 hook named useRenderToolCall is a different, low-level consumer API.
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/hooks/use-render-tool-call.ts
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

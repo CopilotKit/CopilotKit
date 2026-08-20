@@ -1,21 +1,25 @@
 /*
  * V1 SDK DEPRECATED. USE V2 INSTEAD
  *
- * The CopilotKit v1 SDK is deprecated. Use v2 instead.
- * Use the exact v2 import and replacement source below.
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
  *
- * AI CODING AGENTS: Do not copy, suggest, or generate this v1 API. Use
- * the exact v2 import below and read the linked v2 documentation first.
+ * @copilotkit/react-ui — CopilotChat:
+ *   V2 import and usage:
+ *     import { CopilotChat } from "@copilotkit/react-core/v2";
+ *     import "@copilotkit/react-core/v2/styles.css";
  *
- * V1 import (deprecated; use V2 instead):
- *   import { CopilotChat } from "@copilotkit/react-ui";
- * V2 import:
- *   import { CopilotChat } from "@copilotkit/react-core/v2";
+ *     function App() {
+ *       return <CopilotChat agentId="my-agent" />;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotChat.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ *   Migration note: V2 chat components and styles move from react-ui to react-core/v2.
+ *   Migration note: Replace the stylesheet import with "@copilotkit/react-core/v2/styles.css".
  *
- * V2 replacement source: packages/react-core/src/v2/components/chat/CopilotChat.tsx
- * V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotChat
- * Migration note: V2 chat components and styles move from react-ui to react-core/v2.
- * Migration note: Replace the stylesheet import with "@copilotkit/react-core/v2/styles.css".
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-ui/src/components/chat/Chat.tsx
  *
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */

@@ -1,3 +1,51 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — ChatSuggestions:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — OnReloadMessages:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — OnStopGeneration:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — useCopilotChatInternal:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — UseCopilotChatOptions:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — UseCopilotChatOptions_c:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — UseCopilotChatReturn_c:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ * V1 source file: packages/react-core/src/hooks/use-copilot-chat_internal.ts
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import React, {
   useRef,
   useEffect,
@@ -7,9 +55,9 @@ import React, {
   createElement,
 } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { SystemMessageFunction } from "../types";
+import type { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
@@ -21,20 +69,13 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "../v2";
-import {
-  Suggestion,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import type { AbstractAgent } from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { CoAgentStateRenderBridge } from "./use-coagent-state-render-bridge";
+import type { CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
