@@ -41,11 +41,11 @@ async function resolveLicenseStatus(
       return result.entitlement.active ? "valid" : "invalid";
     }
     if (result.kind === "unavailable") {
-      return "unknown";
+      return "invalid";
     }
     return resolveLocalLicenseStatus(runtime);
   } catch {
-    return "unknown";
+    return "invalid";
   }
 }
 
