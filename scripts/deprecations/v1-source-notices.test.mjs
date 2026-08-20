@@ -8,6 +8,7 @@ import {
   renderDeprecationJsDoc,
   repoRoot,
   V2_REFERENCE,
+  v1Entrypoints,
 } from "./v1-public-api.mjs";
 
 const expectedCounts = new Map([
@@ -36,6 +37,43 @@ function deprecatedText(symbol, checker) {
 }
 
 const inventory = getV1PublicApi();
+
+test("inventory covers every public v1 package entrypoint", () => {
+  const configured = new Set(
+    v1Entrypoints.map((entrypoint) => entrypoint.importPath),
+  );
+  const discovered = new Set();
+  const packageRoots = new Set(
+    v1Entrypoints.map((entrypoint) => entrypoint.packageRoot),
+  );
+
+  for (const packageRoot of packageRoots) {
+    const packageJson = JSON.parse(
+      readFileSync(path.join(repoRoot, packageRoot, "package.json"), "utf8"),
+    );
+    const packageExports = packageJson.exports ?? { ".": packageJson.main };
+
+    for (const [subpath, target] of Object.entries(packageExports)) {
+      if (
+        subpath === "./package.json" ||
+        subpath === "./v2" ||
+        subpath.startsWith("./v2/") ||
+        subpath.endsWith("styles.css") ||
+        (typeof target === "string" && target.endsWith(".css"))
+      ) {
+        continue;
+      }
+
+      discovered.add(
+        subpath === "."
+          ? packageJson.name
+          : `${packageJson.name}/${subpath.slice(2)}`,
+      );
+    }
+  }
+
+  assert.deepEqual([...configured].sort(), [...discovered].sort());
+});
 
 test("inventory covers every configured v1 importable export", () => {
   let total = 0;
