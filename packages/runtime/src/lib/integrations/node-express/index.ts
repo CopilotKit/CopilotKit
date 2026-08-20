@@ -16,7 +16,7 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { CreateCopilotRuntimeServerOptions } from "../shared";
+import { CreateCopilotRuntimeServerOptions } from "../shared";
 import { copilotRuntimeNodeHttpEndpoint } from "../node-http";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,

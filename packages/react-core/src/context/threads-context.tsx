@@ -38,8 +38,14 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { ReactNode, SetStateAction } from "react";
-import React, { createContext, useCallback, useContext, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  ReactNode,
+  SetStateAction,
+} from "react";
 import { randomUUID } from "@copilotkit/shared";
 
 export interface ThreadsContextValue {

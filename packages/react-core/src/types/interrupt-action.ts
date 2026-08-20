@@ -46,8 +46,8 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
-import type { AgentSession } from "../context/copilot-context";
+import { LangGraphInterruptEvent } from "@copilotkit/runtime-client-gql";
+import { AgentSession } from "../context/copilot-context";
 
 export interface LangGraphInterruptRenderHandlerProps<TEventValue = any> {
   event: LangGraphInterruptEvent<TEventValue>;

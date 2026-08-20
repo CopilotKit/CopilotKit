@@ -16,16 +16,15 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { CreateCopilotRuntimeServerOptions } from "../shared";
-import { getCommonConfig } from "../shared";
+import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";
 import { createCopilotEndpointSingleRoute } from "../../../v2/runtime";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { IncomingWithBody } from "./request-handler";
 import {
   getFullUrl,
+  IncomingWithBody,
   isDisturbedOrLockedError,
   isStreamConsumed,
   nodeStreamToReadableStream,

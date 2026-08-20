@@ -48,14 +48,13 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { YogaInitialContext } from "graphql-yoga";
+import { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
-import type { CopilotRuntime } from "../runtime/copilot-runtime";
-import type { CopilotServiceAdapter } from "../../service-adapters";
-import type { CopilotCloudOptions } from "../cloud";
-import type { LogLevel } from "../../lib/logger";
-import { createLogger } from "../../lib/logger";
+import { CopilotRuntime } from "../runtime/copilot-runtime";
+import { CopilotServiceAdapter } from "../../service-adapters";
+import { CopilotCloudOptions } from "../cloud";
+import { LogLevel, createLogger } from "../../lib/logger";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 

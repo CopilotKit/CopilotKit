@@ -29,8 +29,7 @@
  * Provides app-state and other information to the Copilot context.
  * Delegates directly to the v2 CopilotKitCoreVue instance.
  */
-import { watch, ref } from "vue";
-import type { Ref } from "vue";
+import { watch, ref, type Ref } from "vue";
 import type { WatchSource } from "vue";
 import { useCopilotKit } from "../v2/providers/useCopilotKit";
 

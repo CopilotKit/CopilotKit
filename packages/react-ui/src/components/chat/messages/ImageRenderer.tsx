@@ -17,7 +17,7 @@
  */
 
 import React, { useState } from "react";
-import type { ImageRendererProps } from "../props";
+import { ImageRendererProps } from "../props";
 
 /**
  * @deprecated Use `CopilotChatAttachmentRenderer` from `@copilotkit/react-core/v2` instead.

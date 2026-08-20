@@ -17,8 +17,7 @@
  */
 
 import { createCopilotEndpointSingleRoute } from "../../../v2/runtime";
-import type { CreateCopilotRuntimeServerOptions } from "../shared";
-import { getCommonConfig } from "../shared";
+import { CreateCopilotRuntimeServerOptions, getCommonConfig } from "../shared";
 import telemetry, {
   getRuntimeInstanceTelemetryInfo,
 } from "../../telemetry-client";

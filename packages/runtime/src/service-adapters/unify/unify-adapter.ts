@@ -40,7 +40,7 @@
  * );
  * ```
  */
-import type {
+import {
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
   CopilotServiceAdapter,

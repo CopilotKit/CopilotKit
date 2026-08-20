@@ -19,7 +19,7 @@
  */
 
 import { useCopilotAction } from "./use-copilot-action";
-import type { CatchAllFrontendAction } from "../types/frontend-action";
+import { CatchAllFrontendAction } from "../types/frontend-action";
 
 export function useDefaultTool(
   tool: Omit<CatchAllFrontendAction, "name">,
