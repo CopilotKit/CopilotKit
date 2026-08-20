@@ -1,5 +1,5 @@
-export const V1_REFERENCE_DEPRECATION = {
-  title: "Deprecated: v1 SDK",
+export const V1_DEPRECATION_NOTICE_USE_V2_INSTEAD = {
+  title: "v1 SDK deprecated. Use v2 instead",
   summary:
     "This page is in the deprecated CopilotKit v1 reference. Do not use v1 APIs for new code; use v2 instead.",
   importGuidance:
@@ -13,8 +13,8 @@ export function isV1ReferenceUrl(url: string): boolean {
   return /^\/?reference\/v1(?:\/|$)/.test(url);
 }
 
-export function renderV1ReferenceDeprecationMarkdown(): string {
-  const notice = V1_REFERENCE_DEPRECATION;
+export function renderV1DeprecationNoticeUseV2InsteadMarkdown(): string {
+  const notice = V1_DEPRECATION_NOTICE_USE_V2_INSTEAD;
   return [
     `## ${notice.title}`,
     "",
