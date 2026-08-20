@@ -25,6 +25,26 @@ test("the visual docs path inlines one dependency-complete shared frontend examp
   expect(rendered).toContain("export function parseJsonResult");
   expect(rendered).toContain("interface WeatherResult");
   expect(rendered).toContain("interface FlightSearchResult");
+  expect(rendered).toContain('```tsx title="app/tool-renderers.tsx"');
+  expect(rendered).toContain(
+    'import { WeatherCard } from "../components/weather-card";',
+  );
+  expect(rendered).toContain(
+    'import { FlightListCard, type Flight } from "../components/flight-list-card";',
+  );
+  expect(rendered).toContain(
+    'import { parseJsonResult } from "../lib/parse-json-result";',
+  );
+  expect(rendered).toContain('```tsx title="app/page.tsx"');
+  expect(rendered).toContain(
+    'import { ToolRenderers } from "./tool-renderers";',
+  );
+  expect(rendered).toContain("export default function Page");
+  expect(rendered).toContain(
+    '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
+  );
+  expect(rendered).toContain("<ToolRenderers />");
+  expect(rendered).toContain('<CopilotChat agentId="tool-rendering" />');
   expect(
     rendered.match(/const parsed = parseJsonResult<WeatherResult>\(result\);/g),
   ).toHaveLength(1);

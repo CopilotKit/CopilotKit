@@ -731,14 +731,19 @@ test.each(["google-adk", "langgraph-python", "mastra"])(
     );
 
     for (const dependency of [
-      'import { WeatherCard } from "./components/weather-card";',
-      'import { FlightListCard, type Flight } from "./components/flight-list-card";',
-      'import { parseJsonResult } from "./lib/parse-json-result";',
+      'import { WeatherCard } from "../components/weather-card";',
+      'import { FlightListCard, type Flight } from "../components/flight-list-card";',
+      'import { parseJsonResult } from "../lib/parse-json-result";',
+      'import { ToolRenderers } from "./tool-renderers";',
       "interface WeatherResult",
       "interface FlightSearchResult",
       "export function WeatherCard",
       "export function FlightListCard",
       "export function parseJsonResult",
+      "export default function Page",
+      '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
+      "<ToolRenderers />",
+      '<CopilotChat agentId="tool-rendering" />',
     ]) {
       expect(output, `${framework}: ${dependency}`).toContain(dependency);
     }

@@ -103,14 +103,14 @@ export function parseJsonResult<T>(result: unknown): T {
 }
 ```
 
-```tsx title="app/page.tsx"
+```tsx title="app/tool-renderers.tsx"
 "use client";
 
 import { useRenderTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { WeatherCard } from "./components/weather-card";
-import { FlightListCard, type Flight } from "./components/flight-list-card";
-import { parseJsonResult } from "./lib/parse-json-result";
+import { WeatherCard } from "../components/weather-card";
+import { FlightListCard, type Flight } from "../components/flight-list-card";
+import { parseJsonResult } from "../lib/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -171,5 +171,25 @@ export function ToolRenderers() {
   );
 
   return null;
+}
+```
+
+Mount the renderers anywhere beneath the same `CopilotKit` provider as your
+chat. The renderer component returns no layout of its own; it registers the
+two named renderers for tool calls in the chat:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import { ToolRenderers } from "./tool-renderers";
+
+export default function Page() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
+      <ToolRenderers />
+      <CopilotChat agentId="tool-rendering" />
+    </CopilotKit>
+  );
 }
 ```
