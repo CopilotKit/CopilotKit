@@ -1,0 +1,4 @@
+tsconfig.tsbuildinfo
+.env
+.env.local
+agent/.env

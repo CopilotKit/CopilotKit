@@ -1,0 +1,239 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@property --magic-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root,
+html.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.178 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.178 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.178 0 0);
+  --secondary: oklch(0.245 0 0);
+  --secondary-foreground: oklch(0.94 0 0);
+  --muted: oklch(0.245 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.27 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.72 0 0);
+  --radius: 0.75rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-background text-foreground;
+  }
+
+  ::selection {
+    background: var(--foreground);
+    color: var(--background);
+  }
+
+  * {
+    scrollbar-color: var(--muted) transparent;
+    scrollbar-width: thin;
+  }
+}
+
+.leaflet-container {
+  background: oklch(0.23 0 0);
+  font-family: inherit;
+}
+
+.leaflet-control-zoom {
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 8px 24px oklch(0 0 0 / 24%) !important;
+}
+
+.leaflet-control-zoom a {
+  border-color: var(--border) !important;
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--secondary) !important;
+}
+
+.leaflet-control-attribution {
+  background: oklch(0.145 0 0 / 84%) !important;
+  color: var(--muted-foreground) !important;
+  font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--foreground) !important;
+}
+
+.location-pin {
+  border: 0;
+  background: transparent;
+}
+
+.location-pin span {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid white;
+  border-radius: 999px 999px 999px 3px;
+  background: oklch(0.18 0 0);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 34%);
+  color: white;
+  font:
+    700 11px/1 ui-monospace,
+    monospace;
+  transform: rotate(-45deg);
+  animation: pin-arrive 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.location-pin span b {
+  font: inherit;
+  transform: rotate(45deg);
+}
+
+.leaflet-tooltip {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: var(--card) !important;
+  box-shadow: 0 8px 24px oklch(0 0 0 / 24%) !important;
+  color: var(--foreground) !important;
+  font-size: 11px;
+}
+
+.leaflet-tooltip-top::before {
+  border-top-color: var(--card) !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  border: 0;
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px oklch(0 0 0 / 30%);
+}
+
+.location-popup {
+  min-width: 190px;
+}
+
+.location-popup strong {
+  display: block;
+  font-size: 13px;
+}
+
+.location-popup p {
+  margin: 7px 0 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.magic-border::before {
+  position: absolute;
+  z-index: 1;
+  inset: -5px;
+  padding: 5px;
+  border-radius: inherit;
+  animation: magic-border-sweep 1.25s linear infinite;
+  background: conic-gradient(
+    from var(--magic-angle),
+    transparent 0deg 175deg,
+    oklch(0.56 0.29 300) 215deg,
+    oklch(0.72 0.28 303) 260deg,
+    oklch(0.94 0.11 300) 300deg,
+    oklch(0.67 0.27 302) 330deg,
+    transparent 355deg 360deg
+  );
+  content: "";
+  filter: drop-shadow(0 0 4px oklch(0.94 0.11 300 / 85%))
+    drop-shadow(0 0 15px oklch(0.67 0.27 302 / 95%));
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@keyframes magic-border-sweep {
+  to {
+    --magic-angle: 360deg;
+  }
+}
+
+@keyframes pin-arrive {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    transform: translateY(-10px) rotate(-45deg) scale(0.72);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .location-pin span {
+    animation: none;
+  }
+
+  .magic-border::before {
+    animation: none;
+    background: oklch(0.67 0.25 302);
+  }
+}
