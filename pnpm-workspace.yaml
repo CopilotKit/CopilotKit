@@ -33,6 +33,7 @@ packages:
   # currently unbuilt and untype-checked in CI. It needs its own workflow job
   # (`pnpm install && pnpm build && pnpm typecheck` in its directory), which is
   # NOT in this change. Run the four gates locally until that lands.
+  - "examples/showcases/travel-workflow"
   - "examples/slack"
   - "examples/teams"
   - "!examples/v1/_legacy"

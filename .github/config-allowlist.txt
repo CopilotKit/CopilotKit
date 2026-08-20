@@ -68,6 +68,7 @@ examples/showcases/spreadsheet/next.config.mjs
 examples/showcases/strands-crm/frontend/next.config.ts
 examples/showcases/strands-file-analyzer/next.config.ts
 examples/showcases/todo/next.config.mjs
+examples/showcases/travel-workflow/next.config.ts
 examples/v1/_legacy/copilot-anthropic-pinecone/next.config.mjs
 examples/v1/_legacy/copilot-openai-mongodb-atlas-vector-search/next.config.mjs
 examples/v1/_legacy/saas-dynamic-dashboards/frontend/next.config.mjs
