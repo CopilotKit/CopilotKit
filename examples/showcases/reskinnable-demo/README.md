@@ -77,7 +77,9 @@ whole agent moved out of process). Without it the app still boots and the
 dashboard still renders — only sending a message to the DEFAULT skin fails.
 
 For the self-hosted memory path, `./run-demo.sh` starts everything in one command
-(embedder, Intelligence stack, the agent, the dev server) and is safe to re-run.
+(embedder, Intelligence stack, the agent, the dev server) and is safe to re-run;
+`./stop-demo.sh` takes it all down again. Ctrl-C on the script stops only the dev
+server — the stack, the embedder and the agent are backgrounded and survive it.
 
 ## Switching skins
 

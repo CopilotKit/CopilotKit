@@ -11,10 +11,15 @@
 # dev license if needed, starts banking's Python agent, then starts the Next.js
 # dev server. Idempotent: safe to re-run — it reuses anything already up.
 #
-# What Ctrl-C leaves behind: the docker stack keeps running (stop it with
-# `docker compose down`). The dev server, the native TEI and the Python agent are
-# all children of this script's process group, so they go down with it — re-run
-# this script to bring them back.
+# What Ctrl-C leaves behind: everything except the dev server. The docker stack,
+# the native TEI and the Python agent all keep running — `./stop-demo.sh` is what
+# takes them down.
+#
+# Measured, because the shell rule behind it is not obvious: SIGINT goes to the
+# foreground process GROUP, which the backgrounded children are still in — but a
+# NON-INTERACTIVE shell sets a background job to ignore SIGINT (POSIX), so only
+# the exec'd dev server dies (`exit=-2`). `nohup` is not what saves them; it
+# covers SIGHUP, a different signal.
 #
 # Embedder platform split (this is the whole point of the script):
 #   - Apple Silicon (arm64): the bundled docker `tei` image is amd64-only and
@@ -132,5 +137,5 @@ wait_http "http://localhost:8124/health" "banking agent" 90
 
 # --- App --------------------------------------------------------------------
 say "Starting the Next.js dev server (http://localhost:3000)"
-say "    (docker stack survives Ctrl-C; the dev server, TEI and the agent do not)"
+say "    (Ctrl-C stops only the dev server; ./stop-demo.sh stops the rest)"
 exec pnpm dev
