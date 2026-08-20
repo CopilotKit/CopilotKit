@@ -46,7 +46,24 @@ export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
 };
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` or `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` or `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useFrontendTool } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function StatusTool() {
+ *   useFrontendTool({
+ *     name: "showStatus",
+ *     description: "Show the current status",
+ *     parameters: z.object({}),
+ *     handler: async () => "ready",
+ *     render: ({ result }) => <div>{result}</div>,
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
  */
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
   tool: UseRenderToolCallArgs<T>,

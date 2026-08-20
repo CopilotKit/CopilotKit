@@ -420,7 +420,17 @@ export type ImageUpload = {
 };
 
 /**
- * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotChat` from `@copilotkit/react-core/v2` instead. See https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotChat` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { CopilotChat } from "@copilotkit/react-core/v2";
+ * import "@copilotkit/react-core/v2/styles.css";
+ *
+ * function App() {
+ *   return <CopilotChat agentId="my-agent" />;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/components/CopilotChat
  */
 export function CopilotChat({
   instructions,
