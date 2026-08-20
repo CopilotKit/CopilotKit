@@ -56,10 +56,12 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
   "@copilotkit/runtime": {
     "1.62.2": false,
     "1.62.3": false,
+    "1.68.1": false,
   },
   "@copilotkit/react-core": {
     "1.62.2": false,
     "1.62.3": false,
+    "1.68.1": false,
   },
 } as const satisfies Readonly<
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
@@ -1865,6 +1867,7 @@ function expectPinnedSdkCompatibilityContract(
 function expectRuntimeAgentContract(
   contents: string,
   contract: RuntimeAgentContract,
+  agentContents: string = contents,
 ): void {
   const sourceFile = parseManagedSource(contents);
   const runtimeOptions = newExpressionOptions(sourceFile, "CopilotRuntime");
@@ -1879,11 +1882,19 @@ function expectRuntimeAgentContract(
   if (contract.registration === "factory") {
     expect(ts.isCallExpression(registeredAgents)).toBe(true);
     if (!ts.isCallExpression(registeredAgents)) return;
-    expect(propertyAccessParts(registeredAgents.expression)).toEqual(
+    const registeredCallee = propertyAccessParts(registeredAgents.expression);
+    const factoryCall =
+      registeredCallee.length === 1 &&
+      registeredCallee[0] === "createLocalAgents"
+        ? sourceCalls(parseManagedSource(agentContents), contract.calleePath)[0]
+        : registeredAgents;
+    expect(factoryCall).not.toBeUndefined();
+    if (!factoryCall) return;
+    expect(propertyAccessParts(factoryCall.expression)).toEqual(
       contract.calleePath,
     );
-    const argument = registeredAgents.arguments[0]
-      ? unwrapExpression(registeredAgents.arguments[0])
+    const argument = factoryCall.arguments[0]
+      ? unwrapExpression(factoryCall.arguments[0])
       : null;
     expect(argument && ts.isObjectLiteralExpression(argument)).toBe(true);
     if (!argument || !ts.isObjectLiteralExpression(argument)) return;
@@ -1903,14 +1914,38 @@ function expectRuntimeAgentContract(
   expect(defaultAgent).not.toBeNull();
   if (!defaultAgent) return;
   const agent = registeredAgentExpression(sourceFile, defaultAgent.initializer);
-  expect(ts.isNewExpression(agent)).toBe(true);
-  if (!ts.isNewExpression(agent)) return;
-  expect(propertyAccessParts(agent.expression)).toEqual([
-    contract.constructorName,
-  ]);
-  const agentOptions = agent.arguments?.[0]
-    ? unwrapExpression(agent.arguments[0])
-    : null;
+  let agentOptions: ts.ObjectLiteralExpression | null;
+  if (
+    ts.isCallExpression(agent) &&
+    propertyAccessParts(agent.expression).join(".") === "createDefaultAgent"
+  ) {
+    const factoryAgentOptions = newExpressionOptions(
+      parseManagedSource(agentContents),
+      contract.constructorName,
+    );
+    expect(factoryAgentOptions).toHaveLength(1);
+    agentOptions = factoryAgentOptions[0] ?? null;
+  } else {
+    expect(ts.isNewExpression(agent)).toBe(true);
+    if (!ts.isNewExpression(agent)) return;
+    expect(propertyAccessParts(agent.expression)).toEqual([
+      contract.constructorName,
+    ]);
+    const inlineAgentOptions = agent.arguments?.[0]
+      ? unwrapExpression(agent.arguments[0])
+      : null;
+    expect(
+      inlineAgentOptions && ts.isObjectLiteralExpression(inlineAgentOptions),
+    ).toBe(true);
+    if (
+      !inlineAgentOptions ||
+      !ts.isObjectLiteralExpression(inlineAgentOptions)
+    ) {
+      return;
+    }
+    agentOptions = inlineAgentOptions;
+  }
+
   expect(agentOptions && ts.isObjectLiteralExpression(agentOptions)).toBe(true);
   if (!agentOptions || !ts.isObjectLiteralExpression(agentOptions)) return;
 
@@ -3840,6 +3875,24 @@ test("the 17 Intelligence template directories back all 19 in-repo CLI framework
   );
 });
 
+test("agentcore compatibility docs name the SDK release that the template pins", () => {
+  const contract = INTELLIGENCE_TEMPLATE_CONTRACTS.find(
+    ({ directory }) => directory === "agentcore",
+  );
+
+  expect(contract).not.toBeUndefined();
+  if (!contract) return;
+
+  const versions = new Set(
+    readManagedSdkPins(contract).map(({ version }) => version),
+  );
+  expect(versions.size).toBe(1);
+
+  const [version] = versions;
+  const readme = readManagedSurface(contract, contract.readmePath, "README");
+  expect(readme).toMatch(new RegExp(`at\\s+\`${version}\``, "u"));
+});
+
 test.each([
   {
     defect: "registered constructor changes",
@@ -3895,8 +3948,12 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
         contract.runtimePath,
         "runtime",
       );
+      const agent =
+        contract.directory === "langgraph-fastapi"
+          ? runtime
+          : readManagedSurface(contract, "src/agent.ts", "agent definition");
 
-      expectRuntimeAgentContract(runtime, contract.runtimeAgent);
+      expectRuntimeAgentContract(runtime, contract.runtimeAgent, agent);
     });
   }
 
@@ -4022,13 +4079,13 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
 
   if (contract.directory === "mcp-apps") {
     test("mcp-apps runtime preserves its MCP Apps client middleware", () => {
-      const runtime = readManagedSurface(
+      const agent = readManagedSurface(
         contract,
-        contract.runtimePath,
-        "runtime",
+        "app/agent.ts",
+        "agent definition",
       );
 
-      expectMcpAppsRuntimeBehavior(runtime);
+      expectMcpAppsRuntimeBehavior(agent);
     });
 
     test("mcp-apps preserves its streamable HTTP tools and UI resource server", () => {
@@ -4049,13 +4106,13 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
 
   if (contract.directory === "a2a-middleware") {
     test("a2a-middleware preserves isolated multi-agent routing", () => {
-      const runtime = readManagedSurface(
+      const agent = readManagedSurface(
         contract,
-        contract.runtimePath,
-        "runtime",
+        "app/agent.ts",
+        "agent definition",
       );
 
-      expectA2ARuntimeBehavior(runtime);
+      expectA2ARuntimeBehavior(agent);
     });
 
     test("a2a-middleware preserves its configured chat visualization tool", () => {
