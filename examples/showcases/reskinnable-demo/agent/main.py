@@ -108,6 +108,18 @@ class BankingAGUIAgent(LangGraphAGUIAgent):
         # (name, graph, description, config) — the same narrow signature behind
         # the clone() bug this class already works around.
         clone.emit_raw_events = self.emit_raw_events
+        # Same reason, higher stakes. `emit_subagent_events` is what makes the
+        # nested analyst and its researchers representable at all — lifecycle
+        # events, `subagentRunId` attribution, and (the part this demo needs)
+        # subagent messages persisting across turns via the snapshot.
+        #
+        # The BASE `clone()` forwards it; this override does not, because it
+        # exists precisely to stop passing kwargs the copilotkit subclass cannot
+        # take. So every flag the base would have carried has to be re-applied by
+        # hand here, and forgetting one is silent: the endpoint clones per
+        # request, so the flag would be set on an object no request ever uses and
+        # the stream would quietly revert to pre-subagent behaviour.
+        clone.emit_subagent_events = self.emit_subagent_events
         return clone
 
     async def run(self, input):
@@ -151,8 +163,28 @@ banking_agent = BankingAGUIAgent(
     config={"recursion_limit": 300},
 )
 
-# See `clone()` above for why this is an attribute and why it matters.
+# See `clone()` above for why these are attributes rather than constructor
+# arguments: copilotkit's `LangGraphAGUIAgent.__init__` accepts only
+# (name, graph, description, config) and silently drops the rest.
 banking_agent.emit_raw_events = False
+
+# Turn the subagent surface ON. It is opt-in upstream for a good reason: a
+# released `@ag-ui/client` <= 0.0.57 validates every event against a
+# discriminated union IN THE HTTP TRANSPORT, before any middleware runs, so a
+# single `SUBAGENT_STARTED` kills the whole stream and no client-side filter can
+# save it. This app pins `@ag-ui/client` 0.0.59-canary in its own lockfile
+# precisely so it can take these events — which is also why the demo is not a
+# member of the root pnpm workspace (see `pnpm-workspace.yaml`).
+#
+# What it buys, all of which this beat needs:
+#   * subagent messages persist across turns via the snapshot — without it the
+#     whole nested journey collapses to one ToolMessage ("Completed
+#     successfully.") and a rejoin shows a thread that did nothing for minutes;
+#   * per-lane state, so ten concurrent researchers stop shredding their prose
+#     into one interleaved message;
+#   * `subagentRunId` / `parentSubagentRunId`, which give the console real
+#     identity to group by instead of guessing from the first tool call.
+banking_agent.emit_subagent_events = True
 
 add_langgraph_fastapi_endpoint(app=app, agent=banking_agent, path="/")
 

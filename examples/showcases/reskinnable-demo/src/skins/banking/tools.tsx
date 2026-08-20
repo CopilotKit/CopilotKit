@@ -8,6 +8,8 @@ import {
   useRenderTool,
 } from "@copilotkit/react-core/v2";
 import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
+import { HarnessConsole } from "@/skins/banking/components/harness-console";
+import { useFirstDelegationToolCallId } from "@/shell/subagents/subagent-activity";
 import type { HarnessSummary } from "@/skins/banking/harness/types";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
@@ -125,6 +127,9 @@ const answeredPinChanges = new Map<
 // on.
 export function BankingTools() {
   const { currentUser } = useAuthContext();
+  // The run's first `task` call — the parent's one delegation to the analyst,
+  // and the console's stable home. See the console block below.
+  const consoleAnchorId = useFirstDelegationToolCallId();
   const skin = useSkin();
   const skinHref = useSkinHref(skin.id);
   const router = useRouter();
@@ -873,6 +878,29 @@ export function BankingTools() {
       ),
     },
     [policies],
+  );
+
+  // ── The offsite-expenses CLI console ───────────────────────────────────────
+  //
+  // Anchored on the run's FIRST `task` call — the parent's single delegation to
+  // `expense-analyst`. That slot opens when the harness starts and stays for the
+  // whole run, which is what the Codex-era console got from
+  // `analyzeOffsiteExpenses`.
+  //
+  // The nested `task` calls (analyst → researchers) must NOT each render their
+  // own console. An earlier version excluded them by asking the live event
+  // stream which tool calls a subagent had made, which fails on a RESTORED
+  // thread: those events never replay, the set is empty, and all six
+  // delegations render a console. Message order is the durable answer — see
+  // `useFirstDelegationToolCallId`.
+  useRenderTool(
+    {
+      name: "task",
+      parameters: z.object({}).passthrough(),
+      render: ({ toolCallId }) =>
+        toolCallId === consoleAnchorId ? <HarnessConsole /> : <></>,
+    },
+    [consoleAnchorId],
   );
 
   // ── The offsite-expenses report card ───────────────────────────────────────

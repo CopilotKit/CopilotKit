@@ -1,23 +1,40 @@
-"""Banking's offsite-expenses deep agent.
+"""Banking's agent: a LangChain deep agent, in three nested levels.
 
-A LangChain deep agent with a SANDBOXED SHELL (its own container's filesystem via
-`LocalShellBackend`) and PARALLEL SUBAGENTS for merchant research. It reads a
-personal card statement, decides what the Austin offsite makes reimbursable,
-files the reimbursable charges against the banking ledger over REST, and ends by
-calling `submit_expense_report` — the tool banking's client renders as a React
-report card.
+    banking                       gpt-5.4, temp 0
+      │  banking's own prompt; the browser's frontend tools and the
+      │  Intelligence memory tools; `render_report` for the canvas
+      └─ expense-analyst          gpt-5.6-sol, reasoning_effort=high
+           │  sandboxed shell (LocalShellBackend), `submit_expense_report`
+           └─ merchant-researcher gpt-5.4, streaming OFF, one per merchant
+                `search_merchant` (Tavily)
 
-Two constructor arguments are LOAD-BEARING and fail SILENTLY when missing:
+The nesting is the design, not an accident of growth. Each level exists because
+something about it must differ from its parent — prompt, model, tool set, or
+whether it streams — and a single agent had nowhere to put any of that.
 
-  * `middleware=[CopilotKitMiddleware()]` — the only thing that binds tools
-    forwarded from the browser. `ag_ui_langgraph` deposits `input.tools` into
-    `state["ag-ui"]["tools"]` and binds NOTHING; the actual binding happens in
-    `CopilotKitMiddleware.wrap_model_call`, which reads the runtime-context
-    carrier that `LangGraphAGUIAgent` populates. Drop the middleware and the
+Three constructor arguments are LOAD-BEARING and fail SILENTLY when missing:
+
+  * `middleware=[CopilotKitMiddleware()]` on the TOP level — the only thing that
+    binds tools forwarded from the browser. `ag_ui_langgraph` deposits
+    `input.tools` into `state["ag-ui"]["tools"]` and binds NOTHING; the actual
+    binding happens in `CopilotKitMiddleware.wrap_model_call`, which reads the
+    runtime-context carrier that `LangGraphAGUIAgent` populates. Drop it and the
     agent simply never calls a frontend tool — no error, no warning.
-  * `backend=LocalShellBackend(...)` — without it deepagents defaults to a
-    state-backed virtual filesystem, so the agent can write `analyze.py` and
-    have nothing to execute it with.
+  * `backend=LocalShellBackend(...)` on the ANALYST — without it deepagents
+    defaults to a state-backed virtual filesystem, so the agent can write
+    `analyze.py` and have nothing to execute it with.
+  * `emit_subagent_events=True` on the AG-UI agent (`main.py`) — without it the
+    stream carries no `subagentRunId`, so the console cannot tell the harness's
+    work from the parent's and a reopened thread collapses the whole run to one
+    tool message. It also carries the per-lane state that stops ten concurrent
+    researchers interleaving their prose (which is why the researcher's model no
+    longer needs `disable_streaming`).
+
+Nested tool calls DO reach the browser: a probe confirmed the analyst's `task`
+dispatches, the researchers' `search_merchant` calls and the final report tool
+all appear in `astream_events`, which is what `ag_ui_langgraph` builds AG-UI
+events from. That is what lets one CLI console in the transcript draw the whole
+journey regardless of which level produced a line.
 """
 
 import os
@@ -27,7 +44,7 @@ import time
 from deepagents import create_deep_agent
 from deepagents.backends import LocalShellBackend
 from langchain.agents.middleware import wrap_model_call
-from langchain.tools import tool
+from langchain.tools import tool, ToolRuntime
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -56,18 +73,13 @@ def _app_base_url() -> str:
     return os.environ.get("DEMO_APP_URL", "http://localhost:3000")
 
 
-EXPENSE_TASK_PROMPT = f"""
+EXPENSE_ANALYST_PROMPT = f"""You are an expense analyst with a shell, a
+filesystem, and research subagents. You have been handed one job and you are
+expected to take minutes over it rather than answer in a single turn.
 
-## LONG-RUNNING TASK — OFFSITE EXPENSE ANALYSIS
-
-Everything above governs how you behave in general. This section is a SPECIFIC
-JOB, and it applies ONLY when the user hands you a personal card statement and
-asks which charges an offsite makes reimbursable. For every other request,
-ignore this section entirely — it does not change your identity, your tools, or
-the rules above.
-
-When it DOES apply, you have a shell, a filesystem, and research subagents, and
-you are expected to take minutes rather than answer in one turn.
+This is your ENTIRE brief. You are not the banking copilot and you do not answer
+anything else — a parent agent delegated this task to you and will relay your
+result.
 
 CONTEXT: there was a company offsite in {OFFSITE_CITY} from {OFFSITE_START} to
 {OFFSITE_END}. Expenses are reimbursable only when they are business expenses
@@ -214,14 +226,29 @@ def search_merchant(query: str) -> list[dict]:
 _RUN_STARTS: dict[str, float] = {}
 
 
-def _thread_key(request) -> str:
-    """Best-effort per-run key. Falls back to a constant, which degrades to the
-    old single-run-at-a-time behaviour rather than crashing."""
+def _run_key_from_config(config) -> str:
+    """The thread this call belongs to, read from a LangChain `RunnableConfig`.
+
+    ONE derivation used by both writers and the reader, so the middleware that
+    starts the clock and the tool that stops it cannot disagree about which run
+    they are talking about. Guessing was the old bug: the reader could not name
+    its own thread, so it took the oldest open stamp and inherited a previous
+    run's.
+    """
+    cfg = config or {}
+    configurable = cfg.get("configurable") if isinstance(cfg, dict) else None
+    if isinstance(configurable, dict) and configurable.get("thread_id"):
+        return str(configurable["thread_id"])
+    return "default"
+
+
+def _run_key_from_request(request) -> str:
+    """Same key, from a middleware `ModelRequest`."""
     host = getattr(getattr(request, "runtime", None), "context", None)
     if isinstance(host, dict) and host.get("thread_id"):
         return str(host["thread_id"])
-    state = request.state or {}
-    return str(state.get("thread_id") or "default")
+    cfg = getattr(getattr(request, "runtime", None), "config", None)
+    return _run_key_from_config(cfg)
 
 
 @wrap_model_call
@@ -234,7 +261,10 @@ async def _stamp_run_start(request, handler):
     surfaces to the browser as a bare `RUN_ERROR: terminated` with the real
     cause visible only in this service's log.
     """
-    key = _thread_key(request)
+    # Start the clock at the FIRST model call of this thread's run, and never
+    # re-stamp it. The `not in` guard is what makes the twentieth model call of
+    # a long run leave the start time alone.
+    key = _run_key_from_request(request)
     if key not in _RUN_STARTS:
         _RUN_STARTS[key] = time.time()
 
@@ -277,23 +307,26 @@ async def _stamp_run_start(request, handler):
     return await handler(request)
 
 
-def _elapsed_seconds() -> int:
-    """Longest-running clock still open, then clear it.
+def _elapsed_seconds(key: str) -> int:
+    """Seconds since this THREAD's run started, then release the stamp.
 
-    The report tool has no access to the request, so it cannot name its own
-    thread. Taking the OLDEST open stamp is right for the presenter constraint
-    this demo already accepts elsewhere (one expense run at a time) and is a
-    strict improvement on a single global: the thread-name generation call no
-    longer decides when the clock started.
+    Keyed, because the previous version was not and reported nonsense: it took
+    the oldest stamp still open across every thread the process had seen.
+    Trailing model calls AFTER the report re-stamp the clock, so that leftover
+    became the next run's start time — measured, a two-minute run reported 333s.
+    A duration is printed on the report card as a fact next to totals that
+    reconcile, so a plausible wrong number is the worst kind.
+
+    A missing stamp returns 0 rather than a guess: no start time means we do not
+    know how long it took, and inventing one here would be the same defect in a
+    smaller font.
     """
-    if not _RUN_STARTS:
-        return 0
-    key = min(_RUN_STARTS, key=lambda k: _RUN_STARTS[k])
-    return int(time.time() - _RUN_STARTS.pop(key))
+    started = _RUN_STARTS.pop(key, None)
+    return 0 if started is None else int(time.time() - started)
 
 
 @tool
-def submit_expense_report(verdicts: list[dict]) -> dict:
+def submit_expense_report(verdicts: list[dict], runtime: ToolRuntime) -> dict:
     """Submit the finished expense analysis. Renders as the user's report card.
 
     Call this exactly once, at the very end, after every filing call has been
@@ -301,6 +334,9 @@ def submit_expense_report(verdicts: list[dict]) -> dict:
     so do NOT restate the totals or the per-row verdicts in prose afterwards.
 
     Args:
+        runtime: Injected by LangChain — NOT a parameter the model supplies, and
+            not part of the tool schema it sees. It carries this call's config,
+            which is how the tool names its own run to stop the clock.
         verdicts: One entry per CSV row, in the order the rows appear. Each is
             {merchant, date, amount, decision, reason} plus the optional
             merchantKind and filedTransactionId. `decision` is one of
@@ -391,15 +427,54 @@ def submit_expense_report(verdicts: list[dict]) -> dict:
         "verdicts": clean,
         # Measured, never asked of the model — a model-estimated duration is
         # exactly the kind of number that reads as a fact on stage.
-        "elapsedSeconds": _elapsed_seconds(),
+        "elapsedSeconds": _elapsed_seconds(_run_key_from_config(runtime.config)),
     }
 
 
-def build_agent():
-    """Build the offsite-expenses deep agent."""
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("Missing OPENAI_API_KEY environment variable")
+DELEGATION_PROMPT = """
 
+## DELEGATING THE OFFSITE EXPENSE ANALYSIS
+
+When the user hands you a personal card statement and asks which charges an
+offsite makes reimbursable, do NOT attempt it yourself. Delegate the ENTIRE job
+to the `expense-analyst` subagent with one task call, passing along what the user
+told you.
+
+That subagent has a shell, research subagents of its own, and the authority to
+file charges against the ledger. It will take minutes and it reports its own
+findings to the user directly. When it returns, say ONE short sentence
+acknowledging it finished — the report card it produced is already on screen, so
+do not restate its totals, its verdicts, or its per-row reasoning.
+"""
+
+
+def _build_expense_analyst():
+    """The offsite-expenses agent: a deep agent in its own right.
+
+    A SEPARATE agent rather than a section of banking's prompt, and that is the
+    load-bearing part of this design.
+
+    Banking's own prompt is ~21,000 characters of rules about markdown tables,
+    PIN handling, memory scoping and gen-UI restraint. The expense run makes on
+    the order of twenty model calls. Folded into one agent, every one of those
+    calls re-sends the entire banking rulebook while the agent is reading a CSV —
+    paid in latency and tokens, on every superstep, for rules that cannot apply.
+
+    Splitting it also gives the beat somewhere for its own configuration to
+    live. It runs on a stronger model at high reasoning effort (the policy
+    judgement is the hard part and deserves it), while the six other banking
+    beats stay on the cheaper model. With one agent there was no such seam:
+    model, effort and recursion limit were all agent-level, and there was only
+    one agent.
+
+    Reached as a `CompiledSubAgent`, because a raw `SubAgent` spec has no
+    `subagents` field and this agent needs its own — the per-merchant fan-out is
+    a headline of the beat, and a flat subagent could only research serially.
+    Verified that nesting survives: a probe run showed the analyst's `task`
+    dispatches, the researchers' `search` calls and the final report tool ALL
+    reaching `astream_events`, which is what `ag_ui_langgraph` builds AG-UI
+    events from. So the console still draws the whole journey.
+    """
     workspace = pathlib.Path(os.environ.get("AGENT_WORKSPACE", "/tmp/expense-agent"))
     workspace.mkdir(parents=True, exist_ok=True)
 
@@ -411,6 +486,100 @@ def build_agent():
         virtual_mode=False,
         timeout=180,
     )
+
+    analyst_model = ChatOpenAI(
+        model=os.environ.get("BANKING_EXPENSE_MODEL", "gpt-5.6-sol"),
+        # High effort is not padding. The judgement calls here are the genuinely
+        # hard part — whether a resolved merchant kind makes a charge
+        # reimbursable under the offsite's dates — and it is also the honest way
+        # to make a run take minutes: it thinks longer because there is more
+        # thinking to do, rather than waiting on a timer.
+        reasoning_effort=os.environ.get("BANKING_EXPENSE_EFFORT", "high"),
+        # REQUIRED with the two settings above, and the failure is a hard 400 on
+        # the first model call inside the analyst:
+        #
+        #   Function tools with reasoning_effort are not supported for
+        #   gpt-5.6-sol in /v1/chat/completions. To use function tools, use
+        #   /v1/responses or set reasoning_effort to 'none'.
+        #
+        # This agent is nothing but function tools — shell, filesystem, task
+        # dispatch, the report — so 'none' is not an option and the Responses
+        # API is the only way to keep the reasoning effort.
+        #
+        # Worth knowing how this was missed: the first probe asked the model a
+        # plain question with NO tools bound, and passed. Binding a tool is what
+        # surfaces the constraint, so a model probe for an AGENT has to bind one.
+        use_responses_api=True,
+    )
+
+    # The researchers get their OWN model with streaming switched off.
+    #
+    # Up to ten of them run at once, and a streaming model makes each one emit
+    # TEXT_MESSAGE_CONTENT deltas into the same AG-UI message stream. The
+    # transcript then shows all ten prose answers shredded together
+    # token-by-token — measured, and it is not subtly wrong, it is unreadable:
+    #
+    #   "Northgate Pharmacy | likely business type: pharmacy | plausibly
+    #    restaurant/bar/hotel/transport/subscription/pharmacy/wellQuill &
+    #    Bindery -ness/ret bookstoreail/bookbindery retail; ..."
+    #
+    # Nothing is lost by silencing them. A subagent's answer reaches its parent
+    # as the `task` tool's RESULT, a single complete message rather than a delta
+    # stream, so the console still prints each dispatch and each finding
+    # attributable to the merchant it belongs to.
+    #
+    # They also stay on the CHEAPER model: they summarise search results, they
+    # do not make policy judgements, and high effort times ten concurrent calls
+    # is real money for no gain.
+    research_model = ChatOpenAI(
+        model=os.environ.get("BANKING_AGENT_MODEL", "gpt-5.4"),
+        temperature=0,
+        # `disable_streaming=True` USED to be here, and is deliberately gone.
+        #
+        # It was a workaround for ten concurrent researchers shredding their
+        # prose into one interleaved message — real and unreadable, but a symptom
+        # of the protocol having no way to say which subagent a token belonged
+        # to. `emit_subagent_events` (see `main.py`) fixes it at the source with
+        # per-lane state, so the researchers can stream again and the console
+        # gets narration attributable to the merchant it is about.
+        #
+        # If interleaving ever comes back, check that the flag survived the
+        # per-request `clone()` before reaching for this again — a dropped flag
+        # looks exactly like the old bug.
+    )
+
+    return create_deep_agent(
+        model=analyst_model,
+        system_prompt=EXPENSE_ANALYST_PROMPT,
+        tools=[submit_expense_report],
+        backend=backend,
+        subagents=[
+            {
+                "name": "merchant-researcher",
+                "description": (
+                    "Establishes what kind of business ONE merchant is. "
+                    "Dispatch one per merchant, all in the same response."
+                ),
+                "system_prompt": MERCHANT_RESEARCHER_PROMPT,
+                "model": research_model,
+                # The subagent gets the search tool; the ANALYST does not. That
+                # split is the point of the fan-out: research is the slow,
+                # parallelisable half, and keeping it off the analyst stops it
+                # from quietly researching merchants serially in its own turn.
+                "tools": [search_merchant],
+            }
+        ],
+        # The run clock lives HERE, not on the parent: this is the agent whose
+        # elapsed time the report card reports.
+        middleware=[_stamp_run_start],
+        checkpointer=MemorySaver(),
+    )
+
+
+def build_agent():
+    """Build banking's agent."""
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise RuntimeError("Missing OPENAI_API_KEY environment variable")
 
     model = ChatOpenAI(
         # Both values are carried over from the TypeScript `BuiltInAgent` this
@@ -427,38 +596,33 @@ def build_agent():
 
     agent = create_deep_agent(
         model=model,
-        # The banking skin's own prompt FIRST — it establishes the identity, the
-        # tool-routing rules, the formatting discipline and the teach-and-recall
-        # arc that nine of this skin's ten demo beats depend on. The expense
-        # section is appended as a conditional job, not a second identity.
-        system_prompt=BANKING_PROMPT + EXPENSE_TASK_PROMPT,
+        # Banking's own prompt, plus how to hand off the expense job. The expense
+        # TASK spec is not here any more — it belongs to the analyst.
+        system_prompt=BANKING_PROMPT + DELEGATION_PROMPT,
         # `render_report` is banking's canvas report, ported from the TS
         # `defineTool`. The prompt's report-routing rules name it explicitly, so
         # without it registered here those rules describe a tool that is not
         # there.
-        tools=[submit_expense_report, render_report],
-        backend=backend,
+        tools=[render_report],
         subagents=[
             {
-                "name": "merchant-researcher",
+                "name": "expense-analyst",
                 "description": (
-                    "Establishes what kind of business ONE merchant is. "
-                    "Dispatch one per merchant, all in the same response."
+                    "Analyses a personal card statement against a company "
+                    "offsite: researches every merchant, decides what is "
+                    "reimbursable, files the reimbursable charges against the "
+                    "ledger and produces the report card. Takes minutes. "
+                    "Delegate the WHOLE job in one call."
                 ),
-                "system_prompt": MERCHANT_RESEARCHER_PROMPT,
-                # The subagent gets the search tool; the MAIN agent does not.
-                # That split is the point of the fan-out: research is the slow,
-                # parallelisable half, and keeping it off the main agent stops
-                # it from quietly researching merchants serially in its own turn.
-                "tools": [search_merchant],
+                "runnable": _build_expense_analyst(),
             }
         ],
-        # ORDER MATTERS. Middleware listed FIRST is OUTERMOST, so it sees the
-        # request before later middleware has modified it. `_stamp_run_start`
-        # goes LAST precisely so its tool log reflects the final bound set —
-        # placed first it reports only this agent's own tools and reads as
-        # "the host forwarded nothing", which is the exact wrong conclusion.
-        middleware=[CopilotKitMiddleware(), _stamp_run_start],
+        # `CopilotKitMiddleware` binds the tools the HOST forwards — the
+        # browser's frontend tools and the Intelligence memory tools. It belongs
+        # on this agent only: the analyst has no business calling
+        # `showTransactions` or writing durable memories, and leaving it off
+        # keeps its context to the job.
+        middleware=[CopilotKitMiddleware()],
         # REQUIRED, not optional: `ag_ui_langgraph` calls `graph.aget_state()`
         # on every run to diff agent state for the AG-UI stream, and LangGraph
         # raises `ValueError: No checkpointer set` without one. The failure is a
@@ -471,7 +635,7 @@ def build_agent():
     # the obvious-looking way to raise the limit and it DOES NOT WORK here: the
     # AG-UI adapter builds its own RunnableConfig for `astream_events`, so the
     # binding's config is dropped and the graph runs at LangGraph's default of
-    # 25 supersteps. The failure is brutal to read — the agent completes the
+    # 25 supersteps. The failure is brutal to read - the agent completes the
     # whole analysis, streams every argument of the final report, and only then
     # dies with `GraphRecursionError`, so the client sees a synthesized
     # `missing_terminal_event` result and the report card never renders.
