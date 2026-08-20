@@ -13,7 +13,7 @@ import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type { InspectorOpenSource } from "../lib/telemetry.js";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -1889,6 +1889,7 @@ type HeaderMockCore = {
   // assertions about pre-handshake segmentation pass for the wrong reason.
   runtimeMode: string;
   licenseStatus?: string;
+  runtimeEntitlements?: RuntimeEntitlementDiagnostics;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
@@ -2129,6 +2130,7 @@ test.each([
     errorCode: undefined,
     requestId: undefined,
     traceId: undefined,
+    lockedHeading: "Renew Intelligence to inspect Threads.",
   },
   {
     diagnostic: "expired self-hosted entitlement",
@@ -2148,6 +2150,7 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
     requestId: "req-expired",
     traceId: "trace-expired",
+    lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "misconfigured self-hosted entitlement",
@@ -2165,6 +2168,7 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
     requestId: undefined,
     traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "unavailable managed entitlement",
@@ -2182,6 +2186,7 @@ test.each([
     errorCode: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
     requestId: undefined,
     traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
   },
   {
     diagnostic: "SDK fail-soft entitlement lookup",
@@ -2199,6 +2204,7 @@ test.each([
     errorCode: "runtime_entitlements_unavailable",
     requestId: undefined,
     traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
   },
 ] as const)(
   "renders structured Runtime entitlement diagnostics for $diagnostic",
@@ -2210,6 +2216,7 @@ test.each([
     errorCode,
     requestId,
     traceId,
+    lockedHeading,
   }) => {
     const fixture = setupRuntimeDiagnostics();
 
@@ -2240,9 +2247,7 @@ test.each([
       if (traceId) {
         expect(diagnostic?.textContent).toContain(traceId);
       }
-      expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Enable Intelligence to inspect Threads.",
-      );
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(
         fixture.fetchMock.mock.calls.some((call) =>
           String(call[0]).includes("/threads"),
@@ -2272,7 +2277,7 @@ test("falls back to expired legacy license diagnostics when structured entitleme
     expect(diagnostics).toHaveLength(1);
     expect(degraded).not.toBeNull();
     expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Enable Intelligence to inspect Threads.",
+      "Renew Intelligence to inspect Threads.",
     );
   } finally {
     fixture.teardown();
@@ -2345,14 +2350,16 @@ test.each([
       },
       licenseStatus: "expired",
     },
+    lockedHeading: "Renew Intelligence to inspect Threads.",
   },
   {
     diagnostic: "legacy valid license",
     diagnostics: { licenseStatus: "valid" },
+    lockedHeading: "Finish setting up Rich Threads",
   },
 ] as const)(
   "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
-  async ({ diagnostics }) => {
+  async ({ diagnostics, lockedHeading }) => {
     const fixture = setupRuntimeDiagnostics();
 
     try {
@@ -2366,9 +2373,7 @@ test.each([
           [],
       ).find((button) => button.textContent?.trim() === "Threads");
       expect(threadsButton).toBeDefined();
-      expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Enable Intelligence to inspect Threads.",
-      );
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
       expect(threadListText(inspector)).not.toContain(
         "Threads are persistent, inspectable conversations",
       );

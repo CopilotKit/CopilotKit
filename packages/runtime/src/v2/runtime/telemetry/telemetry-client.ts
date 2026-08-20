@@ -49,6 +49,8 @@ export class TelemetryClient {
   // Standalone identity sent as a transport claim. It does not grant sampling
   // authority.
   private telemetryId: string | null = null;
+  // License-derived identity used only as sampling authority.
+  private licenseTelemetryId: string | null = null;
   // Properties merged into every event this client sends.
   //
   // For facts about the caller that are true for the whole process rather than
@@ -92,9 +94,28 @@ export class TelemetryClient {
     this.globalProperties = { ...this.globalProperties, ...properties };
   }
 
-  setLicenseToken(licenseToken: string) {
-    this.licenseToken = licenseToken;
-    this.telemetryId = parseAndWarnTelemetryId(licenseToken);
+  /** Atomically replace the process-wide telemetry identity. */
+  setTelemetryIdentity(identity: TelemetryIdentity): void {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    this.telemetryId = resolvedIdentity.telemetryId;
+    this.licenseToken = resolvedIdentity.licenseToken;
+    this.licenseTelemetryId = resolvedIdentity.licenseTelemetryId;
+  }
+
+  /** @deprecated Prefer {@link setTelemetryIdentity}. */
+  setLicenseToken(licenseToken: string): void {
+    this.setTelemetryIdentity({ licenseToken });
+  }
+
+  /** Create an immutable capture scope for one Runtime instance. */
+  createScope(identity: TelemetryIdentity): TelemetryCapture {
+    const resolvedIdentity = this.resolveTelemetryIdentity(identity);
+    return {
+      capture: <K extends keyof AnalyticsEvents>(
+        event: K,
+        properties: AnalyticsEvents[K],
+      ) => this.captureWithIdentity(event, properties, resolvedIdentity),
+    };
   }
 
   async capture<K extends keyof AnalyticsEvents>(
@@ -124,6 +145,16 @@ export class TelemetryClient {
     const effectiveSampleRate = identity.licenseTelemetryId
       ? 1
       : this.sampleRate;
+    const samplingProperties =
+      identity.telemetryId ||
+      identity.licenseTelemetryId ||
+      effectiveSampleRate < 1
+        ? {
+            sampleRate: effectiveSampleRate,
+            sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
+            sampleWeight: 1 / effectiveSampleRate,
+          }
+        : {};
 
     await lambdaClient.send({
       event,
@@ -134,7 +165,10 @@ export class TelemetryClient {
       // the analytics event, and v1's client sends package name and version the
       // same way. Folding it in would work and would put a process-level fact
       // in the per-event slot, where nothing downstream expects to find one.
-      globalProperties: this.globalProperties,
+      globalProperties: {
+        ...this.globalProperties,
+        ...samplingProperties,
+      },
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       telemetryId: identity.telemetryId ?? undefined,

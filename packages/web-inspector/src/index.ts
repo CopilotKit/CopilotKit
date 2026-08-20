@@ -10743,6 +10743,13 @@ ${argsString}</pre
               "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
             }
           </p>
+          ${
+            locked
+              ? this.renderRuntimeEntitlementDiagnostic(
+                  this.getRuntimeEntitlementDiagnostic(),
+                )
+              : nothing
+          }
           <div style="display:flex;flex-wrap:wrap;gap:8px;">
             ${
               locked

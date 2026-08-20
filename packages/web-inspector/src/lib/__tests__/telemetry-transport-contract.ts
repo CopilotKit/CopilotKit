@@ -33,6 +33,7 @@ export const CANONICAL_INSPECTOR_TELEMETRY_REQUESTS = [
       event: "oss.inspector.banner_viewed",
       properties: {
         banner_id: "release-banner",
+        surface: "collapsed_preview",
         distinct_id: PERSISTED_BROWSER_ID,
       },
       package: { name: "@copilotkit/web-inspector" },
@@ -95,6 +96,7 @@ interface InspectorTelemetryPayload {
   event: string;
   properties: {
     banner_id?: string;
+    surface?: string;
     cta?: string;
     cta_surface?: string;
     distinct_id: string;
@@ -143,7 +145,10 @@ export async function captureInspectorTelemetryTransportContract() {
     .mockResolvedValue(new Response(null, { status: 204 }));
 
   try {
-    trackBannerViewed({ banner_id: "release-banner" });
+    trackBannerViewed({
+      banner_id: "release-banner",
+      surface: "collapsed_preview",
+    });
     trackThreadsIntelligenceSignupClicked({
       cta: "signup",
       cta_surface: "threads_locked",

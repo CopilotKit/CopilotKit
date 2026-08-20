@@ -426,7 +426,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
 
     const sharedRuntimeArgs = {
       agents: mergedAgents,
-      licenseToken: params?.licenseToken,
+      telemetryId: resolvedTelemetryId,
+      licenseToken: resolvedLicenseToken,
+      telemetryProperties: params?.telemetryProperties,
       debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,

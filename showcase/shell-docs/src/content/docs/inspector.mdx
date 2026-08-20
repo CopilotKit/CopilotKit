@@ -143,3 +143,7 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 
 Set `enableInspector` to `true` to show it on another host, including in a
 production build. CopilotKit always uses an explicit `true` or `false` value.
+
+Inspector telemetry uses its own browser identity and direct delivery path. It
+works whether or not the Runtime has `CPK_TELEMETRY_ID`, and it follows the
+existing telemetry opt-outs.
