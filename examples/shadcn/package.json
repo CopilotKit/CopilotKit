@@ -13,21 +13,22 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.61.2",
-    "@copilotkit/runtime": "1.61.2",
+    "@copilotkit/react-core": "1.68.3",
+    "@copilotkit/runtime": "1.68.3",
     "@shadcn/react": "^0.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "2.1.1",
+    "hono": "^4.6.0",
     "lucide-react": "1.21.0",
     "motion": "^12.42.0",
     "next": "16.2.9",
+    "openai": "6.45.0",
     "radix-ui": "^1.6.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "3.8.0",
     "tailwind-merge": "3.6.0",
-    "zod": "3.25.76",
-    "openai": "6.45.0"
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.1",
