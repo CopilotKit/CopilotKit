@@ -4,10 +4,8 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
-import { getPublicClerkSatelliteConfig } from "@/lib/public-clerk-satellite";
 
 const PublicClerkAvailableContext = createContext(true);
-const clerkSatelliteConfig = getPublicClerkSatelliteConfig();
 const PublicOpsUrlContext = createContext(
   "https://dashboard.operations.copilotkit.ai",
 );
@@ -57,7 +55,6 @@ export function PublicClerkProvider({
         <ClerkProvider
           publishableKey={publishableKey}
           afterSignOutUrl={afterSignOutUrl}
-          {...clerkSatelliteConfig}
         >
           {children}
         </ClerkProvider>
