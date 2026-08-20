@@ -158,7 +158,7 @@ const agent = new BuiltInAgent({
 const intelligence = new CopilotKitIntelligence({
   // Server-side secret. `apiUrl`/`wsUrl` default to CopilotKit's managed
   // platform, so most projects set only the key.
-  apiKey: process.env.COPILOTKIT_API_KEY!,
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotRuntime({
@@ -424,12 +424,12 @@ Intelligence has two halves and they use different credentials. Getting them mix
 
    ```
    # .env.local (Next.js) or .env
-   COPILOTKIT_API_KEY=cpk-...
+   INTELLIGENCE_API_KEY=cpk-...
    ```
 
    This is a secret. It has no `NEXT_PUBLIC_`/`VITE_` prefix on purpose -- prefixing it would ship it to the browser. It is read by the `CopilotKitIntelligence` client you wired in Step 2.
 
-   CLI-scaffolded projects use `INTELLIGENCE_API_KEY` for the same value; either name is fine as long as the runtime reads the one you set.
+   `INTELLIGENCE_API_KEY` is the canonical name — it is what `copilotkit project select` provisions and what every CopilotKit surface documents. `COPILOTKIT_API_KEY` is a deprecated alias that some older examples still read.
 
 3. **Set the public license key** and pass it to the provider. Unlike the API key, this one is a public project identifier and is meant to reach the client:
 
