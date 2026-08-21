@@ -106,39 +106,77 @@ pnpm exec nx run ui-protocols-demo:dev
 
 ## Environment Variables
 
+The workspace frontend reads
+`examples/showcases/generative-ui-playground/.env.local`:
+
 ```bash
-# .env
-OPENAI_API_KEY=sk-...          # OpenAI API key for gpt-5.2
+OPENAI_API_KEY=sk-... # OpenAI API key for the frontend BasicAgent
 MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```
 
-## Production URLs (Railway)
+The standalone Python agent reads
+`examples/showcases/generative-ui-playground/a2a-agent/.env`:
 
-Live deployment on Railway:
+```bash
+OPENAI_API_KEY=sk-... # OpenAI key used by LiteLLM
+LITELLM_MODEL=openai/gpt-5.2 # Optional; this is the default
+```
 
-- **Frontend**: https://frontend-production-456e.up.railway.app
-- **MCP Server**: https://mcp-server-production-5419.up.railway.app
-- **A2A Agent**: https://a2a-agent-production.up.railway.app
+The standalone MCP server needs no API key.
 
-Railway Project: `ui-protocols-demo`
+## Railway Deployment
 
 ### Railway Monorepo Configuration
 
-Configure the Railway services with these exact repository paths. The Railway Config File is always repository-absolute; it does not inherit the service Root Directory. The Docker build context is the Root Directory.
+Create services named exactly `frontend`, `a2a-agent`, and `mcp-server`.
+Railway variable references are case-sensitive, so changing these names also
+requires updating every reference. Configure these exact repository paths. The
+Railway Config File is always repository-absolute; it does not inherit the
+service Root Directory. The Docker build context is the Root Directory.
 
-| Service    | Root Directory                                            | Railway Config File                                                    | Docker build context                                     |
-| ---------- | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| Frontend   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    |
-| A2A agent  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  |
-| MCP server | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` |
+| Service      | Root Directory                                            | Railway Config File                                                    | Docker build context                                     |
+| ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| `frontend`   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    |
+| `a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  |
+| `mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` |
 
 The frontend must keep Root Directory `/`: its `railway.toml` selects `examples/showcases/generative-ui-playground/Dockerfile`, and that Dockerfile copies the root pnpm workspace. The sidecar configs each select the `Dockerfile` inside their own isolated root.
+
+Create a sealed/shared Railway variable named `OPENAI_API_KEY`, then set these
+service variables:
+
+```text
+# frontend
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+MCP_SERVER_URL=http://${{mcp-server.RAILWAY_PRIVATE_DOMAIN}}:${{mcp-server.PORT}}/mcp
+A2A_AGENT_URL=http://${{a2a-agent.RAILWAY_PRIVATE_DOMAIN}}:${{a2a-agent.PORT}}
+
+# a2a-agent
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+A2A_BASE_URL=http://${{RAILWAY_PRIVATE_DOMAIN}}:${{PORT}}
+
+# mcp-server
+# No secrets or cross-service URLs are required.
+```
+
+The key belongs only on `frontend` (for `BasicAgent`) and `a2a-agent` (for
+LiteLLM's default `openai/gpt-5.2` model). `A2A_BASE_URL` prevents the A2A
+Agent Card from advertising its local `http://localhost:<port>` fallback.
+Keep both sidecars private; the frontend runtime reaches them over Railway's
+private network, so public backend URLs are neither required nor correct. Only
+`frontend` needs a public Railway domain.
+
+Railway injects `PORT`. Next.js, `mcp-server/server.ts`, and
+`a2a-agent/agent/__main__.py` all consume it; their 3000/3001/10002 defaults are
+for local development only. Generate the frontend domain against its detected
+`PORT`, and do not hard-code those local ports into production variables.
 
 Docker and Railway deployment validation is manual for this showcase; no repository CI workflow currently enforces it. From the repository root, run:
 
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
+pnpm --filter ui-protocols-demo test:a2a-runtime
 pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
 docker build \
   -f examples/showcases/generative-ui-playground/Dockerfile \

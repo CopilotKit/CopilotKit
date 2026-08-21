@@ -352,9 +352,6 @@ importers:
       '@ag-ui/a2a':
         specifier: ^0.0.6
         version: 0.0.6(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)
-      '@ag-ui/a2a-middleware':
-        specifier: ^0.0.2
-        version: 0.0.2(rxjs@7.8.1)
       '@ag-ui/client':
         specifier: 0.0.57
         version: 0.0.57
@@ -4135,11 +4132,6 @@ packages:
 
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
-
-  '@ag-ui/a2a-middleware@0.0.2':
-    resolution: {integrity: sha512-quUT5TOtxzthlR9U+HwtL3klRVTIGfnlG4Va7aew2gQaJsHL27xpfvAc9xHnpO1+A0MDHhmNUAPZiESDYHZjCA==}
-    peerDependencies:
-      rxjs: 7.8.1
 
   '@ag-ui/a2a@0.0.6':
     resolution: {integrity: sha512-wvrBXU6214wuC5O+FBy7QiZFvobIlt3Lo0Ph2N+hBkeaBjPHvmMp/egIg4k9WyB60PzKjJDv5o21WxbvaYtzCw==}
@@ -27470,16 +27462,6 @@ snapshots:
       zod-to-json-schema: 3.25.1(zod@3.25.76)
 
   '@adobe/css-tools@4.4.4': {}
-
-  '@ag-ui/a2a-middleware@0.0.2(rxjs@7.8.1)':
-    dependencies:
-      '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': 0.0.42
-      ai: 6.0.156(zod@3.25.76)
-      rxjs: 7.8.1
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - supports-color
 
   '@ag-ui/a2a@0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.57)':
     dependencies:

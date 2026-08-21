@@ -57,13 +57,25 @@ cd ../../../..
 
 ### Environment Variables
 
-Create a `.env` file:
+Create `examples/showcases/generative-ui-playground/.env.local` for the
+workspace frontend:
 
 ```bash
 OPENAI_API_KEY=sk-your-key-here
 MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```
+
+Create `examples/showcases/generative-ui-playground/a2a-agent/.env` for the
+standalone Python agent:
+
+```bash
+OPENAI_API_KEY=sk-your-key-here
+# Optional; defaults to openai/gpt-5.2
+LITELLM_MODEL=openai/gpt-5.2
+```
+
+The MCP server does not require an API key.
 
 ### Running the Demo
 
@@ -122,20 +134,58 @@ Frontend (Next.js) ────────────────────�
 
 ## Railway Service Settings
 
-Create three Railway services from this repository and configure these exact paths. Railway's config-file path is repository-absolute and does not follow the Root Directory. The Docker build context is the configured Root Directory.
+Create three Railway services from this repository named exactly `frontend`,
+`a2a-agent`, and `mcp-server`. The names are case-sensitive because the
+frontend variables below reference the sidecars by service name. Configure
+these exact paths. Railway's config-file path is repository-absolute and does
+not follow the Root Directory. The Docker build context is the configured Root
+Directory.
 
-| Service    | Root Directory                                            | Railway Config File                                                    | Docker build context                                     | `dockerfilePath` resolved from that context              |
-| ---------- | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
-| Frontend   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` |
-| A2A agent  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             |
-| MCP server | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             |
+| Service      | Root Directory                                            | Railway Config File                                                    | Docker build context                                     | `dockerfilePath` resolved from that context              |
+| ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| `frontend`   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` |
+| `a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             |
+| `mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             |
 
 Do not set the frontend Root Directory to the demo subdirectory. Its Dockerfile copies the root pnpm workspace and local `packages/`, so it requires the repository root as its build context. See Railway's [monorepo](https://docs.railway.com/deployments/monorepo), [config-as-code](https://docs.railway.com/config-as-code), and [Dockerfile](https://docs.railway.com/builds/dockerfiles) documentation for the path semantics.
+
+Store the OpenAI key as a sealed/shared Railway variable named
+`OPENAI_API_KEY`; do not commit it or put it in a Docker build argument. Then
+configure the service variables exactly as follows:
+
+```text
+# frontend
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+MCP_SERVER_URL=http://${{mcp-server.RAILWAY_PRIVATE_DOMAIN}}:${{mcp-server.PORT}}/mcp
+A2A_AGENT_URL=http://${{a2a-agent.RAILWAY_PRIVATE_DOMAIN}}:${{a2a-agent.PORT}}
+
+# a2a-agent
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+A2A_BASE_URL=http://${{RAILWAY_PRIVATE_DOMAIN}}:${{PORT}}
+
+# mcp-server
+# No secrets or cross-service URLs are required.
+```
+
+The frontend's `OPENAI_API_KEY` powers its `BasicAgent`. The A2A agent needs
+the same key because its default LiteLLM model is `openai/gpt-5.2`.
+`A2A_BASE_URL` is required so the Agent Card advertises the agent's reachable
+private Railway endpoint instead of `localhost`. Do not substitute public
+backend URLs: both sidecars are called by the frontend's server-side runtime
+and should stay on Railway private networking. Only `frontend` needs a public
+domain for browser traffic.
+
+Railway injects `PORT` into every service. The Next.js start command, MCP
+server, and Python A2A entry point all listen on it; their local fallbacks are
+3000, 3001, and 10002 respectively. Do not hard-code those local ports into
+the Railway variables. Generate the frontend public domain after deployment
+and target the detected frontend `PORT`.
 
 The repository does not currently run this showcase's container build in CI. Before changing its dependency or deployment configuration, verify it manually from the repository root:
 
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
+pnpm --filter ui-protocols-demo test:a2a-runtime
 pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
 docker build \
   -f examples/showcases/generative-ui-playground/Dockerfile \
