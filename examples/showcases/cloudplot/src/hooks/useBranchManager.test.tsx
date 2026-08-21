@@ -24,6 +24,34 @@ const stateA: CloudPlotAgentState = {
   validation_errors: [],
 };
 
+const validNestedBranchState: BranchState = {
+  state: {
+    ...stateA,
+    edges: [{ id: "edge-a", source: "vpc-a", target: "vpc-a" }],
+    logs: [
+      {
+        timestamp: 123,
+        node: "architect",
+        message: "Recovered state",
+        type: "success",
+        toolName: "add_resource",
+        toolArgs: { resource_type: "vpc" },
+      },
+    ],
+    validation_errors: [
+      { level: "warning", message: "Review this VPC", node_id: "vpc-a" },
+    ],
+  },
+  messages: [
+    {
+      id: "message-a",
+      role: "assistant",
+      content: "Recovered conversation",
+      toolCalls: [],
+    },
+  ],
+};
+
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
@@ -160,6 +188,111 @@ describe("useBranchManager", () => {
     expect(manager.result.current.getBranchState("main")).toBeNull();
     expect(manager.result.current.currentBranch.threadId).not.toBe(
       "saved-thread",
+    );
+  });
+
+  it.each([
+    [
+      "null node",
+      { ...validNestedBranchState.state, nodes: [null] },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed node",
+      { ...validNestedBranchState.state, nodes: [{ id: "vpc-a" }] },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed rendered node name",
+      {
+        ...validNestedBranchState.state,
+        nodes: [
+          {
+            ...validNestedBranchState.state.nodes[0],
+            config: {
+              ...validNestedBranchState.state.nodes[0].config,
+              name: { unsafe: true },
+            },
+          },
+        ],
+      },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed edge",
+      { ...validNestedBranchState.state, edges: [{ id: "edge-a" }] },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed log",
+      { ...validNestedBranchState.state, logs: [{ message: false }] },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed validation result",
+      {
+        ...validNestedBranchState.state,
+        validation_errors: [{ level: "warning" }],
+      },
+      validNestedBranchState.messages,
+    ],
+    [
+      "malformed message",
+      validNestedBranchState.state,
+      [{ role: "assistant" }],
+    ],
+  ])(
+    "falls back when stored state contains a %s",
+    async (_label, state, messages) => {
+      localStorage.setItem(
+        "cloudplot_branches",
+        JSON.stringify([
+          {
+            id: "main",
+            name: "main",
+            createdAt: 123,
+            threadId: "unsafe-thread",
+          },
+        ]),
+      );
+      localStorage.setItem(
+        "cloudplot_branch_states",
+        JSON.stringify({ main: { state, messages } }),
+      );
+
+      const manager = renderHook(() => useBranchManager());
+      await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+
+      expect(manager.result.current.getBranchState("main")).toBeNull();
+      expect(manager.result.current.currentBranch.threadId).not.toBe(
+        "unsafe-thread",
+      );
+    },
+  );
+
+  it("recovers structurally valid nested branch data", async () => {
+    localStorage.setItem(
+      "cloudplot_branches",
+      JSON.stringify([
+        {
+          id: "main",
+          name: "main",
+          createdAt: 123,
+          threadId: "valid-thread",
+        },
+      ]),
+    );
+    localStorage.setItem(
+      "cloudplot_branch_states",
+      JSON.stringify({ main: validNestedBranchState }),
+    );
+
+    const manager = renderHook(() => useBranchManager());
+    await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+
+    expect(manager.result.current.currentBranch.threadId).toBe("valid-thread");
+    expect(manager.result.current.getBranchState("main")).toEqual(
+      validNestedBranchState,
     );
   });
 

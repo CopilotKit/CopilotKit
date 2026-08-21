@@ -13,7 +13,7 @@ import logging
 import time
 import uuid
 from collections.abc import Mapping
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from copilotkit import CopilotKitState
 from langchain.tools import tool
@@ -82,6 +82,15 @@ class ThoughtLogEntry(TypedDict):
     node: str
     message: str
     type: Literal["info", "warning", "success", "error"]
+
+
+class AppliedToolResult(TypedDict):
+    """Copied infrastructure state plus optional model-visible rejection detail."""
+
+    nodes: list[NodeData]
+    edges: list[EdgeData]
+    logs: list[ThoughtLogEntry]
+    tool_error: NotRequired[str]
 
 
 # -----------------------------------------------------------------------------
@@ -308,20 +317,20 @@ def remove_resource(resource_id: str) -> dict:
 
 
 @tool
-def update_resource(resource_id: str, config: dict | None = None) -> dict:
+def update_resource(resource_id: str, updates: dict | None = None) -> dict:
     """
     Update an existing resource's configuration.
 
     Args:
         resource_id: ID of the resource to update
-        config: New configuration values to merge
+        updates: New configuration values to merge
 
     Returns:
         Updated resource info
     """
-    if config is None:
-        return {"error": "config is required to update resource", "success": False}
-    return {"updated": resource_id, "config": config, "success": True}
+    if updates is None:
+        return {"error": "updates are required to update resource", "success": False}
+    return {"updated": resource_id, "config": updates, "success": True}
 
 
 @tool
@@ -517,7 +526,7 @@ def parse_tool_result(content: object) -> dict | None:
     return decoded
 
 
-def apply_tool_result(state: AgentState, data: Mapping) -> dict:
+def apply_tool_result(state: AgentState, data: Mapping) -> AppliedToolResult:
     """Apply one backend tool result to a copied infrastructure snapshot."""
 
     new_nodes = copy.deepcopy(state.get("nodes", []))
@@ -568,16 +577,23 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
             if resource_id not in node_ids
         ]
         if missing_ids:
+            error_message = (
+                f"Cannot connect resources: {', '.join(missing_ids)} does not exist"
+            )
             new_logs.append(
                 log_thought(
                     state,
                     "tool_node",
-                    "Cannot connect resources: "
-                    f"{', '.join(missing_ids)} does not exist",
+                    error_message,
                     "warning",
                 )
             )
-            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
 
         new_edges.append(
             {"id": data["id"], "source": data["source"], "target": data["target"]}
@@ -614,15 +630,21 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
     elif "updated" in data:
         resource_id = data["updated"]
         if resource_id not in node_ids:
+            error_message = f"Cannot update {resource_id}: resource does not exist"
             new_logs.append(
                 log_thought(
                     state,
                     "tool_node",
-                    f"Cannot update {resource_id}: resource does not exist",
+                    error_message,
                     "warning",
                 )
             )
-            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
 
         new_config = data.get("config", {})
         for node in new_nodes:
@@ -636,28 +658,42 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
         resource_id = data["moved"]
         target_vpc_id = data.get("vpc_id")
         if resource_id not in node_ids:
+            error_message = f"Cannot move {resource_id}: resource does not exist"
             new_logs.append(
                 log_thought(
                     state,
                     "tool_node",
-                    f"Cannot move {resource_id}: resource does not exist",
+                    error_message,
                     "warning",
                 )
             )
-            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
 
         if target_vpc_id and not any(
             node["id"] == target_vpc_id and node["type"] == "vpc" for node in new_nodes
         ):
+            error_message = (
+                f"Cannot move {resource_id}: VPC {target_vpc_id} does not exist"
+            )
             new_logs.append(
                 log_thought(
                     state,
                     "tool_node",
-                    f"Cannot move {resource_id}: VPC {target_vpc_id} does not exist",
+                    error_message,
                     "error",
                 )
             )
-            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
 
         for node in new_nodes:
             if node["id"] != resource_id:
@@ -686,6 +722,7 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
         "edges": copy.deepcopy(state.get("edges", [])),
         "logs": list(state.get("logs", [])),
     }
+    tool_errors: list[str | None] = []
 
     for message in messages:
         data = parse_tool_result(getattr(message, "content", message))
@@ -698,19 +735,31 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
                     "warning",
                 )
             )
+            tool_errors.append(None)
             continue
-        updated = apply_tool_result({**state, **updated}, data)
+        applied = apply_tool_result({**state, **updated}, data)
+        tool_errors.append(applied.get("tool_error"))
+        updated = {
+            "nodes": applied["nodes"],
+            "edges": applied["edges"],
+            "logs": applied["logs"],
+        }
 
     updated_cost = sum(calculate_resource_cost(node) for node in updated["nodes"])
 
     # Append current state summary to tool messages so agent knows what exists
     state_summary = generate_state_summary(updated["nodes"], updated["edges"])
     enriched_messages = []
-    for msg in messages:
+    for msg, tool_error in zip(messages, tool_errors, strict=True):
         if hasattr(msg, "content") and isinstance(msg.content, str):
             # Create new message with state summary appended
+            content = (
+                json.dumps({"success": False, "error": tool_error})
+                if tool_error
+                else msg.content
+            )
             enriched_msg = ToolMessage(
-                content=msg.content + state_summary,
+                content=content + state_summary,
                 tool_call_id=getattr(msg, "tool_call_id", ""),
                 name=getattr(msg, "name", None),
             )
