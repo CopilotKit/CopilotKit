@@ -210,6 +210,7 @@ describe("StateManager tool result history", () => {
       [owner("assistant-weather", callId)],
       [
         { type: EventType.RUN_STARTED, threadId: "x", runId: "x" },
+        result("72192d78-8458-4e31-a03f-eddbcc88ed58", callId, "72 and sunny"),
         {
           type: EventType.MESSAGES_SNAPSHOT,
           messages: [
@@ -222,7 +223,6 @@ describe("StateManager tool result history", () => {
             },
           ],
         },
-        result("72192d78-8458-4e31-a03f-eddbcc88ed58", callId, "72 and sunny"),
         { type: EventType.RUN_FINISHED, threadId: "x", runId: "x" },
       ],
     );
