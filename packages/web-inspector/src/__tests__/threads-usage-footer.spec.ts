@@ -473,7 +473,7 @@ test("the Threads footer stays scoped to Threads across navigation and Settings"
     expect(findFooter()).not.toBeNull();
     await context.selectTab("Agent");
     expect(findFooter()).toBeNull();
-    await context.selectTab("Memory");
+    await context.selectTab("Learning");
     expect(findFooter()).toBeNull();
     await context.selectTab("Threads");
     expect(findFooter()).not.toBeNull();

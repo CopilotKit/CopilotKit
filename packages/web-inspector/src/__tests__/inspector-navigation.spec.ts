@@ -1,3 +1,4 @@
+import { HttpAgent } from "@ag-ui/client";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -13,17 +14,23 @@ type InspectorNavigationContext = {
   open: () => Promise<void>;
   selectGroup: (key: string) => Promise<void>;
   selectLeaf: (key: string) => Promise<void>;
+  emitEvent: (type: "RUN_FINISHED" | "RUN_ERROR") => Promise<void>;
   toggleSettings: () => Promise<void>;
   teardown: () => void;
 };
 
 type SetupOptions = {
+  agentIds?: string[];
   appendBeforeCore?: boolean;
   catalog?: boolean;
   frontendTools?: boolean;
   metadata?: InspectorMetadataV1;
   persistedState?: string;
-  announcement?: { timestamp: string; announcement: string };
+  announcement?: {
+    timestamp: string;
+    previewText?: string;
+    announcement: string;
+  };
 };
 
 /** Build the trusted account metadata fixture used by the shell test. */
@@ -89,7 +96,8 @@ async function setup(
         }
         return jsonResponse({
           timestamp: options.announcement.timestamp,
-          previewText: "New from CopilotKit",
+          previewText:
+            options.announcement.previewText ?? "New from CopilotKit",
           announcement: options.announcement.announcement,
         });
       }
@@ -106,7 +114,7 @@ async function setup(
             realtimeMetadata: false,
           },
           inspectorMetadata: options.metadata !== undefined,
-          licenseStatus: options.metadata ? "valid" : "unknown",
+          licenseStatus: options.metadata?.license?.state ?? "unknown",
           telemetryDisabled: true,
         });
       }
@@ -173,6 +181,18 @@ async function setup(
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     "the Core handshake",
   );
+  if (options.agentIds?.length) {
+    core.setAgents__unsafe_dev_only(
+      Object.fromEntries(
+        options.agentIds.map((agentId) => [
+          agentId,
+          new HttpAgent({
+            url: `http://localhost:4000/api/copilotkit/agents/${agentId}`,
+          }),
+        ]),
+      ),
+    );
+  }
   if (options.metadata) {
     await waitFor(
       () => core.inspectorMetadata !== undefined,
@@ -217,6 +237,14 @@ async function setup(
         `button[data-inspector-menu-key="${key}"]`,
         `Inspector leaf was not rendered: ${key}`,
       ),
+    emitEvent: async (type) => {
+      const recordAgentEvent = Reflect.get(inspector, "recordAgentEvent");
+      if (typeof recordAgentEvent !== "function") {
+        throw new Error("Inspector event recorder was unavailable");
+      }
+      Reflect.apply(recordAgentEvent, inspector, ["support", type, { type }]);
+      await inspector.updateComplete;
+    },
     toggleSettings: () =>
       click('button[aria-label="Settings"]', "Settings was not rendered"),
     teardown: () => {
@@ -267,6 +295,18 @@ function storedHasOpenedInspector(): unknown {
   return Reflect.get(state, "hasOpenedInspector");
 }
 
+function storedColorSchemePreference(): unknown {
+  const serialized = window.localStorage.getItem("cpk:inspector:state");
+  if (serialized === null) {
+    return undefined;
+  }
+  const state: unknown = JSON.parse(serialized);
+  if (typeof state !== "object" || state === null) {
+    return undefined;
+  }
+  return Reflect.get(state, "colorSchemePreference");
+}
+
 /** Require that a group and exact leaf both expose current state. */
 function expectCurrentNavigation(
   root: ShadowRoot,
@@ -302,7 +342,7 @@ function sidebarLeaves(root: ShadowRoot): string[] {
   ).map((control) => control.dataset.inspectorMenuKey ?? "");
 }
 
-test("first launch opens Home with a live sidebar, footer CTA, and no account placeholders", async () => {
+test("first launch opens Home with live navigation and sidebar statuses", async () => {
   const context = await setup();
   try {
     await context.open();
@@ -323,10 +363,11 @@ test("first launch opens Home with a live sidebar, footer CTA, and no account pl
       root.querySelector<HTMLElement>("[data-inspector-home]"),
       "Home briefing was not rendered",
     );
-    expect(home.querySelector(".inspector-home-hero")).not.toBeNull();
-    expect(home.querySelector("[data-inspector-home-connected]")).toBeNull();
+    expect(home.querySelector(".inspector-home-hero")).toBeNull();
+    expect(home.querySelector("[data-inspector-whats-new-preview]")).toBeNull();
     expect(sidebarLeaves(root)).toEqual([
       "home",
+      "whats-new",
       "threads",
       "memories",
       "agents",
@@ -335,14 +376,23 @@ test("first launch opens Home with a live sidebar, footer CTA, and no account pl
     ]);
     expect(navigation.textContent).toContain("Workbench");
     expect(navigation.textContent).toContain("Inspect");
-    expect(navigation.textContent).not.toContain("Learning");
+    expect(navigation.textContent).toContain("Learning");
     expectCurrentNavigation(root, "home", "home");
+    const engineerCta = requireElement(
+      root.querySelector<HTMLAnchorElement>("[data-inspector-thread-cta]"),
+      "Header engineer CTA was not rendered",
+    );
+    expect(engineerCta.textContent).toContain("Talk to an Engineer");
+    expect(engineerCta.closest("[data-inspector-account-strip]")).toBe(
+      accountStrip,
+    );
     expect(
-      requireElement(
-        root.querySelector<HTMLAnchorElement>("[data-inspector-thread-cta]"),
-        "Sidebar engineer CTA was not rendered",
-      ).textContent,
-    ).toContain("Talk to an Engineer");
+      root.querySelector("[data-inspector-sidebar-agent-selector]"),
+    ).not.toBeNull();
+    expect(
+      root.querySelector("[data-inspector-sidebar-intelligence]")?.textContent,
+    ).toContain("Intelligence is off");
+    expect(root.querySelector("[data-inspector-sidebar-runtime]")).toBeNull();
     expect(
       accountStrip.querySelector('[data-inspector-metadata="identity"]'),
     ).toBeNull();
@@ -357,13 +407,10 @@ test("first launch opens Home with a live sidebar, footer CTA, and no account pl
   }
 });
 
-test("trusted identity and plan render on Home, not in the dark header", async () => {
+test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
   const context = await setup({ metadata: trustedMetadata() });
   try {
     await context.open();
-    // The Threads usage footer lives on the Threads tab, which is no longer
-    // where a fresh developer lands.
-    await context.selectGroup("threads");
 
     const root = requireElement(
       context.inspector.shadowRoot,
@@ -383,49 +430,183 @@ test("trusted identity and plan render on Home, not in the dark header", async (
     );
     const connectedStatus = requireElement(
       root.querySelector<HTMLElement>(
-        '[title="Live runtime connection established."] .font-medium',
+        "[data-inspector-sidebar-intelligence] .inspector-sidebar-status-copy",
       ),
-      "Connected status label was not rendered",
+      "Connected Intelligence status was not rendered",
     );
 
     expect(identity.closest("[data-inspector-account-strip]")).toBeNull();
-    expect(getComputedStyle(accountStrip).backgroundColor).toBe("rgb(1, 5, 7)");
-    expect(connectedStatus.textContent?.trim()).toBe("Connected");
+    expect(getComputedStyle(accountStrip).color).toBe("rgb(1, 5, 7)");
+    expect(connectedStatus.querySelector("strong")?.textContent?.trim()).toBe(
+      "Acme Inc.",
+    );
+    expect(connectedStatus.querySelector("span")?.textContent?.trim()).toBe(
+      "Enterprise plan",
+    );
+    expect(root.querySelector(".inspector-sidebar-status-icon")).toBeNull();
+    expect(root.querySelector("[data-inspector-sidebar-runtime]")).toBeNull();
     expect(identity.textContent).toContain("Acme Inc.");
     expect(identity.textContent).toContain("Support");
-    expect(plan.textContent?.trim()).toBe("Enterprise");
+    expect(plan.textContent).toContain("Enterprise");
     const home = requireElement(
       root.querySelector<HTMLElement>("[data-inspector-home]"),
       "Home briefing was not rendered",
     );
     expect(home.querySelector(".inspector-home-hero")).toBeNull();
-    const headingRow = requireElement(
-      home.querySelector<HTMLElement>(".inspector-home-section-head"),
-      "Home heading row was not rendered",
-    );
     const sectionTitle = requireElement(
-      headingRow.querySelector<HTMLElement>(".inspector-home-section-title"),
-      "What's going on heading was not rendered",
+      home.querySelector<HTMLElement>(".inspector-home-section-title"),
+      "System Health heading was not rendered",
     );
-    const connectedChip = requireElement(
-      headingRow.querySelector<HTMLElement>("[data-inspector-home-connected]"),
-      "Connected chip was not rendered next to What's going on",
+    expect(sectionTitle.textContent?.trim()).toBe("System Health");
+    const runtimeHealth = requireElement(
+      home.querySelector<HTMLElement>('[data-inspector-home-card="runtime"]'),
+      "System Health strip was not rendered",
     );
-    expect(sectionTitle.textContent?.trim()).toBe("What's going on");
-    expect(connectedChip.textContent).toContain("Intelligence connected");
+    expect(runtimeHealth.dataset.healthState).toBe("healthy");
+    expect(runtimeHealth.getAttribute("aria-label")).toBe("System Health");
     expect(
-      sectionTitle.compareDocumentPosition(connectedChip) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      home.querySelector(".inspector-system-health-header")?.textContent,
+    ).toContain("Healthy");
+    expect(home.querySelector(".inspector-system-health-heading p")).toBeNull();
     expect(
-      root
-        .querySelector<HTMLAnchorElement>("[data-inspector-home-cta]")
-        ?.textContent?.trim(),
-    ).toBe("MANAGE PLAN");
+      runtimeHealth.querySelector('[data-runtime-health-signal="runtime"]')
+        ?.textContent,
+    ).toContain("Available");
     expect(
-      accountStrip.querySelector<HTMLImageElement>('img[alt="CopilotKit"]'),
+      runtimeHealth.querySelector('[data-runtime-health-signal="runtime"]')
+        ?.textContent,
+    ).toContain("http://localhost:4000/api/copilotkit");
+    const runtimeUrl = requireElement(
+      runtimeHealth.querySelector<HTMLElement>(".inspector-system-health-url"),
+      "Runtime URL detail was not rendered",
+    );
+    expect(runtimeUrl.dataset.fullValue).toBe(
+      "http://localhost:4000/api/copilotkit",
+    );
+    expect(runtimeUrl.tabIndex).toBe(0);
+    expect(
+      runtimeHealth
+        .querySelector('[data-runtime-health-signal="connection"]')
+        ?.textContent?.replace(/\s+/g, " "),
+    ).toContain("Live updates Ready New events will appear here.");
+    expect(
+      runtimeHealth
+        .querySelector('[data-runtime-health-signal="last-event"]')
+        ?.textContent?.replace(/\s+/g, " "),
+    ).toContain("Recent activity No events yet Waiting for an agent to run.");
+    expect(
+      runtimeHealth.querySelectorAll("[data-runtime-health-signal]"),
+    ).toHaveLength(3);
+    expect(
+      runtimeHealth.querySelector('[data-runtime-health-signal="url"]'),
+    ).toBeNull();
+    expect(runtimeHealth.querySelector("button")).toBeNull();
+    expect(
+      runtimeHealth.querySelector(".inspector-system-health-icon"),
+    ).toBeNull();
+    const intelligenceHud = requireElement(
+      home.querySelector<HTMLElement>(
+        '[data-inspector-home-card="intelligence"]',
+      ),
+      "Intelligence HUD was not rendered",
+    );
+    expect(intelligenceHud.textContent).toContain("Connected");
+    expect(intelligenceHud.textContent).toContain("Support");
+    expect(intelligenceHud.textContent).toContain("Acme Inc.");
+    expect(intelligenceHud.textContent).toContain("148 / 200");
+    expect(
+      intelligenceHud.querySelector(".inspector-intelligence-hud-heading p"),
+    ).toBeNull();
+    const systemState = requireElement(
+      home.querySelector<HTMLElement>(".inspector-system-health-state"),
+      "System Health state was not rendered",
+    );
+    const intelligenceState = requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        ".inspector-intelligence-hud-state",
+      ),
+      "Intelligence state was not rendered",
+    );
+    expect(systemState.dataset.tone).toBe("success");
+    expect(intelligenceState.dataset.tone).toBe("success");
+    expect(getComputedStyle(systemState).borderRadius).toBe(
+      getComputedStyle(intelligenceState).borderRadius,
+    );
+    expect(
+      intelligenceHud.querySelector(".inspector-intelligence-hud-icon"),
+    ).toBeNull();
+    expect(
+      intelligenceHud.querySelector<HTMLAnchorElement>(
+        '[data-inspector-home-intelligence-action="manage_plan"]',
+      )?.textContent,
+    ).toContain("Manage plan");
+    expect(
+      intelligenceHud
+        .querySelector<HTMLAnchorElement>(
+          '[data-inspector-home-intelligence-action="manage_plan"]',
+        )
+        ?.closest(".inspector-intelligence-hud-plan-summary"),
     ).not.toBeNull();
-    for (const label of ["Dock to left", "Settings", "Close Web Inspector"]) {
+    const features = requireElement(
+      home.querySelector<HTMLElement>('[data-inspector-home-card="services"]'),
+      "Features section was not rendered",
+    );
+    expect(features.textContent).toContain("Features");
+    expect(features.textContent?.replace(/\s+/g, " ")).toContain(
+      "1 active, 6 off",
+    );
+    expect(features.querySelectorAll("[data-inspector-service]")).toHaveLength(
+      7,
+    );
+    expect(
+      features.querySelectorAll("[data-feature-state-group]"),
+    ).toHaveLength(2);
+    expect(
+      features.querySelectorAll(
+        '[data-feature-state-group="active"] [data-inspector-service]',
+      ),
+    ).toHaveLength(1);
+    expect(
+      features.querySelectorAll(
+        '[data-feature-state-group="available"] [data-inspector-service]',
+      ),
+    ).toHaveLength(6);
+    expect(
+      features.querySelector<HTMLElement>('[data-inspector-service="memory"]')
+        ?.dataset.state,
+    ).toBe("on");
+    expect(
+      features.querySelector<HTMLElement>('[data-inspector-service="threads"]')
+        ?.dataset.state,
+    ).toBe("off");
+    expect(
+      features.querySelector<HTMLElement>('[data-inspector-service="audio"]')
+        ?.dataset.state,
+    ).toBe("off");
+    expect(features.querySelector(".inspector-home-feature-check")).toBeNull();
+    expect(root.querySelector("[data-inspector-home-connected]")).toBeNull();
+    const intelligenceStatus = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-sidebar-intelligence]"),
+      "Intelligence sidebar status was not rendered",
+    );
+    expect(intelligenceStatus.textContent).toContain("Acme Inc.");
+    expect(intelligenceStatus.textContent).toContain("Enterprise plan");
+    expect(
+      intelligenceStatus.querySelector<HTMLAnchorElement>(
+        '[data-inspector-sidebar-intelligence-action="manage_plan"]',
+      )?.textContent,
+    ).toContain("Manage plan");
+    const logo = requireElement(
+      accountStrip.querySelector<HTMLImageElement>('img[alt="CopilotKit"]'),
+      "CopilotKit logo was not rendered",
+    );
+    expect(getComputedStyle(logo).filter).toBe("none");
+    for (const label of [
+      "Window layout",
+      "Switch to dark mode",
+      "Settings",
+      "Close Web Inspector",
+    ]) {
       const control = requireElement(
         accountStrip.querySelector<HTMLButtonElement>(
           `button[aria-label="${label}"]`,
@@ -439,6 +620,250 @@ test("trusted identity and plan render on Home, not in the dark header", async (
   }
 });
 
+test("disabled Intelligence becomes a setup action in the sidebar and on Home", async () => {
+  const setupUrl = "https://cloud.copilotkit.ai/actions/enable_intelligence";
+  const context = await setup({
+    metadata: {
+      schemaVersion: 1,
+      license: { state: "none" },
+      action: {
+        kind: "enable_intelligence",
+        url: setupUrl,
+      },
+    },
+  });
+  try {
+    await context.open();
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const sidebarSetup = requireElement(
+      root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-sidebar-intelligence-action="enable_intelligence"]',
+      ),
+      "Sidebar Intelligence setup action was not rendered",
+    );
+    expect(sidebarSetup.textContent?.replace(/\s+/g, " ")).toContain(
+      "Intelligence is off Set up Threads and Memory",
+    );
+    expect(sidebarSetup.href).toBe(setupUrl);
+
+    const home = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-home]"),
+      "Home briefing was not rendered",
+    );
+    expect(home.dataset.inspectorHomeState).toBe("disconnected");
+    const intelligenceHud = requireElement(
+      home.querySelector<HTMLElement>(
+        '[data-inspector-home-card="intelligence"]',
+      ),
+      "Disconnected Intelligence module was not rendered",
+    );
+    expect(intelligenceHud.dataset.state).toBe("disconnected");
+    expect(intelligenceHud.textContent).toContain("Intelligence is not setup");
+    expect(intelligenceHud.textContent).toContain(
+      "persistent Threads, Learning and Analytics",
+    );
+    expect(
+      intelligenceHud.querySelector(".inspector-intelligence-hud-details"),
+    ).toBeNull();
+    const homeSetup = requireElement(
+      intelligenceHud.querySelector<HTMLAnchorElement>(
+        '[data-inspector-home-intelligence-action="enable_intelligence"]',
+      ),
+      "Home Intelligence setup action was not rendered",
+    );
+    expect(homeSetup.textContent).toContain("Setup Intelligence");
+    expect(homeSetup.href).toBe(setupUrl);
+    const features = requireElement(
+      home.querySelector<HTMLElement>('[data-inspector-home-card="services"]'),
+      "Features section was not rendered",
+    );
+    expect(features.textContent?.replace(/\s+/g, " ")).toContain(
+      "0 active, 7 off",
+    );
+    expect(
+      features.querySelector<HTMLElement>('[data-inspector-service="threads"]')
+        ?.dataset.state,
+    ).toBe("off");
+    expect(
+      features.querySelectorAll(
+        '[data-feature-state-group="active"] [data-inspector-service]',
+      ),
+    ).toHaveLength(0);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("the Home last-event link opens and expands that exact AG-UI event", async () => {
+  const context = await setup();
+
+  try {
+    await context.open();
+    await context.emitEvent("RUN_FINISHED");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const lastEvent = requireElement(
+      root.querySelector<HTMLElement>(
+        '[data-runtime-health-signal="last-event"]',
+      ),
+      "Last event signal was not rendered",
+    );
+    expect(lastEvent.textContent?.replace(/\s+/g, " ")).toMatch(
+      /RUN_FINISHED \d+ second(?:s)? ago View event/,
+    );
+    expect(
+      root
+        .querySelector('[data-runtime-health-signal="connection"]')
+        ?.textContent?.replace(/\s+/g, " "),
+    ).toContain("Live updates Ready New events will appear here.");
+
+    const viewEvent = requireElement(
+      lastEvent.querySelector<HTMLButtonElement>(
+        ".inspector-system-health-event-link",
+      ),
+      "Last event link was not rendered",
+    );
+    viewEvent.click();
+    await context.inspector.updateComplete;
+
+    expectCurrentNavigation(root, "inspect", "ag-ui-events");
+    const eventRow = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-event-id]"),
+      "Linked AG-UI event row was not rendered",
+    );
+    expect(eventRow.textContent).toContain("RUN_FINISHED");
+    expect(eventRow.querySelector("pre")).not.toBeNull();
+  } finally {
+    context.teardown();
+  }
+});
+
+test("theme toggle applies and restores the explicit persisted color scheme", async () => {
+  const first = await setup();
+  let persistedState = "";
+  try {
+    await first.open();
+    const root = requireElement(
+      first.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    expect(inspectorWindow.dataset.colorScheme).toBe("light");
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+    expect(toggle.getAttribute("aria-label")).toBe("Switch to light mode");
+    expect(storedColorSchemePreference()).toBe("dark");
+    const serialized = window.localStorage.getItem("cpk:inspector:state");
+    if (serialized === null) {
+      throw new Error("Theme preference was not persisted");
+    }
+    persistedState = serialized;
+  } finally {
+    first.teardown();
+  }
+
+  const restored = await setup({ persistedState });
+  try {
+    await restored.open();
+    const root = requireElement(
+      restored.inspector.shadowRoot,
+      "Restored Web Inspector shadow root was not rendered",
+    );
+    expect(
+      root.querySelector<HTMLElement>(".inspector-window")?.dataset.colorScheme,
+    ).toBe("dark");
+    expect(
+      root
+        .querySelector("[data-inspector-theme-toggle]")
+        ?.getAttribute("aria-label"),
+    ).toBe("Switch to light mode");
+  } finally {
+    restored.teardown();
+  }
+});
+
+test("theme follows the system preference until a user chooses a theme", async () => {
+  const originalDescriptor = Object.getOwnPropertyDescriptor(
+    window,
+    "matchMedia",
+  );
+  let listener: ((event: MediaQueryListEvent) => void) | undefined;
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (media: string): MediaQueryList => ({
+      matches: media === "(prefers-color-scheme: dark)",
+      media,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: (_type, nextListener) => {
+        listener = nextListener as (event: MediaQueryListEvent) => void;
+      },
+      removeEventListener: () => {
+        listener = undefined;
+      },
+      dispatchEvent: () => true,
+    }),
+  });
+
+  const context = await setup();
+  try {
+    await context.open();
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    expect(inspectorWindow.dataset.colorScheme).toBe("dark");
+    expect(storedColorSchemePreference()).toBeUndefined();
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "light",
+      "explicit light color scheme",
+    );
+    expect(storedColorSchemePreference()).toBe("light");
+
+    listener?.({ matches: true } as MediaQueryListEvent);
+    await context.inspector.updateComplete;
+    expect(inspectorWindow.dataset.colorScheme).toBe("light");
+  } finally {
+    context.teardown();
+    if (originalDescriptor) {
+      Object.defineProperty(window, "matchMedia", originalDescriptor);
+    } else {
+      Reflect.deleteProperty(window, "matchMedia");
+    }
+  }
+});
+
 test("Inspect shows flattened live leaves and hides optional sources", async () => {
   const withTools = await setup({ frontendTools: true, catalog: true });
   try {
@@ -449,6 +874,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
     );
     expect(sidebarLeaves(root)).toEqual([
       "home",
+      "whats-new",
       "threads",
       "memories",
       "agents",
@@ -477,6 +903,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
     );
     expect(sidebarLeaves(root)).toEqual([
       "home",
+      "whats-new",
       "threads",
       "memories",
       "agents",
@@ -514,8 +941,13 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
       group: "workbench",
       marker: "Threads are unavailable.",
     },
-    { leaf: "memories", group: "workbench", marker: "Long-term memory" },
-    { leaf: "home", group: "home", marker: "What's going on" },
+    { leaf: "memories", group: "workbench", marker: "Learning" },
+    { leaf: "home", group: "home", marker: "System Health" },
+    {
+      leaf: "whats-new",
+      group: "home",
+      marker: "You're all caught up",
+    },
   ];
 
   for (const expected of validLeaves) {
@@ -560,7 +992,7 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
   }
 });
 
-test("Workbench remembers Memory, and Settings does not persist a settings leaf", async () => {
+test("Workbench remembers Learning, and Settings does not persist a settings leaf", async () => {
   const context = await setup({ frontendTools: true, catalog: true });
   try {
     await context.open();
@@ -584,13 +1016,41 @@ test("Workbench remembers Memory, and Settings does not persist a settings leaf"
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
       "Settings",
     );
+    const settingsPanel = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-settings]"),
+      "Settings panel was not rendered",
+    );
+    expect(settingsPanel.getAttribute("data-state")).toBe("disabled");
+    expect(settingsPanel.querySelector("h1")?.textContent?.trim()).toBe(
+      "Settings",
+    );
+    const privacy = requireElement(
+      settingsPanel.querySelector<HTMLElement>(
+        'section[aria-labelledby="inspector-settings-privacy-title"]',
+      ),
+      "Privacy settings were not rendered",
+    );
+    expect(privacy.textContent).toContain("Analytics off");
+    expect(
+      privacy.querySelectorAll(
+        'ul[aria-label="Content CopilotKit never collects"] li',
+      ),
+    ).toHaveLength(4);
+    const policy = requireElement(
+      privacy.querySelector<HTMLAnchorElement>(
+        ".inspector-settings-policy-link",
+      ),
+      "Telemetry policy link was not rendered",
+    );
+    expect(policy.target).toBe("_blank");
+    expect(policy.rel).toContain("noreferrer");
     expectCurrentNavigation(root, "workbench", "memories");
     expect(window.localStorage.getItem("cpk:inspector:state")).not.toContain(
       '"settings"',
     );
     await context.toggleSettings();
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Long-term memory",
+      "Learning",
     );
   } finally {
     context.teardown();
@@ -646,11 +1106,12 @@ test("labelled sidebar exposes keyboard focus without positive tabindex", async 
   }
 });
 
-test("collapsed sidebar uses an icon rail and keeps accessible names", async () => {
+test("docked sidebar automatically uses an icon rail and keeps accessible names", async () => {
   const context = await setup({
+    agentIds: ["support"],
     persistedState: JSON.stringify({
       dockMode: "docked-left",
-      sidebarCollapsed: true,
+      sidebarCollapsed: false,
       hasOpenedInspector: true,
       selectedMenu: "home",
     }),
@@ -666,6 +1127,7 @@ test("collapsed sidebar uses an icon rail and keeps accessible names", async () 
       "Inspector sidebar was not rendered",
     );
     expect(sidebar.getAttribute("data-icon-rail")).toBe("true");
+    expect(root.querySelector("[data-inspector-sidebar-toggle]")).toBeNull();
     const home = requireElement(
       root.querySelector<HTMLButtonElement>(
         'button[data-inspector-menu-key="home"]',
@@ -673,25 +1135,69 @@ test("collapsed sidebar uses an icon rail and keeps accessible names", async () 
       "Home was not rendered",
     );
     expect(home.getAttribute("aria-label")).toContain("Home");
+    expect(home.dataset.inspectorTooltip).toBe("Home");
+    home.dispatchEvent(new Event("focus"));
+    await context.inspector.updateComplete;
+    expect(
+      sidebar.querySelector(".inspector-sidebar-rail-tooltip")?.textContent,
+    ).toBe("Home");
+    home.dispatchEvent(new Event("blur"));
+    await context.inspector.updateComplete;
+    expect(sidebar.querySelector(".inspector-sidebar-rail-tooltip")).toBeNull();
     const cta = requireElement(
       root.querySelector<HTMLAnchorElement>("[data-inspector-thread-cta]"),
-      "Footer CTA was not rendered",
+      "Header CTA was not rendered",
     );
     expect(cta.getAttribute("aria-label")).toContain("Talk to an Engineer");
+    expect(cta.closest("[data-inspector-account-strip]")).not.toBeNull();
+    const scope = requireElement(
+      sidebar.querySelector<HTMLElement>(
+        "[data-inspector-sidebar-agent-selector]",
+      ),
+      "Agent scope was not rendered in the icon rail",
+    );
+    expect(scope.querySelector(".inspector-agent-selector")).not.toBeNull();
+    const scopeRoot = requireElement(
+      scope.querySelector<HTMLElement>('[data-context-dropdown-root="true"]'),
+      "Agent scope dropdown root was not rendered in the icon rail",
+    );
+    const scopeTrigger = requireElement(
+      scopeRoot.querySelector<HTMLButtonElement>("button"),
+      "Agent scope trigger was not rendered in the icon rail",
+    );
+    scopeRoot.dispatchEvent(
+      Object.assign(new Event("pointerenter"), { pointerType: "mouse" }),
+    );
+    await context.inspector.updateComplete;
+    const visibleOption = () =>
+      scope.querySelector(
+        '[data-context-dropdown-root="true"] > button[data-context-dropdown-root="true"]',
+      );
+    expect(visibleOption()).not.toBeNull();
+    scopeTrigger.dispatchEvent(
+      Object.assign(
+        new Event("pointerdown", { bubbles: true, cancelable: true }),
+        {
+          pointerType: "mouse",
+        },
+      ),
+    );
+    await context.inspector.updateComplete;
+    expect(visibleOption()).not.toBeNull();
+    scopeRoot.dispatchEvent(new Event("pointerleave"));
+    await context.inspector.updateComplete;
+    expect(visibleOption()).toBeNull();
+    expect(sidebar.querySelector(".inspector-sidebar-footer")).toBeNull();
   } finally {
     context.teardown();
   }
 });
 
-test("Home splits announcement markdown and hides news when the document is missing", async () => {
-  const withNews = await setup({
-    persistedState: JSON.stringify({
-      selectedMenu: "threads",
-      hasOpenedInspector: true,
-    }),
-    announcement: {
-      timestamp: "2026-08-20T00:00:00.000Z",
-      announcement: `## Channels
+test("Home leads with an unread update preview that clears after opening What's New", async () => {
+  const announcement = {
+    timestamp: "2026-08-20T00:00:00.000Z",
+    previewText: "Channels, Angular, and more are now available.",
+    announcement: `## Channels
 Try Channels in the new demo.
 
 ## Angular
@@ -700,7 +1206,13 @@ Angular docs are live.
 ## Release notes
 Read what shipped.
 `,
-    },
+  };
+  const withNews = await setup({
+    persistedState: JSON.stringify({
+      selectedMenu: "threads",
+      hasOpenedInspector: true,
+    }),
+    announcement,
   });
   try {
     await withNews.open();
@@ -711,36 +1223,80 @@ Read what shipped.
     await waitFor(
       () =>
         root
-          .querySelector('button[data-inspector-menu-key="home"]')
+          .querySelector('button[data-inspector-menu-key="whats-new"]')
           ?.getAttribute("aria-label")
-          ?.includes("new announcement") === true,
-      "Home unread badge",
+          ?.includes("new content") === true,
+      "What's New unread badge",
     );
     await withNews.selectLeaf("home");
     await waitFor(
       () => root.querySelector("[data-inspector-home-band='news']") !== null,
       "Home news band",
     );
-    const news = requireElement(
+    const preview = requireElement(
       root.querySelector<HTMLElement>("[data-inspector-home-band='news']"),
-      "From CopilotKit was not rendered",
+      "What's New preview was not rendered",
     );
-    expect(news.textContent).toContain("Channels");
-    expect(news.textContent).toContain("Angular");
-    expect(news.textContent).toContain("Release notes");
+    const home = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-home]"),
+      "Home was not rendered",
+    );
+    expect(home.firstElementChild).toBe(preview);
+    expect(
+      Array.from(home.querySelectorAll("h1, h2")).some(
+        (heading) => heading.textContent?.trim() === "What's New",
+      ),
+    ).toBe(false);
+    expect(preview.textContent).toContain("Channels");
+    expect(preview.textContent).toContain(
+      "Channels, Angular, and more are now available.",
+    );
+    expect(preview.textContent).not.toContain("Angular docs are live");
+    requireElement(
+      preview.querySelector<HTMLButtonElement>(
+        "[data-inspector-whats-new-preview]",
+      ),
+      "What's New preview button was not rendered",
+    ).click();
+    await waitFor(
+      () => root.querySelector("[data-inspector-whats-new]") !== null,
+      "What's New page",
+    );
+    const updates = requireElement(
+      root.querySelector<HTMLElement>("[data-inspector-whats-new]"),
+      "What's New page was not rendered",
+    );
+    expectCurrentNavigation(root, "home", "whats-new");
+    expect(updates.textContent).toContain("Channels");
+    expect(updates.textContent).toContain("Angular");
+    expect(updates.textContent).toContain("Release notes");
+    expect(
+      updates.querySelector(
+        ".inspector-whats-new-document .announcement-content",
+      ),
+    ).not.toBeNull();
+    expect(updates.querySelectorAll(".inspector-home-story")).toHaveLength(0);
+    expect(
+      root
+        .querySelector('button[data-inspector-menu-key="whats-new"]')
+        ?.getAttribute("aria-label"),
+    ).toBe("What's New");
+    expect(root.querySelector("[data-inspector-home-band='news']")).toBeNull();
+    expectCurrentNavigation(root, "home", "whats-new");
   } finally {
     withNews.teardown();
   }
 
-  const hidden = await setup();
+  const withoutAnnouncement = await setup();
   try {
-    await hidden.open();
+    await withoutAnnouncement.open();
     const root = requireElement(
-      hidden.inspector.shadowRoot,
+      withoutAnnouncement.inspector.shadowRoot,
       "Web Inspector shadow root was not rendered",
     );
     expect(root.querySelector("[data-inspector-home-band='news']")).toBeNull();
+    expect(root.textContent).not.toContain("You're all caught up");
   } finally {
-    hidden.teardown();
+    withoutAnnouncement.teardown();
   }
 });

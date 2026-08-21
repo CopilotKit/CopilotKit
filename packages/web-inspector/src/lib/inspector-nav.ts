@@ -1,9 +1,9 @@
-import type { InspectorGroupKey, InspectorLeafKey } from "./telemetry.js";
+import type { InspectorLeafKey } from "./telemetry.js";
 
 export type ShellGroupKey = "home" | "workbench" | "inspect";
 
 export const INSPECTOR_GROUPS = {
-  home: ["home"],
+  home: ["home", "whats-new"],
   workbench: ["threads", "memories"],
   inspect: [
     "agents",
@@ -53,60 +53,10 @@ export function getGroupForMenu(key: MenuKey): InspectorNavGroupKey {
   return "workbench";
 }
 
-/** Map a shell group onto the telemetry group key. */
-export function toTelemetryGroupKey(
-  group: InspectorNavGroupKey,
-): InspectorGroupKey {
-  return group;
-}
-
 /** Return whether the sidebar should collapse to an icon rail. */
 export function shouldUseIconRail(args: {
   dockedLeft: boolean;
   width: number;
 }): boolean {
   return args.dockedLeft || args.width < ICON_RAIL_MAX_WIDTH_PX;
-}
-
-export type FirstOpenMenuResolution = {
-  selectedMenu: MenuKey;
-  persistMenu: MenuKey;
-  firstOpen: boolean;
-};
-
-/**
- * First open after install or upgrade lands on Home.
- * The previous leaf stays in storage until the user picks a pane.
- */
-export function resolveFirstOpenMenu(args: {
-  hasOpenedInspector: boolean;
-  persistedMenu: unknown;
-  isVisible: (key: MenuKey) => boolean;
-}): FirstOpenMenuResolution {
-  const persisted =
-    isInspectorMenuKey(args.persistedMenu) && args.isVisible(args.persistedMenu)
-      ? args.persistedMenu
-      : undefined;
-
-  if (!args.hasOpenedInspector) {
-    return {
-      selectedMenu: "home",
-      persistMenu: persisted ?? "home",
-      firstOpen: true,
-    };
-  }
-
-  if (persisted) {
-    return {
-      selectedMenu: persisted,
-      persistMenu: persisted,
-      firstOpen: false,
-    };
-  }
-
-  return {
-    selectedMenu: "home",
-    persistMenu: "home",
-    firstOpen: false,
-  };
 }

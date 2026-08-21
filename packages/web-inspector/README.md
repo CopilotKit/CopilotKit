@@ -6,22 +6,37 @@ The Web Inspector reads optional `InspectorMetadataV1` data from
 `@copilotkit/core`. It parses the value again at the UI boundary and renders each
 valid module on its own:
 
-- `identity` shows the organization and project in the account strip.
-- `plan` shows the plan label in the account strip.
-- `action` can show one trusted link in the Threads footer or locked Threads view.
-- `usage` shows trusted Thread counts and expiry data in the Threads footer.
+- `identity` shows the organization and project on the Home project card.
+- `plan` shows the plan label on Home and in the Threads footer.
+- `action` can show one trusted link in the Inspector sidebar, in the Threads
+  footer, or in the locked Threads view.
+- `usage` shows trusted Thread counts on Home and detailed usage and expiry data
+  in the Threads footer.
 
-Missing or invalid metadata hides these trusted modules. The existing tabs,
-debug views, and Threads endpoint behavior remain available. A licensed Runtime
-without Threads endpoints offers a static, docs-backed coding-agent prompt and
-links to the public route setup guide.
+Missing or invalid metadata hides only the affected trusted module. Home still
+renders its project, runtime, services, and What's New preview with safe empty
+states.
+The existing debug views and Threads endpoint behavior remain available. A
+licensed Runtime without Threads endpoints offers a static, docs-backed
+coding-agent prompt and links to the public route setup guide.
 
 The footer sits at the bottom of the Threads list sidebar. It stays out of the
 account strip, other navigation groups, and Settings. Usage and the footer
 action render on their own, so either module can appear without the other.
 
-The primary navigation starts with What's new, followed by Threads, Agents, and
-Learning.
+Home is the first pane on a new or upgraded installation. Later opens restore
+the last selected pane. The live sidebar groups navigation into Home and What's
+New, Workbench
+(Threads and Memory), and Inspect (Agent, AG-UI Events, optional Frontend Tools
+and Capabilities, and Context). Its Talk to an Engineer link stays in the footer,
+followed by Intelligence and live Runtime connection status. Home previews the
+latest update and opens the dedicated What's New pane.
+Docked-left and narrow layouts use a compact icon rail; wider layouts can also
+be collapsed manually. A top-right light/dark theme control follows the
+Inspector between sessions without changing the host application's theme.
+Unread announcements animate the closed launcher, appear as a Home preview,
+and mark the What's New sidebar entry until the update is opened.
+
 Metadata is display-only: it never authorizes or gates Thread work. Core starts
 real Thread work only for object-valued `threadEndpoints` with `list !== false`.
 Absent endpoints, literal `false`, or an endpoint object with `list: false`
@@ -96,6 +111,6 @@ expiry counts, content, names, URLs, or Thread, agent, message, account, project
 or other product IDs into those events. It retains only the anonymous
 identifiers already used by Inspector telemetry.
 
-The usage UI does not add usage impressions or values to telemetry. Grouped
-Inspector navigation shows the footer only on Threads. The existing metadata
+The usage UI does not add usage impressions or values to telemetry. The trusted
+metadata footer action remains visible only on Threads. The existing metadata
 action impression and click events keep their coarse allowlist.
