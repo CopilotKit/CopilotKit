@@ -207,6 +207,22 @@
       "repoName": "showcase-claude-sdk-typescript"
     }
   },
+  "showcase-crewai-conversational-flows": {
+    "prod": {
+      "instanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",
+      "domain": "showcase-crewai-conversational-flows-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-crewai-conversational-flows"
+    },
+    "staging": {
+      "instanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+      "domain": "showcase-crewai-conversational-flows-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-crewai-conversational-flows"
+    }
+  },
   "showcase-crewai-crews": {
     "prod": {
       "instanceId": "3dab0cc3-cab1-4579-b772-947268088514",

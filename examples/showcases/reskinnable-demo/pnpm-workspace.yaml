@@ -1,0 +1,40 @@
+# This app is its OWN pnpm root, and that is what makes it installable.
+#
+# It is deliberately absent from the repo's root `pnpm-workspace.yaml` so its
+# `@ag-ui/*` / `@copilotkit/*` canary line cannot leak into the rest of the
+# monorepo. But dropping out of the member list is only half of it: pnpm walks
+# UP from the cwd looking for a workspace root, finds the repo's, and installs
+# THAT. Measured — `pnpm install` in this directory reported
+# "Scope: all 70 workspace projects", resolved 4645 packages for the monorepo,
+# and left this app with no `node_modules` at all. The next command then fails
+# with `sh: 1: eslint: not found`, which reads as a broken toolchain rather than
+# an install that went somewhere else entirely.
+#
+# This file stops the walk. `ignore-workspace=true` in an `.npmrc` does NOT —
+# it is a CLI-only flag in pnpm 10.10 (measured: the Scope line was unchanged).
+packages:
+  - "."
+
+# The canary pins, in their SUPPORTED home.
+#
+# These same five live in `package.json` under `pnpm.overrides`, where only
+# pnpm < 10.11-ish reads them — the newer CLI prints "The 'pnpm' field in
+# package.json is no longer read by pnpm" and moves on. This app pins
+# `packageManager: pnpm@10.10.0`, so the old location still works today and the
+# demo installs correctly; that is a version pin doing load-bearing work
+# nobody would think to look for.
+#
+# Three of the five are the reason this matters: `@ag-ui/core`, `@ag-ui/encoder`
+# and `@ag-ui/proto` are pinned NOWHERE else (`@ag-ui/client` and
+# `@ag-ui/langgraph` are direct dependencies). A released `@ag-ui/core` rejects
+# `SUBAGENT_*` events in the HTTP transport before any middleware runs, so
+# losing those three pins kills the banking harness console — which is exactly
+# what a `packageManager` bump would have done, silently.
+#
+# Keep both copies in sync until the canary line ships stable, then delete both.
+overrides:
+  "@ag-ui/core": 0.0.59-canary.1786716392.0
+  "@ag-ui/client": 0.0.59-canary.1786716392.0
+  "@ag-ui/encoder": 0.0.59-canary.1786716392.0
+  "@ag-ui/proto": 0.0.59-canary.1786716392.0
+  "@ag-ui/langgraph": 0.0.43-canary.1786716392.0

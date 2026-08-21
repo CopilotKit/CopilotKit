@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -14,6 +15,11 @@ interface ManifestPackage {
 
 interface PublicApiManifest {
   packages: ManifestPackage[];
+  deprecations: Array<{
+    importPath: string;
+    symbol: string;
+    replacement: { importPath: string; symbol: string };
+  }>;
 }
 
 const manifest = JSON.parse(
@@ -44,7 +50,83 @@ function filesUnder(relativeDirectory: string): string[] {
   return walk(absoluteDirectory);
 }
 
+const setupAssets = [
+  "skills/copilotkit-setup/assets/nextjs-app-router-route.ts",
+  "skills/copilotkit-setup/assets/nextjs-app-router-page.tsx",
+  "skills/copilotkit-setup/assets/express-runtime.ts",
+];
+
+function copilotImports(relativePath: string) {
+  const source = read(relativePath);
+  const sourceFile = ts.createSourceFile(
+    relativePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    relativePath.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+
+  return sourceFile.statements.flatMap((statement) => {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.moduleSpecifier.text.startsWith("@copilotkit/")
+    ) {
+      return [];
+    }
+
+    const symbols = statement.importClause?.namedBindings;
+    return [
+      {
+        importPath: statement.moduleSpecifier.text,
+        symbols:
+          symbols && ts.isNamedImports(symbols)
+            ? symbols.elements.map(
+                (element) => element.propertyName?.text ?? element.name.text,
+              )
+            : [],
+      },
+    ];
+  });
+}
+
 describe("public skill drift", () => {
+  it("keeps setup assets compatible with current public package contracts", () => {
+    const contractErrors = setupAssets.flatMap((asset) =>
+      copilotImports(asset).flatMap(({ importPath, symbols }) => {
+        const packageName = importPath.split("/").slice(0, 2).join("/");
+        const packageEntry = manifest.packages.find(
+          (candidate) => candidate.name === packageName,
+        );
+        if (!packageEntry) {
+          return [`${asset}: ${packageName} is not a published package`];
+        }
+        if (
+          !packageEntry.entrypoints.some(
+            (entrypoint) => entrypoint.importPath === importPath,
+          )
+        ) {
+          return [`${asset}: ${importPath} is not a published entrypoint`];
+        }
+
+        return symbols.flatMap((symbol) => {
+          const deprecation = manifest.deprecations.find(
+            (candidate) =>
+              candidate.importPath === importPath &&
+              candidate.symbol === symbol,
+          );
+          return deprecation
+            ? [
+                `${asset}: ${symbol} is deprecated; use ${deprecation.replacement.symbol} from ${deprecation.replacement.importPath}`,
+              ]
+            : [];
+        });
+      }),
+    );
+
+    expect(contractErrors).toEqual([]);
+  });
+
   it.each([
     ["@copilotkit/runtime", "runtime"],
     ["@copilotkit/react-core", "react-core"],

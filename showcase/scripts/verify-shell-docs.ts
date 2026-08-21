@@ -5,10 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
 import yaml from "yaml";
-import {
-  findUnexpectedMultiFileRegions,
-  type MultiFileRegionSource,
-} from "./lib/demo-region-guard.js";
+import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import type { MultiFileRegionSource } from "./lib/demo-region-guard.js";
 import { checkEssentialContent } from "./lib/essential-content.js";
 import type { PageInput } from "./lib/essential-content.js";
 
@@ -833,25 +831,23 @@ export function checkClaudeQuickstarts(input: {
         "frontend install",
         ["@copilotkit/runtime", "@copilotkit/react-core", "@ag-ui/client"],
       );
-      checkBlockContains(
-        failures,
-        page.path,
-        findTitledBlock(blocks, "main.py"),
-        "main.py",
+      const mainBlock = findTitledBlock(blocks, "main.py");
+      checkBlockContains(failures, page.path, mainBlock, "main.py", [
+        ["RunAgentInput", "RunAgentInput"],
         [
-          ["RunAgentInput", "RunAgentInput"],
-          ["await request.json()", "request JSON parsing"],
-          ['os.getenv("ANTHROPIC_MODEL"', "Anthropic model env var"],
-          ["RunErrorEvent", "RunErrorEvent"],
-          ["EventType.RUN_ERROR", "RUN_ERROR event"],
-          ["ClaudeAgentAdapter", "ClaudeAgentAdapter"],
-          ["adapter.run(input_data)", "adapter run"],
-          ["StreamingResponse", "StreamingResponse"],
-          ['media_type="text/event-stream"', "SSE media type"],
-          ['@app.get("/health")', "health route"],
-          ['@app.post("/")', "agent POST route"],
+          /async\s+def\s+run_agent\s*\(\s*input_data\s*:\s*RunAgentInput\s*\)/,
+          "typed RunAgentInput request body",
         ],
-      );
+        ['os.getenv("ANTHROPIC_MODEL"', "Anthropic model env var"],
+        ["RunErrorEvent", "RunErrorEvent"],
+        ["EventType.RUN_ERROR", "RUN_ERROR event"],
+        ["ClaudeAgentAdapter", "ClaudeAgentAdapter"],
+        ["adapter.run(input_data)", "adapter run"],
+        ["StreamingResponse", "StreamingResponse"],
+        ['media_type="text/event-stream"', "SSE media type"],
+        ['@app.get("/health")', "health route"],
+        ['@app.post("/")', "agent POST route"],
+      ]);
     } else {
       checkCommandContains(
         failures,

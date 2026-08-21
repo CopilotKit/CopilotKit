@@ -1475,6 +1475,7 @@ async function executeBackendTool(
     };
   }
 
+  // @region[a2ui-fixed-schema-tool-execution]
   if (toolName === "display_flight") {
     const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
     const destination =
@@ -1493,6 +1494,7 @@ async function executeBackendTool(
       state: null,
     };
   }
+  // @endregion[a2ui-fixed-schema-tool-execution]
 
   if (toolName === "generate_a2ui") {
     const context =
@@ -1772,6 +1774,7 @@ async function runAgenticLoop(
     contextString,
   );
 
+  // @region[claude-agent-sdk-agent-loop-dispatch]
   if (
     shouldUseClaudeAgentSdk({
       input,
@@ -1803,6 +1806,7 @@ async function runAgenticLoop(
     res.end();
     return;
   }
+  // @endregion[claude-agent-sdk-agent-loop-dispatch]
 
   try {
     emit({ type: EventType.RUN_STARTED, runId, threadId });
@@ -2484,6 +2488,7 @@ app.post(
 // The dedicated runtime route at `/api/copilotkit-a2ui-fixed-schema` runs
 // the A2UI middleware with `injectA2UITool: false` because this backend
 // owns the rendering tool itself.
+// @region[a2ui-fixed-schema-route]
 app.post(
   "/a2ui-fixed-schema",
   async (req: Request, res: Response): Promise<void> => {
@@ -2494,6 +2499,7 @@ app.post(
     });
   },
 );
+// @endregion[a2ui-fixed-schema-route]
 
 // Declarative Generative UI (A2UI Dynamic Schema) - backend owns
 // generate_a2ui, then uses a secondary Claude call to produce render_a2ui

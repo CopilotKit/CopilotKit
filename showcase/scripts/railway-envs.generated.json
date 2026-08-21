@@ -435,6 +435,40 @@
       }
     },
     {
+      "name": "showcase-crewai-conversational-flows",
+      "serviceId": "11859593-da4e-486c-a810-6cdffeff9750",
+      "prodInstanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",
+      "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "crewai-conversational-flows",
+      "domains": {
+        "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
+        "prod": "showcase-crewai-conversational-flows-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      },
+      "autoUpdates": {
+        "staging": "disabled",
+        "prod": "disabled"
+      }
+    },
+    {
       "name": "showcase-crewai-crews",
       "serviceId": "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
       "prodInstanceId": "3dab0cc3-cab1-4579-b772-947268088514",
@@ -1437,6 +1471,10 @@
       },
       {
         "name": "showcase-claude-sdk-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-crewai-conversational-flows",
         "tier": 2
       },
       {

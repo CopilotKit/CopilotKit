@@ -1,5 +1,5 @@
 import type { Signal } from "@angular/core";
-import { DestroyRef, computed, effect, inject, signal } from "@angular/core";
+import { computed, signal } from "@angular/core";
 import { randomUUID } from "@ag-ui/client";
 import type {
   AbstractAgent,
@@ -13,11 +13,6 @@ import {
   type ɵInterruptDecision,
   type ɵPendingInterrupt,
 } from "@copilotkit/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-
-import { injectAgentStore } from "./agent";
-import { COPILOT_CHAT_CONFIGURATION } from "./chat-configuration";
-import { CopilotKit } from "./copilotkit";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -31,6 +26,7 @@ export interface InterruptEvent<TValue = unknown> {
 
 /** Options forwarded when resuming an interrupted agent. */
 export interface InterruptRunOptions {
+  runId?: string;
   resume?: ResumeEntry[];
   forwardedProps?: Record<string, unknown>;
 }
@@ -111,6 +107,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
   readonly #result = signal<TResult | null>(null);
   readonly #error = signal<unknown | null>(null);
   readonly #interruptState = new ɵInterruptState<TValue>();
+  readonly #interruptRunIds = new Map<string, string>();
   readonly #runner: InterruptRunner;
   readonly #options: InjectInterruptOptions<TValue, TResult>;
   #agent?: AbstractAgent;
@@ -182,12 +179,16 @@ export class InterruptController<TValue = unknown, TResult = never> {
       },
       onRunFinishedEvent: (params) => {
         if (params.outcome === "interrupt") {
+          for (const interrupt of params.interrupts) {
+            this.#interruptRunIds.set(interrupt.id, params.input.runId);
+          }
           standard = params.interrupts;
         }
       },
       onRunStartedEvent: () => {
         legacy = null;
         standard = null;
+        this.#threadId = agent.threadId;
         this.#clear();
       },
       onRunFinalized: () => {
@@ -240,6 +241,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     const current = this.#pending();
     const agent = this.#agent;
     if (!current || !agent) return;
+    if (!this.#isCurrentThread(agent)) return;
 
     if (current.kind === "legacy") {
       const decision = this.#interruptState.resolve(payload, interruptId);
@@ -271,6 +273,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
     const current = this.#pending();
     const agent = this.#agent;
     if (!current || !agent) return;
+    if (!this.#isCurrentThread(agent)) return;
 
     if (current.kind === "legacy") {
       const decision = this.#interruptState.cancel(interruptId);
@@ -422,6 +425,9 @@ export class InterruptController<TValue = unknown, TResult = never> {
     if (decision.kind !== "resume") return;
 
     try {
+      const runId = decision.resume
+        .map((entry) => this.#interruptRunIds.get(entry.interruptId))
+        .find((candidate): candidate is string => candidate !== undefined);
       const toolMessages = decision.toolResults.map(
         (toolResult): Message =>
           ({
@@ -432,7 +438,10 @@ export class InterruptController<TValue = unknown, TResult = never> {
           }) as Message,
       );
       for (const message of toolMessages) agent.addMessage(message);
-      return this.#startResume(agent, { resume: decision.resume });
+      return this.#startResume(agent, {
+        resume: decision.resume,
+        ...(runId !== undefined ? { runId } : {}),
+      });
     } catch (error) {
       this.#clear(error);
       throw error;
@@ -467,6 +476,12 @@ export class InterruptController<TValue = unknown, TResult = never> {
     return tracked;
   }
 
+  #isCurrentThread(agent: AbstractAgent): boolean {
+    if (this.#threadId === agent.threadId) return true;
+    this.setThreadId(agent.threadId);
+    return false;
+  }
+
   #clear(error: unknown | null = null): void {
     this.#handlerGeneration += 1;
     this.#pending.set(null);
@@ -475,48 +490,6 @@ export class InterruptController<TValue = unknown, TResult = never> {
     this.#error.set(error);
     this.#resumePromise = undefined;
     this.#interruptState.clear();
+    this.#interruptRunIds.clear();
   }
-}
-
-/**
- * Create an interrupt controller in the current Angular injection context.
- *
- * The controller follows the ambient chat agent and thread unless an explicit
- * agent is supplied. Bind its signals in a template and call `resolve` or
- * `cancel` from user-driven event handlers.
- */
-export function injectInterrupt<TValue = unknown, TResult = never>(
-  options: InjectInterruptOptions<TValue, TResult> = {},
-): InterruptController<TValue, TResult> {
-  const copilotKit = inject(CopilotKit);
-  const destroyRef = inject(DestroyRef);
-  const chatConfiguration = inject(COPILOT_CHAT_CONFIGURATION, {
-    optional: true,
-  });
-  const configuredAgentId = options.agentId;
-  const agentId =
-    typeof configuredAgentId === "function"
-      ? configuredAgentId
-      : computed(
-          () =>
-            configuredAgentId ??
-            chatConfiguration?.agentId() ??
-            DEFAULT_AGENT_ID,
-        );
-  const store = injectAgentStore(agentId);
-  const controller = new InterruptController<TValue, TResult>(
-    (agent, runOptions) => copilotKit.core.runAgent({ agent, ...runOptions }),
-    options,
-  );
-  const connection = effect(() => {
-    const agent = store().agent;
-    controller.connect(agent);
-    controller.setThreadId(chatConfiguration?.threadId() ?? agent.threadId);
-  });
-
-  destroyRef.onDestroy(() => {
-    connection.destroy();
-    controller.destroy();
-  });
-  return controller;
 }

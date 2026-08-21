@@ -9,6 +9,8 @@ import type {
   Lane,
   MitigationKind,
   MitigationOption,
+  RateBrief,
+  RateBriefLane,
   Shipment,
 } from "./data/types";
 
@@ -19,7 +21,15 @@ import type {
  * the control-tower board showing the shipment as still delayed.
  */
 const listeners = new Set<() => void>();
-function notifyDataChanged() {
+/**
+ * Exported because beat 3a's PIN card writes through its OWN fetch — the digits
+ * go straight from the component to the authorization route and never pass
+ * through this module — so nothing here can notice that write. Without a
+ * notification the Control Tower would still show the shipment as delayed after
+ * the planner released it on stage, which is the one thing that beat has to
+ * disprove. See `tools.tsx`'s `authorizeWithPlannerPin`.
+ */
+export function notifyDataChanged() {
   for (const listener of listeners) listener();
 }
 
@@ -42,12 +52,16 @@ export function useLogistics() {
   const [lanes, setLanes] = useState<Lane[]>([]);
   const [inventory, setInventory] = useState<InventoryRisk[]>([]);
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  // BEAT 3d — the durable artifact. Fetched like every other collection here,
+  // because it belongs to the app rather than to the thread that produced it.
+  const [rateBriefs, setRateBriefs] = useState<RateBrief[]>([]);
 
   const refresh = useCallback(() => {
     void getJson<Shipment[]>("/shipments", []).then(setShipments);
     void getJson<Lane[]>("/lanes", []).then(setLanes);
     void getJson<InventoryRisk[]>("/inventory", []).then(setInventory);
     void getJson<Decision[]>("/decisions", []).then(setDecisions);
+    void getJson<RateBrief[]>("/briefs", []).then(setRateBriefs);
   }, []);
 
   useEffect(() => {
@@ -184,16 +198,130 @@ export function useLogistics() {
     [currentPlanner.id],
   );
 
+  /**
+   * BEAT 3d — file the rate brief read out of an attached carrier rate sheet.
+   *
+   * Sends NO `filedBy`/`role`: the server derives both from the planner, exactly
+   * as `fileDecision` does, so the artifact's attribution cannot be forged by
+   * whatever the model happened to type. Surfaces the route's own message on a
+   * refusal — `POST /briefs` names the offending field, and the agent can only
+   * act on that if it can see it.
+   */
+  const fileRateBrief = useCallback(
+    async (input: {
+      carrier: string;
+      effective: string;
+      summary: string;
+      laneRates: RateBriefLane[];
+      impacts: string[];
+    }) => {
+      try {
+        const res = await fetch(`${BASE}/briefs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...input, plannerId: currentPlanner.id }),
+        });
+        const body = await res.json().catch(() => null);
+        notifyDataChanged();
+        if (!res.ok)
+          return {
+            ok: false as const,
+            error: body?.message ?? "Could not file the rate brief.",
+          };
+        return {
+          ok: true as const,
+          brief: body as RateBrief,
+          // The two ways the filed record can differ from what was sent, both
+          // surfaced so the agent narrates the correction rather than a
+          // comparison the record does not contain. See POST /briefs, which
+          // SETTLES every prior rate against the carrier's own lanes:
+          // `noPriorRateOnFile` is what it dropped (no such lane, so no rate on
+          // file), `ambiguousLanes` is where it could not tell which lane the
+          // sheet meant and left the model's reading standing.
+          noPriorRateOnFile: Array.isArray(body?.noPriorRateOnFile)
+            ? (body.noPriorRateOnFile as string[])
+            : [],
+          ambiguousLanes: Array.isArray(body?.ambiguousLanes)
+            ? (body.ambiguousLanes as string[])
+            : [],
+        };
+      } catch (error) {
+        console.error("[logistics] fileRateBrief failed:", error);
+        return { ok: false as const, error: "Network error." };
+      }
+    },
+    [currentPlanner.id],
+  );
+
+  /**
+   * BEAT 5 — the three writes the stored procedure fires.
+   *
+   * One helper rather than three near-identical ones: all three POST a small
+   * JSON body to a shipment-scoped path, all three send `plannerId` and let the
+   * SERVER derive the actor, and all three must resolve with a narratable
+   * sentence rather than throw — a rejected promise inside a frontend-tool
+   * handler leaves the tool call unsettled and wedges the run, which is worse
+   * than any write failing.
+   */
+  const postToShipment = useCallback(
+    async (path: string, body: Record<string, unknown>) => {
+      try {
+        const res = await fetch(`${BASE}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...body, plannerId: currentPlanner.id }),
+        });
+        const payload = await res.json().catch(() => null);
+        // Refresh either way: on a refusal the UI must show real state rather
+        // than an optimistic guess, exactly as commitMitigation does.
+        notifyDataChanged();
+        if (!res.ok)
+          return {
+            ok: false as const,
+            error: payload?.message ?? `HTTP ${res.status}`,
+          };
+        return { ok: true as const };
+      } catch (error) {
+        console.error(`[logistics] POST ${path} failed:`, error);
+        return { ok: false as const, error: "Network error." };
+      }
+    },
+    [currentPlanner.id],
+  );
+
+  const raiseWatch = useCallback(
+    (shipmentId: string, reason: string) =>
+      postToShipment(`/shipments/${shipmentId}/watch`, { reason }),
+    [postToShipment],
+  );
+
+  const notifyCarrier = useCallback(
+    (shipmentId: string, template: string) =>
+      postToShipment(`/shipments/${shipmentId}/notify`, { template }),
+    [postToShipment],
+  );
+
+  const postShipmentNote = useCallback(
+    (shipmentId: string, text: string) =>
+      postToShipment(`/shipments/${shipmentId}/notes`, { text }),
+    [postToShipment],
+  );
+
   return {
     shipments,
     lanes,
     inventory,
     decisions,
+    rateBriefs,
     refresh,
     fetchOptions,
     commitMitigation,
     fileEscalation,
     fileDecision,
+    fileRateBrief,
+    raiseWatch,
+    notifyCarrier,
+    postShipmentNote,
   };
 }
 

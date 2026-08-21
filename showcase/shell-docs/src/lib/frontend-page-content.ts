@@ -109,6 +109,7 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "headless-threads": "guides/threads-memory-attachments-headless",
   "threads-lifecycle": "guides/threads-memory-attachments-headless",
   "threads-import": "guides/threads-memory-attachments-headless",
+  "threads-self-managed": "guides/threads-memory-attachments-headless",
   "premium/headless-ui": "guides/threads-memory-attachments-headless",
   "custom-look-and-feel/headless-ui":
     "guides/threads-memory-attachments-headless",
@@ -125,7 +126,6 @@ export const ANGULAR_DOC_REDIRECTS: Readonly<Record<string, string>> = {
   "migrate/1.10.X": "using-these-docs",
   "migrate/v2": "using-these-docs",
   "whats-new/v1-50": "using-these-docs",
-  inspector: "guides/troubleshooting",
   "multi-agent-flows": "multi-agent/subagents",
   "ag-ui-protocol": "agentic-protocols/ag-ui",
   "a2a-protocol": "agentic-protocols/a2a",

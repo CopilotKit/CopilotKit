@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.67.1",
+  "version": "1.68.3",
   "private": false,
   "keywords": [
     "ai",
@@ -62,10 +62,11 @@
     "build": "tsdown && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
+    "size:assert-headless": "node scripts/assert-headless-purity.mjs",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2020 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",
-    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/measure-copilotchat.test.mjs scripts/__tests__/assert-headless-purity.test.mjs",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
     "link:global": "pnpm link --global",

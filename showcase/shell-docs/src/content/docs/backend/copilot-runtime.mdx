@@ -79,6 +79,16 @@ see [Runtime HTTP endpoints](/backend/runtime-endpoints).
   Both styles work in v1.50. For new projects, use the v2 handlers. See [Deploy to any runtime](/runtime-server-adapter).
 </Callout>
 
+<FrontendOnly frontend="react">
+<Callout type="warn" title="Switching to a v2 handler also switches the transport">
+  The legacy factories are single-route; the v2 handlers are multi-route by
+  default. The `<CopilotKit>` above sets no transport, so it detects the switch
+  on its own — but if you have pinned `useSingleEndpoint={true}` anywhere, drop
+  it or flip it to `{false}` when you move to a v2 handler. See
+  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
+</FrontendOnly>
+
 ## Agents
 
 The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
@@ -120,6 +130,48 @@ When you register multiple agents, the runtime handles discovery and routing aut
 ### Enterprise Intelligence Platform
 
 [Threads](/threads), the [inspector](/inspector), and other Enterprise Intelligence Platform capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
+
+#### Assign Threads to Learning Containers
+
+Create a Learning Container in your Intelligence Project, then pass its stable
+ID to the Runtime:
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  intelligence,
+  identifyUser,
+  ɵlearning: {
+    containerId: "support-quality",
+  },
+});
+```
+
+Use a callback when the Container depends on the run. The same callback handles
+web and Channel runs:
+
+```ts title="runtime.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  intelligence,
+  identifyUser,
+  channels: [supportChannel],
+  ɵlearning: {
+    containerId: async ({ surface, agentId, userId, threadId }) => {
+      return chooseLearningContainer({ surface, agentId, userId, threadId });
+    },
+  },
+});
+```
+
+The callback runs once per agent run. Return a 1–64 character stable ID made
+from lowercase letters, numbers, and single hyphens. Return `null` to leave the
+Thread unassigned. A Thread can receive its first assignment when it is created
+or locked, but it cannot move to another Learning Container later.
+
+The Runtime sends only the Container ID with the normal Thread create and lock
+calls. It does not upload transcripts. The Intelligence AgentRunner's persisted
+AG-UI events remain the source for Learning.
 
 ## Built-in middleware
 

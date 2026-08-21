@@ -559,7 +559,7 @@ async function setupSettledState(
   opener.click();
   await flushInspector(inspector);
   const threadsButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threadsButton) throw new Error("Threads group was not rendered");
   threadsButton.click();
@@ -715,7 +715,7 @@ async function setupLoadingState(
       await flushInspector(inspector);
 
       const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[data-inspector-group="threads"]',
+        'button[data-inspector-menu-key="threads"]',
       );
       if (!threads) throw new Error("Threads group was not rendered");
       threads.click();
@@ -1052,7 +1052,7 @@ test.each(lockedCapabilityCases)(
         has_threads: false,
         usage_bucket: "empty",
         expiry_bucket: "zero",
-        group_key: "threads",
+        group_key: "workbench",
         leaf_key: "threads",
         thread_service_status: case_.threadServiceStatus,
         intelligence_status: case_.intelligenceStatus,
@@ -1514,11 +1514,15 @@ test("enabled zero Threads keep all local data and tour paths off the network", 
     expect(root.textContent).toContain(
       "Threads are persistent, inspectable conversations",
     );
+    expect(root.querySelector(".cpk-threads-overview")).not.toBeNull();
+    expect(
+      root.querySelector(".cpk-threads-overview-title")?.getAttribute("style"),
+    ).toBeNull();
     expect(root.textContent).toContain("Learn how Threads work");
     expect(root.textContent).toContain("Sign up for Intelligence");
     expect(root.textContent).not.toContain("Explore self-hosted Intelligence");
     const intelligence = root.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      '#cpk-main-scroll a[href^="https://intelligence.copilotkit.ai/?ref="]',
     );
     expect(intelligence?.textContent?.trim()).toBe("Sign up for Intelligence");
     expect(new URL(intelligence!.href).searchParams.get("ref")).toBe(
@@ -1573,9 +1577,7 @@ test("self-hosted enabled zero Threads use only self-hosted onboarding", async (
     );
     expect(root.textContent).not.toContain("Sign up for Intelligence");
     expect(
-      root.querySelector(
-        'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
-      ),
+      root.querySelector('a[href^="https://intelligence.copilotkit.ai/?ref="]'),
     ).toBeNull();
   } finally {
     await harness.teardown();

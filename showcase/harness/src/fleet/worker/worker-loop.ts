@@ -209,6 +209,34 @@ export interface WorkerLoopDeps {
    * must never throw into the loop, so the loop swallows its rejection.
    */
   onCurrentJobChange?: (currentJobId: string | null) => void;
+  /**
+   * Max SETTLED jobs this worker processes before it recycles: stops claiming,
+   * runs the existing graceful drain, and exits non-zero so the platform
+   * restarts a fresh container (pre-empting slow Chromium/heap growth on a
+   * long-lived worker — Gunicorn `--max-requests` / Celery
+   * `max-tasks-per-child`). Injectable override; when omitted the loop resolves
+   * `WORKER_MAX_JOBS` (default `DEFAULT_WORKER_MAX_JOBS`). `0` DISABLES the
+   * feature (the worker runs forever, pre-recycle behavior).
+   */
+  maxJobs?: number;
+  /**
+   * Per-replica stagger: a value in `[0, maxJobsJitter]` is derived
+   * DETERMINISTICALLY from `workerId`/HOSTNAME and subtracted from `maxJobs`
+   * ONCE at startup, so replicas recycle at slightly different job counts
+   * instead of all at once (avoiding a fleet-wide simultaneous restart).
+   * Injectable override; when omitted the loop resolves `WORKER_MAX_JOBS_JITTER`
+   * (default `DEFAULT_WORKER_MAX_JOBS_JITTER`).
+   */
+  maxJobsJitter?: number;
+  /**
+   * Injectable process-exit, ABSTRACTED so the recycle path is unit-testable
+   * without killing the test process. Defaults to `process.exit`. The
+   * entrypoint MAY inject a richer exit that runs the full graceful teardown
+   * (`drainFleetWorker` — deregister + pool shutdown) BEFORE exiting non-zero;
+   * the bare default only fires the loop-local `requestDrain()` (which, at the
+   * settle point, has no in-flight run to drain) then exits.
+   */
+  exit?: (code: number) => void;
 }
 
 /** Handle returned by `startWorkerLoop` — `stop()` requests a bounded drain. */
@@ -420,6 +448,78 @@ export function safeLog(
     // Swallow: the logger is the failing component; nothing load-bearing may
     // sit behind a forensic log line.
   }
+}
+
+/**
+ * Default recycle threshold: after this many SETTLED jobs a worker drains and
+ * exits non-zero for a fresh restart. 100 mirrors a conservative Gunicorn
+ * `--max-requests`; the exact value trades restart churn against how much
+ * Chromium/heap growth accumulates on a long-lived worker. Env-overridable via
+ * `WORKER_MAX_JOBS`; `0` disables the feature.
+ */
+export const DEFAULT_WORKER_MAX_JOBS = 100;
+/**
+ * Default per-replica recycle stagger. A deterministic value in `[0, this]`
+ * (derived from the worker id) is subtracted from `WORKER_MAX_JOBS` once at
+ * startup so a fleet of identically-configured replicas does not all recycle on
+ * the same job count (Gunicorn `--max-requests-jitter`). Env-overridable via
+ * `WORKER_MAX_JOBS_JITTER`.
+ */
+export const DEFAULT_WORKER_MAX_JOBS_JITTER = 15;
+/**
+ * Exit code the worker uses when RECYCLING (max-jobs reached). NON-ZERO is
+ * REQUIRED: Railway's `restartPolicyType: ON_FAILURE` only replaces the
+ * container on a non-zero exit — a zero exit reads as an intentional stop and
+ * may NOT restart, which would silently drain the fleet. 42 is an arbitrary
+ * distinctive non-zero sentinel (distinct from the boot-failure `1`) so a
+ * recycle is greppable in platform logs.
+ */
+export const WORKER_RECYCLE_EXIT_CODE = 42;
+
+/**
+ * Resolve a NON-NEGATIVE integer env knob (the recycle max-jobs / jitter share
+ * this shape: `0` is a MEANINGFUL value — disabled / no-stagger — so unlike the
+ * strictly-positive `resolveDrainGraceMs` this accepts `>= 0`). Unset/empty
+ * falls back to `fallback`; a present-but-garbage or negative override warns and
+ * falls back (fail-loud-ish, matching the drain-grace resolver) rather than
+ * silently mis-tuning. Construction-time; the warn is the same deliberately
+ * unguarded fail-loud misconfig surface as the other knob resolvers.
+ */
+function resolveNonNegativeIntEnv(
+  envName: string,
+  fallback: number,
+  logger: Logger,
+): number {
+  const raw = process.env[envName];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed >= 0) return parsed;
+  logger.warn("fleet.worker.recycle-knob-invalid", {
+    envName,
+    raw,
+    fallback,
+  });
+  return fallback;
+}
+
+/**
+ * Deterministic per-process jitter in `[0, jitter]` derived from a stable seed
+ * (the worker id / HOSTNAME). Uses a 32-bit FNV-1a hash so the value is STABLE
+ * within a process (computed once at startup) yet DIFFERS across replicas with
+ * distinct ids — never `Math.random`, which would pick a fresh value per call
+ * and could not stagger a fixed replica reproducibly. Returns 0 when `jitter`
+ * is 0 (no stagger).
+ */
+export function deterministicJitter(seed: string, jitter: number): number {
+  if (jitter <= 0) return 0;
+  let h = 0x811c9dc5; // FNV-1a offset basis
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193); // FNV prime
+  }
+  // `h` is a signed 32-bit int; `>>> 0` makes it unsigned before the modulus so
+  // the result is always in `[0, jitter]`.
+  return (h >>> 0) % (jitter + 1);
 }
 
 function resolveDrainGraceMs(logger: Logger): number {
@@ -1155,6 +1255,59 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
     deps.pidClaimGateRatio ?? resolvePidClaimGateRatio(logger);
   let pidGateLatched = false;
 
+  // RECYCLE knobs (resolved ONCE at construction, like the gate ratio above).
+  // `maxJobs` 0 disables the feature; otherwise the effective per-process
+  // threshold is `maxJobs` minus a deterministic per-replica jitter, so a fleet
+  // of identical replicas does not all recycle on the same job count. Floored at
+  // 1 so a jitter >= maxJobs can never yield a 0/negative threshold (which would
+  // recycle on the very first job or never). Computed here, BEFORE the claim
+  // loop, so the stagger is fixed for the process lifetime.
+  const maxJobs =
+    deps.maxJobs ??
+    resolveNonNegativeIntEnv(
+      "WORKER_MAX_JOBS",
+      DEFAULT_WORKER_MAX_JOBS,
+      logger,
+    );
+  const maxJobsJitter =
+    deps.maxJobsJitter ??
+    resolveNonNegativeIntEnv(
+      "WORKER_MAX_JOBS_JITTER",
+      DEFAULT_WORKER_MAX_JOBS_JITTER,
+      logger,
+    );
+  const recycleEnabled = maxJobs > 0;
+  const recycleThreshold = recycleEnabled
+    ? Math.max(
+        1,
+        maxJobs -
+          deterministicJitter(
+            `${workerId}:${process.env.HOSTNAME ?? ""}`,
+            maxJobsJitter,
+          ),
+      )
+    : 0;
+  const exit =
+    deps.exit ??
+    ((code: number): void => {
+      process.exit(code);
+    });
+  // Count of SETTLED jobs (claimed → ran → reported). Never incremented on
+  // empty poll cycles or abandoned (grace-expiry) runs. Closure-scoped so each
+  // loop instance counts independently (one worker per process in production;
+  // isolation keeps the unit tests free of cross-test counter bleed a
+  // module-scoped counter would introduce).
+  let completedJobs = 0;
+  let recycleTriggered = false;
+  if (recycleEnabled) {
+    safeLog(logger, "info", "fleet.worker.recycle-armed", {
+      workerId,
+      maxJobs,
+      maxJobsJitter,
+      recycleThreshold,
+    });
+  }
+
   // Fail-loud at construction: the heartbeat must fire (and renew) BEFORE the
   // lease expires, or the sweeper reclaims a live worker's job and synthesizes a
   // false `worker-crashed-mid-job` (REQ-B). `heartbeatMs` and `leaseSeconds` are
@@ -1525,8 +1678,40 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         // again on the next registration heartbeat.
         notifyCurrentJob(null);
       }
+
+      // RECYCLE CHECK — settle point. Count this SETTLED job (claimed → ran →
+      // reported) EXACTLY ONCE; empty poll cycles and abandoned (grace-expiry)
+      // runs never reach here. Once the per-process threshold is crossed, stop
+      // claiming (the EXISTING loop-local drain, `requestDrain()` — no in-flight
+      // run remains at the settle point, so nothing to wait on), break the loop,
+      // and exit NON-ZERO below so the platform restart policy replaces the
+      // container — pre-empting slow Chromium/heap growth on a long-lived worker
+      // (Gunicorn `--max-requests` / Celery `max-tasks-per-child`).
+      completedJobs++;
+      if (recycleEnabled && completedJobs >= recycleThreshold) {
+        safeLog(logger, "info", "fleet.worker.recycle-max-jobs", {
+          workerId,
+          completedJobs,
+          recycleThreshold,
+          maxJobs,
+          maxJobsJitter,
+          exitCode: WORKER_RECYCLE_EXIT_CODE,
+        });
+        recycleTriggered = true;
+        requestDrain();
+        break;
+      }
     }
     safeLog(logger, "info", "fleet.worker.loop-stopped", { workerId });
+    if (recycleTriggered) {
+      // Exit NON-ZERO so the platform (Railway `restartPolicyType: ON_FAILURE`)
+      // replaces this container with a fresh one. A zero exit would read as an
+      // intentional stop and might NOT restart — silently shrinking the fleet.
+      // `exit` is injectable (default `process.exit`) so the recycle path is
+      // testable without killing the test process; a richer injected exit MAY
+      // run the full graceful teardown (deregister + pool shutdown) first.
+      exit(WORKER_RECYCLE_EXIT_CODE);
+    }
   })();
 
   return {

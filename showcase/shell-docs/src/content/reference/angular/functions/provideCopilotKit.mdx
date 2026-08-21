@@ -37,6 +37,12 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     already set one here.
   </PropertyReference>
 
+  <PropertyReference name="credentials" type="RequestCredentials">
+    Credentials mode for runtime fetch requests. Use `"include"` for HTTP-only
+    cookies in cross-origin requests. When omitted, the browser Fetch default
+    applies.
+  </PropertyReference>
+
   <PropertyReference name="licenseKey" type="string">
     Your CopilotCloud public key. A value matching `ck_pub_` followed by 32
     hexadecimal characters is sent as the

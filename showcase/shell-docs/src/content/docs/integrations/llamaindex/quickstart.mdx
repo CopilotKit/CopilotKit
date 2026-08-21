@@ -5,6 +5,8 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 <OpsPlatformCTA
   variant="card"
   title="Ship LlamaIndex to production"
@@ -133,6 +135,11 @@ Before you begin, you'll need the following:
                 </Accordions>
 
             </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
         </TailoredContentOption>
         <TailoredContentOption
             id="bring-your-own"
@@ -379,6 +386,11 @@ Before you begin, you'll need the following:
                 </Accordions>
 
             </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
         </TailoredContentOption>
     </TailoredContent>
     </Step>
