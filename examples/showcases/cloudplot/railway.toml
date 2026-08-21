@@ -1,0 +1,17 @@
+[build]
+builder = "nixpacks"
+watchPatterns = [
+  "src/**",
+  "public/**",
+  "package.json",
+  "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
+]
+
+[deploy]
+startCommand = "pnpm start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
