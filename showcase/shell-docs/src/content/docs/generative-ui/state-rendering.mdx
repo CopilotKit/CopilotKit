@@ -40,7 +40,6 @@ token-by-token rather than appearing in one burst between checkpoints.
 
 <Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
 
-<IntegrationGrid
-  path="generative-ui/state-rendering"
-  exclude={["agno", "agent-spec"]}
-/>
+{/* exclude must be a comma-separated STRING — the MDX pipeline strips
+    expression attributes like exclude={[...]} (next-mdx-remote blockJS). */}
+<IntegrationGrid path="generative-ui/state-rendering" exclude="agno, agent-spec" />
