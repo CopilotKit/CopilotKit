@@ -68,3 +68,22 @@ describe("stripHtml", () => {
     expect(stripHtml("&amp;lt;")).toBe("&lt;");
   });
 });
+
+describe("telegramHtml: fenced code language tags (#6602)", () => {
+  it("emits Telegram language- form for tagged fences", () => {
+    expect(telegramHtml("```js\nconst a = 1;\n```")).toBe(
+      '<pre><code class="language-js">const a = 1;</code></pre>',
+    );
+  });
+  it("handles python and escapes code contents", () => {
+    expect(telegramHtml("```python\nif a < b:\n    pass\n```")).toBe(
+      '<pre><code class="language-python">if a &lt; b:\n    pass</code></pre>',
+    );
+  });
+  it("untagged fences stay plain <pre>", () => {
+    expect(telegramHtml("```\nplain\n```")).toBe("<pre>plain</pre>");
+  });
+  it("single-line ```code``` fences become inline <code>", () => {
+    expect(telegramHtml("```code```")).toBe("<code>code</code>");
+  });
+});
