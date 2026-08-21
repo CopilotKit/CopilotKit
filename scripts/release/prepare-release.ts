@@ -35,12 +35,26 @@ function generateRawReleaseNotes(
 
   const features: Commit[] = [];
   const fixes: Commit[] = [];
+  const breaking: Commit[] = [];
   const other: Commit[] = [];
 
   for (const c of summary.commits) {
-    if (/^feat[:(]/.test(c.subject)) features.push(c);
+    if (c.body.includes("BREAKING CHANGE") || c.subject.includes("!"))
+      breaking.push(c);
+    else if (/^feat[:(]/.test(c.subject)) features.push(c);
     else if (/^fix[:(]/.test(c.subject)) fixes.push(c);
     else other.push(c);
+  }
+
+  if (breaking.length > 0) {
+    lines.push("### ⚠️ BREAKING CHANGES", "");
+    for (const c of breaking) {
+      const footer = c.body.match(/BREAKING CHANGE:[^\n]*/)?.[0];
+      const note = footer ?? c.body.split("\n").find((l) => l.trim().length > 0) ?? c.subject;
+      lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
+      if (footer) lines.push(`  > ${footer}`);
+    }
+    lines.push("");
   }
 
   if (features.length > 0) {
