@@ -53,7 +53,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          CLAUDE_MODEL=claude-sonnet-4-6
+          CLAUDE_MODEL=claude-opus-4-8
           ```
 
           The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's agent server listens.
@@ -139,7 +139,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          CLAUDE_MODEL=claude-sonnet-4-6
+          CLAUDE_MODEL=claude-opus-4-8
           AGENT_PORT=8000
           ```
         </Step>
@@ -164,7 +164,7 @@ Before you begin, you'll need the following:
 
           const agent = new ClaudeAgentAdapter({
             agentId: "claude_agent",
-            model: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+            model: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
             systemPrompt: "You are a helpful assistant embedded in a CopilotKit app.",
             tools: [],
             permissionMode: "dontAsk",
