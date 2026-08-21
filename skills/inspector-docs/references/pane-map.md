@@ -15,15 +15,13 @@ Update this file in the same change that adds or removes a pane.
 | Capabilities      | no page yet                                   |                                                              | Client tool and catalog toggles. No dedicated docs page in this slice |
 | Messages          | no page yet                                   |                                                              | Thread detail tab. Covered by Threads Callout                         |
 | Angular Inspector | Angular frontend getting-started              | `open-inspector-step-angular.mdx`                            | Install page first                                                    |
+| Playground        | no page yet                                   |                                                              | Workbench scratch chat. No dedicated docs page in this slice          |
 
 ## Unshipped (no Callout)
 
-- Playground
 - Fork from here
 - Emit events
 - Pop-out window
-- Home page
-- Sidebar IA
 
 ## Surfaces that do not get the Open Inspector step
 

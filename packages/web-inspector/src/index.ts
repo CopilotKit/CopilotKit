@@ -11538,9 +11538,18 @@ ${argsString}</pre
     } finally {
       this.playgroundIsRunning = false;
       this.syncPlaygroundMessages();
-      const reasoningMessage = [...this.playgroundMessages]
-        .toReversed()
-        .find((message) => message.role === "reasoning");
+      let reasoningMessage: InspectorMessage | undefined;
+      for (
+        let index = this.playgroundMessages.length - 1;
+        index >= 0;
+        index -= 1
+      ) {
+        const message = this.playgroundMessages[index];
+        if (message?.role === "reasoning") {
+          reasoningMessage = message;
+          break;
+        }
+      }
       if (reasoningMessage?.id && this.playgroundRunStartedAt !== null) {
         this.playgroundReasoningDurations.set(
           reasoningMessage.id,
