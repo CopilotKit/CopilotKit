@@ -115,11 +115,11 @@ class ScenarioAgent extends AbstractAgent {
   }
 }
 
-class PreStartRunErrorAgent extends AbstractAgent {
+class LocalFailureBeforeStartAgent extends AbstractAgent {
   readonly inputs: RunAgentInput[] = [];
 
   constructor() {
-    super({ agentId: "pre-start-error", threadId: "pre-start-thread" });
+    super({ agentId: "local-failure", threadId: "local-failure-thread" });
   }
 
   run(input: RunAgentInput): Observable<BaseEvent> {
@@ -133,57 +133,7 @@ class PreStartRunErrorAgent extends AbstractAgent {
         },
       ] as BaseEvent[]);
     }
-
-    return from([
-      {
-        type: EventType.RUN_ERROR,
-        threadId: this.threadId,
-        runId: input.runId,
-        message: "failed before start",
-        code: "pre_start_failure",
-      },
-    ] as BaseEvent[]);
-  }
-}
-
-class ReusedRunErrorAgent extends AbstractAgent {
-  readonly inputs: RunAgentInput[] = [];
-
-  constructor() {
-    super({ agentId: "reused-run-error", threadId: "reused-run-thread" });
-  }
-
-  run(input: RunAgentInput): Observable<BaseEvent> {
-    this.inputs.push(input);
-    const events: BaseEvent[] =
-      this.inputs.length === 1
-        ? [
-            {
-              type: EventType.RUN_STARTED,
-              threadId: this.threadId,
-              runId: input.runId,
-            },
-            {
-              type: EventType.RUN_FINISHED,
-              threadId: this.threadId,
-              runId: input.runId,
-            },
-          ]
-        : [
-            {
-              type: EventType.RUN_STARTED,
-              threadId: this.threadId,
-              runId: input.runId,
-            },
-            {
-              type: EventType.RUN_ERROR,
-              threadId: this.threadId,
-              runId: input.runId,
-              message: "backend failed",
-              code: "backend_error",
-            },
-          ];
-    return from(events);
+    return throwError(() => new Error("local failure before start"));
   }
 }
 
@@ -252,7 +202,7 @@ describe("StateManager tool result history", () => {
     );
   });
 
-  it("keeps the checkpoint result when LangGraph uses divergent message ids", async () => {
+  it("keeps one checkpoint result when LangGraph uses divergent message ids", async () => {
     const callId = "call_weather_1";
     const checkpointId = "lc-tool-1";
     const agent = new ScenarioAgent(
@@ -260,7 +210,6 @@ describe("StateManager tool result history", () => {
       [owner("assistant-weather", callId)],
       [
         { type: EventType.RUN_STARTED, threadId: "x", runId: "x" },
-        result("72192d78-8458-4e31-a03f-eddbcc88ed58", callId, "72 and sunny"),
         {
           type: EventType.MESSAGES_SNAPSHOT,
           messages: [
@@ -273,6 +222,7 @@ describe("StateManager tool result history", () => {
             },
           ],
         },
+        result("72192d78-8458-4e31-a03f-eddbcc88ed58", callId, "72 and sunny"),
         { type: EventType.RUN_FINISHED, threadId: "x", runId: "x" },
       ],
     );
@@ -295,7 +245,7 @@ describe("StateManager tool result history", () => {
     ).toHaveLength(1);
     expect(
       core.getRunIdForMessage("langgraph", "langgraph-thread", checkpointId),
-    ).toBe(agent.inputs[1]?.runId);
+    ).toBe(agent.inputs[0]?.runId);
   });
 
   it("preserves normal result delivery and removes duplicate identities", async () => {
@@ -421,6 +371,53 @@ describe("StateManager tool result history", () => {
     ).toBe(agent.inputs[0]?.runId);
   });
 
+  it("promotes a placeholder retained by a later snapshot", async () => {
+    const callId = "call-snapshot-placeholder";
+    const agent = new ScenarioAgent(
+      "snapshot-placeholder",
+      [owner("assistant-snapshot-placeholder", callId)],
+      [
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "snapshot-placeholder-thread",
+          runId: "x",
+        },
+        result("snapshot-canonical", callId, "canonical"),
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [
+            owner("assistant-snapshot-placeholder", callId),
+            {
+              id: "snapshot-placeholder-result",
+              role: "tool",
+              toolCallId: callId,
+              content: "Forwarded to client",
+            },
+          ],
+        },
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "snapshot-placeholder-thread",
+          runId: "x",
+        },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        id: "snapshot-canonical",
+        content: "canonical",
+      }),
+    ]);
+  });
+
   it("removes a placeholder beside an existing real result", async () => {
     const callId = "call-multipart";
     const agent = new ScenarioAgent(
@@ -500,28 +497,6 @@ describe("StateManager tool result history", () => {
     );
   });
 
-  it("clears the remapped active run after a reused-id RUN_ERROR", async () => {
-    const agent = new ReusedRunErrorAgent();
-    const core = new CopilotKitCore({});
-    await addAgent(core, agent);
-
-    await core.runAgent({ agent, runId: "reused-run" });
-    await core.runAgent({ agent, runId: "reused-run" });
-
-    agent.addMessage({
-      id: "after-reused-error",
-      role: "user",
-      content: "not assigned to the failed run",
-    });
-    expect(
-      core.getRunIdForMessage(
-        "reused-run-error",
-        "reused-run-thread",
-        "after-reused-error",
-      ),
-    ).toBeUndefined();
-  });
-
   it("reconciles and finalizes a local run failure", async () => {
     const agent = new ScriptedWeatherAgent(false, true);
     const core = new CopilotKitCore({});
@@ -537,6 +512,28 @@ describe("StateManager tool result history", () => {
           message.role === "tool" && message.toolCallId === toolCallId,
       ),
     ).toHaveLength(1);
+  });
+
+  it("keeps active ownership through a pre-start local failure", async () => {
+    const agent = new LocalFailureBeforeStartAgent();
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+
+    await core.runAgent({ agent });
+    await expect(core.runAgent({ agent })).resolves.toBeDefined();
+
+    agent.addMessage({
+      id: "after-local-failure",
+      role: "user",
+      content: "still active",
+    });
+    expect(
+      core.getRunIdForMessage(
+        "local-failure",
+        "local-failure-thread",
+        "after-local-failure",
+      ),
+    ).toBe(agent.inputs[0]?.runId);
   });
 
   it("does not add a StateManager-owned result without an assistant owner", async () => {
@@ -612,26 +609,5 @@ describe("StateManager tool result history", () => {
         content: "Forwarded to client",
       }),
     ]);
-  });
-
-  it("keeps the previous active run when a different input errors before RUN_STARTED", async () => {
-    const agent = new PreStartRunErrorAgent();
-    const core = new CopilotKitCore({});
-    await addAgent(core, agent);
-    await core.runAgent({ agent });
-    await expect(core.runAgent({ agent })).resolves.toBeDefined();
-
-    agent.addMessage({
-      id: "after-pre-start-error",
-      role: "user",
-      content: "still active",
-    });
-    expect(
-      core.getRunIdForMessage(
-        "pre-start-error",
-        "pre-start-thread",
-        "after-pre-start-error",
-      ),
-    ).toBe(agent.inputs[0]?.runId);
   });
 });

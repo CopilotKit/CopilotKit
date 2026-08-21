@@ -12,6 +12,7 @@ import type {
 } from "@ag-ui/client";
 import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 const isContinuation = (input: RunAgentInput): boolean =>
   input.resume !== undefined ||
@@ -19,43 +20,6 @@ const isContinuation = (input: RunAgentInput): boolean =>
     (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
     "resume",
   );
-
-const normalizeToolResultContent = (content: unknown): string | null => {
-  if (typeof content === "string") return content.trim();
-
-  if (Array.isArray(content)) {
-    const text = content
-      .flatMap((part) => {
-        if (typeof part === "string") return [part];
-        if (
-          part &&
-          typeof part === "object" &&
-          "text" in part &&
-          typeof (part as { text?: unknown }).text === "string"
-        ) {
-          return [(part as { text: string }).text];
-        }
-        return [];
-      })
-      .join("")
-      .trim();
-    return text.length > 0 ? text : null;
-  }
-
-  if (
-    content &&
-    typeof content === "object" &&
-    "text" in content &&
-    typeof (content as { text?: unknown }).text === "string"
-  ) {
-    return (content as { text: string }).text.trim();
-  }
-
-  return null;
-};
-
-const isForwardedToClientPlaceholder = (content: unknown): boolean =>
-  normalizeToolResultContent(content) === "Forwarded to client";
 
 export interface CopilotKitCoreContinuationHandoff {
   cancel(): void;
@@ -189,6 +153,7 @@ export class StateManager {
       if (!events) return undefined;
 
       const messages = [...historyMessages];
+      const insertedResultIds = new Set<string>();
       let changed = false;
 
       for (const event of events.values()) {
@@ -213,9 +178,6 @@ export class StateManager {
           },
           [],
         );
-        const exactIndex = matchingIndexes.find(
-          (index) => messages[index]?.id === event.messageId,
-        );
         const realIndex = matchingIndexes.find(
           (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
         );
@@ -224,14 +186,7 @@ export class StateManager {
         );
         if (realIndex !== undefined && !realResultWasReconciled) {
           for (const duplicateIndex of matchingIndexes
-            .filter(
-              (candidateIndex) =>
-                candidateIndex !== exactIndex &&
-                (messages[candidateIndex]?.id === event.messageId ||
-                  isForwardedToClientPlaceholder(
-                    messages[candidateIndex]?.content,
-                  )),
-            )
+            .filter((candidateIndex) => candidateIndex !== realIndex)
             .sort((a, b) => b - a)) {
             messages.splice(duplicateIndex, 1);
             changed = true;
@@ -243,6 +198,15 @@ export class StateManager {
           isForwardedToClientPlaceholder(messages[index]?.content),
         );
         if (placeholderIndex !== undefined) {
+          if (isForwardedToClientPlaceholder(event.content)) {
+            for (const duplicateIndex of matchingIndexes
+              .slice(1)
+              .sort((a, b) => b - a)) {
+              messages.splice(duplicateIndex, 1);
+              changed = true;
+            }
+            continue;
+          }
           messages[placeholderIndex] = {
             ...messages[placeholderIndex],
             id: event.messageId,
@@ -272,6 +236,7 @@ export class StateManager {
         let insertIndex = ownerIndex + 1;
         while (messages[insertIndex]?.role === "tool") insertIndex++;
         messages.splice(insertIndex, 0, result);
+        insertedResultIds.add(result.id);
         changed = true;
       }
 
