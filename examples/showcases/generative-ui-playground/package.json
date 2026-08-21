@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:railway": "node --test tests/railway-deployment.test.mjs"
   },
   "dependencies": {
     "@a2a-js/sdk": "^0.2.5",

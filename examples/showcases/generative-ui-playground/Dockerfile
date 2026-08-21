@@ -1,21 +1,24 @@
 FROM node:20-slim
 
+RUN corepack enable
+
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# This demo consumes unpublished CopilotKit workspace packages, so Railway must
+# build this Dockerfile with the repository root as its build context.
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .pnpmfile.cjs .npmrc ./
+COPY patches ./patches
+COPY packages ./packages
+COPY examples/showcases/generative-ui-playground ./examples/showcases/generative-ui-playground
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+RUN pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
+RUN pnpm --filter ui-protocols-demo... build
 
-# Copy source files
-COPY . .
+WORKDIR /app/examples/showcases/generative-ui-playground
 
-# Build Next.js app
-RUN npm run build
+ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 
-# Expose port
 EXPOSE 3000
 
-# Start server
-CMD ["npm", "start"]
+CMD ["pnpm", "start", "--hostname", "0.0.0.0"]
