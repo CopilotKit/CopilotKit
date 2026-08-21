@@ -532,7 +532,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-python",
     path: "integrations/claude-sdk-python/quickstart.mdx",
     title: "Python",
-    modelEnvLine: "ANTHROPIC_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "ANTHROPIC_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.py",
       "src/agents/claude_agent_sdk_adapter.py",
@@ -543,7 +543,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-typescript",
     path: "integrations/claude-sdk-typescript/quickstart.mdx",
     title: "TypeScript",
-    modelEnvLine: "CLAUDE_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "CLAUDE_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.ts",
       "src/app/api/copilotkit/route.ts",

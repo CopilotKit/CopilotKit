@@ -25,7 +25,7 @@
 import type { LanguageModel } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import type Anthropic from "@anthropic-ai/sdk";
-import {
+import type {
   CopilotServiceAdapter,
   CopilotRuntimeChatCompletionRequest,
   CopilotRuntimeChatCompletionResponse,
@@ -40,7 +40,7 @@ import {
 import { randomId, randomUUID } from "@copilotkit/shared";
 import { convertServiceAdapterError, getSdkClientOptions } from "../shared";
 
-const DEFAULT_MODEL = "claude-3-5-sonnet-latest";
+const DEFAULT_MODEL = "claude-opus-4-8";
 
 export interface AnthropicPromptCachingConfig {
   /**
@@ -365,7 +365,7 @@ export class AnthropicAdapter implements CopilotServiceAdapter {
     try {
       const createParams = {
         system: cachedSystemPrompt,
-        model: this.model,
+        model,
         messages: cachedMessages,
         max_tokens: forwardedParameters?.maxTokens || 4096,
         ...(forwardedParameters?.temperature

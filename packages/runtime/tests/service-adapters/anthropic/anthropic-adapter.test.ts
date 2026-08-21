@@ -187,7 +187,7 @@ describe("AnthropicAdapter", () => {
 
       await adapter.process({
         threadId: "test-thread",
-        model: "claude-3-5-sonnet-latest",
+        model: "claude-sonnet-4-6",
         messages: [
           systemMessage,
           userMessage,
@@ -683,6 +683,55 @@ describe("AnthropicAdapter max_tokens default", () => {
 
     const createCallArgs = mockAnthropicCreate.mock.calls[0][0];
     expect(createCallArgs.max_tokens).toBe(8192);
+  });
+
+  it("should pass an explicit model through to Anthropic unchanged", async () => {
+    const mockAnthropic = {
+      messages: {
+        create: vi.fn(),
+      },
+    };
+
+    const adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+
+    mockEventSource = {
+      stream: vi.fn((callback) => {
+        callback({
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        });
+        return Promise.resolve();
+      }),
+    };
+
+    const retiredModel = ["claude", "3", "7", "sonnet", "latest"].join("-");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
+
+    await adapter.process({
+      threadId: "test-thread",
+      model: retiredModel,
+      messages: [systemMessage, userMessage],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    expect(mockAnthropicCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: retiredModel }),
+    );
   });
 });
 
