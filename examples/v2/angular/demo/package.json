@@ -39,6 +39,7 @@
     "highlight.js": "^11.11.1",
     "katex": "^0.16.22",
     "lit": "^3.3.1",
+    "lucide": "^0.525.0",
     "marked": "^12.0.2",
     "partial-json": "^0.1.7",
     "phoenix": "^1.8.4",
