@@ -11580,9 +11580,7 @@ ${argsString}</pre
       ? ((await stateResponse.json()) as { state?: unknown })
       : { state: {} };
     return {
-      messages: this.mapThreadMessagesToPlayground(
-        messagesBody.messages ?? [],
-      ),
+      messages: this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
       state: stateBody.state ?? {},
     };
   }
@@ -11628,7 +11626,9 @@ ${argsString}</pre
     }
   };
 
-  private handleTryFromHere = async (threadId: string | null): Promise<void> => {
+  private handleTryFromHere = async (
+    threadId: string | null,
+  ): Promise<void> => {
     if (!threadId || this.tryFromHereBusy) return;
     const thread =
       this._threads.find((candidate) => candidate.id === threadId) ?? null;
@@ -14232,9 +14232,7 @@ ${argsString}</pre
                         }
                         .tryFromHereBusy=${this.tryFromHereBusy}
                         .tryFromHereError=${this.tryFromHereError}
-                        @tryFromHere=${(
-                          event: CustomEvent<string | null>,
-                        ) => {
+                        @tryFromHere=${(event: CustomEvent<string | null>) => {
                           void this.handleTryFromHere(event.detail);
                         }}
                       ></cpk-thread-details>
