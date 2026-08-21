@@ -330,7 +330,7 @@ async function setupFixture(options: FixtureOptions) {
   opener.click();
   await flushInspector(inspector);
   const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threads) throw new Error("Threads group was not rendered");
   threads.click();

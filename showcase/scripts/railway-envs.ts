@@ -1065,13 +1065,18 @@ export const SERVICES: Record<
     // closure — same wiring as its `showcase-crewai-crews` sibling.
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
-    // STAGING-ONLY: the live Railway service currently has a serviceInstance in
-    // staging only (no prod instance is provisioned). The env-map schema models
-    // a single-env service by declaring only the env that exists — the image-ref
-    // gate then requires it in staging (findMissingServices) and never demands a
-    // (non-existent) prod instance. All values below are read verbatim from the
-    // live Railway service, not derived.
+    // The production serviceInstance was provisioned from staging via Railway
+    // environment sync, then deployed and health-verified. Both env entries
+    // below are read verbatim from the live Railway service so the image-ref
+    // gate and promote workflow now manage the integration in both envs.
     environments: {
+      prod: {
+        instanceId: "209031fe-2e02-4fbb-8f12-1276457d1916",
+        healthcheckPath: "/api/health",
+        domain:
+          "showcase-crewai-conversational-flows-production.up.railway.app",
+        probe: true,
+      },
       staging: {
         instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
         healthcheckPath: "/api/health",
