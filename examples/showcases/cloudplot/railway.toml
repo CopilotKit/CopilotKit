@@ -1,0 +1,18 @@
+[build]
+builder = "railpack"
+buildCommand = "pnpm nx run cloudplot:build"
+watchPatterns = [
+  "/examples/showcases/cloudplot/**",
+  "/packages/**",
+  "/package.json",
+  "/pnpm-lock.yaml",
+  "/pnpm-workspace.yaml",
+  "/nx.json",
+]
+
+[deploy]
+startCommand = "pnpm --filter cloudplot start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

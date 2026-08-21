@@ -1,0 +1,20 @@
+[project]
+name = "cloudplot-agent"
+version = "0.1.0"
+description = "Cloudplot LangGraph agent"
+requires-python = ">=3.12"
+dependencies = [
+  "ag-ui-langgraph[fastapi]==0.0.41",
+  "copilotkit==0.1.94",
+  "fastapi>=0.115.5,<1.0.0",
+  "langchain==1.2.15",
+  "langchain-openai==1.1.9",
+  "langgraph==1.1.6",
+  "uvicorn[standard]>=0.40.0,<1.0.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<9.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
