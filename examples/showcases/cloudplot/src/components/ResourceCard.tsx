@@ -1,6 +1,15 @@
 "use client";
 
-import { Database, Server, HardDrive, Zap, Network, Globe, Check, Loader2 } from "lucide-react";
+import {
+  Database,
+  Server,
+  HardDrive,
+  Zap,
+  Network,
+  Globe,
+  Check,
+  Loader2,
+} from "lucide-react";
 import type { ResourceType } from "@/types";
 
 type ToolCallStatus = "inProgress" | "executing" | "complete";
@@ -29,9 +38,14 @@ const resourceColors: Record<ResourceType, string> = {
   alb: "text-purple-600",
 };
 
-export function ResourceCard({ resourceType, name, status }: ResourceCardProps) {
+export function ResourceCard({
+  resourceType,
+  name,
+  status,
+}: ResourceCardProps) {
   const Icon = resourceIcons[resourceType as ResourceType] ?? Server;
-  const colorClass = resourceColors[resourceType as ResourceType] ?? "text-gray-600";
+  const colorClass =
+    resourceColors[resourceType as ResourceType] ?? "text-gray-600";
 
   return (
     <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -45,7 +59,9 @@ export function ResourceCard({ resourceType, name, status }: ResourceCardProps) 
             {resourceType}
           </span>
         </div>
-        <p className="text-sm text-gray-900 font-medium truncate">{name || "Unnamed"}</p>
+        <p className="text-sm text-gray-900 font-medium truncate">
+          {name || "Unnamed"}
+        </p>
       </div>
 
       {/* Status indicator */}
@@ -55,7 +71,9 @@ export function ResourceCard({ resourceType, name, status }: ResourceCardProps) 
             <Check className="w-4 h-4 text-emerald-600" />
           </div>
         ) : (
-          <Loader2 className={`w-4 h-4 animate-spin ${status === "executing" ? "text-amber-500" : "text-cyan-500"}`} />
+          <Loader2
+            className={`w-4 h-4 animate-spin ${status === "executing" ? "text-amber-500" : "text-cyan-500"}`}
+          />
         )}
       </div>
     </div>

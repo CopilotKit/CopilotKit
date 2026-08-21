@@ -30,23 +30,48 @@ describe("useBranchManager", () => {
 
     let branchId = "";
     act(() => {
-      branchId = first.result.current.createBranch("experiment", { state: stateA, messages: [] }).id;
+      branchId = first.result.current.createBranch("experiment", {
+        state: stateA,
+        messages: [],
+      }).id;
     });
 
-    const fork = first.result.current.branches.find((branch) => branch.id === branchId);
+    const fork = first.result.current.branches.find(
+      (branch) => branch.id === branchId,
+    );
     expect(fork?.threadId).not.toBe(first.result.current.branches[0].threadId);
-    expect(first.result.current.getBranchState(branchId)?.state.nodes.map((node) => node.id)).toEqual(["vpc-a"]);
+    expect(
+      first.result.current
+        .getBranchState(branchId)
+        ?.state.nodes.map((node) => node.id),
+    ).toEqual(["vpc-a"]);
 
     stateA.nodes.length = 0;
-    expect(first.result.current.getBranchState(branchId)?.state.nodes.map((node) => node.id)).toEqual(["vpc-a"]);
+    expect(
+      first.result.current
+        .getBranchState(branchId)
+        ?.state.nodes.map((node) => node.id),
+    ).toEqual(["vpc-a"]);
 
-    await waitFor(() => expect(localStorage.getItem("cloudplot_branch_states")).toContain(branchId));
+    await waitFor(() =>
+      expect(localStorage.getItem("cloudplot_branch_states")).toContain(
+        branchId,
+      ),
+    );
     first.unmount();
 
     const recovered = renderHook(() => useBranchManager());
     await waitFor(() => expect(recovered.result.current.isHydrated).toBe(true));
-    expect(recovered.result.current.branches.some((branch) => branch.id === branchId)).toBe(true);
-    expect(recovered.result.current.getBranchState(branchId)?.state.nodes.map((node) => node.id)).toEqual(["vpc-a"]);
+    expect(
+      recovered.result.current.branches.some(
+        (branch) => branch.id === branchId,
+      ),
+    ).toBe(true);
+    expect(
+      recovered.result.current
+        .getBranchState(branchId)
+        ?.state.nodes.map((node) => node.id),
+    ).toEqual(["vpc-a"]);
   });
 
   it("starts with no recovered experiment in a fresh profile", async () => {

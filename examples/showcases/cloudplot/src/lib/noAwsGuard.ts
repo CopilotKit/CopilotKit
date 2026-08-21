@@ -53,9 +53,18 @@ export function classifyAwsEgress(input: string): NoAwsGuardEvent | null {
   return null;
 }
 
-export function classifyAwsCredentialVariable(name: string): NoAwsGuardEvent | null {
-  if (forbiddenCredentialVariables.includes(name as (typeof forbiddenCredentialVariables)[number])) {
-    return { class: "forbidden-credential-variable", subjectDigest: digestSubject(name) };
+export function classifyAwsCredentialVariable(
+  name: string,
+): NoAwsGuardEvent | null {
+  if (
+    forbiddenCredentialVariables.includes(
+      name as (typeof forbiddenCredentialVariables)[number],
+    )
+  ) {
+    return {
+      class: "forbidden-credential-variable",
+      subjectDigest: digestSubject(name),
+    };
   }
 
   return null;
@@ -63,15 +72,22 @@ export function classifyAwsCredentialVariable(name: string): NoAwsGuardEvent | n
 
 export function classifyAwsSigning(input: string): NoAwsGuardEvent | null {
   if (/sigv4|aws4|credential-provider/i.test(input)) {
-    return { class: "forbidden-signing", subjectDigest: digestSubject("aws-signing") };
+    return {
+      class: "forbidden-signing",
+      subjectDigest: digestSubject("aws-signing"),
+    };
   }
 
   return null;
 }
 
-export function classifyAwsCredentialFile(input: string): NoAwsGuardEvent | null {
+export function classifyAwsCredentialFile(
+  input: string,
+): NoAwsGuardEvent | null {
   const normalized = input.toLowerCase().replaceAll("\\", "/");
-  const credentialFile = forbiddenCredentialFiles.find((suffix) => normalized.endsWith(suffix));
+  const credentialFile = forbiddenCredentialFiles.find((suffix) =>
+    normalized.endsWith(suffix),
+  );
 
   if (credentialFile) {
     return {
@@ -109,7 +125,9 @@ function hostFromConnectionArgs(args: unknown[]): string {
 export function installNoAwsGuard(): () => void {
   for (const variableName of forbiddenCredentialVariables) {
     if (variableName in process.env) {
-      throw new Error("Cloudplot simulation attempted forbidden-credential-variable");
+      throw new Error(
+        "Cloudplot simulation attempted forbidden-credential-variable",
+      );
     }
   }
 
@@ -122,7 +140,10 @@ export function installNoAwsGuard(): () => void {
   let restored = false;
 
   globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-    const subject = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+    const subject =
+      typeof input === "string" || input instanceof URL
+        ? String(input)
+        : input.url;
     assertNoAwsBoundary(subject);
     return originalFetch(input, init);
   }) as typeof globalThis.fetch;

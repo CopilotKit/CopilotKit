@@ -19,19 +19,19 @@ cp agent/.env.example agent/.env
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and start designing: *"Build a 3-tier web app with VPC, load balancer, and RDS"*
+Open [http://localhost:3000](http://localhost:3000) and start designing: _"Build a 3-tier web app with VPC, load balancer, and RDS"_
 
 ## What This Demo Shows
 
 CloudPlot demonstrates CopilotKit V2 APIs for building production-grade AI applications. The infrastructure actions are simulation-only; the demo does not call AWS APIs or use AWS credentials.
 
-| Feature | V2 API Used | What It Enables |
-|---------|-------------|-----------------|
-| Real-time canvas updates | `useAgent` + state sync | Agent changes appear instantly on canvas |
-| Generative UI cards | `useFrontendTool` | Rich tool call visualization in chat |
-| Approval workflows | `useHumanInTheLoop` | HITL for high-risk infrastructure changes |
-| Conversation branching | `CopilotSidebar` + `threadId` | Explore alternatives without losing work |
-| Tool execution logs | Event subscriptions | Track agent reasoning and actions |
+| Feature                  | V2 API Used                   | What It Enables                           |
+| ------------------------ | ----------------------------- | ----------------------------------------- |
+| Real-time canvas updates | `useAgent` + state sync       | Agent changes appear instantly on canvas  |
+| Generative UI cards      | `useFrontendTool`             | Rich tool call visualization in chat      |
+| Approval workflows       | `useHumanInTheLoop`           | HITL for high-risk infrastructure changes |
+| Conversation branching   | `CopilotSidebar` + `threadId` | Explore alternatives without losing work  |
+| Tool execution logs      | Event subscriptions           | Track agent reasoning and actions         |
 
 ---
 
@@ -282,6 +282,7 @@ pnpm test          # Deterministic fixture and safety tests
 ### Pattern 1: Shared State for Visual Builders
 
 Any app where an AI modifies a visual canvas benefits from CopilotKit's state sync:
+
 - Diagram editors (architecture, flowcharts, ERDs)
 - Design tools (UI mockups, slide decks)
 - Data pipeline builders
@@ -289,6 +290,7 @@ Any app where an AI modifies a visual canvas benefits from CopilotKit's state sy
 ### Pattern 2: Tool Call Visualization
 
 Use `useFrontendTool` whenever tool execution benefits from rich feedback:
+
 - Code generation (show file diffs)
 - API calls (show request/response)
 - Database operations (show affected rows)
@@ -296,6 +298,7 @@ Use `useFrontendTool` whenever tool execution benefits from rich feedback:
 ### Pattern 3: Human-in-the-Loop for Sensitive Operations
 
 Wrap high-impact actions with `useHumanInTheLoop`:
+
 - Database schema changes
 - External API calls with side effects
 - Actions that incur costs
@@ -303,6 +306,7 @@ Wrap high-impact actions with `useHumanInTheLoop`:
 ### Pattern 4: Event-Driven UI Updates
 
 Use event subscriptions to keep UI responsive:
+
 - Progress indicators during long operations
 - Auto-scroll chat on new messages
 - Canvas auto-fit when resources added
@@ -319,10 +323,10 @@ Use event subscriptions to keep UI responsive:
 
 Deploy Cloudplot as two services from the same merged CopilotKit revision:
 
-| Service | Root directory | Required variables |
-| --- | --- | --- |
-| Frontend | `examples/showcases/cloudplot` | `LANGGRAPH_DEPLOYMENT_URL`; optional `LANGSMITH_API_KEY`; platform `PORT` |
-| Agent | `examples/showcases/cloudplot/agent` | `OPENAI_API_KEY`; platform `PORT` |
+| Service  | Root directory                       | Required variables                                                        |
+| -------- | ------------------------------------ | ------------------------------------------------------------------------- |
+| Frontend | `examples/showcases/cloudplot`       | `LANGGRAPH_DEPLOYMENT_URL`; optional `LANGSMITH_API_KEY`; platform `PORT` |
+| Agent    | `examples/showcases/cloudplot/agent` | `OPENAI_API_KEY`; platform `PORT`                                         |
 
 Set `LANGGRAPH_DEPLOYMENT_URL` on the frontend to the agent service URL after the agent is deployed. Do not configure AWS keys; Cloudplot intentionally keeps deployment actions simulated.
 Railway probes the frontend at `GET /api/health` and the LangGraph Agent Server's built-in health endpoint at `GET /ok`, which returns `{"ok":true}`.
@@ -330,10 +334,12 @@ Railway probes the frontend at `GET /api/health` and the LangGraph Agent Server'
 ## Troubleshooting
 
 **Agent not responding?**
+
 - Check `agent/.env` has valid `OPENAI_API_KEY`
 - Verify agent is running on port 8123 locally or that `LANGGRAPH_DEPLOYMENT_URL` points to the deployed agent service
 
 **Canvas not updating?**
+
 - Check browser console for React Flow errors
 - Ensure `useCloudPlotAgent` hook is properly connected
 

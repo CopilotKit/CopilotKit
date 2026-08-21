@@ -24,11 +24,18 @@ const pulseVariant = {
 export function useInfraApproval() {
   useHumanInTheLoop({
     name: "approveDeployment",
-    description: "Request human approval for infrastructure deployment or high-risk changes",
+    description:
+      "Request human approval for infrastructure deployment or high-risk changes",
     parameters: z.object({
-      action: z.string().describe("Description of the action requiring approval"),
-      resources: z.array(z.string()).describe("List of affected resource names"),
-      cost_impact: z.string().describe("Estimated cost impact (e.g., '+$45.50/mo')"),
+      action: z
+        .string()
+        .describe("Description of the action requiring approval"),
+      resources: z
+        .array(z.string())
+        .describe("List of affected resource names"),
+      cost_impact: z
+        .string()
+        .describe("Estimated cost impact (e.g., '+$45.50/mo')"),
       risk_level: z
         .enum(["low", "medium", "high"])
         .describe("Risk level of the action"),

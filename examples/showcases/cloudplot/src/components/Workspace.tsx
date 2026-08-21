@@ -10,11 +10,7 @@ interface WorkspaceProps {
   onSelectPill?: (content: string) => void;
 }
 
-export function Workspace({
-  resources,
-  cost,
-  onSelectPill,
-}: WorkspaceProps) {
+export function Workspace({ resources, cost, onSelectPill }: WorkspaceProps) {
   // Separate VPCs from standalone resources
   const vpcs = resources.filter((r) => r.type === "vpc");
   const standalone = resources.filter((r) => !r.parentId && r.type !== "vpc");

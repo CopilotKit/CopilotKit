@@ -22,7 +22,14 @@ describe("Cloudplot contract fixture", () => {
   });
 
   it("defines the retained six-resource by five-operation matrix", () => {
-    expect(CLOUDPLOT_RESOURCE_TYPES).toEqual(["vpc", "alb", "ec2", "lambda", "rds", "s3"]);
+    expect(CLOUDPLOT_RESOURCE_TYPES).toEqual([
+      "vpc",
+      "alb",
+      "ec2",
+      "lambda",
+      "rds",
+      "s3",
+    ]);
 
     for (const resourceType of CLOUDPLOT_RESOURCE_TYPES) {
       expect(CLOUDPLOT_OPERATION_MATRIX[resourceType]).toMatchObject({
@@ -66,7 +73,12 @@ describe("Cloudplot contract fixture", () => {
       { id: "unencrypted-db", type: "rds", config: { encryption: false } },
       { id: "orphaned-db", type: "rds", config: { encryption: true } },
       { id: "orphaned-compute", type: "ec2", config: {} },
-      { id: "big-lambda", type: "lambda", config: { memory: 4096 }, parentId: "missing-vpc" },
+      {
+        id: "big-lambda",
+        type: "lambda",
+        config: { memory: 4096 },
+        parentId: "missing-vpc",
+      },
     ]);
 
     expect(findings.map((finding) => finding.code)).toEqual([

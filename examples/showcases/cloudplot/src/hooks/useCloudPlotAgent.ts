@@ -28,7 +28,7 @@ export function useCloudPlotAgent() {
     (newState: CloudPlotAgentState) => {
       agent.setState(newState);
     },
-    [agent]
+    [agent],
   );
 
   // Initialize state if empty on mount
@@ -90,7 +90,7 @@ export function useCloudPlotAgent() {
       // Trigger the agent to process the message
       agent.runAgent();
     },
-    [agent]
+    [agent],
   );
 
   return {

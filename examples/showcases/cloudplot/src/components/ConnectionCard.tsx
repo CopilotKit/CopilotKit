@@ -10,13 +10,21 @@ interface ConnectionCardProps {
   status: ToolCallStatus;
 }
 
-export function ConnectionCard({ source, target, status }: ConnectionCardProps) {
+export function ConnectionCard({
+  source,
+  target,
+  status,
+}: ConnectionCardProps) {
   return (
     <div className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
       <div className="flex-1 flex items-center gap-2 min-w-0">
-        <span className="text-sm text-cyan-700 font-medium truncate">{source}</span>
+        <span className="text-sm text-cyan-700 font-medium truncate">
+          {source}
+        </span>
         <ArrowRight className="w-4 h-4 text-gray-400 shrink-0" />
-        <span className="text-sm text-emerald-700 font-medium truncate">{target}</span>
+        <span className="text-sm text-emerald-700 font-medium truncate">
+          {target}
+        </span>
       </div>
 
       {/* Status indicator */}
@@ -26,7 +34,9 @@ export function ConnectionCard({ source, target, status }: ConnectionCardProps) 
             <Check className="w-4 h-4 text-emerald-600" />
           </div>
         ) : (
-          <Loader2 className={`w-4 h-4 animate-spin ${status === "executing" ? "text-amber-500" : "text-cyan-500"}`} />
+          <Loader2
+            className={`w-4 h-4 animate-spin ${status === "executing" ? "text-amber-500" : "text-cyan-500"}`}
+          />
         )}
       </div>
     </div>

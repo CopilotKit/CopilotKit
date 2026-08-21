@@ -13,7 +13,10 @@ interface ApprovalCardProps {
   onReject: () => void;
 }
 
-const riskConfig: Record<RiskLevel, { colorClass: string; bgClass: string; borderClass: string }> = {
+const riskConfig: Record<
+  RiskLevel,
+  { colorClass: string; bgClass: string; borderClass: string }
+> = {
   low: {
     colorClass: "text-emerald-600",
     bgClass: "bg-emerald-100",
@@ -54,9 +57,12 @@ export function ApprovalCard({
           <AlertTriangle className={`w-5 h-5 ${colorClass}`} />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Approval Required</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Approval Required
+          </h3>
           <p className={`text-sm ${colorClass}`}>
-            {risk_level.charAt(0).toUpperCase() + risk_level.slice(1)} Risk Action
+            {risk_level.charAt(0).toUpperCase() + risk_level.slice(1)} Risk
+            Action
           </p>
         </div>
       </div>

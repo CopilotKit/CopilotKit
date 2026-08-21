@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import type { Branch, BranchState, CloudPlotAgentState, AgentMessage } from "@/types";
+import type {
+  Branch,
+  BranchState,
+  CloudPlotAgentState,
+  AgentMessage,
+} from "@/types";
 
 const BRANCHES_KEY = "cloudplot_branches";
 const BRANCH_STATES_KEY = "cloudplot_branch_states";
@@ -17,7 +22,9 @@ const SSR_DEFAULT_BRANCH: Branch = {
 export function useBranchManager() {
   // Start with SSR-safe defaults
   const [branches, setBranches] = useState<Branch[]>([SSR_DEFAULT_BRANCH]);
-  const [branchStates, setBranchStates] = useState<Record<string, BranchState>>({});
+  const [branchStates, setBranchStates] = useState<Record<string, BranchState>>(
+    {},
+  );
   const [currentBranchId, setCurrentBranchId] = useState("main");
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -77,13 +84,17 @@ export function useBranchManager() {
 
   // Save state for a specific branch
   const saveBranchState = useCallback(
-    (branchId: string, state: CloudPlotAgentState, messages: AgentMessage[]) => {
+    (
+      branchId: string,
+      state: CloudPlotAgentState,
+      messages: AgentMessage[],
+    ) => {
       setBranchStates((prev) => ({
         ...prev,
         [branchId]: { state, messages },
       }));
     },
-    []
+    [],
   );
 
   // Get state for a specific branch (returns null if not saved yet)
@@ -91,12 +102,15 @@ export function useBranchManager() {
     (branchId: string): BranchState | null => {
       return branchStates[branchId] || null;
     },
-    [branchStates]
+    [branchStates],
   );
 
   // Create a new branch with its own thread
   const createBranch = useCallback(
-    (name: string, forkState?: { state: CloudPlotAgentState; messages: AgentMessage[] }) => {
+    (
+      name: string,
+      forkState?: { state: CloudPlotAgentState; messages: AgentMessage[] },
+    ) => {
       const newBranch: Branch = {
         id: crypto.randomUUID(),
         name,
@@ -116,7 +130,7 @@ export function useBranchManager() {
       setCurrentBranchId(newBranch.id);
       return newBranch;
     },
-    []
+    [],
   );
 
   // Switch to a different branch
@@ -126,7 +140,7 @@ export function useBranchManager() {
 
   const currentBranch = useMemo(
     () => branches.find((b) => b.id === currentBranchId) ?? branches[0],
-    [branches, currentBranchId]
+    [branches, currentBranchId],
   );
 
   return {

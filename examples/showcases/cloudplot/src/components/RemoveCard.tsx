@@ -18,9 +18,7 @@ export function RemoveCard({ resourceId, status }: RemoveCardProps) {
         <div className="text-sm font-medium text-gray-900 truncate">
           Removing resource
         </div>
-        <div className="text-xs text-gray-500 truncate">
-          {resourceId}
-        </div>
+        <div className="text-xs text-gray-500 truncate">{resourceId}</div>
       </div>
 
       <div className="flex-shrink-0">

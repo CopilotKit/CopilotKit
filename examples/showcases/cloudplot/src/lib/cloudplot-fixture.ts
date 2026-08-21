@@ -1,6 +1,11 @@
 import type { CloudPlotAgentState, ResourceType } from "@/types";
 
-export type CloudplotOperation = "add" | "connect" | "update" | "remove" | "VPC-move";
+export type CloudplotOperation =
+  | "add"
+  | "connect"
+  | "update"
+  | "remove"
+  | "VPC-move";
 
 export type CloudplotValidationCode =
   | "s3-public-access"
@@ -40,18 +45,66 @@ export const CLOUDPLOT_QUICK_START_PROMPTS = [
   "Design a VPC with multiple EC2 instances and an RDS database for high availability",
 ] as const;
 
-export const CLOUDPLOT_RESOURCE_TYPES = ["vpc", "alb", "ec2", "lambda", "rds", "s3"] as const;
+export const CLOUDPLOT_RESOURCE_TYPES = [
+  "vpc",
+  "alb",
+  "ec2",
+  "lambda",
+  "rds",
+  "s3",
+] as const;
 
-export const CLOUDPLOT_OPERATION_MATRIX: Record<ResourceType, Record<CloudplotOperation, boolean>> = {
-  vpc: { add: true, connect: true, update: true, remove: true, "VPC-move": false },
-  alb: { add: true, connect: true, update: true, remove: true, "VPC-move": true },
-  ec2: { add: true, connect: true, update: true, remove: true, "VPC-move": true },
-  lambda: { add: true, connect: true, update: true, remove: true, "VPC-move": true },
-  rds: { add: true, connect: true, update: true, remove: true, "VPC-move": true },
-  s3: { add: true, connect: true, update: true, remove: true, "VPC-move": false },
+export const CLOUDPLOT_OPERATION_MATRIX: Record<
+  ResourceType,
+  Record<CloudplotOperation, boolean>
+> = {
+  vpc: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": false,
+  },
+  alb: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": true,
+  },
+  ec2: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": true,
+  },
+  lambda: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": true,
+  },
+  rds: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": true,
+  },
+  s3: {
+    add: true,
+    connect: true,
+    update: true,
+    remove: true,
+    "VPC-move": false,
+  },
 };
 
-export const CLOUDPLOT_VALID_CONNECTIONS: Array<readonly [ResourceType, ResourceType]> = [
+export const CLOUDPLOT_VALID_CONNECTIONS: Array<
+  readonly [ResourceType, ResourceType]
+> = [
   ["alb", "ec2"],
   ["ec2", "rds"],
   ["lambda", "s3"],
@@ -80,23 +133,35 @@ const RESOURCE_PRICING = {
 export function calculateResourceCost(node: CloudplotNodeData): number {
   if (node.type === "ec2") {
     const instanceType = String(node.config?.instance_type ?? "default");
-    return RESOURCE_PRICING.ec2[instanceType as keyof typeof RESOURCE_PRICING.ec2] ?? RESOURCE_PRICING.ec2.default;
+    return (
+      RESOURCE_PRICING.ec2[instanceType as keyof typeof RESOURCE_PRICING.ec2] ??
+      RESOURCE_PRICING.ec2.default
+    );
   }
 
   if (node.type === "rds") {
     const instanceClass = String(node.config?.instance_class ?? "default");
-    return RESOURCE_PRICING.rds[instanceClass as keyof typeof RESOURCE_PRICING.rds] ?? RESOURCE_PRICING.rds.default;
+    return (
+      RESOURCE_PRICING.rds[
+        instanceClass as keyof typeof RESOURCE_PRICING.rds
+      ] ?? RESOURCE_PRICING.rds.default
+    );
   }
 
   return RESOURCE_PRICING[node.type];
 }
 
 export function calculateArchitectureCost(nodes: CloudplotNodeData[]): number {
-  const total = nodes.reduce((sum, node) => sum + calculateResourceCost(node), 0);
+  const total = nodes.reduce(
+    (sum, node) => sum + calculateResourceCost(node),
+    0,
+  );
   return Number(total.toFixed(2));
 }
 
-export function validateArchitecture(nodes: CloudplotNodeData[]): CloudplotValidationFinding[] {
+export function validateArchitecture(
+  nodes: CloudplotNodeData[],
+): CloudplotValidationFinding[] {
   const findings: CloudplotValidationFinding[] = [];
   const parentFindings: CloudplotValidationFinding[] = [];
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -121,7 +186,13 @@ export function validateArchitecture(nodes: CloudplotNodeData[]): CloudplotValid
       });
     }
 
-    if ((node.type === "ec2" || node.type === "lambda" || node.type === "rds" || node.type === "alb") && node.parentId) {
+    if (
+      (node.type === "ec2" ||
+        node.type === "lambda" ||
+        node.type === "rds" ||
+        node.type === "alb") &&
+      node.parentId
+    ) {
       if (!nodeIds.has(node.parentId)) {
         parentFindings.push({
           code: "invalid-vpc-parent",
@@ -135,7 +206,11 @@ export function validateArchitecture(nodes: CloudplotNodeData[]): CloudplotValid
   }
 
   for (const node of nodes) {
-    if (node.type === "rds" && !node.parentId && !connectedTargets.has(node.id)) {
+    if (
+      node.type === "rds" &&
+      !node.parentId &&
+      !connectedTargets.has(node.id)
+    ) {
       findings.push({
         code: "rds-orphaned",
         level: "warning",
@@ -158,7 +233,8 @@ export function validateArchitecture(nodes: CloudplotNodeData[]): CloudplotValid
         code: "lambda-memory-too-high",
         level: "warning",
         nodeId: node.id,
-        message: "Lambda memory is above the retained 3008 MB warning threshold.",
+        message:
+          "Lambda memory is above the retained 3008 MB warning threshold.",
       });
     }
   }
@@ -175,7 +251,9 @@ export function removeResource(
 ): { nodes: CloudplotNodeData[]; edges: CloudplotEdgeData[] } {
   return {
     nodes: nodes.filter((node) => node.id !== resourceId),
-    edges: edges.filter((edge) => edge.source !== resourceId && edge.target !== resourceId),
+    edges: edges.filter(
+      (edge) => edge.source !== resourceId && edge.target !== resourceId,
+    ),
   };
 }
 

@@ -51,14 +51,7 @@
       }
     }
   ],
-  "resource_types": [
-    "vpc",
-    "alb",
-    "ec2",
-    "lambda",
-    "rds",
-    "s3"
-  ],
+  "resource_types": ["vpc", "alb", "ec2", "lambda", "rds", "s3"],
   "resource_type_evidence": {
     "source_repo": "https://github.com/markmdev/cloudplot",
     "source_sha": "519122234752ab9f85912bf873f4f11ccf68c5c6",
@@ -67,13 +60,7 @@
     "end_line": 24,
     "source_snippet_sha256": "d9760018014741771a67eee5145065e3eb7d0d91779667d3f89509591a323126"
   },
-  "operations": [
-    "add",
-    "connect",
-    "update",
-    "remove",
-    "VPC-move"
-  ],
+  "operations": ["add", "connect", "update", "remove", "VPC-move"],
   "operation_matrix": {
     "vpc": {
       "add": {
@@ -525,21 +512,10 @@
       }
     ],
     "expected_state": {
-      "resource_types": [
-        "vpc",
-        "alb",
-        "ec2",
-        "rds"
-      ],
+      "resource_types": ["vpc", "alb", "ec2", "rds"],
       "connections": [
-        [
-          "alb-1",
-          "ec2-1"
-        ],
-        [
-          "ec2-1",
-          "rds-1"
-        ]
+        ["alb-1", "ec2-1"],
+        ["ec2-1", "rds-1"]
       ],
       "cost": 59.21,
       "status": "idle",
@@ -622,9 +598,7 @@
         "step": "create-A",
         "branch_id": "branch-a",
         "thread_id": "thread-a",
-        "node_ids": [
-          "vpc-a"
-        ]
+        "node_ids": ["vpc-a"]
       },
       {
         "step": "fork-B",
@@ -635,34 +609,23 @@
       {
         "step": "mutate-B",
         "branch_id": "branch-b",
-        "node_ids": [
-          "vpc-a",
-          "ec2-b"
-        ]
+        "node_ids": ["vpc-a", "ec2-b"]
       },
       {
         "step": "switch-A",
         "branch_id": "branch-a",
-        "expect_node_ids": [
-          "vpc-a"
-        ],
+        "expect_node_ids": ["vpc-a"],
         "expect_thread_id": "thread-a"
       },
       {
         "step": "switch-B",
         "branch_id": "branch-b",
-        "expect_node_ids": [
-          "vpc-a",
-          "ec2-b"
-        ],
+        "expect_node_ids": ["vpc-a", "ec2-b"],
         "expect_thread_id": "thread-b"
       },
       {
         "step": "reload-same-profile",
-        "recover_branch_ids": [
-          "branch-a",
-          "branch-b"
-        ]
+        "recover_branch_ids": ["branch-a", "branch-b"]
       },
       {
         "step": "fresh-profile",
@@ -689,10 +652,7 @@
     }
   },
   "approval": {
-    "decisions": [
-      "approved",
-      "rejected"
-    ],
+    "decisions": ["approved", "rejected"],
     "rejection_preserves_pre_action_state": true,
     "simulation_copy": "Simulation only — no AWS resources will be created."
   },
