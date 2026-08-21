@@ -744,6 +744,38 @@ describe("AgentStore.interruptController", () => {
     ]);
   });
 
+  it("sendMessage adds a user message and starts a run", async () => {
+    const agent = new MockAgent("agent-1");
+    copilotKitStub.setAgents({ "agent-1": agent });
+    const agentId = signal<string | undefined>("agent-1");
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class SendHost {
+      readonly store = injectAgentStore(agentId);
+    }
+
+    const fixture = TestBed.createComponent(SendHost);
+    fixture.detectChanges();
+    const store = fixture.componentInstance.store();
+
+    await store.sendMessage("hello", {
+      forwardedProps: { source: "test" },
+    });
+
+    expect(agent.messages).toHaveLength(1);
+    expect(agent.messages[0].role).toBe("user");
+    expect((agent.messages[0] as { content: string }).content).toBe("hello");
+    expect(copilotKitStub.runAgent).toHaveBeenCalledTimes(1);
+    const [runArgs] = copilotKitStub.runAgent.mock.calls[0] as [
+      { agent: AbstractAgent; forwardedProps?: Record<string, unknown> },
+    ];
+    expect(runArgs.agent).toBe(agent);
+    expect(runArgs.forwardedProps).toEqual({ source: "test" });
+  });
+
   it.skip("clears the store interrupt as soon as its agent changes threads", () => {
     const agent = new MockAgent("agent-1");
     agent.threadId = "thread-a";

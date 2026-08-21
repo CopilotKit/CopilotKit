@@ -9,9 +9,9 @@ import {
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import { InterruptController, type InterruptRunner } from "./interrupt";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, UserMessage } from "@ag-ui/client";
 import type { AgentSubscriber, Message, State } from "@ag-ui/client";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   ProxiedCopilotRuntimeAgent,
@@ -22,6 +22,22 @@ import {
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
+type RunAgentFn = (
+  args: {
+    agent: AbstractAgent;
+    forwardedProps?: Record<string, unknown>;
+  },
+) => Promise<unknown>;
+export type SendMessageInput = string | UserMessage["content"];
+export type SendMessageOptions = {
+  forwardedProps?: Record<string, unknown>;
+};
+
+const missingRunAgent: RunAgentFn = async () => {
+  throw new Error(
+    "AgentStore.sendMessage requires a store created by injectAgentStore().",
+  );
+};
 type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
 type AgentWithCredentials = AbstractAgent & {
   credentials?: RequestCredentials;
@@ -59,15 +75,33 @@ export class AgentStore {
   readonly state: Signal<unknown>;
   /** Unfiltered interrupt controller bound to this store's agent. */
   readonly interruptController: InterruptController;
+  /** Send a user message to this store's agent and start a run. */
+  readonly sendMessage: (
+    input: SendMessageInput,
+    options?: SendMessageOptions,
+  ) => Promise<void>;
 
   constructor(
     abstractAgent: AbstractAgent,
     destroyRef: DestroyRef,
     subscribeToAgent: SubscribeToAgentFn,
     interruptRunner: InterruptRunner = missingInterruptRunner,
+    runAgent: RunAgentFn = missingRunAgent,
   ) {
     this.agent = abstractAgent;
     this.interruptController = new InterruptController(interruptRunner);
+    this.sendMessage = async (input, options) => {
+      const message: UserMessage = {
+        id: randomUUID(),
+        role: "user",
+        content: input,
+      };
+      this.agent.addMessage(message);
+      await runAgent({
+        agent: this.agent,
+        forwardedProps: options?.forwardedProps,
+      });
+    };
     // A connected agent can already carry restored thread data before this
     // store subscribes. Seed the signals synchronously so the first render is
     // complete instead of waiting for a future mutation that may never occur.
@@ -147,6 +181,8 @@ export class CopilotkitAgentFactory {
       );
     const interruptRunner: InterruptRunner = (agent, runOptions) =>
       this.#copilotkit.core.runAgent({ agent, ...runOptions });
+    const runAgent: RunAgentFn = (args) =>
+      this.#copilotkit.core.runAgent(args);
 
     const resolveAgent = (): AbstractAgent => {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
@@ -237,6 +273,7 @@ export class CopilotkitAgentFactory {
         destroyRef,
         subscribeToAgent,
         interruptRunner,
+        runAgent,
       );
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const handoff = this.#provisionalCache.get(resolvedAgentId);
