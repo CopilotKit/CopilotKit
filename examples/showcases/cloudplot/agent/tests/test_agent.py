@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END
+from langgraph.runtime import Runtime
 
 import main
 
@@ -166,6 +167,57 @@ class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(updated["edges"], state["edges"])
                 self.assertEqual(updated["logs"][-1]["type"], "warning")
                 self.assertIn("does not exist", updated["logs"][-1]["message"])
+
+    async def test_tool_wrapper_reports_rejected_mutations_as_failures(self):
+        state = base_state(
+            nodes=[
+                {"id": "vpc-1", "type": "vpc", "config": {}, "position": {}},
+                {"id": "ec2-1", "type": "ec2", "config": {}, "position": {}},
+            ],
+        )
+        operations = [
+            (
+                "connect_resources",
+                {"source_id": "ec2-1", "target_id": "missing-target"},
+            ),
+            (
+                "update_resource",
+                {"resource_id": "missing-resource", "updates": {"size": "large"}},
+            ),
+            (
+                "move_to_vpc",
+                {"resource_id": "missing-resource", "vpc_id": "vpc-1"},
+            ),
+            (
+                "move_to_vpc",
+                {"resource_id": "ec2-1", "vpc_id": "missing-vpc"},
+            ),
+        ]
+
+        for index, (tool_name, args) in enumerate(operations):
+            with self.subTest(tool_name=tool_name):
+                tool_call = AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": tool_name,
+                            "args": args,
+                            "id": f"rejected-{index}",
+                            "type": "tool_call",
+                        }
+                    ],
+                )
+                command = await main.tool_node_wrapper(
+                    {**state, "messages": [tool_call]},
+                    {"configurable": {"__pregel_runtime": Runtime()}},
+                )
+
+                self.assertEqual(command.update["nodes"], state["nodes"])
+                self.assertEqual(command.update["edges"], state["edges"])
+                response = command.update["messages"][0].content
+                self.assertIn('"success": false', response)
+                self.assertIn("does not exist", response)
+                self.assertNotIn('"success": true', response)
 
     async def test_validation_and_cost_run_against_production_nodes(self):
         nodes = [

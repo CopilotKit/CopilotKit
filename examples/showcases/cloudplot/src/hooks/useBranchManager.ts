@@ -84,7 +84,8 @@ function isBranchState(value: unknown): value is BranchState {
   const branchState = value as Partial<BranchState>;
   return (
     isCloudPlotAgentState(branchState.state) &&
-    Array.isArray(branchState.messages)
+    Array.isArray(branchState.messages) &&
+    branchState.messages.every(isAgentMessage)
   );
 }
 
@@ -93,14 +94,151 @@ function isCloudPlotAgentState(value: unknown): value is CloudPlotAgentState {
   const state = value as Partial<CloudPlotAgentState>;
   return (
     Array.isArray(state.nodes) &&
+    state.nodes.every(isAWSNodeData) &&
     Array.isArray(state.edges) &&
+    state.edges.every(isEdgeData) &&
     Array.isArray(state.logs) &&
+    state.logs.every(isThoughtLogEntry) &&
     typeof state.cost === "number" &&
     Number.isFinite(state.cost) &&
     (state.status === "idle" ||
       state.status === "designing" ||
       state.status === "validating") &&
-    Array.isArray(state.validation_errors)
+    Array.isArray(state.validation_errors) &&
+    state.validation_errors.every(isValidationResult)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every(isFiniteNumber);
+}
+
+function isResourceConfig(type: unknown, value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.name !== undefined && typeof value.name !== "string") return false;
+
+  switch (type) {
+    case "s3":
+      return (
+        typeof value.bucket_name === "string" &&
+        (value.access_level === "public" || value.access_level === "private") &&
+        typeof value.versioning === "boolean"
+      );
+    case "ec2":
+      return (
+        typeof value.instance_type === "string" &&
+        typeof value.ami === "string" &&
+        (value.security_group === undefined ||
+          typeof value.security_group === "string")
+      );
+    case "rds":
+      return (
+        typeof value.engine === "string" &&
+        typeof value.instance_class === "string" &&
+        typeof value.multi_az === "boolean" &&
+        typeof value.encryption === "boolean"
+      );
+    case "lambda":
+      return (
+        typeof value.runtime === "string" &&
+        isFiniteNumber(value.memory) &&
+        isFiniteNumber(value.timeout)
+      );
+    case "vpc":
+      return (
+        typeof value.cidr_block === "string" && isStringArray(value.subnets)
+      );
+    case "alb":
+      return (
+        isNumberArray(value.listeners) && isStringArray(value.target_groups)
+      );
+    default:
+      return false;
+  }
+}
+
+function isAWSNodeData(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const position = value.position;
+  return (
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    (value.type === "s3" ||
+      value.type === "ec2" ||
+      value.type === "rds" ||
+      value.type === "lambda" ||
+      value.type === "vpc" ||
+      value.type === "alb") &&
+    (value.label === undefined || typeof value.label === "string") &&
+    isResourceConfig(value.type, value.config) &&
+    (value.status === "healthy" ||
+      value.status === "warning" ||
+      value.status === "error" ||
+      value.status === "stopped") &&
+    (position === undefined ||
+      (isRecord(position) &&
+        isFiniteNumber(position.x) &&
+        isFiniteNumber(position.y))) &&
+    (value.parentId === undefined || typeof value.parentId === "string")
+  );
+}
+
+function isEdgeData(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.source === "string" &&
+    typeof value.target === "string"
+  );
+}
+
+function isThoughtLogEntry(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isFiniteNumber(value.timestamp) &&
+    typeof value.node === "string" &&
+    typeof value.message === "string" &&
+    (value.type === "info" ||
+      value.type === "warning" ||
+      value.type === "success" ||
+      value.type === "error") &&
+    (value.toolName === undefined || typeof value.toolName === "string") &&
+    (value.toolArgs === undefined || isRecord(value.toolArgs))
+  );
+}
+
+function isValidationResult(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    (value.level === "error" || value.level === "warning") &&
+    typeof value.message === "string" &&
+    typeof value.node_id === "string"
+  );
+}
+
+function isAgentMessage(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    (value.role === "user" ||
+      value.role === "assistant" ||
+      value.role === "system") &&
+    typeof value.content === "string" &&
+    (value.toolCalls === undefined || Array.isArray(value.toolCalls))
   );
 }
 
