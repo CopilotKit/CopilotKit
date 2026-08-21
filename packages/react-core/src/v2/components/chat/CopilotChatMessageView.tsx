@@ -437,7 +437,7 @@ export function CopilotChatMessageView({
 }: CopilotChatMessageViewProps) {
   const renderCustomMessage = useRenderCustomMessages();
   const { renderActivityMessage } = useRenderActivityMessage();
-  const { copilotkit } = useCopilotKit();
+  const { copilotkit, autoMountIntelligenceIndicator } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -706,7 +706,10 @@ export function CopilotChatMessageView({
     // moves with the anchor across a hand-off without remounting, and past
     // turns keep their own indicator.
     const intelligenceTurnId = intelligenceTurnAnchors.get(message.id);
-    if (intelligenceTurnId !== undefined) {
+    if (
+      autoMountIntelligenceIndicator !== false &&
+      intelligenceTurnId !== undefined
+    ) {
       elements.push(
         <IntelligenceIndicator
           key={`intelligence-${intelligenceTurnId}`}
