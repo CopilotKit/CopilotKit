@@ -73,6 +73,7 @@
     "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
+    "check-dts": "tsx ../../scripts/validate-dts-ambient.ts dist",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16"
   },
