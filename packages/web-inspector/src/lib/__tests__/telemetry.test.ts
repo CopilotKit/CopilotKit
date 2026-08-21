@@ -371,7 +371,7 @@ describe("typed helpers", () => {
       has_threads: false,
       usage_bucket: "empty",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
     trackThreadsEnabledViewed({
@@ -380,7 +380,7 @@ describe("typed helpers", () => {
       has_threads: true,
       usage_bucket: "within_limit",
       expiry_bucket: "positive",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
 
@@ -429,7 +429,7 @@ describe("typed helpers", () => {
       has_threads: false,
       usage_bucket: "empty",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
     expect(payloads[5]!.properties).toMatchObject({
@@ -438,7 +438,7 @@ describe("typed helpers", () => {
       has_threads: true,
       usage_bucket: "within_limit",
       expiry_bucket: "positive",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     });
   });
@@ -464,12 +464,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  // Stated in the ticket, and OSS-862's telemetry-validation description still
-  // says 21 — this assertion is the reminder to update it.
-  it("holds twenty-one event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-three event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(21);
+    expect(names).toHaveLength(23);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

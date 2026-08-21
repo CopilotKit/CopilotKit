@@ -214,13 +214,13 @@ test("renders the trusted manage link in the Threads usage footer", async () => 
     const root = context.inspector.shadowRoot!;
     const identity = root.querySelector('[data-inspector-metadata="identity"]');
     const plan = root.querySelector('[data-inspector-metadata="plan"]');
+    expect(identity?.textContent).toContain("Support");
+    expect(identity?.textContent).toContain("Acme Inc.");
+    expect(plan?.textContent).toContain("Enterprise");
+    await context.selectTab("Threads");
     const action = root.querySelector<HTMLAnchorElement>(
       '[data-inspector-action-placement="threads-footer"]',
     );
-    expect(identity?.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "Acme Inc. / Support",
-    );
-    expect(plan?.textContent).toContain("Enterprise");
     expect(action?.textContent?.trim()).toBe("Manage Your Plan");
     expect(action?.getAttribute("aria-label")).toBe(
       "Manage Your Plan (opens in a new tab)",
@@ -243,6 +243,7 @@ test("keeps the Threads footer action clickable outside the drag handle", async 
   });
   try {
     await context.open();
+    await context.selectTab("Threads");
 
     const action =
       context.inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -471,6 +472,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
     ).length;
 
     context.core.setHeaders({ Authorization: "Bearer refreshed" });
+    await context.selectTab("Home");
     await waitFor(
       () =>
         context.inspector.shadowRoot
@@ -478,6 +480,7 @@ test("metadata refresh rerenders without resetting the selected example or reque
           ?.textContent?.includes("Scale") === true,
       "the refreshed plan label",
     );
+    await context.selectTab("Threads");
 
     const selectedAfter = Reflect.get(
       context.inspector.shadowRoot?.querySelector("cpk-thread-details") ?? {},
@@ -530,10 +533,10 @@ test("metadata usage stays independent from Threads capability and debug navigat
     ).toHaveLength(0);
     expect(talk).toBeInstanceOf(HTMLAnchorElement);
     expect(talk).not.toBe(lockedAction);
-    for (const label of ["Threads", "Agents", "Learning"]) {
+    for (const label of ["Home", "Threads", "Learning", "Agent"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
-    await context.selectTab("Agents");
+    await context.selectTab("Agent");
     for (const label of ["AG-UI Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }

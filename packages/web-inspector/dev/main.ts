@@ -20,9 +20,14 @@ import {
   notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
+  seedThreadsStateLabAgentEvents,
   stopThreadsStateLabClient,
 } from "./threads-state-lab.js";
-import type { ScenarioKey, ThreadRequestKind } from "./threads-state-lab.js";
+import type {
+  ScenarioKey,
+  ThreadRequestKind,
+  ThreadsStateScenario,
+} from "./threads-state-lab.js";
 import type { ThreadRequestLog } from "./threads-state-lab-server.js";
 
 const scenarioSelect = requiredElement<HTMLSelectElement>("#scenario-select");
@@ -309,22 +314,21 @@ async function waitForButton(
   });
 }
 
-async function openThreadsSurface(): Promise<void> {
-  const launcherOrThreads = await waitForButton(
-    (button) =>
-      button.getAttribute("aria-label") === "Web Inspector" ||
-      button.textContent?.trim() === "Threads",
-    "the Web Inspector launcher or Threads navigation",
+async function openInspectorSurface(
+  initialMenu: ThreadsStateScenario["initialMenu"] = "threads",
+): Promise<void> {
+  const launcher = await waitForButton(
+    (button) => button.getAttribute("aria-label") === "Web Inspector",
+    "the Web Inspector launcher",
   );
-  let threads = launcherOrThreads;
-  if (threads.textContent?.trim() !== "Threads") {
-    launcherOrThreads.click();
-    threads = await waitForButton(
+  launcher.click();
+  if (initialMenu === "threads") {
+    const threads = await waitForButton(
       (button) => button.textContent?.trim() === "Threads",
       "the Threads navigation button",
     );
+    threads.click();
   }
-  threads.click();
 }
 
 async function resetServerLedger(): Promise<void> {
@@ -452,12 +456,16 @@ async function boot(): Promise<void> {
   refreshLedger().catch(reportFatalError);
   mediaTimer = window.setInterval(updateMediaStatus, 400);
   updateMediaStatus();
+  seedThreadsStateLabAgentEvents(inspector, scenario);
+  await inspector.updateComplete;
   if (replayingNotification) {
     actionStatus.textContent =
       "Notification re-armed. Watch the closed launcher for the halo and dot.";
   } else {
-    await openThreadsSurface();
-    actionStatus.textContent = "Inspector open on Threads.";
+    await openInspectorSurface(scenario.initialMenu);
+    actionStatus.textContent = `Inspector open on ${
+      scenario.initialMenu === "home" ? "Home" : "Threads"
+    }.`;
   }
 }
 

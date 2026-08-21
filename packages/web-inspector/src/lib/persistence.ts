@@ -14,7 +14,48 @@ export type PersistedState = {
   dockMode?: DockMode;
   selectedMenu?: string;
   selectedContext?: string;
+  hasOpenedInspector?: boolean;
+  sidebarCollapsed?: boolean;
+  /** @deprecated Replaced by colorSchemePreference to distinguish a user choice from the old light default. */
+  colorScheme?: "light" | "dark";
+  colorSchemePreference?: "light" | "dark";
 };
+
+export const HOME_NEWS_READ_STORAGE_KEY = "cpk:inspector:home-news-read";
+
+/** Return story ids the user has already opened or hovered on Home. */
+export function loadHomeNewsReadIds(storageKey: string): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    return [];
+  }
+}
+
+/** Persist Home news story ids that the user has already seen. */
+export function saveHomeNewsReadIds(storageKey: string, ids: string[]): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(ids));
+  } catch (error) {
+    console.warn("Failed to persist Home news read state", error);
+  }
+}
 
 export function loadInspectorState(storageKey: string): PersistedState | null {
   if (typeof window === "undefined") {

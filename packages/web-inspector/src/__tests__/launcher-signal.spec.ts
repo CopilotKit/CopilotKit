@@ -116,15 +116,18 @@ function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
 
 /** The static unread marker on the What's new navigation entry. */
 function navUnreadMarker(inspector: WebInspectorElement): HTMLElement | null {
-  return root(inspector).querySelector<HTMLElement>(
-    'button[data-inspector-group="whats-new"][data-inspector-unread="true"]',
+  return (
+    root(inspector)
+      .querySelector<HTMLElement>(".inspector-nav-signal-dot")
+      ?.closest<HTMLElement>('button[data-inspector-menu-key="whats-new"]') ??
+    null
   );
 }
 
-function groupLabels(inspector: WebInspectorElement): string[] {
+function navigationLabels(inspector: WebInspectorElement): string[] {
   return Array.from(
     root(inspector).querySelectorAll<HTMLButtonElement>(
-      'nav[aria-label="Inspector primary navigation"] button[data-inspector-group]',
+      'nav[aria-label="Inspector"] button[data-inspector-menu-key]',
     ),
   ).map((control) => control.textContent?.trim() ?? "");
 }
@@ -143,6 +146,18 @@ async function click(
 ): Promise<void> {
   requireElement(element as HTMLElement | null).click();
   await settle(inspector);
+}
+
+async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
+  if (!root(inspector).querySelector(".inspector-window")) {
+    await click(inspector, launcherButton(inspector));
+  }
+  await click(
+    inspector,
+    root(inspector).querySelector(
+      'button[data-inspector-menu-key="whats-new"]',
+    ),
+  );
 }
 
 /**
@@ -189,6 +204,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
     window.localStorage.setItem(
       INSPECTOR_STATE_KEY,
       JSON.stringify({
+        hasOpenedInspector: options.persistedMenu !== undefined,
         ...(options.persistedMenu !== undefined
           ? { selectedMenu: options.persistedMenu }
           : {}),
@@ -321,35 +337,37 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
 
 // ── Navigation ────────────────────────────────────────────────────────────
 
-test("What's new is the first navigation group whether or not anything is unread", async () => {
+test("What's new remains directly below Home whether or not anything is unread", async () => {
   const context = await setup();
   await click(context.inspector, launcherButton(context.inspector));
 
-  expect(groupLabels(context.inspector)).toEqual([
-    "What's new",
+  expect(navigationLabels(context.inspector)).toEqual([
+    "Home",
+    "What's New",
     "Threads",
-    "Agents",
     "Learning",
+    "Agent",
+    "AG-UI Events",
+    "Context",
   ]);
-  // Landing on it is what clears the signal, so by now it is read — and the
-  // entry has to still be there.
-  expect(navUnreadMarker(context.inspector)).toBeNull();
-  expect(groupLabels(context.inspector)[0]).toBe("What's new");
+  expect(navUnreadMarker(context.inspector)).not.toBeNull();
+  expect(navigationLabels(context.inspector)[1]).toBe("What's New");
 });
 
-test("a fresh developer lands on What's new", async () => {
+test("a fresh developer lands on Home with the What's new preview", async () => {
   const context = await setup();
   await click(context.inspector, launcherButton(context.inspector));
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="whats-new"][aria-current="page"]',
+      'button[data-inspector-menu-key="home"][aria-current="page"]',
     ),
   ).not.toBeNull();
-  expect(whatsNewState(context.inspector)).toBe("content");
+  expect(whatsNewState(context.inspector)).toBeNull();
   expect(
-    root(context.inspector).querySelector(".whats-new__heading")?.textContent,
-  ).toBe("Channels are here");
+    root(context.inspector).querySelector("[data-inspector-home-band='news']"),
+  ).not.toBeNull();
+  expect(navUnreadMarker(context.inspector)).not.toBeNull();
 });
 
 test("restoring the panel never moves the reader, however loud the signal", async () => {
@@ -364,7 +382,7 @@ test("restoring the panel never moves the reader, however loud the signal", asyn
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="ag-ui-events"][aria-current="page"]',
     ),
   ).not.toBeNull();
   expect(whatsNewState(context.inspector)).toBeNull();
@@ -388,7 +406,7 @@ test("the signal still arms when the feed carries no preview text", async () => 
   // without preview text produced no dot at all.
   expect(launcherDot(context.inspector)).not.toBeNull();
 
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("content");
   expect(
     root(context.inspector).querySelector(".whats-new__heading"),
@@ -410,7 +428,7 @@ test("a body that renders to nothing arms nothing and is not counted as read", a
   // would be a signal with no way out.
   expect(launcherDot(context.inspector)).toBeNull();
 
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("empty");
 
   // The same announcement, once it carries a body, still arms.
@@ -444,7 +462,7 @@ test("a panel restored on another tab does not consume the announcement", async 
 test("rendering What's new with content clears both markers and keeps them cleared", async () => {
   const context = await setup();
 
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("content");
   expect(navUnreadMarker(context.inspector)).toBeNull();
 
@@ -465,7 +483,7 @@ test("a loading render is not a read, and the clear follows the content", async 
 
   // Nothing has arrived, so nothing can be unread yet.
   expect(launcherDot(context.inspector)).toBeNull();
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("loading");
 
   context.resolveFeed();
@@ -482,7 +500,7 @@ test("a loading render is not a read, and the clear follows the content", async 
 
 test("the read is recorded only after the announcement content is visible", async () => {
   const context = await setup({ feed: "pending" });
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("loading");
 
   const cookieDescriptor = Object.getOwnPropertyDescriptor(document, "cookie");
@@ -516,7 +534,7 @@ test("a feed that fails to load leaves the announcement unread", async () => {
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const context = await setup({ feed: { previewText: "no timestamp" } });
 
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(whatsNewState(context.inspector)).toBe("empty");
 
   const reloaded = await context.remount(announcement());
@@ -529,7 +547,7 @@ test("a feed that fails to load leaves the announcement unread", async () => {
 
 test("an announcement read on one dev-server port is read on every other", async () => {
   const context = await setup();
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   expect(navUnreadMarker(context.inspector)).toBeNull();
 
   context.changePort();
@@ -540,7 +558,7 @@ test("an announcement read on one dev-server port is read on every other", async
 
 test("a newly published announcement re-arms the signal", async () => {
   const context = await setup();
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
 
   const republished = await context.remount(
     announcement({ timestamp: NEXT_TIMESTAMP, previewText: "Kite is here" }),
@@ -561,7 +579,7 @@ test("a browser that blocks cookies still arms, opens, and remembers within the 
     const context = await setup();
     expect(launcherDot(context.inspector)).not.toBeNull();
 
-    await click(context.inspector, launcherButton(context.inspector));
+    await openWhatsNew(context.inspector);
     expect(whatsNewState(context.inspector)).toBe("content");
 
     // The localStorage mirror degrades the feature to per-project behaviour
@@ -587,7 +605,7 @@ test("the superseded read state is deleted rather than migrated", async () => {
   expect(launcherDot(context.inspector)).not.toBeNull();
   expect(window.localStorage.getItem(LEGACY_ANNOUNCEMENT_KEY)).toBeNull();
 
-  await click(context.inspector, launcherButton(context.inspector));
+  await openWhatsNew(context.inspector);
   const reloaded = await context.remount();
 
   // Reset once, not on every load.
@@ -672,11 +690,11 @@ test("no announcement card sits above the content of any tab", async () => {
   const context = await setup({ persistedMenu: "ag-ui-events" });
   await click(context.inspector, launcherButton(context.inspector));
 
-  for (const group of ["agents", "threads", "learning"]) {
+  for (const leaf of ["ag-ui-events", "threads", "memories"]) {
     await click(
       context.inspector,
       root(context.inspector).querySelector(
-        `button[data-inspector-group="${group}"]`,
+        `button[data-inspector-menu-key="${leaf}"]`,
       ),
     );
     const main = requireElement(
@@ -691,7 +709,7 @@ test("no announcement card sits above the content of any tab", async () => {
   await click(
     context.inspector,
     root(context.inspector).querySelector(
-      'button[data-inspector-group="whats-new"]',
+      'button[data-inspector-menu-key="whats-new"]',
     ),
   );
   expect(
@@ -853,17 +871,14 @@ test("the Kite crop leaves the canonical artwork paths untouched", () => {
   );
 });
 
-test("pressing the launcher never redirects, however loud the signal", async () => {
-  // The launcher restores the tab the reader left, full stop. An unread
-  // announcement marks its navigation entry and waits to be chosen; it never
-  // takes the reader somewhere they did not ask to go.
+test("pressing the launcher opens Home when the signal is unread", async () => {
   const context = await setup({ persistedMenu: "ag-ui-events" });
 
   await click(context.inspector, launcherButton(context.inspector));
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="home"][aria-current="page"]',
     ),
   ).not.toBeNull();
   expect(whatsNewState(context.inspector)).toBeNull();
@@ -880,7 +895,7 @@ test("a mouse press on the launcher behaves exactly like a keypress", async () =
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="home"][aria-current="page"]',
     ),
   ).not.toBeNull();
   expect(navUnreadMarker(context.inspector)).not.toBeNull();
@@ -893,7 +908,7 @@ test("the dot is decoration, and pressing it just opens the launcher", async () 
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="home"][aria-current="page"]',
     ),
   ).not.toBeNull();
 });
@@ -919,7 +934,7 @@ test("a mouse press with nothing unread still restores the reader's tab", async 
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="ag-ui-events"][aria-current="page"]',
     ),
   ).not.toBeNull();
 });
@@ -935,7 +950,7 @@ test("with nothing unread the launcher restores the tab the reader left", async 
 
   expect(
     root(context.inspector).querySelector(
-      'button[data-inspector-group="agents"][aria-current="page"]',
+      'button[data-inspector-menu-key="ag-ui-events"][aria-current="page"]',
     ),
   ).not.toBeNull();
 });
@@ -961,7 +976,7 @@ test("the navigation marker is static, and shares the dot's colour", async () =>
 
   const entry = requireElement(navUnreadMarker(context.inspector));
   expect(entry.querySelector(".inspector-nav-signal-dot")).not.toBeNull();
-  expect(entry.getAttribute("aria-label")).toBe("What's new (unread)");
+  expect(entry.getAttribute("aria-label")).toBe("What's New, new content");
 
   const rule =
     /\.inspector-nav-signal-dot\s*\{([\s\S]*?)\}/.exec(

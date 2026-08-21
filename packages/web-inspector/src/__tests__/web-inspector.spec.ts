@@ -1495,7 +1495,7 @@ async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
     ?.click();
   await inspector.updateComplete;
   inspector.shadowRoot
-    ?.querySelector<HTMLElement>('button[data-inspector-group="whats-new"]')
+    ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
     ?.click();
   await inspector.updateComplete;
 }
@@ -2092,6 +2092,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.localStorage.setItem(
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        selectedMenu: "threads",
+        hasOpenedInspector: true,
+      }),
+    );
     fetchMock = vi.fn(() =>
       Promise.resolve({
         ok: true,
@@ -2241,10 +2249,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
@@ -2254,7 +2265,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     const ctaLabels = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
     ).map((anchor) => anchor.textContent?.trim());
-    expect(ctaLabels).toEqual(["Talk to an Engineer"]);
+    expect(
+      ctaLabels.filter((label) => label === "Talk to an Engineer"),
+    ).toEqual(["Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
@@ -2281,10 +2294,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -2323,7 +2339,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     localStorage.setItem(
       "cpk:inspector:state",
-      JSON.stringify({ selectedMenu: "ag-ui-events" }),
+      JSON.stringify({
+        selectedMenu: "ag-ui-events",
+        hasOpenedInspector: true,
+      }),
     );
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
@@ -2372,10 +2391,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2402,12 +2424,12 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     );
     expectNoUtmParams(threadsDocsUrl);
     const intelligence = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      '#cpk-main-scroll a[href^="https://intelligence.copilotkit.ai/?ref="]',
     );
     expect(intelligence?.textContent?.trim()).toBe("Sign up for Intelligence");
     const intelligenceUrl = new URL(intelligence!.href);
-    expect(intelligenceUrl.origin).toBe("https://go.copilotkit.ai");
-    expect(intelligenceUrl.pathname).toBe("/intelligence-signup");
+    expect(intelligenceUrl.origin).toBe("https://intelligence.copilotkit.ai");
+    expect(intelligenceUrl.pathname).toBe("/");
     expect(intelligenceUrl.searchParams.get("ref")).toBe(
       "cpk-inspector-threads",
     );
@@ -2470,11 +2492,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
       selectedThreadId: string | null;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2513,7 +2538,16 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   });
 
   it("persists example tour dismissal so it does not auto-open again", async () => {
-    const stored = new Map<string, string>();
+    const stored = new Map<string, string>([
+      [
+        "cpk:inspector:state",
+        JSON.stringify({
+          isOpen: true,
+          selectedMenu: "threads",
+          hasOpenedInspector: true,
+        }),
+      ],
+    ]);
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => stored.get(key) ?? null,
       setItem: (key: string, value: string) => stored.set(key, value),
@@ -2535,10 +2569,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2630,10 +2667,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2843,6 +2883,9 @@ async function mountMemories(
   };
   internals.isOpen = true;
   internals.handleMenuSelect("memories");
+  (el as unknown as { selectedMenu: string }).selectedMenu = "memories";
+  el.requestUpdate();
+  await el.updateComplete;
 
   await el.updateComplete;
   return el;
@@ -2924,7 +2967,7 @@ describe("WebInspectorElement memories — tab presence", () => {
 
     expect(
       learningButton,
-      "Learning primary navigation should render",
+      "Learning workbench navigation should render",
     ).toBeDefined();
   });
 });
@@ -2955,10 +2998,17 @@ describe("WebInspectorElement memories — view states", () => {
     const el = await mountMemories(core);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     expect(text).toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
+    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector(".cpk-memory-locked-scrim"),
+    ).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector(".cpk-memory-locked-action-secondary"),
+    ).not.toBeNull();
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -2974,7 +3024,7 @@ describe("WebInspectorElement memories — view states", () => {
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
     const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      'a[href^="https://intelligence.copilotkit.ai/?ref="]',
     );
 
     expect(talkToEngineer).not.toBeNull();
@@ -2994,7 +3044,7 @@ describe("WebInspectorElement memories — view states", () => {
     const el = await mountMemories(core);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3015,13 +3065,13 @@ describe("WebInspectorElement memories — view states", () => {
     await (memoryList as unknown as { updateComplete: Promise<void> })
       .updateComplete;
     const listText = memoryList?.shadowRoot?.textContent ?? "";
-    expect(listText).toContain("No memories yet");
+    expect(listText).toContain("No learning records yet");
   });
 
   it("keeps the list rendered (not the full-screen error) when a mutation error arrives with memories present", async () => {
     // INSP-2: a failed remove/update sets the store error while a valid list is
     // already on screen. That must NOT blank the list with the full-screen
-    // "Failed to load memories" state — the error is surfaced inline instead.
+    // "Failed to load learning data" state — the error is surfaced inline instead.
     const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
@@ -3051,12 +3101,12 @@ describe("WebInspectorElement memories — view states", () => {
     // Inline, non-blocking error with distinct copy.
     expect(text).toContain("Action failed: could not delete memory");
     // The full-screen load-failure copy must NOT appear.
-    expect(text).not.toContain("Failed to load memories");
+    expect(text).not.toContain("Failed to load learning data");
   });
 
   it("shows the full-screen load error only when no memories are loaded", async () => {
     // INSP-2 counterpart: a snapshot-load failure (empty list) still shows the
-    // full-screen "Failed to load memories" state.
+    // full-screen "Failed to load learning data" state.
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
@@ -3066,7 +3116,7 @@ describe("WebInspectorElement memories — view states", () => {
     await el.updateComplete;
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Failed to load memories");
+    expect(text).toContain("Failed to load learning data");
     expect(text).toContain("network down");
     expect(text).not.toContain("Action failed:");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
@@ -3240,7 +3290,9 @@ describe("cpk-memory-list", () => {
     const el = await mountList([]);
     const empty = el.shadowRoot?.querySelector(".cpk-ml__empty");
     expect(empty, "empty state should render").not.toBeNull();
-    expect(el.shadowRoot?.textContent ?? "").toContain("No memories yet");
+    expect(el.shadowRoot?.textContent ?? "").toContain(
+      "No learning records yet",
+    );
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length ?? 0).toBe(0);
   });
@@ -3368,7 +3420,10 @@ describe("WebInspectorElement memories — active-on-boot subscription", () => {
     // connectedCallback, before any user interaction) restores the Memories tab
     // as the active tab — reproducing the stuck-indicator boot scenario.
     const store: Record<string, string> = {
-      "cpk:inspector:state": JSON.stringify({ selectedMenu: "memories" }),
+      "cpk:inspector:state": JSON.stringify({
+        selectedMenu: "memories",
+        hasOpenedInspector: true,
+      }),
     };
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] ?? null,
@@ -3515,7 +3570,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
 
     // The locked teaser must render — cpk-memory-list must NOT appear.
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3557,7 +3612,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     expect(text).toContain("Upgrade");
     // Must NOT show the deployment-not-enabled copy in this case.
     expect(text).not.toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
   });
 
@@ -3569,7 +3624,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
 
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
     expect(text).not.toContain("@copilotkit SDK");
   });
@@ -3770,7 +3825,13 @@ describe("ɵbuildCapabilityRows", () => {
 describe("WebInspectorElement Capabilities tab", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    const store: Record<string, string> = {};
+    const store: Record<string, string> = {
+      "cpk:inspector:state": JSON.stringify({
+        isOpen: true,
+        selectedMenu: "capabilities",
+        hasOpenedInspector: true,
+      }),
+    };
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store[k] ?? null,
       setItem: (k: string, v: string) => {
@@ -3835,9 +3896,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const text = inspector.shadowRoot?.textContent ?? "";
     expect(text).toContain("Frontend tools");
@@ -3852,9 +3916,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3876,9 +3943,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3889,19 +3959,25 @@ describe("WebInspectorElement Capabilities tab", () => {
     expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
   });
 
-  it("hides the catalog section when catalogComponents is empty", async () => {
+  it("hides Capabilities when the A2UI catalog is empty", async () => {
     const { core } = createCapabilitiesCore();
     (core as { catalogComponents: unknown[] }).catalogComponents = [];
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
-    const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Frontend tools");
+    const root = inspector.shadowRoot;
+    const text = root?.textContent ?? "";
+    expect(
+      root?.querySelector('button[data-inspector-menu-key="capabilities"]'),
+    ).toBeNull();
     expect(text).not.toContain("A2UI catalog components");
   });
 });
