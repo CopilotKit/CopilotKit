@@ -119,7 +119,7 @@ bot.onMention(async ({ thread, message }) => {
 // lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
   // apiUrl/wsUrl default to the managed Intelligence platform.
-  apiKey: process.env.COPILOTKIT_API_KEY!,
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
   agents: {}, // the Channel supplies its own agent
@@ -332,7 +332,7 @@ several from one process).
 ```bash
 cp .env.example .env
 # Fill in (set SLACK_*, DISCORD_*, and/or TELEGRAM_BOT_TOKEN — whichever you want):
-#   COPILOTKIT_API_KEY                         (REQUIRED — owns the Channel; free tier)
+#   INTELLIGENCE_API_KEY                         (REQUIRED — owns the Channel; free tier)
 #   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
 #   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   TELEGRAM_BOT_TOKEN                         (to run on Telegram)
@@ -342,8 +342,9 @@ cp .env.example .env
 #   NOTION_MCP_AUTH_TOKEN   (any strong string; shared between the sidecar and the agent)
 ```
 
-A Channel runs only through the Intelligence runtime, so `COPILOTKIT_API_KEY` is
-**required** (free tier). There are no URLs to set — the SDK defaults to the
+A Channel runs only through the Intelligence runtime, so `INTELLIGENCE_API_KEY` is
+**required** (free tier; `COPILOTKIT_API_KEY` is a deprecated alias, still read as a
+fallback). There are no URLs to set — the SDK defaults to the
 managed Intelligence platform. The platform adapters stay direct — the runtime that owns the Channel starts each
 of them for you. Linear and Notion are independent — set only the ones you want;
 the agent wires up whichever credentials are present.

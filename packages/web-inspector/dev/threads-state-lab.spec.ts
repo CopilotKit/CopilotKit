@@ -17,12 +17,15 @@ import {
   THREAD_REQUEST_KINDS,
   THREADS_STATE_SCENARIOS,
   canonicalScenarioUrl,
+  clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
+  consumedNotificationReplayUrl,
   copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
   navigateThreadsStateLabScenario,
+  notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
   stopThreadsStateLabClient,
@@ -1140,6 +1143,59 @@ test("executes exact storage reset copy and reduced-motion restoration", async (
   }
 });
 
+test("builds a clean launcher-notification replay", () => {
+  const localValues = new Map<string, string>([
+    [
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        dockMode: "docked-left",
+        selectedMenu: "agents",
+      }),
+    ],
+    ["cpk:inspector:announcement_read", "seen"],
+  ]);
+  const localRemoved: string[] = [];
+  const sessionRemoved: string[] = [];
+  const cookieTarget = { cookie: "unchanged" };
+
+  clearThreadsStateLabNotificationState(
+    {
+      getItem: (key) => localValues.get(key) ?? null,
+      setItem: (key, value) => localValues.set(key, value),
+      removeItem: (key) => {
+        localRemoved.push(key);
+        localValues.delete(key);
+      },
+    },
+    { removeItem: (key) => sessionRemoved.push(key) },
+    cookieTarget,
+  );
+
+  expect(JSON.parse(localValues.get("cpk:inspector:state") ?? "null")).toEqual({
+    isOpen: false,
+    dockMode: "docked-left",
+    selectedMenu: "agents",
+  });
+  expect(localRemoved).toEqual(["cpk:inspector:announcement_read"]);
+  expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
+  expect(cookieTarget.cookie).toBe(
+    "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
+  );
+  expect(
+    notificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1",
+    ),
+  ).toBe(
+    "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+  );
+  expect(
+    consumedNotificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+    ),
+  ).toBe("http://127.0.0.1:5177/?scenario=free-figma-148-of-200");
+});
+
 test("runs teardown before real select and reset control navigation", async () => {
   const events: string[] = [];
   const assigned: string[] = [];
@@ -1257,11 +1313,15 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(launcher, `${key}: launcher`).toBeDefined();
           launcher?.click();
           await flushInspector(inspector);
+          // A fresh profile lands on What's new, so this lab selects the
+          // Threads group it is here to drive.
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
+          threadsButton?.click();
+          await flushInspector(inspector);
           expect(
             threadsButton?.classList.contains("inspector-nav-control-active"),
-            `${key}: Threads default`,
+            `${key}: Threads selected`,
           ).toBe(true);
 
           const expectedStoreCount = scenario.capability === "enabled" ? 1 : 0;

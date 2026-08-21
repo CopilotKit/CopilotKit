@@ -1462,159 +1462,16 @@ describe("CpkThreadInspector provider contract", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Announcement preview (popout) dismissal MUST persist
-// ─────────────────────────────────────────────────────────────────────────
-//
-// The preview bubble that pops out of the floating button carries an X. Clicking
-// it MUST persist the announcement timestamp to localStorage. Otherwise
-// fetchAnnouncement() recomputes `showAnnouncementPreview` from the (still
-// empty) stored timestamp on the next mount and the bubble pops straight back
-// out — the regression these tests guard against. Persistence lives only in
-// markAnnouncementSeen(); the body-click / open paths clear the flag in memory
-// only and are intentionally NOT persistent.
-
-const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
-
-type AnnouncementInternals = {
-  hasUnseenAnnouncement: boolean;
-  showAnnouncementPreview: boolean;
-  announcementPreviewText: string | null;
-  announcementTimestamp: string | null;
-  isOpen: boolean;
-};
-
-describe("WebInspectorElement announcement preview dismissal", () => {
-  let store: Record<string, string>;
-
-  beforeEach(() => {
-    document.body.innerHTML = "";
-    store = {};
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-      removeItem: (key: string) => {
-        delete store[key];
-      },
-      clear: () => {
-        for (const key of Object.keys(store)) delete store[key];
-      },
-      get length() {
-        return Object.keys(store).length;
-      },
-      key: (index: number) => Object.keys(store)[index] ?? null,
-    });
-  });
-
-  /** Mount a closed inspector with an unseen announcement so the popout renders. */
-  async function mountWithUnseenAnnouncement(timestamp: string) {
-    const { core } = createMockCore();
-    const inspector = createInspectorWithCore(core);
-    const a = inspector as unknown as AnnouncementInternals;
-    a.announcementTimestamp = timestamp;
-    a.announcementPreviewText = "Slack early access is here!";
-    a.hasUnseenAnnouncement = true;
-    a.showAnnouncementPreview = true;
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    return { inspector, a };
-  }
-
-  it("persists the announcement timestamp when the popout X is clicked", async () => {
-    const timestamp = "2026-06-11T13:00:00.000Z";
-    const { inspector, a } = await mountWithUnseenAnnouncement(timestamp);
-
-    const dismiss = inspector.shadowRoot?.querySelector<HTMLElement>(
-      ".announcement-preview__dismiss",
-    );
-    expect(dismiss, "popout dismiss control should render").not.toBeNull();
-
-    dismiss?.click();
-    await inspector.updateComplete;
-
-    // The dismissal is persisted, so a remount would stay closed.
-    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBe(JSON.stringify({ timestamp }));
-    // In-memory flags cleared and the bubble is gone.
-    expect(a.hasUnseenAnnouncement).toBe(false);
-    expect(a.showAnnouncementPreview).toBe(false);
-    expect(
-      inspector.shadowRoot?.querySelector(".announcement-preview"),
-    ).toBeNull();
-  });
-
-  it("dismissing the popout X does not open the inspector", async () => {
-    const { inspector, a } = await mountWithUnseenAnnouncement(
-      "2026-06-11T13:00:00.000Z",
-    );
-    expect(a.isOpen).toBe(false);
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-
-    // X dismisses without opening (only a body click opens the inspector).
-    expect(a.isOpen).toBe(false);
-  });
-
-  it("emits banner_dismissed with the bubble surface alongside banner_clicked", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(null, { status: 204 }));
-    const timestamp = "2026-06-11T13:00:00.000Z";
-    const { inspector } = await mountWithUnseenAnnouncement(timestamp);
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-
-    const posts = telemetryPostsFrom(fetchMock);
-    const dismissed = posts.find(
-      (post) => post.event === "oss.inspector.banner_dismissed",
-    );
-    expect(dismissed?.properties).toMatchObject({
-      banner_id: timestamp,
-      surface: "collapsed_preview",
-    });
-    // The legacy signal keeps flowing so existing dashboards don't zero out.
-    const clicked = posts.find(
-      (post) => post.event === "oss.inspector.banner_clicked",
-    );
-    expect(clicked?.properties).toMatchObject({
-      banner_id: timestamp,
-      cta: "dismiss",
-    });
-  });
-
-  it("clicking the popout body opens the inspector without persisting", async () => {
-    const { inspector, a } = await mountWithUnseenAnnouncement(
-      "2026-06-11T13:00:00.000Z",
-    );
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
-      ?.click();
-    await inspector.updateComplete;
-
-    // Body click is engagement, not dismissal: it opens but must NOT persist,
-    // so the in-window banner still shows the announcement.
-    expect(a.isOpen).toBe(true);
-    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
-    expect(a.hasUnseenAnnouncement).toBe(true);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// Panel-open + banner-surface telemetry (OSS-566 / OSS-568)
+// Panel-open + What's new telemetry (OSS-566 / OSS-568 / OSS-864)
 // ─────────────────────────────────────────────────────────────────────────
 //
 // `oss.inspector.opened` exists because opens were previously only inferable
-// from in-panel activity (a floor) or from `banner_clicked` cta=body (which
-// misses the floating-button path). `banner_viewed` carries a `surface`
-// because the bubble on the collapsed widget and the card inside the opened
-// panel are separate impressions — reach on one says nothing about the other.
+// from in-panel activity (a floor) or from the announcement's own click event
+// (which misses the floating-button path). `whats_new_viewed` carries a
+// `surface` so a second one can be added later without reshaping the event,
+// and it fires only when What's new renders WITH CONTENT — so the metric
+// cannot inflate itself by counting people who opened the Inspector for an
+// unrelated reason, or who arrived before the feed resolved.
 
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 
@@ -1625,12 +1482,33 @@ type OpenTelemetryInternals = {
   openInspector: (source: InspectorOpenSource) => void;
 };
 
-describe("WebInspectorElement open + banner surface telemetry", () => {
+/**
+ * Open the panel, then navigate to What's new the way a reader does.
+ *
+ * Spelled out rather than relying on the landing tab: the launcher restores
+ * whatever tab was last used, so a helper that only opened the panel would
+ * pass by coincidence whenever that happened to be What's new.
+ */
+async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
+  inspector.shadowRoot
+    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLElement>('button[data-inspector-group="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+}
+
+describe("WebInspectorElement open + What's new telemetry", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let body = "Channels are here — [read more](https://x.test)";
   const timestamp = "2026-07-01T09:00:00.000Z";
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.sessionStorage.clear();
+    body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
       if (String(input) === ANNOUNCEMENT_URL) {
         return Promise.resolve(
@@ -1638,7 +1516,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
             JSON.stringify({
               timestamp,
               previewText: "Channels are here",
-              announcement: "Channels are here — [read more](https://x.test)",
+              announcement: body,
             }),
             { status: 200 },
           ),
@@ -1679,43 +1557,237 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
   const posts = () => telemetryPostsFrom(fetchMock);
   const eventsNamed = (name: string) =>
     posts().filter((post) => post.event === name);
+  const launcherIsPulsing = (inspector: WebInspectorElement) =>
+    inspector.shadowRoot
+      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.getAttribute("data-cpk-signal-pulsing") === "true";
+  const announcementLink = (inspector: WebInspectorElement) => {
+    const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      ".announcement-content a",
+    );
+    if (!link) throw new Error("Expected announcement link");
+    return link;
+  };
 
-  it("records the collapsed bubble impression, then the in-panel card on open", async () => {
+  it("records one launcher signal presentation when the pulse is rendered", async () => {
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
     await inspector.updateComplete;
 
-    const first = eventsNamed("oss.inspector.banner_viewed");
-    expect(first).toHaveLength(1);
-    expect(first[0]!.properties).toMatchObject({
+    expect(launcherIsPulsing(inspector)).toBe(true);
+    const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
       banner_id: timestamp,
-      surface: "collapsed_preview",
+      surface: "launcher",
+      presentation: "animated",
+      package_name: "@copilotkit/web-inspector",
     });
 
-    // Opening reveals the in-panel card — a distinct impression.
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
+
+  it("waits to present and record the launcher signal until the tab is visible", async () => {
+    const originalVisibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    try {
+      const { inspector, internals } = mount();
+      await internals.fetchAnnouncement();
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(false);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        0,
+      );
+
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(true);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        1,
+      );
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(document, "visibilityState", originalVisibility);
+      } else {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
+    }
+  });
+
+  it("labels a reduced-motion launcher presentation without requiring animation", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+      })),
+    );
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(
+      eventsNamed("oss.inspector.whats_new_signal_viewed")[0]!.properties,
+    ).toMatchObject({ presentation: "reduced_motion" });
+  });
+
+  it("holds the launcher presentation until the runtime allows telemetry", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
+
+  it("records one What's new impression, enriched like every other event", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    // Nothing yet: the announcement has loaded but nobody has seen it.
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
+
+    await openWhatsNew(inspector);
+
+    const viewed = eventsNamed("oss.inspector.whats_new_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "whats_new",
+      package_name: "@copilotkit/web-inspector",
+    });
+  });
+
+  it("records announcement link activations, not ordinary content clicks", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const content = inspector.shadowRoot?.querySelector<HTMLElement>(
+      ".announcement-content",
+    );
+    if (!content) throw new Error("Expected announcement content");
+
+    content.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    const link = content.querySelector<HTMLAnchorElement>("a");
+    if (!link) throw new Error("Expected announcement link");
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
+  });
+
+  it("does not expose notification telemetry before a disabling handshake", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+  });
+
+  it("adds notification attribution after the runtime allows telemetry", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(new URL(link.href).searchParams.get("posthog_distinct_id")).toMatch(
+      /^[0-9a-f-]{36}$/,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
+  });
+
+  // The metric must mean "the announcement was actually shown". A What's new
+  // render without content — a loading state, or a body that renders to
+  // nothing — is not an impression, so the metric cannot inflate itself.
+  it("records no impression for a What's new render without content", async () => {
+    body = "   ";
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
-    const surfaces = eventsNamed("oss.inspector.banner_viewed").map(
-      (post) => post.properties.surface,
-    );
-    expect(surfaces).toEqual(["collapsed_preview", "expanded_card"]);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
   });
 
-  it("does not re-record an impression for a surface already seen this mount", async () => {
+  it("does not re-record an impression already seen this mount", async () => {
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
-    await internals.fetchAnnouncement();
+    await openWhatsNew(inspector);
+    // Re-rendering the same view, repeatedly, is still one impression.
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(1);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(1);
   });
 
-  it("emits opened with the floating-button source and announcement context", async () => {
+  it("attributes every launcher open to the launcher, unread or not", async () => {
+    // The launcher never routes through the signal, so it has one source. The
+    // question "did a pending announcement coincide with this open?" is
+    // answered by has_unseen_announcement, not by a second source value.
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
@@ -1735,19 +1807,18 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     });
   });
 
-  it("attributes an open through the announcement bubble to that surface", async () => {
-    const { inspector, internals } = mount();
-
-    await internals.fetchAnnouncement();
+  it("attributes a launcher open to the launcher when nothing is unread", async () => {
+    const { inspector } = mount();
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
     expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
-      open_source: "announcement_preview",
+      open_source: "floating_button",
+      has_unseen_announcement: false,
     });
   });
 
@@ -1828,33 +1899,33 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
 
   // The impression deferral predates the surface split and must survive it: the
   // runtime's opt-out only arrives with /info.
-  it("holds a banner impression until the handshake, then drops it when telemetry is disabled", async () => {
+  it("holds an impression until the handshake, then drops it when telemetry is disabled", async () => {
     const { inspector, harness, internals } = mount(false, false);
 
     await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    await openWhatsNew(inspector);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
 
     harness.completeHandshake({ telemetryDisabled: true });
     await inspector.updateComplete;
 
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
   });
 
-  it("releases a held banner impression once the runtime allows telemetry", async () => {
+  it("releases a held impression once the runtime allows telemetry", async () => {
     const { inspector, harness, internals } = mount(false, false);
 
     await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    await openWhatsNew(inspector);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
 
     harness.completeHandshake({ telemetryDisabled: false });
     await inspector.updateComplete;
 
-    const viewed = eventsNamed("oss.inspector.banner_viewed");
+    const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      surface: "collapsed_preview",
+      surface: "whats_new",
     });
   });
 
@@ -1862,10 +1933,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     const { inspector, internals } = mount(true);
 
     await internals.fetchAnnouncement();
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
-      ?.click();
-    await inspector.updateComplete;
+    await openWhatsNew(inspector);
 
     expect(posts()).toEqual([]);
   });

@@ -101,11 +101,20 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
         showUsageBanner={enabled}
       >
         <ThreadsProvider threadId={props.threadId}>
+          {/*
+            `useSingleEndpoint` is deliberately NOT defaulted here — it arrives
+            through `v2Props` and stays `undefined` when the caller omits it, so
+            the core negotiates the transport (`"auto"`: probe `GET /info`, fall
+            back to the single-route envelope). This wrapper is re-exported from
+            `@copilotkit/react-core/v2`, so it is the provider most integrations
+            reach for; pinning the flag to `true` here overrode that negotiation
+            and 404'd every first request against a multi-route runtime — the
+            default handler mode. See OSS-888.
+          */}
           <CopilotKitV2Provider
             {...v2Props}
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
-            useSingleEndpoint={props.useSingleEndpoint ?? true}
           >
             <CopilotKitInternal {...props}>{children}</CopilotKitInternal>
           </CopilotKitV2Provider>

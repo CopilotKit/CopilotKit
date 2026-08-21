@@ -149,14 +149,18 @@ test("Inspector Callout snippets name the shipped pane and skip unshipped work",
 test("pane map lists each shipped pane with a Callout or no page yet", () => {
   const paneMap = readFileSync(PANE_MAP, "utf8");
 
-  expect(paneMap).toContain("| Agent |");
-  expect(paneMap).toContain("| AG-UI Events |");
-  expect(paneMap).toContain("| Threads |");
-  expect(paneMap).toContain("| Frontend Tools |");
-  expect(paneMap).toContain("| State |");
-  expect(paneMap).toContain("| Context |");
-  expect(paneMap).toContain("| Learning |");
-  expect(paneMap).toContain("| Capabilities |");
+  for (const pane of [
+    "Agent",
+    "AG-UI Events",
+    "Threads",
+    "Frontend Tools",
+    "State",
+    "Context",
+    "Learning",
+    "Capabilities",
+  ]) {
+    expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));
+  }
   expect(paneMap).toContain("no page yet");
   expect(paneMap).toContain("Playground");
   expect(paneMap).toContain("React Native");

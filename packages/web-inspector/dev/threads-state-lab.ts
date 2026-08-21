@@ -100,8 +100,14 @@ export interface ThreadsStateScenario {
   readonly media: "normal" | "video_error" | "reduced_motion";
 }
 
+const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
+const ANNOUNCEMENT_READ_STORAGE_KEY = "cpk:inspector:announcement_read";
+const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
+const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
+const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
+
 export const LAB_RESET_STORAGE_KEYS = [
-  "cpk:inspector:state",
+  INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
 ] as const;
 
@@ -871,6 +877,50 @@ export function clearThreadsStateLabStorage(
   storage: Pick<Storage, "removeItem">,
 ): void {
   for (const key of LAB_RESET_STORAGE_KEYS) storage.removeItem(key);
+}
+
+/** Re-arms the notification while preserving the developer's Inspector setup. */
+export function clearThreadsStateLabNotificationState(
+  localStorage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  sessionStorage: Pick<Storage, "removeItem">,
+  cookieTarget: { cookie: string },
+): void {
+  const rawInspectorState = localStorage.getItem(INSPECTOR_STATE_STORAGE_KEY);
+  if (rawInspectorState) {
+    try {
+      const inspectorState = JSON.parse(rawInspectorState) as unknown;
+      if (
+        inspectorState &&
+        typeof inspectorState === "object" &&
+        !Array.isArray(inspectorState)
+      ) {
+        localStorage.setItem(
+          INSPECTOR_STATE_STORAGE_KEY,
+          JSON.stringify({ ...inspectorState, isOpen: false }),
+        );
+      }
+    } catch {
+      // Invalid persisted state already falls back to a closed Inspector.
+    }
+  }
+  localStorage.removeItem(ANNOUNCEMENT_READ_STORAGE_KEY);
+  sessionStorage.removeItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
+  cookieTarget.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+/** Reload URL for a clean, closed launcher with the notification re-armed. */
+export function notificationReplayUrl(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete("reset");
+  url.searchParams.set(REPLAY_NOTIFICATION_QUERY_KEY, "1");
+  return url.toString();
+}
+
+/** Removes the one-shot replay flag after it has been consumed. */
+export function consumedNotificationReplayUrl(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete(REPLAY_NOTIFICATION_QUERY_KEY);
+  return url.toString();
 }
 
 /** Copies and returns one canonical scenario URL without changing page state. */

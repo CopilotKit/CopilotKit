@@ -1,0 +1,220 @@
+name: test / reskinnable-demo
+
+# The four gates for examples/showcases/reskinnable-demo, plus a resolve check
+# for its Python agent.
+#
+# WHY THIS WORKFLOW EXISTS
+# ------------------------
+# This app left the root pnpm workspace so its `@ag-ui/*` / `@copilotkit/*`
+# canary line could not leak into the rest of the monorepo. Nx discovers
+# projects THROUGH the pnpm workspace (there is no `workspaceLayout` in
+# `nx.json`), so leaving it also removed the app from the repo-wide sweeps:
+#
+#   sweep                                  workflow             sees this app?
+#   -------------------------------------  -------------------  --------------
+#   nx run-many -t build                   static_compat.yml    NO
+#   nx run-many -t check-types             static_quality.yml   NO
+#   nx run-many -t test --projects=...     test_unit.yml        NO
+#
+# Both static workflows additionally carry `paths-ignore: ["examples/**"]`, so
+# a new workflow is the right shape rather than an edit to either. Verified on
+# the commit this branched from: `nx show project` cannot find the standalone
+# showcases, and no workflow file named this app.
+#
+# Net effect until this landed: nothing in CI built or type-checked the
+# reference sales demo. A change anywhere in `packages/*` could break it, or a
+# change inside it could break itself, and the check list stayed green — the
+# four gates were "whoever remembers to run them locally".
+#
+# WHY THE BUILD GATE MATTERS MOST, and cannot be a local habit:
+# `next build` writes into the app's `distDir` and rewrites `next-env.d.ts`.
+# Run alongside a running `pnpm dev` it corrupts the dev server's PostCSS /
+# Turbopack cache — measured: `globals.css` transforms to garbage and every
+# route 500s, and a dev-server restart does NOT clear it because the corruption
+# is on disk. So the one gate most likely to catch real breakage is the one a
+# developer is least able to run while working. CI is the only safe home for it.
+#
+# NO `continue-on-error` AND NO `|| true` ANYWHERE IN THIS FILE, BY DESIGN.
+# A gate that cannot fail is not a gate. Keep it that way.
+
+on:
+  pull_request:
+    paths:
+      - "examples/showcases/reskinnable-demo/**"
+      - ".github/workflows/test_reskinnable-demo.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/showcases/reskinnable-demo/**"
+      - ".github/workflows/test_reskinnable-demo.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: "--max-old-space-size=4096"
+
+jobs:
+  gates:
+    name: "four gates (lint, typecheck, unit, build)"
+    runs-on: ubuntu-latest
+    # ~2 minutes of gates locally (lint 18s, typecheck 12s, 2460 unit tests 43s,
+    # build 54s). The rest of the budget is install headroom on a cold store.
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Every step runs inside the app. It is NOT a workspace member, so
+        # there is no root-level task that reaches it.
+        working-directory: examples/showcases/reskinnable-demo
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Activate this app's pnpm via corepack
+        # NOT `pnpm/action-setup`, and that is measured rather than stylistic.
+        # The root pins pnpm@10.33.4 and THIS APP pins pnpm@10.10.0 — two
+        # resolvers in one repo, and the older one is load-bearing here: 10.10.0
+        # still reads `pnpm.overrides` from package.json, the only place
+        # `@ag-ui/core`, `@ag-ui/encoder` and `@ag-ui/proto` are pinned to the
+        # canary (`@ag-ui/client` is a direct dependency; those three are not).
+        #
+        # `pnpm/action-setup@v6.0.10` with `package_json_file:` pointed at this
+        # app still installed the ROOT's 10.33.4 (run 32398188492), and it
+        # cannot take a `version:` alongside a `packageManager` field. corepack
+        # reads the nearest package.json instead, which is this app's, and
+        # honours its `+sha512` integrity hash.
+        run: |
+          set -euo pipefail
+          corepack enable pnpm
+          corepack install
+          pnpm --version
+
+      - name: Cache the pnpm store
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/pnpm/store
+          # THIS APP'S lockfile, not the root one. They are different files
+          # since the app left the workspace, and keying on the root lockfile
+          # would restore a cache that has none of these canary versions in it.
+          key: ${{ runner.os }}-pnpm-reskin-${{ hashFiles('examples/showcases/reskinnable-demo/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-reskin-
+
+      - name: Assert the app's own pnpm is in use
+        # Turns the one genuine uncertainty in this job into a gate instead of a
+        # silent wrong answer. The two `packageManager` pins mean the resolver
+        # that runs here decides whether the three override-only `@ag-ui/*`
+        # canary pins are honoured, and an unexpected action input is a WARNING
+        # in Actions, not an error — so a typo above would quietly hand this job
+        # the root's 10.33.4 and the check list would stay green.
+        run: |
+          set -euo pipefail
+          expected="$(node -p "require('./package.json').packageManager.split('@')[1].split('+')[0]")"
+          actual="$(pnpm --version)"
+          echo "expected pnpm ${expected}, got ${actual}"
+          [ "${expected}" = "${actual}" ] || {
+            echo "::error::pnpm ${actual} is not this app's pinned ${expected}; the @ag-ui/* override pins may not be honoured"
+            exit 1
+          }
+
+      - name: Install dependencies
+        # `--frozen-lockfile` is the point of the job as much as the gates are:
+        # it fails if the committed lockfile no longer satisfies package.json,
+        # which is how the canary pins stop silently drifting.
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        # The ONLY full type-check in this tree. `pnpm build` type-checks just
+        # the app's module graph, so it never visits the test files — and
+        # Vitest transpiles without checking types at all.
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: Build
+        # Default `distDir` on purpose. `next.config.mjs` honours
+        # `NEXT_DIST_DIR`, but that is a LOCAL workaround for building beside a
+        # running dev server; in CI it only adds a tsconfig include entry.
+        #
+        # No env needed — measured. The route builds one agent per skin at
+        # module load, and none of them requires OPENAI_API_KEY to construct
+        # (banking's is an HttpAgent pointed at a URL that is never called
+        # during a build).
+        run: pnpm build
+
+  agent-resolve:
+    name: "agent deps resolve + subagent surface"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: examples/showcases/reskinnable-demo/agent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+
+      - name: Sync from the committed lockfile
+        # `--frozen` fails rather than re-resolving, so a `pyproject.toml` edit
+        # without a matching `uv lock` is a red check instead of a silent drift.
+        run: uv sync --frozen
+
+      - name: Assert the subagent surface is present
+        # THE GATE THIS JOB EXISTS FOR, and it is not hypothetical: before the
+        # pins landed, `ag-ui-langgraph>=0.0.43` resolved the RELEASE, which
+        # accepts no `emit_subagent_events` and exports no subagent symbols.
+        # That is the demo's headline feature, and it failed SILENTLY — the flag
+        # is set as an attribute (copilotkit's subclass takes four kwargs), so
+        # the assignment succeeds against an object nobody reads and the service
+        # starts clean.
+        #
+        # Asserting the CAPABILITY rather than the version string on purpose: a
+        # version assertion goes stale the moment the pin moves, and the thing
+        # that must stay true is the surface, not the number.
+        run: |
+          uv run python -c '
+          import inspect, sys
+          from ag_ui_langgraph import LangGraphAgent
+          import ag_ui.core as core
+
+          accepts = "emit_subagent_events" in inspect.getsource(LangGraphAgent.__init__)
+          symbols = [n for n in dir(core) if "ubagent" in n]
+          print("emit_subagent_events accepted:", accepts)
+          print("subagent symbols:", symbols)
+          if not accepts or not symbols:
+              sys.exit("subagent surface missing — the banking harness console would be silently dead")
+          '
+
+      - name: Import the agent module
+        # Cheap smoke: catches a syntax error or a dropped dependency in
+        # `agent/` that no other gate in this repo would ever see, since the
+        # app is TypeScript and this service is Python. Importing `main` also
+        # exercises its module-level wiring — the `clone()` workaround, the
+        # `emit_raw_events` / `emit_subagent_events` flags, the endpoint mount.
+        #
+        # The placeholder key is required, not decorative: `main.py` calls
+        # `build_agent()` at import time and `build_agent` raises without
+        # OPENAI_API_KEY (run 32398188492). Nothing here reaches the network —
+        # constructing a ChatOpenAI does not validate the key.
+        env:
+          OPENAI_API_KEY: ci-import-smoke-not-a-real-key
+        run: uv run python -c "import agent, main; print('agent + main import clean')"

@@ -238,11 +238,11 @@ export const OPTIONS = handler;
 ```
 
 <Callout type="info" title="Single-route transport">
-  CopilotKit's `<CopilotKit>` provider defaults to `useSingleEndpoint`, so the client POSTs every
+  This recipe pins `useSingleEndpoint` on the provider, so the client POSTs every
   call as a `{ method, params, body }` envelope to the base path. Mount a single-route handler to
   match (`createCopilotRuntimeHandler({ mode: "single-route" })`), and `createCopilotRuntimeHandler`
   is the preferred primitive, so avoid the deprecated `createCopilotEndpointSingleRoute` / hono
-  adapters.
+  adapters. Omitting the prop would let the client detect the mode instead.
 </Callout>
 
 ## Render the authorization step as generative UI

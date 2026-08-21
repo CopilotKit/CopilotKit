@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   defineToolCallRenderer,
   ToolCallStatus,
@@ -60,6 +66,117 @@ function resolveToolLabel(
 }
 
 /**
+ * How many tool-activity lines stay on screen. Older ones are REMOVED, not
+ * collapsed or scrolled.
+ *
+ * The offsite-expenses beat emits ten to fourteen tool calls, and one line per
+ * call turned the transcript into a changelog: the report card it all built
+ * toward was pushed off the screen by a stack of finished `Execute` rows nobody
+ * reads. A rolling window keeps the run legible as "what is happening now"
+ * rather than "everything that has ever happened".
+ */
+const VISIBLE_TOOL_ACTIVITY = 2;
+
+/**
+ * Ordered ids of the tool activity currently mounted, oldest first.
+ *
+ * ## Why a shared registry and not something simpler
+ *
+ * CopilotKit renders ONE component per tool call and owns the container, so
+ * there is no parent here that can see the list and slice it. Two simpler
+ * options are both dead ends, measured on a real run:
+ *
+ *   - CSS (`:nth-last-child`) needs the lines to be siblings. They are not —
+ *     ten lines sat under ten different parents, one wrapper each.
+ *   - Mount-order counters drift, because a `MESSAGES_SNAPSHOT` at the end of a
+ *     run remounts every line at once.
+ *
+ * So each line registers its AG-UI `toolCallId` — stable, unique per call, and
+ * assigned in emission order — and reads back whether it is still among the
+ * last few. `useSyncExternalStore` is what makes the OLDER lines re-render (and
+ * so disappear) when a NEW one arrives; a plain module variable would leave
+ * them on screen until something else happened to re-render them.
+ */
+const activityOrder: string[] = [];
+const activityListeners = new Set<() => void>();
+
+const subscribeActivity = (onChange: () => void) => {
+  activityListeners.add(onChange);
+  return () => {
+    activityListeners.delete(onChange);
+  };
+};
+
+const notifyActivityChanged = () => {
+  for (const listener of activityListeners) listener();
+};
+
+/**
+ * Whether this line is recent enough to still be shown.
+ *
+ * An id that is not registered YET counts as visible: registration happens in
+ * an effect, so a line is not in the list during its own first render, and
+ * treating that as hidden would make every new line appear one frame late.
+ *
+ * Unregistered-means-visible is only safe because registration is a LAYOUT
+ * effect. Read this together with `useIsRecentToolActivity` — the two halves
+ * are one mechanism, and splitting them is what caused the flash.
+ */
+const isRecentActivity = (toolCallId: string): boolean => {
+  const index = activityOrder.indexOf(toolCallId);
+  return index === -1 || index >= activityOrder.length - VISIBLE_TOOL_ACTIVITY;
+};
+
+/**
+ * `useLayoutEffect`, except on the server where React warns that it does
+ * nothing. Registration MUST be a layout effect (see below), and this component
+ * is server-rendered as part of the chat, so the plain hook would log a warning
+ * on every render pass in dev.
+ */
+const useIsomorphicLayoutEffect =
+  typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+function useIsRecentToolActivity(toolCallId: string, track: boolean): boolean {
+  /**
+   * LAYOUT effect, not a passive one, and this is load-bearing.
+   *
+   * A new line renders visible before it is registered (it cannot know its own
+   * position yet), and registering is what evicts the oldest line. With a
+   * passive `useEffect` those two things land in different frames, so the
+   * browser paints the in-between state: the list grows to three rows and then
+   * snaps back to two. That is the flash — one extra row for one frame on every
+   * single tool call, and again when the end-of-run `MESSAGES_SNAPSHOT`
+   * remounts every line at once.
+   *
+   * React flushes state updates scheduled inside a layout effect before the
+   * browser paints, so the eviction happens in the SAME frame as the insertion:
+   * the painted row count goes 2 → 2 and never through 3.
+   */
+  useIsomorphicLayoutEffect(() => {
+    // Internal tools must not take a slot: two filtered `agui` calls would
+    // otherwise fill the window and blank out the real activity behind them.
+    if (!track) return;
+    if (!activityOrder.includes(toolCallId)) {
+      activityOrder.push(toolCallId);
+      notifyActivityChanged();
+    }
+    return () => {
+      const index = activityOrder.indexOf(toolCallId);
+      if (index === -1) return;
+      activityOrder.splice(index, 1);
+      notifyActivityChanged();
+    };
+  }, [toolCallId, track]);
+
+  return useSyncExternalStore(
+    subscribeActivity,
+    () => isRecentActivity(toolCallId),
+    // Server render: nothing has registered, so every line is "newest".
+    () => true,
+  );
+}
+
+/**
  * Tool activity for EVERY tool the agent calls — the wildcard ("*") tool-call
  * renderer. CopilotKit only falls back to this for tool calls with no exact
  * renderer of their own, so it surfaces the otherwise invisible ones
@@ -73,11 +190,13 @@ function resolveToolLabel(
  * with a check.
  */
 function ToolCallChip({
+  toolCallId,
   name,
   status,
   args,
   result,
 }: {
+  toolCallId: string;
   name: string;
   status: ToolCallStatus;
   args?: unknown;
@@ -88,6 +207,7 @@ function ToolCallChip({
   const label = resolveToolLabel(name, skin.toolLabels);
   const done = status === ToolCallStatus.Complete;
   const hidden = isInternalTool(name);
+  const recent = useIsRecentToolActivity(toolCallId, !hidden);
 
   const detail = useMemo(() => {
     const lines: string[] = [`tool: ${name}`];
@@ -101,6 +221,11 @@ function ToolCallChip({
   }, [name, args, result]);
 
   if (hidden) return <></>;
+  // Aged out of the window. Returning nothing REMOVES the line rather than
+  // hiding it, which is the point: the transcript should not keep growing a
+  // stack of finished steps behind the thing they produced. The full sequence
+  // is still in the run's own events (and the harness console renders them).
+  if (!recent) return <></>;
 
   return (
     <div data-testid="tool-activity" className="my-1.5">
@@ -144,8 +269,14 @@ function ToolCallChip({
 export const TOOL_CALL_RENDERERS: ReactToolCallRenderer<unknown>[] = [
   defineToolCallRenderer({
     name: "*",
-    render: ({ name, status, args, result }) => (
-      <ToolCallChip name={name} status={status} args={args} result={result} />
+    render: ({ toolCallId, name, status, args, result }) => (
+      <ToolCallChip
+        toolCallId={toolCallId}
+        name={name}
+        status={status}
+        args={args}
+        result={result}
+      />
     ),
   }),
 ];

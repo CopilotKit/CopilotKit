@@ -396,11 +396,22 @@ describe("migration docs", () => {
 });
 
 describe("cookbook nav", () => {
+  it("uses the real Claude mark instead of a text placeholder", () => {
+    const claudeLogo = fs.readFileSync(
+      path.resolve(CONTENT_DIR, "../../../public/logos/claude.svg"),
+      "utf8",
+    );
+
+    expect(claudeLogo).toContain("<path");
+    expect(claudeLogo).not.toContain("<text");
+  });
+
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(6);
+    expect(navTree).toHaveLength(7);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -415,6 +426,7 @@ describe("cookbook nav", () => {
     ).toEqual([
       ["Overview", "cookbook/index"],
       ["Daytona", "cookbook/daytona"],
+      ["Claude Managed Agents", "cookbook/claude-managed-agents"],
       ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
@@ -429,12 +441,14 @@ describe("cookbook nav", () => {
       "page",
       "page",
       "page",
+      "page",
     ]);
     expect(
       pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
     ).toEqual([
       "/cookbook",
       "/cookbook/daytona",
+      "/cookbook/claude-managed-agents",
       "/cookbook/oracle-agent-spec-memory",
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
@@ -666,6 +680,7 @@ describe("framework nav", () => {
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
       "Enterprise Intelligence Platform",
       "Cloud-Hosted Enterprise Intelligence",
+      "Connect your runtime to Intelligence",
       "Self-Hosting Enterprise Intelligence",
       "Enterprise Intelligence Architecture",
     ]);
