@@ -1,10 +1,9 @@
 import {
   BuiltInAgent,
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
 
 if (!process.env.OPENAI_API_KEY) {
   console.warn(
@@ -29,10 +28,10 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = handler;
+export const POST = handler;

@@ -151,13 +151,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 
         <FrontendOnly frontend="react">
         ```npm
-        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client rxjs hono
+        npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client rxjs
         ```
         </FrontendOnly>
 
         <FrontendOnly frontend="angular">
         ```npm
-        npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @ag-ui/client rxjs hono
+        npm install @copilotkit/angular @angular/cdk @copilotkit/runtime @ag-ui/client rxjs
         ```
         </FrontendOnly>
       </Step>
@@ -174,10 +174,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
         import {
           CopilotRuntime,
-          createCopilotEndpoint,
+          createCopilotRuntimeHandler,
           InMemoryAgentRunner,
         } from "@copilotkit/runtime/v2";
-        import { handle } from "hono/vercel";
         import { HttpAgent } from "@ag-ui/client";
         import { AgentCoreRunner } from "./agent-core-runner";
 
@@ -193,13 +192,13 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
           runner: new AgentCoreRunner(),
         });
 
-        const app = createCopilotEndpoint({
+        const handler = createCopilotRuntimeHandler({
           runtime,
           basePath: "/api/copilotkit",
         });
 
-        export const GET = handle(app);
-        export const POST = handle(app);
+        export const GET = handler;
+        export const POST = handler;
         ```
 
         <Callout type="info" title="What is AGENTCORE_ENDPOINT_URL?">

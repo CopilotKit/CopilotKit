@@ -227,7 +227,7 @@ Before you begin, you'll need the following:
                 ### Install CopilotKit packages
 
                 ```npm
-                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
                 ```
             </Step>
             <Step>
@@ -238,10 +238,9 @@ Before you begin, you'll need the following:
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
                   CopilotRuntime,
-                  createCopilotEndpoint,
+                  createCopilotRuntimeHandler,
                   InMemoryAgentRunner,
                 } from "@copilotkit/runtime/v2";
-                import { handle } from "hono/vercel";
                 import { HttpAgent } from "@ag-ui/client";
 
                 const runtime = new CopilotRuntime({
@@ -251,13 +250,13 @@ Before you begin, you'll need the following:
                   runner: new InMemoryAgentRunner(),
                 });
 
-                const app = createCopilotEndpoint({
+                const handler = createCopilotRuntimeHandler({
                   runtime,
                   basePath: "/api/copilotkit",
                 });
 
-                export const GET = handle(app);
-                export const POST = handle(app);
+                export const GET = handler;
+                export const POST = handler;
                ```
             </Step>
             <Step>

@@ -2,30 +2,23 @@ The Copilot Runtime is the backend layer that connects your frontend application
 
 ## Setting Up the Runtime
 
-The runtime is a lightweight server endpoint that you add to your backend. It needs
-two packages — the runtime itself, and `hono`, which the Next.js handler is built on:
+The runtime is a lightweight server endpoint that you add to your backend:
 
 ```npm
-npm install @copilotkit/runtime hono
+npm install @copilotkit/runtime
 ```
 
-<Callout type="info">
-  `hono` is a dependency of `@copilotkit/runtime` rather than a peer, so with
-  npm's flat `node_modules` the import below may resolve without it. Install it
-  explicitly — under pnpm or Yarn PnP it will not.
-</Callout>
-
-Here's a minimal example using Next.js. The route lives at a **catch-all** path and
-exports **both** verbs, so the runtime can serve its sub-routes (`/info`, agent runs,
-threads) rather than a single URL:
+Here's a minimal example using Next.js. `createCopilotRuntimeHandler` returns a
+plain fetch handler, so the route is just two exports. It lives at a **catch-all**
+path and exports **both** verbs, so the runtime can serve its sub-routes (`/info`,
+agent runs, threads) rather than a single URL:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -34,13 +27,13 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpoint({
+const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 
-export const GET = handle(app);
-export const POST = handle(app);
+export const GET = handler;
+export const POST = handler;
 ```
 
 With the route in place, `GET /api/copilotkit/info` returns a JSON description of the
@@ -59,7 +52,7 @@ Then point your frontend at the endpoint:
 
 <Callout type="warn">
   `useSingleEndpoint={false}` selects the REST transport, which is what
-  `createCopilotEndpoint` serves. Pass it explicitly: in released versions
+  `createCopilotRuntimeHandler` serves. Pass it explicitly: in released versions
   `<CopilotKit>` pins the flag to `true` — the single-route transport, which
   posts everything to the bare `runtimeUrl` — and a multi-route runtime answers
   that with a 404 while `GET /info` still returns 200, so the app looks

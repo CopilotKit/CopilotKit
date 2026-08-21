@@ -32,10 +32,9 @@ Key benefits:
     ```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
     import {
       CopilotRuntime,
-      createCopilotEndpoint,
+      createCopilotRuntimeHandler,
       InMemoryAgentRunner,
     } from "@copilotkit/runtime/v2";
-    import { handle } from "hono/vercel";
     import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
     import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware"; // [!code highlight]
 
@@ -59,13 +58,13 @@ Key benefits:
       runner: new InMemoryAgentRunner(),
     });
 
-    const app = createCopilotEndpoint({
+    const handler = createCopilotRuntimeHandler({
       runtime,
       basePath: "/api/copilotkit",
     });
 
-    export const GET = handle(app);
-    export const POST = handle(app);
+    export const GET = handler;
+    export const POST = handler;
     ```
 
     <Callout type="info" title="Server ID">

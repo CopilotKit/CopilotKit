@@ -32,7 +32,7 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
@@ -66,7 +66,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertInputToTanStackAI,
@@ -103,7 +103,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -510,9 +510,11 @@ Forward properties from the frontend provider:
 ```
 
 <Callout type="info" title="About the explicit useSingleEndpoint">
-  `createCopilotEndpoint` serves multi-route, the default. Both `<CopilotKit>` and `<CopilotKitProvider>` negotiate the transport when the
-  prop is omitted, so this `{false}` is optional: it pins the multi-route REST
-  routes rather than probing for them. See
+  The route above serves multi-route, the default. `<CopilotKitProvider>`
+  negotiates the transport when the prop is omitted, but every released
+  `<CopilotKit>` still pins it to `true` internally — which selects the
+  single-route transport and 404s against a multi-route route. Keep the
+  `{false}`. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 </FrontendOnly>

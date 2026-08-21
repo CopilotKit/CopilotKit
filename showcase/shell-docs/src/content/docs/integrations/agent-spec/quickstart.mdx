@@ -310,7 +310,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           ### Install CopilotKit packages
 
           ```npm
-          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client hono
+          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
           ```
       </Step>
       <Step>
@@ -321,10 +321,9 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
           ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
           import {
             CopilotRuntime,
-            createCopilotEndpoint,
+            createCopilotRuntimeHandler,
             InMemoryAgentRunner,
           } from "@copilotkit/runtime/v2";
-          import { handle } from "hono/vercel";
           import { HttpAgent } from "@ag-ui/client";
 
           const runtime = new CopilotRuntime({
@@ -334,13 +333,13 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
             runner: new InMemoryAgentRunner(),
           });
 
-          const app = createCopilotEndpoint({
+          const handler = createCopilotRuntimeHandler({
             runtime,
             basePath: "/api/copilotkit",
           });
 
-          export const GET = handle(app);
-          export const POST = handle(app);
+          export const GET = handler;
+          export const POST = handler;
           ```
       </Step>
       <Step>
