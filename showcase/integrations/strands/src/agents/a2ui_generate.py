@@ -44,7 +44,6 @@ class _A2uiError(TypedDict):
     remediation: str
 
 
-
 # The `generate_a2ui` tool runs a secondary LLM call with a forced
 # `render_a2ui` tool, then converts that tool call's args into the
 # A2UI `a2ui_operations` container via
