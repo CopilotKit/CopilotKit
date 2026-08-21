@@ -21,7 +21,10 @@ export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
-import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
+import type {
+  CopilotKitInspectorOpenRequest,
+  CopilotKitInspectorSaveRequest,
+} from "../components/CopilotKitInspectorContext";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
@@ -352,12 +355,44 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [],
   );
 
+  const saveEventSnippet = useCallback(
+    async (request: CopilotKitInspectorSaveRequest) => {
+      const mod = await import("@copilotkit/web-inspector");
+      const threadId = request.threadId ?? "inspector-snippet";
+      const runId = `inspector-snippet-${Date.now()}`;
+      const compiled = mod.compileChatSnippet({
+        ...request,
+        threadId,
+        runId,
+      });
+      const now = new Date().toISOString();
+      const snippet = {
+        id: crypto.randomUUID(),
+        name: compiled.name,
+        recipe: compiled.recipe,
+        events: compiled.events,
+        createdAt: now,
+        updatedAt: now,
+      };
+      mod.upsertEventSnippet(snippet);
+      requestInspectorOpen({
+        messageId: request.messageId,
+        threadId: request.threadId,
+        agentId: request.agentId,
+        menu: "event-snippets",
+        snippetId: snippet.id,
+      });
+    },
+    [requestInspectorOpen],
+  );
+
   const inspectorContextValue = useMemo(
     () => ({
       isLocalInspectorEnabled,
       openInspector: requestInspectorOpen,
+      saveEventSnippet,
     }),
-    [isLocalInspectorEnabled, requestInspectorOpen],
+    [isLocalInspectorEnabled, requestInspectorOpen, saveEventSnippet],
   );
 
   // Normalize array props to stable references with clear dev warnings

@@ -349,6 +349,7 @@ test("What's new remains directly below Home whether or not anything is unread",
     "Learning",
     "Agent",
     "AG-UI Events",
+    "Event Snippets",
     "Context",
   ]);
   expect(navUnreadMarker(context.inspector)).not.toBeNull();
