@@ -82,6 +82,12 @@ function findControl(root: ShadowRoot, label: string): HTMLElement | undefined {
 async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and the Threads footer is what this suite renders.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const requests: string[] = [];
   const metadataResponses = [
     ...(options.metadataResponses ??

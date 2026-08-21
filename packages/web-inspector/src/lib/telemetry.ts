@@ -1,16 +1,17 @@
 // Inspector-side anonymous telemetry. V1 events fire from index.ts for
-// banner and thread-inspection interactions. POSTs directly from the browser
-// to the CopilotKit telemetry sink at `telemetry.copilotkit.ai/ingest`,
-// where a Lambda fan-out forwards events to PostHog / Reo / Scarf.
+// What's new and thread-inspection interactions. POSTs directly from the
+// browser to the CopilotKit telemetry sink at
+// `telemetry.copilotkit.ai/ingest`, where a Lambda fan-out forwards events to
+// PostHog / Reo / Scarf.
 //
 // The endpoint URL is intentionally clearly named so it's obvious in
 // DevTools / Network tab — transparency for opt-in users.
 //
 // Privacy invariants enforced here:
 //   - We never send message content, agent state, prompts, completions,
-//     or banner markdown. Feature-specific properties are scoped to event
-//     metadata only (banner_id/timestamp, cta location). Reviewers should grep
-//     call sites for any unintended payload.
+//     or announcement markdown. Feature-specific properties are scoped to
+//     event metadata only (banner_id/timestamp, cta location). Reviewers
+//     should grep call sites for any unintended payload.
 //   - The opt-out short-circuits before any network call. There is no
 //     buffer, no retry queue.
 //   - All errors are swallowed; telemetry must never break the host app.
@@ -28,9 +29,9 @@ import packageJson from "../../package.json" with { type: "json" };
 // without a per-event sink deploy.
 export const TELEMETRY_EVENTS = {
   opened: "oss.inspector.opened",
-  bannerViewed: "oss.inspector.banner_viewed",
-  bannerClicked: "oss.inspector.banner_clicked",
-  bannerDismissed: "oss.inspector.banner_dismissed",
+  whatsNewViewed: "oss.inspector.whats_new_viewed",
+  whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
+  whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
   threadsIntelligenceSignupClicked:
@@ -72,35 +73,6 @@ const PACKAGE_VERSION = packageJson.version;
 // 3-second cap so a slow gateway can't hang the host app. Matches the
 // runtime's existing scarf-client convention.
 const FETCH_TIMEOUT_MS = 3000;
-
-// Events that carry package identity (`package_name` / `package_version`) and
-// the inspector's anonymous distinct-ID alongside their own properties.
-// Threads / memories events have always been enriched this way; `opened`
-// joins them so panel-open volume can be segmented by inspector version.
-// Banner events deliberately keep the flat shape their existing dashboards
-// read.
-function isEnrichedTelemetryEvent(event: TelemetryEvent): boolean {
-  return (
-    event === TELEMETRY_EVENTS.opened ||
-    event === TELEMETRY_EVENTS.threadsTabClicked ||
-    event === TELEMETRY_EVENTS.threadsLockedViewed ||
-    event === TELEMETRY_EVENTS.threadsIntelligenceSignupClicked ||
-    event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked ||
-    event === TELEMETRY_EVENTS.talkToEngineerClicked ||
-    event === TELEMETRY_EVENTS.threadsEmptyEnabledViewed ||
-    event === TELEMETRY_EVENTS.threadsEnabledViewed ||
-    event === TELEMETRY_EVENTS.threadsExampleViewed ||
-    event === TELEMETRY_EVENTS.threadsExampleSelected ||
-    event === TELEMETRY_EVENTS.threadsExampleTourStarted ||
-    event === TELEMETRY_EVENTS.threadsExampleTourStepViewed ||
-    event === TELEMETRY_EVENTS.threadsExampleTourDismissed ||
-    event === TELEMETRY_EVENTS.threadsExampleTourCompleted ||
-    event === TELEMETRY_EVENTS.threadsExampleTourReopened ||
-    event === TELEMETRY_EVENTS.memoriesTabClicked ||
-    event === TELEMETRY_EVENTS.metadataModuleViewed ||
-    event === TELEMETRY_EVENTS.metadataActionClicked
-  );
-}
 
 export type RuntimeUrlType =
   | "missing"
@@ -157,25 +129,20 @@ export function track(
 
   try {
     const distinctId = getOrCreateTelemetryDistinctId();
-    const enrichedProperties = isEnrichedTelemetryEvent(event)
-      ? {
-          package_name: PACKAGE_NAME,
-          package_version: PACKAGE_VERSION,
-          inspector_distinct_id: distinctId,
-        }
-      : {};
+    // Every event carries package identity and the inspector's anonymous
+    // distinct-ID, so any of them can be segmented by inspector version.
     const body = JSON.stringify({
       event,
       properties: {
         ...properties,
-        ...enrichedProperties,
+        package_name: PACKAGE_NAME,
+        package_version: PACKAGE_VERSION,
+        inspector_distinct_id: distinctId,
         distinct_id: distinctId,
       },
       package: {
         name: PACKAGE_NAME,
-        ...(isEnrichedTelemetryEvent(event)
-          ? { version: PACKAGE_VERSION }
-          : {}),
+        version: PACKAGE_VERSION,
       },
       ts: Math.floor(Date.now() / 1000),
     });
@@ -190,44 +157,49 @@ export function track(
 // site, so callers can't accidentally include PII under a wrong key.
 
 /**
- * Where an announcement was rendered when the event fired. The announcement
- * has two surfaces — the preview bubble beside the *collapsed* floating
- * button, and the card *inside* the opened panel — and reach on one says
- * nothing about attention on the other. Always stamped at fire time, never
- * inferred at fetch time.
+ * Where an announcement was rendered when the event fired. What's new is the
+ * only surface that carries one, so the value is currently a constant — it
+ * stays a stamped property rather than an inferred one so a second surface
+ * can be added without changing the event's shape.
  */
-export type BannerSurface = "collapsed_preview" | "expanded_card";
+export type WhatsNewSurface = "whats_new";
 
-export function trackBannerViewed(props: {
+export type WhatsNewSignalPresentation = "animated" | "reduced_motion";
+
+/**
+ * Fires when What's new has rendered *with content*. A loading state is not
+ * an impression, so the metric cannot inflate itself by counting readers who
+ * arrived before the feed resolved.
+ */
+export function trackWhatsNewViewed(props: {
   banner_id: string;
-  surface: BannerSurface;
+  surface: WhatsNewSurface;
   cta_label?: string;
 }): void {
-  track(TELEMETRY_EVENTS.bannerViewed, props);
+  track(TELEMETRY_EVENTS.whatsNewViewed, props);
 }
 
-export function trackBannerClicked(props: {
+/** Fires when the unread launcher signal is presented in a visible tab. */
+export function trackWhatsNewSignalViewed(props: {
   banner_id: string;
-  cta: "body" | "dismiss";
+  surface: "launcher";
+  presentation: WhatsNewSignalPresentation;
   cta_label?: string;
 }): void {
-  track(TELEMETRY_EVENTS.bannerClicked, props);
+  track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
 }
 
 /**
- * First-class dismissal signal. Emitted *in addition to*
- * `banner_clicked { cta: "dismiss" }` rather than replacing it — the
- * existing dashboards read the `cta` value, so removing it would silently
- * zero them out. New reporting should prefer this event, whose `surface`
- * says whether the user swatted the bubble away or dismissed the card
- * after opening the panel.
+ * Fires for links followed inside the announcement body. `body` is the only
+ * call-to-action left: dismissal no longer exists, so there is nothing else a
+ * click on this surface can mean.
  */
-export function trackBannerDismissed(props: {
+export function trackWhatsNewClicked(props: {
   banner_id: string;
-  surface: BannerSurface;
+  cta: "body";
   cta_label?: string;
 }): void {
-  track(TELEMETRY_EVENTS.bannerDismissed, props);
+  track(TELEMETRY_EVENTS.whatsNewClicked, props);
 }
 
 /**
@@ -235,10 +207,7 @@ export function trackBannerDismissed(props: {
  * deliberately NOT a source: it is not an open *intent*, and counting it
  * would turn every dev-server hot reload into an "open".
  */
-export type InspectorOpenSource =
-  | "floating_button"
-  | "announcement_preview"
-  | "message_toolbar";
+export type InspectorOpenSource = "floating_button" | "message_toolbar";
 
 export type InspectorOpenedTelemetryProps = {
   open_source: InspectorOpenSource;
@@ -260,8 +229,8 @@ export type InspectorOpenedTelemetryProps = {
 
 /**
  * Panel-open signal (OSS-566). Before this event, opens could only be
- * inferred from in-panel activity (a floor) or from `banner_clicked`
- * cta=`body` (which misses the floating-button path entirely).
+ * inferred from in-panel activity (a floor) or from the announcement's own
+ * click event (which misses the floating-button path entirely).
  */
 export function trackInspectorOpened(
   props: InspectorOpenedTelemetryProps,
@@ -278,8 +247,9 @@ export type ThreadsUsageBucket =
   | "unlimited"
   | "unknown_limit";
 export type ThreadsExpiryBucket = "unavailable" | "zero" | "positive";
-export type InspectorGroupKey = "threads" | "agents" | "learning";
+export type InspectorGroupKey = "whats-new" | "threads" | "agents" | "learning";
 export type InspectorLeafKey =
+  | "whats-new"
   | "threads"
   | "ag-ui-events"
   | "agents"
@@ -615,13 +585,13 @@ export function trackMetadataActionClicked(
 
 /**
  * Returns the inspector's anonymous distinct-ID for cross-domain
- * propagation onto outbound banner-CTA links, or `null` when the user
+ * propagation onto outbound announcement-CTA links, or `null` when the user
  * is opted out.
  *
  * The website / Ops API reads this query param on signup-flow landing
  * pages and calls `posthog.alias(...)` to merge the inspector's anon
  * ID with the website's anon ID, enabling the
- * `banner_viewed → banner_clicked → signup_attributed` funnel.
+ * `whats_new_viewed → whats_new_clicked → signup_attributed` funnel.
  * `identify()` itself is out of scope here (it happens on signup, in
  * the website / Ops API).
  *
@@ -635,7 +605,7 @@ export function getTelemetryDistinctIdForUrl(): string | null {
 
 /**
  * Seeds the anonymous distinct-ID into localStorage on inspector mount
- * so it is ready for cross-domain propagation onto banner-CTA links
+ * so it is ready for cross-domain propagation onto announcement-CTA links
  * even before the first event fires. No-op when the user has opted out.
  */
 export function ensureTelemetryDistinctId(): void {

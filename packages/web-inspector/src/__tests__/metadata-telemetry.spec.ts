@@ -118,6 +118,12 @@ async function setup(
 ): Promise<InspectorTelemetryContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and this suite measures the Threads-scoped metadata surfaces.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const metadataResponses = [...options.metadataResponses];
   const telemetryBodies: TelemetryBody[] = [];
   const fetchMock = vi.fn(

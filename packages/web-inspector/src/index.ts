@@ -4,7 +4,7 @@ import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
-import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
+import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
@@ -48,7 +48,12 @@ import {
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers.js";
 import {
+  clearLegacyAnnouncementReadState,
+  loadAnnouncementPulsedTimestamp,
+  loadAnnouncementReadTimestamp,
   loadInspectorState,
+  saveAnnouncementPulsedTimestamp,
+  saveAnnouncementReadTimestamp,
   saveInspectorState,
   isValidAnchor,
   isValidPosition,
@@ -74,9 +79,6 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
-  trackBannerClicked,
-  trackBannerDismissed,
-  trackBannerViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
@@ -95,9 +97,11 @@ import {
   trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackWhatsNewClicked,
+  trackWhatsNewSignalViewed,
+  trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import type {
-  BannerSurface,
   ExampleKind,
   ExampleTourStep,
   ExampleTourTab,
@@ -110,6 +114,8 @@ import type {
   MetadataActionPlacement,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
+  WhatsNewSignalPresentation,
+  WhatsNewSurface,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -134,9 +140,20 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  */
 const MEMORY_VIEW_LABEL = "Memory";
 
+/**
+ * User-facing label for the What's new view. Its menu key stays `whats-new`
+ * for persistence and telemetry stability, following the `memories`/"Memory"
+ * precedent above.
+ */
+const WHATS_NEW_VIEW_LABEL = "What's new";
+
+/** Menu key of the What's new leaf — the news signal's destination. */
+const WHATS_NEW_MENU_KEY = "whats-new";
+
 type LucideIconName = keyof typeof icons;
 
 const INSPECTOR_GROUPS = {
+  "whats-new": ["whats-new"],
   threads: ["threads"],
   agents: [
     "ag-ui-events",
@@ -152,6 +169,7 @@ type InspectorGroupKey = keyof typeof INSPECTOR_GROUPS;
 type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorGroupKey][number];
 
 const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
+  ...INSPECTOR_GROUPS["whats-new"],
   ...INSPECTOR_GROUPS.threads,
   ...INSPECTOR_GROUPS.agents,
   ...INSPECTOR_GROUPS.learning,
@@ -173,6 +191,11 @@ type MenuItem = {
 
 const INSPECTOR_PRIMARY_NAVIGATION = [
   {
+    key: "whats-new",
+    label: WHATS_NEW_VIEW_LABEL,
+    icon: "Megaphone",
+  },
+  {
     key: "threads",
     label: "Threads",
     icon: "MessageSquare",
@@ -193,15 +216,31 @@ const INSPECTOR_PRIMARY_NAVIGATION = [
   icon: LucideIconName;
 }>;
 
+// ── Launcher signals ──────────────────────────────────────────────────────
+//
+// The destination stays explicit so the unread marker is derived from the
+// same state as the launcher dot rather than being armed independently.
+const NEWS_SIGNAL_ID = "whats-new";
+const NEWS_SIGNAL_TONE = "news";
+const NEWS_SIGNAL_COLOR = "#A78BFA";
+const NEWS_SIGNAL_CADENCE_MS = 2100;
+const NEWS_SIGNAL_DESTINATION: MenuKey = WHATS_NEW_MENU_KEY;
+
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 600;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 420;
 const MIN_WINDOW_HEIGHT = 200;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
-const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
+// The launcher keeps its current touch target on compact screens and grows to
+// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
+const LAUNCHER_MIN_SIZE = 51.84;
+const LAUNCHER_MAX_SIZE = 62.208;
+const DEFAULT_BUTTON_SIZE: Size = {
+  width: LAUNCHER_MIN_SIZE,
+  height: LAUNCHER_MIN_SIZE,
+};
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
@@ -4942,12 +4981,13 @@ export class WebInspectorElement extends LitElement {
   private isOpen = false;
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
-  private selectedMenu: MenuKey = "threads";
+  private selectedMenu: MenuKey = WHATS_NEW_MENU_KEY;
   private pendingPersistedMenu: MenuKey | null = null;
   private hasResolvedCore = false;
   private settingsOpen = false;
   private readonly lastSelectedMenuByGroup: Record<InspectorGroupKey, MenuKey> =
     {
+      "whats-new": WHATS_NEW_MENU_KEY,
       threads: "threads",
       agents: "ag-ui-events",
       learning: "memories",
@@ -5013,23 +5053,30 @@ export class WebInspectorElement extends LitElement {
   // CDN payload (e.g. "Try threads", "New feature"). The current schema
   // ({timestamp, previewText, announcement}) doesn't carry it, so this is
   // null in production today; we read it defensively in fetchAnnouncement
-  // so a future CDN-side schema bump lights up `cta_label` on banner_clicked
-  // without an inspector release.
+  // so a future CDN-side schema bump lights up `cta_label` on
+  // whats_new_clicked without an inspector release.
   private announcementCtaLabel: string | null = null;
-  private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
-  private showAnnouncementPreview = true;
-  private announcementExpanded = false;
-  // Per-instance dedup for `oss.inspector.banner_viewed`, keyed by
+  private newsSignalArmed = false;
+  private newsSignalPulsing = false;
+  private newsSignalPulsePending = false;
+  private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private viewedNewsSignalIds: Set<string> = new Set();
+  private pendingNewsSignalViewed: {
+    banner_id: string;
+    surface: "launcher";
+    presentation: WhatsNewSignalPresentation;
+    cta_label?: string;
+  } | null = null;
+  // Per-instance dedup for `oss.inspector.whats_new_viewed`, keyed by
   // `${timestamp}:${surface}` so the event fires at most once per
   // announcement per surface per inspector mount. Plan calls for "de-dup per
   // timestamp per session"; instance-scoping is closer to per-mount than
   // per-tab (sessionStorage), but for the inspector the distinction is
-  // academic — inspector instances rarely outlive the page. The surface is
-  // part of the key (OSS-568) because the bubble on the collapsed widget and
-  // the card inside the opened panel are separate impressions: a user can see
-  // one without ever seeing the other.
+  // academic — inspector instances rarely outlive the page. The surface stays
+  // part of the key so a second announcement surface would get its own
+  // impression rather than being swallowed by the first one's.
   private viewedBannerSurfaces: Set<string> = new Set();
   // Impressions wait for the runtime handshake before going out: the runtime's
   // opt-out arrives in the /info response, and `telemetryDisabled` reads `false`
@@ -5039,10 +5086,10 @@ export class WebInspectorElement extends LitElement {
   // before the first impression has flushed.
   private pendingBannerViewed: Array<{
     banner_id: string;
-    surface: BannerSurface;
+    surface: WhatsNewSurface;
     cta_label?: string;
   }> = [];
-  // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
+  // Per-instance dedup for `oss.inspector.whats_new_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
@@ -5137,6 +5184,13 @@ export class WebInspectorElement extends LitElement {
     const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
     const hasCapabilities = hasFrontendTools || hasCatalog;
     return [
+      // Unconditional on purpose: a destination that disappears once read
+      // cannot keep the current announcement findable.
+      {
+        key: WHATS_NEW_MENU_KEY,
+        label: WHATS_NEW_VIEW_LABEL,
+        icon: "Megaphone" as LucideIconName,
+      },
       {
         key: "ag-ui-events",
         label: "AG-UI Events",
@@ -5728,7 +5782,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingBannerViewed();
+          this.flushPendingWhatsNewTelemetry();
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -5814,7 +5868,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingBannerViewed();
+      this.flushPendingWhatsNewTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -6853,6 +6907,19 @@ ${argsString}</pre
       }
 
       .console-button {
+        /* The launcher's own size, exposed so the signal dot can be placed
+           against the OUTER rim with a length rather than a percentage.
+           Percentages resolve against the padding box, which the 1px border
+           insets, and the dot would land inside the rim. */
+        --cpk-launcher-size: clamp(
+          ${LAUNCHER_MIN_SIZE}px,
+          7vw,
+          ${LAUNCHER_MAX_SIZE}px
+        );
+        width: var(--cpk-launcher-size);
+        height: var(--cpk-launcher-size);
+        /* Keep the 1px border inside the declared outer size. */
+        box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
           opacity 160ms ease;
@@ -6920,115 +6987,6 @@ ${argsString}</pre
       .tooltip-target:hover::after {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
-      }
-
-      .announcement-preview {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        min-width: 300px;
-        max-width: 300px;
-        background: white;
-        color: #010507;
-        font-size: 13px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.4;
-        border-radius: 12px;
-        box-shadow: 0 12px 28px rgba(1, 5, 7, 0.12);
-        padding: 10px 12px;
-        display: inline-flex;
-        align-items: flex-start;
-        gap: 8px;
-        z-index: 4500;
-        animation: fade-slide-in 160ms ease;
-        border: 1px solid rgba(219, 219, 229, 0.4);
-        white-space: normal;
-        word-break: break-word;
-        text-align: left;
-      }
-
-      .announcement-preview[data-side="left"] {
-        right: 100%;
-        margin-right: 10px;
-      }
-
-      .announcement-preview[data-side="right"] {
-        left: 100%;
-        margin-left: 10px;
-      }
-
-      .announcement-preview__arrow {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        background: white;
-        border: 1px solid rgba(219, 219, 229, 0.4);
-        transform: rotate(45deg);
-        top: 50%;
-        margin-top: -5px;
-        z-index: -1;
-      }
-
-      .announcement-preview[data-side="left"] .announcement-preview__arrow {
-        right: -5px;
-        box-shadow: 6px -6px 10px rgba(1, 5, 7, 0.08);
-      }
-
-      .announcement-preview[data-side="right"] .announcement-preview__arrow {
-        left: -5px;
-        box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
-      }
-
-      .announcement-preview__dismiss {
-        flex: none;
-        margin-top: -1px;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        appearance: none;
-        background: none;
-        border: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        color: #68686e;
-        cursor: pointer;
-        transition:
-          background 120ms ease,
-          color 120ms ease;
-      }
-
-      .announcement-preview__dismiss:hover {
-        background: rgba(0, 0, 0, 0.06);
-        color: #010507;
-      }
-
-      .announcement-preview__dismiss:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .announcement-dismiss {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #68686e;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        padding: 0;
-        transition:
-          background 120ms ease,
-          color 120ms ease;
-      }
-
-      .announcement-dismiss:hover {
-        background: rgba(0, 0, 0, 0.06);
-        color: #010507;
       }
 
       /* ── Agent tab section cards ─────────────────────────────────────── */
@@ -7273,42 +7231,41 @@ ${argsString}</pre
         border-color: transparent;
       }
 
-      .announcement-body {
-        position: relative;
-        overflow: hidden;
-        transition: max-height 0.25s ease;
-      }
-      .announcement-body--collapsed {
-        max-height: 72px;
-      }
-      .announcement-body--expanded {
-        max-height: 2000px;
-      }
-      .announcement-fade {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 48px;
-        background: linear-gradient(to bottom, transparent, #ffffff);
-        pointer-events: none;
-      }
-      .announcement-toggle {
+      /* ── What's new ──────────────────────────────────────────────── */
+      .whats-new {
         display: block;
-        width: 100%;
-        margin-top: 6px;
-        padding: 0;
-        background: none;
-        border: none;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        color: #5558b2;
-        cursor: pointer;
-        text-align: center;
+        padding: 16px;
       }
-      .announcement-toggle:hover {
-        color: #6430ab;
+
+      .whats-new__heading {
+        margin: 0 0 10px;
+        color: #010507;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.35;
+        letter-spacing: -0.01em;
+      }
+
+      .whats-new__status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #57575b;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 13px;
+      }
+
+      .whats-new__status-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: #eee6fe;
+        color: #5558b2;
       }
 
       /* ── Brand typography ────────────────────────────────────────── */
@@ -7333,6 +7290,167 @@ ${argsString}</pre
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
+      }
+
+      /* ── Launcher signal: water ripple + internal wash + dot ────── */
+      /*
+       * Two rings leave the rim in sequence, like ripples spreading from a
+       * drop's point of impact. They share one keyframe but the second begins
+       * 180ms later, so the first is already farther from the source.
+       *
+       * ONLY opacity and transform animate. This component is permanently
+       * mounted on top of a customer's application, so animating anything
+       * that forces a repaint every frame is not acceptable.
+       */
+      .console-button[data-cpk-signal] {
+        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
+        isolation: isolate;
+      }
+
+      /*
+       * The mark sits above the ripples. Both ring layers are absolutely
+       * positioned, so without a stacking position of its own the mark — an
+       * ordinary in-flow child — would paint under them. Keeping the centre
+       * readable is the reason the motion begins at the rim.
+       */
+      .cpk-launcher-mark {
+        position: relative;
+        z-index: 2;
+        width: auto;
+        height: calc(var(--cpk-launcher-size) / 1.8);
+      }
+
+      .console-button[data-cpk-signal]::before,
+      .console-button[data-cpk-signal]::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px solid
+          color-mix(in srgb, var(--cpk-launcher-signal) 68%, transparent);
+        box-shadow: 0 0 8px
+          color-mix(in srgb, var(--cpk-launcher-signal) 38%, transparent);
+        pointer-events: none;
+        opacity: 0;
+        transform: scale(1);
+      }
+
+      .cpk-launcher-signal-wash {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        border-radius: 50%;
+        pointer-events: none;
+        opacity: 0;
+        background: radial-gradient(
+          circle at 50% 50%,
+          transparent 26%,
+          color-mix(in srgb, var(--cpk-launcher-signal) 78%, transparent) 63%,
+          color-mix(in srgb, var(--cpk-launcher-signal) 30%, transparent) 84%,
+          transparent 100%
+        );
+      }
+
+      @keyframes cpk-launcher-ripple {
+        0% {
+          opacity: 0.95;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.5);
+        }
+      }
+
+      @keyframes cpk-launcher-wash {
+        0%,
+        100% {
+          opacity: 0;
+        }
+        45% {
+          opacity: 1;
+        }
+      }
+
+      /* Both ripples finish inside the existing one-beat pulse window. */
+      .console-button[data-cpk-signal-pulsing="true"]::before,
+      .console-button[data-cpk-signal-pulsing="true"]::after {
+        animation: cpk-launcher-ripple
+          calc(var(--cpk-launcher-cadence) - 180ms)
+          cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
+      }
+      .console-button[data-cpk-signal-pulsing="true"]::after {
+        animation-delay: 180ms;
+      }
+      .console-button[data-cpk-signal-pulsing="true"]
+        .cpk-launcher-signal-wash {
+        animation: cpk-launcher-wash var(--cpk-launcher-cadence) ease-in-out 1
+          both;
+      }
+
+      /*
+       * The dot's centre sits exactly ON the button's outer rim at 45°, where
+       * 0.35355 is 0.5 x cos45. Lengths rather than percentage offsets:
+       * percentages resolve against the padding box, which the border insets,
+       * and the dot would land a pixel inside the rim.
+       */
+      .cpk-launcher-signal-dot {
+        position: absolute;
+        z-index: 3;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%)
+          translate(
+            calc(var(--cpk-launcher-size) * 0.35355),
+            calc(var(--cpk-launcher-size) * -0.35355)
+          );
+        width: 19%;
+        height: 19%;
+        border-radius: 50%;
+        background: var(--cpk-launcher-signal);
+        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+      }
+
+      /*
+       * Reduced motion: the halo is held statically rather than animated, so
+       * the information arrives without the movement.
+       */
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-signal-wash {
+          opacity: 0.85;
+        }
+        .console-button[data-cpk-signal]::before {
+          opacity: 0.5;
+        }
+        .console-button[data-cpk-signal]::after {
+          opacity: 0;
+        }
+        .console-button[data-cpk-signal-pulsing="true"]::before,
+        .console-button[data-cpk-signal-pulsing="true"]::after {
+          animation: none !important;
+        }
+        .console-button[data-cpk-signal-pulsing="true"]
+          .cpk-launcher-signal-wash {
+          animation: none !important;
+        }
+      }
+
+      /*
+       * Unread marker on the navigation entry, which is what keeps the signal
+       * alive once the panel is open and the launcher is hidden. Static by
+       * design: the pulse belongs to the launcher, and movement here would
+       * compete with the live event stream a developer is actually watching.
+       */
+      .inspector-nav-signal-dot {
+        display: inline-block;
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: ${unsafeCSS(NEWS_SIGNAL_COLOR)};
       }
 
       /* ── Inspector window ────────────────────────────────────────── */
@@ -7645,6 +7763,10 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
       window.addEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.addEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
       const viteHot = (
         import.meta as ImportMeta & {
           hot?: { on: (event: string, handler: () => void) => void };
@@ -7657,6 +7779,11 @@ ${argsString}</pre
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
+      // The superseded, origin-scoped read state is discarded rather than
+      // migrated: every existing user is re-armed exactly once so they
+      // discover the surface that replaced the announcement bubble. Deleting
+      // the key rather than leaving it means nothing can fall back to it.
+      clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
@@ -7677,6 +7804,10 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
       window.removeEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.removeEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -7693,6 +7824,7 @@ ${argsString}</pre
       this.threadsSetupPromptCopyResetTimeoutId = null;
     }
     this.threadsSetupPromptCopyState = "idle";
+    this.stopNewsSignalPulse();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -7769,6 +7901,10 @@ ${argsString}</pre
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
+    this.maybeTrackNewsSignalViewed();
+    // "Rendered with content" is a property of the finished render, so the
+    // news signal is retired here rather than from a render method.
+    this.maybeCompleteWhatsNewView();
 
     if (!this.isOpen || this.selectedGroup !== "agents") {
       this.lastScrolledAgentNavigationLayout = null;
@@ -7808,14 +7944,20 @@ ${argsString}</pre
   }
 
   private renderButton() {
+    // `.console-button` owns the launcher dimensions and publishes the same
+    // number as `--cpk-launcher-size` for the signal dot's rim placement.
+    // Tailwind scan tokens retained for generated-sheet stability: ease-in-out
+    // ease-out
     const buttonClasses = [
       "console-button",
       "group",
       "relative",
       "pointer-events-auto",
       "inline-flex",
-      "h-12",
-      "w-12",
+      // Kept as Tailwind scan tokens so the generated sheet stays stable;
+      // the later `.console-button` rule owns the responsive dimensions.
+      "h-9",
+      "w-9",
       "items-center",
       "justify-center",
       "rounded-full",
@@ -7838,21 +7980,31 @@ ${argsString}</pre
       "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
-      this.isDragging ? "cursor-grabbing" : "cursor-grab",
+      this.isDragging ? "cursor-grabbing" : "cursor-pointer",
     ].join(" ");
 
-    // The announcement preview renders as a SIBLING of the floating button (not
-    // a child) so its dismiss affordance can be a real <button>. Nesting any
-    // interactive/tabbable element inside the floating <button> violates the
-    // HTML button content model. The wrapper is position: relative so the
-    // absolutely-positioned preview still anchors to the button's edge.
+    const signalStyles = this.newsSignalArmed
+      ? {
+          "--cpk-launcher-signal": NEWS_SIGNAL_COLOR,
+          "--cpk-launcher-cadence": `${NEWS_SIGNAL_CADENCE_MS}ms`,
+        }
+      : {};
+
     return html`
       <div class="console-button-wrapper">
         <button
           class=${buttonClasses}
           type="button"
           aria-label="Web Inspector"
+          title=${
+            this.newsSignalArmed ? `${WHATS_NEW_VIEW_LABEL} — unread` : nothing
+          }
           data-drag-context="button"
+          data-cpk-signal=${this.newsSignalArmed ? NEWS_SIGNAL_TONE : nothing}
+          data-cpk-signal-pulsing=${
+            this.newsSignalArmed && this.newsSignalPulsing ? "true" : nothing
+          }
+          style=${styleMap(signalStyles)}
           data-dragging=${
             this.isDragging && this.pointerContext === "button"
               ? "true"
@@ -7865,13 +8017,29 @@ ${argsString}</pre
           @click=${this.handleButtonClick}
         >
           <img
-            src=${inspectorLogoIconUrl}
+            src=${inspectorLogoKiteUrl}
             alt="Inspector logo"
-            class="h-5 w-auto"
+            class="cpk-launcher-mark h-6 w-auto"
             loading="lazy"
           />
+          ${
+            // Purely decorative: the button is the target and carries the
+            // hover hint, it keeps its stable accessible name, and the unread
+            // state is announced by the navigation entry, which is where a
+            // keyboard user arrives.
+            this.newsSignalArmed
+              ? html`<span
+                    class="cpk-launcher-signal-wash"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="cpk-launcher-signal-dot"
+                    data-cpk-signal-dot=${NEWS_SIGNAL_ID}
+                    aria-hidden="true"
+                  ></span>`
+              : nothing
+          }
         </button>
-        ${this.renderAnnouncementPreview()}
       </div>
     `;
   }
@@ -8120,11 +8288,19 @@ ${argsString}</pre
               ${INSPECTOR_PRIMARY_NAVIGATION.map(({ key, label, icon }) => {
                 const isSelected = this.selectedGroup === key;
                 const legacyMenuKey =
-                  key === "threads"
-                    ? "threads"
-                    : key === "learning"
-                      ? "memories"
-                      : undefined;
+                  key === WHATS_NEW_MENU_KEY
+                    ? WHATS_NEW_MENU_KEY
+                    : key === "threads"
+                      ? "threads"
+                      : key === "learning"
+                        ? "memories"
+                        : undefined;
+
+                // Reads the same signals as the launcher dot, so the two can
+                // never disagree about whether something has been read. This
+                // is the only way into What's new: pressing the launcher
+                // always restores the tab the reader left, never redirects.
+                const unread = this.groupHasArmedSignal(key);
 
                 return html`
                   <button
@@ -8134,7 +8310,9 @@ ${argsString}</pre
                     }"
                     data-inspector-group=${key}
                     data-inspector-menu-key=${legacyMenuKey ?? nothing}
+                    data-inspector-unread=${unread ? "true" : nothing}
                     aria-current=${isSelected ? "page" : nothing}
+                    aria-label=${unread ? `${label} (unread)` : nothing}
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${() => this.handleGroupSelect(key)}
                   >
@@ -8146,6 +8324,13 @@ ${argsString}</pre
                       }
                     </span>
                     <span>${label}</span>
+                    ${
+                      unread
+                        ? html`
+                            <span class="inspector-nav-signal-dot" aria-hidden="true"></span>
+                          `
+                        : nothing
+                    }
                   </button>
                 `;
               })}
@@ -8206,7 +8391,6 @@ ${argsString}</pre
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
             <div id="cpk-main-scroll" class="flex-1 overflow-auto">
-              ${this.renderAnnouncementBanner()}
               ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
               <slot></slot>
             </div>
@@ -8343,10 +8527,15 @@ ${argsString}</pre
     }
   }
 
-  /** Restore a visible legacy leaf, or use Threads for stale state. */
+  /**
+   * Restore a visible legacy leaf. A developer with no usable persisted leaf
+   * lands on What's new so a first impression is content rather than an empty
+   * diagnostic pane; a developer with one keeps it, because an unread
+   * announcement must never override where somebody left off.
+   */
   private restorePersistedMenu(value: unknown): void {
-    this.selectedMenu = "threads";
-    this.lastSelectedMenuByGroup.threads = "threads";
+    this.selectedMenu = WHATS_NEW_MENU_KEY;
+    this.lastSelectedMenuByGroup[WHATS_NEW_MENU_KEY] = WHATS_NEW_MENU_KEY;
     this.pendingPersistedMenu = null;
 
     if (!isInspectorMenuKey(value)) {
@@ -8479,6 +8668,8 @@ ${argsString}</pre
       !this.isOpen &&
       !this.draggedDuringInteraction
     ) {
+      // Pointer events fire before `click`, so a mouse press opens from here
+      // and never reaches handleButtonClick. Both paths must behave the same.
       this.openInspector("floating_button");
     }
 
@@ -8512,6 +8703,8 @@ ${argsString}</pre
 
     if (!this.isOpen) {
       event.preventDefault();
+      // Reached by keyboard activation, which fires `click` with no pointer
+      // events. A mouse press has already opened from handlePointerUp.
       this.openInspector("floating_button");
     }
   };
@@ -9144,8 +9337,7 @@ ${argsString}</pre
       return;
     }
 
-    const hadUnseenAnnouncement = this.hasUnseenAnnouncement;
-    this.showAnnouncementPreview = false; // hide the bubble once the inspector is opened
+    const hadUnseenAnnouncement = this.newsSignalArmed;
 
     this.ensureAnnouncementLoading();
 
@@ -9153,10 +9345,6 @@ ${argsString}</pre
     this.persistState(); // Save the open state
 
     this.trackOpened(source, hadUnseenAnnouncement);
-    // The in-panel announcement card is now the visible surface, so it earns
-    // its own banner_viewed impression (no-op when the announcement hasn't
-    // loaded yet — fetchAnnouncement records it on arrival instead).
-    this.maybeTrackBannerViewed();
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -9189,6 +9377,8 @@ ${argsString}</pre
     }
 
     this.isOpen = false;
+
+    if (this.newsSignalPulsePending) this.startNewsSignalPulse();
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -9613,6 +9803,10 @@ ${argsString}</pre
       return this.renderSettingsPanel();
     }
 
+    if (this.selectedMenu === WHATS_NEW_MENU_KEY) {
+      return this.renderWhatsNewView();
+    }
+
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
     }
@@ -9883,33 +10077,22 @@ ${argsString}</pre
     }
   };
 
-  // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
-  // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
-  // replacing it, so dashboards reading the `cta` value keep working.
-  private trackBannerDismissedOnce(surface: BannerSurface): void {
-    if (this.core?.telemetryDisabled) return;
-    const id = this.announcementTimestamp;
-    if (!id) return;
-    const key = `${id}:dismissed:${surface}`;
-    if (this.clickedBannerIds.has(key)) return;
-    this.clickedBannerIds.add(key);
-    trackBannerDismissed({
-      banner_id: id,
-      surface,
-      cta_label: this.announcementCtaLabel ?? undefined,
-    });
-  }
-
-  // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
-  // copy-button retries and accidental multi-clicks don't inflate funnel counts.
-  private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
-    if (this.core?.telemetryDisabled) return;
+  // Fires `whats_new_clicked` at most once per `${bannerId}:${cta}` per mount
+  // so copy-button retries and accidental multi-clicks don't inflate funnel
+  // counts. `body` is the only cta left now that dismissal is gone.
+  private trackWhatsNewClickedOnce(opts: { cta: "body" }): void {
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
     this.clickedBannerIds.add(key);
-    trackBannerClicked({
+    trackWhatsNewClicked({
       banner_id: id,
       cta: opts.cta,
       cta_label: this.announcementCtaLabel ?? undefined,
@@ -13467,105 +13650,208 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  private renderAnnouncementBanner() {
-    if (!this.hasUnseenAnnouncement) {
-      return nothing;
-    }
+  // ── What's new launcher signal ──────────────────────────────────────────
 
-    if (!this.announcementLoaded && !this.announcementHtml) {
-      return html`<div
-        class="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800"
-      >
-        <span
-          class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-        >
-          ${this.renderIcon("Megaphone")}
-        </span>
-        <span>Loading latest announcement…</span>
-      </div>`;
+  private armNewsSignal(options: { pulse: boolean }): void {
+    const wasArmed = this.newsSignalArmed;
+    this.newsSignalArmed = true;
+    if (options.pulse && this.isOpen) {
+      this.newsSignalPulsePending = true;
+      if (!wasArmed) this.requestUpdate();
+    } else if (options.pulse) {
+      this.startNewsSignalPulse();
+    } else if (!wasArmed) {
+      this.requestUpdate();
     }
+  }
 
-    if (!this.announcementHtml) {
-      return nothing;
+  private clearNewsSignal(): void {
+    if (!this.newsSignalArmed) return;
+    this.newsSignalArmed = false;
+    this.newsSignalPulsePending = false;
+    if (this.announcementTimestamp) {
+      saveAnnouncementReadTimestamp(this.announcementTimestamp);
     }
+    if (this.newsSignalPulsing) this.stopNewsSignalPulse();
+    this.requestUpdate();
+  }
 
-    return html`<div
-      class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
-    >
-      <div
-        class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
+  private startNewsSignalPulse(): void {
+    this.stopNewsSignalPulse();
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      this.newsSignalPulsePending = true;
+      this.requestUpdate();
+      return;
+    }
+    this.newsSignalPulsePending = false;
+    this.newsSignalPulsing = true;
+    if (this.announcementTimestamp) {
+      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    }
+    this.requestUpdate();
+    if (typeof window === "undefined") return;
+    this.pulseTimeoutId = setTimeout(() => {
+      this.pulseTimeoutId = null;
+      this.newsSignalPulsing = false;
+      this.requestUpdate();
+    }, NEWS_SIGNAL_CADENCE_MS);
+  }
+
+  private stopNewsSignalPulse(): void {
+    if (this.pulseTimeoutId !== null) {
+      clearTimeout(this.pulseTimeoutId);
+      this.pulseTimeoutId = null;
+    }
+    this.newsSignalPulsing = false;
+  }
+
+  private handleDocumentVisibilityChange = (): void => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "visible" &&
+      this.newsSignalPulsePending &&
+      !this.isOpen
+    ) {
+      this.startNewsSignalPulse();
+    }
+  };
+
+  private maybeTrackNewsSignalViewed(): void {
+    if (
+      !this.newsSignalArmed ||
+      !this.newsSignalPulsing ||
+      this.isOpen ||
+      typeof document === "undefined" ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    const id = this.announcementTimestamp;
+    if (!id || this.viewedNewsSignalIds.has(id)) return;
+    this.viewedNewsSignalIds.add(id);
+    this.pendingNewsSignalViewed = {
+      banner_id: id,
+      surface: "launcher",
+      presentation:
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "reduced_motion"
+          : "animated",
+      cta_label: this.announcementCtaLabel ?? undefined,
+    };
+    this.flushPendingWhatsNewTelemetry();
+  }
+
+  private groupHasArmedSignal(group: InspectorGroupKey): boolean {
+    return (
+      this.newsSignalArmed &&
+      this.getGroupForMenu(NEWS_SIGNAL_DESTINATION) === group
+    );
+  }
+
+  // ── What's new ─────────────────────────────────────────────────────────
+  //
+  // Built as a self-contained unit — its own render method, its own state,
+  // and no dependency on the shape of today's two-level navigation — so the
+  // planned sidebar restructuring can relocate it rather than rewrite it.
+
+  /** Which of the three What's new states the feed currently supports. */
+  private getWhatsNewState(): "loading" | "empty" | "content" {
+    if (this.announcementHtml) return "content";
+    return this.announcementLoaded ? "empty" : "loading";
+  }
+
+  /**
+   * The announcement as a plain, fully expanded document.
+   *
+   * No collapse, no fade gradient and no "Show more": somebody who navigated
+   * here wants to read. The heading comes from the feed's `previewText`, which
+   * used to be the bubble's headline.
+   */
+  private renderWhatsNewView() {
+    const state = this.getWhatsNewState();
+
+    if (state !== "content") {
+      return html`<section
+        class="whats-new"
+        data-cpk-whats-new
+        data-cpk-whats-new-state=${state}
+        aria-label=${WHATS_NEW_VIEW_LABEL}
       >
-        <span
-          class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-        >
-          ${this.renderIcon("Megaphone")}
-        </span>
-        <span>Announcement</span>
-        <button
-          class="announcement-dismiss ml-auto"
-          type="button"
-          @click=${() => this.dismissAnnouncement("expanded_card")}
-          aria-label="Dismiss announcement"
-        >
-          ${this.renderIcon("X")}
-        </button>
-      </div>
-      <div
-        class="announcement-body ${
-          this.announcementExpanded
-            ? "announcement-body--expanded"
-            : "announcement-body--collapsed"
-        }"
-      >
-        <div
-          class="announcement-content"
-          @click=${this.handleAnnouncementContentClick}
-        >
-          ${unsafeHTML(this.announcementHtml)}
+        <div class="whats-new__status" role="status">
+          <span class="whats-new__status-icon" aria-hidden="true"
+            >${this.renderIcon("Megaphone")}</span
+          >
+          <span
+            >${
+              state === "loading"
+                ? "Loading the latest announcement…"
+                : "No announcements right now."
+            }</span
+          >
         </div>
-        ${
-          !this.announcementExpanded
-            ? html`
-                <div class="announcement-fade"></div>
-              `
-            : nothing
-        }
-      </div>
-      <button
-        class="announcement-toggle"
-        type="button"
-        @click=${() => {
-          this.announcementExpanded = !this.announcementExpanded;
-          this.requestUpdate();
-        }}
+      </section>`;
+    }
+
+    const heading = this.announcementPreviewText?.trim();
+    return html`<section
+      class="whats-new"
+      data-cpk-whats-new
+      data-cpk-whats-new-state="content"
+      aria-label=${WHATS_NEW_VIEW_LABEL}
+    >
+      ${
+        heading ? html`<h2 class="whats-new__heading">${heading}</h2>` : nothing
+      }
+      <div
+        class="announcement-content"
+        @click=${this.handleAnnouncementContentClick}
       >
-        ${this.announcementExpanded ? "Show less ↑" : "Show more ↓"}
-      </button>
-    </div>`;
+        ${unsafeHTML(this.announcementHtml)}
+      </div>
+    </section>`;
   }
 
   /**
    * Which announcement surface is on screen right now, or null when the
-   * announcement isn't visible. Mirrors the render gates in
-   * `renderAnnouncementPreview` (bubble) and `renderAnnouncementBanner`
-   * (in-panel card) — opening the panel clears `showAnnouncementPreview`, so
-   * the two are mutually exclusive.
+   * announcement isn't visible. What's new is the only surface: an impression
+   * requires the panel open, that view selected, and content actually
+   * rendered — a loading state is not an impression.
    */
-  private getVisibleBannerSurface(): BannerSurface | null {
-    if (!this.hasUnseenAnnouncement) return null;
-    if (this.isOpen) {
-      return this.announcementHtml ? "expanded_card" : null;
-    }
-    return this.showAnnouncementPreview && this.announcementPreviewText
-      ? "collapsed_preview"
-      : null;
+  private getVisibleBannerSurface(): WhatsNewSurface | null {
+    if (!this.isOpen || this.settingsOpen) return null;
+    if (this.selectedMenu !== WHATS_NEW_MENU_KEY) return null;
+    return this.announcementHtml ? "whats_new" : null;
   }
 
   /**
-   * Records a `banner_viewed` impression for whichever surface is currently
-   * visible, once per announcement per surface.
+   * The single condition that retires the news signal: What's new has
+   * rendered *with content*.
+   *
+   * Deliberately not on panel open — the common reason to open the Inspector
+   * is AG-UI events, and clearing there would burn a whole announcement
+   * silently and turn "viewed" into "opened the Inspector at some point".
+   * Deliberately not behind an acknowledge button, which is a dismiss button
+   * under another name. And a loading state does not count, because the feed
+   * is asynchronous and a reader who arrived early has seen nothing.
+   *
+   * The launcher dot and the navigation marker both read the same signal, so
+   * the two can never disagree about whether something has been read.
    */
-  private maybeTrackBannerViewed(): void {
+  private maybeCompleteWhatsNewView(): void {
+    if (!this.getVisibleBannerSurface()) return;
+    this.maybeTrackWhatsNewViewed();
+    this.clearNewsSignal();
+  }
+
+  /**
+   * Records a `whats_new_viewed` impression for whichever surface is
+   * currently visible, once per announcement per surface.
+   */
+  private maybeTrackWhatsNewViewed(): void {
     const id = this.announcementTimestamp;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
@@ -13579,21 +13865,36 @@ ${prettyEvent}</pre
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerViewed();
+    this.flushPendingWhatsNewTelemetry();
   }
 
-  // Releases held impressions once /info has answered, or discards them when it
-  // reports telemetry disabled.
-  private flushPendingBannerViewed(): void {
-    if (this.pendingBannerViewed.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = [];
+  // Releases held notification telemetry once /info has answered, or discards
+  // it when the runtime reports telemetry disabled.
+  private flushPendingWhatsNewTelemetry(): void {
+    if (
+      this.pendingBannerViewed.length === 0 &&
+      !this.pendingNewsSignalViewed
+    ) {
       return;
     }
-    if (this.runtimeStatus !== "connected") return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
+      this.pendingNewsSignalViewed = null;
+      return;
+    }
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
     const queued = this.pendingBannerViewed;
     this.pendingBannerViewed = [];
-    for (const props of queued) trackBannerViewed(props);
+    for (const props of queued) trackWhatsNewViewed(props);
+    if (this.pendingNewsSignalViewed) {
+      const props = this.pendingNewsSignalViewed;
+      this.pendingNewsSignalViewed = null;
+      trackWhatsNewSignalViewed(props);
+    }
   }
 
   private ensureAnnouncementLoading(): void {
@@ -13605,64 +13906,6 @@ ${prettyEvent}</pre
       return;
     }
     this.announcementPromise = this.fetchAnnouncement();
-  }
-
-  private renderAnnouncementPreview() {
-    if (
-      !this.hasUnseenAnnouncement ||
-      !this.showAnnouncementPreview ||
-      !this.announcementPreviewText
-    ) {
-      return nothing;
-    }
-
-    const side =
-      this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
-
-    // The preview is a sibling of the floating button (see renderButton), so the
-    // dismiss control is a real <button>. stopPropagation keeps the X from
-    // bubbling to the preview body, whose click opens the inspector.
-    return html`<div
-      class="announcement-preview"
-      data-side=${side}
-      role="note"
-      @click=${() => this.handleAnnouncementPreviewClick()}
-    >
-      <span>${this.announcementPreviewText}</span>
-      <button
-        type="button"
-        class="announcement-preview__dismiss"
-        aria-label="Dismiss announcement"
-        @click=${this.handleDismissAnnouncementPreview}
-      >
-        ${this.renderIcon("X")}
-      </button>
-      <span class="announcement-preview__arrow"></span>
-    </div>`;
-  }
-
-  private handleAnnouncementPreviewClick(): void {
-    this.showAnnouncementPreview = false;
-    this.openInspector("announcement_preview");
-  }
-
-  // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
-  // otherwise the bubble pops back out on the next mount because
-  // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
-  // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
-  // and openInspector do) is intentionally transient — it's the X that makes
-  // the dismissal stick.
-  private handleDismissAnnouncementPreview = (event: Event): void => {
-    // Don't let the dismiss bubble to the preview body, whose click opens the
-    // inspector.
-    event.stopPropagation();
-    this.dismissAnnouncement("collapsed_preview");
-  };
-
-  private dismissAnnouncement(surface: BannerSurface): void {
-    this.trackBannerClickedOnce({ cta: "dismiss" });
-    this.trackBannerDismissedOnce(surface);
-    this.markAnnouncementSeen();
   }
 
   private async fetchAnnouncement(): Promise<void> {
@@ -13692,21 +13935,26 @@ ${prettyEvent}</pre
         throw new Error("Malformed announcement payload");
       }
 
-      const storedTimestamp = this.loadStoredAnnouncementTimestamp();
-
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
       this.announcementCtaLabel = ctaLabel;
-      this.hasUnseenAnnouncement =
-        (!storedTimestamp || storedTimestamp !== timestamp) &&
-        !!this.announcementPreviewText;
-      this.showAnnouncementPreview = this.hasUnseenAnnouncement;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
 
-      // banner_viewed: gate on actual visibility and per-mount dedup, and
-      // stamp the surface the announcement is showing on right now.
-      this.maybeTrackBannerViewed();
+      // The signal arms on a timestamp plus a body that actually renders —
+      // anything else would produce a dot that What's new can never clear,
+      // because clearing requires content. `previewText` does NOT gate it:
+      // that was defensible while the text was the bubble's headline, but it
+      // is now just the heading, and gating on it would mean an announcement
+      // without preview text produced no dot at all.
+      if (
+        this.announcementHtml &&
+        loadAnnouncementReadTimestamp() !== timestamp
+      ) {
+        this.armNewsSignal({
+          pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
+        });
+      }
 
       this.requestUpdate();
     } catch (error) {
@@ -13789,17 +14037,25 @@ ${prettyEvent}</pre
     const target = event.target as {
       closest?: (selector: string) => Element | null;
     } | null;
-    const closest =
+    const copyControl =
       typeof target?.closest === "function"
         ? target.closest(".announcement-code__copy")
         : null;
     const button =
-      closest?.tagName === "BUTTON" ? (closest as HTMLButtonElement) : null;
+      copyControl?.tagName === "BUTTON"
+        ? (copyControl as HTMLButtonElement)
+        : null;
     if (!button) {
-      // banner_clicked fires once per banner per cta-type per mount. Dedup
-      // prevents accidental multi-clicks from inflating funnel counts beyond
-      // one "body" signal and one "dismiss" signal per banner.
-      this.trackBannerClickedOnce({ cta: "body" });
+      const link =
+        typeof target?.closest === "function" ? target.closest("a") : null;
+      if (!link) return;
+
+      const href = link.getAttribute("href");
+      if (href) link.setAttribute("href", this.appendRefParam(href));
+
+      // whats_new_clicked fires once per banner per mount. Dedup prevents
+      // accidental multi-clicks from inflating the link-follow funnel.
+      this.trackWhatsNewClickedOnce({ cta: "body" });
       return;
     }
     event.preventDefault();
@@ -13849,11 +14105,13 @@ ${prettyEvent}</pre
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
-      // close the banner_viewed → banner_clicked → signup_attributed
+      // close the whats_new_viewed → whats_new_clicked → signup_attributed
       // funnel. Returns null when the user has opted out, so opt-out
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
+        this.runtimeStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Connected &&
         !this.core?.telemetryDisabled &&
         this.isCopilotKitDestination(url)
       ) {
@@ -13878,59 +14136,6 @@ ${prettyEvent}</pre
 
   private escapeHtmlAttr(value: string): string {
     return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-
-  private loadStoredAnnouncementTimestamp(): string | null {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return null;
-    }
-    try {
-      const raw = window.localStorage.getItem(ANNOUNCEMENT_STORAGE_KEY);
-      if (!raw) {
-        return null;
-      }
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.timestamp === "string") {
-        return parsed.timestamp;
-      }
-      // Backward compatibility: previous shape { hash }
-      return null;
-    } catch {
-      // ignore malformed storage
-    }
-    return null;
-  }
-
-  private persistAnnouncementTimestamp(timestamp: string): void {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return;
-    }
-    try {
-      const payload = JSON.stringify({ timestamp });
-      window.localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, payload);
-    } catch {
-      // Non-fatal if storage is unavailable
-    }
-  }
-
-  private markAnnouncementSeen(): void {
-    // Clear badge only when explicitly dismissed
-    this.hasUnseenAnnouncement = false;
-    this.showAnnouncementPreview = false;
-
-    if (!this.announcementTimestamp) {
-      // If still loading, attempt once more after promise resolves; avoid infinite requeues
-      if (this.announcementPromise && !this.announcementLoaded) {
-        void this.announcementPromise
-          .then(() => this.markAnnouncementSeen())
-          .catch(() => undefined);
-      }
-      this.requestUpdate();
-      return;
-    }
-
-    this.persistAnnouncementTimestamp(this.announcementTimestamp);
-    this.requestUpdate();
   }
 }
 

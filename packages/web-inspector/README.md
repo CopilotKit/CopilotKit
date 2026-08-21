@@ -20,7 +20,8 @@ The footer sits at the bottom of the Threads list sidebar. It stays out of the
 account strip, other navigation groups, and Settings. Usage and the footer
 action render on their own, so either module can appear without the other.
 
-The primary navigation groups the Inspector into Threads, Agents, and Learning.
+The primary navigation starts with What's new, followed by Threads, Agents, and
+Learning.
 Metadata is display-only: it never authorizes or gates Thread work. Core starts
 real Thread work only for object-valued `threadEndpoints` with `list !== false`.
 Absent endpoints, literal `false`, or an endpoint object with `list: false`

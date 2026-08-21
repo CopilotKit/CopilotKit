@@ -54,6 +54,12 @@ async function setup(
 ): Promise<ThreadsUsageFooterContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and this suite is about the Threads footer.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const inspectorMetadata = metadata(options);
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL): Promise<Response> => {
