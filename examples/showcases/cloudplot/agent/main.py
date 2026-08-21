@@ -1,25 +1,31 @@
 """
 CloudPlot Agent - AI-powered cloud infrastructure architect.
 
-This agent helps design, validate, and estimate costs for AWS infrastructure
-using a visual canvas approach with React Flow on the frontend.
+This agent helps design, validate, and estimate costs for simulated AWS
+infrastructure rendered as resource cards in the frontend workspace.
 """
 
+from __future__ import annotations
+
+import copy
+import json
+import logging
 import time
 import uuid
-from typing import Any, List, Literal, TypedDict
+from collections.abc import Mapping
+from typing import Literal, TypedDict
 
-from no_aws_guard import install_no_aws_guard
-
-_NO_AWS_GUARD_RESTORE = install_no_aws_guard()
-
+from copilotkit import CopilotKitState
 from langchain.tools import tool
-from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
+from langchain_core.messages import SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-from langgraph.graph import END, MessagesState, StateGraph
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
-from langgraph.types import Command, interrupt
+from langgraph.types import Command
+
+LOGGER = logging.getLogger("cloudplot.agent")
 
 # -----------------------------------------------------------------------------
 # Type Definitions
@@ -27,7 +33,7 @@ from langgraph.types import Command, interrupt
 
 ResourceType = Literal["s3", "ec2", "rds", "lambda", "vpc", "alb"]
 StatusType = Literal["healthy", "warning", "error", "stopped"]
-AgentStatusType = Literal["idle", "designing", "validating", "deploying"]
+AgentStatusType = Literal["idle", "designing", "validating"]
 TierType = Literal["network", "frontend", "compute", "data", "storage"]
 
 # Tier mapping by resource type (for automatic assignment)
@@ -83,7 +89,7 @@ class ThoughtLogEntry(TypedDict):
 # -----------------------------------------------------------------------------
 
 
-class AgentState(MessagesState):
+class AgentState(CopilotKitState):
     """
     CloudPlot agent state - synced with frontend via CopilotKit.
 
@@ -94,16 +100,15 @@ class AgentState(MessagesState):
         cost: Estimated monthly cost in USD
         status: Current agent status
         validation_errors: List of validation issues
-        tools: CopilotKit frontend tools
+        copilotkit: CopilotKit frontend action metadata
     """
 
-    nodes: List[NodeData]
-    edges: List[EdgeData]
-    logs: List[ThoughtLogEntry]
+    nodes: list[NodeData]
+    edges: list[EdgeData]
+    logs: list[ThoughtLogEntry]
     cost: float
     status: AgentStatusType
-    validation_errors: List[ValidationResult]
-    tools: List[Any]
+    validation_errors: list[ValidationResult]
 
 
 # -----------------------------------------------------------------------------
@@ -177,7 +182,7 @@ def log_thought(
     }
 
 
-def generate_position(existing_nodes: List[NodeData]) -> dict:
+def generate_position(existing_nodes: list[NodeData]) -> dict:
     """Generate a position for a new node based on existing nodes."""
     if not existing_nodes:
         return {"x": 100, "y": 100}
@@ -191,10 +196,10 @@ def generate_position(existing_nodes: List[NodeData]) -> dict:
     return {"x": max_x + 250, "y": avg_y}
 
 
-def generate_state_summary(nodes: List[NodeData], edges: List[EdgeData]) -> str:
+def generate_state_summary(nodes: list[NodeData], edges: list[EdgeData]) -> str:
     """Generate a summary of current infrastructure state for tool responses."""
     if not nodes:
-        return "\n[Current state: No resources exist. Canvas is empty.]"
+        return "\n[Current state: No resources exist. Workspace is empty.]"
 
     nodes_list = ", ".join([f"{n['type']}({n['id']})" for n in nodes])
     edges_list = (
@@ -211,7 +216,10 @@ def generate_state_summary(nodes: List[NodeData], edges: List[EdgeData]) -> str:
 
 @tool
 def add_resource(
-    resource_type: str, name: str, config: dict = None, vpc_id: str = None
+    resource_type: str,
+    name: str,
+    config: dict | None = None,
+    vpc_id: str | None = None,
 ) -> dict:
     """
     Add a new AWS resource to the infrastructure diagram.
@@ -300,7 +308,7 @@ def remove_resource(resource_id: str) -> dict:
 
 
 @tool
-def update_resource(resource_id: str, config: dict = None) -> dict:
+def update_resource(resource_id: str, config: dict | None = None) -> dict:
     """
     Update an existing resource's configuration.
 
@@ -317,7 +325,7 @@ def update_resource(resource_id: str, config: dict = None) -> dict:
 
 
 @tool
-def move_to_vpc(resource_id: str, vpc_id: str = None) -> dict:
+def move_to_vpc(resource_id: str, vpc_id: str | None = None) -> dict:
     """
     Move a resource into or out of a VPC.
 
@@ -331,25 +339,12 @@ def move_to_vpc(resource_id: str, vpc_id: str = None) -> dict:
     return {"moved": resource_id, "vpc_id": vpc_id, "success": True}
 
 
-@tool
-def deploy_infrastructure() -> str:
-    """
-    Request human approval for a simulated infrastructure deployment.
-
-    Returns:
-        Simulated deployment status
-    """
-    # This will trigger HITL on the frontend
-    return "deployment_requested"
-
-
 backend_tools = [
     add_resource,
     connect_resources,
     remove_resource,
     update_resource,
     move_to_vpc,
-    deploy_infrastructure,
 ]
 
 backend_tool_names = [t.name for t in backend_tools]
@@ -360,21 +355,32 @@ backend_tool_names = [t.name for t in backend_tools]
 # -----------------------------------------------------------------------------
 
 
+def create_architect_model() -> ChatOpenAI:
+    """Create the architect model without sampling or output truncation overrides."""
+
+    return ChatOpenAI(model="gpt-5.1")
+
+
+def frontend_tools_from_state(state: AgentState) -> list[dict]:
+    """Return V2 frontend actions supplied by the CopilotKit AG-UI middleware."""
+
+    copilotkit_state = state.get("copilotkit", {})
+    actions = copilotkit_state.get("actions", [])
+    return actions if isinstance(actions, list) else []
+
+
 async def architect_node(state: AgentState, config: RunnableConfig) -> Command[str]:
     """
     Main architect node - LLM with tools for designing infrastructure.
     Uses ReAct pattern to iteratively build the diagram.
     """
-    model = ChatOpenAI(
-        model="gpt-5.1",
-        temperature=0.7,
-        max_tokens=1000,
-    )
+    model = create_architect_model()
+    frontend_tools = frontend_tools_from_state(state)
 
     # Bind all tools
     model_with_tools = model.bind_tools(
         [
-            *state.get("tools", []),
+            *frontend_tools,
             *backend_tools,
         ],
         parallel_tool_calls=False,
@@ -403,7 +409,7 @@ async def architect_node(state: AgentState, config: RunnableConfig) -> Command[s
     )
 
     system_prompt = f"""You are CloudPlot, a Senior Cloud Architect AI assistant.
-You help users design AWS infrastructure visually on a canvas.
+You help users design simulated AWS infrastructure in a visual workspace.
 
 You are a senior architect. Make decisions confidently using AWS best practices.
 Propose complete solutions without asking for user preferences.
@@ -421,9 +427,7 @@ AVAILABLE TOOLS:
 - remove_resource: Remove a resource
 - update_resource: Modify resource configuration
 - move_to_vpc: Move an existing resource into a VPC (use this to relocate resources)
-- deploy_infrastructure: Simulate a deployment request (requires approval)
-- focusNode: Zoom to a specific node on canvas (frontend)
-- highlightPath: Highlight connections between nodes (frontend)
+- approveDeployment: Ask the operator to approve or reject a simulated deployment. Call this when the user asks to deploy or approve the proposed architecture. Include the affected resource names, estimated monthly cost impact, and a risk level. Never claim that approval creates AWS resources.
 
 GUIDELINES:
 1. When adding resources, use descriptive names
@@ -466,6 +470,20 @@ Only communicate errors or answers to direct questions."""
                     },
                 )
 
+        frontend_tool_names = {
+            tool.get("name")
+            for tool in frontend_tools
+            if isinstance(tool, dict) and isinstance(tool.get("name"), str)
+        }
+        if any(tc.get("name") in frontend_tool_names for tc in tool_calls):
+            return Command(
+                goto=END,
+                update={
+                    "messages": [response],
+                    "status": "idle",
+                },
+            )
+
     # No backend tools called, end turn
     return Command(
         goto="validate_node",
@@ -476,200 +494,177 @@ Only communicate errors or answers to direct questions."""
     )
 
 
-async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Command[str]:
-    """
-    Wrapper around ToolNode to process tool results and update state.
-    """
-    # Run the actual tool node
-    tool_node = ToolNode(tools=backend_tools)
-    result = await tool_node.ainvoke(state, config)
+def parse_tool_result(content: object) -> dict | None:
+    """Decode a structured tool result without rewriting Python repr strings."""
 
-    # Process tool results to update nodes/edges
-    new_nodes = list(state.get("nodes", []))
-    new_edges = list(state.get("edges", []))
+    if isinstance(content, Mapping):
+        return dict(content)
+    if not isinstance(content, str):
+        LOGGER.warning("Unsupported tool result type: %s", type(content).__name__)
+        return None
+
+    try:
+        decoded = json.loads(content)
+    except json.JSONDecodeError as error:
+        LOGGER.warning("Could not parse tool result as JSON: %s", error)
+        return None
+
+    if not isinstance(decoded, dict):
+        LOGGER.warning(
+            "Tool result JSON must be an object, got %s", type(decoded).__name__
+        )
+        return None
+    return decoded
+
+
+def apply_tool_result(state: AgentState, data: Mapping) -> dict:
+    """Apply one backend tool result to a copied infrastructure snapshot."""
+
+    new_nodes = copy.deepcopy(state.get("nodes", []))
+    new_edges = copy.deepcopy(state.get("edges", []))
     new_logs = list(state.get("logs", []))
 
+    if "id" in data and "type" in data:
+        parent_id = data.get("parentId")
+        if parent_id and not any(
+            node["id"] == parent_id and node["type"] == "vpc" for node in new_nodes
+        ):
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    f"Invalid vpc_id: {parent_id} does not exist",
+                    "error",
+                )
+            )
+            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
+        resource_type = data["type"]
+        new_node = {
+            "id": data["id"],
+            "type": resource_type,
+            "position": {"x": 0, "y": 0},
+            "config": data.get("config", {}),
+            "status": data.get("status", "healthy"),
+            "tier": data.get("tier", RESOURCE_TIER_MAP.get(resource_type, "compute")),
+        }
+        if parent_id:
+            new_node["parentId"] = parent_id
+        new_nodes.append(new_node)
+        location = f" inside VPC {parent_id}" if parent_id else ""
+        new_logs.append(
+            log_thought(
+                state,
+                "tool_node",
+                f"Added {resource_type} resource: {data['id']}{location}",
+                "success",
+            )
+        )
+    elif "source" in data and "target" in data:
+        new_edges.append(
+            {"id": data["id"], "source": data["source"], "target": data["target"]}
+        )
+        new_logs.append(
+            log_thought(
+                state,
+                "tool_node",
+                f"Connected {data['source']} -> {data['target']}",
+                "success",
+            )
+        )
+    elif "removed" in data:
+        resource_id = data["removed"]
+        if any(node["id"] == resource_id for node in new_nodes):
+            new_nodes = [node for node in new_nodes if node["id"] != resource_id]
+            new_edges = [
+                edge
+                for edge in new_edges
+                if edge["source"] != resource_id and edge["target"] != resource_id
+            ]
+            new_logs.append(
+                log_thought(state, "tool_node", f"Removed resource: {resource_id}")
+            )
+        else:
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    f"Resource {resource_id} not found (already removed)",
+                    "warning",
+                )
+            )
+    elif "updated" in data:
+        resource_id = data["updated"]
+        new_config = data.get("config", {})
+        for node in new_nodes:
+            if node["id"] == resource_id:
+                node["config"] = {**node.get("config", {}), **new_config}
+                break
+        new_logs.append(
+            log_thought(state, "tool_node", f"Updated resource: {resource_id}")
+        )
+    elif "moved" in data:
+        resource_id = data["moved"]
+        target_vpc_id = data.get("vpc_id")
+        if target_vpc_id and not any(
+            node["id"] == target_vpc_id and node["type"] == "vpc" for node in new_nodes
+        ):
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    f"Cannot move {resource_id}: VPC {target_vpc_id} does not exist",
+                    "error",
+                )
+            )
+            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
+        for node in new_nodes:
+            if node["id"] != resource_id:
+                continue
+            if target_vpc_id:
+                node["parentId"] = target_vpc_id
+                message = f"Moved {resource_id} into VPC {target_vpc_id}"
+                log_type = "success"
+            else:
+                node.pop("parentId", None)
+                message = f"Removed {resource_id} from VPC"
+                log_type = "info"
+            new_logs.append(log_thought(state, "tool_node", message, log_type))
+            break
+
+    return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
+
+async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Command[str]:
+    """Run backend tools, then apply their structured results to agent state."""
+
+    result = await ToolNode(tools=backend_tools).ainvoke(state, config)
     messages = result.get("messages", [])
-    for msg in messages:
-        content = msg.content if hasattr(msg, "content") else str(msg)
+    updated = {
+        "nodes": copy.deepcopy(state.get("nodes", [])),
+        "edges": copy.deepcopy(state.get("edges", [])),
+        "logs": list(state.get("logs", [])),
+    }
 
-        # Try to parse as dict if it looks like one
-        if isinstance(content, str) and content.startswith("{"):
-            try:
-                import json
+    for message in messages:
+        data = parse_tool_result(getattr(message, "content", message))
+        if data is None:
+            updated["logs"].append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    "Ignored malformed backend tool result; see agent logs",
+                    "warning",
+                )
+            )
+            continue
+        updated = apply_tool_result({**state, **updated}, data)
 
-                data = json.loads(content.replace("'", '"'))
-
-                # Handle add_resource result
-                if "id" in data and "type" in data:
-                    # Validate parentId if provided
-                    parent_id = data.get("parentId")
-                    if parent_id:
-                        # Check if VPC exists in state or new_nodes created this turn
-                        all_nodes = [*state.get("nodes", []), *new_nodes]
-                        vpc_exists = any(
-                            n["id"] == parent_id and n["type"] == "vpc"
-                            for n in all_nodes
-                        )
-                        if not vpc_exists:
-                            new_logs.append(
-                                log_thought(
-                                    state,
-                                    "tool_node",
-                                    f"Invalid vpc_id: {parent_id} does not exist",
-                                    "error",
-                                )
-                            )
-                            continue  # Skip creating this node
-
-                    # Frontend applies tier-based layout; position is placeholder
-                    position = {"x": 0, "y": 0}
-                    new_node = {
-                        "id": data["id"],
-                        "type": data["type"],
-                        "position": position,
-                        "config": data.get("config", {}),
-                        "status": data.get("status", "healthy"),
-                        "tier": data.get(
-                            "tier", RESOURCE_TIER_MAP.get(data["type"], "compute")
-                        ),
-                    }
-                    # Preserve parentId for VPC containment
-                    if parent_id:
-                        new_node["parentId"] = parent_id
-
-                    new_nodes.append(new_node)
-                    location = f" inside VPC {parent_id}" if parent_id else ""
-                    new_logs.append(
-                        log_thought(
-                            state,
-                            "tool_node",
-                            f"Added {data['type']} resource: {data['id']}{location}",
-                            "success",
-                        )
-                    )
-
-                # Handle connect_resources result
-                elif "source" in data and "target" in data:
-                    new_edge = {
-                        "id": data["id"],
-                        "source": data["source"],
-                        "target": data["target"],
-                    }
-                    new_edges.append(new_edge)
-                    new_logs.append(
-                        log_thought(
-                            state,
-                            "tool_node",
-                            f"Connected {data['source']} -> {data['target']}",
-                            "success",
-                        )
-                    )
-
-                # Handle remove_resource result
-                elif "removed" in data:
-                    resource_id = data["removed"]
-                    # Check if resource actually exists before removing
-                    resource_exists = any(n["id"] == resource_id for n in new_nodes)
-                    if resource_exists:
-                        new_nodes = [n for n in new_nodes if n["id"] != resource_id]
-                        new_edges = [
-                            e
-                            for e in new_edges
-                            if e["source"] != resource_id and e["target"] != resource_id
-                        ]
-                        new_logs.append(
-                            log_thought(
-                                state,
-                                "tool_node",
-                                f"Removed resource: {resource_id}",
-                                "info",
-                            )
-                        )
-                    else:
-                        new_logs.append(
-                            log_thought(
-                                state,
-                                "tool_node",
-                                f"Resource {resource_id} not found (already removed)",
-                                "warning",
-                            )
-                        )
-
-                # Handle update_resource result
-                elif "updated" in data:
-                    resource_id = data["updated"]
-                    new_config = data.get("config", {})
-                    for node in new_nodes:
-                        if node["id"] == resource_id:
-                            node["config"] = {**node.get("config", {}), **new_config}
-                    new_logs.append(
-                        log_thought(
-                            state,
-                            "tool_node",
-                            f"Updated resource: {resource_id}",
-                            "info",
-                        )
-                    )
-
-                # Handle move_to_vpc result
-                elif "moved" in data:
-                    resource_id = data["moved"]
-                    target_vpc_id = data.get("vpc_id")
-
-                    # Validate target VPC exists if specified
-                    if target_vpc_id:
-                        all_nodes = [*state.get("nodes", []), *new_nodes]
-                        vpc_exists = any(
-                            n["id"] == target_vpc_id and n["type"] == "vpc"
-                            for n in all_nodes
-                        )
-                        if not vpc_exists:
-                            new_logs.append(
-                                log_thought(
-                                    state,
-                                    "tool_node",
-                                    f"Cannot move {resource_id}: VPC {target_vpc_id} does not exist",
-                                    "error",
-                                )
-                            )
-                            continue
-
-                    # Find and update the resource's parentId
-                    for node in new_nodes:
-                        if node["id"] == resource_id:
-                            if target_vpc_id:
-                                node["parentId"] = target_vpc_id
-                                new_logs.append(
-                                    log_thought(
-                                        state,
-                                        "tool_node",
-                                        f"Moved {resource_id} into VPC {target_vpc_id}",
-                                        "success",
-                                    )
-                                )
-                            else:
-                                # Remove from VPC
-                                node.pop("parentId", None)
-                                new_logs.append(
-                                    log_thought(
-                                        state,
-                                        "tool_node",
-                                        f"Removed {resource_id} from VPC",
-                                        "info",
-                                    )
-                                )
-                            break
-
-            except (json.JSONDecodeError, KeyError):
-                pass
-
-    # Recalculate cost immediately after node changes to keep state consistent
-    # (Don't wait for cost_estimator_node - state may be captured mid-run)
-    updated_cost = sum(calculate_resource_cost(node) for node in new_nodes)
+    updated_cost = sum(calculate_resource_cost(node) for node in updated["nodes"])
 
     # Append current state summary to tool messages so agent knows what exists
-    state_summary = generate_state_summary(new_nodes, new_edges)
+    state_summary = generate_state_summary(updated["nodes"], updated["edges"])
     enriched_messages = []
     for msg in messages:
         if hasattr(msg, "content") and isinstance(msg.content, str):
@@ -687,9 +682,9 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
         goto="architect_node",
         update={
             "messages": enriched_messages,
-            "nodes": new_nodes,
-            "edges": new_edges,
-            "logs": new_logs,
+            "nodes": updated["nodes"],
+            "edges": updated["edges"],
+            "logs": updated["logs"],
             "cost": updated_cost,
         },
     )
@@ -702,7 +697,7 @@ async def validate_node(state: AgentState, config: RunnableConfig) -> Command[st
     """
     nodes = state.get("nodes", [])
     edges = state.get("edges", [])
-    errors: List[ValidationResult] = []
+    errors: list[ValidationResult] = []
 
     new_logs = list(state.get("logs", []))
     new_logs.append(
@@ -860,6 +855,7 @@ workflow.set_entry_point("architect_node")
 
 # Edges are handled via Command returns in each node
 
-# Compile graph (LangGraph API handles persistence automatically)
-# Increase recursion limit for complex operations (default is 25)
-graph = workflow.compile().with_config(recursion_limit=75)
+# MemorySaver preserves threads only for the lifetime of this agent process.
+# Railway restarts discard it; durable persistence requires an external
+# checkpointer and is intentionally outside this simulation demo's scope.
+graph = workflow.compile(checkpointer=MemorySaver()).with_config(recursion_limit=75)

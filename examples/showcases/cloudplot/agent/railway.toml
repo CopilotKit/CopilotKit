@@ -1,16 +1,10 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
-watchPatterns = [
-  "*.py",
-  "pyproject.toml",
-  "uv.lock",
-  "langgraph.json",
-  "Dockerfile",
-]
+watchPatterns = ["/examples/showcases/cloudplot/agent/**"]
 
 [deploy]
-healthcheckPath = "/ok"
+healthcheckPath = "/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 5

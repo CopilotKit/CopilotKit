@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+} from "@copilotkit/react-core/v2";
 import { useCloudPlotAgent } from "@/hooks/useCloudPlotAgent";
 import { useBranchManager } from "@/hooks/useBranchManager";
 import { useFrontendTools } from "@/hooks/useFrontendTools";
@@ -10,6 +13,32 @@ import { Header } from "@/components/Header";
 import { Workspace } from "@/components/Workspace";
 
 export default function CloudPlot() {
+  const branchManager = useBranchManager();
+
+  if (!branchManager.isHydrated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 text-sm text-gray-500">
+        Loading CloudPlot…
+      </div>
+    );
+  }
+
+  return (
+    <CopilotChatConfigurationProvider
+      key={branchManager.currentBranch.threadId}
+      agentId="cloudplot_agent"
+      threadId={branchManager.currentBranch.threadId}
+    >
+      <CloudPlotWorkspace branchManager={branchManager} />
+    </CopilotChatConfigurationProvider>
+  );
+}
+
+function CloudPlotWorkspace({
+  branchManager,
+}: {
+  branchManager: ReturnType<typeof useBranchManager>;
+}) {
   const { agent, state, appendMessage } = useCloudPlotAgent();
   const {
     branches,
@@ -19,34 +48,22 @@ export default function CloudPlot() {
     switchBranch,
     saveBranchState,
     getBranchState,
-  } = useBranchManager();
+  } = branchManager;
 
   // Register CopilotKit tools
   useFrontendTools();
   useInfraApproval();
 
-  // Track previous threadId to detect branch switches
-  const prevThreadIdRef = useRef(currentBranch.threadId);
-
-  // Restore state when threadId changes (after branch switch/create completes)
-  // Delay to let CopilotKit finish its internal initialization first
+  const restoredThreadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (prevThreadIdRef.current !== currentBranch.threadId) {
-      prevThreadIdRef.current = currentBranch.threadId;
+    if (restoredThreadRef.current === currentBranch.threadId) return;
+    restoredThreadRef.current = currentBranch.threadId;
 
-      // Load saved state for this branch
-      const branchState = getBranchState(currentBranchId);
-      if (branchState) {
-        // Delay to let CopilotKit initialize the new thread first
-        const timeout = setTimeout(() => {
-          agent.setState(branchState.state);
-        }, 300);
-        return () => clearTimeout(timeout);
-      }
-    }
+    const branchState = getBranchState(currentBranchId);
+    if (branchState) agent.setState(structuredClone(branchState.state));
   }, [currentBranch.threadId, currentBranchId, getBranchState, agent]);
 
-  // Debounced auto-save (mem-0033)
+  // Debounced browser-local backup of the visible workspace.
   useEffect(() => {
     // Skip empty state to avoid overwriting saved data on initial load
     if (!state || !state.nodes?.length) return;
@@ -82,10 +99,12 @@ export default function CloudPlot() {
       // Save current branch state before switching
       saveBranchState(currentBranchId, state, []);
 
-      // Switch to new branch (useEffect will restore state after threadId changes)
-      switchBranch(branchId);
+      const branchState = switchBranch(branchId);
+      if (branchState) {
+        agent.setState(structuredClone(branchState.state));
+      }
     },
-    [currentBranchId, state, saveBranchState, switchBranch],
+    [agent, currentBranchId, state, saveBranchState, switchBranch],
   );
 
   return (
@@ -101,7 +120,6 @@ export default function CloudPlot() {
         {/* CENTER - Workspace */}
         <Workspace
           resources={state?.nodes || []}
-          edges={state?.edges || []}
           cost={state?.cost || 0}
           onSelectPill={appendMessage}
         />

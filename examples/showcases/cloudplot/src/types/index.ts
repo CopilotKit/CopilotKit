@@ -99,7 +99,7 @@ export interface ValidationResult {
 // Agent State (synced with LangGraph)
 // ==========================================
 
-export type AgentStatus = "idle" | "designing" | "validating" | "deploying";
+export type AgentStatus = "idle" | "designing" | "validating";
 
 export interface CloudPlotAgentState {
   nodes: AWSNodeData[];
@@ -140,7 +140,7 @@ export interface Branch {
 
 export interface BranchState {
   state: CloudPlotAgentState;
-  messages: AgentMessage[]; // For display/history only - NOT restored on branch switch (per mem-0030)
+  messages: AgentMessage[];
 }
 
 export interface AgentMessage {
