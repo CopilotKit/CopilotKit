@@ -112,7 +112,7 @@
     "openai": "^4.85.1 || >=5.0.0",
     "partial-json": "^0.1.7",
     "phoenix": "^1.8.4",
-    "pino": "^9.2.0",
+    "pino": "^10.1.1",
     "pino-pretty": "^11.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "7.8.1",
