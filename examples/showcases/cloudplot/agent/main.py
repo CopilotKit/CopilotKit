@@ -523,6 +523,7 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
     new_nodes = copy.deepcopy(state.get("nodes", []))
     new_edges = copy.deepcopy(state.get("edges", []))
     new_logs = list(state.get("logs", []))
+    node_ids = {node["id"] for node in new_nodes}
 
     if "id" in data and "type" in data:
         parent_id = data.get("parentId")
@@ -561,6 +562,23 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
             )
         )
     elif "source" in data and "target" in data:
+        missing_ids = [
+            resource_id
+            for resource_id in (data["source"], data["target"])
+            if resource_id not in node_ids
+        ]
+        if missing_ids:
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    "Cannot connect resources: "
+                    f"{', '.join(missing_ids)} does not exist",
+                    "warning",
+                )
+            )
+            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
         new_edges.append(
             {"id": data["id"], "source": data["source"], "target": data["target"]}
         )
@@ -595,6 +613,17 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
             )
     elif "updated" in data:
         resource_id = data["updated"]
+        if resource_id not in node_ids:
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    f"Cannot update {resource_id}: resource does not exist",
+                    "warning",
+                )
+            )
+            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
         new_config = data.get("config", {})
         for node in new_nodes:
             if node["id"] == resource_id:
@@ -606,6 +635,17 @@ def apply_tool_result(state: AgentState, data: Mapping) -> dict:
     elif "moved" in data:
         resource_id = data["moved"]
         target_vpc_id = data.get("vpc_id")
+        if resource_id not in node_ids:
+            new_logs.append(
+                log_thought(
+                    state,
+                    "tool_node",
+                    f"Cannot move {resource_id}: resource does not exist",
+                    "warning",
+                )
+            )
+            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+
         if target_vpc_id and not any(
             node["id"] == target_vpc_id and node["type"] == "vpc" for node in new_nodes
         ):

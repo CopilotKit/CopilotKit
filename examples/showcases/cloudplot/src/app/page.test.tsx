@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   saveBranchState: vi.fn(),
   switchBranch: vi.fn(),
   getBranchState: vi.fn(),
+  agentState: null as unknown as CloudPlotAgentState,
   branchManager: {
     branches: [
       {
@@ -77,7 +79,7 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 vi.mock("@/hooks/useCloudPlotAgent", () => ({
   useCloudPlotAgent: () => ({
     agent: { setState: mocks.agentSetState },
-    state: emptyState,
+    state: mocks.agentState,
     appendMessage: vi.fn(),
   }),
 }));
@@ -104,12 +106,16 @@ describe("CloudPlot hydration and branch restoration", () => {
     mocks.branchManager.switchBranch = mocks.switchBranch;
     mocks.branchManager.saveBranchState = mocks.saveBranchState;
     mocks.branchManager.getBranchState = mocks.getBranchState;
+    mocks.agentState = structuredClone(restoredState);
     mocks.getBranchState.mockReturnValue({
       state: restoredState,
       messages: [],
     } satisfies BranchState);
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    vi.useRealTimers();
+    cleanup();
+  });
 
   it("does not mount the workspace or chat before browser storage hydration", () => {
     mocks.branchManager.isHydrated = false;
@@ -142,5 +148,28 @@ describe("CloudPlot hydration and branch restoration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Switch branch" }));
 
     expect(mocks.agentSetState).toHaveBeenCalledWith(alternate.state);
+  });
+
+  it("persists an intentionally emptied workspace", () => {
+    vi.useFakeTimers();
+    const view = render(<CloudPlot />);
+    mocks.saveBranchState.mockClear();
+
+    mocks.agentState = structuredClone(emptyState);
+    view.rerender(<CloudPlot />);
+    act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.saveBranchState).toHaveBeenCalledWith("main", emptyState, []);
+  });
+
+  it("does not persist the agent's empty state before restoration", () => {
+    vi.useFakeTimers();
+    mocks.agentState = structuredClone(emptyState);
+
+    render(<CloudPlot />);
+    act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.agentSetState).toHaveBeenCalledWith(restoredState);
+    expect(mocks.saveBranchState).not.toHaveBeenCalled();
   });
 });

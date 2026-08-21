@@ -137,6 +137,32 @@ describe("useBranchManager", () => {
     expect(manager.result.current.getBranchState("stale")).toBeNull();
   });
 
+  it.each([
+    ["missing state and messages", { main: {} }],
+    ["non-object branch state", { main: "bad" }],
+  ])("falls back when a stored branch state has %s", async (_label, states) => {
+    localStorage.setItem(
+      "cloudplot_branches",
+      JSON.stringify([
+        {
+          id: "main",
+          name: "main",
+          createdAt: 123,
+          threadId: "saved-thread",
+        },
+      ]),
+    );
+    localStorage.setItem("cloudplot_branch_states", JSON.stringify(states));
+
+    const manager = renderHook(() => useBranchManager());
+    await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+
+    expect(manager.result.current.getBranchState("main")).toBeNull();
+    expect(manager.result.current.currentBranch.threadId).not.toBe(
+      "saved-thread",
+    );
+  });
+
   it("forks an independent state with a distinct thread and recovers it from localStorage", async () => {
     const first = renderHook(() => useBranchManager());
     await waitFor(() => expect(first.result.current.isHydrated).toBe(true));
@@ -229,5 +255,27 @@ describe("useBranchManager", () => {
     if (!selected) throw new Error("Saved branch state was not returned");
     expect(selected.state.nodes.map((node) => node.id)).toEqual(["vpc-a"]);
     expect(manager.result.current.currentBranchId).toBe(branchId);
+  });
+
+  it("recovers the selected branch after switching and reloading", async () => {
+    const first = renderHook(() => useBranchManager());
+    await waitFor(() => expect(first.result.current.isHydrated).toBe(true));
+
+    let branchId = "";
+    act(() => {
+      branchId = first.result.current.createBranch("selected", {
+        state: structuredClone(stateA),
+        messages: [],
+      }).id;
+      first.result.current.switchBranch("main");
+      first.result.current.switchBranch(branchId);
+    });
+    first.unmount();
+
+    const recovered = renderHook(() => useBranchManager());
+    await waitFor(() => expect(recovered.result.current.isHydrated).toBe(true));
+
+    expect(recovered.result.current.currentBranchId).toBe(branchId);
+    expect(recovered.result.current.currentBranch.name).toBe("selected");
   });
 });

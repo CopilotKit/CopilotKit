@@ -11,6 +11,7 @@ import type {
 
 const BRANCHES_KEY = "cloudplot_branches";
 const BRANCH_STATES_KEY = "cloudplot_branch_states";
+const CURRENT_BRANCH_KEY = "cloudplot_current_branch";
 
 const SSR_DEFAULT_BRANCH: Branch = {
   id: "main",
@@ -70,12 +71,42 @@ function isStoredBranch(value: unknown): value is StoredBranch {
 function isBranchStateRecord(
   value: unknown,
 ): value is Record<string, BranchState> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every(isBranchState)
+  );
+}
+
+function isBranchState(value: unknown): value is BranchState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const branchState = value as Partial<BranchState>;
+  return (
+    isCloudPlotAgentState(branchState.state) &&
+    Array.isArray(branchState.messages)
+  );
+}
+
+function isCloudPlotAgentState(value: unknown): value is CloudPlotAgentState {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const state = value as Partial<CloudPlotAgentState>;
+  return (
+    Array.isArray(state.nodes) &&
+    Array.isArray(state.edges) &&
+    Array.isArray(state.logs) &&
+    typeof state.cost === "number" &&
+    Number.isFinite(state.cost) &&
+    (state.status === "idle" ||
+      state.status === "designing" ||
+      state.status === "validating") &&
+    Array.isArray(state.validation_errors)
+  );
 }
 
 function loadBranchStorageSnapshot(): Pick<
   BranchManagerSnapshot,
-  "branches" | "branchStates"
+  "branches" | "branchStates" | "currentBranchId"
 > {
   try {
     const savedBranches = localStorage.getItem(BRANCHES_KEY);
@@ -101,12 +132,20 @@ function loadBranchStorageSnapshot(): Pick<
     if (!isBranchStateRecord(parsedStates)) {
       throw new Error("Invalid stored branch state data");
     }
+    const savedCurrentBranchId = localStorage.getItem(CURRENT_BRANCH_KEY);
+    const currentBranchId =
+      savedCurrentBranchId !== null &&
+      branches.some((branch) => branch.id === savedCurrentBranchId)
+        ? savedCurrentBranchId
+        : (branches[0]?.id ?? "main");
 
-    return { branches, branchStates: parsedStates };
+    return { branches, branchStates: parsedStates, currentBranchId };
   } catch {
+    const branch = createFreshDefaultBranch();
     return {
-      branches: [createFreshDefaultBranch()],
+      branches: [branch],
       branchStates: {},
+      currentBranchId: branch.id,
     };
   }
 }
@@ -118,6 +157,7 @@ function persistSnapshot(snapshot: BranchManagerSnapshot): void {
     BRANCH_STATES_KEY,
     JSON.stringify(snapshot.branchStates),
   );
+  localStorage.setItem(CURRENT_BRANCH_KEY, snapshot.currentBranchId);
 }
 
 function createBranchStore(): BranchStore {
@@ -130,7 +170,6 @@ function createBranchStore(): BranchStore {
     const stored = loadBranchStorageSnapshot();
     snapshot = {
       ...stored,
-      currentBranchId: stored.branches[0]?.id ?? "main",
       isHydrated: true,
     };
     persistSnapshot(snapshot);
