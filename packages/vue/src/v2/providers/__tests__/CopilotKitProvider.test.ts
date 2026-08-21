@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick, ref, watchEffect } from "vue";
+import type { VNode } from "vue";
 import type {
   CopilotKitCoreSubscriber,
   FrontendToolHandlerContext,
 } from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCoreRuntimeConnectionStatus,
+  ToolCallStatus,
+} from "@copilotkit/core";
 import { defineWebInspector } from "@copilotkit/web-inspector";
 import { z } from "zod";
 import CopilotKitProvider from "../CopilotKitProvider.vue";
@@ -327,12 +331,44 @@ describe("CopilotKitProvider", () => {
   });
 
   describe("humanInTheLoop prop", () => {
+    const HitlComponent = defineComponent({
+      setup() {
+        return () => h("div", "Test");
+      },
+    });
+
+    /** A handler context shaped like the one core passes to frontend tools. */
+    const hitlContext = (toolCallId: string, signal?: AbortSignal) =>
+      ({
+        toolCall: { id: toolCallId },
+        signal,
+      }) as unknown as FrontendToolHandlerContext;
+
+    /**
+     * Invokes the provider's registered renderer the way `useRenderToolCall`
+     * does and returns the props it forwarded to the user's component. The
+     * wrapper builds its VNode with `h()`, so the injected props are readable
+     * without mounting.
+     */
+    const renderHitl = (
+      getCore: () => CopilotKitCoreContextValue,
+      registeredName: string,
+      props: Record<string, unknown>,
+    ) => {
+      const render = getCore().renderToolCalls.find(
+        (rc) => rc.name === registeredName,
+      )?.render as (p: Record<string, unknown>) => VNode;
+      return render(props).props as {
+        name?: string;
+        description?: string;
+        respond?: (result: unknown) => Promise<void>;
+      };
+    };
+
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
     it("processes humanInTheLoop tools and creates handlers", () => {
-      const TestComponent = defineComponent({
-        setup() {
-          return () => h("div", "Test");
-        },
-      });
+      const TestComponent = HitlComponent;
       const humanInTheLoop: VueHumanInTheLoop[] = [
         {
           name: "approvalTool",
@@ -347,25 +383,25 @@ describe("CopilotKitProvider", () => {
       expect(tool).toBeDefined();
       expect(tool?.handler).toBeDefined();
 
+      // The registered renderer wraps the user's component so `respond` and the
+      // tool's description can be injected per status.
       const renderTool = getCore().renderToolCalls.find(
         (rc) => rc.name === "approvalTool",
       );
       expect(renderTool).toBeDefined();
-      expect(renderTool?.render).toStrictEqual(TestComponent);
+      expect(typeof renderTool?.render).toBe("function");
     });
 
-    it("creates placeholder handlers for humanInTheLoop tools", async () => {
-      const TestComponent = defineComponent({
-        setup() {
-          return () => h("div", "Test");
-        },
-      });
+    it("keeps the tool call pending until respond is called", async () => {
+      // Reproduces OSS-803: the handler used to warn and resolve undefined
+      // immediately, so the HITL UI flashed and disappeared instead of waiting
+      // for the user.
       const humanInTheLoop: VueHumanInTheLoop[] = [
         {
           name: "interactiveTool",
           description: "Interactive tool",
           parameters: z.object({ data: z.string() }),
-          render: TestComponent,
+          render: HitlComponent,
         },
       ];
 
@@ -375,16 +411,194 @@ describe("CopilotKitProvider", () => {
       })?.handler;
       expect(handler).toBeDefined();
 
-      const result = await handler!(
+      let settled = false;
+      const pending = handler!({ data: "test" }, hitlContext("tc-1")).then(
+        (result) => {
+          settled = true;
+          return result;
+        },
+      );
+
+      await flush();
+      expect(settled).toBe(false);
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("no interactive handler is set up"),
+      );
+
+      const props = renderHitl(getCore, "interactiveTool", {
+        name: "interactiveTool",
+        toolCallId: "tc-1",
+        args: { data: "test" },
+        status: ToolCallStatus.Executing,
+        result: undefined,
+      });
+
+      expect(props.respond).toBeDefined();
+      await props.respond!("approved");
+
+      await expect(pending).resolves.toBe("approved");
+    });
+
+    it("exposes respond only while the tool is executing", () => {
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "interactiveTool",
+          description: "Interactive tool",
+          parameters: z.object({ data: z.string() }),
+          render: HitlComponent,
+        },
+      ];
+
+      const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
+
+      const inProgress = renderHitl(getCore, "interactiveTool", {
+        name: "interactiveTool",
+        toolCallId: "tc-1",
+        args: { data: "test" },
+        status: ToolCallStatus.InProgress,
+        result: undefined,
+      });
+      expect(inProgress.respond).toBeUndefined();
+      expect(inProgress.description).toBe("Interactive tool");
+
+      const complete = renderHitl(getCore, "interactiveTool", {
+        name: "interactiveTool",
+        toolCallId: "tc-1",
+        args: { data: "test" },
+        status: ToolCallStatus.Complete,
+        result: "approved",
+      });
+      expect(complete.respond).toBeUndefined();
+    });
+
+    it("rejects the pending tool call when the run is aborted", async () => {
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "interactiveTool",
+          description: "Interactive tool",
+          parameters: z.object({ data: z.string() }),
+          render: HitlComponent,
+        },
+      ];
+
+      const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
+      const handler = getCore().getTool({
+        toolName: "interactiveTool",
+      })?.handler;
+
+      const controller = new AbortController();
+      const pending = handler!(
         { data: "test" },
-        {} as unknown as FrontendToolHandlerContext,
+        hitlContext("tc-1", controller.signal),
       );
-      expect(result).toBeUndefined();
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Human-in-the-loop tool 'interactiveTool' called",
-        ),
+
+      controller.abort();
+
+      // An explicit rejection makes core record an error tool result rather
+      // than silently resolving empty (#5554).
+      await expect(pending).rejects.toThrow(
+        "Human-in-the-loop interaction aborted",
       );
+    });
+
+    it("rejects immediately when the run was already aborted", async () => {
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "interactiveTool",
+          description: "Interactive tool",
+          parameters: z.object({ data: z.string() }),
+          render: HitlComponent,
+        },
+      ];
+
+      const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
+      const handler = getCore().getTool({
+        toolName: "interactiveTool",
+      })?.handler;
+
+      const controller = new AbortController();
+      controller.abort();
+
+      await expect(
+        handler!({ data: "test" }, hitlContext("tc-1", controller.signal)),
+      ).rejects.toThrow("Human-in-the-loop interaction aborted");
+    });
+
+    it("keeps parallel interrupts on the same tool independent", async () => {
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "interactiveTool",
+          description: "Interactive tool",
+          parameters: z.object({ data: z.string() }),
+          render: HitlComponent,
+        },
+      ];
+
+      const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
+      const handler = getCore().getTool({
+        toolName: "interactiveTool",
+      })?.handler;
+
+      const first = handler!({ data: "one" }, hitlContext("tc-1"));
+      const second = handler!({ data: "two" }, hitlContext("tc-2"));
+
+      let firstSettled = false;
+      void first.then(() => {
+        firstSettled = true;
+      });
+      let secondSettled = false;
+      void second.then(() => {
+        secondSettled = true;
+      });
+
+      // Respond to the second tool call only.
+      const secondProps = renderHitl(getCore, "interactiveTool", {
+        name: "interactiveTool",
+        toolCallId: "tc-2",
+        args: { data: "two" },
+        status: ToolCallStatus.Executing,
+        result: undefined,
+      });
+      await secondProps.respond!("two-approved");
+      await expect(second).resolves.toBe("two-approved");
+
+      // The first is still waiting on its own user response.
+      await flush();
+      expect(firstSettled).toBe(false);
+      expect(secondSettled).toBe(true);
+
+      const firstProps = renderHitl(getCore, "interactiveTool", {
+        name: "interactiveTool",
+        toolCallId: "tc-1",
+        args: { data: "one" },
+        status: ToolCallStatus.Executing,
+        result: undefined,
+      });
+      await firstProps.respond!("one-approved");
+      await expect(first).resolves.toBe("one-approved");
+    });
+
+    it("passes the actual invoked tool name to a wildcard HITL renderer", () => {
+      const humanInTheLoop: VueHumanInTheLoop[] = [
+        {
+          name: "*",
+          description: "Approve any tool",
+          parameters: z.object({ data: z.string() }),
+          render: HitlComponent,
+        },
+      ];
+
+      const { getCore } = mountWithProvider(() => h("div"), { humanInTheLoop });
+
+      const props = renderHitl(getCore, "*", {
+        name: "deleteFile",
+        toolCallId: "tc-1",
+        args: { data: "test" },
+        status: ToolCallStatus.Executing,
+        result: undefined,
+      });
+
+      expect(props.name).toBe("deleteFile");
     });
   });
 
@@ -486,7 +700,20 @@ describe("CopilotKitProvider", () => {
       expect(frontendRenderTool).toBeDefined();
       expect(humanRenderTool).toBeDefined();
       expect(frontendRenderTool?.render).toStrictEqual(TestComponent1);
-      expect(humanRenderTool?.render).toStrictEqual(TestComponent2);
+      // A humanInTheLoop render is wrapped so `respond` can be injected, so it
+      // is not the component itself — assert it delegates to it.
+      const humanRender = humanRenderTool?.render as (
+        p: Record<string, unknown>,
+      ) => VNode;
+      expect(
+        humanRender({
+          name: "humanRenderTool",
+          toolCallId: "tc-1",
+          args: { b: "value" },
+          status: ToolCallStatus.Executing,
+          result: undefined,
+        }).type,
+      ).toStrictEqual(TestComponent2);
     });
   });
 
