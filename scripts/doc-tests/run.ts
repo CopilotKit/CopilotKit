@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execSync, spawn } from "node:child_process";
@@ -66,6 +67,45 @@ function initSnippetPackage(snippetDir: string): void {
     JSON.stringify({ name: "doctest-snippet", version: "1.0.0" }, null, 2),
     "utf-8",
   );
+}
+
+/**
+ * Install a dependency set once and link it into a snippet directory.
+ *
+ * The store lives at `.doctest-output/.deps/<hash>` and is keyed by the sorted
+ * dependency list, so snippets requesting the same set share one install while
+ * a snippet with different deps still gets its own. The snippet's own
+ * `node_modules` becomes a symlink to the store, which Node and TypeScript both
+ * resolve through normally.
+ */
+function installSharedDeps(snippetDir: string, deps: string[]): void {
+  const safe = deps.map(validateDepName);
+  const key = crypto
+    .createHash("sha256")
+    .update([...safe].sort().join("\n"))
+    .digest("hex")
+    .slice(0, 16);
+  const store = path.join(OUTPUT_DIR, ".deps", key);
+  const storeModules = path.join(store, "node_modules");
+
+  if (!fs.existsSync(storeModules)) {
+    fs.mkdirSync(store, { recursive: true });
+    fs.writeFileSync(
+      path.join(store, "package.json"),
+      JSON.stringify({ name: "doctest-deps", version: "1.0.0" }, null, 2),
+      "utf-8",
+    );
+    execSync(`npm install --no-audit --no-fund ${safe.join(" ")}`, {
+      cwd: store,
+      stdio: "pipe",
+      timeout: 300_000,
+    });
+  }
+
+  const link = path.join(snippetDir, "node_modules");
+  if (!fs.existsSync(link)) {
+    fs.symlinkSync(storeModules, link, "junction");
+  }
 }
 
 function validateDepName(dep: string): string {
@@ -386,13 +426,14 @@ async function runComponent(
     const deps = config.typescript?.deps || [];
     const baseDeps = ["typescript", "@types/react", "@types/node"];
     const allDeps = [...new Set([...baseDeps, ...deps])];
-    const safeAllDeps = allDeps.map(validateDepName);
 
-    execSync(`npm install ${safeAllDeps.join(" ")}`, {
-      cwd: snippetDir,
-      stdio: "pipe",
-      timeout: 120_000,
-    });
+    // Every component snippet sharing a dependency set installs it ONCE, into
+    // a shared directory keyed by that set, and links to it. Installing
+    // per-snippet meant N identical `npm install` runs — with ~20 gated
+    // snippets that dominated the job's wall clock and pushed it toward the
+    // 15-minute CI timeout. Snippets with different dep sets still get their
+    // own store, so this is a dedupe, not a merge.
+    installSharedDeps(snippetDir, allDeps);
 
     // Write minimal tsconfig if none exists
     const tsconfigPath = path.join(snippetDir, "tsconfig.json");

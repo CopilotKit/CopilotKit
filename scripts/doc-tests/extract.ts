@@ -263,14 +263,28 @@ export function writeExtractedBlocks(
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, code, "utf-8");
 
-    // Copy doctest.json sidecar if it exists
-    const sidecarPath = path.join(
-      path.dirname(groupBlocks[0].sourceFile),
-      "doctest.json",
-    );
+    // Copy the nearest doctest.json sidecar, searching the page's own
+    // directory first and then walking up to the docs root.
+    //
+    // Looking only in the page's own directory would mean one duplicated
+    // sidecar per gated page — ~25 copies of the same dependency list, which
+    // then drift. Nearest-ancestor lookup lets a shared list live once at the
+    // content root while a specific directory can still override it (e.g. the
+    // langgraph quickstart's Python deps).
     const destSidecar = path.join(dir, "doctest.json");
-    if (fs.existsSync(sidecarPath) && !fs.existsSync(destSidecar)) {
-      fs.copyFileSync(sidecarPath, destSidecar);
+    if (!fs.existsSync(destSidecar)) {
+      const root = path.resolve(docsDir);
+      let searchDir = path.resolve(path.dirname(groupBlocks[0].sourceFile));
+      while (searchDir.startsWith(root)) {
+        const candidate = path.join(searchDir, "doctest.json");
+        if (fs.existsSync(candidate)) {
+          fs.copyFileSync(candidate, destSidecar);
+          break;
+        }
+        const parent = path.dirname(searchDir);
+        if (parent === searchDir) break;
+        searchDir = parent;
+      }
     }
 
     const firstBlock = groupBlocks[0];

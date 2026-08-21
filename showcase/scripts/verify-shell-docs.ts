@@ -780,11 +780,16 @@ export function checkClaudeQuickstarts(input: {
       [
         ["HttpAgent", "HttpAgent"],
         ["CopilotRuntime", "CopilotRuntime"],
-        ["ExperimentalEmptyAdapter", "ExperimentalEmptyAdapter"],
-        [
-          "copilotRuntimeNextJSAppRouterEndpoint",
-          "copilotRuntimeNextJSAppRouterEndpoint",
-        ],
+        // The v2 fetch handler in single-route mode. These assertions used to
+        // require `ExperimentalEmptyAdapter` +
+        // `copilotRuntimeNextJSAppRouterEndpoint`, which pinned both pages to
+        // the v1 entrypoint. Single-route keeps the route POST-only at the
+        // plain `route.ts` path — matching the starter these pages document,
+        // so `requiredStarterFiles` below is unchanged.
+        ["createCopilotRuntimeHandler", "createCopilotRuntimeHandler"],
+        ['from "@copilotkit/runtime/v2"', "v2 runtime entrypoint"],
+        ['mode: "single-route"', "single-route mode"],
+        ["export const POST", "POST export"],
         ['"http://localhost:8000"', "localhost agent URL"],
       ],
     );
