@@ -9,6 +9,7 @@ packages:
   - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
+  - "examples/showcases/cloudplot"
   # NOTE: `examples/showcases/reskinnable-demo` is intentionally NOT part of
   # this pnpm workspace, for the same reason as `showcase/shell-dashboard`
   # below: it ships its own lockfile and installs its `@copilotkit/*` and
