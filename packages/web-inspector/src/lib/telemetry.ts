@@ -255,6 +255,7 @@ export type InspectorGroupKey = "home" | "workbench" | "inspect";
 export type InspectorLeafKey =
   | "home"
   | "whats-new"
+  | "playground"
   | "threads"
   | "ag-ui-events"
   | "agents"

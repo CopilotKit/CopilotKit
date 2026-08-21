@@ -344,6 +344,7 @@ test("What's new remains directly below Home whether or not anything is unread",
   expect(navigationLabels(context.inspector)).toEqual([
     "Home",
     "What's New",
+    "Playground",
     "Threads",
     "Learning",
     "Agent",
