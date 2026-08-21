@@ -270,40 +270,49 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
   it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
     // the missing set for each env it DECLARES. All dual-env gateValidated
-    // services (the 29 showcase/infra + 12 starters that carry both prod and
-    // staging) are demanded in BOTH envs. The lone single-env gateValidated
-    // service — showcase-crewai-conversational-flows, live in staging only —
-    // is demanded ONLY in staging, so the counts are intentionally asymmetric:
-    //   prod    = 41 (the dual-env services; the staging-only one is skipped)
-    //   staging = 42 (the dual-env services PLUS the staging-only one)
+    // services (the 30 showcase/infra + 12 starters) now carry both prod and
+    // staging and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(41);
+    expect(missingProd).toHaveLength(42);
     expect(missingStaging).toHaveLength(42);
-    // The staging-only service is required in staging but NOT prod.
+    // CrewAI Conversational Flows is now required in both envs.
     expect(missingStaging).toContain("showcase-crewai-conversational-flows");
-    expect(missingProd).not.toContain("showcase-crewai-conversational-flows");
+    expect(missingProd).toContain("showcase-crewai-conversational-flows");
     // The 12 starters are still demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");
   });
 
-  it("validates the staging-only CrewAI service against its canonical GHCR tag", () => {
+  it("validates dual-env CrewAI image refs against its canonical GHCR repo", () => {
     const service = "showcase-crewai-conversational-flows";
-    const repo = repoNameFor(service, "staging");
+    const stagingRepo = repoNameFor(service, "staging");
+    const prodRepo = repoNameFor(service, "prod");
 
     expect(
-      validateImage(`ghcr.io/copilotkit/${repo}:latest`, {
+      validateImage(`ghcr.io/copilotkit/${stagingRepo}:latest`, {
         env: "staging",
-        repoName: repo,
+        repoName: stagingRepo,
       }),
     ).toBeNull();
     expect(
       validateImage("ghcr.io/copilotkit/showcase-wrong:latest", {
         env: "staging",
-        repoName: repo,
+        repoName: stagingRepo,
       })?.reason,
     ).toMatch(/repo name mismatches expected/);
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}@sha256:${"a".repeat(64)}`, {
+        env: "prod",
+        repoName: prodRepo,
+      }),
+    ).toBeNull();
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}:latest`, {
+        env: "prod",
+        repoName: prodRepo,
+      })?.reason,
+    ).toMatch(/prod must be pinned/);
   });
 });
 

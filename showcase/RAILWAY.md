@@ -91,7 +91,10 @@ so it validates the staging instance and canonical GHCR image without requiring
 a prod instance. Older staging-first entries used a temporary `gateIgnore`
 exemption; do not copy that historical pattern.
 
-`showcase-crewai-conversational-flows` is the current worked example.
+`showcase-crewai-conversational-flows` followed this staging-first path before
+its prod instance was provisioned and recorded in the SSOT. Treat it as a
+completed example; its current dual-environment entry is not a staging-only
+template.
 
 ### The critical gotcha (read this first)
 
