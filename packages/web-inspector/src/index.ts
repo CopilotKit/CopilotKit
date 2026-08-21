@@ -13746,9 +13746,7 @@ ${prettyEvent}</pre
                                 hasContent
                                   ? html`<div
                                     class="whitespace-pre-wrap break-words text-gray-700"
-                                  >
-                                    ${rawContent}
-                                  </div>`
+                                  >${rawContent}</div>`
                                   : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
