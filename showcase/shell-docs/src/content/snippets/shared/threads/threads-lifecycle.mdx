@@ -79,6 +79,14 @@ Runtime, implement `identifyUser(request)` with the server-verified session or
 token from your auth provider and return a stable user `id` and `name`:
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+
+// `apiKey` is the only required field. The key scopes the project, so there is
+// no separate project or organization id to pass. See Connect your runtime.
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+});
+
 const runtime = new CopilotRuntime({
   agents: { default: agent },
   intelligence,
@@ -99,6 +107,11 @@ selected project when it scopes thread lists, subscriptions, history, rename,
 archive, unarchive, and delete operations. The project Runtime API key is a
 separate credential: keep it on the server and do not use the developer who
 created that key as the application user.
+
+[Connect your runtime to Intelligence](/premium/connect-your-runtime) covers the
+`CopilotKitIntelligence` constructor in full — where the project API key comes
+from, the self-hosted `apiUrl` / `wsUrl` override rule, and how to confirm the
+credential is actually being read rather than silently ignored.
 
 <Callout type="warn">
   A static `identifyUser` value is suitable only for a single-user demo. In a
