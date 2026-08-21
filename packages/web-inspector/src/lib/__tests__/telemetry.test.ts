@@ -464,12 +464,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  // Stated in the ticket, and OSS-862's telemetry-validation description still
-  // says 21 — this assertion is the reminder to update it.
-  it("holds twenty-one event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-three event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(21);
+    expect(names).toHaveLength(23);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

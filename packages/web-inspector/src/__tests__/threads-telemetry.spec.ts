@@ -39,6 +39,7 @@ const LOCKED_ENDPOINTS = {
 
 type InspectorLeafKey =
   | "threads"
+  | "whats-new"
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"
@@ -1147,6 +1148,7 @@ test("metadata telemetry uses every stable legacy leaf key", async () => {
         leaf: InspectorLeafKey;
       }>
     > = [
+      { group: "home", leaf: "whats-new" },
       { group: "workbench", leaf: "threads" },
       { group: "inspect", leaf: "ag-ui-events" },
       { group: "inspect", leaf: "agents" },

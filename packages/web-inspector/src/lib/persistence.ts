@@ -16,6 +16,9 @@ export type PersistedState = {
   selectedContext?: string;
   hasOpenedInspector?: boolean;
   sidebarCollapsed?: boolean;
+  /** @deprecated Replaced by colorSchemePreference to distinguish a user choice from the old light default. */
+  colorScheme?: "light" | "dark";
+  colorSchemePreference?: "light" | "dark";
 };
 
 export const HOME_NEWS_READ_STORAGE_KEY = "cpk:inspector:home-news-read";

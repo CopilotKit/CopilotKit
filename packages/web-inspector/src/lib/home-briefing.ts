@@ -1,11 +1,5 @@
 import type { InspectorMetadataProjection } from "./inspector-metadata.js";
 
-export type HomeStory = {
-  title: string;
-  bodyMarkdown: string;
-  href?: string;
-};
-
 export type HomeHeroActionKind =
   | "enable_intelligence"
   | "manage_plan"
@@ -19,17 +13,33 @@ export type HomeHeroAction = {
 
 export type HomeConnection = "connected" | "disconnected";
 
+export type HomeRuntimeConnectionState =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "error"
+  | "unavailable";
+
+export type HomeRuntimeHealthTone = "success" | "active" | "error" | "muted";
+
+export type HomeServiceId =
+  | "threads"
+  | "memory"
+  | "a2ui"
+  | "open-gen-ui"
+  | "suggestions"
+  | "audio"
+  | "websocket";
+
 export type HomeServiceTile = {
-  id: string;
+  id: HomeServiceId;
   label: string;
-  on: boolean;
+  enabled: boolean;
   url?: string;
-  docsUrl?: string;
+  docsUrl: string;
 };
 
 export type HomeModel = {
-  firstOpen: boolean;
-  unreadAnnouncement: boolean;
   hero: {
     connection: HomeConnection;
     title: string;
@@ -50,41 +60,61 @@ export type HomeModel = {
   projectLinked: boolean;
   runtime: {
     url?: string;
-    version?: string;
-    mode?: string;
-    agentCount: number;
-    available: boolean;
+    health: {
+      state: "healthy" | "checking" | "offline" | "error" | "unavailable";
+      label: string;
+      runtime: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+      };
+      liveUpdates: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+      };
+      lastEvent: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+        id?: string;
+        agentId?: string;
+        type?: string;
+        timestamp?: number;
+      };
+    };
   };
   services: HomeServiceTile[];
-  news?: {
-    featured: HomeStory;
-    stories: HomeStory[];
-    fallbackHtml?: string;
+  news: {
+    title: string;
+    previewText: string;
+    documentHtml?: string;
+    empty: boolean;
   };
 };
 
 export type HomeBriefingInput = {
-  firstOpen: boolean;
-  unreadAnnouncement: boolean;
-  connected: boolean;
+  intelligenceConnected: boolean;
   threadsAvailable: boolean;
   metadata: InspectorMetadataProjection;
   runtimeUrl?: string;
-  runtimeVersion?: string;
-  runtimeMode?: string;
-  agentNames: string[];
+  runtimeConnectionState: HomeRuntimeConnectionState;
+  lastRuntimeEvent?: {
+    id: string;
+    agentId: string;
+    type: string;
+    timestamp: number;
+  };
   memoriesOn: boolean;
   a2uiOn: boolean;
   openGenUiOn: boolean;
   suggestionsOn: boolean;
   audioOn: boolean;
   websocketUrl?: string;
+  announcementPreviewText?: string;
   announcementMarkdown?: string;
   announcementHtml?: string;
   intelligenceSignupUrl?: string;
 };
 
-const SERVICE_DOCS_URL: Record<string, string> = {
+const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
   threads: "https://docs.copilotkit.ai/threads",
   memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
   a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
@@ -94,59 +124,24 @@ const SERVICE_DOCS_URL: Record<string, string> = {
   websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
 };
 
-/** Split announcement markdown on `##` headings into story cards. */
-export function splitAnnouncementMarkdown(markdown: string): HomeStory[] {
-  const trimmed = markdown.trim();
-  if (trimmed.length === 0) {
-    return [];
-  }
-
-  const stories: HomeStory[] = [];
-  const parts = trimmed.split(/^## /m);
-  for (const part of parts) {
-    const chunk = part.trim();
-    if (chunk.length === 0) {
-      continue;
-    }
-
-    const newline = chunk.indexOf("\n");
-    const title = (newline === -1 ? chunk : chunk.slice(0, newline)).trim();
-    const bodyMarkdown = newline === -1 ? "" : chunk.slice(newline + 1).trim();
-    if (title.length === 0 || title.startsWith("#")) {
-      continue;
-    }
-
-    stories.push({ title, bodyMarkdown });
-  }
-
-  return stories;
-}
-
 /** Return the Home hero button for a trusted metadata action. */
 export function homeHeroActionFromMetadata(action: {
   kind: HomeHeroActionKind;
   url: string;
 }): HomeHeroAction {
   if (action.kind === "manage_plan") {
-    return { kind: action.kind, url: action.url, label: "MANAGE PLAN" };
+    return { kind: action.kind, url: action.url, label: "Manage plan" };
   }
 
   if (action.kind === "renew") {
-    return { kind: action.kind, url: action.url, label: "RENEW" };
+    return { kind: action.kind, url: action.url, label: "Renew plan" };
   }
 
   return {
     kind: action.kind,
     url: action.url,
-    label: "CONNECT TO INTELLIGENCE",
+    label: "Setup Intelligence",
   };
-}
-
-/** Return the last http(s) markdown link in a story, if one exists. */
-export function announcementStoryHref(markdown: string): string | undefined {
-  const matches = [...markdown.matchAll(/\]\((https?:[^)\s]+)\)/g)];
-  const href = matches.at(-1)?.[1];
-  return href && href.length > 0 ? href : undefined;
 }
 
 /** Return a short preview from markdown, without links or headings. */
@@ -166,33 +161,41 @@ export function announcementPreview(markdown: string, maxLength = 140): string {
 function connectIntelligenceAction(
   action: HomeHeroAction | undefined,
   connectUrl?: string,
+  licenseState?: InspectorMetadataProjection["licenseState"],
 ): HomeHeroAction | undefined {
-  if (action?.kind === "enable_intelligence") {
+  if (action) {
     return action;
   }
 
-  if (connectUrl) {
-    return {
+  if (connectUrl && (licenseState === "none" || licenseState === "unknown")) {
+    return homeHeroActionFromMetadata({
       kind: "enable_intelligence",
       url: connectUrl,
-      label: "CONNECT TO INTELLIGENCE",
-    };
+    });
   }
 
-  return action;
+  return undefined;
 }
 
 function heroForState(args: {
-  projectLinked: boolean;
+  connected: boolean;
   action?: HomeHeroAction;
   connectUrl?: string;
+  licenseState: InspectorMetadataProjection["licenseState"];
 }): HomeModel["hero"] {
-  if (!args.projectLinked) {
+  if (!args.connected) {
+    const renewing = args.action?.kind === "renew";
     return {
       connection: "disconnected",
-      title: "Connect to Intelligence",
-      body: "Threads and Memory need Intelligence. Connect it to inspect conversations and recall.",
-      action: connectIntelligenceAction(args.action, args.connectUrl),
+      title: renewing ? "Renew Intelligence" : "Intelligence is not setup",
+      body: renewing
+        ? "Renew Intelligence to restore persistent Threads and Memory."
+        : "Connect CopilotKit Intelligence to add persistent Threads, Learning and Analytics to your application. Inspect conversations and allow your agents to learn from real use.",
+      action: connectIntelligenceAction(
+        args.action,
+        args.connectUrl,
+        args.licenseState,
+      ),
     };
   }
 
@@ -239,37 +242,127 @@ function usageFromMetadata(metadata: InspectorMetadataProjection):
 }
 
 function newsFromAnnouncement(args: {
+  previewText?: string;
   markdown?: string;
   html?: string;
 }): HomeModel["news"] {
-  if (args.markdown) {
-    const stories = splitAnnouncementMarkdown(args.markdown);
-    if (stories.length > 0) {
-      const [featured, ...rest] = stories;
-      if (featured) {
-        return {
-          featured: {
-            ...featured,
-            href: announcementStoryHref(featured.bodyMarkdown),
-          },
-          stories: rest.map((story) => ({
-            ...story,
-            href: announcementStoryHref(story.bodyMarkdown),
-          })),
-        };
-      }
-    }
-  }
-
-  if (args.html) {
+  const markdown = args.markdown?.trim();
+  if (markdown && args.html) {
+    const heading = markdown.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
     return {
-      featured: { title: "From CopilotKit", bodyMarkdown: "" },
-      stories: [],
-      fallbackHtml: args.html,
+      title: heading || "The latest from CopilotKit",
+      previewText:
+        args.previewText?.trim() || announcementPreview(markdown, 160),
+      documentHtml: args.html,
+      empty: false,
     };
   }
 
-  return undefined;
+  return {
+    title: "You're all caught up",
+    previewText: "Latest CopilotKit updates will appear here.",
+    empty: true,
+  };
+}
+
+function runtimeEventSignal(
+  event: HomeBriefingInput["lastRuntimeEvent"],
+): HomeModel["runtime"]["health"]["lastEvent"] {
+  if (!event) {
+    return { label: "No events yet", tone: "muted" };
+  }
+
+  const eventDetails = {
+    id: event.id,
+    agentId: event.agentId,
+    type: event.type,
+    timestamp: event.timestamp,
+  };
+
+  if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+    return {
+      label: event.type === "RUN_ERROR" ? "Run error" : "Error",
+      tone: "error",
+      ...eventDetails,
+    };
+  }
+
+  if (event.type === "RUN_FINISHED") {
+    return {
+      label: "Run completed",
+      tone: "success",
+      ...eventDetails,
+    };
+  }
+
+  if (
+    event.type.endsWith("_START") ||
+    event.type.endsWith("_STARTED") ||
+    event.type.endsWith("_CONTENT") ||
+    event.type.endsWith("_ARGS") ||
+    event.type.endsWith("_DELTA")
+  ) {
+    return {
+      label: "Last event is in progress",
+      tone: "active",
+      ...eventDetails,
+    };
+  }
+
+  return {
+    label: "Last event received",
+    tone: "success",
+    ...eventDetails,
+  };
+}
+
+function runtimeHealthFromInput(
+  input: HomeBriefingInput,
+): HomeModel["runtime"]["health"] {
+  const lastEvent = runtimeEventSignal(input.lastRuntimeEvent);
+
+  if (input.runtimeConnectionState === "connected") {
+    return {
+      state: lastEvent.tone === "error" ? "error" : "healthy",
+      label: lastEvent.tone === "error" ? "Needs attention" : "Healthy",
+      runtime: { label: "Available", tone: "success" },
+      liveUpdates: { label: "Ready", tone: "success" },
+      lastEvent,
+    };
+  }
+
+  if (input.runtimeConnectionState === "connecting") {
+    return {
+      state: "checking",
+      label: "Checking",
+      runtime: { label: "Checking", tone: "active" },
+      liveUpdates: { label: "Connecting", tone: "active" },
+      lastEvent,
+    };
+  }
+
+  if (input.runtimeConnectionState === "unavailable") {
+    return {
+      state: "unavailable",
+      label: "Unavailable",
+      runtime: { label: "Unavailable", tone: "muted" },
+      liveUpdates: { label: "Not attached", tone: "muted" },
+      lastEvent,
+    };
+  }
+
+  return {
+    state: input.runtimeConnectionState === "error" ? "error" : "offline",
+    label:
+      input.runtimeConnectionState === "error" ? "Runtime error" : "Offline",
+    runtime: { label: "Offline", tone: "error" },
+    liveUpdates: {
+      label:
+        input.runtimeConnectionState === "error" ? "Error" : "Disconnected",
+      tone: "error",
+    },
+    lastEvent,
+  };
 }
 
 /** Build the Home briefing from data the Inspector already has. */
@@ -285,15 +378,17 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
 
   const identity = input.metadata.identity;
   const projectLinked = Boolean(identity);
+  const intelligenceConnected =
+    input.metadata.licenseState === "valid" ||
+    (input.metadata.licenseState === "unknown" && input.intelligenceConnected);
   const usage = usageFromMetadata(input.metadata);
 
   return {
-    firstOpen: input.firstOpen,
-    unreadAnnouncement: input.unreadAnnouncement,
     hero: heroForState({
-      projectLinked,
+      connected: intelligenceConnected,
       action,
       connectUrl: input.intelligenceSignupUrl,
+      licenseState: input.metadata.licenseState,
     }),
     projectLinked,
     project: identity
@@ -304,69 +399,67 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
           license: input.metadata.licenseState,
           usage,
         }
-      : input.metadata.plan
+      : input.metadata.plan || usage
         ? {
             organizationName: "Not linked",
             projectName: "This runtime is not linked to a project",
-            planLabel: input.metadata.plan.label,
+            planLabel: input.metadata.plan?.label,
             license: input.metadata.licenseState,
             usage,
           }
         : undefined,
     runtime: {
       url: input.runtimeUrl,
-      version: input.runtimeVersion,
-      mode: input.runtimeMode,
-      agentCount: input.agentNames.length,
-      available: Boolean(input.runtimeVersion),
+      health: runtimeHealthFromInput(input),
     },
     services: [
       {
         id: "threads",
         label: "Threads",
-        on: input.threadsAvailable,
+        enabled: intelligenceConnected && input.threadsAvailable,
         url: input.runtimeUrl,
         docsUrl: SERVICE_DOCS_URL.threads,
       },
       {
         id: "memory",
         label: "Memory",
-        on: input.memoriesOn,
+        enabled: intelligenceConnected && input.memoriesOn,
         docsUrl: SERVICE_DOCS_URL.memory,
       },
       {
         id: "a2ui",
         label: "A2UI",
-        on: input.a2uiOn,
+        enabled: input.a2uiOn,
         docsUrl: SERVICE_DOCS_URL.a2ui,
       },
       {
         id: "open-gen-ui",
         label: "Open Gen UI",
-        on: input.openGenUiOn,
+        enabled: input.openGenUiOn,
         docsUrl: SERVICE_DOCS_URL["open-gen-ui"],
       },
       {
         id: "suggestions",
         label: "Suggestions",
-        on: input.suggestionsOn,
+        enabled: input.suggestionsOn,
         docsUrl: SERVICE_DOCS_URL.suggestions,
       },
       {
         id: "audio",
         label: "Audio",
-        on: input.audioOn,
+        enabled: input.audioOn,
         docsUrl: SERVICE_DOCS_URL.audio,
       },
       {
         id: "websocket",
         label: "Websocket",
-        on: Boolean(input.websocketUrl),
+        enabled: intelligenceConnected && Boolean(input.websocketUrl),
         url: input.websocketUrl,
         docsUrl: SERVICE_DOCS_URL.websocket,
       },
     ],
     news: newsFromAnnouncement({
+      previewText: input.announcementPreviewText,
       markdown: input.announcementMarkdown,
       html: input.announcementHtml ?? undefined,
     }),

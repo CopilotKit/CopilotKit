@@ -35,6 +35,7 @@ export const EDGE_SCENARIO_KEYS = [
   "action-only",
   "license-none",
   "license-expired",
+  "agent-run-error",
   "thread-list-error",
   "video-error",
   "reduced-motion",
@@ -97,6 +98,13 @@ export interface ThreadsStateScenario {
   readonly joinCode: string;
   readonly joinToken: string;
   readonly listError?: Readonly<{ status: number; message: string }>;
+  readonly initialMenu?: "home" | "threads";
+  readonly initialAgentEvents?: readonly Readonly<{
+    type: "RUN_ERROR";
+    runId: string;
+    message: string;
+    code: string;
+  }>[];
   readonly media: "normal" | "video_error" | "reduced_motion";
 }
 
@@ -117,10 +125,10 @@ const AGENT_ID = "threads-lab-agent";
 const ORGANIZATION_ID = "threads-lab-organization";
 const USER_ID = "threads-lab-user";
 const MANAGE_PLAN_URL =
-  "https://dashboard.operations.copilotkit.ai/account/organization/org_demo_inspector/organization-billing";
+  "https://intelligence.copilotkit.ai/account/organization/org_demo_inspector/organization-billing";
 const ENABLE_INTELLIGENCE_URL =
-  "https://cloud.copilotkit.ai/intelligence/enable";
-const RENEW_URL = "https://cloud.copilotkit.ai/settings/license";
+  "https://intelligence.copilotkit.ai/intelligence/enable";
+const RENEW_URL = "https://intelligence.copilotkit.ai/settings/license";
 
 const ZERO_COUNTERS: ThreadRequestCounters = {
   list: 0,
@@ -737,6 +745,22 @@ function edgeScenario(
         inspectorMetadataBody: value,
       });
     }
+    case "agent-run-error":
+      return buildScenario({
+        ...base,
+        label: "Agent run error",
+        description:
+          "A CopilotKit agent emits RunError so System Health shows an actionable failure.",
+        initialMenu: "home",
+        initialAgentEvents: [
+          {
+            type: "RUN_ERROR",
+            runId: "threads-lab-run-error",
+            message: "The agent could not complete this run.",
+            code: "AGENT_RUN_ERROR",
+          },
+        ],
+      });
     case "thread-list-error":
       return buildScenario({
         ...base,
@@ -806,6 +830,34 @@ export function getThreadsStateScenario(
   key: ScenarioKey,
 ): ThreadsStateScenario {
   return THREADS_STATE_SCENARIOS[key];
+}
+
+/**
+ * Seeds the Inspector with deterministic agent events for a test-bench route.
+ * This is intentionally scoped to the local lab: production events continue to
+ * arrive through the agent subscription in the Inspector itself.
+ */
+export function seedThreadsStateLabAgentEvents(
+  inspector: WebInspectorElement,
+  scenario: ThreadsStateScenario,
+): void {
+  const recordAgentEvent = Reflect.get(inspector, "recordAgentEvent");
+  if (typeof recordAgentEvent !== "function") {
+    throw new Error("Inspector event recorder was unavailable in the lab.");
+  }
+
+  for (const event of scenario.initialAgentEvents ?? []) {
+    Reflect.apply(recordAgentEvent, inspector, [
+      scenario.agentId,
+      event.type,
+      {
+        type: event.type,
+        runId: event.runId,
+        message: event.message,
+        code: event.code,
+      },
+    ]);
+  }
 }
 
 /** Parses an untrusted route key and reports an explicit fallback. */

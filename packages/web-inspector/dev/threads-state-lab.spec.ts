@@ -28,6 +28,7 @@ import {
   notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
+  seedThreadsStateLabAgentEvents,
   stopThreadsStateLabClient,
 } from "./threads-state-lab.js";
 import type {
@@ -79,6 +80,7 @@ const EXPECTED_EDGE_KEYS = [
   "action-only",
   "license-none",
   "license-expired",
+  "agent-run-error",
   "thread-list-error",
   "video-error",
   "reduced-motion",
@@ -477,15 +479,28 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 33-scenario route catalog", () => {
+test("exports the exact ordered 34-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
   expect(ALL_SCENARIO_KEYS).toEqual([
     ...EXPECTED_CORE_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(33);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(34);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
+});
+
+test("models a deterministic CopilotKit agent RunError on Home", () => {
+  const scenario = getThreadsStateScenario("agent-run-error");
+  expect(scenario.initialMenu).toBe("home");
+  expect(scenario.initialAgentEvents).toEqual([
+    {
+      type: "RUN_ERROR",
+      runId: "threads-lab-run-error",
+      message: "The agent could not complete this run.",
+      code: "AGENT_RUN_ERROR",
+    },
+  ]);
 });
 
 test("deep-freezes every fixture and produces deterministic JSON", () => {
@@ -1243,7 +1258,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1346,6 +1361,17 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
               `${key}: account presence`,
             ).toHaveLength(0);
           }
+          if (scenario.initialAgentEvents?.length) {
+            seedThreadsStateLabAgentEvents(inspector, scenario);
+            await flushInspector(inspector);
+            expect(
+              inspectorText(inspector),
+              `${key}: error activity`,
+            ).toContain("RUN_ERROR");
+            expect(inspectorText(inspector), `${key}: health state`).toContain(
+              "Needs attention",
+            );
+          }
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
           threadsButton?.click();
@@ -1396,7 +1422,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
           expect(text, `${key}: Threads nav`).toContain("Threads");
           expect(text, `${key}: Agent nav`).toContain("Agent");
-          expect(text, `${key}: Memory nav`).toContain("Memory");
+          expect(text, `${key}: Learning nav`).toContain("Learning");
           expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
@@ -1494,12 +1520,16 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
             expect(text, `${key}: action label`).toContain(actionLabel);
           }
 
+          const main = root.querySelector("#cpk-main-scroll");
+          if (!main) {
+            throw new Error(`${key}: Inspector main content was not rendered`);
+          }
           const generalIntelligenceOnboarding = collectDeep(
-            root,
-            'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+            main,
+            'a[href^="https://intelligence.copilotkit.ai/?ref="]',
           );
           const selfHostedIntelligenceOnboarding = collectDeep(
-            root,
+            main,
             'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
           );
           const showsEnabledZeroOverview =

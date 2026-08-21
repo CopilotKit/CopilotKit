@@ -59,6 +59,7 @@ type SetupOptions = {
 
 const DETACH_LABEL = "Detach Inspector into its own window";
 const DETACH_TEST_ID = "cpk-inspector-pop-out";
+const WINDOW_LAYOUT_LABEL = "Window layout";
 const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const POP_OUT_REOPEN_KEYS = [
   "isPoppedOut",
@@ -192,7 +193,43 @@ function requireShadow(inspector: WebInspectorElement): ShadowRoot {
   );
 }
 
-function requireDetach(root: ParentNode): HTMLButtonElement {
+async function openWindowLayoutMenu(
+  inspector: WebInspectorElement,
+): Promise<ShadowRoot> {
+  let root = requireShadow(inspector);
+  if (root.querySelector('[role="menu"][aria-label="Window layout"]')) {
+    return root;
+  }
+  const trigger = requireElement(
+    root.querySelector<HTMLButtonElement>(
+      `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
+    ),
+    "Window layout control was not rendered",
+  );
+  trigger.click();
+  await inspector.updateComplete;
+  root = requireShadow(inspector);
+  expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+  return root;
+}
+
+async function requireWindowLayoutAction(
+  inspector: WebInspectorElement,
+  label: string,
+): Promise<HTMLButtonElement> {
+  const root = await openWindowLayoutMenu(inspector);
+  return requireElement(
+    root.querySelector<HTMLButtonElement>(
+      `[role="menuitem"][aria-label="${label}"]`,
+    ),
+    `Window layout action was not rendered: ${label}`,
+  );
+}
+
+async function requireDetach(
+  inspector: WebInspectorElement,
+): Promise<HTMLButtonElement> {
+  const root = await openWindowLayoutMenu(inspector);
   const control =
     root.querySelector<HTMLButtonElement>(
       `button[aria-label="${DETACH_LABEL}"]`,
@@ -395,7 +432,7 @@ async function setup(
         `Inspector leaf was not rendered: ${key}`,
       ),
     clickDetach: async () => {
-      requireDetach(requireShadow(inspector)).click();
+      (await requireDetach(inspector)).click();
       await inspector.updateComplete;
     },
     firePageHide: stub.firePageHide,
@@ -594,10 +631,10 @@ describe("Inspector pop-out", () => {
         queryControl(context.popDoc, `[data-testid="${DETACH_TEST_ID}"]`),
       ).toBeNull();
       expect(
-        queryControl(context.popDoc, 'button[aria-label="Dock to left"]'),
-      ).toBeNull();
-      expect(
-        queryControl(context.popDoc, 'button[aria-label="Float window"]'),
+        queryControl(
+          context.popDoc,
+          `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
+        ),
       ).toBeNull();
       const settings = requireElement(
         queryControl(context.popDoc, 'button[aria-label="Settings"]'),
@@ -651,7 +688,7 @@ describe("Inspector pop-out", () => {
     try {
       await context.open();
       const root = requireShadow(context.inspector);
-      const detach = requireDetach(root);
+      const detach = await requireDetach(context.inspector);
 
       expect(() => detach.click()).toThrow(POP_OUT_BLOCKED_MESSAGE);
       await context.inspector.updateComplete;
@@ -677,7 +714,7 @@ describe("Inspector pop-out", () => {
         },
       } as unknown as CustomElementRegistry;
 
-      const detach = requireDetach(root);
+      const detach = await requireDetach(context.inspector);
       expect(() => detach.click()).toThrow("define failed");
       await context.inspector.updateComplete;
 
@@ -739,7 +776,7 @@ describe("Inspector pop-out", () => {
       expect(
         queryControl(
           requireShadow(context.inspector),
-          'button[aria-label="Dock to left"]',
+          `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
         ),
       ).not.toBeNull();
 
@@ -762,11 +799,11 @@ describe("Inspector pop-out", () => {
         root.querySelector('button[aria-label="Web Inspector"]'),
       ).toBeNull();
       expect(
-        queryControl(root, 'button[aria-label="Dock to left"]'),
+        queryControl(root, `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`),
       ).not.toBeNull();
       expect(
-        queryControl(root, 'button[aria-label="Float window"]'),
-      ).toBeNull();
+        await requireWindowLayoutAction(context.inspector, "Dock to left"),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -785,10 +822,7 @@ describe("Inspector pop-out", () => {
       );
       const dockMargin = document.body.style.marginLeft;
       expect(
-        queryControl(
-          requireShadow(context.inspector),
-          'button[aria-label="Float window"]',
-        ),
+        await requireWindowLayoutAction(context.inspector, "Float window"),
       ).not.toBeNull();
 
       await context.clickDetach();
@@ -805,12 +839,9 @@ describe("Inspector pop-out", () => {
         "the dock-left page margin to return",
       );
       expect(document.body.style.marginLeft).toBe(dockMargin);
-      const float = requireElement(
-        queryControl(
-          requireShadow(context.inspector),
-          'button[aria-label="Float window"]',
-        ),
-        "the Float window control",
+      const float = await requireWindowLayoutAction(
+        context.inspector,
+        "Float window",
       );
       float.click();
       await context.inspector.updateComplete;
