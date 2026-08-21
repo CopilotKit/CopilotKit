@@ -197,7 +197,9 @@ def generate_state_summary(nodes: List[NodeData], edges: List[EdgeData]) -> str:
         return "\n[Current state: No resources exist. Canvas is empty.]"
 
     nodes_list = ", ".join([f"{n['type']}({n['id']})" for n in nodes])
-    edges_list = ", ".join([f"{e['source']}->{e['target']}" for e in edges]) if edges else "none"
+    edges_list = (
+        ", ".join([f"{e['source']}->{e['target']}" for e in edges]) if edges else "none"
+    )
 
     return f"\n[Current state: Resources: {nodes_list}. Connections: {edges_list}]"
 
@@ -528,7 +530,9 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
                         "position": position,
                         "config": data.get("config", {}),
                         "status": data.get("status", "healthy"),
-                        "tier": data.get("tier", RESOURCE_TIER_MAP.get(data["type"], "compute")),
+                        "tier": data.get(
+                            "tier", RESOURCE_TIER_MAP.get(data["type"], "compute")
+                        ),
                     }
                     # Preserve parentId for VPC containment
                     if parent_id:
@@ -576,13 +580,19 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
                         ]
                         new_logs.append(
                             log_thought(
-                                state, "tool_node", f"Removed resource: {resource_id}", "info"
+                                state,
+                                "tool_node",
+                                f"Removed resource: {resource_id}",
+                                "info",
                             )
                         )
                     else:
                         new_logs.append(
                             log_thought(
-                                state, "tool_node", f"Resource {resource_id} not found (already removed)", "warning"
+                                state,
+                                "tool_node",
+                                f"Resource {resource_id} not found (already removed)",
+                                "warning",
                             )
                         )
 
@@ -684,6 +694,7 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
         },
     )
 
+
 async def validate_node(state: AgentState, config: RunnableConfig) -> Command[str]:
     """
     Validate the infrastructure design.
@@ -694,7 +705,9 @@ async def validate_node(state: AgentState, config: RunnableConfig) -> Command[st
     errors: List[ValidationResult] = []
 
     new_logs = list(state.get("logs", []))
-    new_logs.append(log_thought(state, "validate", "Running validation checks...", "info"))
+    new_logs.append(
+        log_thought(state, "validate", "Running validation checks...", "info")
+    )
 
     # Build a set of connected node IDs
     connected_nodes = set()
