@@ -20,6 +20,7 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
@@ -345,6 +346,33 @@ describe("typed helpers", () => {
     });
   });
 
+  it("trackThreadsTryFromHereClicked sends outcome without thread ids", async () => {
+    trackThreadsTryFromHereClicked({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "valid",
+      telemetry_disabled: false,
+      leaf_key: "threads",
+      outcome: "success",
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTryFromHereClicked);
+    expect(body.properties).toMatchObject({
+      outcome: "success",
+      leaf_key: "threads",
+      runtime_mode: "sse",
+    });
+    expect(body.properties).not.toHaveProperty("thread_id");
+    expect(body.properties).not.toHaveProperty("message");
+  });
+
   it("sends required threads CTA and viewed events", async () => {
     trackThreadsLockedViewed({
       intelligence_status: "intelligence_not_enabled",
@@ -464,10 +492,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  it("holds twenty-three event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-four event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(24);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );
