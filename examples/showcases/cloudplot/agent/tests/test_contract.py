@@ -75,7 +75,9 @@ def test_cp_fixture_pins_connections_cost_and_ordered_primary_state() -> None:
 def test_cp_fixture_pins_validation_branch_and_approval_contracts() -> None:
     fixture = _fixture()
 
-    assert [(item["code"], item["level"]) for item in fixture["validation_fixtures"]] == [
+    assert [
+        (item["code"], item["level"]) for item in fixture["validation_fixtures"]
+    ] == [
         ("s3-public-access", "warning"),
         ("rds-encryption-disabled", "warning"),
         ("rds-orphaned", "warning"),
@@ -122,4 +124,6 @@ def test_agent_runtime_removes_incident_edges_and_settles_before_idle() -> None:
 
     assert 'if e["source"] != resource_id and e["target"] != resource_id' in main_py
     assert 'goto="cost_estimator_node"' in main_py
-    assert main_py.index('goto="cost_estimator_node"') < main_py.index('"status": "idle"')
+    assert main_py.index('goto="cost_estimator_node"') < main_py.index(
+        '"status": "idle"'
+    )

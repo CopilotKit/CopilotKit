@@ -78,7 +78,9 @@ def assert_environment_has_no_aws_credentials() -> None:
 
     for variable_name in FORBIDDEN_CREDENTIAL_VARIABLES:
         if variable_name in os.environ:
-            raise RuntimeError("Cloudplot simulation attempted forbidden-credential-variable")
+            raise RuntimeError(
+                "Cloudplot simulation attempted forbidden-credential-variable"
+            )
 
 
 def _assert_no_aws_file_path(file: object) -> None:

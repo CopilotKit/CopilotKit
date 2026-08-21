@@ -32,7 +32,9 @@ FRONTEND_ROOT = AGENT_ROOT.parent
         ("SigV4 signer", "forbidden-signing"),
     ],
 )
-def test_no_aws_guard_classifies_forbidden_boundaries(subject: str, event_class: str) -> None:
+def test_no_aws_guard_classifies_forbidden_boundaries(
+    subject: str, event_class: str
+) -> None:
     event = classify_aws_boundary(subject)
 
     assert event is not None
@@ -52,7 +54,9 @@ def test_no_aws_guard_allows_approved_simulation_boundaries(subject: str) -> Non
     assert_no_aws_boundary(subject)
 
 
-def test_environment_credential_provider_variables_are_denied(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_environment_credential_provider_variables_are_denied(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "redacted-test-value")
 
     with pytest.raises(RuntimeError, match="forbidden-credential-variable"):
@@ -83,4 +87,6 @@ def test_cloudplot_runtime_has_no_aws_sdk_imports() -> None:
     for path in checked_files:
         content = path.read_text()
         for token in forbidden:
-            assert token not in content, f"{path.relative_to(FRONTEND_ROOT)} contains forbidden AWS SDK token {token}"
+            assert token not in content, (
+                f"{path.relative_to(FRONTEND_ROOT)} contains forbidden AWS SDK token {token}"
+            )
