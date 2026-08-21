@@ -11,7 +11,7 @@ import BookIcon from "./icons/book";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 
-// Enterprise Intelligence sign-up CTA. UTM params let marketing
+// CopilotKit Intelligence sign-up CTA. UTM params let marketing
 // attribute navbar-driven sign-ups distinctly from in-content SignupLink
 // and OpsPlatformCTA clicks. Exported so MobileTopNav reuses the same URL.
 export const INTELLIGENCE_CTA_HREF =
@@ -131,10 +131,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
             rel="noopener noreferrer"
             onClick={handleFreeDeveloperAccessClick}
             className="shell-docs-nav-cta shell-docs-radius-control hidden h-10 cursor-pointer items-center gap-2 whitespace-nowrap border px-4 text-sm font-medium no-underline shadow-[var(--shadow-control)] transition-colors duration-200 [@media(width>=1280px)]:flex"
-            aria-label="Get Enterprise Intelligence free"
+            aria-label="Get CopilotKit Intelligence free"
             suppressHydrationWarning
           >
-            Get Enterprise Intelligence free
+            Get CopilotKit Intelligence free
             <ExternalLinkIcon className="text-current opacity-70" />
           </Link>
           {/* Talk to an engineer. Secondary in the docs nav so search can own

@@ -152,7 +152,7 @@ export class RedisAgentRunner extends AgentRunner {
 - `connect()` must replay historic events so late clients can catch up on an active run.
 - `stop()` is optional to implement in the sense that returning `undefined` is allowed, but
   surface cancellations through `abortController.abort()` to the underlying agent if you can.
-- The runner does not persist user messages on its own — that is the Intelligence platform's
+- The runner does not persist user messages on its own — that is CopilotKit Intelligence's
   job. A custom runner that persists only its own event stream is still a drop-in replacement
   for `InMemoryAgentRunner` / `SqliteAgentRunner`.
 

@@ -53,7 +53,7 @@ describe("CopilotKitProvider", () => {
   });
 
   describe("selfManagedAgents license signal", () => {
-    const ENTERPRISE_WARNING = "Enterprise Intelligence";
+    const ENTERPRISE_WARNING = "Enterprise Intelligence tier";
 
     it("warns when selfManagedAgents is provided without a license key", () => {
       const agent = new HttpAgent({ url: "http://localhost:8000" });

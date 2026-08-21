@@ -408,7 +408,7 @@ describe("handleConnectAgent", () => {
       expect(body.error).toBe("Connect request rejected");
     });
 
-    it("does not forward replay cursors to the credentials-only intelligence platform connect", async () => {
+    it("does not forward replay cursors to the credentials-only CopilotKit Intelligence connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };

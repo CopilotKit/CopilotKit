@@ -89,7 +89,7 @@ throwing — the superseded run's partial output is discarded rather than persis
 to history. `SqliteAgentRunner` has no such option and always throws. When the
 throw does happen, how it surfaces to the client depends on the runtime mode:
 
-- **Intelligence mode** — the Intelligence platform returns HTTP `409` when a lock is
+- **Intelligence mode** — CopilotKit Intelligence returns HTTP `409` when a lock is
   held. The client core maps this to `CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED`
   and fires `onError({ code: "agent_thread_locked", ... })`. Handle this in
   `<CopilotKit onError>` (the `CopilotKit` provider from `@copilotkit/react-core/v2`).
