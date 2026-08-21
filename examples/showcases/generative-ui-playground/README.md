@@ -23,32 +23,36 @@ This demo demonstrates how different types of generative UI can be used to creat
 - **A2UIRenderer** - Renders A2UI declarative JSON from agent responses
 - **MCPAppsMiddleware** - Bridges MCP server tools with UI resources
 - **BasicAgent** - TypeScript agent for Static GenUI + MCP Apps
-- **HttpAgent** - Connects to Python A2A backend for A2UI
+- **A2AAgent** - Connects to the Python A2A backend for A2UI
 
 ## Setup
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22 (the repository `.nvmrc` version)
+- Corepack (included with Node.js)
 - Python 3.11+
 - OpenAI API key
 
 ### Installation
 
 ```bash
-# Clone and install dependencies
-cd ui-protocols-demo
-npm install
+# From the CopilotKit repository root, install the pnpm workspace.
+# Corepack reads the repository's packageManager field (pnpm 10.33.4).
+corepack enable
+pnpm install --frozen-lockfile
 
-# Install MCP server dependencies
-cd mcp-server
-npm install
-cd ..
+# The MCP server is a standalone npm project with its own package-lock.json.
+cd examples/showcases/generative-ui-playground/mcp-server
+npm ci
+cd ../../../..
 
-# Install Python A2A agent
-cd a2a-agent
-pip install -e .
-cd ..
+# The A2A agent is a standalone Python project.
+cd examples/showcases/generative-ui-playground/a2a-agent
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+cd ../../../..
 ```
 
 ### Environment Variables
@@ -67,13 +71,16 @@ Start all three services:
 
 ```bash
 # Terminal 1: MCP Server (port 3001)
-cd mcp-server && npm run dev
+cd examples/showcases/generative-ui-playground/mcp-server
+npm run dev
 
 # Terminal 2: Python A2A Agent (port 10002)
-cd a2a-agent && python -m agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+source .venv/bin/activate
+python -m agent --port 10002
 
-# Terminal 3: Next.js Frontend (port 3000)
-npm run dev
+# Terminal 3: Next.js frontend (port 3000), from the repository root
+pnpm exec nx run ui-protocols-demo:dev
 ```
 
 Open http://localhost:3000 to see the demo.
@@ -109,8 +116,30 @@ Frontend (Next.js) ────────────────────�
           ┌─────────┴─────────┐
           ▼                   ▼
    "default" Agent      "a2ui" Agent
-   BasicAgent + MCP     HttpAgent → Python
+   BasicAgent + MCP     A2AAgent → Python
    Port 3001            Port 10002
+```
+
+## Railway Service Settings
+
+Create three Railway services from this repository and configure these exact paths. Railway's config-file path is repository-absolute and does not follow the Root Directory. The Docker build context is the configured Root Directory.
+
+| Service    | Root Directory                                            | Railway Config File                                                    | Docker build context                                     | `dockerfilePath` resolved from that context              |
+| ---------- | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| Frontend   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` |
+| A2A agent  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             |
+| MCP server | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             |
+
+Do not set the frontend Root Directory to the demo subdirectory. Its Dockerfile copies the root pnpm workspace and local `packages/`, so it requires the repository root as its build context. See Railway's [monorepo](https://docs.railway.com/deployments/monorepo), [config-as-code](https://docs.railway.com/config-as-code), and [Dockerfile](https://docs.railway.com/builds/dockerfiles) documentation for the path semantics.
+
+The repository does not currently run this showcase's container build in CI. Before changing its dependency or deployment configuration, verify it manually from the repository root:
+
+```bash
+pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
+pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
+docker build \
+  -f examples/showcases/generative-ui-playground/Dockerfile \
+  -t ui-protocols-demo:local .
 ```
 
 ## Project Structure

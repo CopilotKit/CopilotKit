@@ -19,7 +19,7 @@ Generative UI playground showcasing three protocols for AI-powered interfaces.
               ▼                             ▼
 ┌─────────────────────────┐     ┌─────────────────────────┐
 │ "default" Agent         │     │ "a2ui" Agent            │
-│ BasicAgent + MCP Apps   │     │ HttpAgent → Python A2A  │
+│ BasicAgent + MCP Apps   │     │ A2AAgent → Python A2A   │
 │ Port: 3001 (MCP)        │     │ Port: 10002             │
 └─────────────────────────┘     └─────────────────────────┘
 ```
@@ -60,17 +60,42 @@ The "Widget Builder" link in the header opens the official A2UI Composer at http
 
 ## Development
 
+### Install Dependencies
+
+The frontend is a pnpm workspace package and cannot be installed with npm from this directory. Install it from the CopilotKit repository root. The two sidecars are standalone projects and keep their own package/runtime tooling.
+
+```bash
+# Repository root: frontend plus local @copilotkit/* workspace packages
+corepack enable
+pnpm install --frozen-lockfile
+
+# Standalone MCP Apps server
+cd examples/showcases/generative-ui-playground/mcp-server
+npm ci
+cd ../../../..
+
+# Standalone Python A2A agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+cd ../../../..
+```
+
 ### Start All Services
 
 ```bash
-# Terminal 1: MCP Server
-cd mcp-server && npm run dev
-
-# Terminal 2: Python A2A Agent
-cd a2a-agent && python -m agent
-
-# Terminal 3: Next.js Frontend
+# Terminal 1: standalone MCP server
+cd examples/showcases/generative-ui-playground/mcp-server
 npm run dev
+
+# Terminal 2: standalone Python A2A agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+source .venv/bin/activate
+python -m agent --port 10002
+
+# Terminal 3: workspace frontend, from the repository root
+pnpm exec nx run ui-protocols-demo:dev
 ```
 
 ### URLs
@@ -97,6 +122,28 @@ Live deployment on Railway:
 - **A2A Agent**: https://a2a-agent-production.up.railway.app
 
 Railway Project: `ui-protocols-demo`
+
+### Railway Monorepo Configuration
+
+Configure the Railway services with these exact repository paths. The Railway Config File is always repository-absolute; it does not inherit the service Root Directory. The Docker build context is the Root Directory.
+
+| Service    | Root Directory                                            | Railway Config File                                                    | Docker build context                                     |
+| ---------- | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| Frontend   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    |
+| A2A agent  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  |
+| MCP server | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` |
+
+The frontend must keep Root Directory `/`: its `railway.toml` selects `examples/showcases/generative-ui-playground/Dockerfile`, and that Dockerfile copies the root pnpm workspace. The sidecar configs each select the `Dockerfile` inside their own isolated root.
+
+Docker and Railway deployment validation is manual for this showcase; no repository CI workflow currently enforces it. From the repository root, run:
+
+```bash
+pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
+pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
+docker build \
+  -f examples/showcases/generative-ui-playground/Dockerfile \
+  -t ui-protocols-demo:local .
+```
 
 ## Key Packages
 
@@ -135,7 +182,7 @@ ui-protocols-demo/
 Frontend uses `useState` to toggle between agents:
 
 - `"default"`: Static GenUI + MCP Apps (BasicAgent + MCPAppsMiddleware)
-- `"a2ui"`: General-purpose UI generator (HttpAgent → Python A2A backend)
+- `"a2ui"`: General-purpose UI generator (A2AAgent → Python A2A backend)
 
 The `agent` prop on CopilotKitProvider determines which backend agent handles requests.
 

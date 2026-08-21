@@ -3,107 +3,80 @@ import { createRequire } from "node:module";
 import { test } from "node:test";
 
 const require = createRequire(import.meta.url);
-const { RuntimeA2AAgent } = require("../src/app/api/runtime-a2a-agent.ts");
-const BaseA2AAgent = Object.getPrototypeOf(RuntimeA2AAgent);
+const { EventType } = require("@ag-ui/client");
+const { A2AAgent } = require("@ag-ui/a2a");
+const { Observable } = require("rxjs");
 
-const originalMessage = {
-  id: "original-message",
-  role: "user",
-  content: "Build a restaurant picker",
-};
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () =>
+  new Response(JSON.stringify({ url: "http://a2a.test" }), {
+    headers: { "Content-Type": "application/json" },
+  });
+const { POST } = require("../src/app/api/copilotkit-a2ui/[[...slug]]/route.ts");
+globalThis.fetch = originalFetch;
 
-const fakeA2AClient = {
-  async sendMessage() {
-    throw new Error("network behavior is outside this isolation contract");
-  },
-  sendMessageStream() {
-    throw new Error("network behavior is outside this isolation contract");
-  },
-};
-
-function createAgent() {
-  return new RuntimeA2AAgent({
-    // The adapter only retains and forwards the client; network behavior belongs
-    // to @ag-ui/a2a and is intentionally outside this isolation contract.
-    a2aClient: fakeA2AClient,
-    agentId: "a2ui",
-    description: "A2UI agent",
-    initialMessages: [originalMessage],
-    initialState: { selection: "original" },
-    threadId: "original-thread",
+function createRunRequest(resume) {
+  return new Request("http://localhost/api/copilotkit-a2ui/agent/default/run", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      threadId: "thread-a2a-runtime-contract",
+      runId: "run-a2a-runtime-contract",
+      state: {},
+      messages: [
+        {
+          id: "request-message",
+          role: "user",
+          content: "Continue rendering the restaurant picker",
+        },
+      ],
+      tools: [],
+      context: [],
+      forwardedProps: { a2uiCatalogAvailable: true },
+      resume,
+    }),
   });
 }
 
-test("cloning the runtime adapter preserves configuration without sharing request state", () => {
-  const agent = createAgent();
-
-  const clone = agent.clone();
-
-  assert.ok(clone instanceof RuntimeA2AAgent);
-  assert.notStrictEqual(clone, agent);
-  assert.equal(clone.agentId, agent.agentId);
-  assert.equal(clone.description, agent.description);
-  assert.equal(clone.threadId, agent.threadId);
-  assert.deepEqual(clone.messages, agent.messages);
-  assert.deepEqual(clone.state, agent.state);
-
-  clone.threadId = "clone-thread";
-  clone.setMessages([
-    { id: "clone-message", role: "user", content: "Clone request" },
-  ]);
-  clone.setState({ selection: "clone" });
-
-  assert.equal(agent.threadId, "original-thread");
-  assert.deepEqual(agent.messages, [originalMessage]);
-  assert.deepEqual(agent.state, { selection: "original" });
-});
-
-test("each runtime request uses a fresh A2A agent with request-local state", async (t) => {
-  const agent = createAgent();
-  let isolatedAgent;
-  let forwardedParameters;
-  let forwardedSubscriber;
-  const originalRunAgent = BaseA2AAgent.prototype.runAgent;
-
-  BaseA2AAgent.prototype.runAgent = async function (parameters, subscriber) {
-    isolatedAgent = this;
-    forwardedParameters = parameters;
-    forwardedSubscriber = subscriber;
-    return { result: "ok", newMessages: this.messages };
+test("the CopilotRuntime request path preserves A2UI middleware and resume for A2A", async (t) => {
+  let receivedInput;
+  const originalRun = A2AAgent.prototype.run;
+  A2AAgent.prototype.run = function (input) {
+    receivedInput = input;
+    return new Observable((subscriber) => {
+      subscriber.next({
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.next({
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      });
+      subscriber.complete();
+    });
   };
   t.after(() => {
-    BaseA2AAgent.prototype.runAgent = originalRunAgent;
+    A2AAgent.prototype.run = originalRun;
   });
 
-  const requestMessage = {
-    id: "request-message",
-    role: "user",
-    content: "Request-local prompt",
-  };
+  const resume = [
+    {
+      interruptId: "interrupt-1",
+      status: "resolved",
+      payload: { approved: true },
+    },
+  ];
+  const response = await POST(createRunRequest(resume));
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
-  await agent.runAgent({
-    context: [],
-    forwardedProps: { tenant: "demo" },
-    messages: [requestMessage],
-    runId: "run-1",
-    state: { selection: "request" },
-    threadId: "request-thread",
-  });
-
-  assert.ok(isolatedAgent instanceof BaseA2AAgent);
-  assert.notStrictEqual(isolatedAgent, agent);
-  assert.equal(isolatedAgent.threadId, "request-thread");
-  assert.deepEqual(isolatedAgent.messages, [requestMessage]);
-  assert.deepEqual(isolatedAgent.state, { selection: "request" });
-  assert.deepEqual(forwardedParameters, {
-    context: [],
-    forwardedProps: { tenant: "demo" },
-    runId: "run-1",
-    tools: undefined,
-  });
-  assert.equal(forwardedSubscriber, undefined);
-
-  assert.equal(agent.threadId, "original-thread");
-  assert.deepEqual(agent.messages, [originalMessage]);
-  assert.deepEqual(agent.state, { selection: "original" });
+  assert.equal(response.status, 200);
+  assert.ok(receivedInput, "the runtime must execute the registered A2A agent");
+  assert.deepEqual(receivedInput.resume, resume);
+  assert.equal(receivedInput.forwardedProps.injectA2UITool, true);
+  assert.ok(
+    receivedInput.tools.some((tool) => tool.name === "render_a2ui"),
+    "the per-request A2UI middleware must reach the A2A run",
+  );
 });
