@@ -7,7 +7,7 @@ description: CopilotKit integration with CrewAI Conversational Flows
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/crewai-conversational-flows
 copilotkit_version: 2.0.0
-deployed: false
+deployed: true
 docs_mode: hidden
 sort_order: 41
 generative_ui:
