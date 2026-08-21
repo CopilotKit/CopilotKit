@@ -179,7 +179,7 @@ Set the environment for wherever you deploy:
 - `INTELLIGENCE_API_KEY` _(required)_: the Intelligence runtime that owns the
   Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
   at startup without it (free tier is enough). No URLs to configure — the SDK
-  defaults to the managed Intelligence platform. `COPILOTKIT_API_KEY` is a
+  defaults to cloud-hosted CopilotKit Intelligence. `COPILOTKIT_API_KEY` is a
   deprecated alias, still read as a fallback.
 - `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
   point the bot at a self-hosted or dev Intelligence deployment. Set **both or
