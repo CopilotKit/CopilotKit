@@ -30,8 +30,13 @@ BASE_INIT_PARAMS = inspect.signature(AGUIBase.__init__).parameters
 # Illustrative of the shape of the problem, NOT a list that stays exhaustive:
 # the base is free to add a fourth, which is why the passthrough is guarded by
 # mechanism (test_init_forwards_base_kwargs spies on the base __init__) rather
-# than by enumerating names. These are asserted there so the list is live data
-# instead of prose that quietly goes stale.
+# than by enumerating names.
+#
+# test_init_forwards_base_kwargs also asserts these names, but that assertion
+# alone cannot keep the list honest: it spies with a ``**kwargs`` stand-in that
+# accepts anything, which is precisely why the same test can assert a name no
+# base has ever defined. test_forwarded_flag_names_exist_on_the_base is what
+# makes the list live data — it checks the names against the real signature.
 CLONE_FORWARDED_FLAGS_0_0_43 = (
     "enable_legacy_on_interrupt_event",
     "emit_interrupt_outcome",
@@ -52,6 +57,27 @@ def _raw_event_message():
         message_id="msg-1",
         delta="hi",
         raw_event={"event": "on_chat_model_stream"},
+    )
+
+
+def test_forwarded_flag_names_exist_on_the_base():
+    """Every name in CLONE_FORWARDED_FLAGS_0_0_43 is a real base parameter.
+
+    This is the assertion that makes the list live data rather than prose.
+    The spy in test_init_forwards_base_kwargs deliberately accepts any keyword,
+    so it cannot notice a name the base renamed or dropped — it asserts a
+    deliberately fictional flag for exactly that reason. Checked against the
+    real signature here, the list fails loudly on upstream drift instead of
+    silently describing a version nobody runs.
+
+    The floor is >=0.0.43, so all three exist; a base that renames one should
+    break this test and send the reader to the passthrough, which is mechanism
+    -based and keeps working regardless.
+    """
+    missing = [f for f in CLONE_FORWARDED_FLAGS_0_0_43 if f not in BASE_INIT_PARAMS]
+    assert not missing, (
+        f"{missing} no longer exist on {AGUIBase.__name__}.__init__; the "
+        f"documented flag list has gone stale against the installed base"
     )
 
 
