@@ -665,6 +665,11 @@ export function CopilotChatInput({
 
     const previousValue = textarea.value;
     const previousHeight = textarea.style.height;
+    // Setting .value resets the caret to the end of the textarea, so
+    // save and restore the selection around the measurement swap.
+    const previousSelectionStart = textarea.selectionStart;
+    const previousSelectionEnd = textarea.selectionEnd;
+    const previousDirection = textarea.selectionDirection;
 
     textarea.style.height = "auto";
 
@@ -677,6 +682,17 @@ export function CopilotChatInput({
     textarea.value = "";
     const singleLineHeight = textarea.scrollHeight;
     textarea.value = previousValue;
+    if (
+      document.activeElement === textarea &&
+      previousSelectionStart !== null &&
+      previousSelectionEnd !== null
+    ) {
+      textarea.setSelectionRange(
+        previousSelectionStart,
+        previousSelectionEnd,
+        previousDirection ?? undefined,
+      );
+    }
 
     const contentHeight = singleLineHeight - paddingTop - paddingBottom;
     const maxHeight = contentHeight * 5 + paddingTop + paddingBottom;
