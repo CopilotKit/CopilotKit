@@ -1,16 +1,22 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+// @vitest-environment jsdom
 
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CLOUDPLOT_QUICK_START_PROMPTS } from "@/lib/cloudplot-fixture";
-
-const source = readFileSync(join(__dirname, "QuickStartPills.tsx"), "utf8");
+import { QUICK_STARTS } from "@/lib/quickStarts";
+import { QuickStartPills } from "./QuickStartPills";
 
 describe("QuickStartPills", () => {
-  it("pins all four recovered prompt strings in source order", () => {
-    for (const prompt of CLOUDPLOT_QUICK_START_PROMPTS) {
-      expect(source).toContain(prompt);
+  afterEach(cleanup);
+
+  it("renders each product quick start and submits its exact prompt", () => {
+    const onSelect = vi.fn();
+    render(<QuickStartPills onSelect={onSelect} />);
+
+    for (const quickStart of QUICK_STARTS) {
+      fireEvent.click(screen.getByRole("button", { name: quickStart.label }));
+      expect(onSelect).toHaveBeenLastCalledWith(quickStart.prompt);
     }
+    expect(onSelect).toHaveBeenCalledTimes(QUICK_STARTS.length);
   });
 });

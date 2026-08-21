@@ -5,11 +5,8 @@ import { z } from "zod";
 import { motion } from "framer-motion";
 import { ApprovalCard } from "@/components/ApprovalCard";
 
-// Note: ToolCallStatus may need to be imported from a different path
-// depending on the actual V2 API. If not available, use string comparison.
 type ToolStatus = "inProgress" | "executing" | "complete";
 
-// Pulse animation variant
 const pulseVariant = {
   animate: {
     opacity: [1, 0.5, 1],
@@ -43,7 +40,6 @@ export function useInfraApproval() {
     render: ({ args, status, respond }) => {
       const typedStatus = status as ToolStatus;
 
-      // Completed state
       if (typedStatus === "complete") {
         return (
           <div className="text-emerald-400 text-sm p-2">
@@ -52,7 +48,6 @@ export function useInfraApproval() {
         );
       }
 
-      // Waiting for user input
       if (typedStatus === "executing" && respond) {
         return (
           <ApprovalCard
@@ -66,7 +61,6 @@ export function useInfraApproval() {
         );
       }
 
-      // Loading state
       return (
         <motion.div
           variants={pulseVariant}

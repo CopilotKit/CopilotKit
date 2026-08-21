@@ -1,27 +1,47 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
+
 import type {
+  AgentMessage,
   Branch,
   BranchState,
   CloudPlotAgentState,
-  AgentMessage,
 } from "@/types";
 
 const BRANCHES_KEY = "cloudplot_branches";
 const BRANCH_STATES_KEY = "cloudplot_branch_states";
 
-// Stable default for SSR - no randomUUID() to avoid hydration mismatch
 const SSR_DEFAULT_BRANCH: Branch = {
   id: "main",
   name: "main",
   createdAt: 0,
-  threadId: "00000000-0000-0000-0000-000000000000", // Placeholder, replaced after mount
+  threadId: "00000000-0000-0000-0000-000000000000",
 };
 
-type BranchStorageSnapshot = {
+type BranchManagerSnapshot = {
   branches: Branch[];
   branchStates: Record<string, BranchState>;
+  currentBranchId: string;
+  isHydrated: boolean;
+};
+
+type BranchStore = {
+  getSnapshot: () => BranchManagerSnapshot;
+  getServerSnapshot: () => BranchManagerSnapshot;
+  subscribe: (listener: () => void) => () => void;
+  update: (
+    updateSnapshot: (snapshot: BranchManagerSnapshot) => BranchManagerSnapshot,
+  ) => void;
+};
+
+type StoredBranch = Omit<Branch, "threadId"> & { threadId?: string };
+
+const SSR_SNAPSHOT: BranchManagerSnapshot = {
+  branches: [SSR_DEFAULT_BRANCH],
+  branchStates: {},
+  currentBranchId: "main",
+  isHydrated: false,
 };
 
 function createFreshDefaultBranch(): Branch {
@@ -33,21 +53,56 @@ function createFreshDefaultBranch(): Branch {
   };
 }
 
-function loadBranchStorageSnapshot(): BranchStorageSnapshot {
+function isStoredBranch(value: unknown): value is StoredBranch {
+  if (!value || typeof value !== "object") return false;
+  const branch = value as Partial<Branch>;
+  return (
+    typeof branch.id === "string" &&
+    branch.id.length > 0 &&
+    typeof branch.name === "string" &&
+    branch.name.length > 0 &&
+    typeof branch.createdAt === "number" &&
+    Number.isFinite(branch.createdAt) &&
+    (branch.threadId === undefined || typeof branch.threadId === "string")
+  );
+}
+
+function isBranchStateRecord(
+  value: unknown,
+): value is Record<string, BranchState> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function loadBranchStorageSnapshot(): Pick<
+  BranchManagerSnapshot,
+  "branches" | "branchStates"
+> {
   try {
     const savedBranches = localStorage.getItem(BRANCHES_KEY);
-    const branches = savedBranches
-      ? (JSON.parse(savedBranches) as Branch[]).map((branch) => ({
+    const parsedBranches: unknown = savedBranches
+      ? JSON.parse(savedBranches)
+      : null;
+    if (
+      savedBranches &&
+      (!Array.isArray(parsedBranches) ||
+        parsedBranches.length === 0 ||
+        !parsedBranches.every(isStoredBranch))
+    ) {
+      throw new Error("Invalid stored branch data");
+    }
+    const branches = Array.isArray(parsedBranches)
+      ? parsedBranches.map((branch) => ({
           ...branch,
           threadId: branch.threadId || crypto.randomUUID(),
         }))
       : [createFreshDefaultBranch()];
     const savedStates = localStorage.getItem(BRANCH_STATES_KEY);
-    const branchStates = savedStates
-      ? (JSON.parse(savedStates) as Record<string, BranchState>)
-      : {};
+    const parsedStates: unknown = savedStates ? JSON.parse(savedStates) : {};
+    if (!isBranchStateRecord(parsedStates)) {
+      throw new Error("Invalid stored branch state data");
+    }
 
-    return { branches, branchStates };
+    return { branches, branchStates: parsedStates };
   } catch {
     return {
       branches: [createFreshDefaultBranch()],
@@ -56,71 +111,79 @@ function loadBranchStorageSnapshot(): BranchStorageSnapshot {
   }
 }
 
-export function useBranchManager() {
-  // Start with SSR-safe defaults
-  const [branches, setBranches] = useState<Branch[]>([SSR_DEFAULT_BRANCH]);
-  const [branchStates, setBranchStates] = useState<Record<string, BranchState>>(
-    {},
+function persistSnapshot(snapshot: BranchManagerSnapshot): void {
+  if (!snapshot.isHydrated) return;
+  localStorage.setItem(BRANCHES_KEY, JSON.stringify(snapshot.branches));
+  localStorage.setItem(
+    BRANCH_STATES_KEY,
+    JSON.stringify(snapshot.branchStates),
   );
-  const [currentBranchId, setCurrentBranchId] = useState("main");
-  const [isHydrated, setIsHydrated] = useState(false);
+}
 
-  // Load from localStorage after mount (client-side only)
-  useEffect(() => {
-    const snapshot = loadBranchStorageSnapshot();
-    let cancelled = false;
+function createBranchStore(): BranchStore {
+  let snapshot = SSR_SNAPSHOT;
+  const listeners = new Set<() => void>();
 
-    queueMicrotask(() => {
-      if (cancelled) return;
-
-      setBranches(snapshot.branches);
-      setBranchStates(snapshot.branchStates);
-      setIsHydrated(true);
-    });
-
-    return () => {
-      cancelled = true;
+  const emit = () => listeners.forEach((listener) => listener());
+  const hydrate = () => {
+    if (snapshot.isHydrated) return;
+    const stored = loadBranchStorageSnapshot();
+    snapshot = {
+      ...stored,
+      currentBranchId: stored.branches[0]?.id ?? "main",
+      isHydrated: true,
     };
-  }, []);
+    persistSnapshot(snapshot);
+    emit();
+  };
 
-  // Persist branches to localStorage (skip initial SSR state)
-  useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem(BRANCHES_KEY, JSON.stringify(branches));
-    }
-  }, [branches, isHydrated]);
+  return {
+    getSnapshot: () => snapshot,
+    getServerSnapshot: () => SSR_SNAPSHOT,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      hydrate();
+      return () => listeners.delete(listener);
+    },
+    update: (updateSnapshot) => {
+      snapshot = updateSnapshot(snapshot);
+      persistSnapshot(snapshot);
+      emit();
+    },
+  };
+}
 
-  // Persist branch states to localStorage
-  useEffect(() => {
-    if (isHydrated) {
-      localStorage.setItem(BRANCH_STATES_KEY, JSON.stringify(branchStates));
-    }
-  }, [branchStates, isHydrated]);
+export function useBranchManager() {
+  const [store] = useState(createBranchStore);
+  const snapshot = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getServerSnapshot,
+  );
 
-  // Save state for a specific branch
   const saveBranchState = useCallback(
     (
       branchId: string,
       state: CloudPlotAgentState,
       messages: AgentMessage[],
     ) => {
-      setBranchStates((prev) => ({
-        ...prev,
-        [branchId]: { state, messages },
+      store.update((current) => ({
+        ...current,
+        branchStates: {
+          ...current.branchStates,
+          [branchId]: { state, messages },
+        },
       }));
     },
-    [],
+    [store],
   );
 
-  // Get state for a specific branch (returns null if not saved yet)
   const getBranchState = useCallback(
-    (branchId: string): BranchState | null => {
-      return branchStates[branchId] || null;
-    },
-    [branchStates],
+    (branchId: string): BranchState | null =>
+      store.getSnapshot().branchStates[branchId] || null,
+    [store],
   );
 
-  // Create a new branch with its own thread
   const createBranch = useCallback(
     (
       name: string,
@@ -130,42 +193,46 @@ export function useBranchManager() {
         id: crypto.randomUUID(),
         name,
         createdAt: Date.now(),
-        threadId: crypto.randomUUID(), // New thread for new branch
+        threadId: crypto.randomUUID(),
       };
-      setBranches((prev) => [...prev, newBranch]);
-
-      // If forking, save the state for the new branch (for client-side backup)
-      if (forkState) {
-        setBranchStates((prev) => ({
-          ...prev,
-          [newBranch.id]: structuredClone(forkState),
-        }));
-      }
-
-      setCurrentBranchId(newBranch.id);
+      store.update((current) => ({
+        ...current,
+        branches: [...current.branches, newBranch],
+        branchStates: forkState
+          ? {
+              ...current.branchStates,
+              [newBranch.id]: structuredClone(forkState),
+            }
+          : current.branchStates,
+        currentBranchId: newBranch.id,
+      }));
       return newBranch;
     },
-    [],
+    [store],
   );
 
-  // Switch to a different branch
-  const switchBranch = useCallback((branchId: string) => {
-    setCurrentBranchId(branchId);
-  }, []);
-
-  const currentBranch = useMemo(
-    () => branches.find((b) => b.id === currentBranchId) ?? branches[0],
-    [branches, currentBranchId],
+  const switchBranch = useCallback(
+    (branchId: string): BranchState | null => {
+      const branchState = store.getSnapshot().branchStates[branchId] || null;
+      store.update((current) => ({ ...current, currentBranchId: branchId }));
+      return branchState;
+    },
+    [store],
   );
+
+  const currentBranch =
+    snapshot.branches.find(
+      (branch) => branch.id === snapshot.currentBranchId,
+    ) ?? snapshot.branches[0];
 
   return {
-    branches,
+    branches: snapshot.branches,
     currentBranch,
-    currentBranchId,
+    currentBranchId: snapshot.currentBranchId,
     createBranch,
     switchBranch,
     saveBranchState,
     getBranchState,
-    isHydrated,
+    isHydrated: snapshot.isHydrated,
   };
 }

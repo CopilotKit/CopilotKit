@@ -5,7 +5,6 @@ import { WorkspaceCard } from "./WorkspaceCard";
 
 interface WorkspaceProps {
   resources: AWSNodeData[];
-  edges: Array<{ id: string; source: string; target: string }>;
   cost: number;
   onSelectPill?: (content: string) => void;
 }

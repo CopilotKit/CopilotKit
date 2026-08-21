@@ -9,7 +9,7 @@ RUN pip install uv
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
-RUN uv sync --frozen
+RUN uv sync --frozen --no-dev
 
 # Copy application code
 COPY . .
@@ -17,6 +17,5 @@ COPY . .
 # Default port (Railway overrides via PORT env var)
 ENV PORT=8123
 
-# Run LangGraph server
-# Use shell form to expand $PORT variable
-CMD uv run langgraph dev --host 0.0.0.0 --port $PORT --no-browser
+# Serve the self-hosted AG-UI endpoint with a production ASGI server.
+CMD ["sh", "-c", "uv run --no-sync uvicorn server:app --host 0.0.0.0 --port ${PORT:-8123}"]

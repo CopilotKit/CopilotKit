@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import "./globals.css";
-import "@copilotkit/react-ui/v2/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,9 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased">
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="cloudplot_agent">
+        <CopilotKitProvider runtimeUrl="/api/copilotkit">
           {children}
-        </CopilotKit>
+        </CopilotKitProvider>
       </body>
     </html>
   );

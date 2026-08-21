@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type { CloudPlotAgentState } from "@/types";
+import type { BranchState, CloudPlotAgentState } from "@/types";
 import { useBranchManager } from "./useBranchManager";
 
 const stateA: CloudPlotAgentState = {
@@ -24,9 +25,10 @@ const stateA: CloudPlotAgentState = {
 };
 
 beforeEach(() => localStorage.clear());
+afterEach(cleanup);
 
 describe("useBranchManager", () => {
-  it("keeps the SSR branch for the first render, then recovers the stored snapshot", async () => {
+  it("keeps storage out of SSR, then recovers it at the client hydration boundary", async () => {
     const storedBranches = [
       {
         id: "saved",
@@ -45,20 +47,20 @@ describe("useBranchManager", () => {
       JSON.stringify(storedStates),
     );
 
-    const manager = renderHook(() => useBranchManager());
-
-    expect(manager.result.current.isHydrated).toBe(false);
-    expect(manager.result.current.branches).toEqual([
-      {
-        id: "main",
-        name: "main",
-        createdAt: 0,
-        threadId: "00000000-0000-0000-0000-000000000000",
-      },
-    ]);
-    expect(manager.result.current.getBranchState("saved")).toBeNull();
+    function ServerSnapshot() {
+      const manager = useBranchManager();
+      return (
+        <span>
+          {`${manager.isHydrated ? "hydrated" : "server"}:${manager.currentBranch.threadId}`}
+        </span>
+      );
+    }
+    const serverHtml = renderToString(<ServerSnapshot />);
+    expect(serverHtml).toContain("server:00000000-0000-0000-0000-000000000000");
+    expect(serverHtml).not.toContain("saved-thread");
     expect(localStorage.getItem("cloudplot_branches")).toBe(serializedBranches);
 
+    const manager = renderHook(() => useBranchManager());
     await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
     expect(manager.result.current.branches).toEqual(storedBranches);
     expect(
@@ -118,14 +120,32 @@ describe("useBranchManager", () => {
     );
   });
 
+  it("falls back when stored JSON has an invalid branch shape", async () => {
+    localStorage.setItem("cloudplot_branches", JSON.stringify([]));
+    localStorage.setItem(
+      "cloudplot_branch_states",
+      JSON.stringify({ stale: { state: stateA, messages: [] } }),
+    );
+
+    const manager = renderHook(() => useBranchManager());
+    await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+
+    expect(manager.result.current.currentBranch).toMatchObject({
+      id: "main",
+      name: "main",
+    });
+    expect(manager.result.current.getBranchState("stale")).toBeNull();
+  });
+
   it("forks an independent state with a distinct thread and recovers it from localStorage", async () => {
     const first = renderHook(() => useBranchManager());
     await waitFor(() => expect(first.result.current.isHydrated).toBe(true));
+    const forkSource = structuredClone(stateA);
 
     let branchId = "";
     act(() => {
       branchId = first.result.current.createBranch("experiment", {
-        state: stateA,
+        state: forkSource,
         messages: [],
       }).id;
     });
@@ -140,7 +160,7 @@ describe("useBranchManager", () => {
         ?.state.nodes.map((node) => node.id),
     ).toEqual(["vpc-a"]);
 
-    stateA.nodes.length = 0;
+    forkSource.nodes.length = 0;
     expect(
       first.result.current
         .getBranchState(branchId)
@@ -175,5 +195,39 @@ describe("useBranchManager", () => {
 
     expect(fresh.result.current.branches).toHaveLength(1);
     expect(fresh.result.current.getBranchState("experiment")).toBeNull();
+  });
+
+  it("returns the saved branch state synchronously when switching", async () => {
+    const manager = renderHook(() => useBranchManager());
+    await waitFor(() => expect(manager.result.current.isHydrated).toBe(true));
+    const savedState = structuredClone(stateA);
+    savedState.nodes = [
+      {
+        id: "vpc-a",
+        type: "vpc",
+        label: "VPC A",
+        config: { cidr_block: "10.0.0.0/16", subnets: [] },
+        status: "healthy",
+      },
+    ];
+
+    let branchId = "";
+    act(() => {
+      branchId = manager.result.current.createBranch("saved", {
+        state: savedState,
+        messages: [],
+      }).id;
+      manager.result.current.switchBranch("main");
+    });
+
+    const selectedResult: { current: BranchState | null } = { current: null };
+    act(() => {
+      selectedResult.current = manager.result.current.switchBranch(branchId);
+    });
+
+    const selected = selectedResult.current;
+    if (!selected) throw new Error("Saved branch state was not returned");
+    expect(selected.state.nodes.map((node) => node.id)).toEqual(["vpc-a"]);
+    expect(manager.result.current.currentBranchId).toBe(branchId);
   });
 });

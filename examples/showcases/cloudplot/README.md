@@ -1,347 +1,131 @@
 # CloudPlot
 
-An AI-powered AWS infrastructure architect built with CopilotKit V2 and LangGraph. Design simulated cloud architectures through natural conversation while the agent visualizes resources in real-time.
+CloudPlot is a CopilotKit V2 and LangGraph demo for designing simulated AWS architectures through conversation. The workspace renders resource cards and VPC groupings while the chat renders backend tool activity and a human approval card.
 
-![CloudPlot Demo](public/og-image.png)
+CloudPlot is simulation-only. Its application and agent code import no AWS clients, call no AWS APIs, read no AWS credentials, and never create or change cloud resources. The demo manifests add no AWS-specific dependencies. Costs are fixed demo estimates rather than live AWS pricing.
 
-## Quick Start
+## What the demo shows
+
+- `CopilotKitProvider` and `useAgent` connect the V2 chat to shared LangGraph state.
+- `useRenderTool` renders add, connect, remove, and move calls without registering duplicate frontend handlers for backend tools.
+- `useHumanInTheLoop` registers `approveDeployment`. Approving or rejecting returns a tool result so the model can continue the conversation; neither decision deploys anything.
+- Browser-local branch snapshots let users fork and revisit workspace alternatives.
+- Quick-start prompts are ordinary product data shared by the rendered buttons and their behavior tests.
+
+The main workspace is a responsive card layout, not a React Flow canvas. Connections are retained in agent state and shown in chat tool cards; the workspace itself groups resources by VPC.
+
+## Run locally
+
+Requirements:
+
+- Node.js 20.9 or newer
+- pnpm 10
+- Python 3.12 or newer
+- [uv](https://docs.astral.sh/uv/)
+- An OpenAI API key
+
+From the CopilotKit repository root:
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Set up local environment files
+pnpm install --frozen-lockfile
+cd examples/showcases/cloudplot
 cp .env.example .env.local
 cp agent/.env.example agent/.env
-# Then replace OPENAI_API_KEY in agent/.env with your OpenAI API key.
-
-# Start dev server (UI + Agent)
+# Add OPENAI_API_KEY to agent/.env.
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and start designing: _"Build a 3-tier web app with VPC, load balancer, and RDS"_
+Open [http://localhost:3000](http://localhost:3000), then try “Build a 3-tier web application with VPC, ALB, EC2 instances, and RDS database.” The UI runs on port 3000 and the FastAPI agent runs on port 8123.
 
-## What This Demo Shows
-
-CloudPlot demonstrates CopilotKit V2 APIs for building production-grade AI applications. The infrastructure actions are simulation-only; the demo does not call AWS APIs or use AWS credentials.
-
-| Feature                  | V2 API Used                   | What It Enables                           |
-| ------------------------ | ----------------------------- | ----------------------------------------- |
-| Real-time canvas updates | `useAgent` + state sync       | Agent changes appear instantly on canvas  |
-| Generative UI cards      | `useFrontendTool`             | Rich tool call visualization in chat      |
-| Approval workflows       | `useHumanInTheLoop`           | HITL for high-risk infrastructure changes |
-| Conversation branching   | `CopilotSidebar` + `threadId` | Explore alternatives without losing work  |
-| Tool execution logs      | Event subscriptions           | Track agent reasoning and actions         |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Next.js Frontend                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────┐     ┌──────────────────────────────────┐  │
-│  │  CopilotSidebar  │     │          Canvas (React Flow)     │  │
-│  │                  │     │  ┌─────┐ ┌─────┐ ┌─────┐         │  │
-│  │  - Chat UI       │     │  │ VPC │─│ EC2 │─│ RDS │         │  │
-│  │  - Tool cards    │     │  └─────┘ └─────┘ └─────┘         │  │
-│  │  - HITL approval │     │                                  │  │
-│  └────────┬─────────┘     └──────────────────────────────────┘  │
-│           │                            ▲                         │
-│           │                            │                         │
-│           ▼                            │                         │
-│  ┌─────────────────────────────────────┴─────────────────────┐  │
-│  │                    useCloudPlotAgent                       │  │
-│  │  - useAgent (state sync)                                   │  │
-│  │  - Event subscriptions (onStateChanged, onRunFinalized)    │  │
-│  │  - Branch state management                                 │  │
-│  └─────────────────────────────────────┬─────────────────────┘  │
-│                                        │                         │
-├────────────────────────────────────────┼────────────────────────┤
-│  Hooks Layer                           │                         │
-│  ┌──────────────────┐  ┌───────────────┴──────┐  ┌───────────┐  │
-│  │ useFrontendTools │  │   useBranchManager   │  │useInfraApp│  │
-│  │ - ResourceCard   │  │   - Branch CRUD      │  │  roval    │  │
-│  │ - ConnectionCard │  │   - State persistence│  │  - HITL   │  │
-│  └──────────────────┘  └──────────────────────┘  └───────────┘  │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     LangGraph Agent (Python)                     │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  AgentState:                                                     │
-│  ├─ nodes: AWSResourceNode[]     (VPC, EC2, RDS, Lambda, etc.)  │
-│  ├─ edges: Connection[]          (resource relationships)       │
-│  ├─ logs: ThoughtLogEntry[]      (agent activity log)           │
-│  ├─ cost: number                 (estimated monthly cost)       │
-│  ├─ status: AgentStatus          (idle, planning, building...)  │
-│  └─ validation_errors: Error[]   (architecture issues)          │
-│                                                                  │
-│  Graph Nodes:          Tools:                                    │
-│  ┌─────────┐           ├─ add_resource                          │
-│  │ router  │──┬───────▶├─ connect_resources                     │
-│  └─────────┘  │        ├─ remove_resource                       │
-│               ▼        ├─ update_resource                       │
-│  ┌─────────────────┐   ├─ validate_architecture                 │
-│  │   chat_node     │   └─ estimate_cost                         │
-│  └────────┬────────┘                                             │
-│           ▼                                                      │
-│  ┌─────────────────┐                                             │
-│  │   tool_node     │ ◀── State enrichment after each tool       │
-│  └────────┬────────┘                                             │
-│           ▼                                                      │
-│  ┌─────────────────┐                                             │
-│  │cost_estimator   │ ◀── Calculates infrastructure costs        │
-│  └─────────────────┘                                             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## CopilotKit V2 Features In Depth
-
-### 1. useAgent Hook — Real-time State Sync
-
-The `useAgent` hook connects React to the LangGraph agent's state. When the agent adds a VPC or EC2 instance, the canvas updates immediately.
-
-```typescript
-// src/hooks/useCloudPlotAgent.ts
-import { useAgent } from "@copilotkit/react-core/v2";
-
-export function useCloudPlotAgent() {
-  const { agent } = useAgent({ agentId: "cloudplot_agent" });
-
-  // State is automatically synced from LangGraph
-  const state = agent.state as CloudPlotAgentState;
-
-  // Update state (syncs back to agent)
-  const setState = (newState: CloudPlotAgentState) => {
-    agent.setState(newState);
-  };
-
-  return { state, setState, agent };
-}
-```
-
-**Why this matters:** Traditional approaches require polling or WebSocket plumbing. CopilotKit V2 handles bidirectional state sync out of the box.
-
-### 2. Event Subscriptions — React to Agent Activity
-
-Subscribe to agent lifecycle events for logging, notifications, and UI updates:
-
-```typescript
-useEffect(() => {
-  const subscriber = {
-    onRunStartedEvent: () => setIsRunning(true),
-    onRunFinalized: () => {
-      setIsRunning(false);
-      showNotification("Agent completed");
-    },
-    onStateChanged: (newState) => {
-      reactFlowInstance?.fitView({ padding: 0.2 });
-    },
-    onToolCallEndEvent: ({ toolCallName, toolCallArgs }) => {
-      // Log tool executions to thought panel
-      addToLog({ tool: toolCallName, args: toolCallArgs });
-    },
-  };
-
-  const { unsubscribe } = agent.subscribe(subscriber);
-  return () => unsubscribe();
-}, [agent]);
-```
-
-**Why this matters:** Event subscriptions enable reactive UIs that respond to agent behavior without polling.
-
-### 3. useFrontendTool — Generative UI
-
-Display rich cards in the chat when the agent calls tools:
-
-```typescript
-// src/hooks/useFrontendTools.tsx
-import { useFrontendTool } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-
-useFrontendTool({
-  name: "add_resource",
-  description: "Add AWS resource to architecture",
-  parameters: z.object({
-    resource_type: z.string(),
-    name: z.string(),
-    config: z.record(z.any()).optional(),
-  }),
-  render: ({ args, status }) => (
-    <ResourceCard
-      type={args.resource_type}
-      name={args.name}
-      status={status}
-    />
-  ),
-});
-```
-
-**Why this matters:** Instead of plain text tool responses, users see interactive cards with icons, status indicators, and details.
-
-### 4. useHumanInTheLoop — Approval Workflows
-
-Require human approval for high-risk infrastructure changes:
-
-```typescript
-// src/hooks/useInfraApproval.tsx
-import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
-
-useHumanInTheLoop({
-  name: "approve_infrastructure",
-  description: "Request approval for infrastructure changes",
-  parameters: z.object({
-    action: z.string(),
-    resources: z.array(z.string()),
-    cost_impact: z.string(),
-    risk_level: z.enum(["low", "medium", "high"]),
-  }),
-  render: ({ args, respond }) => (
-    <ApprovalCard
-      action={args.action}
-      resources={args.resources}
-      cost_impact={args.cost_impact}
-      risk_level={args.risk_level}
-      onApprove={() => respond("approved")}
-      onReject={() => respond("rejected")}
-    />
-  ),
-});
-```
-
-**Why this matters:** Production AI apps need guardrails. HITL patterns let humans stay in control of critical decisions.
-
-### 5. Conversation Branching with threadId
-
-Fork conversations to explore alternatives without losing your current work:
-
-```typescript
-// Pass threadId to CopilotSidebar for conversation isolation
-<CopilotSidebar
-  agentId="cloudplot_agent"
-  threadId={currentBranch.threadId}  // Each branch has unique thread
-/>
-
-// Branch manager handles state persistence per branch
-const { branches, createBranch, switchBranch } = useBranchManager();
-```
-
-**Why this matters:** Architects often want to compare approaches. Branching lets them try "What if we use serverless?" without losing the current design.
-
----
-
-## Project Structure
-
-```
-├── agent/
-│   └── main.py              # LangGraph agent with 6 tools
-├── src/
-│   ├── app/
-│   │   └── page.tsx         # Main page with Canvas + Chat
-│   ├── components/
-│   │   ├── Canvas.tsx       # React Flow canvas
-│   │   ├── nodes/           # Custom AWS resource nodes
-│   │   ├── ApprovalCard.tsx # HITL approval UI
-│   │   ├── ResourceCard.tsx # Generative UI for add_resource
-│   │   └── ...
-│   ├── hooks/
-│   │   ├── useCloudPlotAgent.ts    # Agent state + events
-│   │   ├── useFrontendTools.tsx    # Generative UI registration
-│   │   ├── useInfraApproval.tsx    # HITL hook
-│   │   └── useBranchManager.ts     # Branch state persistence
-│   └── types/
-│       └── index.ts         # TypeScript interfaces
-```
-
----
-
-## Available Scripts
+Useful commands:
 
 ```bash
-pnpm dev           # Start UI + Agent (concurrently)
-pnpm dev:ui        # Start Next.js only
-pnpm dev:agent     # Start LangGraph agent only
-pnpm build         # Production build
-pnpm lint          # ESLint check
-pnpm test          # Deterministic fixture and safety tests
+pnpm dev:ui
+pnpm dev:agent
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+
+cd agent
+uv sync --frozen
+uv run pytest
 ```
 
----
+## Runtime architecture
 
-## Building Real Apps with These Patterns
+```text
+Browser
+  CopilotKitProvider + CopilotChat + workspace cards
+             |
+             v
+Next.js /api/copilotkit
+  CopilotRuntime + LangGraphHttpAgent
+             |
+             v
+Python FastAPI /
+  LangGraphAGUIAgent + CloudPlot graph
+```
 
-### Pattern 1: Shared State for Visual Builders
+The Python service uses Uvicorn and exposes AG-UI at `/`. The frontend health endpoint, `/api/health`, probes the configured agent’s `/health` endpoint with a bounded timeout and returns `503` when it cannot reach the agent.
 
-Any app where an AI modifies a visual canvas benefits from CopilotKit's state sync:
+Agent checkpoints use LangGraph `MemorySaver`, so chat-thread state lasts only for the life of one agent process. Browser branch snapshots preserve the visible workspace locally, but an agent restart loses server-side conversation checkpoints. Durable threads require an external checkpointer, which is intentionally outside this demo’s approved scope. Setting `CLOUDPLOT_REQUIRE_DURABLE_THREADS=1` makes the agent fail at startup instead of claiming unsupported durability.
 
-- Diagram editors (architecture, flowcharts, ERDs)
-- Design tools (UI mockups, slide decks)
-- Data pipeline builders
+## Tool flow
 
-### Pattern 2: Tool Call Visualization
+The model can call these backend tools:
 
-Use `useFrontendTool` whenever tool execution benefits from rich feedback:
+- `add_resource`
+- `connect_resources`
+- `remove_resource`
+- `update_resource`
+- `move_to_vpc`
 
-- Code generation (show file diffs)
-- API calls (show request/response)
-- Database operations (show affected rows)
+The browser registers render-only cards for add, connect, remove, and move. For a requested simulated deployment, the model calls the browser-owned `approveDeployment` tool. The approval card resolves to `approved` or `rejected`, and CopilotKit supplies that result to the continuation run.
 
-### Pattern 3: Human-in-the-Loop for Sensitive Operations
+Backend tool results must be structured mappings or valid JSON objects. Invalid results are logged and ignored rather than being rewritten from Python-repr text.
 
-Wrap high-impact actions with `useHumanInTheLoop`:
+## Branches and persistence
 
-- Database schema changes
-- External API calls with side effects
-- Actions that incur costs
+Each branch has its own thread ID and browser-local workspace snapshot. Storage is read only after client hydration, so the SSR-safe zero UUID is never mounted into chat. Legacy branches without a thread ID are migrated on load, corrupt storage falls back to a fresh branch, and switching branches applies the saved workspace synchronously.
 
-### Pattern 4: Event-Driven UI Updates
+## Project structure
 
-Use event subscriptions to keep UI responsive:
-
-- Progress indicators during long operations
-- Auto-scroll chat on new messages
-- Canvas auto-fit when resources added
-
----
-
-## Requirements
-
-- Node.js 20.9+
-- Python 3.12+
-- OpenAI API key
+```text
+agent/
+  main.py                 LangGraph state, tools, validation, and cost model
+  server.py               FastAPI/AG-UI production entrypoint and health route
+  tests/                  Tests of production agent and server behavior
+src/
+  app/                    Next.js page, CopilotKit route, and health route
+  components/             Workspace, VPC, resource, tool, and approval cards
+  hooks/                  V2 agent, render-tool, HITL, and branch behavior
+  lib/quickStarts.ts      Product quick-start prompt definitions
+  types/                  Shared frontend state types
+```
 
 ## Railway deployment
 
-Deploy Cloudplot as two services from the same merged CopilotKit revision:
+Use two Railway services from the same merged CopilotKit revision:
 
-| Service  | Root directory                       | Required variables                                                        |
-| -------- | ------------------------------------ | ------------------------------------------------------------------------- |
-| Frontend | `examples/showcases/cloudplot`       | `LANGGRAPH_DEPLOYMENT_URL`; optional `LANGSMITH_API_KEY`; platform `PORT` |
-| Agent    | `examples/showcases/cloudplot/agent` | `OPENAI_API_KEY`; platform `PORT`                                         |
+| Service  | Source root directory                 | Config-as-code path                                | Required variables                          |
+| -------- | ------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
+| Frontend | `/`                                   | `/examples/showcases/cloudplot/railway.toml`       | `LANGGRAPH_DEPLOYMENT_URL`; platform `PORT` |
+| Agent    | `/examples/showcases/cloudplot/agent` | `/examples/showcases/cloudplot/agent/railway.toml` | `OPENAI_API_KEY`; platform `PORT`           |
 
-Set `LANGGRAPH_DEPLOYMENT_URL` on the frontend to the agent service URL after the agent is deployed. Do not configure AWS keys; Cloudplot intentionally keeps deployment actions simulated.
-Railway probes the frontend at `GET /api/health` and the LangGraph Agent Server's built-in health endpoint at `GET /ok`, which returns `{"ok":true}`.
+The frontend uses the repository root because its `workspace:*` CopilotKit dependencies must be built from the monorepo. Set `LANGGRAPH_DEPLOYMENT_URL` to the agent service URL. Do not configure AWS credentials. Do not set `CLOUDPLOT_REQUIRE_DURABLE_THREADS=1` unless the desired outcome is a fail-loud startup check.
 
-## Troubleshooting
+Railway probes the frontend at `GET /api/health` and the agent at `GET /health`. Watch paths are repository-root-relative so changes to CloudPlot, shared CopilotKit packages, or the workspace lock/configuration redeploy the frontend; agent-only changes redeploy the Python service.
 
-**Agent not responding?**
+## Manual live smoke
 
-- Check `agent/.env` has valid `OPENAI_API_KEY`
-- Verify agent is running on port 8123 locally or that `LANGGRAPH_DEPLOYMENT_URL` points to the deployed agent service
+There is no Playwright claim for this two-service workflow. After starting or deploying both services:
 
-**Canvas not updating?**
-
-- Check browser console for React Flow errors
-- Ensure `useCloudPlotAgent` hook is properly connected
+1. Submit a quick-start prompt and confirm resources appear in the workspace and `add_resource` cards appear in chat.
+2. Ask to simulate deployment, approve it, and confirm the assistant continues without claiming AWS resources were created.
+3. Ask again, reject it, and confirm the assistant acknowledges the rejection.
+4. Fork a branch, change its workspace, switch branches, and reload to confirm each browser snapshot is restored.
+5. Stop the agent and confirm frontend `GET /api/health` returns `503`; restart it and confirm the endpoint returns `200`.
 
 ## License
 
