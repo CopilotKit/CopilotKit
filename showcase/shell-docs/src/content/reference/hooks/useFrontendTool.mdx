@@ -190,7 +190,7 @@ function AdminPanel({ isAdmin }: { isAdmin: boolean }) {
 For simple UI-control tools (e.g. toggling a theme), the `description` field is usually enough for a LangGraph agent to discover and call the tool at the right time. For **mandatory** tools — ones where the agent must call the tool before answering rather than reasoning from stale context — pair a clear `description` with an explicit instruction in the agent's `system_prompt`.
 
 ```python title="agent.py — make mandatory tools explicit in system_prompt"
-graph = create_agent( # Works the same for "create_react_agent" or similar options
+graph = create_agent(
     model="openai:gpt-4o",
     tools=[],
     middleware=[CopilotKitMiddleware()],
