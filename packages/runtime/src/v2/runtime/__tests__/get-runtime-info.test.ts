@@ -10,6 +10,7 @@ import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { createLicenseContextValue } from "@copilotkit/shared";
 
 // Mock transcription service
 class MockTranscriptionService extends TranscriptionService {
@@ -59,30 +60,44 @@ describe("handleGetRuntimeInfo", () => {
     }) as unknown as CopilotRuntimeLike;
   const createIntelligenceRuntimeLike = (
     overrides: Partial<CopilotIntelligenceRuntimeLike> = {},
-  ): CopilotIntelligenceRuntimeLike => ({
-    agents: {},
-    transcriptionService: undefined,
-    beforeRequestMiddleware: undefined,
-    afterRequestMiddleware: undefined,
-    runner: createRunner(),
-    a2ui: undefined,
-    mcpApps: undefined,
-    openGenerativeUI: undefined,
-    mode: "intelligence",
-    debug: { enabled: false, events: false, lifecycle: false, verbose: false },
-    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
-    intelligence: new CopilotKitIntelligence({
+  ): CopilotIntelligenceRuntimeLike => {
+    const intelligence = new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",
       apiKey: "test-key",
-    }),
-    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
-    generateThreadNames: true,
-    lockTtlSeconds: 20,
-    lockHeartbeatIntervalSeconds: 15,
-    channels: [],
-    ...overrides,
-  });
+    });
+    vi.spyOn(intelligence, "getRuntimeEntitlement").mockResolvedValue({
+      kind: "notSupported",
+    });
+
+    return {
+      agents: {},
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createRunner(),
+      a2ui: undefined,
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      mode: "intelligence",
+      debug: {
+        enabled: false,
+        events: false,
+        lifecycle: false,
+        verbose: false,
+      },
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      intelligence,
+      identifyUser: vi
+        .fn()
+        .mockResolvedValue({ id: "user-1", name: "User One" }),
+      generateThreadNames: true,
+      lockTtlSeconds: 20,
+      lockHeartbeatIntervalSeconds: 15,
+      channels: [],
+      ...overrides,
+    };
+  };
 
   it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
     const runtime = new CopilotRuntime({
@@ -579,6 +594,64 @@ describe("handleGetRuntimeInfo", () => {
       message: "Failed to get agents",
     });
   });
+
+  test.each([
+    [{ kind: "ok", entitlement: { active: true } }, "valid"],
+    [{ kind: "ok", entitlement: { active: false } }, "invalid"],
+    [{ kind: "unavailable" }, "invalid"],
+  ] as const)(
+    "projects Intelligence entitlement result %# into licenseStatus=%s",
+    async (result, expectedStatus) => {
+      const runtime = createIntelligenceRuntimeLike();
+      vi.mocked(runtime.intelligence.getRuntimeEntitlement).mockResolvedValue(
+        result.kind === "ok"
+          ? {
+              kind: "ok",
+              entitlement: {
+                organizationId: "7",
+                source: "awsMarketplaceDeploymentLicense",
+                active: result.entitlement.active,
+                features: { msteams: true },
+                limits: { "threads.max_count": 25_000 },
+                planCode: "team_deployment",
+                entitlementSource: "must-not-reach-browser",
+              },
+            }
+          : result,
+      );
+
+      const response = await handleGetRuntimeInfo({
+        runtime,
+        request: mockRequest,
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.licenseStatus).toBe(expectedStatus);
+      expect(
+        createLicenseContextValue(data.licenseStatus).checkFeature("msteams"),
+      ).toBe(expectedStatus === "valid");
+      expect(JSON.stringify(data)).not.toMatch(
+        /organizationId|source|features|limits|planCode|entitlementSource|awsMarketplace/iu,
+      );
+    },
+  );
+
+  it("falls back to the unchanged local checker only when Intelligence lacks the endpoint", async () => {
+    const runtime = createIntelligenceRuntimeLike({
+      licenseChecker: {
+        getStatus: () => ({ warningSeverity: "none" }),
+      } as CopilotIntelligenceRuntimeLike["licenseChecker"],
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+    const data = await response.json();
+
+    expect(data.licenseStatus).toBe("valid");
+  });
 });
 
 test("get-runtime-info advertises inspector metadata without fetching it", async () => {
@@ -588,6 +661,9 @@ test("get-runtime-info advertises inspector metadata without fetching it", async
     apiKey: "server-api-key",
   });
   const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  vi.spyOn(intelligence, "getRuntimeEntitlement").mockResolvedValue({
+    kind: "notSupported",
+  });
   const runtime = new CopilotRuntime({
     agents: {},
     intelligence,
