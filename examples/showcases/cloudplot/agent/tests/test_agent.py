@@ -177,6 +177,14 @@ class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
         )
         operations = [
             (
+                "add_resource",
+                {
+                    "resource_type": "ec2",
+                    "name": "orphaned-compute",
+                    "vpc_id": "missing-vpc",
+                },
+            ),
+            (
                 "connect_resources",
                 {"source_id": "ec2-1", "target_id": "missing-target"},
             ),

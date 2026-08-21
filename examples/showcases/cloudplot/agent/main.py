@@ -539,15 +539,21 @@ def apply_tool_result(state: AgentState, data: Mapping) -> AppliedToolResult:
         if parent_id and not any(
             node["id"] == parent_id and node["type"] == "vpc" for node in new_nodes
         ):
+            error_message = f"Invalid vpc_id: {parent_id} does not exist"
             new_logs.append(
                 log_thought(
                     state,
                     "tool_node",
-                    f"Invalid vpc_id: {parent_id} does not exist",
+                    error_message,
                     "error",
                 )
             )
-            return {"nodes": new_nodes, "edges": new_edges, "logs": new_logs}
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
 
         resource_type = data["type"]
         new_node = {
