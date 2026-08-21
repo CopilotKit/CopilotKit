@@ -13,20 +13,21 @@ export function useFrontendTools() {
     name: "add_resource",
     description: "Add AWS resource to infrastructure diagram",
     parameters: z.object({
-      resource_type: z.string().describe("Type of AWS resource (s3, ec2, rds, lambda, vpc, alb)"),
+      resource_type: z
+        .string()
+        .describe("Type of AWS resource (s3, ec2, rds, lambda, vpc, alb)"),
       name: z.string().describe("Display name for the resource"),
       config: z.record(z.any()).optional().describe("Resource configuration"),
-      vpc_id: z.string().optional().describe("Parent VPC ID for contained resources"),
+      vpc_id: z
+        .string()
+        .optional()
+        .describe("Parent VPC ID for contained resources"),
     }),
     render: ({ args, status }) => {
       const resourceType = String(args.resource_type ?? "");
       const name = String(args.name ?? "");
       return (
-        <ResourceCard
-          resourceType={resourceType}
-          name={name}
-          status={status}
-        />
+        <ResourceCard resourceType={resourceType} name={name} status={status} />
       );
     },
   });
@@ -43,13 +44,7 @@ export function useFrontendTools() {
     render: ({ args, status }) => {
       const source = String(args.source_id ?? "");
       const target = String(args.target_id ?? "");
-      return (
-        <ConnectionCard
-          source={source}
-          target={target}
-          status={status}
-        />
-      );
+      return <ConnectionCard source={source} target={target} status={status} />;
     },
   });
 
@@ -72,7 +67,10 @@ export function useFrontendTools() {
     description: "Move a resource into or out of a VPC",
     parameters: z.object({
       resource_id: z.string().describe("ID of the resource to move"),
-      vpc_id: z.string().optional().describe("Target VPC ID, or empty to remove from VPC"),
+      vpc_id: z
+        .string()
+        .optional()
+        .describe("Target VPC ID, or empty to remove from VPC"),
     }),
     render: ({ args, status }) => {
       const resourceId = String(args.resource_id ?? "");

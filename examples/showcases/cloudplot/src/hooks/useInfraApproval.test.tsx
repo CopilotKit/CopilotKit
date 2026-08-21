@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync(join(__dirname, "useInfraApproval.tsx"), "utf8");
-const cardSource = readFileSync(join(__dirname, "../components/ApprovalCard.tsx"), "utf8");
+const cardSource = readFileSync(
+  join(__dirname, "../components/ApprovalCard.tsx"),
+  "utf8",
+);
 
 describe("useInfraApproval contract", () => {
   it("returns exact approved/rejected strings to the agent", () => {

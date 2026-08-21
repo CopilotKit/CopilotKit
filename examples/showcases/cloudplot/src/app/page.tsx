@@ -71,7 +71,7 @@ export default function CloudPlot() {
       };
       createBranch(name, forkState);
     },
-    [currentBranchId, state, saveBranchState, createBranch]
+    [currentBranchId, state, saveBranchState, createBranch],
   );
 
   // Branch switching handler - saves current state before switching
@@ -85,7 +85,7 @@ export default function CloudPlot() {
       // Switch to new branch (useEffect will restore state after threadId changes)
       switchBranch(branchId);
     },
-    [currentBranchId, state, saveBranchState, switchBranch]
+    [currentBranchId, state, saveBranchState, switchBranch],
   );
 
   return (

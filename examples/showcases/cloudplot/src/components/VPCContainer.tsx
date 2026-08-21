@@ -27,7 +27,7 @@ export function VPCContainer({ vpc, vpcChildren }: VPCContainerProps) {
       }
       return acc;
     },
-    {} as Record<string, AWSNodeData[]>
+    {} as Record<string, AWSNodeData[]>,
   );
 
   const tierEntries = Object.entries(tiers);

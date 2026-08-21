@@ -23,7 +23,9 @@ function getLangGraphDeploymentUrl() {
     return "http://localhost:8123";
   }
 
-  throw new Error("LANGGRAPH_DEPLOYMENT_URL is required for the Cloudplot frontend service.");
+  throw new Error(
+    "LANGGRAPH_DEPLOYMENT_URL is required for the Cloudplot frontend service.",
+  );
 }
 
 // 2. Create the CopilotRuntime instance and utilize the LangGraph AG-UI
@@ -31,7 +33,7 @@ function getLangGraphDeploymentUrl() {
 // threadId prop on CopilotSidebar passes through to LangGraph for thread management
 const runtime = new CopilotRuntime({
   agents: {
-    "cloudplot_agent": new LangGraphAgent({
+    cloudplot_agent: new LangGraphAgent({
       deploymentUrl: getLangGraphDeploymentUrl(),
       graphId: "cloudplot_agent",
       langsmithApiKey: process.env.LANGSMITH_API_KEY || "",

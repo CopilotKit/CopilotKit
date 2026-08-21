@@ -7,7 +7,9 @@ const forbiddenAwsPatterns = [
   /fd00:ec2::254/i,
 ];
 
-test("primary Cloudplot prompt stays inside the simulation boundary", async ({ page }) => {
+test("primary Cloudplot prompt stays inside the simulation boundary", async ({
+  page,
+}) => {
   const blocked: string[] = [];
 
   await page.route("**/*", (route) => {
