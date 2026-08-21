@@ -10,31 +10,27 @@ The Copilot Runtime is the backend layer that connects your frontend application
 
 The runtime is a lightweight server endpoint that you add to your backend. Here's a minimal example using Next.js:
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { NextRequest } from "next/server";
-
-const serviceAdapter = new ExperimentalEmptyAdapter();
+  createCopilotRuntimeHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: {
     // your agents go here
   },
+  runner: new InMemoryAgentRunner(),
 });
 
-export const POST = async (req: NextRequest) => {
-  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-    runtime,
-    serviceAdapter,
-    endpoint: "/api/copilotkit",
-  });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 
-  return handleRequest(req);
-};
+export const GET = handler;
+export const POST = handler;
 ```
 
 Then point your frontend at the endpoint:
@@ -43,7 +39,7 @@ Then point your frontend at the endpoint:
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
   <YourApp />
 </CopilotKit>
 ```
@@ -100,7 +96,7 @@ The runtime supports multiple agent types. `BuiltInAgent` is the primary agent c
 
 If you register an agent under the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
 
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -204,7 +200,7 @@ default theme:
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }} useSingleEndpoint={false}>
   {children}
 </CopilotKit>
 ```

@@ -532,7 +532,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-python",
     path: "integrations/claude-sdk-python/quickstart.mdx",
     title: "Python",
-    modelEnvLine: "ANTHROPIC_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "ANTHROPIC_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.py",
       "src/agents/claude_agent_sdk_adapter.py",
@@ -543,7 +543,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-typescript",
     path: "integrations/claude-sdk-typescript/quickstart.mdx",
     title: "TypeScript",
-    modelEnvLine: "CLAUDE_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "CLAUDE_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.ts",
       "src/app/api/copilotkit/route.ts",
@@ -780,11 +780,16 @@ export function checkClaudeQuickstarts(input: {
       [
         ["HttpAgent", "HttpAgent"],
         ["CopilotRuntime", "CopilotRuntime"],
-        ["ExperimentalEmptyAdapter", "ExperimentalEmptyAdapter"],
-        [
-          "copilotRuntimeNextJSAppRouterEndpoint",
-          "copilotRuntimeNextJSAppRouterEndpoint",
-        ],
+        // The v2 fetch handler in single-route mode. These assertions used to
+        // require `ExperimentalEmptyAdapter` +
+        // `copilotRuntimeNextJSAppRouterEndpoint`, which pinned both pages to
+        // the v1 entrypoint. Single-route keeps the route POST-only at the
+        // plain `route.ts` path — matching the starter these pages document,
+        // so `requiredStarterFiles` below is unchanged.
+        ["createCopilotRuntimeHandler", "createCopilotRuntimeHandler"],
+        ['from "@copilotkit/runtime/v2"', "v2 runtime entrypoint"],
+        ['mode: "single-route"', "single-route mode"],
+        ["export const POST", "POST export"],
         ['"http://localhost:8000"', "localhost agent URL"],
       ],
     );

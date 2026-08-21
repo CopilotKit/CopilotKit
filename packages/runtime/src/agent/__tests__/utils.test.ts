@@ -43,6 +43,14 @@ describe("resolveModel", () => {
     expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
   });
 
+  it("should pass retired Anthropic model identifiers through unchanged", () => {
+    const retiredModel = ["claude", "3.7", "sonnet"].join("-");
+    const model = resolveModel(`anthropic/${retiredModel}`);
+
+    expect(model).toBeDefined();
+    expect((model as { modelId: string }).modelId).toBe(retiredModel);
+  });
+
   it("should resolve Google models", () => {
     const model = resolveModel("google/gemini-2.5-pro");
     expect(model).toBeDefined();

@@ -15,17 +15,28 @@ export default defineConfig({
   target: "es2022",
   outDir: "dist",
   unbundle: true,
-  banner: ({ format, fileName }) => {
-    // tsdown/rolldown reorders bare side-effect imports to the end of the entry chunk,
-    // breaking type-graphql which needs reflect-metadata at load time.
-    // The _virtual/_rolldown/runtime banner propagates to all output files per format,
-    // ensuring reflect-metadata is always the first thing that runs.
-    if (fileName.includes("_virtual/_rolldown/runtime")) {
-      return format === "cjs"
+  // tsdown/rolldown reorders bare side-effect imports to the end of the entry
+  // chunk, breaking type-graphql, which needs reflect-metadata at load time. So
+  // every JS output gets reflect-metadata prepended, guaranteeing it runs first.
+  //
+  // Return an OBJECT, not a string. tsdown routes an object banner by chunk kind
+  // (`js` / `dts` / `css`) but applies a string banner to *every* chunk, including
+  // declarations -- which put `require("reflect-metadata");` at line 1 of all 87
+  // published `.d.cts` files and cost consumers 71 x TS1036 "Statements are not
+  // allowed in ambient contexts" under `skipLibCheck: false` (OSS-899).
+  //
+  // Nor is this keyed off `fileName` any more. tsdown's `resolveChunkAddon`
+  // reassigns its own closure variable on the first call, so a function banner is
+  // evaluated once and its result reused for every later chunk -- meaning a
+  // fileName condition silently decided the banner for the whole build based on
+  // whichever chunk happened to be emitted first. Keying on `format` alone is
+  // order-independent, and `format` is fixed per build.
+  banner: ({ format }) => ({
+    js:
+      format === "cjs"
         ? 'require("reflect-metadata");'
-        : 'import "reflect-metadata";';
-    }
-  },
+        : 'import "reflect-metadata";',
+  }),
   external: [
     "@ag-ui/langgraph",
     "@langchain/core",

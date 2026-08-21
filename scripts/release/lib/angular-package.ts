@@ -3,6 +3,7 @@ import { major as semverMajor, satisfies } from "semver";
 export interface AngularSupportEntry {
   angular: string;
   cdk: string;
+  cli: string;
   major: number;
   typescript: string;
 }
@@ -63,6 +64,7 @@ function readSupportEntry(value: unknown, index: number): AngularSupportEntry {
   return {
     angular: requireString(entry.angular, `${path}.angular`),
     cdk: requireString(entry.cdk, `${path}.cdk`),
+    cli: requireString(entry.cli, `${path}.cli`),
     major: requireInteger(entry.major, `${path}.major`),
     typescript: requireString(entry.typescript, `${path}.typescript`),
   };
@@ -156,6 +158,11 @@ export function validateAngularPackageManifest(manifest: unknown): string[] {
         `CDK version ${entry.cdk} does not match major ${entry.major}`,
       );
     }
+    if (versionMajor(entry.cli) !== entry.major) {
+      problems.push(
+        `Angular CLI version ${entry.cli} does not match major ${entry.major}`,
+      );
+    }
   }
 
   const floor = support.supportedMajors[0];
@@ -230,7 +237,7 @@ export function createAngularConsumerManifest({
       "@angular/platform-browser": support.angular,
       "@angular/platform-server": support.angular,
       "@angular/router": support.angular,
-      "@angular/ssr": support.angular,
+      "@angular/ssr": support.cli,
       "@copilotkit/angular": `file:${angularTarball}`,
       express: "^5.1.0",
       rxjs: testedRxjs,
@@ -238,8 +245,8 @@ export function createAngularConsumerManifest({
       zod: "^3.25.75",
     },
     devDependencies: {
-      "@angular/build": support.angular,
-      "@angular/cli": support.angular,
+      "@angular/build": support.cli,
+      "@angular/cli": support.cli,
       "@angular/compiler": support.angular,
       "@angular/compiler-cli": support.angular,
       "@types/express": "^5.0.1",
@@ -249,16 +256,19 @@ export function createAngularConsumerManifest({
     packageManager,
   };
 
-  if (siblingTarballs.size) {
-    manifest.pnpm = {
-      overrides: Object.fromEntries(
+  manifest.pnpm = {
+    overrides: {
+      // Angular CLI 22's prompt adapter declares this exact peer while the
+      // CLI's own range otherwise resolves a newer incompatible patch.
+      listr2: "10.2.1",
+      ...Object.fromEntries(
         [...siblingTarballs].map(([name, tarball]) => [
           name,
           `file:${tarball}`,
         ]),
       ),
-    };
-  }
+    },
+  };
 
   return manifest;
 }

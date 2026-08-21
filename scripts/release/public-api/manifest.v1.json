@@ -205,10 +205,8 @@
           "exportKey": ".",
           "kind": "code",
           "conditions": {
-            "import": {
-              "types": "./dist/index.d.ts",
-              "default": "./dist/fesm2022/copilotkit-angular.mjs"
-            }
+            "types": "./dist/types/copilotkit-angular.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular.mjs"
           },
           "provenance": {
             "kind": "package-json",
@@ -221,10 +219,8 @@
           "exportKey": "./mcp-apps",
           "kind": "code",
           "conditions": {
-            "import": {
-              "types": "./dist/mcp-apps/index.d.ts",
-              "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
-            }
+            "types": "./dist/types/copilotkit-angular-mcp-apps.d.ts",
+            "default": "./dist/fesm2022/copilotkit-angular-mcp-apps.mjs"
           },
           "provenance": {
             "kind": "package-json",
@@ -246,9 +242,9 @@
       ],
       "compatibility": {
         "peerDependencies": {
-          "@angular/cdk": "^20.0.0 || ^21.0.0 || ^22.0.0",
-          "@angular/common": "^20.0.0 || ^21.0.0 || ^22.0.0",
-          "@angular/core": "^20.0.0 || ^21.0.0 || ^22.0.0",
+          "@angular/cdk": "^22.0.0",
+          "@angular/common": "^22.0.0",
+          "@angular/core": "^22.0.0",
           "rxjs": "^7.8.0"
         },
         "provenance": [
