@@ -202,7 +202,7 @@ describe("StateManager tool result history", () => {
     );
   });
 
-  it("keeps one checkpoint result when LangGraph uses divergent message ids", async () => {
+  it("keeps one result when LangGraph uses divergent message ids", async () => {
     const callId = "call_weather_1";
     const checkpointId = "lc-tool-1";
     const agent = new ScenarioAgent(
@@ -217,6 +217,12 @@ describe("StateManager tool result history", () => {
             owner("assistant-weather", callId),
             {
               id: checkpointId,
+              role: "tool",
+              toolCallId: callId,
+              content: "72 and sunny",
+            },
+            {
+              id: "72192d78-8458-4e31-a03f-eddbcc88ed58",
               role: "tool",
               toolCallId: callId,
               content: "72 and sunny",
@@ -236,7 +242,10 @@ describe("StateManager tool result history", () => {
         (message) => message.role === "tool" && message.toolCallId === callId,
       ),
     ).toEqual([
-      expect.objectContaining({ id: checkpointId, content: "72 and sunny" }),
+      expect.objectContaining({
+        toolCallId: callId,
+        content: "72 and sunny",
+      }),
     ]);
     expect(
       agent.inputs[1]?.messages.filter(
@@ -246,6 +255,34 @@ describe("StateManager tool result history", () => {
     expect(
       core.getRunIdForMessage("langgraph", "langgraph-thread", checkpointId),
     ).toBe(agent.inputs[0]?.runId);
+  });
+
+  it("does not replay a prior result across server runs in one input", async () => {
+    const callId = "call-multirun";
+    const agent = new ScenarioAgent(
+      "multirun",
+      [owner("assistant-multirun", callId)],
+      [
+        { type: EventType.RUN_STARTED, threadId: "x", runId: "x" },
+        result("run-one-result", callId, "first run"),
+        { type: EventType.RUN_FINISHED, threadId: "x", runId: "x" },
+        { type: EventType.RUN_STARTED, threadId: "x", runId: "x" },
+        {
+          type: EventType.MESSAGES_SNAPSHOT,
+          messages: [owner("assistant-multirun", callId)],
+        },
+        { type: EventType.RUN_FINISHED, threadId: "x", runId: "x" },
+      ],
+    );
+    const core = new CopilotKitCore({});
+    await addAgent(core, agent);
+    await core.runAgent({ agent });
+
+    expect(
+      agent.messages.filter(
+        (message) => message.role === "tool" && message.toolCallId === callId,
+      ),
+    ).toHaveLength(0);
   });
 
   it("preserves normal result delivery and removes duplicate identities", async () => {

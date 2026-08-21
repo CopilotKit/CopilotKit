@@ -153,7 +153,6 @@ export class StateManager {
       if (!events) return undefined;
 
       const messages = [...historyMessages];
-      const insertedResultIds = new Set<string>();
       let changed = false;
 
       for (const event of events.values()) {
@@ -181,10 +180,7 @@ export class StateManager {
         const realIndex = matchingIndexes.find(
           (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
         );
-        const realResultWasReconciled = matchingIndexes.some((index) =>
-          insertedResultIds.has(messages[index]?.id ?? ""),
-        );
-        if (realIndex !== undefined && !realResultWasReconciled) {
+        if (realIndex !== undefined) {
           for (const duplicateIndex of matchingIndexes
             .filter((candidateIndex) => candidateIndex !== realIndex)
             .sort((a, b) => b - a)) {
@@ -236,7 +232,6 @@ export class StateManager {
         let insertIndex = ownerIndex + 1;
         while (messages[insertIndex]?.role === "tool") insertIndex++;
         messages.splice(insertIndex, 0, result);
-        insertedResultIds.add(result.id);
         changed = true;
       }
 
@@ -291,6 +286,7 @@ export class StateManager {
         runFinished = true;
         const effective = effectiveInput(input);
         const mutation = reconcilePendingResults(messages, input);
+        clearPendingResults(input);
         this.handleRunFinished(agent, effective, state);
         return mutation;
       },
