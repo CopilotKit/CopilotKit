@@ -9,15 +9,15 @@
  */
 
 import {
+  BasicAgent,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { BasicAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
+import { RuntimeA2AAgent } from "../../runtime-a2a-agent";
 
 // Use OpenAI gpt-5.2 as specified in project requirements
 const MODEL = "openai/gpt-5.2";
@@ -103,7 +103,7 @@ You also have access to 6 interactive apps that render in the chat:
 const a2aClient = new A2AClient(
   process.env.A2A_AGENT_URL || "http://localhost:10002",
 );
-const a2uiAgent = new A2AAgent({ a2aClient });
+const a2uiAgent = new RuntimeA2AAgent({ a2aClient });
 
 // Create CopilotKit runtime with both agents
 const runtime = new CopilotRuntime({

@@ -20,8 +20,15 @@ test("the frontend Railway image builds from the CopilotKit workspace", async ()
     resolve(demoDirectory, "railway.toml"),
     "utf8",
   );
+  const workspaceConfig = await readFile(
+    resolve(repositoryRoot, "pnpm-workspace.yaml"),
+    "utf8",
+  );
   const packageJson = JSON.parse(
     await readFile(resolve(demoDirectory, "package.json"), "utf8"),
+  );
+  const tsconfig = JSON.parse(
+    await readFile(resolve(demoDirectory, "tsconfig.json"), "utf8"),
   );
 
   const workspaceDependencies = Object.entries(packageJson.dependencies)
@@ -31,6 +38,16 @@ test("the frontend Railway image builds from the CopilotKit workspace", async ()
   assert.ok(
     workspaceDependencies.length > 0,
     "fixture must contain workspace dependencies",
+  );
+  assert.match(
+    workspaceConfig,
+    /- "examples\/showcases\/generative-ui-playground"/,
+    "the demo must be installed as a pnpm workspace package",
+  );
+  await assert.rejects(
+    readFile(resolve(demoDirectory, "package-lock.json")),
+    (error) => error?.code === "ENOENT",
+    "a standalone npm lock cannot represent this workspace:* manifest",
   );
   assert.match(
     dockerfile,
@@ -47,6 +64,10 @@ test("the frontend Railway image builds from the CopilotKit workspace", async ()
     /pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo\.\.\./,
   );
   assert.match(dockerfile, /pnpm --filter ui-protocols-demo\.\.\. build/);
+  assert.ok(
+    tsconfig.exclude.includes("mcp-server"),
+    "the frontend build must not typecheck the independently deployed MCP sidecar",
+  );
   assert.doesNotMatch(
     dockerfile,
     /^RUN npm install/m,

@@ -351,19 +351,16 @@ importers:
         version: 0.8.3(signal-polyfill@0.2.2)
       '@ag-ui/a2a':
         specifier: ^0.0.6
-        version: 0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.57)
+        version: 0.0.6(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)
       '@ag-ui/a2a-middleware':
         specifier: ^0.0.2
         version: 0.0.2(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: ^0.0.42
-        version: 0.0.42
+        specifier: 0.0.57
+        version: 0.0.57
       '@ag-ui/mcp-apps-middleware':
-        specifier: ^0.0.1
-        version: 0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/a2ui-renderer
+        specifier: 0.0.3
+        version: 0.0.3(@ag-ui/client@0.0.57)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../packages/core
@@ -27488,6 +27485,15 @@ snapshots:
     dependencies:
       '@a2a-js/sdk': 0.2.5
       '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 0.0.57
+      rxjs: 7.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ag-ui/a2a@0.0.6(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)':
+    dependencies:
+      '@a2a-js/sdk': 0.2.5
+      '@ag-ui/client': 0.0.57
       '@ag-ui/core': 0.0.57
       rxjs: 7.8.1
     transitivePeerDependencies:
