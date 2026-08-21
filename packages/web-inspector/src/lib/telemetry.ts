@@ -33,6 +33,7 @@ export const TELEMETRY_EVENTS = {
   whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
+  threadsTryFromHereClicked: "oss.inspector.threads_try_from_here_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
   threadsIntelligenceSignupClicked:
     "oss.inspector.threads_intelligence_signup_clicked",
@@ -300,6 +301,7 @@ export type InspectorThreadTelemetryProps = Readonly<{
   tour_step?: ExampleTourStep;
   tour_tab?: ExampleTourTab;
   dismiss_method?: "skip" | "done";
+  outcome?: "success" | "failure";
 }>;
 
 /** Rebuild the common Thread payload from its closed coarse allowlist. */
@@ -384,6 +386,15 @@ export function trackThreadsTabClicked(
   props: InspectorThreadTelemetryProps = {},
 ): void {
   track(TELEMETRY_EVENTS.threadsTabClicked, threadCommonProperties(props));
+}
+
+export function trackThreadsTryFromHereClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsTryFromHereClicked, {
+    ...threadCommonProperties(props),
+    ...(props.outcome === undefined ? {} : { outcome: props.outcome }),
+  });
 }
 
 export function trackThreadsLockedViewed(
