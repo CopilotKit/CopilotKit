@@ -21,6 +21,7 @@ import {
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
   trackWhatsNewClicked,
+  trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
 } from "../telemetry.js";
 import {
@@ -196,6 +197,29 @@ describe("typed helpers", () => {
     expect(body.properties.inspector_distinct_id).toBe(
       body.properties.distinct_id,
     );
+  });
+
+  it("trackWhatsNewSignalViewed records the launcher presentation", async () => {
+    trackWhatsNewSignalViewed({
+      banner_id: "ts-2025",
+      surface: "launcher",
+      presentation: "animated",
+    });
+    await Promise.resolve();
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe("oss.inspector.whats_new_signal_viewed");
+    expect(body.properties).toMatchObject({
+      banner_id: "ts-2025",
+      surface: "launcher",
+      presentation: "animated",
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
   });
 
   it("trackWhatsNewViewed omits cta_label when undefined (JSON.stringify drops it)", async () => {
@@ -432,6 +456,7 @@ describe("event catalogue", () => {
 
     expect(names.filter((name) => name.includes("banner"))).toEqual([]);
     expect(names).toContain("oss.inspector.whats_new_viewed");
+    expect(names).toContain("oss.inspector.whats_new_signal_viewed");
     expect(names).toContain("oss.inspector.whats_new_clicked");
     expect(names.filter((name) => name.includes("dismissed"))).toEqual([
       // The example tour keeps its own dismissal; the announcement's is gone.
@@ -441,10 +466,10 @@ describe("event catalogue", () => {
 
   // Stated in the ticket, and OSS-862's telemetry-validation description still
   // says 21 — this assertion is the reminder to update it.
-  it("holds twenty event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-one event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(20);
+    expect(names).toHaveLength(21);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

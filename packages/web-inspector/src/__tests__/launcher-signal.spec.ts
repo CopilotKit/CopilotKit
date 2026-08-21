@@ -10,6 +10,9 @@
 // mechanism: a read recorded under one dev-server port is honoured under
 // another, which is the requirement localStorage structurally cannot meet.
 
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -477,6 +480,38 @@ test("a loading render is not a read, and the clear follows the content", async 
   expect(launcherDot(reloaded)).toBeNull();
 });
 
+test("the read is recorded only after the announcement content is visible", async () => {
+  const context = await setup({ feed: "pending" });
+  await click(context.inspector, launcherButton(context.inspector));
+  expect(whatsNewState(context.inspector)).toBe("loading");
+
+  const cookieDescriptor = Object.getOwnPropertyDescriptor(document, "cookie");
+  if (!cookieDescriptor?.get || !cookieDescriptor.set) {
+    throw new Error("Expected the test cookie shim");
+  }
+  let stateWhenReadWasRecorded: string | null = null;
+  Object.defineProperty(document, "cookie", {
+    configurable: true,
+    get: () => cookieDescriptor.get?.call(document) ?? "",
+    set: (value: string) => {
+      if (value.startsWith(`${READ_COOKIE_NAME}=`)) {
+        stateWhenReadWasRecorded = whatsNewState(context.inspector);
+      }
+      cookieDescriptor.set?.call(document, value);
+    },
+  });
+
+  try {
+    context.resolveFeed();
+    await settle(context.inspector);
+
+    expect(whatsNewState(context.inspector)).toBe("content");
+    expect(stateWhenReadWasRecorded).toBe("content");
+  } finally {
+    Object.defineProperty(document, "cookie", cookieDescriptor);
+  }
+});
+
 test("a feed that fails to load leaves the announcement unread", async () => {
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const context = await setup({ feed: { previewText: "no timestamp" } });
@@ -587,6 +622,26 @@ test("the launcher beats once per tab, and again for a new announcement", async 
   );
 });
 
+test("an unread announcement waits to beat until the launcher is visible", async () => {
+  const context = await setup({
+    persistedMenu: "ag-ui-events",
+    persistedOpen: true,
+  });
+
+  expect(navUnreadMarker(context.inspector)).not.toBeNull();
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBeNull();
+
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector(
+      'button[aria-label="Close Web Inspector"]',
+    ),
+  );
+
+  expect(pulsing(context.inspector)).toBe(true);
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
+});
+
 // Real timers: the beat is scheduled during mount, so fake timers installed
 // afterwards would not own it, and installing them first stalls the handshake.
 test("the beat ends and leaves the resting dot behind", async () => {
@@ -683,6 +738,49 @@ test("the halo animates opacity and transform only", async () => {
   expect([...animated].sort()).toEqual(["opacity", "transform"]);
 });
 
+test("the pulse sends two water-drop rings outward from the launcher rim", async () => {
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+
+  const rings =
+    /\.console-button\[data-cpk-signal\]::before,\s*\.console-button\[data-cpk-signal\]::after\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  expect(rings).toContain("inset: 0");
+  expect(rings).toContain("border: 2px solid");
+  expect(rings).toContain("var(--cpk-launcher-signal) 68%");
+  expect(rings).toContain("box-shadow: 0 0 8px");
+
+  const ripple =
+    /@keyframes\s+cpk-launcher-ripple\s*\{([\s\S]*?\}\s*)\}/.exec(css)?.[1] ??
+    "";
+  expect(ripple).toContain("opacity: 0.95");
+  expect(ripple).toContain("transform: scale(1)");
+  // On a 51.84px launcher, 1.5 reaches 12.96px past the rim.
+  expect(ripple).toContain("transform: scale(1.5)");
+  expect(css).toContain("calc(var(--cpk-launcher-cadence) - 180ms)");
+  expect(css).toContain("animation-delay: 180ms");
+});
+
+test("the pulse also washes across the inside beneath the Kite mark", async () => {
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+  const wash = root(context.inspector).querySelector<HTMLElement>(
+    ".cpk-launcher-signal-wash",
+  );
+
+  expect(wash).not.toBeNull();
+  expect(wash?.getAttribute("aria-hidden")).toBe("true");
+
+  const washRule =
+    /\.cpk-launcher-signal-wash\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  expect(washRule).toContain("z-index: 1");
+  expect(washRule).toContain("radial-gradient");
+  expect(washRule).toContain("transparent 26%");
+  expect(css).toContain("@keyframes cpk-launcher-wash");
+  expect(css).toContain("animation: cpk-launcher-wash");
+});
+
 test("reduced motion holds the halo instead of animating it", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
@@ -691,14 +789,19 @@ test("reduced motion holds the halo instead of animating it", async () => {
     css.indexOf("@media (prefers-reduced-motion: reduce)"),
   );
   expect(reducedMotion).toContain(".console-button[data-cpk-signal]::before");
+  expect(reducedMotion).toContain(".cpk-launcher-signal-wash");
   expect(reducedMotion).toContain("animation: none");
 });
 
-test("the launcher measures its outer size and places the dot on the rim", async () => {
+test("the launcher scales to a 20% larger desktop cap and keeps the dot on its rim", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
-  expect(css).toContain("--cpk-launcher-size: 36px");
+  expect(css).toMatch(
+    /--cpk-launcher-size:\s*clamp\(\s*51\.84px,\s*7vw,\s*62\.208px\s*\)/,
+  );
+  expect(css).toContain("width: var(--cpk-launcher-size)");
+  expect(css).toContain("height: var(--cpk-launcher-size)");
   expect(css).toContain("box-sizing: border-box");
   // 0.35355 is 0.5 x cos45: the dot's centre lands exactly on the rim.
   expect(css).toContain("var(--cpk-launcher-size) * 0.35355");
@@ -723,6 +826,7 @@ test("the launcher shows the Kite mark and the signal's own colour", async () =>
     ),
   );
   expect(mark.getAttribute("src")).toContain("svg");
+  expect(mark.classList.contains("h-6")).toBe(true);
 
   // The mark has to paint above the halo, or the ring washes across it and
   // destroys the contrast the rim treatment exists to preserve.
@@ -732,21 +836,21 @@ test("the launcher shows the Kite mark and the signal's own colour", async () =>
       stylesheetText(context.inspector),
     )?.[1] ?? "";
   expect(markRule).toContain("z-index: 2");
+  expect(markRule).toContain("height: calc(var(--cpk-launcher-size) / 1.8)");
 });
 
-test("the launcher advertises a click, not a grab", async () => {
-  // Pressing it opens the panel; dragging it to another corner is secondary,
-  // so the grabbing cursor belongs to an active drag rather than to hover.
-  //
-  // Asserted through the utility class rather than the computed style: the
-  // launcher takes its cursor from the adopted Tailwind sheet, which jsdom does
-  // not resolve, so getComputedStyle reports "auto" here regardless. The
-  // navigation controls can be checked the other way because theirs is inline.
-  const context = await setup();
+test("the Kite crop leaves the canonical artwork paths untouched", () => {
+  const svg = readFileSync("src/assets/inspector-logo-kite.svg", "utf8");
+  const paths = Array.from(
+    svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g),
+    (match) => match[1] ?? "",
+  );
 
-  const button = launcherButton(context.inspector);
-  expect(button.classList.contains("cursor-pointer")).toBe(true);
-  expect(button.classList.contains("cursor-grab")).toBe(false);
+  expect(svg).toContain('viewBox="4.57 3.36 17.8 17.8"');
+  expect(paths).toHaveLength(7);
+  expect(createHash("sha256").update(paths.join("\n")).digest("hex")).toBe(
+    "1e8c159e6743cb467fbe245e1b9948806f3da4e3659cbdabbb69582fc9adb287",
+  );
 });
 
 test("pressing the launcher never redirects, however loud the signal", async () => {

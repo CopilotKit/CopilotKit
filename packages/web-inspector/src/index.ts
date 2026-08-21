@@ -98,6 +98,7 @@ import {
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
   trackWhatsNewClicked,
+  trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import type {
@@ -113,6 +114,7 @@ import type {
   MetadataActionPlacement,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
+  WhatsNewSignalPresentation,
   WhatsNewSurface,
 } from "./lib/telemetry.js";
 
@@ -216,66 +218,13 @@ const INSPECTOR_PRIMARY_NAVIGATION = [
 
 // ── Launcher signals ──────────────────────────────────────────────────────
 //
-// The launcher reads from a small registry rather than special-casing any one
-// notification. A signal owns its colour, its beat, its priority and — the
-// part that makes the design coherent — its own navigation destination: a red
-// error dot that opened product news would be an interaction bug.
-//
-// Only the news signal is registered here. Error surfacing registers a second
-// one under its own ticket; when it does, its latch must NOT be derived by
-// counting the event buffer, because MAX_AGENT_EVENTS / MAX_TOTAL_EVENTS evict
-// entries and a RUN_ERROR can silently disappear.
-
-/** Which colour token a signal paints with. */
-type LauncherSignalTone = "news";
-
-/**
- * How a signal's armed state is decided.
- *
- * - `durable`: the "have I read this" class. Compared against a persisted
- *   value, survives reloads, meaningful across dev-server ports.
- * - `session`: the "has this happened in this run" class. Never persisted; a
- *   stale indicator from a previous session is misinformation, not
- *   information.
- */
-type LauncherSignalLifecycle = "durable" | "session";
-
-type LauncherSignal = {
-  id: string;
-  tone: LauncherSignalTone;
-  /** Beat duration in ms. One beat per firing, then the resting dot. */
-  cadence: number;
-  /** Higher wins the dot when several signals are armed at once. */
-  priority: number;
-  /**
-   * Where this signal points. The navigation entry owning it carries the
-   * unread marker, which is the way in — the launcher itself never redirects.
-   */
-  destination: MenuKey;
-  lifecycle: LauncherSignalLifecycle;
-};
-
-/** A violet that reads on the near-black launcher face. */
-const LAUNCHER_SIGNAL_TONE_COLORS: Record<LauncherSignalTone, string> = {
-  news: "#A78BFA",
-};
-
+// The destination stays explicit so the unread marker is derived from the
+// same state as the launcher dot rather than being armed independently.
 const NEWS_SIGNAL_ID = "whats-new";
-
-const LAUNCHER_SIGNALS: ReadonlyArray<LauncherSignal> = [
-  {
-    id: NEWS_SIGNAL_ID,
-    tone: "news",
-    cadence: 2100,
-    priority: 10,
-    destination: WHATS_NEW_MENU_KEY,
-    lifecycle: "durable",
-  },
-];
-
-function findLauncherSignal(id: string): LauncherSignal | undefined {
-  return LAUNCHER_SIGNALS.find((signal) => signal.id === id);
-}
+const NEWS_SIGNAL_TONE = "news";
+const NEWS_SIGNAL_COLOR = "#A78BFA";
+const NEWS_SIGNAL_CADENCE_MS = 2100;
+const NEWS_SIGNAL_DESTINATION: MenuKey = WHATS_NEW_MENU_KEY;
 
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
@@ -284,14 +233,13 @@ const MIN_WINDOW_WIDTH_DOCKED_LEFT = 420;
 const MIN_WINDOW_HEIGHT = 200;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
-// 36px is the measured size of the demo app's own dark-mode toggle: the
-// launcher sits permanently on top of a customer's UI, so it borrows the host
-// app's control language rather than announcing itself. `box-sizing` on the
-// button makes this the OUTER size, border included (see `.console-button`).
-const LAUNCHER_SIZE = 36;
+// The launcher keeps its current touch target on compact screens and grows to
+// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
+const LAUNCHER_MIN_SIZE = 51.84;
+const LAUNCHER_MAX_SIZE = 62.208;
 const DEFAULT_BUTTON_SIZE: Size = {
-  width: LAUNCHER_SIZE,
-  height: LAUNCHER_SIZE,
+  width: LAUNCHER_MIN_SIZE,
+  height: LAUNCHER_MIN_SIZE,
 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
@@ -5110,14 +5058,17 @@ export class WebInspectorElement extends LitElement {
   private announcementCtaLabel: string | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
-  // Armed launcher signals, by id. Membership is the whole state: a `durable`
-  // signal is armed by comparing the feed against a persisted value, a
-  // `session` one only by something happening in this run.
-  private armedSignalIds: Set<string> = new Set();
-  // The signal currently mid-beat, if any. One beat per firing; when it ends
-  // the halo resolves to the resting dot, which stays until the signal clears.
-  private pulsingSignalId: string | null = null;
+  private newsSignalArmed = false;
+  private newsSignalPulsing = false;
+  private newsSignalPulsePending = false;
   private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private viewedNewsSignalIds: Set<string> = new Set();
+  private pendingNewsSignalViewed: {
+    banner_id: string;
+    surface: "launcher";
+    presentation: WhatsNewSignalPresentation;
+    cta_label?: string;
+  } | null = null;
   // Per-instance dedup for `oss.inspector.whats_new_viewed`, keyed by
   // `${timestamp}:${surface}` so the event fires at most once per
   // announcement per surface per inspector mount. Plan calls for "de-dup per
@@ -5831,7 +5782,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingBannerViewed();
+          this.flushPendingWhatsNewTelemetry();
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -5917,7 +5868,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingBannerViewed();
+      this.flushPendingWhatsNewTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -6960,9 +6911,14 @@ ${argsString}</pre
            against the OUTER rim with a length rather than a percentage.
            Percentages resolve against the padding box, which the 1px border
            insets, and the dot would land inside the rim. */
-        --cpk-launcher-size: ${LAUNCHER_SIZE}px;
-        /* Without this the 1px border is added to the 36 and the launcher
-           measures 38, breaking the match with the host app's controls. */
+        --cpk-launcher-size: clamp(
+          ${LAUNCHER_MIN_SIZE}px,
+          7vw,
+          ${LAUNCHER_MAX_SIZE}px
+        );
+        width: var(--cpk-launcher-size);
+        height: var(--cpk-launcher-size);
+        /* Keep the 1px border inside the declared outer size. */
         box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -7336,14 +7292,11 @@ ${argsString}</pre
         outline-color: #bec2ff !important;
       }
 
-      /* ── Launcher signal: halo + resting dot ─────────────────────── */
+      /* ── Launcher signal: water ripple + internal wash + dot ────── */
       /*
-       * The halo is brightest just inside the rim and fades both inward and
-       * a little past the edge, so the centre of the launcher stays clear and
-       * the mark keeps its contrast. A centre-weighted glow measurably
-       * destroyed that contrast when the treatments were compared at true
-       * size, and a purely external glow put colour onto the host
-       * application, where it reads as a rendering artefact.
+       * Two rings leave the rim in sequence, like ripples spreading from a
+       * drop's point of impact. They share one keyframe but the second begins
+       * 180ms later, so the first is already farther from the source.
        *
        * ONLY opacity and transform animate. This component is permanently
        * mounted on top of a customer's application, so animating anything
@@ -7355,30 +7308,43 @@ ${argsString}</pre
       }
 
       /*
-       * The mark sits above the inner ring. Both halo layers are absolutely
+       * The mark sits above the ripples. Both ring layers are absolutely
        * positioned, so without a stacking position of its own the mark — an
-       * ordinary in-flow child — would paint UNDER them, and the halo would
-       * wash across it at up to 78% alpha. Keeping the centre readable is the
-       * whole reason the halo is a rim treatment.
+       * ordinary in-flow child — would paint under them. Keeping the centre
+       * readable is the reason the motion begins at the rim.
        */
       .cpk-launcher-mark {
         position: relative;
         z-index: 2;
+        width: auto;
+        height: calc(var(--cpk-launcher-size) / 1.8);
       }
 
       .console-button[data-cpk-signal]::before,
       .console-button[data-cpk-signal]::after {
         content: "";
         position: absolute;
+        inset: 0;
+        z-index: 0;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px solid
+          color-mix(in srgb, var(--cpk-launcher-signal) 68%, transparent);
+        box-shadow: 0 0 8px
+          color-mix(in srgb, var(--cpk-launcher-signal) 38%, transparent);
+        pointer-events: none;
+        opacity: 0;
+        transform: scale(1);
+      }
+
+      .cpk-launcher-signal-wash {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
         border-radius: 50%;
         pointer-events: none;
         opacity: 0;
-      }
-
-      /* Inner ring, clipped to the disc. */
-      .console-button[data-cpk-signal]::before {
-        inset: 0;
-        overflow: hidden;
         background: radial-gradient(
           circle at 50% 50%,
           transparent 26%,
@@ -7388,15 +7354,15 @@ ${argsString}</pre
         );
       }
 
-      /* Outer bleed — it may only just overrun the button's edge. */
-      .console-button[data-cpk-signal]::after {
-        inset: -9%;
-        background: radial-gradient(
-          circle closest-side at 50% 50%,
-          transparent 62%,
-          color-mix(in srgb, var(--cpk-launcher-signal) 36%, transparent) 85%,
-          transparent 100%
-        );
+      @keyframes cpk-launcher-ripple {
+        0% {
+          opacity: 0.95;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.5);
+        }
       }
 
       @keyframes cpk-launcher-wash {
@@ -7409,25 +7375,20 @@ ${argsString}</pre
         }
       }
 
-      @keyframes cpk-launcher-ripple-tight {
-        0% {
-          opacity: 0.9;
-          transform: scale(0.94);
-        }
-        100% {
-          opacity: 0;
-          transform: scale(1.18);
-        }
-      }
-
-      /* One beat per firing, then the halo resolves to the resting dot. */
-      .console-button[data-cpk-signal-pulsing="true"]::before {
-        animation: cpk-launcher-wash var(--cpk-launcher-cadence) ease-in-out 1
-          both;
+      /* Both ripples finish inside the existing one-beat pulse window. */
+      .console-button[data-cpk-signal-pulsing="true"]::before,
+      .console-button[data-cpk-signal-pulsing="true"]::after {
+        animation: cpk-launcher-ripple
+          calc(var(--cpk-launcher-cadence) - 180ms)
+          cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
       }
       .console-button[data-cpk-signal-pulsing="true"]::after {
-        animation: cpk-launcher-ripple-tight var(--cpk-launcher-cadence)
-          ease-out 1 both;
+        animation-delay: 180ms;
+      }
+      .console-button[data-cpk-signal-pulsing="true"]
+        .cpk-launcher-signal-wash {
+        animation: cpk-launcher-wash var(--cpk-launcher-cadence) ease-in-out 1
+          both;
       }
 
       /*
@@ -7458,14 +7419,21 @@ ${argsString}</pre
        * the information arrives without the movement.
        */
       @media (prefers-reduced-motion: reduce) {
-        .console-button[data-cpk-signal]::before {
+        .cpk-launcher-signal-wash {
           opacity: 0.85;
         }
-        .console-button[data-cpk-signal]::after {
+        .console-button[data-cpk-signal]::before {
           opacity: 0.5;
+        }
+        .console-button[data-cpk-signal]::after {
+          opacity: 0;
         }
         .console-button[data-cpk-signal-pulsing="true"]::before,
         .console-button[data-cpk-signal-pulsing="true"]::after {
+          animation: none !important;
+        }
+        .console-button[data-cpk-signal-pulsing="true"]
+          .cpk-launcher-signal-wash {
           animation: none !important;
         }
       }
@@ -7482,7 +7450,7 @@ ${argsString}</pre
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: ${unsafeCSS(LAUNCHER_SIGNAL_TONE_COLORS.news)};
+        background: ${unsafeCSS(NEWS_SIGNAL_COLOR)};
       }
 
       /* ── Inspector window ────────────────────────────────────────── */
@@ -7795,6 +7763,10 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
       window.addEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.addEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
       const viteHot = (
         import.meta as ImportMeta & {
           hot?: { on: (event: string, handler: () => void) => void };
@@ -7832,6 +7804,10 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
       window.removeEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.removeEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -7848,7 +7824,7 @@ ${argsString}</pre
       this.threadsSetupPromptCopyResetTimeoutId = null;
     }
     this.threadsSetupPromptCopyState = "idle";
-    this.stopSignalPulse();
+    this.stopNewsSignalPulse();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -7925,6 +7901,7 @@ ${argsString}</pre
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
+    this.maybeTrackNewsSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
@@ -7967,15 +7944,18 @@ ${argsString}</pre
   }
 
   private renderButton() {
-    // `h-9 w-9` is LAUNCHER_SIZE expressed as Tailwind utilities; the two must
-    // stay in step, and `.console-button` publishes the same number as
-    // `--cpk-launcher-size` for the signal dot's rim placement.
+    // `.console-button` owns the launcher dimensions and publishes the same
+    // number as `--cpk-launcher-size` for the signal dot's rim placement.
+    // Tailwind scan tokens retained for generated-sheet stability: ease-in-out
+    // ease-out
     const buttonClasses = [
       "console-button",
       "group",
       "relative",
       "pointer-events-auto",
       "inline-flex",
+      // Kept as Tailwind scan tokens so the generated sheet stays stable;
+      // the later `.console-button` rule owns the responsive dimensions.
       "h-9",
       "w-9",
       "items-center",
@@ -8000,21 +7980,13 @@ ${argsString}</pre
       "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
-      // Pointer at rest, not grab: pressing the launcher opens the panel, and
-      // that is what a hover should advertise. Dragging it to another corner is
-      // a secondary affordance, so the grabbing cursor appears only once a drag
-      // is actually under way. (The panel's own header keeps `cursor-grab`,
-      // because dragging is all it does.)
       this.isDragging ? "cursor-grabbing" : "cursor-pointer",
     ].join(" ");
 
-    // Tone and cadence come from the signal registry rather than from CSS, so
-    // the registry stays the single statement of what a signal looks like.
-    const signal = this.getActiveLauncherSignal();
-    const signalStyles = signal
+    const signalStyles = this.newsSignalArmed
       ? {
-          "--cpk-launcher-signal": LAUNCHER_SIGNAL_TONE_COLORS[signal.tone],
-          "--cpk-launcher-cadence": `${signal.cadence}ms`,
+          "--cpk-launcher-signal": NEWS_SIGNAL_COLOR,
+          "--cpk-launcher-cadence": `${NEWS_SIGNAL_CADENCE_MS}ms`,
         }
       : {};
 
@@ -8024,11 +7996,13 @@ ${argsString}</pre
           class=${buttonClasses}
           type="button"
           aria-label="Web Inspector"
-          title=${signal ? this.getSignalDotTitle(signal) : nothing}
+          title=${
+            this.newsSignalArmed ? `${WHATS_NEW_VIEW_LABEL} — unread` : nothing
+          }
           data-drag-context="button"
-          data-cpk-signal=${signal?.tone ?? nothing}
+          data-cpk-signal=${this.newsSignalArmed ? NEWS_SIGNAL_TONE : nothing}
           data-cpk-signal-pulsing=${
-            signal && this.pulsingSignalId === signal.id ? "true" : nothing
+            this.newsSignalArmed && this.newsSignalPulsing ? "true" : nothing
           }
           style=${styleMap(signalStyles)}
           data-dragging=${
@@ -8045,7 +8019,7 @@ ${argsString}</pre
           <img
             src=${inspectorLogoKiteUrl}
             alt="Inspector logo"
-            class="cpk-launcher-mark h-5 w-auto"
+            class="cpk-launcher-mark h-6 w-auto"
             loading="lazy"
           />
           ${
@@ -8053,12 +8027,16 @@ ${argsString}</pre
             // hover hint, it keeps its stable accessible name, and the unread
             // state is announced by the navigation entry, which is where a
             // keyboard user arrives.
-            signal
+            this.newsSignalArmed
               ? html`<span
-                  class="cpk-launcher-signal-dot"
-                  data-cpk-signal-dot=${signal.id}
-                  aria-hidden="true"
-                ></span>`
+                    class="cpk-launcher-signal-wash"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="cpk-launcher-signal-dot"
+                    data-cpk-signal-dot=${NEWS_SIGNAL_ID}
+                    aria-hidden="true"
+                  ></span>`
               : nothing
           }
         </button>
@@ -9359,7 +9337,7 @@ ${argsString}</pre
       return;
     }
 
-    const hadUnseenAnnouncement = this.isSignalArmed(NEWS_SIGNAL_ID);
+    const hadUnseenAnnouncement = this.newsSignalArmed;
 
     this.ensureAnnouncementLoading();
 
@@ -9399,6 +9377,8 @@ ${argsString}</pre
     }
 
     this.isOpen = false;
+
+    if (this.newsSignalPulsePending) this.startNewsSignalPulse();
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -10101,7 +10081,12 @@ ${argsString}</pre
   // so copy-button retries and accidental multi-clicks don't inflate funnel
   // counts. `body` is the only cta left now that dismissal is gone.
   private trackWhatsNewClickedOnce(opts: { cta: "body" }): void {
-    if (this.core?.telemetryDisabled) return;
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
@@ -13665,112 +13650,106 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  // ── Launcher signals ───────────────────────────────────────────────────
+  // ── What's new launcher signal ──────────────────────────────────────────
 
-  /** Whether a registered signal is currently armed. */
-  private isSignalArmed(id: string): boolean {
-    return this.armedSignalIds.has(id);
-  }
-
-  /**
-   * The signal that owns the dot right now — the armed one with the highest
-   * priority — or null when the launcher is quiet.
-   */
-  private getActiveLauncherSignal(): LauncherSignal | null {
-    let active: LauncherSignal | null = null;
-    for (const signal of LAUNCHER_SIGNALS) {
-      if (!this.isSignalArmed(signal.id)) continue;
-      if (!active || signal.priority > active.priority) active = signal;
-    }
-    return active;
-  }
-
-  /**
-   * Arms a signal, optionally firing one beat.
-   *
-   * Whether to pulse is the caller's decision, because the token a beat is
-   * suppressed against belongs to the signal's own subject matter (for news,
-   * the announcement timestamp). The dot carries the information and the beat
-   * is only a nudge, so a missed beat costs nothing.
-   */
-  private armSignal(id: string, options: { pulse: boolean }): void {
-    const signal = findLauncherSignal(id);
-    if (!signal) return;
-
-    const wasArmed = this.armedSignalIds.has(id);
-    this.armedSignalIds.add(id);
-    if (options.pulse) {
-      this.startSignalPulse(signal);
+  private armNewsSignal(options: { pulse: boolean }): void {
+    const wasArmed = this.newsSignalArmed;
+    this.newsSignalArmed = true;
+    if (options.pulse && this.isOpen) {
+      this.newsSignalPulsePending = true;
+      if (!wasArmed) this.requestUpdate();
+    } else if (options.pulse) {
+      this.startNewsSignalPulse();
     } else if (!wasArmed) {
       this.requestUpdate();
     }
   }
 
-  /**
-   * Clears a signal. A `durable` one records its subject as seen so it stays
-   * cleared across reloads and ports; a `session` one is never persisted.
-   */
-  private clearSignal(id: string): void {
-    const signal = findLauncherSignal(id);
-    if (!signal) return;
-    if (!this.armedSignalIds.delete(id)) return;
-
-    if (signal.lifecycle === "durable") {
-      this.persistSignalSeen(signal);
+  private clearNewsSignal(): void {
+    if (!this.newsSignalArmed) return;
+    this.newsSignalArmed = false;
+    this.newsSignalPulsePending = false;
+    if (this.announcementTimestamp) {
+      saveAnnouncementReadTimestamp(this.announcementTimestamp);
     }
-    if (this.pulsingSignalId === id) {
-      this.stopSignalPulse();
-    }
+    if (this.newsSignalPulsing) this.stopNewsSignalPulse();
     this.requestUpdate();
   }
 
-  /** Records the subject of a durable signal as seen. */
-  private persistSignalSeen(signal: LauncherSignal): void {
-    if (signal.id === NEWS_SIGNAL_ID && this.announcementTimestamp) {
-      saveAnnouncementReadTimestamp(this.announcementTimestamp);
+  private startNewsSignalPulse(): void {
+    this.stopNewsSignalPulse();
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      this.newsSignalPulsePending = true;
+      this.requestUpdate();
+      return;
     }
-  }
-
-  private startSignalPulse(signal: LauncherSignal): void {
-    this.stopSignalPulse();
-    this.pulsingSignalId = signal.id;
+    this.newsSignalPulsePending = false;
+    this.newsSignalPulsing = true;
+    if (this.announcementTimestamp) {
+      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    }
     this.requestUpdate();
     if (typeof window === "undefined") return;
     this.pulseTimeoutId = setTimeout(() => {
       this.pulseTimeoutId = null;
-      this.pulsingSignalId = null;
+      this.newsSignalPulsing = false;
       this.requestUpdate();
-    }, signal.cadence);
+    }, NEWS_SIGNAL_CADENCE_MS);
   }
 
-  private stopSignalPulse(): void {
+  private stopNewsSignalPulse(): void {
     if (this.pulseTimeoutId !== null) {
       clearTimeout(this.pulseTimeoutId);
       this.pulseTimeoutId = null;
     }
-    this.pulsingSignalId = null;
+    this.newsSignalPulsing = false;
   }
 
-  /**
-   * Whether any armed signal points at this navigation group.
-   *
-   * Derived from the registry rather than hardcoded to What's new, so a second
-   * signal with its own destination marks its own entry without touching the
-   * navigation code.
-   */
-  private groupHasArmedSignal(group: InspectorGroupKey): boolean {
-    for (const signal of LAUNCHER_SIGNALS) {
-      if (!this.isSignalArmed(signal.id)) continue;
-      if (this.getGroupForMenu(signal.destination) === group) return true;
+  private handleDocumentVisibilityChange = (): void => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState === "visible" &&
+      this.newsSignalPulsePending &&
+      !this.isOpen
+    ) {
+      this.startNewsSignalPulse();
     }
-    return false;
+  };
+
+  private maybeTrackNewsSignalViewed(): void {
+    if (
+      !this.newsSignalArmed ||
+      !this.newsSignalPulsing ||
+      this.isOpen ||
+      typeof document === "undefined" ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    const id = this.announcementTimestamp;
+    if (!id || this.viewedNewsSignalIds.has(id)) return;
+    this.viewedNewsSignalIds.add(id);
+    this.pendingNewsSignalViewed = {
+      banner_id: id,
+      surface: "launcher",
+      presentation:
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "reduced_motion"
+          : "animated",
+      cta_label: this.announcementCtaLabel ?? undefined,
+    };
+    this.flushPendingWhatsNewTelemetry();
   }
 
-  /** Hover copy for the resting dot, named after the signal it carries. */
-  private getSignalDotTitle(signal: LauncherSignal): string {
-    return signal.id === NEWS_SIGNAL_ID
-      ? `${WHATS_NEW_VIEW_LABEL} — unread`
-      : "Unread";
+  private groupHasArmedSignal(group: InspectorGroupKey): boolean {
+    return (
+      this.newsSignalArmed &&
+      this.getGroupForMenu(NEWS_SIGNAL_DESTINATION) === group
+    );
   }
 
   // ── What's new ─────────────────────────────────────────────────────────
@@ -13865,7 +13844,7 @@ ${prettyEvent}</pre
   private maybeCompleteWhatsNewView(): void {
     if (!this.getVisibleBannerSurface()) return;
     this.maybeTrackWhatsNewViewed();
-    this.clearSignal(NEWS_SIGNAL_ID);
+    this.clearNewsSignal();
   }
 
   /**
@@ -13886,21 +13865,36 @@ ${prettyEvent}</pre
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerViewed();
+    this.flushPendingWhatsNewTelemetry();
   }
 
-  // Releases held impressions once /info has answered, or discards them when it
-  // reports telemetry disabled.
-  private flushPendingBannerViewed(): void {
-    if (this.pendingBannerViewed.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = [];
+  // Releases held notification telemetry once /info has answered, or discards
+  // it when the runtime reports telemetry disabled.
+  private flushPendingWhatsNewTelemetry(): void {
+    if (
+      this.pendingBannerViewed.length === 0 &&
+      !this.pendingNewsSignalViewed
+    ) {
       return;
     }
-    if (this.runtimeStatus !== "connected") return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
+      this.pendingNewsSignalViewed = null;
+      return;
+    }
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
     const queued = this.pendingBannerViewed;
     this.pendingBannerViewed = [];
     for (const props of queued) trackWhatsNewViewed(props);
+    if (this.pendingNewsSignalViewed) {
+      const props = this.pendingNewsSignalViewed;
+      this.pendingNewsSignalViewed = null;
+      trackWhatsNewSignalViewed(props);
+    }
   }
 
   private ensureAnnouncementLoading(): void {
@@ -13957,19 +13951,10 @@ ${prettyEvent}</pre
         this.announcementHtml &&
         loadAnnouncementReadTimestamp() !== timestamp
       ) {
-        this.armSignal(NEWS_SIGNAL_ID, {
+        this.armNewsSignal({
           pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
         });
-        // Recorded whether or not the beat is visible, so a reload cannot
-        // earn a second one. A newly published announcement still pulses once
-        // in a tab that already pulsed for the previous one, because the
-        // stored value is the timestamp rather than a flag.
-        saveAnnouncementPulsedTimestamp(timestamp);
       }
-
-      // whats_new_viewed and the clear both require What's new to be on
-      // screen with content, which it may already be.
-      this.maybeCompleteWhatsNewView();
 
       this.requestUpdate();
     } catch (error) {
@@ -14052,16 +14037,24 @@ ${prettyEvent}</pre
     const target = event.target as {
       closest?: (selector: string) => Element | null;
     } | null;
-    const closest =
+    const copyControl =
       typeof target?.closest === "function"
         ? target.closest(".announcement-code__copy")
         : null;
     const button =
-      closest?.tagName === "BUTTON" ? (closest as HTMLButtonElement) : null;
+      copyControl?.tagName === "BUTTON"
+        ? (copyControl as HTMLButtonElement)
+        : null;
     if (!button) {
-      // whats_new_clicked fires once per banner per cta-type per mount. Dedup
-      // prevents accidental multi-clicks from inflating funnel counts beyond
-      // one "body" signal and one "dismiss" signal per banner.
+      const link =
+        typeof target?.closest === "function" ? target.closest("a") : null;
+      if (!link) return;
+
+      const href = link.getAttribute("href");
+      if (href) link.setAttribute("href", this.appendRefParam(href));
+
+      // whats_new_clicked fires once per banner per mount. Dedup prevents
+      // accidental multi-clicks from inflating the link-follow funnel.
       this.trackWhatsNewClickedOnce({ cta: "body" });
       return;
     }
@@ -14117,6 +14110,8 @@ ${prettyEvent}</pre
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
+        this.runtimeStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Connected &&
         !this.core?.telemetryDisabled &&
         this.isCopilotKitDestination(url)
       ) {

@@ -30,6 +30,7 @@ import packageJson from "../../package.json" with { type: "json" };
 export const TELEMETRY_EVENTS = {
   opened: "oss.inspector.opened",
   whatsNewViewed: "oss.inspector.whats_new_viewed",
+  whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
@@ -163,6 +164,8 @@ export function track(
  */
 export type WhatsNewSurface = "whats_new";
 
+export type WhatsNewSignalPresentation = "animated" | "reduced_motion";
+
 /**
  * Fires when What's new has rendered *with content*. A loading state is not
  * an impression, so the metric cannot inflate itself by counting readers who
@@ -174,6 +177,16 @@ export function trackWhatsNewViewed(props: {
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.whatsNewViewed, props);
+}
+
+/** Fires when the unread launcher signal is presented in a visible tab. */
+export function trackWhatsNewSignalViewed(props: {
+  banner_id: string;
+  surface: "launcher";
+  presentation: WhatsNewSignalPresentation;
+  cta_label?: string;
+}): void {
+  track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
 }
 
 /**

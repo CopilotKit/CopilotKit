@@ -17,12 +17,15 @@ import {
   THREAD_REQUEST_KINDS,
   THREADS_STATE_SCENARIOS,
   canonicalScenarioUrl,
+  clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
+  consumedNotificationReplayUrl,
   copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
   navigateThreadsStateLabScenario,
+  notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
   stopThreadsStateLabClient,
@@ -1138,6 +1141,59 @@ test("executes exact storage reset copy and reduced-motion restoration", async (
       Reflect.deleteProperty(window, "matchMedia");
     }
   }
+});
+
+test("builds a clean launcher-notification replay", () => {
+  const localValues = new Map<string, string>([
+    [
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        dockMode: "docked-left",
+        selectedMenu: "agents",
+      }),
+    ],
+    ["cpk:inspector:announcement_read", "seen"],
+  ]);
+  const localRemoved: string[] = [];
+  const sessionRemoved: string[] = [];
+  const cookieTarget = { cookie: "unchanged" };
+
+  clearThreadsStateLabNotificationState(
+    {
+      getItem: (key) => localValues.get(key) ?? null,
+      setItem: (key, value) => localValues.set(key, value),
+      removeItem: (key) => {
+        localRemoved.push(key);
+        localValues.delete(key);
+      },
+    },
+    { removeItem: (key) => sessionRemoved.push(key) },
+    cookieTarget,
+  );
+
+  expect(JSON.parse(localValues.get("cpk:inspector:state") ?? "null")).toEqual({
+    isOpen: false,
+    dockMode: "docked-left",
+    selectedMenu: "agents",
+  });
+  expect(localRemoved).toEqual(["cpk:inspector:announcement_read"]);
+  expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
+  expect(cookieTarget.cookie).toBe(
+    "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
+  );
+  expect(
+    notificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1",
+    ),
+  ).toBe(
+    "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+  );
+  expect(
+    consumedNotificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+    ),
+  ).toBe("http://127.0.0.1:5177/?scenario=free-figma-148-of-200");
 });
 
 test("runs teardown before real select and reset control navigation", async () => {

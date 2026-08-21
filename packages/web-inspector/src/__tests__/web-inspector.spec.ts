@@ -1557,6 +1557,111 @@ describe("WebInspectorElement open + What's new telemetry", () => {
   const posts = () => telemetryPostsFrom(fetchMock);
   const eventsNamed = (name: string) =>
     posts().filter((post) => post.event === name);
+  const launcherIsPulsing = (inspector: WebInspectorElement) =>
+    inspector.shadowRoot
+      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.getAttribute("data-cpk-signal-pulsing") === "true";
+  const announcementLink = (inspector: WebInspectorElement) => {
+    const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      ".announcement-content a",
+    );
+    if (!link) throw new Error("Expected announcement link");
+    return link;
+  };
+
+  it("records one launcher signal presentation when the pulse is rendered", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(launcherIsPulsing(inspector)).toBe(true);
+    const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "launcher",
+      presentation: "animated",
+      package_name: "@copilotkit/web-inspector",
+    });
+
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
+
+  it("waits to present and record the launcher signal until the tab is visible", async () => {
+    const originalVisibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    try {
+      const { inspector, internals } = mount();
+      await internals.fetchAnnouncement();
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(false);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        0,
+      );
+
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(true);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        1,
+      );
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(document, "visibilityState", originalVisibility);
+      } else {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
+    }
+  });
+
+  it("labels a reduced-motion launcher presentation without requiring animation", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+      })),
+    );
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(
+      eventsNamed("oss.inspector.whats_new_signal_viewed")[0]!.properties,
+    ).toMatchObject({ presentation: "reduced_motion" });
+  });
+
+  it("holds the launcher presentation until the runtime allows telemetry", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
 
   it("records one What's new impression, enriched like every other event", async () => {
     const { inspector, internals } = mount();
@@ -1576,6 +1681,75 @@ describe("WebInspectorElement open + What's new telemetry", () => {
       surface: "whats_new",
       package_name: "@copilotkit/web-inspector",
     });
+  });
+
+  it("records announcement link activations, not ordinary content clicks", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const content = inspector.shadowRoot?.querySelector<HTMLElement>(
+      ".announcement-content",
+    );
+    if (!content) throw new Error("Expected announcement content");
+
+    content.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    const link = content.querySelector<HTMLAnchorElement>("a");
+    if (!link) throw new Error("Expected announcement link");
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
+  });
+
+  it("does not expose notification telemetry before a disabling handshake", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+  });
+
+  it("adds notification attribution after the runtime allows telemetry", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(new URL(link.href).searchParams.get("posthog_distinct_id")).toMatch(
+      /^[0-9a-f-]{36}$/,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
   });
 
   // The metric must mean "the announcement was actually shown". A What's new

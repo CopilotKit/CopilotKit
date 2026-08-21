@@ -9,12 +9,15 @@ import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
   THREAD_REQUEST_KINDS,
+  clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
+  consumedNotificationReplayUrl,
   copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
   navigateThreadsStateLabScenario,
+  notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
   stopThreadsStateLabClient,
@@ -24,6 +27,9 @@ import type { ThreadRequestLog } from "./threads-state-lab-server.js";
 
 const scenarioSelect = requiredElement<HTMLSelectElement>("#scenario-select");
 const copyButton = requiredElement<HTMLButtonElement>("#copy-link");
+const replayNotificationButton = requiredElement<HTMLButtonElement>(
+  "#replay-notification",
+);
 const resetButton = requiredElement<HTMLButtonElement>("#reset-scenario");
 const actionStatus = requiredElement<HTMLElement>("#action-status");
 const routeAlert = requiredElement<HTMLElement>("#route-alert");
@@ -35,6 +41,7 @@ const mediaStatus = requiredElement<HTMLElement>("#media-status");
 const inspectorHost = requiredElement<HTMLElement>("#inspector-host");
 
 const query = new URLSearchParams(window.location.search);
+const replayingNotification = query.get("replay-notification") === "1";
 const parsedScenario = parseScenarioKey(query.get("scenario"));
 const scenario = getThreadsStateScenario(parsedScenario.scenarioKey);
 const runtimeUrl = runtimeUrlFor(window.location.origin, scenario.key);
@@ -303,15 +310,20 @@ async function waitForButton(
 }
 
 async function openThreadsSurface(): Promise<void> {
-  const launcher = await waitForButton(
-    (button) => button.getAttribute("aria-label") === "Web Inspector",
-    "the Web Inspector launcher",
+  const launcherOrThreads = await waitForButton(
+    (button) =>
+      button.getAttribute("aria-label") === "Web Inspector" ||
+      button.textContent?.trim() === "Threads",
+    "the Web Inspector launcher or Threads navigation",
   );
-  launcher.click();
-  const threads = await waitForButton(
-    (button) => button.textContent?.trim() === "Threads",
-    "the Threads navigation button",
-  );
+  let threads = launcherOrThreads;
+  if (threads.textContent?.trim() !== "Threads") {
+    launcherOrThreads.click();
+    threads = await waitForButton(
+      (button) => button.textContent?.trim() === "Threads",
+      "the Threads navigation button",
+    );
+  }
   threads.click();
 }
 
@@ -366,6 +378,11 @@ async function copyDirectLink(): Promise<void> {
   actionStatus.textContent = "Direct link copied.";
 }
 
+function replayNotification(): void {
+  actionStatus.textContent = "Re-arming the launcher notification…";
+  window.location.assign(notificationReplayUrl(window.location.href));
+}
+
 function reportFatalError(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   actionStatus.textContent = message;
@@ -392,6 +409,19 @@ async function boot(): Promise<void> {
 
   if (scenario.media === "reduced_motion") {
     restoreMatchMedia = installThreadsStateLabReducedMotion(window);
+  }
+
+  if (replayingNotification) {
+    clearThreadsStateLabNotificationState(
+      window.localStorage,
+      window.sessionStorage,
+      document,
+    );
+    window.history.replaceState(
+      null,
+      "",
+      consumedNotificationReplayUrl(window.location.href),
+    );
   }
 
   if (query.get("reset") === "1") {
@@ -422,8 +452,13 @@ async function boot(): Promise<void> {
   refreshLedger().catch(reportFatalError);
   mediaTimer = window.setInterval(updateMediaStatus, 400);
   updateMediaStatus();
-  await openThreadsSurface();
-  actionStatus.textContent = "Inspector open on Threads.";
+  if (replayingNotification) {
+    actionStatus.textContent =
+      "Notification re-armed. Watch the closed launcher for the halo and dot.";
+  } else {
+    await openThreadsSurface();
+    actionStatus.textContent = "Inspector open on Threads.";
+  }
 }
 
 const removeNavigationListeners = installThreadsStateLabNavigation(
@@ -436,6 +471,7 @@ const removeNavigationListeners = installThreadsStateLabNavigation(
 copyButton.addEventListener("click", () => {
   copyDirectLink().catch(reportFatalError);
 });
+replayNotificationButton.addEventListener("click", replayNotification);
 window.addEventListener(
   "pagehide",
   () => {
