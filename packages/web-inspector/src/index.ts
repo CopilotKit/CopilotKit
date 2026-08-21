@@ -125,6 +125,7 @@ import {
   trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
@@ -2081,6 +2082,9 @@ export class CpkThreadInspector extends PortableLitElement {
     viewInAppError: { attribute: false },
     focusMessageId: { attribute: false },
     focusRequestId: { attribute: false },
+    tryFromHereAvailable: { attribute: false },
+    tryFromHereBusy: { attribute: false },
+    tryFromHereError: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -2128,6 +2132,9 @@ export class CpkThreadInspector extends PortableLitElement {
   viewInAppError: string | null = null;
   focusMessageId: string | null = null;
   focusRequestId = 0;
+  tryFromHereAvailable = false;
+  tryFromHereBusy = false;
+  tryFromHereError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -2614,6 +2621,41 @@ export class CpkThreadInspector extends PortableLitElement {
       .cpk-td__view-in-app:active {
         transform: none;
       }
+    }
+
+    .cpk-td__try-from-here {
+      display: inline-flex;
+      align-items: center;
+      margin-left: auto;
+      padding: 4px 8px;
+      border: 1px solid #d8d9e3;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #3f3f46;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .cpk-td__try-from-here:hover:not(:disabled) {
+      border-color: #c4c5d4;
+      background: #f7f7fb;
+    }
+
+    .cpk-td__try-from-here:focus-visible {
+      outline: 2px solid #a78bfa;
+      outline-offset: 1px;
+    }
+
+    .cpk-td__try-from-here:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .cpk-td__try-from-here-error {
+      color: #c0333a;
+      font-size: 11px;
+      line-height: 1.4;
     }
 
     /*
@@ -3342,6 +3384,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__tool-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-body,
@@ -3359,6 +3402,7 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
@@ -3517,6 +3561,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
     }
@@ -4707,6 +4752,7 @@ export class CpkThreadInspector extends PortableLitElement {
             `,
           )}
         </div>
+        ${this.renderTryFromHereControl()}
       </div>
     `;
   }
@@ -4744,6 +4790,42 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     `;
   }
+
+  private renderTryFromHereControl() {
+    if (!this.tryFromHereAvailable) return nothing;
+    return html`
+      <button
+        type="button"
+        class="cpk-td__try-from-here"
+        aria-label="Try from here"
+        ?disabled=${this.tryFromHereBusy}
+        @click=${this.onTryFromHere}
+      >
+        ${this.tryFromHereBusy ? "Loading…" : "Try from here"}
+      </button>
+      ${
+        this.tryFromHereError
+          ? html`<span
+              class="cpk-td__try-from-here-error"
+              role="alert"
+              >${this.tryFromHereError}</span
+            >`
+          : nothing
+      }
+    `;
+  }
+
+  private onTryFromHere = (event: Event): void => {
+    event.preventDefault();
+    if (!this.tryFromHereAvailable || this.tryFromHereBusy) return;
+    this.dispatchEvent(
+      new CustomEvent("tryFromHere", {
+        detail: this.threadId,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
 
   private renderTimelineBulkControls() {
     if (this._eventsNotAvailable) return nothing;
@@ -6391,6 +6473,8 @@ export class WebInspectorElement extends LitElement {
   private playgroundError: string | null = null;
   private playgroundSourceThreadId: string | null = null;
   private playgroundShowEphemeralNotice = false;
+  private tryFromHereBusy = false;
+  private tryFromHereError: string | null = null;
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
@@ -14607,6 +14691,56 @@ export class WebInspectorElement extends LitElement {
     return mapped;
   }
 
+  private async loadThreadSnapshot(thread: ɵThread): Promise<{
+    messages: Message[];
+    state: unknown;
+  }> {
+    const core = this._core;
+    if (!core?.runtimeUrl) {
+      throw new Error("Failed to load thread.");
+    }
+    const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
+    const encodedThreadId = encodeURIComponent(thread.id);
+    const [messagesResponse, stateResponse] = await Promise.all([
+      fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+        headers: { ...core.headers },
+      }),
+      fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+        headers: { ...core.headers },
+      }),
+    ]);
+    if (!messagesResponse.ok) {
+      throw new Error(
+        `Failed to load thread (HTTP ${messagesResponse.status}).`,
+      );
+    }
+    const messagesBody = (await messagesResponse.json()) as {
+      messages?: ThreadDebuggerMessage[];
+    };
+    const stateBody = stateResponse.ok
+      ? ((await stateResponse.json()) as { state?: unknown })
+      : { state: {} };
+    return {
+      messages: this.mapThreadMessagesToPlayground(
+        messagesBody.messages ?? [],
+      ),
+      state: stateBody.state ?? {},
+    };
+  }
+
+  private applyThreadSnapshotToPlayground(
+    thread: ɵThread,
+    snapshot: { messages: Message[]; state: unknown },
+  ): void {
+    this.startPlaygroundSession(
+      false,
+      snapshot.messages,
+      snapshot.state,
+      thread.agentId,
+    );
+    this.playgroundSourceThreadId = thread.id;
+  }
+
   private handlePlaygroundThreadSourceChange = async (
     event: Event,
   ): Promise<void> => {
@@ -14616,48 +14750,56 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
-    const core = this._core;
     const thread = this._threads.find((candidate) => candidate.id === threadId);
-    if (!core?.runtimeUrl || !thread) return;
+    if (!thread) return;
 
     this.playgroundIsLoadingThread = true;
     this.playgroundError = null;
     this.requestUpdate();
 
     try {
-      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
-      const encodedThreadId = encodeURIComponent(threadId);
-      const [messagesResponse, stateResponse] = await Promise.all([
-        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-          headers: { ...core.headers },
-        }),
-        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-          headers: { ...core.headers },
-        }),
-      ]);
-      if (!messagesResponse.ok) {
-        throw new Error(
-          `Failed to load thread (HTTP ${messagesResponse.status}).`,
-        );
-      }
-      const messagesBody = (await messagesResponse.json()) as {
-        messages?: ThreadDebuggerMessage[];
-      };
-      const stateBody = stateResponse.ok
-        ? ((await stateResponse.json()) as { state?: unknown })
-        : { state: {} };
-      this.startPlaygroundSession(
-        false,
-        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
-        stateBody.state ?? {},
-        thread.agentId,
-      );
-      this.playgroundSourceThreadId = threadId;
+      const snapshot = await this.loadThreadSnapshot(thread);
+      this.applyThreadSnapshotToPlayground(thread, snapshot);
     } catch (error) {
       this.playgroundError =
         error instanceof Error ? error.message : "Failed to load thread.";
     } finally {
       this.playgroundIsLoadingThread = false;
+      this.requestUpdate();
+    }
+  };
+
+  private handleTryFromHere = async (threadId: string | null): Promise<void> => {
+    if (!threadId || this.tryFromHereBusy) return;
+    const thread =
+      this._threads.find((candidate) => candidate.id === threadId) ?? null;
+    if (!thread) return;
+
+    this.tryFromHereBusy = true;
+    this.tryFromHereError = null;
+    this.requestUpdate();
+
+    try {
+      const snapshot = await this.loadThreadSnapshot(thread);
+      this.applyThreadSnapshotToPlayground(thread, snapshot);
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "success",
+        });
+      }
+      this.handleMenuSelect("playground");
+    } catch (error) {
+      this.tryFromHereError =
+        error instanceof Error ? error.message : "Failed to load thread.";
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "failure",
+        });
+      }
+    } finally {
+      this.tryFromHereBusy = false;
       this.requestUpdate();
     }
   };
@@ -14997,10 +15139,20 @@ export class WebInspectorElement extends LitElement {
                       ?disabled=${busy}
                       @change=${this.handlePlaygroundThreadSourceChange}
                     >
-                      <option value="">Load a thread...</option>
+                      <option
+                        value=""
+                        ?selected=${!this.playgroundSourceThreadId}
+                      >
+                        Load a thread...
+                      </option>
                       ${sourceThreads.map(
                         (thread) => html`
-                          <option value=${thread.id}>
+                          <option
+                            value=${thread.id}
+                            ?selected=${
+                              this.playgroundSourceThreadId === thread.id
+                            }
+                          >
                             ${
                               thread.name?.trim() ||
                               `Thread ${thread.id.slice(0, 8)}`
@@ -16044,6 +16196,7 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
+    this.tryFromHereError = null;
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
       this.selectedRealThreadIsExplicit = false;
@@ -17360,6 +17513,18 @@ export class WebInspectorElement extends LitElement {
                             ? EMPTY_INSPECTOR_MESSAGES
                             : this.getLiveAgentMessagesForThread(selectedThread)
                         }
+                        .tryFromHereAvailable=${
+                          !selectedThreadIsLocalExample &&
+                          this.areThreadEndpointsAvailable() &&
+                          this._core?.threadEndpoints?.inspect !== false
+                        }
+                        .tryFromHereBusy=${this.tryFromHereBusy}
+                        .tryFromHereError=${this.tryFromHereError}
+                        @tryFromHere=${(
+                          event: CustomEvent<string | null>,
+                        ) => {
+                          void this.handleTryFromHere(event.detail);
+                        }}
                       ></cpk-thread-details>
                       ${
                         selectedThreadIsLocalExample
