@@ -110,6 +110,63 @@ class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(updated["edges"], [])
 
+    async def test_connect_rejects_missing_endpoints_without_hiding_orphans(self):
+        state = base_state(
+            nodes=[
+                {"id": "ec2-1", "type": "ec2", "config": {}, "position": {}},
+            ],
+        )
+
+        for source_id, target_id in [
+            ("missing-source", "ec2-1"),
+            ("ec2-1", "missing-target"),
+        ]:
+            with self.subTest(source_id=source_id, target_id=target_id):
+                result = main.connect_resources.invoke(
+                    {"source_id": source_id, "target_id": target_id}
+                )
+                updated = main.apply_tool_result(state, result)
+
+                self.assertEqual(updated["edges"], [])
+                self.assertEqual(updated["logs"][-1]["type"], "warning")
+                self.assertIn("does not exist", updated["logs"][-1]["message"])
+
+                validation = await main.validate_node(
+                    {**state, **updated},
+                    {},
+                )
+                validation_messages = [
+                    item["message"] for item in validation.update["validation_errors"]
+                ]
+                self.assertTrue(
+                    any("EC2 ec2-1 is orphaned" in item for item in validation_messages)
+                )
+
+    def test_update_and_move_reject_missing_resources_with_warning(self):
+        state = base_state(
+            nodes=[
+                {"id": "vpc-1", "type": "vpc", "config": {}, "position": {}},
+                {"id": "ec2-1", "type": "ec2", "config": {}, "position": {}},
+            ],
+        )
+        operations = [
+            {
+                "updated": "missing-resource",
+                "config": {"size": "large"},
+                "success": True,
+            },
+            {"moved": "missing-resource", "vpc_id": "vpc-1", "success": True},
+        ]
+
+        for result in operations:
+            with self.subTest(result=result):
+                updated = main.apply_tool_result(state, result)
+
+                self.assertEqual(updated["nodes"], state["nodes"])
+                self.assertEqual(updated["edges"], state["edges"])
+                self.assertEqual(updated["logs"][-1]["type"], "warning")
+                self.assertIn("does not exist", updated["logs"][-1]["message"])
+
     async def test_validation_and_cost_run_against_production_nodes(self):
         nodes = [
             {"id": "vpc-1", "type": "vpc", "config": {}, "position": {}},

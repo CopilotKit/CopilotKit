@@ -55,18 +55,24 @@ function CloudPlotWorkspace({
   useInfraApproval();
 
   const restoredThreadRef = useRef<string | null>(null);
+  const skipNextPersistenceRef = useRef(false);
   useEffect(() => {
     if (restoredThreadRef.current === currentBranch.threadId) return;
     restoredThreadRef.current = currentBranch.threadId;
 
     const branchState = getBranchState(currentBranchId);
-    if (branchState) agent.setState(structuredClone(branchState.state));
+    if (branchState) {
+      skipNextPersistenceRef.current = true;
+      agent.setState(structuredClone(branchState.state));
+    }
   }, [currentBranch.threadId, currentBranchId, getBranchState, agent]);
 
   // Debounced browser-local backup of the visible workspace.
   useEffect(() => {
-    // Skip empty state to avoid overwriting saved data on initial load
-    if (!state || !state.nodes?.length) return;
+    if (skipNextPersistenceRef.current) {
+      skipNextPersistenceRef.current = false;
+      return;
+    }
 
     const timer = setTimeout(() => {
       saveBranchState(currentBranchId, state, []);
