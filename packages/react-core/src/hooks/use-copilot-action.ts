@@ -152,6 +152,24 @@ function getActionConfig<const T extends Parameter[] | [] = []>(
   action: FrontendAction<T> | CatchAllFrontendAction,
 ) {
   if (action.name === "*") {
+    // A catch-all can wait for a response too: one hook then serves every
+    // human-in-the-loop tool, with `name` telling the calls apart. Checked
+    // here rather than falling through to the render-only branch below, which
+    // silently dropped the wait-render and left the caller without `respond`.
+    const catchAll = action as CatchAllFrontendAction;
+    const waitRender =
+      catchAll.renderAndWaitForResponse ?? catchAll.renderAndWait;
+
+    if (waitRender) {
+      return {
+        type: "hitl" as const,
+        action: {
+          ...catchAll,
+          render: waitRender,
+        } as unknown as UseHumanInTheLoopArgs<T>,
+      };
+    }
+
     return {
       type: "render" as const,
       action: action as UseRenderToolCallArgs<T>,

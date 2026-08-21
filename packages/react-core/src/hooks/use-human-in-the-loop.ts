@@ -82,10 +82,15 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
 
       const renderProps: ActionRenderPropsWait<T> = (() => {
         const mappedArgs = args.args as unknown as MappedParameterTypes<T>;
+        // The name of the tool actually being called — distinct from the
+        // registration `name` above. They match for a normal action, but for a
+        // catch-all (`"*"`) this is the only way the render can tell calls apart.
+        const toolCallName = args.name;
 
         switch (args.status) {
           case ToolCallStatus.InProgress:
             return {
+              name: toolCallName,
               args: mappedArgs,
               respond: args.respond,
               status: args.status,
@@ -93,6 +98,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
             };
           case ToolCallStatus.Executing:
             return {
+              name: toolCallName,
               args: mappedArgs,
               respond: args.respond,
               status: args.status,
@@ -100,6 +106,7 @@ export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
             };
           case ToolCallStatus.Complete:
             return {
+              name: toolCallName,
               args: mappedArgs,
               respond: args.respond,
               status: args.status,
