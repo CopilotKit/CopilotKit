@@ -1,0 +1,205 @@
+```mdx
+---
+title: Deterministic Governance with TealTiger
+description: Add in-process governance — PII scanning, action authorization, and cost budgets — to CopilotKit actions with zero external dependencies.
+---
+
+# Deterministic Governance with TealTiger
+
+Add in-process deterministic governance to your CopilotKit copilot — PII scanning on `useCopilotReadable`, role-based action authorization, and per-user cost budgets. No external service, <2ms per evaluation, Apache 2.0.
+
+## When to use this
+
+Use TealTiger governance when you need:
+- **PII scanning** before copilot context reaches the model (HIPAA, SOC2)
+- **Action authorization** tied to authenticated user roles
+- **Cost caps** per user or tenant to prevent runaway token spend
+- **Deterministic, auditable decisions** (regex-based, reproducible — no LLM in governance path)
+- **Zero external dependencies** — runs in-process, no accounts or API keys
+
+For LLM-based semantic policy evaluation or hosted approval workflows with generative UI cards, see the [OpenBox Governance](/cookbook/openbox-governed-copilotkit) recipe instead.
+
+## Prerequisites
+
+- A working CopilotKit app with `@copilotkit/runtime`
+- Server-side authentication (NextAuth, Clerk, custom JWT, or similar)
+- Node.js ≥ 18
+
+## Install
+
+```bash
+npm install tealtiger-copilotkit
+```
+
+## The three governance layers
+
+TealTiger governance sits at three levels of the CopilotKit stack:
+
+| Layer | What it governs | How |
+|---|---|---|
+| Route-level guard | Token cost per user/tenant | Checks budget before runtime processes request; returns 429 when exceeded |
+| Action wrapper | Individual action execution | Evaluates allowlist/denylist + PII scan on arguments before handler runs |
+| Context scanner | `useCopilotReadable` state | Scans `<TextContext>` tags in system messages for PII before they reach the model |
+
+## Full working example
+
+Wire all three layers together in your `/api/copilotkit` route:
+
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+import { CopilotRuntime, OpenAIAdapter } from "@copilotkit/runtime";
+import { getServerSession } from "next-auth";
+import {
+  createRouteGuard,
+  withTealTigerPolicy,
+  scanCopilotKitRequest,
+} from "tealtiger-copilotkit";
+
+// Layer 1: Route-level budget guard
+const guard = createRouteGuard({
+  mode: "ENFORCE",
+  budget: {
+    perUser: 0.50,        // $0.50 per user per session
+    perTenant: 50.00,     // $50 per org daily
+  },
+});
+
+// Your registered actions
+const actions = [
+  {
+    name: "searchDocs",
+    description: "Search documentation",
+    parameters: [{ name: "query", type: "string" }],
+    handler: async ({ query }) => {
+      return searchDocumentation(query);
+    },
+  },
+  {
+    name: "updateProfile",
+    description: "Update user profile",
+    parameters: [{ name: "field", type: "string" }, { name: "value", type: "string" }],
+    handler: async ({ field, value }) => {
+      return updateUserProfile(field, value);
+    },
+  },
+];
+
+export async function POST(req: NextRequest) {
+  // Get authenticated user from your auth layer
+  const session = await getServerSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = {
+    id: session.user.id,
+    tenantId: session.user.tenantId,
+    roles: session.user.roles, // ["admin", "viewer", etc.]
+  };
+
+  // Layer 1: Budget check BEFORE processing
+  const budgetResult = await guard.check(user);
+  if (budgetResult.exceeded) {
+    return NextResponse.json(
+      { error: "AI budget exceeded", resetAt: budgetResult.resetAt },
+      { status: 429 }
+    );
+  }
+
+  // Layer 3: PII scan on useCopilotReadable context
+  const scannedReq = await scanCopilotKitRequest(req, {
+    action: "redact",
+    categories: ["ssn", "credit_card", "api_key"],
+  });
+
+  // Layer 2: Wrap each action with governance policy
+  const governedActions = actions.map((action) =>
+    withTealTigerPolicy(action, {
+      user,
+      mode: "ENFORCE",
+      actionPolicy: {
+        allowlist: ["searchDocs", "updateProfile", "getAnalytics"],
+        denylist: ["deleteAccount", "transferFunds", "exportAllData"],
+      },
+      pii: {
+        scanArgs: true,
+        action: "block",
+        categories: ["ssn", "credit_card"],
+      },
+    })
+  );
+
+  const runtime = new CopilotRuntime({ actions: governedActions });
+  const serviceAdapter = new OpenAIAdapter();
+
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  const response = await handleRequest(scannedReq);
+
+  // Layer 1: Record usage AFTER response
+  await guard.record(user, response);
+
+  return response;
+}
+```
+
+## Governance modes
+
+Start in OBSERVE mode to see what decisions would be made without blocking anything:
+
+```typescript
+const guard = createRouteGuard({
+  mode: "OBSERVE",  // logs decisions, never blocks
+  budget: { perUser: 0.50 },
+});
+```
+
+| Mode | Behavior |
+|---|---|
+| `OBSERVE` | Logs all decisions. Never blocks. Use for initial rollout. |
+| `MONITOR` | Logs violations. Allows execution. Use for testing enforcement. |
+| `ENFORCE` | Blocks violations. Returns structured denial. Production mode. |
+
+Migrate: `OBSERVE` → `MONITOR` → `ENFORCE`
+
+## What happens on denial
+
+When an action is denied, the copilot receives a structured reason it can adapt to:
+
+```json
+{
+  "action": "DENY",
+  "reason": "Action 'deleteAccount' not in allowlist for role 'viewer'",
+  "reason_codes": ["ACTION_DENIED"],
+  "risk_score": 0.9,
+  "correlation_id": "uuid-v4"
+}
+```
+
+The copilot can inform the user: "I'm not authorized to delete accounts with your current role."
+
+## Troubleshooting
+
+### `<TextContext>` warning in logs
+
+If you see `[tealtiger-copilotkit] No <TextContext> tags found in system message`, your CopilotKit version may format readable context differently. This is a silent no-op — governance still works for action authorization and budget tracking. Pin `@copilotkit/runtime` to a tested version.
+
+### Budget 429s in development
+
+Set `mode: "OBSERVE"` for local development to avoid hitting budget limits during testing. Switch to `ENFORCE` only in staging/production.
+
+### Action denied unexpectedly
+
+Check that the action name matches your allowlist exactly. Use glob patterns (`delete*`) for prefix matching.
+
+## Related
+
+- [OpenBox Governance](/cookbook/openbox-governed-copilotkit) — LLM-based governance with human-in-the-loop approvals
+- [TealTiger on npm](https://www.npmjs.com/package/tealtiger-copilotkit)
+- [TealTiger GitHub](https://github.com/agentguard-ai/tealtiger)
+- [Feature request #6148](https://github.com/CopilotKit/CopilotKit/issues/6148)
+```
