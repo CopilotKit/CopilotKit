@@ -175,13 +175,17 @@ for local development only. Generate the frontend domain against its detected
 Docker and Railway deployment validation is manual for this showcase; no repository CI workflow currently enforces it. From the repository root, run:
 
 ```bash
-pnpm install --frozen-lockfile --ignore-scripts --filter ui-protocols-demo...
-pnpm --filter ui-protocols-demo test:a2a-runtime
+pnpm install --frozen-lockfile --ignore-scripts
+COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test:a2a-runtime --skip-nx-cache
 pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
 docker build \
   -f examples/showcases/generative-ui-playground/Dockerfile \
   -t ui-protocols-demo:local .
 ```
+
+The Nx A2A test target builds its exact `@copilotkit/runtime` workspace
+dependency before running the behavior test, so the sequence also works from a
+fresh checkout without prebuilt package output.
 
 ## Key Packages
 
