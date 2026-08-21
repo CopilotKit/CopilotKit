@@ -356,17 +356,14 @@ Before you begin, you'll need the following:
 
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/route.ts"
+                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                   import {
                     CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                  } from "@copilotkit/runtime";
+                    createCopilotRuntimeHandler,
+                    InMemoryAgentRunner,
+                  } from "@copilotkit/runtime/v2";
                   // [!code highlight]
                   import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-                  import { NextRequest } from "next/server";
-
-                  const serviceAdapter = new ExperimentalEmptyAdapter();
 
                   const runtime = new CopilotRuntime({
                     agents: {
@@ -376,32 +373,28 @@ Before you begin, you'll need the following:
                         graphId: "sample_agent",
                         langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                       }),
-                    }
+                    },
+                    runner: new InMemoryAgentRunner(),
                   });
 
-                  export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                      runtime,
-                      serviceAdapter,
-                      endpoint: "/api/copilotkit",
-                    });
+                  const handler = createCopilotRuntimeHandler({
+                    runtime,
+                    basePath: "/api/copilotkit",
+                  });
 
-                    return handleRequest(req);
-                  };
+                  export const GET = handler;
+                  export const POST = handler;
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                  createCopilotRuntimeHandler,
+                  InMemoryAgentRunner,
+                } from "@copilotkit/runtime/v2";
                 // [!code highlight]
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
@@ -409,18 +402,17 @@ Before you begin, you'll need the following:
                     sample_agent: new LangGraphHttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
-                  }
+                  },
+                  runner: new InMemoryAgentRunner(),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
+                export const GET = handler;
+                export const POST = handler;
               ```
               </Tab>
             </Tabs>
@@ -431,10 +423,13 @@ Before you begin, you'll need the following:
               Wrap your application with the CopilotKit provider:
 
               <Callout type="info" title="Which provider goes with which handler?">
-                `<CopilotKit>` here is the backward-compatible wrapper. It sets no transport
-                by default, so it detects the single-route `copilotRuntimeNextJSAppRouterEndpoint`
-                above on its own. `<CopilotKitProvider>` is the v2 provider from the same
-                package and detects the transport the same way. They are not aliases — see
+                `<CopilotKit>` here is the backward-compatible wrapper, and every
+                released version pins it to the single-route transport — which is why
+                it needs the explicit `useSingleEndpoint={false}` below to reach the
+                multi-route `createCopilotRuntimeHandler` route above.
+                `<CopilotKitProvider>` is the v2 provider from the same package and
+                detects the transport from `/info` on its own. They are not aliases —
+                see
                 [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
               </Callout>
 
@@ -451,7 +446,7 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
                         {children}
                       </CopilotKit>
                     </body>

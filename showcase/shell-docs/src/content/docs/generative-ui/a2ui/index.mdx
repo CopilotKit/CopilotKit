@@ -85,12 +85,13 @@ If you do not pass a catalog, enable A2UI on the runtime instead.
 are rendered; add `injectA2UITool: true` to also inject the render
 tool so the agent can generate surfaces dynamically:
 
-```typescript title="app/api/copilotkit/route.ts"
-import { CopilotRuntime } from "@copilotkit/runtime";
+```typescript title="app/api/copilotkit/[[...slug]]/route.ts"
+import { CopilotRuntime, InMemoryAgentRunner } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   a2ui: { injectA2UITool: true },
+  runner: new InMemoryAgentRunner(),
 });
 ```
 
