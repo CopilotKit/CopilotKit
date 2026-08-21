@@ -34,7 +34,8 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
+import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
+import type { VueInspectorOpenRequest, VueInspectorSaveRequest } from "./keys";
 import {
   LicenseContextKey,
   createLicenseContextValue,
@@ -129,6 +130,47 @@ const updateInspectorVisibility = () => {
 
 watch(() => props.showDevConsole, updateInspectorVisibility, {
   immediate: true,
+});
+
+const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
+const isLocalInspectorEnabled = computed(() => shouldRenderInspector.value);
+
+function openInspector(request: VueInspectorOpenRequest) {
+  inspectorOpenRequest.value = { ...request };
+}
+
+async function saveEventSnippet(request: VueInspectorSaveRequest) {
+  const mod = await import("@copilotkit/web-inspector");
+  const threadId = request.threadId ?? "inspector-snippet";
+  const runId = `inspector-snippet-${Date.now()}`;
+  const compiled = mod.compileChatSnippet({
+    ...request,
+    threadId,
+    runId,
+  });
+  const now = new Date().toISOString();
+  const snippet = {
+    id: crypto.randomUUID(),
+    name: compiled.name,
+    recipe: compiled.recipe,
+    events: compiled.events,
+    createdAt: now,
+    updatedAt: now,
+  };
+  mod.upsertEventSnippet(snippet);
+  openInspector({
+    messageId: request.messageId,
+    threadId: request.threadId,
+    agentId: request.agentId,
+    menu: "event-snippets",
+    snippetId: snippet.id,
+  });
+}
+
+provide(InspectorKey, {
+  isLocalInspectorEnabled,
+  openInspector,
+  saveEventSnippet,
 });
 
 const initialFrontendTools = props.frontendTools;
@@ -657,6 +699,7 @@ const showExpiringBanner = computed(
     v-if="shouldRenderInspector"
     :core="copilotkit"
     :default-anchor="props.inspectorDefaultAnchor"
+    :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />

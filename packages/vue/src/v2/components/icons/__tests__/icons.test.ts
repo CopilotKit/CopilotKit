@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import {
   IconArrowUp,
+  IconBookmark,
   IconCheck,
   IconCheckCircle,
   IconChevronDown,
@@ -31,6 +32,7 @@ describe("icons adapter", () => {
       IconPlus,
       IconMic,
       IconArrowUp,
+      IconBookmark,
       IconCheck,
       IconSquare,
       IconLoader2,

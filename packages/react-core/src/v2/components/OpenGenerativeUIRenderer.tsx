@@ -172,6 +172,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
   function OpenGenerativeUIActivityRendererInner({ content }: InnerProps) {
     const initialHeight = content.initialHeight ?? 200;
     const [autoHeight, setAutoHeight] = useState<number | null>(null);
+    const [sandboxReady, setSandboxReady] = useState(false);
     const sandboxFunctions = useSandboxFunctions();
 
     const localApi = useMemo(() => {
@@ -352,6 +353,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           sandbox.promise.then(() => {
             if (cancelled) return;
             sandboxReadyRef.current = true;
+            setSandboxReady(true);
 
             // Prevent scrollbars — the container auto-sizes to fit content
             sandbox.run(`
@@ -388,6 +390,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
           sandboxRef.current = null;
         }
         sandboxReadyRef.current = false;
+        setSandboxReady(false);
         setAutoHeight(null);
       };
     }, [fullHtml, css, localApi]);
@@ -434,7 +437,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
     const generationDone = content.generating === false;
     useEffect(() => {
       const sandbox = sandboxRef.current;
-      if (!generationDone || !sandbox) return;
+      if (!generationDone || !sandboxReady || !sandbox) return;
 
       let handled = false;
       const onMessage = (e: MessageEvent) => {
@@ -473,7 +476,7 @@ const OpenGenerativeUIActivityRendererInner = React.memo(
       return () => {
         window.removeEventListener("message", onMessage);
       };
-    }, [generationDone]);
+    }, [generationDone, sandboxReady]);
 
     const height = autoHeight ?? initialHeight;
 

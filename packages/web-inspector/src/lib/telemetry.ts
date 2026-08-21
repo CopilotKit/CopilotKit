@@ -54,6 +54,8 @@ export const TELEMETRY_EVENTS = {
   homeCtaClicked: "oss.inspector.home_cta_clicked",
   metadataModuleViewed: "oss.inspector.metadata_module_viewed",
   metadataActionClicked: "oss.inspector.metadata_action_clicked",
+  eventSnippetsRun: "oss.inspector.event_snippets_run",
+  eventSnippetsSaved: "oss.inspector.event_snippets_saved",
 } as const;
 
 export type TelemetryEvent =
@@ -258,6 +260,7 @@ export type InspectorLeafKey =
   | "playground"
   | "threads"
   | "ag-ui-events"
+  | "event-snippets"
   | "agents"
   | "frontend-tools"
   | "capabilities"
@@ -608,6 +611,39 @@ export function trackMetadataActionClicked(
     module: "action",
     action_kind: props.action_kind,
     ...metadataCoarseProperties(props),
+  });
+}
+
+export type EventSnippetRecipeKind =
+  | "tool-call"
+  | "reasoning"
+  | "text"
+  | "activity"
+  | "raw";
+
+export type EventSnippetSource = "chat" | "pane";
+
+export function trackEventSnippetsRun(props: {
+  recipe: EventSnippetRecipeKind;
+  source: EventSnippetSource;
+  success: boolean;
+}): void {
+  track(TELEMETRY_EVENTS.eventSnippetsRun, {
+    recipe: props.recipe,
+    source: props.source,
+    success: props.success,
+  });
+}
+
+export function trackEventSnippetsSaved(props: {
+  recipe: EventSnippetRecipeKind;
+  source: EventSnippetSource;
+  success: boolean;
+}): void {
+  track(TELEMETRY_EVENTS.eventSnippetsSaved, {
+    recipe: props.recipe,
+    source: props.source,
+    success: props.success,
   });
 }
 
