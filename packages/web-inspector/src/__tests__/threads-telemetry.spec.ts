@@ -519,7 +519,7 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
     flush: () => flushInspector(inspector),
     open: () =>
       clickSelector(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
         "Web Inspector opener was not rendered",
       ),
     selectGroup: (key) =>

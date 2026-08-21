@@ -31,6 +31,7 @@ export const TELEMETRY_EVENTS = {
   opened: "oss.inspector.opened",
   whatsNewViewed: "oss.inspector.whats_new_viewed",
   whatsNewSignalViewed: "oss.inspector.whats_new_signal_viewed",
+  errorSignalViewed: "oss.inspector.error_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
@@ -166,7 +167,21 @@ export function track(
  */
 export type WhatsNewSurface = "whats_new";
 
-export type WhatsNewSignalPresentation = "animated" | "reduced_motion";
+/**
+ * Whether a launcher signal was animated, or held static because the reader
+ * asked for reduced motion. Shared by every launcher signal so an
+ * accessibility setting is never mistaken for disinterest.
+ */
+export type LauncherSignalPresentation = "animated" | "reduced_motion";
+
+export type WhatsNewSignalPresentation = LauncherSignalPresentation;
+
+/**
+ * Which broken-wiring class raised the launcher's error signal. A closed
+ * two-value enum: the failure *message* is never transmitted, so prompts,
+ * URLs and identifiers embedded in an error cannot leave the browser.
+ */
+export type InspectorErrorSignalSource = "connection" | "threads";
 
 /**
  * Fires when What's new has rendered *with content*. A loading state is not
@@ -189,6 +204,26 @@ export function trackWhatsNewSignalViewed(props: {
   cta_label?: string;
 }): void {
   track(TELEMETRY_EVENTS.whatsNewSignalViewed, props);
+}
+
+/**
+ * Fires when the launcher's error signal becomes *visible* — not when it arms.
+ * Arming can happen with the panel open or the tab hidden, where there is no
+ * launcher to look at, so counting arms would inflate the denominator this
+ * event exists to provide.
+ *
+ * Deliberately carries two fixed enum values and nothing else. This is the one
+ * place a later change could casually attach a free-text field, and the
+ * failure message must never be transmitted.
+ */
+export function trackErrorSignalViewed(props: {
+  source: InspectorErrorSignalSource;
+  presentation: LauncherSignalPresentation;
+}): void {
+  track(TELEMETRY_EVENTS.errorSignalViewed, {
+    source: props.source,
+    presentation: props.presentation,
+  });
 }
 
 /**
@@ -227,6 +262,10 @@ export type InspectorOpenedTelemetryProps = {
   runtime_url_type?: RuntimeUrlType;
   /** True when an unseen announcement was on screen at open time. */
   has_unseen_announcement?: boolean;
+  /** True when a broken-wiring signal was on the launcher at open time. */
+  has_error_signal?: boolean;
+  /** Which failure class was signalling at open time, when one was. */
+  error_signal_source?: InspectorErrorSignalSource;
   /** True when this is the first Inspector open after install or upgrade. */
   first_open?: boolean;
 };

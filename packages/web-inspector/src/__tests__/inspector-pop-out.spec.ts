@@ -47,6 +47,8 @@ type InspectorPopOutContext = {
   selectGroup: (key: string) => Promise<void>;
   selectLeaf: (key: string) => Promise<void>;
   clickDetach: () => Promise<void>;
+  /** Make the runtime handshake fail, driving the connection into error. */
+  breakRuntime: () => Promise<void>;
   firePageHide: () => void;
   firePopOutPointerDown: (path?: EventTarget[]) => void;
   teardown: () => void;
@@ -337,6 +339,7 @@ async function setup(
 
   const stub = installPopOutStub(options.blockPopOut === true);
 
+  let runtimeInfoFails = false;
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL): Promise<Response> => {
       const url = input instanceof Request ? input.url : String(input);
@@ -344,6 +347,9 @@ async function setup(
         return new Response(null, { status: 404 });
       }
       if (url.endsWith("/info")) {
+        if (runtimeInfoFails) {
+          return new Response(null, { status: 500 });
+        }
         return jsonResponse({
           version: "1.0.0",
           agents: {},
@@ -413,7 +419,7 @@ async function setup(
         return;
       }
       const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!opener) {
         throw new Error("Web Inspector opener was not rendered");
@@ -433,6 +439,19 @@ async function setup(
       ),
     clickDetach: async () => {
       (await requireDetach(inspector)).click();
+      await inspector.updateComplete;
+    },
+    breakRuntime: async () => {
+      runtimeInfoFails = true;
+      // A change of runtime URL is what re-runs the handshake — the same
+      // ordinary mistake the signal exists for ("I mistyped the URL").
+      core.setRuntimeUrl("http://localhost:4001/api/copilotkit");
+      await waitFor(
+        () =>
+          core.runtimeConnectionStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        "the Core handshake to fail",
+      );
       await inspector.updateComplete;
     },
     firePageHide: stub.firePageHide,
@@ -493,14 +512,14 @@ describe("Inspector pop-out", () => {
         const root = context.inspector.shadowRoot;
         return (
           root?.querySelector(".inspector-window") === null &&
-          root?.querySelector('button[aria-label="Web Inspector"]') === null
+          root?.querySelector('button[aria-label^="Web Inspector"]') === null
         );
       }, "in-page Inspector chrome to hide");
 
       const root = requireShadow(context.inspector);
       expect(root.querySelector(".inspector-window")).toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
     } finally {
       context.teardown();
@@ -522,6 +541,52 @@ describe("Inspector pop-out", () => {
       context.teardown();
     }
   });
+
+  // The purpose of the launcher signal is to get the panel opened, and in
+  // pop-out the panel is permanently open beside the application. So the
+  // launcher signal is intentionally absent here — but the navigation marker
+  // has to carry the failure, or the mode without a launcher becomes the mode
+  // without information. Real timers: the settle window is two real seconds.
+  it("carries a broken connection on the pop-out navigation, not on the host page", async () => {
+    const context = await setup();
+    try {
+      await context.open();
+      await context.clickDetach();
+      await waitFor(
+        () => context.popDoc.querySelector(".inspector-window") !== null,
+        "the Inspector window in the pop-out document",
+      );
+
+      await context.breakRuntime();
+      const findMarker = (): Element | null =>
+        context.popDoc.querySelector(
+          'button[data-inspector-menu-key="home"] .inspector-nav-signal-dot',
+        );
+      // The shared helper waits half a second; the settle window is two whole
+      // ones, on purpose, so this one wait needs its own budget.
+      for (let attempt = 0; attempt < 600 && !findMarker(); attempt += 1) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 10));
+      }
+
+      const marker = findMarker();
+      expect(marker).not.toBeNull();
+      expect(marker?.getAttribute("data-cpk-signal-tone")).toBe("error");
+      expect(
+        context.popDoc
+          .querySelector('button[data-inspector-menu-key="home"]')
+          ?.getAttribute("aria-label"),
+      ).toBe("Home, runtime error");
+
+      // Nothing on the host page: no launcher, so no dot and no beat.
+      const root = requireShadow(context.inspector);
+      expect(
+        root.querySelector('button[aria-label^="Web Inspector"]'),
+      ).toBeNull();
+      expect(root.querySelector("[data-cpk-signal-dot]")).toBeNull();
+    } finally {
+      context.teardown();
+    }
+  }, 15_000);
 
   it("renders the threads list in the pop-out document", async () => {
     const context = await setup();
@@ -721,7 +786,7 @@ describe("Inspector pop-out", () => {
       expect(context.fakeWindow.close).toHaveBeenCalled();
       expect(root.querySelector(".inspector-window")).not.toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
       expect(context.popDoc.querySelector(".inspector-window")).toBeNull();
     } finally {
@@ -796,7 +861,7 @@ describe("Inspector pop-out", () => {
       const root = requireShadow(context.inspector);
       expect(root.querySelector(".inspector-window")).not.toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
       expect(
         queryControl(root, `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`),
@@ -949,7 +1014,7 @@ describe("Inspector pop-out", () => {
       expect(context.popDoc.querySelector(".inspector-window")).not.toBeNull();
       expect(
         requireShadow(context.inspector).querySelector(
-          'button[aria-label="Web Inspector"]',
+          'button[aria-label^="Web Inspector"]',
         ),
       ).toBeNull();
       expect(storedInspectorState().isOpen).toBe(true);
