@@ -15,6 +15,8 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.42",
+    "@ag-ui/core": "0.0.42",
     "@ag-ui/langgraph": "0.0.20",
     "@copilotkit/react-core": "1.50.0-beta.7",
     "@copilotkit/react-ui": "1.50.0-beta.7",

@@ -19,6 +19,43 @@ const SSR_DEFAULT_BRANCH: Branch = {
   threadId: "00000000-0000-0000-0000-000000000000", // Placeholder, replaced after mount
 };
 
+type BranchStorageSnapshot = {
+  branches: Branch[];
+  branchStates: Record<string, BranchState>;
+};
+
+function createFreshDefaultBranch(): Branch {
+  return {
+    id: "main",
+    name: "main",
+    createdAt: Date.now(),
+    threadId: crypto.randomUUID(),
+  };
+}
+
+function loadBranchStorageSnapshot(): BranchStorageSnapshot {
+  try {
+    const savedBranches = localStorage.getItem(BRANCHES_KEY);
+    const branches = savedBranches
+      ? (JSON.parse(savedBranches) as Branch[]).map((branch) => ({
+          ...branch,
+          threadId: branch.threadId || crypto.randomUUID(),
+        }))
+      : [createFreshDefaultBranch()];
+    const savedStates = localStorage.getItem(BRANCH_STATES_KEY);
+    const branchStates = savedStates
+      ? (JSON.parse(savedStates) as Record<string, BranchState>)
+      : {};
+
+    return { branches, branchStates };
+  } catch {
+    return {
+      branches: [createFreshDefaultBranch()],
+      branchStates: {},
+    };
+  }
+}
+
 export function useBranchManager() {
   // Start with SSR-safe defaults
   const [branches, setBranches] = useState<Branch[]>([SSR_DEFAULT_BRANCH]);
@@ -30,42 +67,20 @@ export function useBranchManager() {
 
   // Load from localStorage after mount (client-side only)
   useEffect(() => {
-    try {
-      const savedBranches = localStorage.getItem(BRANCHES_KEY);
-      if (savedBranches) {
-        const parsed = JSON.parse(savedBranches) as Branch[];
-        // Migrate: add threadId if missing (old format)
-        const migrated = parsed.map((b) => ({
-          ...b,
-          threadId: b.threadId || crypto.randomUUID(),
-        }));
-        setBranches(migrated);
-      } else {
-        // No saved branches - create fresh default with real UUID
-        const freshDefault: Branch = {
-          id: "main",
-          name: "main",
-          createdAt: Date.now(),
-          threadId: crypto.randomUUID(),
-        };
-        setBranches([freshDefault]);
-      }
+    const snapshot = loadBranchStorageSnapshot();
+    let cancelled = false;
 
-      const savedStates = localStorage.getItem(BRANCH_STATES_KEY);
-      if (savedStates) {
-        setBranchStates(JSON.parse(savedStates) as Record<string, BranchState>);
-      }
-    } catch {
-      // localStorage error - create fresh default
-      const freshDefault: Branch = {
-        id: "main",
-        name: "main",
-        createdAt: Date.now(),
-        threadId: crypto.randomUUID(),
-      };
-      setBranches([freshDefault]);
-    }
-    setIsHydrated(true);
+    queueMicrotask(() => {
+      if (cancelled) return;
+
+      setBranches(snapshot.branches);
+      setBranchStates(snapshot.branchStates);
+      setIsHydrated(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Persist branches to localStorage (skip initial SSR state)
