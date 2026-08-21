@@ -21,6 +21,7 @@ from typing import Any
 
 from crewai.flow.flow import Flow, start
 from litellm import acompletion
+from pydantic import Field
 
 from ag_ui_crewai import CopilotKitState, copilotkit_stream
 
@@ -36,7 +37,20 @@ BASE_CHAT_PROMPT = (
 )
 
 
-class PromptedChatFlow(Flow[CopilotKitState]):
+class ChatState(CopilotKitState):
+    """`CopilotKitState` plus the AG-UI request context.
+
+    The bridge puts `RunAgentInput.context` on state under `context`, but
+    `CopilotKitState` does not declare the field, so pydantic drops it during
+    input validation and the model never sees it. Declaring it here is what
+    keeps the readonly-state and agent-config cells honest: those demos exist
+    to prove the agent reads application context.
+    """
+
+    context: list[Any] = Field(default_factory=list)
+
+
+class PromptedChatFlow(Flow[ChatState]):
     """One-turn chat Flow for showcase cells that differ only by prompting."""
 
     system_prompt = BASE_CHAT_PROMPT

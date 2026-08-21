@@ -76,3 +76,59 @@ async def test_prompted_chat_forwards_frontend_actions_as_tools(monkeypatch):
 
     assert captured["tools"] == [action]
     assert captured["parallel_tool_calls"] is False
+
+
+@pytest.mark.asyncio
+async def test_flow_state_keeps_the_agui_request_context():
+    """`CopilotKitState` drops undeclared inputs, so `context` must be declared.
+
+    Without the field the readonly-state and agent-config cells send their
+    application context and the model never sees it.
+    """
+    flow = chat_flow.PromptedChatFlow()
+    assert "context" in type(flow.state).model_fields
+
+
+def test_endpoint_puts_the_request_context_in_the_model_system_message(monkeypatch):
+    """End-to-end through the real endpoint, not a hand-built state.
+
+    Instantiating the Flow directly cannot catch the loss: the drop happens when
+    the endpoint validates `RunAgentInput` into the Flow's state model.
+    """
+    from fastapi.testclient import TestClient
+
+    captured: dict = {}
+
+    async def fake_completion(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    async def fake_stream(_response):
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message={"role": "assistant", "content": "ok"})]
+        )
+
+    monkeypatch.setattr(chat_flow, "acompletion", fake_completion)
+    monkeypatch.setattr(chat_flow, "copilotkit_stream", fake_stream)
+
+    from agent_server import app
+
+    body = {
+        "threadId": "t-context",
+        "runId": "r-context",
+        "state": {},
+        "messages": [{"id": "m1", "role": "user", "content": "what tone am I set to?"}],
+        "tools": [],
+        "context": [
+            {"description": "tone", "value": "casual"},
+            {"description": "expertise", "value": "beginner"},
+        ],
+        "forwardedProps": {},
+    }
+    with TestClient(app) as client:
+        response = client.post("/conversational_flows/chat", json=body)
+
+    assert response.status_code == 200
+    system_message = captured["messages"][0]["content"]
+    assert "casual" in system_message
+    assert "beginner" in system_message
