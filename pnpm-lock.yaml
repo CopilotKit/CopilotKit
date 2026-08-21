@@ -343,9 +343,15 @@ importers:
 
   examples/showcases/cloudplot:
     dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.42
+        version: 0.0.42
+      '@ag-ui/core':
+        specifier: 0.0.42
+        version: 0.0.42
       '@ag-ui/langgraph':
         specifier: 0.0.20
-        version: 0.0.20(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
+        version: 0.0.20(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.42)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
       '@copilotkit/react-core':
         specifier: 1.50.0-beta.7
         version: 1.50.0-beta.7(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(encoding@0.1.13)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
@@ -354,7 +360,7 @@ importers:
         version: 1.50.0-beta.7(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(encoding@0.1.13)(graphql@16.12.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(zod@3.25.76)
       '@copilotkit/runtime':
         specifier: 1.50.0-beta.7
-        version: 1.50.0-beta.7(fc3631c0e27d3dbe4f68472f86376c5d)
+        version: 1.50.0-beta.7(c7890960ed36c339808dd922c1ee94b8)
       '@dagrejs/dagre':
         specifier: ^1.1.8
         version: 1.1.8
@@ -430,7 +436,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   examples/showcases/generative-ui-playground:
     dependencies:
@@ -2135,7 +2141,7 @@ importers:
         version: 4.12.15
       nuxt:
         specifier: 3.17.5
-        version: 3.17.5(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.6.1))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
+        version: 3.17.5(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.6.1))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0)
       openai:
         specifier: ^5.9.0
         version: 5.23.2(ws@8.21.3)(zod@3.25.76)
@@ -27018,7 +27024,7 @@ packages:
       '@vitest/ui': 4.1.5
       happy-dom: '*'
       jsdom: '*'
-      vite: '>=6.4.2'
+      vite: 7.3.2
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -27928,10 +27934,10 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/langgraph@0.0.20(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)':
+  '@ag-ui/langgraph@0.0.20(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.42)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)':
     dependencies:
-      '@ag-ui/client': 0.0.57
-      '@ag-ui/core': 0.0.57
+      '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 0.0.42
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
       '@langchain/langgraph-sdk': 0.1.10(@langchain/core@0.3.80(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       partial-json: 0.1.7
@@ -33283,10 +33289,10 @@ snapshots:
       - encoding
       - graphql
 
-  '@copilotkit/runtime@1.50.0-beta.7(fc3631c0e27d3dbe4f68472f86376c5d)':
+  '@copilotkit/runtime@1.50.0-beta.7(c7890960ed36c339808dd922c1ee94b8)':
     dependencies:
-      '@ag-ui/client': 0.0.57
-      '@ag-ui/core': 0.0.57
+      '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 0.0.42
       '@ag-ui/encoder': 0.0.57
       '@ag-ui/proto': 0.0.57
       '@copilotkit/shared': 1.50.0-beta.7(encoding@0.1.13)
@@ -33310,7 +33316,7 @@ snapshots:
       type-graphql: 2.0.0-rc.1(class-validator@0.14.3)(graphql-scalars@1.25.0(graphql@16.12.0))(graphql@16.12.0)
       zod: 3.25.76
     optionalDependencies:
-      '@ag-ui/langgraph': 0.0.20(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
+      '@ag-ui/langgraph': 0.0.20(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.42)(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(ws@8.21.3)
       '@anthropic-ai/sdk': 0.57.0
       '@langchain/aws': 1.1.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))
       '@langchain/community': 1.1.27(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-s3@3.1014.0)(@aws-sdk/credential-provider-node@3.972.29)(@browserbasehq/sdk@2.6.0(encoding@0.1.13))(@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@17.4.2)(encoding@0.1.13)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.6)(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(@smithy/eventstream-codec@4.2.12)(@smithy/protocol-http@5.3.12)(@smithy/signature-v4@5.3.12)(@smithy/util-utf8@4.2.2)(better-sqlite3@12.5.0)(d3-dsv@3.0.1)(discord.js@14.26.4)(fast-xml-parser@5.5.8)(google-auth-library@10.6.2)(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.10.1)(jsdom@26.1.0)(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@5.23.2(ws@8.21.3)(zod@3.25.76))(pg@8.22.0)(playwright@1.59.1)(puppeteer@22.14.0(typescript@5.9.3))(ws@8.21.3)
@@ -37879,11 +37885,11 @@ snapshots:
       node-gyp: 12.3.0
       proc-log: 6.1.0
 
-  '@nuxt/cli@3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.5.2)':
+  '@nuxt/cli@3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.3.5)':
     dependencies:
       '@bomb.sh/tab': 0.0.15(cac@6.7.14)(citty@0.2.2)(commander@13.1.0)
       '@clack/prompts': 1.4.0
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       citty: 0.2.2
       confbox: 0.2.4
       consola: 3.4.2
@@ -37979,9 +37985,9 @@ snapshots:
       - utf-8-validate
       - vue
 
-  '@nuxt/kit@3.17.5(magicast@0.5.2)':
+  '@nuxt/kit@3.17.5(magicast@0.3.5)':
     dependencies:
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       consola: 3.4.2
       defu: 6.1.7
       destr: 2.0.5
@@ -38040,18 +38046,18 @@ snapshots:
       pathe: 2.0.3
       std-env: 3.10.0
 
-  '@nuxt/telemetry@2.8.0(@nuxt/kit@3.17.5(magicast@0.5.2))':
+  '@nuxt/telemetry@2.8.0(@nuxt/kit@3.17.5(magicast@0.3.5))':
     dependencies:
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       citty: 0.2.2
       consola: 3.4.2
       ofetch: 2.0.0-alpha.3
       rc9: 3.0.1
       std-env: 4.1.0
 
-  '@nuxt/vite-builder@3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.6.1))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)':
+  '@nuxt/vite-builder@3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.6.1))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)':
     dependencies:
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       '@rollup/plugin-replace': 6.0.3(rollup@4.60.2)
       '@vitejs/plugin-vue': 5.2.4(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
       '@vitejs/plugin-vue-jsx': 4.2.0(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
@@ -43587,7 +43593,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@3.2.4':
     dependencies:
@@ -43655,6 +43661,14 @@ snapshots:
     optionalDependencies:
       vite: 8.1.5(@types/node@18.19.130)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
+  '@vitest/mocker@4.1.5(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))':
+    dependencies:
+      '@vitest/spy': 4.1.5
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+
   '@vitest/mocker@4.1.5(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.8.3))':
     dependencies:
       '@vitest/spy': 4.1.5
@@ -43678,14 +43692,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
-
-  '@vitest/mocker@4.1.5(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))':
-    dependencies:
-      '@vitest/spy': 4.1.5
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/mocker@4.1.5(vite@8.1.5(@types/node@22.19.3)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
@@ -53891,18 +53897,18 @@ snapshots:
 
   nullthrows@1.1.1: {}
 
-  nuxt@3.17.5(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.6.1))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0):
+  nuxt@3.17.5(@parcel/watcher@2.5.6)(@types/node@22.19.11)(better-sqlite3@12.5.0)(cac@6.7.14)(commander@13.1.0)(db0@0.3.4(better-sqlite3@12.5.0))(encoding@0.1.13)(eslint@9.39.2(jiti@2.6.1))(ioredis@5.10.1)(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(srvx@0.11.15)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue-tsc@2.2.12(typescript@5.8.2))(xml2js@0.6.2)(yaml@2.9.0):
     dependencies:
-      '@nuxt/cli': 3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.5.2)
+      '@nuxt/cli': 3.35.2(@nuxt/schema@3.17.5)(cac@6.7.14)(commander@13.1.0)(magicast@0.3.5)
       '@nuxt/devalue': 2.0.2
       '@nuxt/devtools': 2.7.0(vite@7.3.2(@types/node@22.19.11)(jiti@2.6.1)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
-      '@nuxt/kit': 3.17.5(magicast@0.5.2)
+      '@nuxt/kit': 3.17.5(magicast@0.3.5)
       '@nuxt/schema': 3.17.5
-      '@nuxt/telemetry': 2.8.0(@nuxt/kit@3.17.5(magicast@0.5.2))
-      '@nuxt/vite-builder': 3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.6.1))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)
+      '@nuxt/telemetry': 2.8.0(@nuxt/kit@3.17.5(magicast@0.3.5))
+      '@nuxt/vite-builder': 3.17.5(@types/node@22.19.11)(eslint@9.39.2(jiti@2.6.1))(less@4.6.7)(lightningcss@1.32.0)(magicast@0.3.5)(optionator@0.9.4)(rolldown@1.2.0)(rollup@4.60.2)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(typescript@5.8.2)(vue-tsc@2.2.12(typescript@5.8.2))(vue@3.5.34(typescript@5.8.2))(yaml@2.9.0)
       '@unhead/vue': 2.1.15(vue@3.5.34(typescript@5.8.2))
       '@vue/shared': 3.5.34
-      c12: 3.3.4(magicast@0.5.2)
+      c12: 3.3.4(magicast@0.3.5)
       chokidar: 4.0.3
       compatx: 0.2.0
       consola: 3.4.2
@@ -60376,10 +60382,10 @@ snapshots:
     transitivePeerDependencies:
       - msw
 
-  vitest@4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)):
+  vitest@4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)):
     dependencies:
       '@vitest/expect': 4.1.5
-      '@vitest/mocker': 4.1.5(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      '@vitest/mocker': 4.1.5(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
       '@vitest/pretty-format': 4.1.5
       '@vitest/runner': 4.1.5
       '@vitest/snapshot': 4.1.5
@@ -60396,7 +60402,7 @@ snapshots:
       tinyexec: 1.1.2
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.0
-      vite: 8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      vite: 7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0

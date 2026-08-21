@@ -11,5 +11,7 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
+    // Unit tests only; Playwright owns e2e/.
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

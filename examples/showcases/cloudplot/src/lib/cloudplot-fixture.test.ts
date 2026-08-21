@@ -69,8 +69,14 @@ describe("Cloudplot contract fixture", () => {
 
   it("reports retained validation failures deterministically", () => {
     const findings = validateArchitecture([
+      { id: "valid-vpc", type: "vpc", config: {} },
       { id: "public-bucket", type: "s3", config: { access_level: "public" } },
-      { id: "unencrypted-db", type: "rds", config: { encryption: false } },
+      {
+        id: "unencrypted-db",
+        type: "rds",
+        config: { encryption: false },
+        parentId: "valid-vpc",
+      },
       { id: "orphaned-db", type: "rds", config: { encryption: true } },
       { id: "orphaned-compute", type: "ec2", config: {} },
       {
