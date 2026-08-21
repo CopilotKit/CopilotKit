@@ -507,10 +507,10 @@ Channels require the Intelligence runtime and a long-running host. See the
 
 ### Agent runners
 
-| Runner                    | Description                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `InMemoryAgentRunner`     | Default. Stores thread state in process memory. Suitable for development and single-instance deployments.         |
-| `IntelligenceAgentRunner` | Used automatically with `CopilotIntelligenceRuntime`. Connects to CopilotKit Intelligence Platform via WebSocket. |
+| Runner                    | Description                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `InMemoryAgentRunner`     | Default. Stores thread state in process memory. Suitable for development and single-instance deployments. |
+| `IntelligenceAgentRunner` | Used automatically with `CopilotIntelligenceRuntime`. Connects to CopilotKit Intelligence via WebSocket.  |
 
 ### Supported models (BuiltInAgent)
 

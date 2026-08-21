@@ -969,7 +969,7 @@ const FOLDER_INDEX: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Retired Intelligence Platform pages.
+// Retired Intelligence pages.
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [

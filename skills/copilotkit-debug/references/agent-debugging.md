@@ -268,7 +268,7 @@ Intelligence mode uses the `CopilotKitIntelligence` client to manage threads:
 
 Intelligence mode uses WebSocket for real-time events:
 
-- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with the Intelligence platform
+- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with CopilotKit Intelligence
 - Client WebSocket: `{wsUrl}/client` -- used by the frontend for real-time thread updates
 
 If WebSocket connections fail:
