@@ -329,6 +329,33 @@ describe("WebInspectorElement", () => {
     );
   });
 
+  it("renders Agent tab message text without template indent", async () => {
+    const { agent } = createMockAgent("alpha", {
+      messages: [{ id: "m1", role: "user", content: "test" }],
+    });
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      selectedMenu: string;
+      selectedContext: string;
+    };
+    internals.isOpen = true;
+    internals.selectedMenu = "agents";
+    internals.selectedContext = "alpha";
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    const content = inspector.shadowRoot?.querySelector(
+      ".cpk-agent-view .whitespace-pre-wrap",
+    );
+    expect(content?.textContent).toBe("test");
+  });
+
   it("records step lifecycle events", async () => {
     const { agent, controller } = createMockAgent("alpha");
     const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
