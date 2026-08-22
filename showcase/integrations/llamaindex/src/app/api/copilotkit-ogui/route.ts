@@ -5,13 +5,14 @@
 // per-demo `useFrontendTool` / `useComponent` registrations on the default
 // runtime to be wiped.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -27,9 +28,7 @@ const agents = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-ogui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       // @region[minimal-runtime-flag]
       // @region[advanced-runtime-config]
       // Server-side config is identical for the minimal and advanced cells —
@@ -47,9 +46,11 @@ export const POST = async (req: NextRequest) => {
         },
       }),
       // @endregion[advanced-runtime-config]
-      // @endregion[minimal-runtime-flag]
+      // @endregion[minimal-runtime-flag],
+      basePath: "/api/copilotkit-ogui",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(
