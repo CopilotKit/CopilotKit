@@ -18,6 +18,27 @@ import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 import { createStateEventNormalizer } from "../state-delta";
 
+export function formatToolError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  if (typeof error === "string") return error;
+  if (error === undefined || error === null) return "Unknown tool error";
+
+  try {
+    const serialized = JSON.stringify(error);
+    return serialized === undefined ? String(error) : serialized;
+  } catch {
+    return String(error);
+  }
+}
+
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
  *
@@ -322,6 +343,49 @@ export async function* convertAISDKStream(
           break;
         }
 
+        case "tool-error": {
+          const toolCallId = p.toolCallId as string | undefined;
+          if (!toolCallId) {
+            throw new Error("AI SDK tool-error is missing toolCallId");
+          }
+
+          // Prefer the name captured from the preceding tool-call part because
+          // some providers omit toolName on the error part.
+          const toolName =
+            ("toolName" in p
+              ? (p.toolName as string | undefined)
+              : undefined) ??
+            toolCallStates.get(toolCallId)?.toolName ??
+            "";
+
+          // Interrupt tools do not execute on the server. Their result is
+          // supplied by the human on the resume run, so suppress this part just
+          // like a normal tool-result.
+          if (
+            toolName &&
+            pendingInterrupts?.some(
+              (interrupt) => interrupt.toolCallId === toolCallId,
+            )
+          ) {
+            toolCallStates.delete(toolCallId);
+            break;
+          }
+
+          toolCallStates.delete(toolCallId);
+          const resultEvent: ToolCallResultEvent = {
+            type: EventType.TOOL_CALL_RESULT,
+            role: "tool",
+            messageId: randomUUID(),
+            toolCallId,
+            // A tool exception is a tool result from the model's perspective.
+            // Keeping the Error prefix consistent with the core tool runner
+            // lets both the client and the next model step see the failure.
+            content: `Error: ${formatToolError(p.error)}`,
+          };
+          yield resultEvent;
+          break;
+        }
+
         case "tool-result": {
           // AI SDK tool-result uses "output"; older versions used "result" — check both
           const toolResult =
@@ -400,9 +464,21 @@ export async function* convertAISDKStream(
           );
         }
 
-        default:
-          // Unknown event types are silently ignored
+        // These AI SDK fullStream parts carry metadata that has no AG-UI event
+        // equivalent. They are known and intentionally ignored; keeping them
+        // explicit lets the default branch catch genuinely new parts.
+        case "start":
+        case "start-step":
+        case "finish-step":
+        case "text-end":
+        case "source":
+        case "file":
+        case "tool-output-denied":
+        case "raw":
           break;
+
+        default:
+          throw new Error(`Unsupported AI SDK stream part: ${String(p.type)}`);
       }
     }
   } finally {

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
 import { BasicAgent, defineTool } from "../index";
-import type { ToolDefinition } from "../index";
 import { EventType } from "@ag-ui/client";
 import type {
   BaseEvent,
@@ -21,6 +20,7 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,
@@ -275,6 +275,43 @@ describe("BasicAgent", () => {
         role: "tool",
         toolCallId: "call1",
       });
+    });
+
+    it("should emit a visible tool result when execution throws", async () => {
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+      });
+
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([
+          toolCall("call-error", "getCats", { limit: 1 }),
+          toolError("call-error", "getCats", new Error("Missing API key")),
+          finish(),
+        ]) as any,
+      );
+
+      const input: RunAgentInput = {
+        threadId: "thread1",
+        runId: "run1",
+        messages: [],
+        tools: [],
+        context: [],
+        state: {},
+      };
+
+      const events = await collectEvents(agent["run"](input));
+      const resultEvent = events.find(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+
+      expect(resultEvent).toMatchObject({
+        type: EventType.TOOL_CALL_RESULT,
+        toolCallId: "call-error",
+        content: "Error: Missing API key",
+      });
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
+      );
     });
   });
 
