@@ -1518,7 +1518,7 @@ type OpenTelemetryInternals = {
  */
 async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   inspector.shadowRoot
-    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
     ?.click();
   await inspector.updateComplete;
   inspector.shadowRoot
@@ -1586,7 +1586,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     posts().filter((post) => post.event === name);
   const launcherIsPulsing = (inspector: WebInspectorElement) =>
     inspector.shadowRoot
-      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.querySelector('button[aria-label^="Web Inspector"]')
       ?.getAttribute("data-cpk-signal-pulsing") === "true";
   const announcementLink = (inspector: WebInspectorElement) => {
     const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -1790,7 +1790,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
     // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1821,7 +1821,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1839,7 +1839,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 

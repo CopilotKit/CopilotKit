@@ -109,7 +109,7 @@ function launcherDot(inspector: WebInspectorElement): HTMLElement | null {
 function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
   return requireElement(
     root(inspector).querySelector<HTMLButtonElement>(
-      'button[aria-label="Web Inspector"]',
+      'button[aria-label^="Web Inspector"]',
     ),
   );
 }
@@ -979,12 +979,26 @@ test("the navigation marker is static, and shares the dot's colour", async () =>
   expect(entry.querySelector(".inspector-nav-signal-dot")).not.toBeNull();
   expect(entry.getAttribute("aria-label")).toBe("What's New, new content");
 
+  const marker = requireElement(
+    entry.querySelector<HTMLElement>(".inspector-nav-signal-dot"),
+  );
+  // The marker is tone-selected rather than one hardcoded colour, because a
+  // second signal now marks a different entry in a different colour. The
+  // announcement keeps the lilac it always had.
+  expect(marker.getAttribute("data-cpk-signal-tone")).toBe("news");
+
+  const css = stylesheetText(context.inspector);
   const rule =
-    /\.inspector-nav-signal-dot\s*\{([\s\S]*?)\}/.exec(
-      stylesheetText(context.inspector),
-    )?.[1] ?? "";
+    /\.inspector-nav-signal-dot\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
   // Same colour token as the launcher dot, and no movement: an animation here
   // would compete with the live event stream a developer is watching.
   expect(rule.toUpperCase()).toContain("#A78BFA");
   expect(rule).not.toContain("animation");
+
+  const errorRule =
+    /\.inspector-nav-signal-dot\[data-cpk-signal-tone="error"\]\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  expect(errorRule.toUpperCase()).not.toContain("#A78BFA");
+  expect(errorRule).not.toContain("animation");
 });

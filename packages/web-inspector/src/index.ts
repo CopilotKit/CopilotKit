@@ -72,7 +72,10 @@ import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
 } from "./lib/inspector-metadata.js";
-import { buildHomeModel } from "./lib/home-briefing.js";
+import {
+  buildHomeModel,
+  runtimeConnectionNeedsAttention,
+} from "./lib/home-briefing.js";
 import type {
   HomeHeroAction,
   HomeModel,
@@ -93,6 +96,7 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
+  trackErrorSignalViewed,
   trackHomeCtaClicked,
   trackHomeViewed,
   trackInspectorOpened,
@@ -126,6 +130,7 @@ import type {
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
+  InspectorErrorSignalSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
   MetadataActionPlacement,
@@ -177,13 +182,132 @@ type MenuItem = {
 
 // ── Launcher signals ──────────────────────────────────────────────────────
 //
-// The destination stays explicit so the unread marker is derived from the
-// same state as the launcher dot rather than being armed independently.
-const NEWS_SIGNAL_ID = "whats-new";
-const NEWS_SIGNAL_TONE = "news";
+// There is one dot on the closed launcher and more than one thing that can
+// claim it, so each subject is described once, here, and every call site reads
+// the description rather than hardcoding a subject.
+//
+// The rule for this table is **no field without a second consumer**. That is
+// why there is no lifecycle field (one value was ever used, and "never
+// persisted" is expressed by not persisting) and why the two destinations are
+// separate: the news signal genuinely marks one entry and lands on another.
+//
+// This reintroduces a small shared shape where an earlier generic version was
+// removed as speculative. That removal was correct at the time — the
+// abstraction had exactly one user. A second user now exists.
+//
+// **The two subjects beat by different rules, deliberately**: an error beats
+// once per outage, an announcement once per tab per announcement. That follows
+// from a recurring condition versus a one-time publication. Do not harmonise
+// them; harmonising breaks one of them.
+
+/** Tone drives colour only. The launcher treatment is shared by every tone. */
+type LauncherSignalTone = "news" | "error";
+
+/**
+ * The error keys ARE the telemetry enum, so a source can never be reported
+ * under a name the signal table does not describe.
+ */
+type LauncherSignalKey = "whats-new" | InspectorErrorSignalSource;
+
+type LauncherSignalDefinition = Readonly<{
+  tone: LauncherSignalTone;
+  /** Which navigation entry carries the marker while this signal is armed. */
+  markerTarget: MenuKey;
+  /** Where a press on the launcher opens while this signal owns the dot. */
+  landingTarget: MenuKey;
+  /** One beat's duration. Errors beat faster than product news. */
+  cadence: number;
+  /** Higher wins the single dot. Errors outrank news. */
+  priority: number;
+  /**
+   * Suffix appended to the marked navigation entry's accessible name, and —
+   * for error tones only — to the launcher's own accessible name. Never
+   * rendered as visible text: the dot says there is something to look at, and
+   * the panel says what.
+   */
+  accessibleLabel: string;
+}>;
+
+const NEWS_SIGNAL_ID = "whats-new" as const;
 const NEWS_SIGNAL_COLOR = "#A78BFA";
-const NEWS_SIGNAL_CADENCE_MS = 2100;
-const NEWS_SIGNAL_DESTINATION: MenuKey = WHATS_NEW_MENU_KEY;
+/**
+ * The error tone's red. Bright enough to read against the launcher's dark
+ * face at the same perceived weight as the news lilac, and in the same family
+ * as System Health's error tone (#b32d3b light / #ff9aa0 dark), which is too
+ * dark and too pale respectively to use directly on the launcher.
+ */
+const ERROR_SIGNAL_COLOR = "#F87171";
+
+const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
+  news: NEWS_SIGNAL_COLOR,
+  error: ERROR_SIGNAL_COLOR,
+};
+
+const LAUNCHER_SIGNALS: Readonly<
+  Record<LauncherSignalKey, LauncherSignalDefinition>
+> = {
+  // Marks What's new, lands on Home: Home carries the preview band that is
+  // the way onward. Unchanged from before this table existed.
+  "whats-new": {
+    tone: "news",
+    markerTarget: WHATS_NEW_MENU_KEY,
+    landingTarget: "home",
+    cadence: 2100,
+    priority: 0,
+    accessibleLabel: "new content",
+  },
+  // Errors mark and land on the same place, because the place that carries
+  // the marker is the place that explains the failure.
+  connection: {
+    tone: "error",
+    markerTarget: "home",
+    landingTarget: "home",
+    cadence: 1500,
+    priority: 2,
+    accessibleLabel: "runtime error",
+  },
+  threads: {
+    tone: "error",
+    markerTarget: "threads",
+    landingTarget: "threads",
+    cadence: 1500,
+    // Below the connection signal: a connection failure cascades into thread
+    // failures, so when both could be armed the root cause owns the dot.
+    priority: 1,
+    accessibleLabel: "thread loading error",
+  },
+};
+
+/** Highest priority first, so the winner of the single dot is the head. */
+const LAUNCHER_SIGNAL_PRIORITY_ORDER: ReadonlyArray<LauncherSignalKey> = (
+  Object.keys(LAUNCHER_SIGNALS) as LauncherSignalKey[]
+).sort((a, b) => LAUNCHER_SIGNALS[b].priority - LAUNCHER_SIGNALS[a].priority);
+
+/** The two error signals, in the shape the telemetry enum uses. */
+const ERROR_SIGNAL_KEYS = [
+  "connection",
+  "threads",
+] as const satisfies ReadonlyArray<InspectorErrorSignalSource>;
+
+/** Narrows a signal key to an error source, excluding the announcement. */
+function isErrorSignalKey(
+  key: LauncherSignalKey,
+): key is InspectorErrorSignalSource {
+  return key !== NEWS_SIGNAL_ID;
+}
+
+/**
+ * How long a failure has to persist before it arms anything. A blip that
+ * resolves inside this window produces neither dot nor beat, so a flaky
+ * network cannot train a developer to ignore the signal.
+ *
+ * Clearing is NOT settled: once armed, the dot follows the state immediately
+ * so the indicator never claims a problem that has already been fixed.
+ */
+const ERROR_SIGNAL_SETTLE_MS = 2000;
+
+/** The launcher's accessible name with nothing wrong. */
+const LAUNCHER_BASE_LABEL = "Web Inspector";
 
 type CoreStatusSummary = Readonly<{
   label: string;
@@ -5413,9 +5537,39 @@ export class WebInspectorElement extends LitElement {
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private newsSignalArmed = false;
-  private newsSignalPulsing = false;
-  private newsSignalPulsePending = false;
+  /** Which signal's beat is in flight, or null between beats. */
+  private pulsingSignal: LauncherSignalKey | null = null;
+  /**
+   * The single pending-beat slot. A beat that cannot land is deferred, never
+   * discarded — see `startSignalPulse` for the four reasons it cannot land.
+   */
+  private pendingPulseSignal: LauncherSignalKey | null = null;
   private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Per-source latches for the error signal, fed from the subscriptions that
+   * already exist rather than from the event history: the event buffer is
+   * bounded per agent and in total and evicts entries, so counting events
+   * could silently lose a live failure.
+   */
+  private readonly errorSignalArmed: Record<
+    InspectorErrorSignalSource,
+    boolean
+  > = { connection: false, threads: false };
+  /** In-flight settle timers, one per source. */
+  private readonly errorSignalSettleTimers: Map<
+    InspectorErrorSignalSource,
+    ReturnType<typeof setTimeout>
+  > = new Map();
+  /**
+   * Whether this outage has already had its beat. Global rather than
+   * per-source: a connection failure cascades into thread failures, so one
+   * root cause must not produce two nudges. Reset when nothing is red, which
+   * is what makes a resolved-then-recurring failure beat again.
+   */
+  private errorBeatSpent = false;
+  /** Per-outage dedup for `oss.inspector.error_signal_viewed`. */
+  private readonly errorSignalViewedSources: Set<InspectorErrorSignalSource> =
+    new Set();
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
@@ -6453,6 +6607,10 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
+    // A settle window that outlived its Core would re-check against a state
+    // that no longer exists. The latches themselves self-clear on the next
+    // update, because a detached Core reports "unavailable" rather than error.
+    this.cancelErrorSignalSettleTimers();
     this.inspectorMetadataValue = undefined;
     this.inspectorMetadataProjection = projectInspectorMetadata(
       undefined,
@@ -7899,10 +8057,15 @@ ${argsString}</pre
       }
 
       /*
-       * Unread marker on the navigation entry, which is what keeps the signal
-       * alive once the panel is open and the launcher is hidden. Static by
-       * design: the pulse belongs to the launcher, and movement here would
-       * compete with the live event stream a developer is actually watching.
+       * Marker on the navigation entry, which is what keeps a signal alive
+       * once the panel is open and the launcher is hidden. Static by design:
+       * the beat belongs to the launcher, and movement here would compete with
+       * the live event stream a developer is actually watching.
+       *
+       * Tone-selected rather than tone-agnostic, because the marker has to
+       * agree with the dot that sent the reader here. Same shape, same
+       * placement, one declaration different — as on the launcher, where the
+       * treatment is shared and only the injected colour changes.
        */
       .inspector-nav-signal-dot {
         display: inline-block;
@@ -7910,7 +8073,10 @@ ${argsString}</pre
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: ${unsafeCSS(NEWS_SIGNAL_COLOR)};
+        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.news)};
+      }
+      .inspector-nav-signal-dot[data-cpk-signal-tone="error"] {
+        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.error)};
       }
 
       /* ── Inspector window ────────────────────────────────────────── */
@@ -8273,12 +8439,9 @@ ${argsString}</pre
 
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
-    if (
-      document.visibilityState === "visible" &&
-      this.newsSignalPulsePending &&
-      !this.isOpen
-    ) {
-      this.startNewsSignalPulse();
+    // Flush point for defer reason 2: somebody is looking again.
+    if (document.visibilityState === "visible" && !this.isOpen) {
+      this.flushPendingSignalPulse();
     }
     this.requestUpdate();
   };
@@ -8314,7 +8477,8 @@ ${argsString}</pre
       this.threadsSetupPromptCopyResetTimeoutId = null;
     }
     this.threadsSetupPromptCopyState = "idle";
-    this.stopNewsSignalPulse();
+    this.stopSignalPulse();
+    this.cancelErrorSignalSettleTimers();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
@@ -8385,6 +8549,10 @@ ${argsString}</pre
   }
 
   protected willUpdate(): void {
+    // Before the render that paints the dot: every mutation of the underlying
+    // connection / thread state already requests an update, so mirroring the
+    // latches here keeps the resting dot in step with the state it reports.
+    this.evaluateErrorSignals();
     this.reconcileSelectedMenuVisibility();
     if (this.isOpen && this.dockMode === "docked-left") {
       this.setAttribute("data-docked", "true");
@@ -8398,6 +8566,7 @@ ${argsString}</pre
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
@@ -8480,10 +8649,14 @@ ${argsString}</pre
       this.isDragging ? "cursor-grabbing" : "cursor-pointer",
     ].join(" ");
 
-    const signalStyles = this.newsSignalArmed
+    // One dot, and the highest-priority armed signal owns it. Everything the
+    // launcher paints comes from that signal's description.
+    const activeSignal = this.getActiveLauncherSignal();
+    const signal = activeSignal ? LAUNCHER_SIGNALS[activeSignal] : null;
+    const signalStyles = signal
       ? {
-          "--cpk-launcher-signal": NEWS_SIGNAL_COLOR,
-          "--cpk-launcher-cadence": `${NEWS_SIGNAL_CADENCE_MS}ms`,
+          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
+          "--cpk-launcher-cadence": `${signal.cadence}ms`,
         }
       : {};
 
@@ -8492,14 +8665,32 @@ ${argsString}</pre
         <button
           class=${buttonClasses}
           type="button"
-          aria-label="Web Inspector"
+          aria-label=${
+            // The dot is decorative and hidden from assistive technology, and
+            // the accessible signal for an announcement lives on its
+            // navigation entry. A broken setup has no such entry until the
+            // panel is open, so the launcher itself has to name the failure
+            // class — otherwise a screen-reader user is the only user with no
+            // signal outside the panel.
+            signal && signal.tone === "error"
+              ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
+              : LAUNCHER_BASE_LABEL
+          }
           title=${
-            this.newsSignalArmed ? `${WHATS_NEW_VIEW_LABEL} — unread` : nothing
+            // Visible text, so it is offered for the announcement only. No
+            // error detail is rendered over the host application: a developer
+            // who ships the Inspector to production must not leak internal
+            // failure detail to their end users.
+            activeSignal === NEWS_SIGNAL_ID
+              ? `${WHATS_NEW_VIEW_LABEL} — unread`
+              : nothing
           }
           data-drag-context="button"
-          data-cpk-signal=${this.newsSignalArmed ? NEWS_SIGNAL_TONE : nothing}
+          data-cpk-signal=${signal ? signal.tone : nothing}
           data-cpk-signal-pulsing=${
-            this.newsSignalArmed && this.newsSignalPulsing ? "true" : nothing
+            activeSignal !== null && this.pulsingSignal === activeSignal
+              ? "true"
+              : nothing
           }
           style=${styleMap(signalStyles)}
           data-dragging=${
@@ -8520,18 +8711,18 @@ ${argsString}</pre
             loading="lazy"
           />
           ${
-            // Purely decorative: the button is the target and carries the
-            // hover hint, it keeps its stable accessible name, and the unread
-            // state is announced by the navigation entry, which is where a
-            // keyboard user arrives.
-            this.newsSignalArmed
+            // Purely decorative: the button is the target, it carries the
+            // hover hint and the accessible name, and an unread announcement
+            // is announced by its navigation entry, which is where a keyboard
+            // user arrives.
+            activeSignal !== null
               ? html`<span
                     class="cpk-launcher-signal-wash"
                     aria-hidden="true"
                   ></span>
                   <span
                     class="cpk-launcher-signal-dot"
-                    data-cpk-signal-dot=${NEWS_SIGNAL_ID}
+                    data-cpk-signal-dot=${activeSignal}
                     aria-hidden="true"
                   ></span>`
               : nothing
@@ -8577,7 +8768,6 @@ ${argsString}</pre
     automaticallyCollapsed: boolean,
     agentSelector: TemplateResult | typeof nothing,
   ) {
-    const unread = this.newsSignalArmed && this.announcementLoaded;
     const homeModel = this.getHomeModel();
     return html`
       <aside
@@ -8629,8 +8819,7 @@ ${argsString}</pre
                 }
                 ${items.map((item) => {
                   const isSelected = this.selectedMenu === item.key;
-                  const showBadge =
-                    item.key === NEWS_SIGNAL_DESTINATION && unread;
+                  const marker = this.getNavigationSignalFor(item.key);
                   return html`
                     <button
                       type="button"
@@ -8641,7 +8830,9 @@ ${argsString}</pre
                       data-inspector-menu-key=${item.key}
                       aria-current=${isSelected ? "page" : nothing}
                       aria-label=${
-                        showBadge ? `${item.label}, new content` : item.label
+                        marker
+                          ? `${item.label}, ${marker.accessibleLabel}`
+                          : item.label
                       }
                       data-inspector-tooltip=${item.label}
                       title=${iconRail ? nothing : item.label}
@@ -8669,9 +8860,13 @@ ${argsString}</pre
                       </span>
                       <span class="inspector-nav-label">${item.label}</span>
                       ${
-                        showBadge
+                        marker
                           ? html`
-                              <span class="inspector-nav-signal-dot" aria-hidden="true"></span>
+                              <span
+                                class="inspector-nav-signal-dot"
+                                data-cpk-signal-tone=${marker.tone}
+                                aria-hidden="true"
+                              ></span>
                             `
                           : nothing
                       }
@@ -10811,13 +11006,21 @@ ${argsString}</pre
     }
 
     const hadUnseenAnnouncement = this.newsSignalArmed;
+    // Captured from the pre-open state, exactly as the unread-announcement
+    // property is: after `isOpen` flips there is no launcher, so the question
+    // "was a signal on the launcher when this open happened" has no answer.
+    const activeSignalAtOpen = this.getActiveLauncherSignal();
     const firstOpen = !this.hasOpenedInspector;
     this.hasOpenedInspector = true;
     this.homeViewedThisOpen = false;
 
-    if (this.newsSignalArmed && source === "floating_button") {
-      this.selectedMenu = "home";
-      this.lastSelectedMenuByGroup.home = "home";
+    // A press on the launcher is a gesture towards whatever the dot is about,
+    // so it lands where that subject is explained. Restoring a persisted-open
+    // panel is not a gesture and deliberately does not route through here.
+    if (activeSignalAtOpen !== null && source === "floating_button") {
+      const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
+      this.selectedMenu = landing;
+      this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
     }
 
     this.ensureAnnouncementLoading();
@@ -10825,7 +11028,12 @@ ${argsString}</pre
     this.isOpen = true;
     this.persistState(); // Save the open state
 
-    this.trackOpened(source, hadUnseenAnnouncement, firstOpen);
+    this.trackOpened(
+      source,
+      hadUnseenAnnouncement,
+      firstOpen,
+      activeSignalAtOpen,
+    );
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -10859,7 +11067,8 @@ ${argsString}</pre
 
     this.isOpen = false;
 
-    if (this.newsSignalPulsePending) this.startNewsSignalPulse();
+    // Flush point for defer reason 1: there is a launcher again.
+    this.flushPendingSignalPulse();
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -12319,8 +12528,16 @@ ${argsString}</pre
     source: InspectorOpenSource,
     hadUnseenAnnouncement: boolean,
     firstOpen = false,
+    activeSignal: LauncherSignalKey | null = null,
   ): void {
     if (this.core?.telemetryDisabled) return;
+    // Two properties rather than one, so an open can be attributed to a red
+    // signal *and* to which failure class raised it. The failure message is
+    // never included — `error_signal_source` is a closed two-value enum.
+    const errorSignal =
+      activeSignal !== null && isErrorSignalKey(activeSignal)
+        ? activeSignal
+        : null;
     // `license_status` and `runtime_mode` come from /info. Before the handshake
     // `licenseStatus` is undefined and `runtimeMode` reads its `sse` default, so
     // recording them would permanently attribute an early open against an
@@ -12338,6 +12555,8 @@ ${argsString}</pre
         : {}),
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
+      has_error_signal: errorSignal !== null,
+      ...(errorSignal === null ? {} : { error_signal_source: errorSignal }),
       first_open: firstOpen,
     });
   }
@@ -16000,16 +16219,72 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  // ── Launcher signals ────────────────────────────────────────────────────
+
+  /** Whether a given subject currently has something to say. */
+  private isSignalArmed(key: LauncherSignalKey): boolean {
+    return isErrorSignalKey(key)
+      ? this.errorSignalArmed[key]
+      : this.newsSignalArmed;
+  }
+
+  /**
+   * The signal that owns the single launcher dot, or null when the launcher is
+   * quiet. Precedence rather than replacement: a suppressed signal stays armed
+   * and takes the dot as soon as the higher-priority one clears, and its own
+   * navigation marker is visible the whole time.
+   */
+  private getActiveLauncherSignal(): LauncherSignalKey | null {
+    for (const key of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
+      if (this.isSignalArmed(key)) return key;
+    }
+    return null;
+  }
+
+  /**
+   * The marker a navigation entry carries, or null for an unmarked entry.
+   *
+   * Markers are independent of the launcher's single dot, so a suppressed
+   * signal is never actually hidden once the panel is open. They also render
+   * on the entry that is *currently selected*: for the news signal that never
+   * mattered, because its marker clears as soon as the view renders, but a
+   * state mirror stays true while it is being read and suppressing it on the
+   * active entry would make it reappear on navigating away.
+   */
+  private getNavigationSignalFor(
+    key: MenuKey,
+  ): LauncherSignalDefinition | null {
+    for (const signalKey of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
+      const signal = LAUNCHER_SIGNALS[signalKey];
+      if (signal.markerTarget !== key) continue;
+      if (!this.isSignalArmed(signalKey)) continue;
+      // The announcement's marker waits for the feed, so a still-loading feed
+      // cannot mark an entry that has nothing to show yet.
+      if (signalKey === NEWS_SIGNAL_ID && !this.announcementLoaded) continue;
+      return signal;
+    }
+    return null;
+  }
+
+  /** Whether either error source is currently red. */
+  private hasArmedErrorSignal(): boolean {
+    return ERROR_SIGNAL_KEYS.some((source) => this.errorSignalArmed[source]);
+  }
+
+  private isReducedMotionPreferred(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+    );
+  }
+
   // ── What's new launcher signal ──────────────────────────────────────────
 
   private armNewsSignal(options: { pulse: boolean }): void {
     const wasArmed = this.newsSignalArmed;
     this.newsSignalArmed = true;
-    if (options.pulse && this.isOpen) {
-      this.newsSignalPulsePending = true;
-      if (!wasArmed) this.requestUpdate();
-    } else if (options.pulse) {
-      this.startNewsSignalPulse();
+    if (options.pulse) {
+      this.startSignalPulse(NEWS_SIGNAL_ID);
     } else if (!wasArmed) {
       this.requestUpdate();
     }
@@ -16018,50 +16293,276 @@ ${prettyEvent}</pre
   private clearNewsSignal(): void {
     if (!this.newsSignalArmed) return;
     this.newsSignalArmed = false;
-    this.newsSignalPulsePending = false;
     if (this.announcementTimestamp) {
       saveAnnouncementReadTimestamp(this.announcementTimestamp);
     }
-    if (this.newsSignalPulsing) this.stopNewsSignalPulse();
+    this.retireSignal(NEWS_SIGNAL_ID);
     this.requestUpdate();
   }
 
-  private startNewsSignalPulse(): void {
-    this.stopNewsSignalPulse();
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState !== "visible"
-    ) {
-      this.newsSignalPulsePending = true;
+  // ── The beat ────────────────────────────────────────────────────────────
+
+  /**
+   * Requests one beat for a signal, running it now or deferring it.
+   *
+   * There is a single pending slot and four reasons a beat cannot land. All
+   * four are the same situation — "cannot land now, run later" — and treating
+   * them alike is the point: three separate behaviours for one situation would
+   * not survive a third signal.
+   *
+   * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
+   * the animation, because the attribute it binds to does not change value and
+   * the pseudo-element selectors match on attribute *presence*; the running
+   * beat would merely change colour mid-flight. With the settle window landing
+   * a failure near the end of an announcement beat, the failure's beat would
+   * otherwise be reduced to its final fraction.
+   */
+  private startSignalPulse(key: LauncherSignalKey): void {
+    const deferred =
+      // 1. The panel is open, so there is no visible launcher. Pop-out is the
+      //    same case: the host page renders only a portal anchor.
+      this.isOpen ||
+      // 2. Nobody is looking.
+      (typeof document !== "undefined" &&
+        document.visibilityState !== "visible") ||
+      // 3. Another beat is already running.
+      (this.pulsingSignal !== null && this.pulsingSignal !== key) ||
+      // 4. Another signal currently owns the dot.
+      this.getActiveLauncherSignal() !== key;
+
+    if (deferred) {
+      // One slot, and the more urgent beat keeps it. A lower-priority beat must
+      // not evict a nudge about something worse — and it would fail the
+      // re-check on the way out anyway, because it is not the active signal.
+      // The evicted beat is not lost for good: its once-per-subject token is
+      // still unspent, so it is offered again the next time it arms.
+      const pending = this.pendingPulseSignal;
+      if (
+        pending === null ||
+        LAUNCHER_SIGNALS[key].priority >= LAUNCHER_SIGNALS[pending].priority
+      ) {
+        this.pendingPulseSignal = key;
+      }
       this.requestUpdate();
       return;
     }
-    this.newsSignalPulsePending = false;
-    this.newsSignalPulsing = true;
-    if (this.announcementTimestamp) {
+
+    this.stopSignalPulse();
+    this.pendingPulseSignal = null;
+    this.pulsingSignal = key;
+    // The once-per-subject token is written HERE, where the beat actually
+    // runs — never when a signal arms. Spending it on arming would burn a
+    // deferred beat unfired.
+    if (isErrorSignalKey(key)) {
+      this.errorBeatSpent = true;
+    } else if (this.announcementTimestamp) {
       saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
     }
     this.requestUpdate();
     if (typeof window === "undefined") return;
     this.pulseTimeoutId = setTimeout(() => {
       this.pulseTimeoutId = null;
-      this.newsSignalPulsing = false;
+      this.pulsingSignal = null;
       this.requestUpdate();
-    }, NEWS_SIGNAL_CADENCE_MS);
+      // Reason 3 has just cleared.
+      this.flushPendingSignalPulse();
+    }, LAUNCHER_SIGNALS[key].cadence);
   }
 
-  private stopNewsSignalPulse(): void {
+  private stopSignalPulse(): void {
     if (this.pulseTimeoutId !== null) {
       clearTimeout(this.pulseTimeoutId);
       this.pulseTimeoutId = null;
     }
-    this.newsSignalPulsing = false;
+    this.pulsingSignal = null;
+  }
+
+  /**
+   * Runs a deferred beat if it can land now, and drops it if its reason to
+   * exist has gone: a nudge about a problem that no longer exists is worse
+   * than no nudge at all.
+   */
+  private flushPendingSignalPulse(): void {
+    const key = this.pendingPulseSignal;
+    if (key === null) return;
+    if (!this.isSignalArmed(key)) {
+      this.pendingPulseSignal = null;
+      this.requestUpdate();
+      return;
+    }
+    this.startSignalPulse(key);
+  }
+
+  /** Drops a signal's beat, running or pending, when the signal goes quiet. */
+  private retireSignal(key: LauncherSignalKey): void {
+    if (this.pendingPulseSignal === key) this.pendingPulseSignal = null;
+    if (this.pulsingSignal === key) this.stopSignalPulse();
+    // A suppressed signal may now own the dot.
+    this.flushPendingSignalPulse();
+  }
+
+  // ── Error signal ────────────────────────────────────────────────────────
+
+  /**
+   * Whether each error source is *raw* broken, before the settle window.
+   *
+   * Only two conditions qualify. Notably absent:
+   *
+   * - **A failed agent run.** The launcher dot is a state indicator and a
+   *   failed run is an event; putting an event on a state indicator means
+   *   either lying (it stays after the fact) or flickering (it clears on the
+   *   next run). System Health on Home already reports failed runs, which is a
+   *   latest-activity readout — a different job on a different surface. An
+   *   hour of iteration also produces many failed runs, and a signal that is
+   *   usually on carries no information.
+   * - **The core error channel.** This looks like an omission and is not: that
+   *   channel is dominated by run failures (a tool threw, a tool was not
+   *   found, arguments were unparseable, an agent was not found, a run failed,
+   *   a thread was locked). Its one wiring-class code is the runtime-info
+   *   handshake failure, and that path sets the connection state to error in
+   *   the same block — so subscribing would re-admit exactly the run failures
+   *   excluded above in exchange for nothing new.
+   * - **Memory failures.** The memory store's subscription is deliberately
+   *   lazy, because creating it opens a realtime connection. The state is
+   *   therefore unobservable until the Learning view has been opened once, and
+   *   an indicator that only sometimes knows the state is not an incomplete
+   *   feature but a false statement.
+   * - **Product states.** An unconfigured Intelligence and an unentitled
+   *   Memory plan are not defects. The signal fires only where wiring is
+   *   present and the call still fails — which for threads is guaranteed by
+   *   `_threadsErrorByAgent` only ever being written while the thread
+   *   endpoints are available.
+   *
+   * Known limitation: the runtime handshake runs once, on connect. A server
+   * that dies *after* the page loaded leaves the connection state at connected
+   * and raises nothing; the next page load re-runs the handshake and the
+   * signal appears then. The signal reports the wiring state as last
+   * established. Closing that gap means a re-probe in the core, which is a
+   * runtime concern.
+   */
+  private isErrorSourceBroken(source: InspectorErrorSignalSource): boolean {
+    if (source === "connection") {
+      // The same derivation System Health reads, so the launcher dot is red
+      // exactly when System Health says the runtime needs attention. A second
+      // evaluation here could drift from it.
+      return runtimeConnectionNeedsAttention(this.getCoreStatusSummary().state);
+    }
+    return this._threadsErrorByAgent.size > 0;
+  }
+
+  /**
+   * Mirrors both error latches onto the live state. Called from `willUpdate`,
+   * because every mutation of the underlying state already requests an update,
+   * so the resting dot follows the state within the same render.
+   */
+  private evaluateErrorSignals(): void {
+    const wasArmed = this.hasArmedErrorSignal();
+
+    for (const source of ERROR_SIGNAL_KEYS) {
+      const broken = this.isErrorSourceBroken(source);
+      if (broken) {
+        if (this.errorSignalArmed[source]) continue;
+        // Already waiting out the settle window for this source.
+        if (this.errorSignalSettleTimers.has(source)) continue;
+        if (typeof window === "undefined") continue;
+        this.errorSignalSettleTimers.set(
+          source,
+          setTimeout(() => {
+            this.errorSignalSettleTimers.delete(source);
+            // Re-check: the window exists precisely so a failure that healed
+            // inside it produces nothing.
+            if (!this.isErrorSourceBroken(source)) return;
+            const wasArmedBeforeThisSource = this.hasArmedErrorSignal();
+            this.errorSignalArmed[source] = true;
+            this.onErrorSignalsChanged(wasArmedBeforeThisSource);
+            this.requestUpdate();
+          }, ERROR_SIGNAL_SETTLE_MS),
+        );
+        continue;
+      }
+
+      const settling = this.errorSignalSettleTimers.get(source);
+      if (settling !== undefined) {
+        clearTimeout(settling);
+        this.errorSignalSettleTimers.delete(source);
+      }
+      if (!this.errorSignalArmed[source]) continue;
+      // Clearing is immediate and needs no user action: the indicator must
+      // never say things are fine while the app is broken, and must never say
+      // the app is broken once it is fixed.
+      this.errorSignalArmed[source] = false;
+      this.errorSignalViewedSources.delete(source);
+      this.retireSignal(source);
+    }
+
+    this.onErrorSignalsChanged(wasArmed);
+  }
+
+  /**
+   * Applies the rising-edge rule after a latch changed.
+   *
+   * The beat fires on the transition from "no failure" to "at least one
+   * failure", evaluated globally across the sources and never again while
+   * anything is red — one root cause, one nudge.
+   */
+  private onErrorSignalsChanged(wasArmed: boolean): void {
+    const isArmed = this.hasArmedErrorSignal();
+    if (!isArmed) {
+      // Nothing is red, so the next outage is a new outage.
+      this.errorBeatSpent = false;
+      return;
+    }
+    if (wasArmed || this.errorBeatSpent) return;
+    const active = this.getActiveLauncherSignal();
+    if (active !== null && isErrorSignalKey(active)) {
+      this.startSignalPulse(active);
+    }
+  }
+
+  private cancelErrorSignalSettleTimers(): void {
+    for (const timer of this.errorSignalSettleTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.errorSignalSettleTimers.clear();
+  }
+
+  /**
+   * Records `oss.inspector.error_signal_viewed` once per source per outage,
+   * when the dot is actually on screen.
+   *
+   * Unlike the announcement's launcher event this fires immediately rather
+   * than waiting for the runtime handshake to report `telemetryDisabled`.
+   * The held-queue would never drain for the connection source — a connection
+   * failure means the handshake did not complete — so queuing would guarantee
+   * zero data for the case this event exists to measure. `trackOpened` already
+   * sends on the same terms. Both opt-out layers still gate it: the local
+   * opt-out inside `track`, and the runtime's flag once it is known.
+   */
+  private maybeTrackErrorSignalViewed(): void {
+    if (
+      this.isOpen ||
+      typeof document === "undefined" ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    const active = this.getActiveLauncherSignal();
+    if (active === null || !isErrorSignalKey(active)) return;
+    if (this.errorSignalViewedSources.has(active)) return;
+    if (this.core?.telemetryDisabled) return;
+    this.errorSignalViewedSources.add(active);
+    trackErrorSignalViewed({
+      source: active,
+      presentation: this.isReducedMotionPreferred()
+        ? "reduced_motion"
+        : "animated",
+    });
   }
 
   private maybeTrackNewsSignalViewed(): void {
     if (
       !this.newsSignalArmed ||
-      !this.newsSignalPulsing ||
+      this.pulsingSignal !== NEWS_SIGNAL_ID ||
       this.isOpen ||
       typeof document === "undefined" ||
       document.visibilityState !== "visible"

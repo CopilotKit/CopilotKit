@@ -1325,7 +1325,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
 
           const launcher =
             inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-              'button[aria-label="Web Inspector"]',
+              'button[aria-label^="Web Inspector"]',
             );
           expect(launcher, `${key}: launcher`).toBeDefined();
           launcher?.click();
@@ -1371,6 +1371,21 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
             expect(inspectorText(inspector), `${key}: health state`).toContain(
               "Needs attention",
             );
+            // A failed run is an EVENT, and the launcher's signal is a STATE
+            // indicator: an hour of iteration produces many failed runs, and a
+            // signal that is usually on carries no information. System Health
+            // reports it, above; nothing outside the panel does.
+            expect(
+              collectDeep(
+                inspector.shadowRoot!,
+                '.inspector-nav-signal-dot[data-cpk-signal-tone="error"]',
+              ),
+              `${key}: run error raises no error signal`,
+            ).toHaveLength(0);
+            expect(
+              collectDeep(inspector.shadowRoot!, '[data-cpk-signal="error"]'),
+              `${key}: run error raises no launcher error tone`,
+            ).toHaveLength(0);
           }
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
