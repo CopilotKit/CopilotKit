@@ -5,12 +5,14 @@ repository: https://github.com/CopilotKit/CopilotKit
 homepage: https://www.copilotkit.ai
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: ">=3.10.0"
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  ag_ui: ^0.3.0
+  widgetbook: ^3.0.0
 
 dev_dependencies:
   flutter_test:

@@ -32,6 +32,22 @@ flutter analyze      # run static analysis
 flutter test         # run tests
 ```
 
+## Widgetbook
+
+Components are showcased with [Widgetbook](https://widgetbook.io). The
+catalog entry point is [`widgetbook/main.dart`](widgetbook/main.dart) (empty
+for now). Run it locally with:
+
+```bash
+flutter run -t widgetbook/main.dart          # native
+flutter run -t widgetbook/main.dart -d chrome # web
+```
+
+On every push to `flutter/main`, the
+[`flutter / widgetbook`](../../.github/workflows/flutter_widgetbook.yml)
+GitHub Actions workflow builds the Widgetbook as a Flutter web app and
+publishes it to the `gh-pages` branch for GitHub Pages.
+
 ## License
 
 MIT — see the repository root [`LICENSE`](../../LICENSE).

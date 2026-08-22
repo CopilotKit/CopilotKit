@@ -1,0 +1,61 @@
+name: flutter / widgetbook
+
+# Builds the CopilotKit Flutter Widgetbook (community/flutter) as a Flutter
+# web app and publishes it to the `gh-pages` branch, which GitHub Pages serves.
+
+on:
+  push:
+    branches: [flutter/main]
+    paths:
+      - "community/flutter/**"
+      - ".github/workflows/flutter_widgetbook.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    name: Build & deploy Widgetbook
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Required for peaceiris/actions-gh-pages to push to the gh-pages branch.
+      contents: write
+    defaults:
+      run:
+        working-directory: community/flutter
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Widgetbook (web)
+        # GITHUB_REPOSITORY is a runner-provided env var (owner/repo); stripping
+        # the owner yields the repo name used as the GitHub Pages base path.
+        run: |
+          flutter build web \
+            --release \
+            --target widgetbook/main.dart \
+            --base-href "/${GITHUB_REPOSITORY#*/}/"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e # v4.0.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: community/flutter/build/web
+          publish_branch: gh-pages
