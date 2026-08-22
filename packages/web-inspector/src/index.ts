@@ -296,6 +296,21 @@ const ERROR_GESTURE_MS = {
 const RUNTIME_ERROR_LABEL = "Runtime error";
 const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
 
+/**
+ * The pill's second line, shared by every subject that carries a pill.
+ *
+ * **This is the one string in the feature that exists nowhere else in the
+ * product.** Every other word the launcher shows is word-identical to the
+ * panel, which is the standing rule; this line is a deliberate, owner-approved
+ * exception to it, because the pill became clickable and an invitation that
+ * says nothing is not an invitation.
+ *
+ * It is shown, never spoken: the polite live region carries the failure class
+ * alone. A screen-reader user cannot act on an instruction delivered through
+ * an announcement, and it would double the spoken length.
+ */
+const PILL_SUBLINE_LABEL = "Open Inspector for details";
+
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
 > = {
@@ -7587,6 +7602,13 @@ ${argsString}</pre
       .console-button-wrapper {
         position: relative;
         display: inline-flex;
+        /* The launcher's surface and edge, shared by the button and the pill so
+           the two cannot drift apart. A dark grey rather than near-black: the
+           launcher sits on a customer's page, and 1,5,7 against white is a
+           harder edge than this surface needs. */
+        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
+        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
            Percentages resolve against the padding box, which the 1px border
@@ -8003,14 +8025,14 @@ ${argsString}</pre
 
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
-        background-color: rgba(1, 5, 7, 0.95) !important;
-        border-color: rgba(190, 194, 255, 0.25) !important;
+        background-color: var(--cpk-launcher-face) !important;
+        border-color: var(--cpk-launcher-edge) !important;
         box-shadow:
           0 0 0 1px rgba(190, 194, 255, 0.15),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
       }
       .console-button:hover {
-        background-color: rgba(1, 5, 7, 1) !important;
+        background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
       }
       .console-button:focus-visible {
@@ -8028,7 +8050,6 @@ ${argsString}</pre
        * that forces a repaint every frame is not acceptable.
        */
       .console-button[data-cpk-signal] {
-        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
         isolation: isolate;
       }
 
@@ -8156,7 +8177,14 @@ ${argsString}</pre
        *
        * The launcher's own face and border are repeated here so the two form
        * one capsule: the button paints last and therefore on top, with no
-       * z-index needed.
+       * z-index needed. The mark's own ring and shadow are deliberately left
+       * alone for the whole gesture — the circle's outline staying visible
+       * inside the open pill was looked at against the alternative and kept.
+       *
+       * A column, not a row: the pill carries a heading and a subline stacked,
+       * centred against a height that does not change. "justify-content"
+       * centres the pair vertically and "align-items" keeps both lines flush
+       * left, so the pill never grows taller than the launcher it opens from.
        */
       .cpk-launcher-pill {
         position: absolute;
@@ -8164,57 +8192,115 @@ ${argsString}</pre
         margin-top: calc(var(--cpk-launcher-size) / -2);
         height: var(--cpk-launcher-size);
         display: inline-flex;
-        align-items: center;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1px;
         box-sizing: border-box;
         border-radius: 999px;
-        border: 1px solid
-          color-mix(in srgb, var(--cpk-launcher-signal) 45%, transparent);
-        background: rgba(1, 5, 7, 0.95);
+        border: 1px solid var(--cpk-launcher-edge);
+        background: var(--cpk-launcher-face);
         color: #ffffff;
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1;
         white-space: nowrap;
         pointer-events: none;
         opacity: 0;
       }
 
+      /* The failure class, word-identical to the panel's own wording. */
+      .cpk-launcher-pill__heading {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      /*
+       * The one line of copy in this feature that exists nowhere else in the
+       * product. The heading above is word-identical to the panel, which is
+       * the standing rule; this line is a deliberate, owner-approved exception
+       * to it, because the pill is now clickable and has to say so.
+       *
+       * It is NOT spoken. A screen-reader user cannot act on an instruction
+       * delivered through an announcement, and it would double the spoken
+       * length — so the live region carries the failure class alone.
+       */
+      .cpk-launcher-pill__subline {
+        font-size: 10.5px;
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.72;
+      }
+
       /*
        * Two directions, one animation with the inset on the other side. The
        * padding on the launcher's side clears the mark, so the words never sit
-       * under it.
+       * under it. The text-side padding is derived from the capsule's radius
+       * (half the launcher size), NOT a bare literal: padding is measured from
+       * the bounding box, but the first half-height of that side is the rounded
+       * cap. Half the size lands the text exactly where the cap ends and the
+       * straight edge begins. A literal 14px put it 16px inside the curve at the
+       * production launcher size, which is itself a clamp on the viewport.
        */
       .cpk-launcher-pill[data-cpk-pill-direction="left"] {
         right: 0;
-        padding: 0 calc(var(--cpk-launcher-size) + 2px) 0 14px;
+        padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
+          calc(var(--cpk-launcher-size) / 2);
         clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
       }
       .cpk-launcher-pill[data-cpk-pill-direction="right"] {
         left: 0;
-        padding: 0 14px 0 calc(var(--cpk-launcher-size) + 2px);
+        padding: 0 calc(var(--cpk-launcher-size) / 2) 0
+          calc(var(--cpk-launcher-size) + 12px);
         clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
       }
 
+      /*
+       * "round" on both stops, so the revealing edge is the capsule's own
+       * rounded end travelling sideways rather than a straight vertical line
+       * wiping across it. An unrounded inset reads as a wipe; this reads as an
+       * opening. It adds no animated property: the clip is still the clip.
+       */
       @keyframes cpk-launcher-pill-left {
         0% {
           opacity: 0;
-          clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
+          clip-path: inset(
+            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
+          );
         }
         100% {
           opacity: 1;
-          clip-path: inset(0 0 0 0);
+          clip-path: inset(0 0 0 0 round 999px);
         }
       }
 
       @keyframes cpk-launcher-pill-right {
         0% {
           opacity: 0;
-          clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
+          clip-path: inset(
+            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
+          );
         }
         100% {
           opacity: 1;
-          clip-path: inset(0 0 0 0);
+          clip-path: inset(0 0 0 0 round 999px);
         }
+      }
+
+      /*
+       * The pill takes the pointer exactly while it is on screen, so the
+       * instruction it now carries is honest: a click on it opens the
+       * Inspector, the same action as pressing the mark. During the beat the
+       * clip covers only the mark itself, and a click target nobody can see
+       * over someone else's page is not something to ship — so the base rule
+       * keeps "pointer-events: none" and only the three visible phases take it
+       * back.
+       * The button paints last and therefore wins the pointer where the two
+       * overlap, so dragging the launcher is unaffected throughout.
+       */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        pointer-events: auto;
+        cursor: pointer;
       }
 
       /* Closing is the same animation played backwards, so the two phases can
@@ -9027,10 +9113,36 @@ ${argsString}</pre
           "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
         })}
         aria-hidden="true"
-        >${label}</span
+        @click=${this.handlePillClick}
       >
+        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
+          >${label}</span
+        >
+        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
+          >${PILL_SUBLINE_LABEL}</span
+        >
+      </span>
     `;
   }
+
+  /**
+   * A click on the pill opens the Inspector, exactly as pressing the mark
+   * does — reusing the launcher's own open source, so the telemetry catalogue
+   * is untouched and the two paths cannot be told apart downstream.
+   *
+   * Deliberately NOT focusable and deliberately not in the tab order: the
+   * launcher beside it is already a focusable control for this same action,
+   * and a second tab stop for one action is a regression. The pill stays
+   * `aria-hidden` and this handler is a pointer affordance only.
+   *
+   * The gesture ends with the open, because `openInspector` cancels the tail —
+   * the panel is over the launcher, so there is nothing left to reveal.
+   */
+  private handlePillClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openInspector("floating_button");
+  };
 
   /** Render a trusted action with optional context-specific copy. */
   private renderInspectorAction(

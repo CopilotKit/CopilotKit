@@ -56,8 +56,37 @@ const GESTURE_MS = ERROR_BEAT_MS + PILL_OPEN_MS + PILL_HOLD_MS + PILL_CLOSE_MS;
 const RUNTIME_ERROR_WORDS = "Runtime error";
 const THREADS_ERROR_WORDS = "Failed to load threads";
 
+/**
+ * The pill's second line: the one string in this feature that appears nowhere
+ * else in the product, and the only one that is shown without being spoken.
+ */
+const PILL_SUBLINE_WORDS = "Open Inspector for details";
+
 /** The launcher's rendered diameter at the suite's viewport. */
 const LAUNCHER_SIZE = 52;
+
+/** The margin the pill keeps between itself and the window edge. */
+const EDGE_MARGIN = 16;
+
+/**
+ * The pill's natural width at its widest label, as the direction logic would
+ * measure it. jsdom lays nothing out — every rect is zero — so this is stubbed
+ * rather than measured; see `stubGeometry`.
+ *
+ * It grew when the pill did: the mark-side padding went from `+2px` to `+12px`,
+ * and the subline is now the widest line in it rather than the failure class.
+ * It moved again when the text-side padding stopped being a literal and the two
+ * lines grew a point: padding is measured from the bounding box, but the first
+ * half-height of that side is the rounded cap, so a bare 14px left the text
+ * sitting inside the curve. That side is now exactly `size / 2` — the radius —
+ * which lands the text where the cap ends, i.e. 26 at this harness's launcher
+ * size of 52.
+ * Checked against a real browser at 12px/10.5px: 26 text-side padding +
+ * 130 subline + 64 mark-side padding + 2 border. The threshold at which neither
+ * side has room moved with it, which is what the two tests either side of
+ * `TIGHTEST_FIT` pin down.
+ */
+const PILL_WIDTH = 222;
 
 const ENABLED_ENDPOINTS = {
   list: true,
@@ -237,9 +266,23 @@ function pillSubject(inspector: WebInspectorElement): string | null {
   return pill(inspector)?.getAttribute("data-cpk-launcher-pill") ?? null;
 }
 
-/** The words the pill carries, or null when there is no pill. */
-function pillText(inspector: WebInspectorElement): string | null {
-  const text = pill(inspector)?.textContent?.trim();
+/** The pill's first line — the failure class — or null when there is no pill. */
+function pillHeading(inspector: WebInspectorElement): string | null {
+  return lineText(inspector, "heading");
+}
+
+/** The pill's second line, which invites the click that now works. */
+function pillSubline(inspector: WebInspectorElement): string | null {
+  return lineText(inspector, "subline");
+}
+
+function lineText(
+  inspector: WebInspectorElement,
+  line: "heading" | "subline",
+): string | null {
+  const text = pill(inspector)
+    ?.querySelector(`[data-cpk-pill-${line}]`)
+    ?.textContent?.trim();
   return text === undefined || text === "" ? null : text;
 }
 
@@ -1076,12 +1119,13 @@ test("nothing stays over the host application once the gesture has finished", as
   // the pill carries a fixed failure *class*, never a message.
   expect(button.getAttribute("title")).toBeNull();
 
-  // Mid-gesture the pill is on the page and says its piece. Twice over, and
-  // only twice: once visibly on the pill and once in the live region, which
-  // are the same words by design.
+  // Mid-gesture the pill is on the page and says its piece: the failure class
+  // twice over and only twice — once visibly on the pill and once in the live
+  // region, which are the same words by design — plus the pill's second line,
+  // which is shown and never spoken.
   await context.advance(ERROR_BEAT_MS + PILL_OPEN_MS);
   expect(renderedText(context.inspector)).toBe(
-    `${RUNTIME_ERROR_WORDS} ${RUNTIME_ERROR_WORDS}`,
+    `${RUNTIME_ERROR_WORDS} ${PILL_SUBLINE_WORDS} ${RUNTIME_ERROR_WORDS}`,
   );
 
   // Afterwards nothing of it remains — not the pill, and not the sentence in
@@ -1126,7 +1170,7 @@ test("a failure opens exactly one pill, after the beat, with the source's words"
   expect(pulsing(context.inspector)).toBe(false);
   expect(pillPhase(context.inspector)).toBe("opening");
   expect(pillSubject(context.inspector)).toBe("connection");
-  expect(pillText(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(pillHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
 
   await context.advance(PILL_OPEN_MS);
   expect(pillPhase(context.inspector)).toBe("holding");
@@ -1148,7 +1192,115 @@ test("a thread failure's pill carries the Threads view's own words", async () =>
   await context.advance(SETTLE_MS + ERROR_BEAT_MS);
 
   expect(pillSubject(context.inspector)).toBe("threads");
-  expect(pillText(context.inspector)).toBe(THREADS_ERROR_WORDS);
+  expect(pillHeading(context.inspector)).toBe(THREADS_ERROR_WORDS);
+});
+
+// ── Two lines, one pill height ────────────────────────────────────────────
+
+test("the pill stacks the failure class over the invitation to open", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+
+  // The heading is the panel's own wording; the subline is the one line of
+  // copy in this feature that exists nowhere else in the product, and it is
+  // there because the pill is clickable and has to say so.
+  expect(pillHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(pillSubline(context.inspector)).toBe(PILL_SUBLINE_WORDS);
+});
+
+test("every subject's pill carries the same subline", async () => {
+  const context = await setup({
+    endpoints: ENABLED_ENDPOINTS,
+    listFails: true,
+  });
+  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+
+  // Shared, not per-source: the invitation is about the control, not about
+  // which thing broke.
+  expect(pillHeading(context.inspector)).toBe(THREADS_ERROR_WORDS);
+  expect(pillSubline(context.inspector)).toBe(PILL_SUBLINE_WORDS);
+});
+
+test("the second line does not make the pill taller than the launcher", async () => {
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+  const pillRule = /\.cpk-launcher-pill\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+
+  // Two lines inside an unchanged height: a column, centred, with the pill's
+  // height still pinned to the launcher's own diameter. Growing the pill
+  // vertically would break the capsule it forms with the mark.
+  expect(pillRule).toContain("height: var(--cpk-launcher-size)");
+  expect(pillRule).toContain("flex-direction: column");
+  expect(pillRule).toContain("justify-content: center");
+  expect(pillRule).toContain("gap: 1px");
+  expect(pillRule).not.toContain("min-height");
+
+  // The two lines are typographically distinct, and the subline recedes.
+  const heading =
+    /\.cpk-launcher-pill__heading\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  const subline =
+    /\.cpk-launcher-pill__subline\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  expect(heading).toContain("font-size: 12px");
+  expect(heading).toContain("line-height: 1.2");
+  expect(subline).toContain("font-size: 10.5px");
+  expect(subline).toContain("line-height: 1.2");
+  expect(subline).toContain("font-weight: 500");
+  expect(subline).toContain("opacity: 0.72");
+});
+
+test("the pill's text is held off its own border and clear of the mark", async () => {
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+
+  // Both directions, because the mark is on the other end in each: the text
+  // side gets room so the words do not sit against the border, and the mark
+  // side clears the circle with room to spare. Widening the pill moves the
+  // threshold at which neither side has room — see PILL_WIDTH.
+  //
+  // The text side must stay derived from the capsule's radius rather than a
+  // literal. Padding is measured from the bounding box, but the first
+  // half-height of that side is the rounded cap, so a bare 14px put the words
+  // 16px inside the curve at the production launcher size. Asserted as an
+  // expression so a later "simplification" back to a literal fails here.
+  for (const direction of ["left", "right"]) {
+    const rule =
+      new RegExp(
+        `\\.cpk-launcher-pill\\[data-cpk-pill-direction="${direction}"\\]\\s*\\{([\\s\\S]*?)\\}`,
+      ).exec(css)?.[1] ?? "";
+    expect(rule).toContain("calc(var(--cpk-launcher-size) / 2)");
+    expect(rule).toContain("calc(var(--cpk-launcher-size) + 12px)");
+    expect(rule).not.toMatch(/(^|[^-\d])14px/);
+  }
+});
+
+test("the pill and the launcher share one surface and one edge", async () => {
+  // The pill used to carry a red-tinted border of its own, which read as a
+  // second object rather than the launcher opening. Both now resolve the same
+  // two custom properties, declared once on the wrapper, so they cannot drift
+  // apart in a later edit. Asserted as the token, not the colour: the value is
+  // allowed to change, the sharing is not.
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+
+  const wrapper =
+    /\.console-button-wrapper\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  expect(wrapper).toContain("--cpk-launcher-face:");
+  expect(wrapper).toContain("--cpk-launcher-edge:");
+
+  // The selector appears more than once — a base rule for geometry and a brand
+  // override for colour — so gather every block rather than the first.
+  const allBlocks = (selector: RegExp): string =>
+    [...css.matchAll(selector)].map((match) => match[1] ?? "").join("\n");
+
+  const buttonRules = allBlocks(/\.console-button\s*\{([\s\S]*?)\}/g);
+  expect(buttonRules).toContain("var(--cpk-launcher-face)");
+  expect(buttonRules).toContain("var(--cpk-launcher-edge)");
+
+  const pillRules = allBlocks(/\.cpk-launcher-pill\s*\{([\s\S]*?)\}/g);
+  expect(pillRules).toContain("var(--cpk-launcher-face)");
+  expect(pillRules).toContain("var(--cpk-launcher-edge)");
+  expect(pillRules).not.toContain("color-mix");
 });
 
 test("the pill repeats the words the panel itself uses", async () => {
@@ -1157,7 +1309,7 @@ test("the pill repeats the words the panel itself uses", async () => {
   const context = await setup();
   await armConnectionFailure(context);
   await context.advance(ERROR_BEAT_MS);
-  const words = required(pillText(context.inspector), "runtime pill");
+  const words = required(pillHeading(context.inspector), "runtime pill");
 
   await context.press(launcher(context.inspector));
   expect(currentMenu(context.inspector)).toBe("home");
@@ -1206,7 +1358,7 @@ test("a resolved-and-recurring failure opens a second pill", async () => {
   await armConnectionFailure(context);
   await context.advance(ERROR_BEAT_MS);
   expect(pillOpen(context.inspector)).toBe(true);
-  expect(pillText(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(pillHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
 });
 
 test("a failure resolving mid-beat leaves the beat to finish and opens no pill", async () => {
@@ -1303,7 +1455,11 @@ test("clearing a failure announces nothing and opens no pill", async () => {
 test("the pill opens left when there is room to the left", async () => {
   const context = await setup();
   // Anchored top-right with the whole window to its left.
-  stubGeometry({ launcherLeft: 1200, pillWidth: 190, viewportWidth: 1280 });
+  stubGeometry({
+    launcherLeft: 1200,
+    pillWidth: PILL_WIDTH,
+    viewportWidth: 1280,
+  });
   await armConnectionFailure(context);
   await context.advance(ERROR_BEAT_MS);
 
@@ -1316,19 +1472,23 @@ test("the pill opens right when the launcher sits too close to the left edge", a
   const context = await setup();
   // Dragged to the left corner, where a leftward pill needs far more room than
   // exists — permanently, because the position persists.
-  stubGeometry({ launcherLeft: 16, pillWidth: 190, viewportWidth: 1280 });
+  stubGeometry({
+    launcherLeft: 16,
+    pillWidth: PILL_WIDTH,
+    viewportWidth: 1280,
+  });
   await armConnectionFailure(context);
   await context.advance(ERROR_BEAT_MS);
 
   expect(pillDirection(context.inspector)).toBe("right");
   expect(pillOpen(context.inspector)).toBe(true);
-  expect(pillText(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(pillHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
 });
 
 test("neither side having room leaves the dot and the beat untouched, and no pill", async () => {
   const context = await setup();
   // A window too narrow for the label on either side.
-  stubGeometry({ launcherLeft: 16, pillWidth: 190, viewportWidth: 130 });
+  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
   await armConnectionFailure(context);
 
   // The signal is intact and only the label is lost: degrading honestly beats
@@ -1344,11 +1504,46 @@ test("neither side having room leaves the dot and the beat untouched, and no pil
 
 test("with no room the failure is still spoken", async () => {
   const context = await setup();
-  stubGeometry({ launcherLeft: 16, pillWidth: 190, viewportWidth: 130 });
+  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
   await armConnectionFailure(context);
 
   // The same words still arrive; they simply arrive without the movement.
   expect(spoken(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+});
+
+// The narrowest window a rightward pill fits in: the launcher's own left
+// offset, the mark, its overhang, and the margin the pill keeps from the edge.
+// Widening the pill — as the padding and the second line did — moves this,
+// which is the whole reason PILL_WIDTH is a named number.
+const TIGHTEST_FIT =
+  EDGE_MARGIN + LAUNCHER_SIZE + (PILL_WIDTH - LAUNCHER_SIZE) + EDGE_MARGIN;
+
+test("a window exactly wide enough still opens the pill", async () => {
+  const context = await setup();
+  stubGeometry({
+    launcherLeft: EDGE_MARGIN,
+    pillWidth: PILL_WIDTH,
+    viewportWidth: TIGHTEST_FIT,
+  });
+  await armConnectionFailure(context);
+
+  expect(pillDirection(context.inspector)).toBe("right");
+});
+
+test("one pixel narrower than that degrades to no pill at all", async () => {
+  const context = await setup();
+  stubGeometry({
+    launcherLeft: EDGE_MARGIN,
+    pillWidth: PILL_WIDTH,
+    viewportWidth: TIGHTEST_FIT - 1,
+  });
+  await armConnectionFailure(context);
+
+  // A truncated pill is never the fallback: the dot and the beat carry the
+  // signal, and only the label is lost.
+  expect(pill(context.inspector)).toBeNull();
+  expect(launcherDot(context.inspector)).not.toBeNull();
+  expect(pulsing(context.inspector)).toBe(true);
 });
 
 // ── Reduced motion ────────────────────────────────────────────────────────
@@ -1362,7 +1557,7 @@ test("reduced motion shows the pill with no clip animation and the same hold", a
   // instruction is to reduce motion, not to withhold information or to remove
   // the reader's chance to read it.
   expect(pillOpen(context.inspector)).toBe(true);
-  expect(pillText(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(pillHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
   await context.advance(PILL_OPEN_MS);
   expect(pillPhase(context.inspector)).toBe("holding");
   await context.advance(PILL_HOLD_MS);
@@ -1406,6 +1601,145 @@ test("the reveal animates a rectangular clip, never a width or a scale", async (
   expect(pillRule).not.toContain("transform: scale");
 });
 
+test("the revealing edge is the capsule's own rounded end, not a straight wipe", async () => {
+  const context = await setup();
+  const css = stylesheetText(context.inspector);
+
+  // An unrounded inset sweeps a straight vertical line sideways and reads as a
+  // wipe. Rounding BOTH stops of BOTH directions makes it read as an opening —
+  // and a clip-path only interpolates between shapes of the same kind, so a
+  // `round` on one stop alone would stop the reveal animating at all.
+  for (const direction of ["left", "right"]) {
+    const frames =
+      new RegExp(
+        `@keyframes\\s+cpk-launcher-pill-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
+      ).exec(css)?.[1] ?? "";
+    const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
+    expect(stops).toHaveLength(2);
+    for (const stop of stops) {
+      expect(stop).toContain("inset(");
+      expect(stop).toContain("round 999px");
+    }
+  }
+});
+
+// ── Clicking the pill ─────────────────────────────────────────────────────
+//
+// The subline invites a click, so the click has to work. It is the launcher's
+// own action, reported under the launcher's own source.
+
+test("clicking the pill opens the Inspector where the launcher would", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+
+  await context.activate(pill(context.inspector));
+
+  // A press on the launcher is a gesture towards whatever the dot is about, and
+  // a click on the pill is the same gesture: it lands where the failure is
+  // explained.
+  expect(launcher(context.inspector)).toBeNull();
+  expect(currentMenu(context.inspector)).toBe("home");
+});
+
+test("clicking a thread failure's pill lands on Threads", async () => {
+  const context = await setup({
+    endpoints: ENABLED_ENDPOINTS,
+    listFails: true,
+  });
+  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+
+  await context.activate(pill(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("threads");
+});
+
+test("clicking the pill ends the gesture and leaves nothing behind", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+  await context.activate(pill(context.inspector));
+
+  // The panel is over the launcher, so the gesture has nowhere left to run —
+  // and it must not resume when the panel closes either.
+  expect(pill(context.inspector)).toBeNull();
+  await context.advance(GESTURE_MS);
+  expect(pill(context.inspector)).toBeNull();
+
+  await context.closePanel();
+  await context.advance(GESTURE_MS);
+  expect(pill(context.inspector)).toBeNull();
+  expect(launcherDot(context.inspector)).not.toBeNull();
+});
+
+test("the pill's click is reported under the launcher's own open source", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+
+  await context.activate(pill(context.inspector));
+  await context.flush();
+
+  // Reusing the existing source rather than adding one: the telemetry
+  // catalogue does not change, and the two paths are the same action.
+  const opens = context.telemetryBodies.filter(
+    (body) => body.event === TELEMETRY_EVENTS.opened,
+  );
+  expect(opens).toHaveLength(1);
+  expect(opens[0]?.properties).toMatchObject({
+    open_source: "floating_button",
+    has_error_signal: true,
+    error_signal_source: "connection",
+  });
+});
+
+test("the pill is clickable only while it is on screen", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  const css = stylesheetText(context.inspector);
+  const pillRule = /\.cpk-launcher-pill\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+
+  // During the beat the clip covers the mark alone, and a click target nobody
+  // can see over someone else's page is not something to ship. The base rule
+  // therefore takes no pointer at all, and the three visible phases take it
+  // back.
+  expect(pillRule).toContain("pointer-events: none");
+  const visible =
+    /\.cpk-launcher-pill\[data-cpk-pill-phase="opening"\],\s*\.cpk-launcher-pill\[data-cpk-pill-phase="holding"\],\s*\.cpk-launcher-pill\[data-cpk-pill-phase="closing"\]\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  expect(visible).toContain("pointer-events: auto");
+  expect(visible).toContain("cursor: pointer");
+});
+
+test("the pill adds no second tab stop for the launcher's one action", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+  const element = requireElement(pill(context.inspector));
+
+  // The launcher beside it is already a focusable control for this action, and
+  // a second tab stop for one action is a regression — so the pill stays a
+  // pointer affordance and nothing more.
+  expect(element.getAttribute("tabindex")).toBeNull();
+  expect(element.getAttribute("role")).toBeNull();
+  expect(element.matches("a[href], button, input, select, textarea")).toBe(
+    false,
+  );
+  expect(
+    element.querySelector("[tabindex], a[href], button, input, select"),
+  ).toBeNull();
+
+  // Still hidden from assistive technology: the live region already spoke.
+  expect(element.getAttribute("aria-hidden")).toBe("true");
+
+  // One focusable control on the launcher, before and while it talks.
+  expect(
+    root(context.inspector).querySelectorAll(
+      "button, a[href], [tabindex]:not([tabindex='-1'])",
+    ),
+  ).toHaveLength(1);
+});
+
 // ── The spoken announcement ───────────────────────────────────────────────
 
 test("the polite live region announces the failure once per outage", async () => {
@@ -1428,6 +1762,19 @@ test("the polite live region announces the failure once per outage", async () =>
   // A sustained outage does not repeat itself.
   await context.advance(60_000);
   expect(spoken(context.inspector)).toBe("");
+});
+
+test("the spoken sentence is the failure class alone, never the instruction", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  await context.advance(ERROR_BEAT_MS);
+
+  // The pill shows two lines and speaks one. A screen-reader user cannot act on
+  // an instruction delivered through an announcement, and carrying it would
+  // double the spoken length for nothing.
+  expect(pillSubline(context.inspector)).toBe(PILL_SUBLINE_WORDS);
+  expect(spoken(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(spoken(context.inspector)).not.toContain(PILL_SUBLINE_WORDS);
 });
 
 test("the announcement is polite, never assertive", async () => {
@@ -1462,9 +1809,13 @@ test("no rendered text anywhere carries the failure message", async () => {
   await context.advance(SETTLE_MS + ERROR_BEAT_MS);
 
   // For width, and because a message can contain prompts, URLs and
-  // identifiers: only the failure *class* is ever shown or spoken.
+  // identifiers: only the failure *class* is ever shown or spoken. Everything
+  // on the page is accounted for here — the pill's two lines and the spoken
+  // sentence, which is the class alone.
   const rendered = renderedText(context.inspector);
-  expect(rendered).toBe(`${THREADS_ERROR_WORDS} ${THREADS_ERROR_WORDS}`);
+  expect(rendered).toBe(
+    `${THREADS_ERROR_WORDS} ${PILL_SUBLINE_WORDS} ${THREADS_ERROR_WORDS}`,
+  );
   expect(rendered).not.toContain("list refused");
   expect(rendered).not.toContain("503");
   expect(rendered).not.toContain(RUNTIME_URL);
@@ -1553,7 +1904,11 @@ test("the visibility event fires when the dot appears, not when it arms", async 
 
 test("the visibility event reports whether the pill was shown or suppressed", async () => {
   const context = await setup();
-  stubGeometry({ launcherLeft: 1200, pillWidth: 190, viewportWidth: 1280 });
+  stubGeometry({
+    launcherLeft: 1200,
+    pillWidth: PILL_WIDTH,
+    viewportWidth: 1280,
+  });
   await armConnectionFailure(context);
 
   expect(errorSignalEvents(context)).toHaveLength(1);
@@ -1564,7 +1919,7 @@ test("the visibility event reports the no-room fallback as suppressed", async ()
   // A degradation whose frequency is unknown is a degradation that gets argued
   // about later, so the silent case is the one this property exists to count.
   const context = await setup();
-  stubGeometry({ launcherLeft: 16, pillWidth: 190, viewportWidth: 130 });
+  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
   await armConnectionFailure(context);
 
   expect(pill(context.inspector)).toBeNull();
