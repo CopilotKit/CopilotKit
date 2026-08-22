@@ -212,3 +212,29 @@ In addition, some state properties contain a lot of information. Syncing them ba
     ```
   </Step>
 </Steps>
+
+## Emitting a state key the output schema cannot declare
+
+The filtering above is driven by the graph's output schema, so a state key that is
+not declared there never reaches the frontend. Some keys are awkward to declare:
+`TypedDict`'s class syntax only accepts valid Python identifiers, so a key like
+`ag-ui` cannot be written there.
+
+In Python, list those keys under `schema_keys` in the agent's `config` and they
+are emitted alongside the schema-derived ones:
+
+```python title="agent.py"
+from copilotkit import LangGraphAGUIAgent
+
+agent = LangGraphAGUIAgent(
+    name="sample_agent",
+    graph=graph,
+    config={"schema_keys": {"output": ["steps"]}},
+)
+```
+
+<Callout type="info">
+  This adds to what the output schema already exposes, it does not replace it. Prefer
+  declaring the key on the output schema when you can, and reach for `schema_keys`
+  only when you cannot.
+</Callout>
