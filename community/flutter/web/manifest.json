@@ -1,0 +1,11 @@
+{
+    "name": "CopilotKit Flutter Widgetbook",
+    "short_name": "Widgetbook",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0175C2",
+    "theme_color": "#0175C2",
+    "description": "Widgetbook catalog for CopilotKit Flutter components.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false
+}
