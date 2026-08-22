@@ -52,6 +52,7 @@ import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
 import { createStateEventNormalizer } from "./state-delta";
+import { withA2UIRenderToolExecutors } from "./a2ui-render-tool";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { randomUUID } from "@copilotkit/shared";
@@ -1137,6 +1138,9 @@ export class BuiltInAgent extends AbstractAgent {
         const configTools = convertToolDefinitionsToVercelAITools(config.tools);
         allTools = { ...allTools, ...configTools };
       }
+      // A2UIMiddleware injects `render_a2ui` without execute. Run it locally
+      // so TOOL_CALL_RESULT carries `a2ui_operations` and the surface paints.
+      allTools = withA2UIRenderToolExecutors(allTools, input);
 
       const streamTextParams: Parameters<typeof streamText>[0] = {
         model,
