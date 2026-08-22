@@ -207,22 +207,41 @@ export function trackWhatsNewSignalViewed(props: {
 }
 
 /**
+ * Whether the launcher opened its pill for this outage, or suppressed it.
+ *
+ * `suppressed` means no pill was shown. In practice that is the no-room
+ * fallback — neither side of the launcher had space for the label — because
+ * every other path to a visible error signal opens one.
+ */
+export type InspectorErrorSignalLabel = "shown" | "suppressed";
+
+/**
  * Fires when the launcher's error signal becomes *visible* — not when it arms.
  * Arming can happen with the panel open or the tab hidden, where there is no
  * launcher to look at, so counting arms would inflate the denominator this
  * event exists to provide.
  *
- * Deliberately carries two fixed enum values and nothing else. This is the one
- * place a later change could casually attach a free-text field, and the
+ * Deliberately carries three fixed enum values and nothing else. This is the
+ * one place a later change could casually attach a free-text field, and the
  * failure message must never be transmitted.
+ *
+ * `label` is deliberately not a new event: the catalogue's size is asserted
+ * and spelled out in a test title, and a property answers the one open
+ * question — how often the no-room fallback fires — without touching either.
+ *
+ * The pill's own marginal effect cannot be measured here and must not be
+ * reverse-engineered from this data: it ships together with the dot and the
+ * beat, so there is no period with one and not the other.
  */
 export function trackErrorSignalViewed(props: {
   source: InspectorErrorSignalSource;
   presentation: LauncherSignalPresentation;
+  label: InspectorErrorSignalLabel;
 }): void {
   track(TELEMETRY_EVENTS.errorSignalViewed, {
     source: props.source,
     presentation: props.presentation,
+    label: props.label,
   });
 }
 

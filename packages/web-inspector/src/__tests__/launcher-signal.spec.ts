@@ -738,23 +738,29 @@ test("no acknowledge or dismiss control is offered anywhere in What's new", asyn
 
 // ── Launcher treatment ────────────────────────────────────────────────────
 
-test("the halo animates opacity and transform only", async () => {
+test("the launcher animates opacity, transform and a clip — nothing that forces layout", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
   const keyframes = Array.from(
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
   ).map((match) => match[1] ?? "");
-  expect(keyframes).toHaveLength(2);
+  // Two for the halo, and one per direction for the pill's reveal.
+  expect(keyframes).toHaveLength(4);
 
   const animated = new Set(
     keyframes
       .flatMap((body) => Array.from(body.matchAll(/([a-z-]+)\s*:/g)))
       .map((match) => match[1]),
   );
-  // This component is mounted permanently on top of a customer's app, so a
-  // property that forces a repaint every frame is not acceptable.
-  expect([...animated].sort()).toEqual(["opacity", "transform"]);
+  // THE RULE IS THE LAYOUT GUARANTEE, not this literal list. This component is
+  // mounted permanently on top of a customer's application, so no property
+  // that forces a layout on every frame is acceptable — `width` and `height`
+  // are what this test exists to keep out. `clip-path` joined the list when
+  // the pill landed: it leaves the element's geometry constant and changes
+  // only the visible region, so it satisfies the guarantee rather than
+  // weakening it. Any further addition has to clear the same bar.
+  expect([...animated].sort()).toEqual(["clip-path", "opacity", "transform"]);
 });
 
 test("the pulse sends two water-drop rings outward from the launcher rim", async () => {
