@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 
+import 'components/copilot_chat_assistant_message.dart';
+
 /// Entry point for the CopilotKit Flutter Widgetbook.
 ///
 /// This is the workbook that showcases the components in
-/// `package:copilotkit_flutter`. It is intentionally empty for now — add
-/// [WidgetbookComponent]s with their use cases to [directories] as components
-/// land in the library.
+/// `package:copilotkit_flutter`. Register a component's [WidgetbookComponent]
+/// in [directories] as it lands in the library.
 void main() {
   runApp(const CopilotKitWidgetbook());
 }
@@ -17,8 +18,14 @@ class CopilotKitWidgetbook extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Widgetbook.material(
-      // Component use cases are registered here as the library grows.
-      directories: const [],
+      directories: [
+        WidgetbookFolder(
+          name: 'Chat',
+          children: [
+            copilotChatAssistantMessageComponent(),
+          ],
+        ),
+      ],
       addons: [
         MaterialThemeAddon(
           themes: [
