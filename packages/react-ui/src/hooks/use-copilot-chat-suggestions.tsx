@@ -1,3 +1,31 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — useCopilotChatSuggestions:
+ *   V2 import and usage:
+ *     import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+ *
+ *     function Suggestions() {
+ *       useConfigureSuggestions({
+ *         suggestions: [
+ *           { title: "Help", message: "Help me get started" },
+ *         ],
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-configure-suggestions.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ *   Migration note: This replacement moves from react-ui to react-core/v2.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <Callout type="warning">
  *   useCopilotChatSuggestions is experimental. The interface is not final and
@@ -63,6 +91,23 @@ import {
   type UseCopilotChatSuggestionsConfiguration,
 } from "@copilotkit/react-core";
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useConfigureSuggestions` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+ *
+ * function Suggestions() {
+ *   useConfigureSuggestions({
+ *     suggestions: [
+ *       { title: "Help", message: "Help me get started" },
+ *     ],
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ */
 export function useCopilotChatSuggestions(
   config: UseCopilotChatSuggestionsConfiguration,
   dependencies: any[] = [],
