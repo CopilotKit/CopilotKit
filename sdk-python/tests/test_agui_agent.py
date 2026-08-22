@@ -237,6 +237,107 @@ class TestManuallyEmitState:
         assert EventType.STATE_SNAPSHOT in types
 
 
+# ---------- Custom schema_keys config ----------
+
+
+class _SchemaGraph:
+    nodes = {}
+
+    def get_input_jsonschema(self, config):
+        return {"properties": {"input_key": {}}}
+
+    def get_output_jsonschema(self, config):
+        return {"properties": {"output_key": {}}}
+
+    def config_schema(self):
+        return type(
+            "Schema",
+            (),
+            {"schema": lambda self: {"properties": {"config_key": {}}}},
+        )()
+
+
+class TestSchemaKeysConfig:
+    """Custom schema_keys should be merged into the schema used for snapshots."""
+
+    def _agent(self, **config):
+        return LangGraphAGUIAgent(
+            name="test",
+            graph=_SchemaGraph(),
+            config=config or None,
+        )
+
+    def test_get_schema_keys_merges_custom_keys(self):
+        """Custom input/output/config/context keys should be appended to parent keys."""
+        agent = self._agent(
+            schema_keys={
+                "input": ["input_extra"],
+                "output": ["steps", "output_key"],
+                "config": ["config_extra"],
+                "context": ["context_extra"],
+            }
+        )
+
+        schema_keys = agent.get_schema_keys({})
+
+        assert schema_keys["input"] == [
+            "input_key",
+            "messages",
+            "tools",
+            "copilotkit",
+            "input_extra",
+        ]
+        assert schema_keys["output"] == [
+            "output_key",
+            "messages",
+            "tools",
+            "copilotkit",
+            "steps",
+        ]
+        assert schema_keys["config"] == ["config_key", "config_extra"]
+        assert schema_keys["context"] == ["context_extra"]
+
+    def test_custom_output_keys_survive_state_snapshot_filtering(self):
+        """Configured output keys should remain in STATE_SNAPSHOT after filtering."""
+        agent = self._agent(schema_keys={"output": ["steps"]})
+        agent.active_run = {"schema_keys": agent.get_schema_keys({})}
+
+        snapshot = agent.get_state_snapshot(
+            {
+                "messages": [],
+                "tools": [],
+                "copilotkit": {},
+                "steps": ["one"],
+                "hidden": True,
+            }
+        )
+
+        assert snapshot == {
+            "messages": [],
+            "tools": [],
+            "copilotkit": {},
+            "steps": ["one"],
+        }
+
+    def test_duplicate_custom_keys_are_merged_deterministically(self):
+        """Parent keys should keep priority and duplicates should be removed in order."""
+        agent = self._agent(
+            schema_keys={
+                "output": ["output_key", "steps", "steps"],
+            }
+        )
+
+        output_keys = agent.get_schema_keys({})["output"]
+
+        assert output_keys == [
+            "output_key",
+            "messages",
+            "tools",
+            "copilotkit",
+            "steps",
+        ]
+
+
 # ---------- Custom event: copilotkit_exit ----------
 
 
