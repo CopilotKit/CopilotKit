@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import path from "node:path";
 import {
@@ -39,6 +39,76 @@ function deprecatedText(symbol, checker) {
 const inventory = getV1PublicApi();
 const STATE_RENDERING_DOCS =
   "https://docs.copilotkit.ai/generative-ui/state-rendering";
+
+test("dual-version packages keep v1 internal and expose only root compatibility plus v2", () => {
+  for (const { packageRoot, rootDirective = "" } of [
+    {
+      packageRoot: "packages/react-core",
+      rootDirective: '"use client";\n\n',
+    },
+    { packageRoot: "packages/runtime" },
+  ]) {
+    const sourceRoot = path.join(repoRoot, packageRoot, "src");
+    for (const required of [
+      "index.ts",
+      "v1-deprecated-compatibility.ts",
+      "v1-deprecated/index.ts",
+      "v2/index.ts",
+    ]) {
+      assert.ok(
+        existsSync(path.join(sourceRoot, required)),
+        `${packageRoot}/src/${required} must exist`,
+      );
+    }
+
+    const rootSource = readFileSync(path.join(sourceRoot, "index.ts"), "utf8");
+    const executableRootSource = rootSource.replace(/\/\*[\s\S]*?\*\/\s*/g, "");
+    assert.equal(
+      executableRootSource,
+      `${rootDirective}export * from "./v1-deprecated-compatibility";\n`,
+      `${packageRoot}/src/index.ts must remain a thin compatibility shim`,
+    );
+
+    const packageJson = JSON.parse(
+      readFileSync(path.join(repoRoot, packageRoot, "package.json"), "utf8"),
+    );
+    const publicSubpaths = Object.keys(packageJson.exports ?? {});
+    assert.ok(publicSubpaths.includes("."));
+    assert.ok(publicSubpaths.includes("./v2"));
+    assert.equal(
+      publicSubpaths.some(
+        (subpath) =>
+          subpath === "./v1" ||
+          subpath.startsWith("./v1/") ||
+          subpath === "./v1-deprecated" ||
+          subpath.startsWith("./v1-deprecated/"),
+      ),
+      false,
+      `${packageRoot} must not publish a deprecated implementation entrypoint`,
+    );
+  }
+});
+
+test("version-neutral React Core contracts stay outside v1-deprecated", () => {
+  const neutralContract = path.join(
+    repoRoot,
+    "packages/react-core/src/__tests__/threadid-propagation.contract.test.tsx",
+  );
+  const deprecatedContract = path.join(
+    repoRoot,
+    "packages/react-core/src/v1-deprecated/__tests__/threadid-propagation.contract.test.tsx",
+  );
+
+  assert.ok(
+    existsSync(neutralContract),
+    "the v2 threadId propagation contract must remain at the neutral package boundary",
+  );
+  assert.equal(
+    existsSync(deprecatedContract),
+    false,
+    "the v2 threadId propagation contract must not be classified as deprecated v1 coverage",
+  );
+});
 
 test("inventory covers every public v1 package entrypoint", () => {
   const configured = new Set(

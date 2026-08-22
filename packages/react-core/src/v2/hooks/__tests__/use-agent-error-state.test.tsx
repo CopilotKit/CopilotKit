@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
-import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
+import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 describe("useAgent error state", () => {
   const originalFetch = global.fetch;
