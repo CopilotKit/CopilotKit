@@ -22,15 +22,21 @@ import type { ReactToolCallRenderer, RenderToolProps } from "../headless";
 
 type Args = { city: string };
 
-// @copilotkit/react-native derives its public RenderToolProps from this type
-// (packages/react-native/src/hooks/render-tool-types.ts). If this export is
-// removed, RN's public types break — and the import above fails first.
+// @copilotkit/react-native re-exports this type verbatim from its own headless
+// entry (`packages/react-native/src/headless.ts:147`) so RN consumers can
+// annotate their own renderer objects with it. Nothing inside RN reads it: that
+// re-export line and one prose mention in a comment
+// (`packages/react-native/src/components/CopilotChat.tsx:173`) are its only two
+// occurrences under `packages/react-native/src`. RN used to DERIVE a same-named
+// type from it instead, in a local `hooks/render-tool-types.ts` that no longer
+// exists — RN now ships no render-tool types of its own. Either way, remove this
+// export and RN's public types break; the import above fails first.
 //
 // NOTE: `render` is a `React.ComponentType`, whose union arm `ComponentClass`
 // has no bare call signature, so `Parameters<...["render"]>` fails the
 // `(...args: any) => any` constraint (TS2344). `React.ComponentProps<...>` is
-// the correct props extractor for a ComponentType — RN's derivation uses it too,
-// so this alias reproduces RN's exact extraction step.
+// the correct props extractor for a ComponentType, and therefore the extraction
+// step this alias has to reproduce.
 type RendererProps = React.ComponentProps<
   ReactToolCallRenderer<Args>["render"]
 >;
@@ -79,18 +85,19 @@ expectTypeOf<RendererProps>().not.toBeAny();
 
 // The payload arrives under `args`, and the arm keys are closed. Pinned
 // separately from the union above because the field NAME is the half of the
-// contract RN reads through, and a rename is the drift most likely to be made
-// deliberately (web's public type calls the same payload `parameters`).
+// contract every registered renderer destructures, and a rename is the drift most
+// likely to be made deliberately (this entry's OTHER public `RenderToolProps`
+// calls the same payload `parameters` — see the divergence pinned below).
 expectTypeOf<keyof RendererProps>().toEqualTypeOf<
   "name" | "toolCallId" | "args" | "status" | "result"
 >();
 
 // `status` is the `ToolCallStatus` enum from @copilotkit/core, not the bare
-// string literals its members happen to carry. RN narrows with the enum
-// members, so an enum → literal widening here silently invalidates every RN
-// renderer's `switch`/`if` while still compiling on this side (a string-enum
-// member is assignable to its own literal type, so the widening direction is
-// the one `tsc` waves through).
+// string literals its members happen to carry. A renderer written against this
+// contract narrows with the enum members, so an enum → literal widening here
+// silently invalidates every such `switch`/`if` while still compiling on this
+// side (a string-enum member is assignable to its own literal type, so the
+// widening direction is the one `tsc` waves through).
 expectTypeOf<RendererProps["status"]>().toEqualTypeOf<ToolCallStatus>();
 expectTypeOf<RendererProps["status"]>().not.toEqualTypeOf<
   "inProgress" | "executing" | "complete"

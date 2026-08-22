@@ -22,7 +22,7 @@ import { useRenderTool } from "@copilotkit/react-core/v2";
 useRenderTool(
   {
     name: "*",
-    render: (props) => React.ReactElement,
+    render: (props) => React.ReactElement | null,
     agentId?: string,
   },
   deps?: ReadonlyArray<unknown>,
@@ -39,7 +39,7 @@ useRenderTool(
   {
     name: string,
     parameters: z.ZodTypeAny,
-    render: (props) => React.ReactElement,
+    render: (props) => React.ReactElement | null,
     agentId?: string,
   },
   deps?: ReadonlyArray<unknown>,
@@ -58,6 +58,10 @@ useRenderTool(
 
 ## Behavior
 
+- `render` may return `null` to draw nothing for a tool call. `null` was always
+  legal where a renderer is *invoked* — `ReactToolCallRenderer.render` is a
+  `React.ComponentType`, a function component returns `ReactNode`, and `null` is
+  a member of `ReactNode` — so only the build-side signature forbade it.
 - Builds a renderer entry with `defineToolCallRenderer`.
 - Deduplicates by `agentId:name` key (latest registration wins).
 - Intentionally does not remove the renderer on cleanup so previous chat history can still render.
@@ -109,7 +113,7 @@ function App() {
 
 ### Disable rendering for a tool
 
-Return an empty fragment to suppress the default UI. The wildcard (`"*"`) needs no schema; a named tool takes a pass-through schema (`z.any()`).
+Return `null` to suppress the default UI. The wildcard (`"*"`) needs no schema; a named tool takes a pass-through schema (`z.any()`).
 
 ```tsx
 import { z } from "zod";
@@ -117,11 +121,11 @@ import { z } from "zod";
 function App() {
   // One specific tool…
   useRenderTool(
-    { name: "searchDocs", parameters: z.any(), render: () => <></> },
+    { name: "searchDocs", parameters: z.any(), render: () => null },
     [],
   );
   // …or everything without its own renderer.
-  useRenderTool({ name: "*", render: () => <></> }, []);
+  useRenderTool({ name: "*", render: () => null }, []);
 
   return null;
 }

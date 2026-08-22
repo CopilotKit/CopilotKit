@@ -101,7 +101,7 @@ export default function App() {
 ## Behavior
 
 - **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs.
-- **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool) (or [`useComponent`](/reference/react-native/hooks/useComponent)) write into that registry, so [`useRenderTool`](/reference/react-native/hooks/useRenderTool) and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider — there is no separate `RenderToolProvider` wrapper.
+- **Shared render-tool registry**: the provider instantiates the CopilotKit client whose renderer registry is shared with the rest of CopilotKit. Render functions registered by [`useRenderTool`](/reference/react-native/hooks/useRenderTool), [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool) or [`useComponent`](/reference/react-native/hooks/useComponent) write into that one registry, so they and [`useRenderToolCall`](/reference/react-native/hooks/useRenderTool#rendering-a-tool-call-outside-the-chat) work anywhere below the provider. There is no second registry and no extra provider to mount for rendering.
 - **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
 
 ## Related
