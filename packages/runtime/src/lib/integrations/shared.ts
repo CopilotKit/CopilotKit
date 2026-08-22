@@ -1,10 +1,72 @@
-import { YogaInitialContext } from "graphql-yoga";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/runtime — buildSchema:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — CommonConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — CopilotEndpointCorsConfig:
+ *   V2 import and usage:
+ *     import type { CopilotEndpointCorsConfig } from "@copilotkit/runtime/v2";
+ *     type V2CopilotEndpointCorsConfig = CopilotEndpointCorsConfig;
+ *   V2 replacement source: packages/runtime/src/v2/runtime/endpoints/hono.ts
+ *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
+ *
+ * @copilotkit/runtime — CopilotRequestContextProperties:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — CreateCopilotRuntimeServerOptions:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — getCommonConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — GraphQLContext:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
-import { CopilotRuntime } from "../runtime/copilot-runtime";
-import { CopilotServiceAdapter } from "../../service-adapters";
-import { CopilotCloudOptions } from "../cloud";
-import { LogLevel, createLogger } from "../../lib/logger";
+import type { CopilotRuntime } from "../runtime/copilot-runtime";
+import type { CopilotServiceAdapter } from "../../service-adapters";
+import type { CopilotCloudOptions } from "../cloud";
+import type { LogLevel } from "../../lib/logger";
+import { createLogger } from "../../lib/logger";
 import telemetry from "../telemetry-client";
 import { StateResolver } from "../../graphql/resolvers/state.resolver";
 

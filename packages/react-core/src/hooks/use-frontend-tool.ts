@@ -1,3 +1,33 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useFrontendTool:
+ *   V2 import and usage:
+ *     import { useFrontendTool } from "@copilotkit/react-core/v2";
+ *     import { z } from "zod";
+ *
+ *     function MyComponent() {
+ *       useFrontendTool({
+ *         name: "myTool",
+ *         description: "Run my tool",
+ *         parameters: z.object({}),
+ *         handler: async () => "done",
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-frontend-tool.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ *   Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import React, { useEffect, useMemo, useRef } from "react";
 import { ActionRenderProps, FrontendAction } from "../types/frontend-action";
 import {
@@ -42,6 +72,25 @@ export type UseFrontendToolArgs<T extends Parameter[] | [] = []> = {
   "name" | "description" | "parameters" | "handler" | "followUp" | "render"
 >;
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useFrontendTool` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useFrontendTool } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function MyComponent() {
+ *   useFrontendTool({
+ *     name: "myTool",
+ *     description: "Run my tool",
+ *     parameters: z.object({}),
+ *     handler: async () => "done",
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useFrontendTool
+ */
 export function useFrontendTool<const T extends Parameter[] = []>(
   tool: UseFrontendToolArgs<T>,
   dependencies?: any[],

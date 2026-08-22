@@ -1,3 +1,38 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useCoAgentStateRender:
+ *   V2 import and usage:
+ *     import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+ *
+ *     function AgentStateView() {
+ *       const { agent } = useAgent({
+ *         agentId: "basic_agent",
+ *         updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+ *       });
+ *       const state = agent.state;
+ *
+ *       return (
+ *         <YourComponent
+ *           agentStateProperty={state.agent_state_property}
+ *           isRunning={agent.isRunning}
+ *         />
+ *       );
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-agent.tsx
+ *   V2 docs: https://docs.copilotkit.ai/generative-ui/state-rendering
+ *   Migration note: Use useAgent to subscribe to agent state and run-status changes, then render agent.state directly.
+ *   Migration note: V2 uses ordinary React rendering instead of registering a chat-specific state renderer.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
  * This is particularly useful for showing intermediate state or progress during Agentic Copilot operations.

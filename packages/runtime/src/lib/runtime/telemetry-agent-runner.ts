@@ -1,3 +1,27 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/runtime — TelemetryAgentRunner:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — TelemetryAgentRunnerConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * TelemetryAgentRunner - A wrapper around AgentRunner that adds telemetry
  * for agent execution streams.
@@ -8,7 +32,8 @@
  * - oss.runtime.agent_execution_stream_errored - when an agent execution fails
  */
 
-import { type AgentRunner, InMemoryAgentRunner } from "../../v2/runtime";
+import { InMemoryAgentRunner } from "../../v2/runtime";
+import type { AgentRunner } from "../../v2/runtime";
 import { createHash } from "node:crypto";
 import { tap, catchError, finalize } from "rxjs";
 import telemetry from "../telemetry-client";

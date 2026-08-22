@@ -1,11 +1,52 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useState,
-  ReactNode,
-  SetStateAction,
-} from "react";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — ThreadsContext:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — ThreadsContextValue:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — ThreadsProvider:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — ThreadsProviderProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Conversation threads): https://docs.copilotkit.ai/prebuilt-components/copilot-threads-drawer
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-core — useThreads:
+ *   V2 import and usage:
+ *     import { useThreads } from "@copilotkit/react-core/v2";
+ *     useThreads({});
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-threads.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useThreads
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { ReactNode, SetStateAction } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 import { randomUUID } from "@copilotkit/shared";
 
 export interface ThreadsContextValue {

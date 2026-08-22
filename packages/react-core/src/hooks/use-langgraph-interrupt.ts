@@ -1,3 +1,31 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useLangGraphInterrupt:
+ *   V2 import and usage:
+ *     import { useInterrupt } from "@copilotkit/react-core/v2";
+ *
+ *     function ApprovalInterrupt() {
+ *       useInterrupt({
+ *         render: ({ resolve }) => (
+ *           <button onClick={() => resolve({ approved: true })}>Approve</button>
+ *         ),
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-interrupt.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
+ *   Migration note: Use the framework-neutral v2 interrupt API.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import React, { useCallback, useRef } from "react";
 import { LangGraphInterruptRender } from "../types/interrupt-action";
 import { useInterrupt, useCopilotChatConfiguration } from "../v2";
@@ -27,6 +55,23 @@ function toV1Event<TEventValue>(event: InterruptEvent<TEventValue>) {
   };
 }
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useInterrupt` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useInterrupt } from "@copilotkit/react-core/v2";
+ *
+ * function ApprovalInterrupt() {
+ *   useInterrupt({
+ *     render: ({ resolve }) => (
+ *       <button onClick={() => resolve({ approved: true })}>Approve</button>
+ *     ),
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useInterrupt
+ */
 export function useLangGraphInterrupt<TEventValue = any>(
   action: Omit<LangGraphInterruptRender<TEventValue>, "id">,
   _dependencies?: any[],

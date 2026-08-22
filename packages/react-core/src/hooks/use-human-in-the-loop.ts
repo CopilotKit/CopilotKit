@@ -1,3 +1,35 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useHumanInTheLoop:
+ *   V2 import and usage:
+ *     import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+ *     import { z } from "zod";
+ *
+ *     function Confirmation() {
+ *       useHumanInTheLoop({
+ *         name: "confirmAction",
+ *         description: "Ask the user to confirm",
+ *         parameters: z.object({}),
+ *         render: ({ respond }) => (
+ *           <button onClick={() => respond?.(true)}>Confirm</button>
+ *         ),
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop
+ *   Migration note: The v2 API uses a Zod schema instead of the v1 Parameter[] shape.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import {
   ActionRenderProps,
   ActionRenderPropsWait,
@@ -61,6 +93,27 @@ type HitlRendererArgs =
     };
 type HitlRenderer = FunctionComponent<HitlRendererArgs>;
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useHumanInTheLoop` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function Confirmation() {
+ *   useHumanInTheLoop({
+ *     name: "confirmAction",
+ *     description: "Ask the user to confirm",
+ *     parameters: z.object({}),
+ *     render: ({ respond }) => (
+ *       <button onClick={() => respond?.(true)}>Confirm</button>
+ *     ),
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useHumanInTheLoop
+ */
 export function useHumanInTheLoop<const T extends Parameter[] | [] = []>(
   tool: UseHumanInTheLoopArgs<T>,
   dependencies?: any[],

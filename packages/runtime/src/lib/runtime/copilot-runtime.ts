@@ -1,3 +1,52 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/runtime — copilotKitEndpoint:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — CopilotRuntime:
+ *   V2 import and usage:
+ *     import { CopilotRuntime } from "@copilotkit/runtime/v2";
+ *
+ *     const runtime = new CopilotRuntime({ agents: {} });
+ *   V2 replacement source: packages/runtime/src/v2/runtime/core/runtime.ts
+ *   V2 docs: https://docs.copilotkit.ai/runtime-server-adapter
+ *   Migration note: V2 uses AG-UI runtime handlers instead of the v1 GraphQL adapter setup.
+ *
+ * @copilotkit/runtime — CopilotRuntimeConstructorParams_BASE:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — langGraphPlatformEndpoint:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/runtime — resolveEndpointType:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Runtime server adapter): https://docs.copilotkit.ai/runtime-server-adapter
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <Callout type="info">
  *   This is the reference for the `CopilotRuntime` class. For more information and example code snippets, please see [Concept: Copilot Runtime](/backend/copilot-runtime).
@@ -354,6 +403,14 @@ interface CopilotRuntimeConstructorParams<T extends Parameter[] | [] = []>
 
 /**
  * Central runtime object passed to all request handlers.
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotRuntime` from `@copilotkit/runtime/v2` instead.
+ *
+ * ```tsx
+ * import { CopilotRuntime } from "@copilotkit/runtime/v2";
+ *
+ * const runtime = new CopilotRuntime({ agents: {} });
+ * ```
+ * See https://docs.copilotkit.ai/runtime-server-adapter
  */
 export class CopilotRuntime<const T extends Parameter[] | [] = []> {
   params?: CopilotRuntimeConstructorParams<T>;

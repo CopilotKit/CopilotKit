@@ -1,3 +1,35 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-core — useRenderToolCall:
+ *   V2 import and usage:
+ *     import { useRenderTool } from "@copilotkit/react-core/v2";
+ *     import { z } from "zod";
+ *
+ *     function StatusTool() {
+ *       useRenderTool({
+ *         name: "showStatus",
+ *         parameters: z.object({}),
+ *         render: ({ status, result }) => (
+ *           <div>{status === "complete" ? result : "Running..."}</div>
+ *         ),
+ *       });
+ *       return null;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/hooks/use-render-tool.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
+ *   Migration note: Use useRenderTool to register a renderer for an existing backend tool in v2.
+ *   Migration note: The v2 hook named useRenderToolCall is a different, low-level consumer API.
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import { getZodParameters } from "@copilotkit/shared";
 import type { Parameter } from "@copilotkit/shared";
 import { parseJson } from "@copilotkit/shared";
@@ -23,6 +55,26 @@ export type UseRenderToolCallArgs<T extends Parameter[] | [] = []> = Pick<
     : (props: ActionRenderProps<T>) => React.ReactElement;
 };
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `useRenderTool` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { useRenderTool } from "@copilotkit/react-core/v2";
+ * import { z } from "zod";
+ *
+ * function StatusTool() {
+ *   useRenderTool({
+ *     name: "showStatus",
+ *     parameters: z.object({}),
+ *     render: ({ status, result }) => (
+ *       <div>{status === "complete" ? result : "Running..."}</div>
+ *     ),
+ *   });
+ *   return null;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool
+ */
 export function useRenderToolCall<const T extends Parameter[] | [] = []>(
   tool: UseRenderToolCallArgs<T>,
   dependencies?: any[],
