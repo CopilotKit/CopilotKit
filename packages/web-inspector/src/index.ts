@@ -226,6 +226,22 @@ type LauncherSignalDefinition = Readonly<{
    * the panel says what.
    */
   accessibleLabel: string;
+  /**
+   * The words the launcher opens sideways to show, and the words spoken once
+   * into the polite live region. Absent means this subject opens no pill.
+   *
+   * Read from the signal rather than from a condition on the tone, so a third
+   * signal can carry a pill by declaring one — and whoever declares it owns
+   * the width problem that keeps the announcement out. The announcement's feed
+   * preview measures 54 characters against a 36-pixel launcher, and the width
+   * would be set by a feed we do not control.
+   *
+   * These are the words the panel already uses, never a paraphrase, so a
+   * reader who sees the pill and then opens the panel has nothing to
+   * reconcile. The failure *message* is never carried here — for width, and
+   * because it can contain prompts, URLs and identifiers.
+   */
+  pillLabel?: string;
 }>;
 
 const NEWS_SIGNAL_ID = "whats-new" as const;
@@ -242,6 +258,58 @@ const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
   news: NEWS_SIGNAL_COLOR,
   error: ERROR_SIGNAL_COLOR,
 };
+
+/**
+ * The failure gesture, four phases in series:
+ *
+ * ```
+ * beat 1500ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (4500ms total)
+ * ```
+ *
+ * Sequential rather than simultaneous, deliberately: the beat says *here*, the
+ * pill says *this*. The cost is about 1.6 seconds more motion than a combined
+ * gesture would need.
+ *
+ * **All four durations live here and nowhere else.** The stylesheet reads the
+ * two animated phases as custom properties injected from these numbers rather
+ * than restating them, because they are taste and will be tuned by eye after
+ * the first live look — tuning the feel must be a number, not a refactor.
+ */
+const ERROR_GESTURE_MS = {
+  /** Phase 1: one beat, which is also the error signals' cadence. */
+  beat: 1500,
+  /** Phase 2: the sideways reveal. */
+  open: 250,
+  /** Phase 3: long enough to read three words without hurrying. */
+  hold: 2500,
+  /** Phase 4: back to the plain mark with its dot. */
+  close: 250,
+} as const;
+
+/**
+ * The words the pill carries, which are the words the panel already carries.
+ *
+ * `Runtime error` is the System Health runtime tile's own label, and
+ * `Failed to load threads` is the Threads view's own heading. The outside and
+ * the inside must agree, so these are shared rather than paraphrased.
+ */
+const RUNTIME_ERROR_LABEL = "Runtime error";
+const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
+
+/**
+ * The pill's second line, shared by every subject that carries a pill.
+ *
+ * **This is the one string in the feature that exists nowhere else in the
+ * product.** Every other word the launcher shows is word-identical to the
+ * panel, which is the standing rule; this line is a deliberate, owner-approved
+ * exception to it, because the pill became clickable and an invitation that
+ * says nothing is not an invitation.
+ *
+ * It is shown, never spoken: the polite live region carries the failure class
+ * alone. A screen-reader user cannot act on an instruction delivered through
+ * an announcement, and it would double the spoken length.
+ */
+const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -262,19 +330,21 @@ const LAUNCHER_SIGNALS: Readonly<
     tone: "error",
     markerTarget: "home",
     landingTarget: "home",
-    cadence: 1500,
+    cadence: ERROR_GESTURE_MS.beat,
     priority: 2,
     accessibleLabel: "runtime error",
+    pillLabel: RUNTIME_ERROR_LABEL,
   },
   threads: {
     tone: "error",
     markerTarget: "threads",
     landingTarget: "threads",
-    cadence: 1500,
+    cadence: ERROR_GESTURE_MS.beat,
     // Below the connection signal: a connection failure cascades into thread
     // failures, so when both could be armed the root cause owns the dot.
     priority: 1,
     accessibleLabel: "thread loading error",
+    pillLabel: THREADS_LOAD_ERROR_LABEL,
   },
 };
 
@@ -308,6 +378,30 @@ const ERROR_SIGNAL_SETTLE_MS = 2000;
 
 /** The launcher's accessible name with nothing wrong. */
 const LAUNCHER_BASE_LABEL = "Web Inspector";
+
+/**
+ * Where the pill is in the gesture.
+ *
+ * `closed` covers the whole beat: the pill is laid out at its full width and
+ * clipped to nothing from the first frame, so the room it needs can be
+ * measured before anything is shown and the reveal has nothing left to
+ * compute.
+ */
+type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
+
+/**
+ * Which side the pill grows towards. The launcher is anchored top-right, so
+ * the natural direction is leftwards, away from its own edge — but it is
+ * draggable and its position persists, so a reader who parked it near the left
+ * edge would otherwise get a permanently truncated pill.
+ */
+type LauncherPillDirection = "left" | "right";
+
+/**
+ * Whether the reader actually got a pill. `suppressed` is the honest-degrade
+ * case: neither side had room, so the dot and the beat fire alone.
+ */
+type LauncherPillOutcome = "shown" | "suppressed";
 
 type CoreStatusSummary = Readonly<{
   label: string;
@@ -5570,6 +5664,30 @@ export class WebInspectorElement extends LitElement {
   /** Per-outage dedup for `oss.inspector.error_signal_viewed`. */
   private readonly errorSignalViewedSources: Set<InspectorErrorSignalSource> =
     new Set();
+  /**
+   * The signal whose gesture is running its tail — the pill on screen and the
+   * sentence in the live region, both of which outlive the beat.
+   *
+   * Together with `pulsingSignal` this IS the single pending-beat slot, not a
+   * second scheduling concept: `startSignalPulse` defers while either is set,
+   * so the third deferral reason simply covers a longer beat. Null for the
+   * announcement, which has no tail and therefore behaves exactly as before.
+   */
+  private gestureSignal: LauncherSignalKey | null = null;
+  /** Where the running gesture's pill is, or null when it has none. */
+  private pillPhase: LauncherPillPhase | null = null;
+  /**
+   * Which side the pill opens from, or null before the room has been measured.
+   * Decided once, at gesture start, and never revisited mid-gesture.
+   */
+  private pillDirection: LauncherPillDirection | null = null;
+  private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Whether this outage's pill actually opened. Per outage rather than per
+   * phase, so a second source arming behind the first reports the same answer
+   * the reader actually got. Reset with `errorBeatSpent`.
+   */
+  private pillOutcome: LauncherPillOutcome | null = null;
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
@@ -7484,18 +7602,28 @@ ${argsString}</pre
       .console-button-wrapper {
         position: relative;
         display: inline-flex;
-      }
-
-      .console-button {
+        /* The launcher's surface and edge, shared by the button and the pill so
+           the two cannot drift apart. A dark grey rather than near-black: the
+           launcher sits on a customer's page, and 1,5,7 against white is a
+           harder edge than this surface needs. */
+        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
+        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
            Percentages resolve against the padding box, which the 1px border
-           insets, and the dot would land inside the rim. */
+           insets, and the dot would land inside the rim.
+
+           Declared on the wrapper rather than on the button so the pill, which
+           is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
           7vw,
           ${LAUNCHER_MAX_SIZE}px
         );
+      }
+
+      .console-button {
         width: var(--cpk-launcher-size);
         height: var(--cpk-launcher-size);
         /* Keep the 1px border inside the declared outer size. */
@@ -7897,14 +8025,14 @@ ${argsString}</pre
 
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
-        background-color: rgba(1, 5, 7, 0.95) !important;
-        border-color: rgba(190, 194, 255, 0.25) !important;
+        background-color: var(--cpk-launcher-face) !important;
+        border-color: var(--cpk-launcher-edge) !important;
         box-shadow:
           0 0 0 1px rgba(190, 194, 255, 0.15),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
       }
       .console-button:hover {
-        background-color: rgba(1, 5, 7, 1) !important;
+        background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
       }
       .console-button:focus-visible {
@@ -7922,7 +8050,6 @@ ${argsString}</pre
        * that forces a repaint every frame is not acceptable.
        */
       .console-button[data-cpk-signal] {
-        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
         isolation: isolate;
       }
 
@@ -8032,11 +8159,197 @@ ${argsString}</pre
         box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
       }
 
+      /* ── Launcher pill: the launcher opens sideways and says what ─── */
+      /*
+       * The pill is laid out at its FULL width from the first frame and
+       * revealed by animating a rectangular clip. Nothing is scaled and
+       * nothing is resized.
+       *
+       * That is not a stylistic choice. This component is permanently mounted
+       * on top of a customer's application, so no property that forces a
+       * layout on every frame is acceptable — and animating "width" does
+       * exactly that, sixty times a second, on someone else's page. A clip
+       * leaves the element's geometry constant and changes only the visible
+       * region, which the compositor handles. Animating a horizontal scale
+       * was the other candidate and squashes the mark itself, not merely the
+       * rounded end, so the logo would need counter-scaling and the dot and
+       * halo would become ellipses.
+       *
+       * The launcher's own face and border are repeated here so the two form
+       * one capsule: the button paints last and therefore on top, with no
+       * z-index needed. The mark's own ring and shadow are deliberately left
+       * alone for the whole gesture — the circle's outline staying visible
+       * inside the open pill was looked at against the alternative and kept.
+       *
+       * A column, not a row: the pill carries a heading and a subline stacked,
+       * centred against a height that does not change. "justify-content"
+       * centres the pair vertically and "align-items" keeps both lines flush
+       * left, so the pill never grows taller than the launcher it opens from.
+       */
+      .cpk-launcher-pill {
+        position: absolute;
+        top: 50%;
+        margin-top: calc(var(--cpk-launcher-size) / -2);
+        height: var(--cpk-launcher-size);
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1px;
+        box-sizing: border-box;
+        border-radius: 999px;
+        border: 1px solid var(--cpk-launcher-edge);
+        background: var(--cpk-launcher-face);
+        color: #ffffff;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      /* The failure class, word-identical to the panel's own wording. */
+      .cpk-launcher-pill__heading {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      /*
+       * The one line of copy in this feature that exists nowhere else in the
+       * product. The heading above is word-identical to the panel, which is
+       * the standing rule; this line is a deliberate, owner-approved exception
+       * to it, because the pill is now clickable and has to say so.
+       *
+       * It is NOT spoken. A screen-reader user cannot act on an instruction
+       * delivered through an announcement, and it would double the spoken
+       * length — so the live region carries the failure class alone.
+       */
+      .cpk-launcher-pill__subline {
+        font-size: 10.5px;
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.72;
+      }
+
+      /*
+       * Two directions, one animation with the inset on the other side. The
+       * padding on the launcher's side clears the mark, so the words never sit
+       * under it. The text-side padding is derived from the capsule's radius
+       * (half the launcher size), NOT a bare literal: padding is measured from
+       * the bounding box, but the first half-height of that side is the rounded
+       * cap. Half the size lands the text exactly where the cap ends and the
+       * straight edge begins. A literal 14px put it 16px inside the curve at the
+       * production launcher size, which is itself a clamp on the viewport.
+       */
+      .cpk-launcher-pill[data-cpk-pill-direction="left"] {
+        right: 0;
+        padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
+          calc(var(--cpk-launcher-size) / 2);
+        clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
+      }
+      .cpk-launcher-pill[data-cpk-pill-direction="right"] {
+        left: 0;
+        padding: 0 calc(var(--cpk-launcher-size) / 2) 0
+          calc(var(--cpk-launcher-size) + 12px);
+        clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
+      }
+
+      /*
+       * "round" on both stops, so the revealing edge is the capsule's own
+       * rounded end travelling sideways rather than a straight vertical line
+       * wiping across it. An unrounded inset reads as a wipe; this reads as an
+       * opening. It adds no animated property: the clip is still the clip.
+       */
+      @keyframes cpk-launcher-pill-left {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      @keyframes cpk-launcher-pill-right {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      /*
+       * The pill takes the pointer exactly while it is on screen, so the
+       * instruction it now carries is honest: a click on it opens the
+       * Inspector, the same action as pressing the mark. During the beat the
+       * clip covers only the mark itself, and a click target nobody can see
+       * over someone else's page is not something to ship — so the base rule
+       * keeps "pointer-events: none" and only the three visible phases take it
+       * back.
+       * The button paints last and therefore wins the pointer where the two
+       * overlap, so dragging the launcher is unaffected throughout.
+       */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      /* Closing is the same animation played backwards, so the two phases can
+         never drift apart. */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"] {
+        animation-duration: var(--cpk-launcher-pill-open);
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-duration: var(--cpk-launcher-pill-close);
+        animation-direction: reverse;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="left"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="left"] {
+        animation-name: cpk-launcher-pill-left;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="right"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="right"] {
+        animation-name: cpk-launcher-pill-right;
+      }
+
+      /* The hold is the end state of the reveal, held. */
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"] {
+        opacity: 1;
+        clip-path: inset(0 0 0 0);
+      }
+
       /*
        * Reduced motion: the halo is held statically rather than animated, so
        * the information arrives without the movement.
        */
       @media (prefers-reduced-motion: reduce) {
+        /*
+         * The pill is shown by opacity alone, with no clip animation and the
+         * same hold. The instruction is to reduce motion, not to withhold
+         * information, and this reader needs the label as much as anyone.
+         */
+        .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+        .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+        .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+          animation: none !important;
+          opacity: 1;
+          clip-path: inset(0 0 0 0);
+        }
         .cpk-launcher-signal-wash {
           opacity: 0.85;
         }
@@ -8478,6 +8791,7 @@ ${argsString}</pre
     }
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
+    this.cancelGestureTail();
     this.cancelErrorSignalSettleTimers();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -8566,6 +8880,10 @@ ${argsString}</pre
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    // The pill's full width is only measurable once it has been laid out, and
+    // the answer decides both the direction and the telemetry label below, so
+    // this runs before the visibility event rather than after it.
+    this.resolvePillDirection();
     this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
@@ -8662,6 +8980,7 @@ ${argsString}</pre
 
     return html`
       <div class="console-button-wrapper">
+        ${this.renderLauncherPill()}
         <button
           class=${buttonClasses}
           type="button"
@@ -8728,9 +9047,102 @@ ${argsString}</pre
               : nothing
           }
         </button>
+        ${
+          // The pill is a sighted-only surface, so the failure is also spoken
+          // once per outage — otherwise the reader who was given the failure
+          // class in the launcher's accessible name in the companion change is
+          // excluded again, since a changed name is only read on focus.
+          //
+          // POLITE, never assertive. Speech is serial: it occupies the channel
+          // the reader is using to operate their own software, and interrupting
+          // that mid-sentence is out of the question for a development tool.
+          //
+          // It is rendered whenever the launcher is, empty and with no visual
+          // footprint, because a live region has to exist on the page before
+          // its content lands to be announced reliably.
+          html`<span
+            class="sr-only"
+            data-cpk-launcher-announcement
+            role="status"
+            aria-live="polite"
+            >${this.getGestureLabel() ?? ""}</span
+          >`
+        }
       </div>
     `;
   }
+
+  /**
+   * The words the running gesture carries, or null when the launcher is quiet.
+   *
+   * Read from the signal's own description rather than from a condition on the
+   * tone, so a third signal can carry a pill by declaring a label.
+   */
+  private getGestureLabel(): string | null {
+    if (this.gestureSignal === null) return null;
+    return LAUNCHER_SIGNALS[this.gestureSignal].pillLabel ?? null;
+  }
+
+  /**
+   * The pill, laid out at its full width and clipped, for the whole gesture.
+   *
+   * It renders from the first frame of the beat — clipped to nothing, so it
+   * shows nothing — because the room it needs cannot be measured until it has
+   * been laid out, and the direction is decided at gesture start.
+   */
+  private renderLauncherPill(): TemplateResult | typeof nothing {
+    const key = this.gestureSignal;
+    if (key === null || this.pillPhase === null) return nothing;
+    const signal = LAUNCHER_SIGNALS[key];
+    const label = signal.pillLabel;
+    if (label === undefined) return nothing;
+    return html`
+      <span
+        class="cpk-launcher-pill"
+        data-cpk-launcher-pill=${key}
+        data-cpk-pill-phase=${this.pillPhase}
+        data-cpk-pill-direction=${
+          // Before the measurement the pill is laid out as if it were opening
+          // left, which is width-identical to the other side and shows nothing
+          // either way while the clip is closed.
+          this.pillDirection ?? "left"
+        }
+        style=${styleMap({
+          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
+          "--cpk-launcher-pill-open": `${ERROR_GESTURE_MS.open}ms`,
+          "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
+        })}
+        aria-hidden="true"
+        @click=${this.handlePillClick}
+      >
+        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
+          >${label}</span
+        >
+        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
+          >${PILL_SUBLINE_LABEL}</span
+        >
+      </span>
+    `;
+  }
+
+  /**
+   * A click on the pill opens the Inspector, exactly as pressing the mark
+   * does — reusing the launcher's own open source, so the telemetry catalogue
+   * is untouched and the two paths cannot be told apart downstream.
+   *
+   * Deliberately NOT focusable and deliberately not in the tab order: the
+   * launcher beside it is already a focusable control for this same action,
+   * and a second tab stop for one action is a regression. The pill stays
+   * `aria-hidden` and this handler is a pointer affordance only.
+   *
+   * The gesture ends with the open, because `openInspector` cancels the tail —
+   * the panel is over the launcher, so there is nothing left to reveal.
+   */
+  private handlePillClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openInspector("floating_button");
+  };
 
   /** Render a trusted action with optional context-specific copy. */
   private renderInspectorAction(
@@ -11026,6 +11438,9 @@ ${argsString}</pre
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    // The launcher is gone, so its gesture is gone with it — and the slot it
+    // was holding is free again for whatever beats after the panel closes.
+    this.cancelGestureTail();
     this.persistState(); // Save the open state
 
     this.trackOpened(
@@ -11067,9 +11482,6 @@ ${argsString}</pre
 
     this.isOpen = false;
 
-    // Flush point for defer reason 1: there is a launcher again.
-    this.flushPendingSignalPulse();
-
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
       this.removeDockStyles();
@@ -11081,6 +11493,12 @@ ${argsString}</pre
     void this.updateComplete.then(() => {
       this.measureContext("button");
       this.applyAnchorPosition("button");
+      // Flush point for defer reason 1: there is a launcher again — and only
+      // now is it where it belongs. The anchor is applied after the render that
+      // would mount the pill, so flushing any earlier makes the pill measure
+      // the room around a launcher that has not moved into place yet, and a
+      // stale measurement can suppress a pill that had room all along.
+      this.flushPendingSignalPulse();
     });
   }
 
@@ -16316,6 +16734,11 @@ ${prettyEvent}</pre
    * beat would merely change colour mid-flight. With the settle window landing
    * a failure near the end of an announcement beat, the failure's beat would
    * otherwise be reduced to its final fraction.
+   *
+   * A failure's beat is followed by a pill, and the whole 4.5-second gesture
+   * holds this one slot for its full duration. That is not a second scheduling
+   * concept: reason 3 already says "another beat is running", and a gesture is
+   * simply a longer beat.
    */
   private startSignalPulse(key: LauncherSignalKey): void {
     const deferred =
@@ -16325,8 +16748,8 @@ ${prettyEvent}</pre
       // 2. Nobody is looking.
       (typeof document !== "undefined" &&
         document.visibilityState !== "visible") ||
-      // 3. Another beat is already running.
-      (this.pulsingSignal !== null && this.pulsingSignal !== key) ||
+      // 3. Another beat — or the pill that follows it — is already running.
+      (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
       // 4. Another signal currently owns the dot.
       this.getActiveLauncherSignal() !== key;
 
@@ -16358,12 +16781,24 @@ ${prettyEvent}</pre
     } else if (this.announcementTimestamp) {
       saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
     }
+    this.beginGestureTail(key);
     this.requestUpdate();
     if (typeof window === "undefined") return;
     this.pulseTimeoutId = setTimeout(() => {
       this.pulseTimeoutId = null;
       this.pulsingSignal = null;
       this.requestUpdate();
+      // The beat says *here*; now the pill says *this*.
+      if (this.gestureSignal === key && this.pillPhase === "closed") {
+        this.openPill();
+        return;
+      }
+      // Nothing follows the beat: either this signal opens no pill, or there
+      // was no room for one, so the gesture ends with it.
+      if (this.gestureSignal === key) {
+        this.endGesture();
+        return;
+      }
       // Reason 3 has just cleared.
       this.flushPendingSignalPulse();
     }, LAUNCHER_SIGNALS[key].cadence);
@@ -16393,12 +16828,197 @@ ${prettyEvent}</pre
     this.startSignalPulse(key);
   }
 
-  /** Drops a signal's beat, running or pending, when the signal goes quiet. */
+  /**
+   * Drops a signal's gesture, pending or running, when the signal goes quiet.
+   *
+   * The pill closes early: it states a condition, and the condition has
+   * stopped being true. The beat is left to finish, because a beat asserts
+   * nothing — it says *here*, and "here" is still true.
+   */
   private retireSignal(key: LauncherSignalKey): void {
     if (this.pendingPulseSignal === key) this.pendingPulseSignal = null;
-    if (this.pulsingSignal === key) this.stopSignalPulse();
+    if (this.gestureSignal === key) this.closePillEarly();
     // A suppressed signal may now own the dot.
     this.flushPendingSignalPulse();
+  }
+
+  // ── The pill ────────────────────────────────────────────────────────────
+
+  /**
+   * The signal holding the single gesture slot: a beat in flight, or the pill
+   * and spoken sentence that follow it. One slot, not two — see reason 3 in
+   * `startSignalPulse`.
+   */
+  private get gestureSlotSignal(): LauncherSignalKey | null {
+    return this.pulsingSignal ?? this.gestureSignal;
+  }
+
+  /**
+   * Opens the gesture's tail alongside the beat, for a signal that carries a
+   * pill. The pill is rendered immediately — clipped to nothing, so it shows
+   * nothing — because its full width has to be on the page before the room
+   * either side of the launcher can be measured.
+   *
+   * A signal with no pill label gets no tail at all, so the announcement's
+   * gesture is exactly the beat it has always been.
+   */
+  private beginGestureTail(key: LauncherSignalKey): void {
+    this.cancelPillTimeout();
+    if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
+      this.gestureSignal = null;
+      this.pillPhase = null;
+      this.pillDirection = null;
+      return;
+    }
+    this.gestureSignal = key;
+    this.pillPhase = "closed";
+    this.pillDirection = null;
+  }
+
+  /**
+   * Chooses the side, or suppresses the pill, from the room actually available
+   * at gesture start. Measured once, from the DOM, because the launcher is
+   * draggable and its position persists: a reader who parked it near the left
+   * edge would otherwise get a permanently truncated pill.
+   *
+   * Where neither side has room there is no pill at all rather than a cut-off
+   * one — the dot and the beat still fire, so the signal is intact and only
+   * the label is lost. Constraining where the reader may drag the control to
+   * protect this animation was considered and rejected: the page is theirs.
+   */
+  private resolvePillDirection(): void {
+    if (this.pillDirection !== null || this.pillPhase === null) return;
+    const wrapper = this.activeRoot.querySelector<HTMLElement>(
+      ".console-button-wrapper",
+    );
+    const button = wrapper?.querySelector<HTMLElement>(".console-button");
+    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-pill");
+    if (!button || !pill || typeof window === "undefined") return;
+
+    const mark = button.getBoundingClientRect();
+    // A clip changes what is painted, never the layout box, so this is the
+    // pill's full width whichever phase it is in.
+    const overhang = Math.max(
+      0,
+      pill.getBoundingClientRect().width - mark.width,
+    );
+    const viewportWidth = window.innerWidth;
+
+    if (overhang === 0) {
+      // Nothing extends past the mark, so there is nothing to fit.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.left - overhang >= EDGE_MARGIN) {
+      // Leftwards is the natural direction: away from the launcher's own edge.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) {
+      this.setPillOutcome("right");
+      return;
+    }
+    this.setPillOutcome(null);
+  }
+
+  /** Records the measurement's verdict, and drops the pill when it is null. */
+  private setPillOutcome(direction: LauncherPillDirection | null): void {
+    if (direction === null) {
+      this.pillPhase = null;
+      this.pillDirection = null;
+      this.pillOutcome = "suppressed";
+      this.requestUpdate();
+      return;
+    }
+    this.pillDirection = direction;
+    this.pillOutcome = "shown";
+    this.requestUpdate();
+  }
+
+  /** Runs the pill's three phases in series once the beat has finished. */
+  private openPill(): void {
+    // Normally already measured during the beat; measured here too so the
+    // gesture cannot depend on a render having happened in between.
+    this.resolvePillDirection();
+    if (this.pillPhase === null) {
+      // The measurement found no room after all.
+      this.endGesture();
+      return;
+    }
+    this.advancePill("opening", ERROR_GESTURE_MS.open, () => {
+      this.advancePill("holding", ERROR_GESTURE_MS.hold, () => {
+        this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+          this.endGesture();
+        });
+      });
+    });
+  }
+
+  private advancePill(
+    phase: LauncherPillPhase,
+    duration: number,
+    next: () => void,
+  ): void {
+    this.cancelPillTimeout();
+    this.pillPhase = phase;
+    this.requestUpdate();
+    if (typeof window === "undefined") return;
+    this.pillTimeoutId = setTimeout(() => {
+      this.pillTimeoutId = null;
+      next();
+    }, duration);
+  }
+
+  /**
+   * Closes the pill before its hold is out, because the failure it names has
+   * been fixed. A pill that has not opened yet is simply dropped; the beat is
+   * never cut short.
+   */
+  private closePillEarly(): void {
+    // No pill in this gesture — there was no room for one — so the tail is
+    // only the spoken sentence, and it ends here.
+    if (this.pillPhase === null) {
+      this.endGesture();
+      return;
+    }
+    // Already on its way out.
+    if (this.pillPhase === "closing") return;
+    // Still inside the beat, so nothing has been asserted on screen yet: the
+    // pill is dropped rather than closed, and the beat runs on to its end.
+    if (this.pillPhase === "closed") {
+      this.pillPhase = null;
+      this.requestUpdate();
+      return;
+    }
+    this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+      this.endGesture();
+    });
+  }
+
+  /** Releases the slot and leaves the plain mark with its dot behind. */
+  private endGesture(): void {
+    this.cancelGestureTail();
+    this.requestUpdate();
+    this.flushPendingSignalPulse();
+  }
+
+  /**
+   * Drops the gesture's tail outright, with no closing animation, for the
+   * cases where the launcher itself has gone: the panel opened over it, or the
+   * element was removed from the page.
+   */
+  private cancelGestureTail(): void {
+    this.cancelPillTimeout();
+    this.gestureSignal = null;
+    this.pillPhase = null;
+    this.pillDirection = null;
+  }
+
+  private cancelPillTimeout(): void {
+    if (this.pillTimeoutId !== null) {
+      clearTimeout(this.pillTimeoutId);
+      this.pillTimeoutId = null;
+    }
   }
 
   // ── Error signal ────────────────────────────────────────────────────────
@@ -16508,8 +17128,10 @@ ${prettyEvent}</pre
   private onErrorSignalsChanged(wasArmed: boolean): void {
     const isArmed = this.hasArmedErrorSignal();
     if (!isArmed) {
-      // Nothing is red, so the next outage is a new outage.
+      // Nothing is red, so the next outage is a new outage — and gets its own
+      // beat, its own pill and its own answer about whether there was room.
       this.errorBeatSpent = false;
+      this.pillOutcome = null;
       return;
     }
     if (wasArmed || this.errorBeatSpent) return;
@@ -16549,6 +17171,16 @@ ${prettyEvent}</pre
     const active = this.getActiveLauncherSignal();
     if (active === null || !isErrorSignalKey(active)) return;
     if (this.errorSignalViewedSources.has(active)) return;
+    // Held until this outage's pill has either opened or been suppressed,
+    // because `label` IS that answer and the launcher can be on screen a frame
+    // before the room around it has been measured. A signal that declares no
+    // pill has no answer to wait for.
+    if (
+      this.pillOutcome === null &&
+      LAUNCHER_SIGNALS[active].pillLabel !== undefined
+    ) {
+      return;
+    }
     if (this.core?.telemetryDisabled) return;
     this.errorSignalViewedSources.add(active);
     trackErrorSignalViewed({
@@ -16556,6 +17188,11 @@ ${prettyEvent}</pre
       presentation: this.isReducedMotionPreferred()
         ? "reduced_motion"
         : "animated",
+      // Whether this outage's pill actually opened. The design deliberately
+      // leaves the no-room case silent, and a degradation whose frequency is
+      // unknown is a degradation that gets argued about later. Two fixed
+      // values, never free text.
+      label: this.pillOutcome ?? "suppressed",
     });
   }
 

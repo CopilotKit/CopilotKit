@@ -265,8 +265,12 @@ describe("typed helpers", () => {
     });
   });
 
-  it("trackErrorSignalViewed sends only the failure class and the presentation", async () => {
-    trackErrorSignalViewed({ source: "connection", presentation: "animated" });
+  it("trackErrorSignalViewed sends the failure class, the presentation and whether a pill was shown", async () => {
+    trackErrorSignalViewed({
+      source: "connection",
+      presentation: "animated",
+      label: "shown",
+    });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
@@ -277,15 +281,17 @@ describe("typed helpers", () => {
     expect(body.properties).toMatchObject({
       source: "connection",
       presentation: "animated",
+      label: "shown",
     });
   });
 
-  it("trackErrorSignalViewed refuses to forward anything but its two enums", async () => {
+  it("trackErrorSignalViewed refuses to forward anything but its three enums", async () => {
     // The one place a later change could casually attach a free-text field.
     // The helper rebuilds its payload, so extra keys cannot ride along.
     trackErrorSignalViewed({
       source: "threads",
       presentation: "reduced_motion",
+      label: "suppressed",
       // @ts-expect-error - deliberately passing a field the helper must drop
       message: "ECONNREFUSED http://localhost:4000/api/copilotkit",
     });
@@ -299,11 +305,16 @@ describe("typed helpers", () => {
     ).properties;
     expect(properties.source).toBe("threads");
     expect(properties.presentation).toBe("reduced_motion");
+    expect(properties.label).toBe("suppressed");
   });
 
   it("trackErrorSignalViewed sends nothing when the user has opted out", async () => {
     setTelemetryOptOut(true);
-    trackErrorSignalViewed({ source: "connection", presentation: "animated" });
+    trackErrorSignalViewed({
+      source: "connection",
+      presentation: "animated",
+      label: "shown",
+    });
     await Promise.resolve();
     expect(fetchMock).not.toHaveBeenCalled();
   });
