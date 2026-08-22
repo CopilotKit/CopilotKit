@@ -14,6 +14,7 @@ describe("@copilotkit/react-core/v2/headless runtime exports", () => {
     const hooks: (keyof typeof headless)[] = [
       "useCopilotKit",
       "useAgent",
+      "useThreadRestore",
       "useFrontendTool",
       "useComponent",
       "useHumanInTheLoop",

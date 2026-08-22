@@ -8,26 +8,20 @@ import React, {
 import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import CopilotChatMessageView from "./CopilotChatMessageView";
+import { CopilotChatMessageView } from "./CopilotChatMessageView";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
-import CopilotChatInput from "./CopilotChatInput";
-import CopilotChatSuggestionView, {
-  CopilotChatSuggestionViewProps,
-} from "./CopilotChatSuggestionView";
+import { CopilotChatInput } from "./CopilotChatInput";
+import { CopilotChatSuggestionView } from "./CopilotChatSuggestionView";
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
-import {
-  StickToBottom,
-  useStickToBottom,
-  useStickToBottomContext,
-} from "use-stick-to-bottom";
+import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { ChevronDown, Upload } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
@@ -39,6 +33,8 @@ import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
+import type { UseThreadRestoreResult } from "../../hooks/use-thread-restore";
+import { CopilotChatRestoreView } from "./CopilotChatRestoreView";
 
 // Vertical gap between the scroll-to-bottom button and the input container.
 const SCROLL_BUTTON_OFFSET = 16;
@@ -60,6 +56,7 @@ export type CopilotChatViewProps = WithSlots<
     scrollView: typeof CopilotChatView.ScrollView;
     input: typeof CopilotChatInput;
     suggestionView: typeof CopilotChatSuggestionView;
+    restoreView: typeof CopilotChatRestoreView;
   },
   {
     messages?: Message[];
@@ -102,6 +99,11 @@ export type CopilotChatViewProps = WithSlots<
      * connect) rather than a generic "start a new chat" greeting.
      */
     hasExplicitThreadId?: boolean;
+    /**
+     * Explicit restore lifecycle for custom/headless composition. Any state
+     * other than `ready` replaces the normal message and input surfaces.
+     */
+    threadRestore?: UseThreadRestoreResult;
     /**
      * @deprecated Use the `input` slot's `disclaimer` prop instead:
      * ```tsx
@@ -168,6 +170,8 @@ export function CopilotChatView({
   onDrop,
   isConnecting = false,
   hasExplicitThreadId = false,
+  threadRestore,
+  restoreView,
   // Deprecated — forwarded to input slot
   disclaimer,
   // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
@@ -192,8 +196,7 @@ export function CopilotChatView({
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Track keyboard state for mobile
-  const { isKeyboardOpen, keyboardHeight, availableHeight } =
-    useKeyboardHeight();
+  const { isKeyboardOpen, keyboardHeight } = useKeyboardHeight();
 
   // Track input container height changes
   useEffect(() => {
@@ -314,6 +317,18 @@ export function CopilotChatView({
       </div>
     ),
   });
+  const BoundRestoreView = threadRestore
+    ? renderSlot(restoreView, CopilotChatRestoreView, { threadRestore })
+    : null;
+
+  // Restoration is a full-surface gate: partially restored messages and a
+  // usable composer would imply the conversation is ready when it is not.
+  // Keep this after the component's hooks so transitions do not change hook
+  // ordering, but before every normal-chat render branch (welcome, children,
+  // and default view).
+  if (threadRestore && threadRestore.status !== "ready") {
+    return BoundRestoreView;
+  }
 
   // Welcome screen logic
   const isEmpty = messages.length === 0;
@@ -401,6 +416,7 @@ export function CopilotChatView({
           input: BoundInput,
           scrollView: BoundScrollView,
           suggestionView: BoundSuggestionView ?? <></>,
+          restoreView: BoundRestoreView ?? <></>,
         })}
       </div>
     );

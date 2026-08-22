@@ -27,6 +27,7 @@ export interface ɵPhoenixChannelLike {
   on(event: string, callback: (payload: unknown) => void): number;
   off(event: string, ref?: number): void;
   onError?(callback: (reason?: unknown) => void): unknown;
+  onClose?(callback: (reason?: unknown) => void): unknown;
   join(params?: Record<string, unknown>): ɵPhoenixPushLike;
   push?(event: string, payload: unknown): ɵPhoenixPushLike;
   leave(): void;
@@ -54,7 +55,7 @@ export type ɵPhoenixSocketSignal =
  * Terminal outcomes of a Phoenix channel join attempt.
  */
 export type ɵPhoenixJoinOutcome =
-  | { type: "joined" }
+  | { type: "joined"; response?: unknown }
   | { type: "error"; response?: unknown }
   | { type: "timeout" };
 
@@ -72,6 +73,7 @@ export interface ɵPhoenixSocketSession {
 export interface ɵPhoenixChannelSession {
   channel: ɵPhoenixChannelLike;
   joinOutcome$: Observable<ɵPhoenixJoinOutcome>;
+  close$: Observable<unknown>;
 }
 
 /**
@@ -116,8 +118,8 @@ function ɵcreatePhoenixJoinOutcome$(
   return new Observable<ɵPhoenixJoinOutcome>((observer) => {
     channel
       .join()
-      .receive("ok", () => {
-        observer.next({ type: "joined" });
+      .receive("ok", (response?: unknown) => {
+        observer.next({ type: "joined", response });
         observer.complete();
       })
       .receive("error", (response?: unknown) => {
@@ -129,6 +131,30 @@ function ɵcreatePhoenixJoinOutcome$(
         observer.complete();
       });
   });
+}
+
+/**
+ * Adapt a Phoenix channel close callback into a single-outcome observable.
+ */
+function ɵcreatePhoenixChannelClose$(
+  channel: ɵPhoenixChannelLike,
+): Observable<unknown> {
+  if (!channel.onClose) {
+    return NEVER;
+  }
+
+  return new Observable<unknown>((observer) => {
+    const ref = channel.onClose!((reason?: unknown) => {
+      observer.next(reason);
+      observer.complete();
+    });
+
+    return () => {
+      if (typeof ref === "number") {
+        channel.off("phx_close", ref);
+      }
+    };
+  }).pipe(take(1), shareReplay({ bufferSize: 1, refCount: true }));
 }
 
 /**
@@ -178,11 +204,13 @@ export function ɵphoenixChannel$(
         const joinOutcome$ = ɵcreatePhoenixJoinOutcome$(channel).pipe(
           shareReplay({ bufferSize: 1, refCount: true }),
         );
+        const close$ = ɵcreatePhoenixChannelClose$(channel);
 
         return concat(
           of({
             channel,
             joinOutcome$,
+            close$,
           }),
           NEVER,
         ).pipe(

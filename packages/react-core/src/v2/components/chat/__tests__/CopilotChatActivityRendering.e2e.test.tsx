@@ -36,7 +36,7 @@ const {
     run: vi.fn().mockResolvedValue(undefined),
     destroy: mockDestroy,
   }));
-  const mockSockets: MockPhoenixSocket[] = [];
+  const mockSockets: MockPhoenixSocketImpl[] = [];
 
   class MockPhoenixPush {
     private callbacks = new Map<string, (response?: unknown) => void>();
@@ -113,7 +113,7 @@ const {
     }
   }
 
-  class MockPhoenixSocket {
+  class MockPhoenixSocketImpl {
     public channels: MockPhoenixChannel[] = [];
 
     constructor(
@@ -145,7 +145,7 @@ const {
     mockWebsandboxCreate: mockCreate,
     mockWebsandboxDestroy: mockDestroy,
     mockPhoenixSockets: mockSockets,
-    MockPhoenixSocket,
+    MockPhoenixSocket: MockPhoenixSocketImpl,
   };
 });
 
@@ -561,11 +561,23 @@ describe("CopilotChat activity message rendering", () => {
       expect(channel.params).toEqual({
         stream_mode: "connect",
         last_seen_event_id: null,
+        capabilities: {
+          restore: {
+            version: 1,
+            sdkVersion: "1.67.1",
+          },
+        },
       });
 
-      channel.triggerJoin("ok");
+      channel.triggerJoin("ok", {
+        restore: {
+          mode: "failure_reporting",
+          restoreAttemptId: "restore-connect-1",
+        },
+      });
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_STARTED,
+        eventId: "event-1",
         threadId,
         run_id: "backend-run-1",
         input: {
@@ -580,6 +592,7 @@ describe("CopilotChat activity message rendering", () => {
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.ACTIVITY_SNAPSHOT,
+        eventId: "event-2",
         messageId: testId("connect-a2ui-activity"),
         activityType: "a2ui-surface",
         content: {
@@ -611,7 +624,9 @@ describe("CopilotChat activity message rendering", () => {
       });
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
+        eventId: "event-3",
       });
+      channel.serverPush("replay_complete", { latestEventId: "event-3" });
       channel.serverPush("stream_idle", { latestEventId: "event-3" });
 
       await waitFor(() => {

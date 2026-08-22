@@ -509,6 +509,12 @@ describe("CopilotChat activity message rendering", () => {
       expect(channel.params).toEqual({
         stream_mode: "connect",
         last_seen_event_id: null,
+        capabilities: {
+          restore: {
+            version: 1,
+            sdkVersion: "1.67.1",
+          },
+        },
       });
 
       channel.triggerJoin("ok");

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { Subject } from "rxjs";
+import { lastValueFrom, Subject } from "rxjs";
 import { MockSocket } from "./test-utils";
+import type {
+  ɵPhoenixChannelSession as PhoenixChannelSession,
+  ɵPhoenixSocketSession as PhoenixSocketSession,
+} from "../utils/phoenix-observable";
 
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocket[],
@@ -22,9 +26,6 @@ const {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
 } = await import("../utils/phoenix-observable");
-
-type PhoenixSocketSession =
-  import("../utils/phoenix-observable").ɵPhoenixSocketSession;
 
 describe("phoenix observable utilities", () => {
   it("connects on subscribe and disconnects on teardown", () => {
@@ -81,6 +82,56 @@ describe("phoenix observable utilities", () => {
 
     expect(channel!.left).toBe(true);
     expect(phoenix.sockets[0]!.disconnected).toBe(true);
+  });
+
+  it("exposes the successful join acknowledgement", () => {
+    phoenix.sockets.splice(0);
+    const channel$ = ɵphoenixChannel$({
+      socket$: ɵphoenixSocket$({ url: "ws://localhost:4000/client" }),
+      topic: "room:lobby",
+    });
+
+    let joinOutcome: unknown;
+    const subscription = channel$.subscribe((session) => {
+      session.joinOutcome$.subscribe((outcome) => {
+        joinOutcome = outcome;
+      });
+    });
+    const channel = phoenix.sockets[0]!.channels[0]!;
+
+    channel.triggerJoin("ok", {
+      restore: { mode: "failure_reporting", restoreAttemptId: "ra_1" },
+    });
+
+    expect(joinOutcome).toEqual({
+      type: "joined",
+      response: {
+        restore: { mode: "failure_reporting", restoreAttemptId: "ra_1" },
+      },
+    });
+    subscription.unsubscribe();
+  });
+
+  it("exposes channel close as a shared one-shot session signal", async () => {
+    phoenix.sockets.splice(0);
+    const channel$ = ɵphoenixChannel$({
+      socket$: ɵphoenixSocket$({ url: "ws://localhost:4000/client" }),
+      topic: "room:lobby",
+    });
+
+    let session: PhoenixChannelSession | undefined;
+    const subscription = channel$.subscribe((value) => {
+      session = value;
+    });
+    const channel = phoenix.sockets[0]!.channels[0]!;
+    const firstClose = lastValueFrom(session!.close$);
+    const secondClose = lastValueFrom(session!.close$);
+
+    channel.triggerClose({ reason: "normal" });
+
+    await expect(firstClose).resolves.toEqual({ reason: "normal" });
+    await expect(secondClose).resolves.toEqual({ reason: "normal" });
+    subscription.unsubscribe();
   });
 
   it("removes channel event listeners on unsubscribe", () => {

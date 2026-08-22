@@ -27,6 +27,8 @@ import type {
   ResolvedDebugConfig,
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
+import { isThreadRestoreAware } from "./thread-restore";
+import type { ThreadRestoreAware, ThreadRestoreState } from "./thread-restore";
 import type { CopilotRuntimeTransport } from "./types";
 import { runtimeInfoError } from "./utils/runtime-info-error";
 
@@ -98,7 +100,10 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   runtimeAgentId?: string;
 }
 
-export class ProxiedCopilotRuntimeAgent extends HttpAgent {
+export class ProxiedCopilotRuntimeAgent
+  extends HttpAgent
+  implements ThreadRestoreAware
+{
   runtimeUrl?: string;
   credentials?: RequestCredentials;
   // `readonly` because `super.url` is baked at construction; mutating
@@ -113,6 +118,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private restoreListeners = new Map<() => void, () => void>();
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -184,6 +190,38 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   async getCapabilities(): Promise<AgentCapabilities> {
     return this._capabilities ?? {};
+  }
+
+  getThreadRestoreState(): ThreadRestoreState {
+    return isThreadRestoreAware(this.delegate)
+      ? this.delegate.getThreadRestoreState()
+      : {
+          status: "ready",
+          threadId: this.threadId ?? "",
+        };
+  }
+
+  subscribeToThreadRestore(listener: () => void): () => void {
+    if (!this.restoreListeners.has(listener)) {
+      this.restoreListeners.set(listener, () => {});
+      this.bindThreadRestoreListener(listener);
+    }
+
+    return () => {
+      this.restoreListeners.get(listener)?.();
+      this.restoreListeners.delete(listener);
+    };
+  }
+
+  forceFullRestore(): Promise<void> {
+    return this.resolveDelegate().then(() => {
+      if (!isThreadRestoreAware(this.delegate)) {
+        throw new Error(
+          "Thread restore is only available for Intelligence agents",
+        );
+      }
+      return this.delegate.forceFullRestore();
+    });
   }
 
   override async detachActiveRun(): Promise<void> {
@@ -493,6 +531,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         throw new Error("A delegate is only created for Intelligence mode");
       }
       this.delegate = this.createIntelligenceDelegate();
+      for (const listener of this.restoreListeners.keys()) {
+        this.bindThreadRestoreListener(listener);
+      }
     }
 
     this.syncDelegate(this.delegate);
@@ -688,5 +729,17 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (hasCredentials(delegate)) {
       delegate.credentials = this.credentials;
     }
+  }
+
+  private bindThreadRestoreListener(listener: () => void): void {
+    if (!isThreadRestoreAware(this.delegate)) {
+      return;
+    }
+
+    this.restoreListeners.get(listener)?.();
+    this.restoreListeners.set(
+      listener,
+      this.delegate.subscribeToThreadRestore(listener),
+    );
   }
 }
