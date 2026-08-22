@@ -56,6 +56,7 @@ const installCopilotKit = (
   overrides: {
     runtimeUrl?: string | null;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
   } = {},
 ) => {
   mockUseCopilotKit.mockReturnValue({
@@ -65,6 +66,7 @@ const installCopilotKit = (
           ? "https://bff.example.com/api/copilotkit"
           : overrides.runtimeUrl,
       headers: overrides.headers,
+      credentials: overrides.credentials,
     },
   });
 };
@@ -162,6 +164,19 @@ describe("useLearnFromUserAction", () => {
     const headers = calls[0]!.init?.headers as Record<string, string>;
     expect(headers["X-Customer"]).toBe("abc");
     expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("forwards copilotkit credentials", async () => {
+    installCopilotKit({ credentials: "include" });
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() => useLearnFromUserAction());
+    await result.current({ threadId: "t", title: "x" });
+
+    expect(calls[0]!.init?.credentials).toBe("include");
   });
 
   it("throws when runtimeUrl is not configured", async () => {

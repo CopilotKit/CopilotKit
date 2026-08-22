@@ -7,5 +7,6 @@ export * from "./utils/micro-redux";
 export * from "./utils/phoenix-observable";
 export * from "./threads";
 export * from "./memory";
+export * from "./record-annotation";
 export * from "./features";
 export * from "./interrupt-state";

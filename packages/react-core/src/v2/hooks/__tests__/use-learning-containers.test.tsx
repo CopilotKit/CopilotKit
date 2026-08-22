@@ -21,6 +21,7 @@ const mockUseCopilotChatConfiguration =
 interface FetchCall {
   url: string;
   body: Record<string, unknown> | null;
+  credentials: RequestCredentials | undefined;
 }
 
 /**
@@ -42,7 +43,11 @@ const mockFetch = (
         parsedBody = null;
       }
     }
-    calls.push({ url: String(url), body: parsedBody });
+    calls.push({
+      url: String(url),
+      body: parsedBody,
+      credentials: init?.credentials,
+    });
     const response = responses[index++] ?? responses[responses.length - 1]!;
     return new Response(JSON.stringify(response.body), {
       status: response.status,
@@ -61,9 +66,10 @@ const mockFetch = (
 /** Set up the copilotkit context mock with a runtimeUrl. */
 const installCopilotKit = (
   runtimeUrl: string | null = "https://bff.example.com/api/copilotkit",
+  credentials?: RequestCredentials,
 ) => {
   mockUseCopilotKit.mockReturnValue({
-    copilotkit: { runtimeUrl, headers: undefined },
+    copilotkit: { runtimeUrl, headers: undefined, credentials },
   });
 };
 
@@ -220,6 +226,25 @@ test("unmount → emits reset [project] for the captured threadId", async () => 
     (calls[1]!.body!.payload as Record<string, unknown>).containers,
   ).toEqual(["project"]);
   expect(calls[1]!.body!.threadId).toBe("thread-xyz");
+  restore();
+});
+
+test("forwards credentials when syncing and resetting", async () => {
+  installCopilotKit("https://bff.example.com/api/copilotkit", "include");
+  const { calls, restore } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+
+  const { unmount } = renderHook(() =>
+    useLearningContainers({ threadId: "t1", learningContainers: ["team"] }),
+  );
+  await act(async () => {});
+
+  unmount();
+  await act(async () => {});
+
+  expect(calls).toHaveLength(2);
+  expect(calls.map((call) => call.credentials)).toEqual(["include", "include"]);
   restore();
 });
 

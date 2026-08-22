@@ -1,0 +1,92 @@
+---
+title: "injectLearnFromUserActionInCurrentThread"
+description: "Angular function for recording a user action against the ambient CopilotKit chat thread."
+---
+
+## Overview
+
+`injectLearnFromUserActionInCurrentThread` returns an asynchronous recorder
+with the same user-action contract as
+[`injectLearnFromUserAction`](/reference/angular/functions/injectLearnFromUserAction),
+but it reads the thread ID from the ambient `CopilotChatConfiguration`. The
+recorder does not accept a `threadId` override.
+
+Both the thread and runtime transport configuration are read when the recorder
+is called. Creating the recorder is therefore safe before a thread switch or a
+runtime configuration update.
+
+## Signature
+
+```ts
+import { injectLearnFromUserActionInCurrentThread } from "@copilotkit/angular";
+
+function injectLearnFromUserActionInCurrentThread(): LearnFromUserActionInCurrentThreadRecorder;
+
+type LearnFromUserActionInCurrentThreadRecorder = (
+  input: LearnFromUserActionInCurrentThreadInput,
+) => Promise<LearnFromUserActionResult>;
+```
+
+`LearnFromUserActionInCurrentThreadInput` contains `title`, `description`,
+`data`, `occurredAt`, and `clientEventId`. See the
+[explicit-thread input reference](/reference/angular/functions/injectLearnFromUserAction#input)
+for each field.
+
+## Runnable example
+
+Put the component that injects the recorder and the chat under the same
+`provideCopilotChatConfiguration` provider. This makes thread switches visible
+to both consumers.
+
+```ts title="src/app/support-workspace.component.ts"
+import { Component } from "@angular/core";
+import {
+  CopilotChat,
+  injectLearnFromUserActionInCurrentThread,
+  provideCopilotChatConfiguration,
+} from "@copilotkit/angular";
+
+@Component({
+  selector: "app-support-workspace",
+  standalone: true,
+  imports: [CopilotChat],
+  providers: [provideCopilotChatConfiguration({ agentId: "support" })],
+  template: `
+    <button type="button" (click)="approveRefund()">Approve refund</button>
+    <copilot-chat />
+  `,
+})
+export class SupportWorkspaceComponent {
+  private readonly recordUserAction =
+    injectLearnFromUserActionInCurrentThread();
+
+  async approveRefund(): Promise<void> {
+    await this.recordUserAction({
+      title: "Approved refund",
+      data: { orderId: "order-123" },
+    });
+  }
+}
+```
+
+The call rejects with an actionable error when no
+`CopilotChatConfiguration` is in scope or it cannot provide a thread ID. Use
+the explicit-thread recorder when the action belongs to a thread managed
+outside the ambient chat configuration.
+
+## Related
+
+<Cards>
+  <Card
+    title="injectLearnFromUserAction"
+    description="Record an action against an explicitly supplied thread."
+    href="/reference/angular/functions/injectLearnFromUserAction"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChat"
+    description="Render the chat that owns the ambient thread."
+    href="/reference/angular/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+</Cards>
