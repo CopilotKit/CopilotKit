@@ -323,7 +323,7 @@ is the canonical name. The `CopilotKit` provider resolves
 `publicLicenseKey || publicApiKey`. Always write the canonical form in
 new code.
 
-Source: `packages/react-core/src/v1-deprecated/components/copilot-provider/copilotkit.tsx:172`
+Source: `packages/react-core/src/components/copilot-provider/copilotkit.tsx:172`
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 

@@ -4,24 +4,7 @@ description: "The useRenderToolCall hook enables rendering of backend tool calls
 ---
 
 <Callout type="warning">
-  This v1 `useRenderToolCall` takes a `{ name, parameters, render }` config object to **register** a renderer for an existing backend tool. In v2, use [`useRenderTool`](https://docs.copilotkit.ai/reference/v2/hooks/useRenderTool) for that job. The v2 hook named [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) is a different, low-level API that returns a renderer function for consuming tool calls.
-
-```tsx
-import { useRenderTool } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-
-function StatusTool() {
-  useRenderTool({
-    name: "showStatus",
-    parameters: z.object({}),
-    render: ({ status, result }) => (
-      <div>{status === "complete" ? result : "Running..."}</div>
-    ),
-  });
-  return null;
-}
-```
-
+  This v1 `useRenderToolCall` takes a `{ name, parameters, render }` config object to **register** a renderer for a tool. In the v2 API, the same name has a **different shape**: v2 [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) is a no-argument hook that *returns* a renderer function for consuming tool calls. To register renderers in v2, use [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) or [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) instead.
 </Callout>
 
 `useRenderToolCall` is purely a rendering hook. It displays custom UI for tool calls without executing
@@ -104,12 +87,12 @@ The migration is straightforward - just change the hook name. The render props r
 
 ## Parameters
 
-<PropertyReference name="name" type="string" required>
-  The name of the tool to render. Use `"*"` to catch all tool calls.
+<PropertyReference name="name" type="string" required >
+The name of the tool to render. Use `"*"` to catch all tool calls.
 </PropertyReference>
 
-<PropertyReference name="description" type="string">
-  A description of what this renderer does. Mainly for documentation purposes.
+<PropertyReference name="description" type="string"  >
+A description of what this renderer does. Mainly for documentation purposes.
 </PropertyReference>
 
 <PropertyReference name="parameters" type="T"  >
@@ -123,7 +106,6 @@ Optional array of parameter definitions. If provided, adds type safety to the ar
 Simple example: `[{ name: "datasetName", type: "string", description: "Name of the dataset", required: true }]`
 
 Nested example:
-
 ```typescript
 [
   {
@@ -132,32 +114,18 @@ Nested example:
     description: "Configuration for the analysis",
     required: true,
     properties: [
-      {
-        name: "method",
-        type: "string",
-        description: "Analysis method to use",
-        required: true,
-      },
-      {
-        name: "threshold",
-        type: "number",
-        description: "Threshold value",
-        required: false,
-      },
-    ],
-  },
-];
+      { name: "method", type: "string", description: "Analysis method to use", required: true },
+      { name: "threshold", type: "number", description: "Threshold value", required: false }
+    ]
+  }
+]
 ```
-
 </PropertyReference>
 
-<PropertyReference name="render" type="FrontendAction<T>['render']">
-  A React component that renders the tool call UI. The component receives props
-  with `status`, `args`, `result`, `name`, and `description`.
+<PropertyReference name="render" type="FrontendAction<T>['render']"  >
+A React component that renders the tool call UI. The component receives props with `status`, `args`, `result`, `name`, and `description`.
 </PropertyReference>
 
-<PropertyReference name="available" type="'disabled' | 'enabled'">
-  Currently non-functional in this v1 hook. The value is accepted for API
-  compatibility but ignored, so setting `"disabled"` does not prevent the
-  renderer from being registered.
+<PropertyReference name="available" type="'disabled' | 'enabled'"  >
+Currently non-functional in this v1 hook. The value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the renderer from being registered.
 </PropertyReference>

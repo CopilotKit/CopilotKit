@@ -1,24 +1,5 @@
-/*
- * V1 SDK DEPRECATED. USE V2 INSTEAD
- *
- * This file defines public v1 SDK exports. Use the exact v2 mappings below.
- * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
- * the linked v2 documentation before generating replacement code.
- *
- * @copilotkit/react-textarea — BaseCopilotTextarea:
- *   No 1:1 v2 replacement is available.
- *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * Migration guide: https://docs.copilotkit.ai/migrate/v2
- *
- * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
- */
-
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import type { Descendant } from "slate";
-import { Editor } from "slate";
+import { Descendant, Editor } from "slate";
 import { Editable, Slate } from "slate-react";
 import { twMerge } from "tailwind-merge";
 import { useAutosuggestions } from "../../hooks/base-copilot-textarea-implementation/use-autosuggestions";
@@ -31,10 +12,12 @@ import {
 import { addAutocompletionsToEditor } from "../../lib/slatejs-edits/add-autocompletions";
 import { clearAutocompletionsFromEditor } from "../../lib/slatejs-edits/clear-autocompletions";
 import { replaceEditorText } from "../../lib/slatejs-edits/replace-text";
-import type { BaseAutosuggestionsConfig } from "../../types/base";
-import { defaultBaseAutosuggestionsConfig } from "../../types/base";
-import type { AutosuggestionState } from "../../types/base/autosuggestion-state";
-import type { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import {
+  BaseAutosuggestionsConfig,
+  defaultBaseAutosuggestionsConfig,
+} from "../../types/base";
+import { AutosuggestionState } from "../../types/base/autosuggestion-state";
+import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
 import "./base-copilot-textarea.css";
 import { HoveringToolbar } from "../hovering-toolbar/hovering-toolbar";
 import { makeRenderElementFunction } from "./render-element";

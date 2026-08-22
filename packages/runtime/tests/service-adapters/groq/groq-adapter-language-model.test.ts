@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { OpenAIProviderSettings } from "@ai-sdk/openai";
-import { GroqAdapter } from "../../../src/v1-deprecated/service-adapters/groq/groq-adapter";
+import { GroqAdapter } from "../../../src/service-adapters/groq/groq-adapter";
 import { Groq } from "groq-sdk";
 
 // Groq uses createOpenAI (OpenAI-compatible API), so we check against

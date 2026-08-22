@@ -66,8 +66,7 @@
     {
       "files": [
         "packages/angular/**/*.ts",
-        "packages/react-core/src/v1-deprecated/**/*.{ts,tsx}",
-        "packages/runtime/src/v1-deprecated/**/*.{ts,tsx}"
+        "packages/runtime/src/graphql/**/*.ts"
       ],
       "rules": {
         "typescript/consistent-type-imports": "off",

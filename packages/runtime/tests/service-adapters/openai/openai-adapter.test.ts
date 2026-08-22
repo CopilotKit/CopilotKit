@@ -5,48 +5,45 @@ vi.mock("openai", () => {
 });
 
 // Mock the OpenAIAdapter class to avoid the "new OpenAI()" issue
-vi.mock(
-  "../../../src/v1-deprecated/service-adapters/openai/openai-adapter",
-  () => {
-    class MockOpenAIAdapter {
-      _openai: any;
-      model: string = "gpt-4o";
-      keepSystemRole: boolean = false;
-      disableParallelToolCalls: boolean = false;
+vi.mock("../../../src/service-adapters/openai/openai-adapter", () => {
+  class MockOpenAIAdapter {
+    _openai: any;
+    model: string = "gpt-4o";
+    keepSystemRole: boolean = false;
+    disableParallelToolCalls: boolean = false;
 
-      constructor() {
-        this._openai = {
-          beta: {
-            chat: {
-              completions: {
-                stream: vi.fn(),
-              },
+    constructor() {
+      this._openai = {
+        beta: {
+          chat: {
+            completions: {
+              stream: vi.fn(),
             },
           },
-        };
-      }
-
-      get openai() {
-        return this._openai;
-      }
-
-      async process(request: any) {
-        // Mock implementation that calls our event source but doesn't do the actual processing
-        request.eventSource.stream(async (stream: any) => {
-          stream.complete();
-          return Promise.resolve();
-        });
-
-        return { threadId: request.threadId || "mock-thread-id" };
-      }
+        },
+      };
     }
 
-    return { OpenAIAdapter: MockOpenAIAdapter };
-  },
-);
+    get openai() {
+      return this._openai;
+    }
+
+    async process(request: any) {
+      // Mock implementation that calls our event source but doesn't do the actual processing
+      request.eventSource.stream(async (stream: any) => {
+        stream.complete();
+        return Promise.resolve();
+      });
+
+      return { threadId: request.threadId || "mock-thread-id" };
+    }
+  }
+
+  return { OpenAIAdapter: MockOpenAIAdapter };
+});
 
 // Mock the Message classes since they use TypeGraphQL decorators
-vi.mock("../../../src/v1-deprecated/graphql/types/converted", () => {
+vi.mock("../../../src/graphql/types/converted", () => {
   // Create minimal implementations of the message classes
   class MockTextMessage {
     content: string;
@@ -138,13 +135,13 @@ vi.mock("../../../src/v1-deprecated/graphql/types/converted", () => {
 });
 
 // Now import the modules (vi.mock is hoisted above imports, so these get the mocked versions)
-import { OpenAIAdapter } from "../../../src/v1-deprecated/service-adapters/openai/openai-adapter";
+import { OpenAIAdapter } from "../../../src/service-adapters/openai/openai-adapter";
 import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
   Role,
-} from "../../../src/v1-deprecated/graphql/types/converted";
+} from "../../../src/graphql/types/converted";
 
 describe("OpenAIAdapter", () => {
   let adapter: OpenAIAdapter;
