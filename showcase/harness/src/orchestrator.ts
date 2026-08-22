@@ -4216,12 +4216,18 @@ export async function runWorker(
     }
   }
 
+  // Each entry passes its OWN driver's `inputSchema` to the mapper, which runs
+  // it as the fleet path's validation gate. Without it the worker hands the
+  // driver whatever the producer serialized: an empty `backendUrl` (a service
+  // with no Railway instance in this environment) then reaches `page.goto` as a
+  // relative path and paints the service's whole column `goto-error` red.
+  // `driver.run` does NOT validate — only the legacy in-process invoker does.
   const drivers: DriverRegistry = new Map([
     [
       E2E_D6_DRIVER_KIND,
       {
         driver: pooled.d6,
-        payloadToInput: createPayloadToInput(),
+        payloadToInput: createPayloadToInput(pooled.d6.inputSchema),
         aggregateSlugKey: (serviceSlug: string) => `d6:${serviceSlug}`,
       },
     ],
@@ -4229,14 +4235,14 @@ export async function runWorker(
       E2E_DEMOS_DRIVER_KIND,
       {
         driver: pooled.demos,
-        payloadToInput: createPayloadToInput(),
+        payloadToInput: createPayloadToInput(pooled.demos.inputSchema),
       },
     ],
     [
       E2E_SMOKE_DRIVER_KIND,
       {
         driver: pooled.smoke,
-        payloadToInput: createPayloadToInput(),
+        payloadToInput: createPayloadToInput(pooled.smoke.inputSchema),
       },
     ],
   ]);
