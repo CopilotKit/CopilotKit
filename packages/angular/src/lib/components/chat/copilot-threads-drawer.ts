@@ -10,7 +10,6 @@ import {
   TemplateRef,
   computed,
   contentChild,
-  effect,
   inject,
   input,
   signal,
@@ -40,6 +39,7 @@ import type {
 type CollapseChangeDetail = { collapsed: boolean };
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
+import { explicitEffect } from "../../explicit-effect";
 import { injectThreads } from "../../threads";
 import type { Thread } from "../../threads";
 
@@ -414,39 +414,69 @@ export class CopilotThreadsDrawer {
     // any reactive dependency changes. Using an effect (rather than template
     // bindings) is required because Lit elements accept object/boolean domains
     // only as JS properties, not as HTML attributes.
-    effect(() => {
-      const el = this.drawerRef()?.nativeElement;
-      if (!el) return;
-      el.threads = this.drawerThreads();
-      // While the license is still resolving, force the loading state so the
-      // element shows its spinner instead of an empty/locked body.
-      el.loading = this.threads.isLoading() || this.licensePending();
-      el.error = this.errorMessage();
-      el.fetchMoreError = this.fetchMoreErrorMessage();
-      el.activeThreadId = this.activeThreadId();
-      el.hasMore = this.threads.hasMoreThreads();
-      el.fetchingMore = this.threads.isFetchingMoreThreads();
-      // Drive the element's controlled `open` from the (config-backed or local)
-      // open-state so the element does not default open=true on load.
-      el.open = this.drawerOpen();
-      // Pending counts as licensed for rendering: the element shows the locked
-      // view only when `licensed` is false, so keeping it true until the status
-      // resolves prevents the locked view from flashing mid-resolution.
-      el.licensed = this.licensed() || this.licensePending();
-      if (this.label() !== undefined) el.label = this.label() as string;
-      const licenseUrl = this.licenseUrl();
-      if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
-      // `collapsible` is a default-true boolean PROPERTY (like `licensed`);
-      // leave the element's own default in place when the input is unset.
-      const collapsible = this.collapsible();
-      if (collapsible !== undefined) {
-        // TODO(ENT-1051): drop the intersection cast once the published element
-        // type declares `collapsible` (see the local CollapseChangeDetail note).
-        (
-          el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
-        ).collapsible = collapsible;
-      }
-    });
+    explicitEffect(
+      () => ({
+        el: this.drawerRef()?.nativeElement,
+        threads: this.drawerThreads(),
+        // While the license is still resolving, force the loading state so the
+        // element shows its spinner instead of an empty/locked body.
+        loading: this.threads.isLoading() || this.licensePending(),
+        error: this.errorMessage(),
+        fetchMoreError: this.fetchMoreErrorMessage(),
+        activeThreadId: this.activeThreadId(),
+        hasMore: this.threads.hasMoreThreads(),
+        fetchingMore: this.threads.isFetchingMoreThreads(),
+        // Drive the element's controlled `open` from the (config-backed or
+        // local) open-state so the element does not default open=true on load.
+        open: this.drawerOpen(),
+        // Pending counts as licensed for rendering: the element shows the
+        // locked view only when `licensed` is false, so keeping it true until
+        // the status resolves prevents the locked view from flashing
+        // mid-resolution.
+        licensed: this.licensed() || this.licensePending(),
+        label: this.label(),
+        licenseUrl: this.licenseUrl(),
+        collapsible: this.collapsible(),
+      }),
+      ({
+        el,
+        threads,
+        loading,
+        error,
+        fetchMoreError,
+        activeThreadId,
+        hasMore,
+        fetchingMore,
+        open,
+        licensed,
+        label,
+        licenseUrl,
+        collapsible,
+      }) => {
+        if (!el) return;
+        el.threads = threads;
+        el.loading = loading;
+        el.error = error;
+        el.fetchMoreError = fetchMoreError;
+        el.activeThreadId = activeThreadId;
+        el.hasMore = hasMore;
+        el.fetchingMore = fetchingMore;
+        el.open = open;
+        el.licensed = licensed;
+        if (label !== undefined) el.label = label;
+        if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+        // `collapsible` is a default-true boolean PROPERTY (like `licensed`);
+        // leave the element's own default in place when the input is unset.
+        if (collapsible !== undefined) {
+          // TODO(ENT-1051): drop the intersection cast once the published
+          // element type declares `collapsible` (see the local
+          // CollapseChangeDetail note).
+          (
+            el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+          ).collapsible = collapsible;
+        }
+      },
+    );
   }
 
   /**
