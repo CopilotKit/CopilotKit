@@ -19,7 +19,7 @@ Generative UI playground showcasing three protocols for AI-powered interfaces.
               ▼                             ▼
 ┌─────────────────────────┐     ┌─────────────────────────┐
 │ "default" Agent         │     │ "a2ui" Agent            │
-│ BasicAgent + MCP Apps   │     │ HttpAgent → Python A2A  │
+│ BasicAgent + MCP Apps   │     │ A2AAgent → Python A2A   │
 │ Port: 3001 (MCP)        │     │ Port: 10002             │
 └─────────────────────────┘     └─────────────────────────┘
 ```
@@ -60,17 +60,42 @@ The "Widget Builder" link in the header opens the official A2UI Composer at http
 
 ## Development
 
+### Install Dependencies
+
+The frontend is a pnpm workspace package and cannot be installed with npm from this directory. Install it from the CopilotKit repository root. The two sidecars are standalone projects and keep their own package/runtime tooling.
+
+```bash
+# Repository root: frontend plus local @copilotkit/* workspace packages
+corepack enable
+pnpm install --frozen-lockfile
+
+# Standalone MCP Apps server
+cd examples/showcases/generative-ui-playground/mcp-server
+npm ci
+cd ../../../..
+
+# Standalone Python A2A agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+cd ../../../..
+```
+
 ### Start All Services
 
 ```bash
-# Terminal 1: MCP Server
-cd mcp-server && npm run dev
-
-# Terminal 2: Python A2A Agent
-cd a2a-agent && python -m agent
-
-# Terminal 3: Next.js Frontend
+# Terminal 1: standalone MCP server
+cd examples/showcases/generative-ui-playground/mcp-server
 npm run dev
+
+# Terminal 2: standalone Python A2A agent
+cd examples/showcases/generative-ui-playground/a2a-agent
+source .venv/bin/activate
+python -m agent --port 10002
+
+# Terminal 3: workspace frontend, from the repository root
+pnpm exec nx run ui-protocols-demo:dev
 ```
 
 ### URLs
@@ -81,22 +106,86 @@ npm run dev
 
 ## Environment Variables
 
+The workspace frontend reads
+`examples/showcases/generative-ui-playground/.env.local`:
+
 ```bash
-# .env
-OPENAI_API_KEY=sk-...          # OpenAI API key for gpt-5.2
+OPENAI_API_KEY=sk-... # OpenAI API key for the frontend BasicAgent
 MCP_SERVER_URL=http://localhost:3001/mcp
 A2A_AGENT_URL=http://localhost:10002
 ```
 
-## Production URLs (Railway)
+The standalone Python agent reads
+`examples/showcases/generative-ui-playground/a2a-agent/.env`:
 
-Live deployment on Railway:
+```bash
+OPENAI_API_KEY=sk-... # OpenAI key used by LiteLLM
+LITELLM_MODEL=openai/gpt-5.2 # Optional; this is the default
+```
 
-- **Frontend**: https://frontend-production-456e.up.railway.app
-- **MCP Server**: https://mcp-server-production-5419.up.railway.app
-- **A2A Agent**: https://a2a-agent-production.up.railway.app
+The standalone MCP server needs no API key.
 
-Railway Project: `ui-protocols-demo`
+## Railway Deployment
+
+### Railway Monorepo Configuration
+
+Create services named exactly `frontend`, `a2a-agent`, and `mcp-server`.
+Railway variable references are case-sensitive, so changing these names also
+requires updating every reference. Configure these exact repository paths. The
+Railway Config File is always repository-absolute; it does not inherit the
+service Root Directory. The Docker build context is the Root Directory.
+
+| Service      | Root Directory                                            | Railway Config File                                                    | Docker build context                                     |
+| ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
+| `frontend`   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    |
+| `a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  |
+| `mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` |
+
+The frontend must keep Root Directory `/`: its `railway.toml` selects `examples/showcases/generative-ui-playground/Dockerfile`, and that Dockerfile copies the root pnpm workspace. The sidecar configs each select the `Dockerfile` inside their own isolated root.
+
+Create a sealed/shared Railway variable named `OPENAI_API_KEY`, then set these
+service variables:
+
+```text
+# frontend
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+MCP_SERVER_URL=http://${{mcp-server.RAILWAY_PRIVATE_DOMAIN}}:${{mcp-server.PORT}}/mcp
+A2A_AGENT_URL=http://${{a2a-agent.RAILWAY_PRIVATE_DOMAIN}}:${{a2a-agent.PORT}}
+
+# a2a-agent
+OPENAI_API_KEY=${{shared.OPENAI_API_KEY}}
+A2A_BASE_URL=http://${{RAILWAY_PRIVATE_DOMAIN}}:${{PORT}}
+
+# mcp-server
+# No secrets or cross-service URLs are required.
+```
+
+The key belongs only on `frontend` (for `BasicAgent`) and `a2a-agent` (for
+LiteLLM's default `openai/gpt-5.2` model). `A2A_BASE_URL` prevents the A2A
+Agent Card from advertising its local `http://localhost:<port>` fallback.
+Keep both sidecars private; the frontend runtime reaches them over Railway's
+private network, so public backend URLs are neither required nor correct. Only
+`frontend` needs a public Railway domain.
+
+Railway injects `PORT`. Next.js, `mcp-server/server.ts`, and
+`a2a-agent/agent/__main__.py` all consume it; their 3000/3001/10002 defaults are
+for local development only. Generate the frontend domain against its detected
+`PORT`, and do not hard-code those local ports into production variables.
+
+Docker and Railway deployment validation is manual for this showcase; no repository CI workflow currently enforces it. From the repository root, run:
+
+```bash
+pnpm install --frozen-lockfile --ignore-scripts
+COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test:a2a-runtime --skip-nx-cache
+pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
+docker build \
+  -f examples/showcases/generative-ui-playground/Dockerfile \
+  -t ui-protocols-demo:local .
+```
+
+The Nx A2A test target builds its exact `@copilotkit/runtime` workspace
+dependency before running the behavior test, so the sequence also works from a
+fresh checkout without prebuilt package output.
 
 ## Key Packages
 
@@ -104,9 +193,8 @@ Railway Project: `ui-protocols-demo`
 {
   "@copilotkit/react-core": "Frontend provider and hooks",
   "@copilotkit/react-ui": "CopilotSidebar component",
-  "@copilotkit/a2ui-renderer": "A2UI message renderer",
-  "@copilotkit/runtime": "CopilotRuntime backend",
-  "@copilotkit/runtime/v2": "BasicAgent class",
+  "@copilotkit/react-core/v2": "A2UI message renderer and frontend APIs",
+  "@copilotkit/runtime/v2": "CopilotRuntime backend and agent APIs",
   "@ag-ui/mcp-apps-middleware": "MCP Apps → AG-UI bridge"
 }
 ```
@@ -136,7 +224,7 @@ ui-protocols-demo/
 Frontend uses `useState` to toggle between agents:
 
 - `"default"`: Static GenUI + MCP Apps (BasicAgent + MCPAppsMiddleware)
-- `"a2ui"`: General-purpose UI generator (HttpAgent → Python A2A backend)
+- `"a2ui"`: General-purpose UI generator (A2AAgent → Python A2A backend)
 
 The `agent` prop on CopilotKitProvider determines which backend agent handles requests.
 
