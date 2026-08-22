@@ -24,9 +24,9 @@ import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
-import { createLogger } from "../../../v1-deprecated/lib/logger";
-import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
-import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
+import { createLogger } from "../../../lib/logger";
+import type { CopilotRuntimeLogger } from "../../../lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";

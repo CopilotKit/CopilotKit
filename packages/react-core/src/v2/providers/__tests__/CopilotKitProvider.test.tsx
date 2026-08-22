@@ -6,7 +6,7 @@ import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
-import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 // Mock console methods
 const originalConsoleError = console.error;

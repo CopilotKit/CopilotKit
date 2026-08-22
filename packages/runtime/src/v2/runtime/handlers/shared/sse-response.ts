@@ -2,8 +2,8 @@ import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
-import { createLogger } from "../../../../v1-deprecated/lib/logger";
-import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
+import { createLogger } from "../../../../lib/logger";
+import type { CopilotRuntimeLogger } from "../../../../lib/logger";
 import { telemetry } from "../../telemetry";
 import type { DebugEventBus } from "../../core/debug-event-bus";
 import type {

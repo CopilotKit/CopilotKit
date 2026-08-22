@@ -25,5 +25,5 @@ export type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 export { defaultTheme as a2uiDefaultTheme } from "@copilotkit/a2ui-renderer";
 
 // V1 backward-compat re-exports
-export { CopilotKit } from "../v1-deprecated/components/copilot-provider/copilotkit";
-export type { CopilotKitProps } from "../v1-deprecated/components/copilot-provider/copilotkit-props";
+export { CopilotKit } from "../components/copilot-provider/copilotkit";
+export type { CopilotKitProps } from "../components/copilot-provider/copilotkit-props";

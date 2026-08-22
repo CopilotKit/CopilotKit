@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 describe("CopilotKitProvider onError", () => {
   const originalFetch = global.fetch;

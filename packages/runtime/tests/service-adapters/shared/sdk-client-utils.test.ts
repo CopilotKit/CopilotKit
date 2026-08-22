@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { getSdkClientOptions } from "../../../src/v1-deprecated/service-adapters/shared/sdk-client-utils";
+import { getSdkClientOptions } from "../../../src/service-adapters/shared/sdk-client-utils";
 
 describe("getSdkClientOptions()", () => {
   it("extracts defaultHeaders and fetch from _options", () => {

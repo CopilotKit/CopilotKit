@@ -1,27 +1,3 @@
-/*
- * V1 SDK DEPRECATED. USE V2 INSTEAD
- *
- * This file defines public v1 SDK exports. Use the exact v2 mappings below.
- * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
- * the linked v2 documentation before generating replacement code.
- *
- * @copilotkit/react-textarea — CopilotTextarea:
- *   No 1:1 v2 replacement is available.
- *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * @copilotkit/react-textarea — CopilotTextareaProps:
- *   No 1:1 v2 replacement is available.
- *   Start at: @copilotkit/react-core/v2
- *   V2 docs: https://docs.copilotkit.ai/
- *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
- *
- * Migration guide: https://docs.copilotkit.ai/migrate/v2
- *
- * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
- */
-
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotTextarea.gif" width="500" />
@@ -112,14 +88,16 @@
  * */
 import React from "react";
 import { useMakeStandardAutosuggestionFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-autosuggestions-function";
-import type { HTMLCopilotTextAreaElement } from "../../types";
-import type { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
-import type { AutosuggestionsConfig } from "../../types/autosuggestions-config";
-import { defaultAutosuggestionsConfig } from "../../types/autosuggestions-config";
+import { HTMLCopilotTextAreaElement } from "../../types";
+import { BaseCopilotTextareaProps } from "../../types/base/base-copilot-textarea-props";
+import {
+  AutosuggestionsConfig,
+  defaultAutosuggestionsConfig,
+} from "../../types/autosuggestions-config";
 import { BaseCopilotTextarea } from "../base-copilot-textarea/base-copilot-textarea";
 import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-autosuggestions-function/use-make-standard-insertion-function";
 import merge from "lodash.merge";
-import type { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
+import { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
 // Like the base copilot textarea props,
 // but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.

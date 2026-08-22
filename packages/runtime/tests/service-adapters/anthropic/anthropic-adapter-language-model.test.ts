@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { AnthropicProviderSettings } from "@ai-sdk/anthropic";
-import { AnthropicAdapter } from "../../../src/v1-deprecated/service-adapters/anthropic/anthropic-adapter";
+import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
 import Anthropic from "@anthropic-ai/sdk";
 
 // Keys from AnthropicProviderSettings that we forward from the Anthropic SDK client.
