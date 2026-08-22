@@ -1,0 +1,20 @@
+name: copilotkit_flutter
+description: Flutter components for building CopilotKit-powered AI copilots and agents in Flutter apps.
+version: 0.0.1
+repository: https://github.com/CopilotKit/CopilotKit
+homepage: https://www.copilotkit.ai
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:

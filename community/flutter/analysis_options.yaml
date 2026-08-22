@@ -1,0 +1,4 @@
+include: package:flutter_lints/flutter.yaml
+
+# Additional lint rules and analyzer options can be configured here.
+# See https://dart.dev/tools/analysis for details.
