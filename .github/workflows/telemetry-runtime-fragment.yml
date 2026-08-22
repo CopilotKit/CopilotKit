@@ -84,7 +84,8 @@ jobs:
 
       # Regenerate the canonical alongside the fragment — the registry's reconcile
       # CI rejects a stale telemetry-events.json, so a fragment-only PR fails.
-      # Use the registry's own pnpm (its packageManager field).
+      # This checkout is nested in CopilotKit's pnpm workspace, so explicitly
+      # bypass that parent workspace and use the registry's own lockfile.
       - name: Setup pnpm for registry
         if: steps.token.outputs.token != ''
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
@@ -95,8 +96,8 @@ jobs:
         if: steps.token.outputs.token != ''
         working-directory: p2p
         run: |
-          pnpm install --frozen-lockfile
-          pnpm reconcile
+          pnpm --ignore-workspace install --frozen-lockfile
+          pnpm --ignore-workspace run reconcile
 
       - name: Open fragment PR
         if: steps.token.outputs.token != ''
