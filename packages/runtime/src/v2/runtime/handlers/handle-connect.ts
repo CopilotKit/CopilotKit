@@ -62,6 +62,7 @@ export async function handleConnectAgent({
       request,
       agentId,
       threadId: connectRequest.input.threadId,
+      headersApplied: true,
       // Pass the per-request clone whose headers were merged by
       // applyForwardedRequestHeaders, the single owner of request-header
       // forwarding shared with configureAgentForRequest.

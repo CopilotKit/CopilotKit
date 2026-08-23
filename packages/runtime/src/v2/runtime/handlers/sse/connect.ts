@@ -1,6 +1,7 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
+import { applyForwardedRequestHeaders } from "../shared/agent-utils";
 
 /**
  * `headers` lives on the HTTP-backed agent configs (e.g. `HttpAgent`), not on
@@ -23,6 +24,8 @@ interface HandleSseConnectParams {
    * `applyForwardedRequestHeaders` in `handle-connect.ts` and read below.
    */
   agent?: AgentWithHeaders;
+  /** True when the route already applied the shared merge to `agent`. */
+  headersApplied?: boolean;
 }
 
 export function handleSseConnect({
@@ -31,7 +34,20 @@ export function handleSseConnect({
   agentId,
   threadId,
   agent,
+  headersApplied = false,
 }: HandleSseConnectParams): Response {
+  // Keep direct callers compatible with the pre-parity helper contract. The
+  // route caller marks its clone as already configured, so this fallback only
+  // serves direct callers; the merge implementation remains shared.
+  const connectAgent = agent ?? ({} as AgentWithHeaders);
+  if (!headersApplied) {
+    applyForwardedRequestHeaders({
+      runtime,
+      request,
+      agent: connectAgent,
+    });
+  }
+
   return createSseEventResponse({
     request,
     debugEventBus: runtime.debugEventBus,
@@ -47,7 +63,7 @@ export function handleSseConnect({
         // No shipped runner consumes AgentRunnerConnectRequest.headers today;
         // every runner reads threadId/agentId only. This remains forward-looking
         // plumbing for a future outbound-connecting runner.
-        headers: agent?.headers ?? {},
+        headers: connectAgent.headers ?? {},
       }),
   });
 }
