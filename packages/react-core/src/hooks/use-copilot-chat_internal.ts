@@ -7,9 +7,9 @@ import React, {
   createElement,
 } from "react";
 import { useCopilotContext } from "../context/copilot-context";
-import { SystemMessageFunction } from "../types";
+import type { SystemMessageFunction } from "../types";
 import { useAsyncCallback } from "../components/error-boundary/error-utils";
-import { Message } from "@copilotkit/shared";
+import type { Message } from "@copilotkit/shared";
 import {
   gqlToAGUI,
   Message as DeprecatedGqlMessage,
@@ -21,20 +21,13 @@ import {
   useRenderCustomMessages,
   useSuggestions,
 } from "../v2";
-import {
-  Suggestion,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { useLazyToolRenderer } from "./use-lazy-tool-renderer";
-import {
-  AbstractAgent,
-  AGUIConnectNotImplementedError,
-  HttpAgent,
-} from "@ag-ui/client";
-import {
-  CoAgentStateRenderBridge,
-  type CoAgentStateRenderBridgeProps,
-} from "./use-coagent-state-render-bridge";
+import type { AbstractAgent } from "@ag-ui/client";
+import { AGUIConnectNotImplementedError, HttpAgent } from "@ag-ui/client";
+import { CoAgentStateRenderBridge } from "./use-coagent-state-render-bridge";
+import type { CoAgentStateRenderBridgeProps } from "./use-coagent-state-render-bridge";
 
 /**
  * The type of suggestions to use in the chat.
@@ -340,6 +333,9 @@ export function useCopilotChatInternal({
   const { agent } = useAgent({
     agentId: resolvedAgentId,
   });
+  const seenAssistantMessageIdsRef = useRef<Set<string>>(new Set());
+  const assistantMessageTimestampsRef = useRef<Record<string, number>>({});
+  const wasAgentRunningRef = useRef(false);
 
   // Track the last agent instance we called connect() on. Without this,
   // connect() fires on every render where status is Connected — including
@@ -409,6 +405,34 @@ export function useCopilotChatInternal({
   useEffect(() => {
     onInProgress?.(Boolean(agent?.isRunning));
   }, [agent?.isRunning, onInProgress]);
+
+  useEffect(() => {
+    const nextSeenAssistantMessageIds = new Set<string>();
+    const nextAssistantMessageTimestamps: Record<string, number> = {};
+
+    for (const message of agent?.messages ?? []) {
+      if (message.role !== "assistant") continue;
+
+      nextSeenAssistantMessageIds.add(message.id);
+
+      if (
+        typeof message.timestamp === "number" &&
+        Number.isFinite(message.timestamp)
+      ) {
+        nextAssistantMessageTimestamps[message.id] = message.timestamp;
+        continue;
+      }
+
+      const cachedTimestamp = assistantMessageTimestampsRef.current[message.id];
+      if (typeof cachedTimestamp === "number") {
+        nextAssistantMessageTimestamps[message.id] = cachedTimestamp;
+      }
+    }
+
+    seenAssistantMessageIdsRef.current = nextSeenAssistantMessageIds;
+    assistantMessageTimestampsRef.current = nextAssistantMessageTimestamps;
+    wasAgentRunningRef.current = Boolean(agent?.isRunning);
+  }, [agent?.isRunning, agent?.messages]);
 
   // Subscribe to copilotkit.interruptElement so the v1 return type stays
   // reactive. The element is published by useInterrupt (v2) when user code
@@ -618,11 +642,31 @@ export function useCopilotChatInternal({
         return message;
       }
 
-      const lazyRendered = lazyToolRendered(message, allMessages);
+      const cachedTimestamp = assistantMessageTimestampsRef.current[message.id];
+      const shouldStampAssistantTimestamp =
+        (Boolean(agent?.isRunning) || wasAgentRunningRef.current) &&
+        !seenAssistantMessageIdsRef.current.has(message.id);
+
+      const assistantMessage =
+        typeof message.timestamp === "number" &&
+        Number.isFinite(message.timestamp)
+          ? message
+          : typeof cachedTimestamp === "number"
+            ? { ...message, timestamp: cachedTimestamp }
+            : shouldStampAssistantTimestamp
+              ? (() => {
+                  const stampedTimestamp = Date.now();
+                  assistantMessageTimestampsRef.current[message.id] =
+                    stampedTimestamp;
+                  return { ...message, timestamp: stampedTimestamp };
+                })()
+              : message;
+
+      const lazyRendered = lazyToolRendered(assistantMessage, allMessages);
       if (lazyRendered) {
         const renderedGenUi = lazyRendered();
         if (renderedGenUi) {
-          return { ...message, generativeUI: () => renderedGenUi };
+          return { ...assistantMessage, generativeUI: () => renderedGenUi };
         }
       }
 
@@ -631,13 +675,16 @@ export function useCopilotChatInternal({
           ? () => {
               if (legacyCustomMessageRenderer) {
                 return legacyCustomMessageRenderer({
-                  message,
+                  message: assistantMessage,
                   position: "before",
                 });
               }
               try {
                 return (
-                  renderCustomMessage?.({ message, position: "before" }) ?? null
+                  renderCustomMessage?.({
+                    message: assistantMessage,
+                    position: "before",
+                  }) ?? null
                 );
               } catch (error) {
                 console.warn(
