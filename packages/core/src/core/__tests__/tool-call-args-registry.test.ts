@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Message } from "@ag-ui/core";
+import type { Message } from "@ag-ui/client";
 import {
   ToolCallArgsRegistry,
   ToolCallArgsManager,
@@ -24,6 +24,13 @@ function assistantMessageWithToolCall(
   } as Message;
 }
 
+function firstToolCallArgs(message: Message | undefined): string | undefined {
+  if (message?.role !== "assistant") {
+    return undefined;
+  }
+  return message.toolCalls?.[0]?.function.arguments;
+}
+
 describe("ToolCallArgsRegistry", () => {
   it("records and returns fully-formed JSON args", () => {
     const registry = new ToolCallArgsRegistry();
@@ -44,9 +51,7 @@ describe("ToolCallArgsRegistry", () => {
     registry.record("call-1", '{"postcode":');
     registry.record("call-1", '{"postcode":"M1 1AA","addresses":[]}');
 
-    expect(registry.get("call-1")).toBe(
-      '{"postcode":"M1 1AA","addresses":[]}',
-    );
+    expect(registry.get("call-1")).toBe('{"postcode":"M1 1AA","addresses":[]}');
   });
 
   it("clear drops all entries", () => {
@@ -61,10 +66,7 @@ describe("ToolCallArgsRegistry", () => {
 describe("normalizeMessagesWithAuthoritativeArgs", () => {
   it("corrects tool call args that regressed from the authoritative value", () => {
     const registry = new ToolCallArgsRegistry();
-    registry.record(
-      "call-1",
-      '{"postcode":"M1 1AA","addresses":[{"id":"6"}]}',
-    );
+    registry.record("call-1", '{"postcode":"M1 1AA","addresses":[{"id":"6"}]}');
     const regressed = [
       assistantMessageWithToolCall(
         "call-1",
@@ -78,7 +80,7 @@ describe("normalizeMessagesWithAuthoritativeArgs", () => {
     );
 
     expect(corrected).not.toBeNull();
-    expect(corrected![0].toolCalls![0].function.arguments).toBe(
+    expect(firstToolCallArgs(corrected?.[0])).toBe(
       '{"postcode":"M1 1AA","addresses":[{"id":"6"}]}',
     );
   });
@@ -87,13 +89,12 @@ describe("normalizeMessagesWithAuthoritativeArgs", () => {
     const registry = new ToolCallArgsRegistry();
     registry.record("call-1", '{"a":2}');
     const original = [assistantMessageWithToolCall("call-1", '{"a":1}')];
-    const originalArgs =
-      original[0].toolCalls![0].function.arguments;
+    const originalArgs = firstToolCallArgs(original[0]);
 
     normalizeMessagesWithAuthoritativeArgs(original, registry);
 
-    expect(original[0].toolCalls![0].function.arguments).toBe(originalArgs);
-    expect(original[0].toolCalls![0].function.arguments).toBe('{"a":1}');
+    expect(firstToolCallArgs(original[0])).toBe(originalArgs);
+    expect(firstToolCallArgs(original[0])).toBe('{"a":1}');
   });
 
   it("returns null when messages already match the registry", () => {
@@ -158,7 +159,7 @@ describe("normalizeMessagesWithAuthoritativeArgs", () => {
       registry,
     );
 
-    expect(corrected!.map((m) => m.toolCalls![0].function.arguments)).toEqual([
+    expect(corrected!.map((message) => firstToolCallArgs(message))).toEqual([
       '{"v":"authoritative-1"}',
       '{"v":"authoritative-2"}',
     ]);
@@ -186,7 +187,11 @@ describe("ToolCallArgsManager", () => {
           subscriber.onMessagesChanged?.({ messages, agent });
         }
       },
-      emitToolCallArgs(toolCallId: string, bufferBeforeDelta: string, delta: string) {
+      emitToolCallArgs(
+        toolCallId: string,
+        bufferBeforeDelta: string,
+        delta: string,
+      ) {
         for (const subscriber of [...subscribers]) {
           subscriber.onToolCallArgsEvent?.({
             event: { toolCallId, delta },
@@ -194,7 +199,10 @@ describe("ToolCallArgsManager", () => {
           });
         }
       },
-      emitToolCallEnd(toolCallId: string, toolCallArgs: Record<string, unknown>) {
+      emitToolCallEnd(
+        toolCallId: string,
+        toolCallArgs: Record<string, unknown>,
+      ) {
         for (const subscriber of [...subscribers]) {
           subscriber.onToolCallEndEvent?.({
             event: { toolCallId },
@@ -213,9 +221,9 @@ describe("ToolCallArgsManager", () => {
     manager.subscribeToAgent(agent as any);
     agent.emitToolCallArgs("call-1", "", '{"a":1}');
 
-    expect(
-      manager.getAuthoritativeArgs(agent as any, "call-1"),
-    ).toBe('{"a":1}');
+    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBe(
+      '{"a":1}',
+    );
   });
 
   it("accumulates consecutive deltas as the pipeline does (buffer excludes the current delta)", () => {
@@ -226,9 +234,9 @@ describe("ToolCallArgsManager", () => {
     agent.emitToolCallArgs("call-1", "", '{"postcode":');
     agent.emitToolCallArgs("call-1", '{"postcode":', '"M1 1AA"}');
 
-    expect(
-      manager.getAuthoritativeArgs(agent as any, "call-1"),
-    ).toBe('{"postcode":"M1 1AA"}');
+    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBe(
+      '{"postcode":"M1 1AA"}',
+    );
   });
 
   it("re-records at TOOL_CALL_END with the pipeline's terminal parsed args", () => {
@@ -244,9 +252,9 @@ describe("ToolCallArgsManager", () => {
       addresses: [{ id: "6" }],
     });
 
-    expect(
-      manager.getAuthoritativeArgs(agent as any, "call-1"),
-    ).toBe('{"postcode":"M1 1AA","addresses":[{"id":"6"}]}');
+    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBe(
+      '{"postcode":"M1 1AA","addresses":[{"id":"6"}]}',
+    );
   });
 
   it("keeps the mid-stream recording when TOOL_CALL_END parses to an empty object", () => {
@@ -259,9 +267,9 @@ describe("ToolCallArgsManager", () => {
     // not a real terminal value; don't clobber the observed complete args.
     agent.emitToolCallEnd("call-1", {});
 
-    expect(
-      manager.getAuthoritativeArgs(agent as any, "call-1"),
-    ).toBe('{"postcode":"M1 1AA"}');
+    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBe(
+      '{"postcode":"M1 1AA"}',
+    );
   });
 
   it("re-corrects messages via setMessages when a snapshot regressed args", () => {
@@ -282,7 +290,7 @@ describe("ToolCallArgsManager", () => {
       ),
     ]);
 
-    expect(agent.messages[0].toolCalls![0].function.arguments).toBe(
+    expect(firstToolCallArgs(agent.messages[0])).toBe(
       '{"postcode":"M1 1AA","addresses":[{"id":"6"}]}',
     );
   });
@@ -312,7 +320,9 @@ describe("ToolCallArgsManager", () => {
 
     manager.subscribeToAgent(agent as any);
 
-    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBeUndefined();
+    expect(
+      manager.getAuthoritativeArgs(agent as any, "call-1"),
+    ).toBeUndefined();
   });
 
   it("drops recorded entries when the same agent is re-subscribed", () => {
@@ -323,6 +333,8 @@ describe("ToolCallArgsManager", () => {
 
     manager.subscribeToAgent(agent as any);
 
-    expect(manager.getAuthoritativeArgs(agent as any, "call-1")).toBeUndefined();
+    expect(
+      manager.getAuthoritativeArgs(agent as any, "call-1"),
+    ).toBeUndefined();
   });
 });

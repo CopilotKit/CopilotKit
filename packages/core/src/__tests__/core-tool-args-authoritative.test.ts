@@ -93,7 +93,11 @@ describe("CopilotKitCore authoritative tool call args (#4935)", () => {
 
   it("re-corrects args regressed by MESSAGES_SNAPSHOT and hands the authoritative args to the handler", async () => {
     const handler = vi.fn(async () => "done");
-    const tool = createTool({ name: "select_address", handler, followUp: false });
+    const tool = createTool({
+      name: "select_address",
+      handler,
+      followUp: false,
+    });
     copilotKitCore.addTool(tool);
 
     const agent = new SequenceAgent({ agentId: "seq-agent", threadId: "t-1" });
@@ -113,9 +117,13 @@ describe("CopilotKitCore authoritative tool call args (#4935)", () => {
     const toolCallMessage = agent.messages.find(
       (m) => m.role === "assistant" && m.toolCalls?.length,
     );
-    expect(
-      toolCallMessage?.toolCalls?.[0].function.arguments,
-    ).toBe(AUTHORITATIVE_ARGS);
+    expect(toolCallMessage?.role).toBe("assistant");
+    if (toolCallMessage?.role !== "assistant") {
+      throw new Error("Expected an assistant message with a tool call");
+    }
+    expect(toolCallMessage.toolCalls?.[0]?.function.arguments).toBe(
+      AUTHORITATIVE_ARGS,
+    );
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(
       JSON.parse(AUTHORITATIVE_ARGS),
@@ -157,7 +165,11 @@ describe("CopilotKitCore authoritative tool call args (#4935)", () => {
 
   it("leaves messages untouched when the snapshot matches the accumulated args", async () => {
     const handler = vi.fn(async () => "done");
-    const tool = createTool({ name: "select_address", handler, followUp: false });
+    const tool = createTool({
+      name: "select_address",
+      handler,
+      followUp: false,
+    });
     copilotKitCore.addTool(tool);
 
     const agent = new SequenceAgent({ agentId: "seq-agent", threadId: "t-1" });
@@ -222,8 +234,12 @@ describe("CopilotKitCore authoritative tool call args (#4935)", () => {
     const toolCallMessage = agent.messages.find(
       (m) => m.role === "assistant" && m.toolCalls?.length,
     );
-    expect(
-      toolCallMessage?.toolCalls?.[0].function.arguments,
-    ).toBe(AUTHORITATIVE_ARGS);
+    expect(toolCallMessage?.role).toBe("assistant");
+    if (toolCallMessage?.role !== "assistant") {
+      throw new Error("Expected an assistant message with a tool call");
+    }
+    expect(toolCallMessage.toolCalls?.[0]?.function.arguments).toBe(
+      AUTHORITATIVE_ARGS,
+    );
   });
 });

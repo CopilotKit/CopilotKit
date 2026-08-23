@@ -1,5 +1,4 @@
-import type { AbstractAgent } from "@ag-ui/client";
-import type { Message } from "@ag-ui/core";
+import type { AbstractAgent, Message } from "@ag-ui/client";
 
 /**
  * Tracks the authoritative, fully-accumulated arguments for each tool call
