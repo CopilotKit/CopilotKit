@@ -1143,14 +1143,14 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
 
       expect(onThreadIdChanged).toHaveBeenCalledWith({
         agent,
-        previousThreadId,
+        previousThreadId: initialThreadId,
         threadId: "thread-b",
       });
     });
 
     it("queues re-entrant assignments behind the current transition", () => {
       const events: string[] = [];
-      const previousThreadId = agent.threadId;
+      const initialThreadId = agent.threadId;
       let reentered = false;
       core.subscribeToAgentWithOptions(agent, {
         onThreadIdChanged: ({ previousThreadId: previous, threadId }) => {
