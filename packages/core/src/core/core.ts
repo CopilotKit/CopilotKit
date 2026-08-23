@@ -267,15 +267,15 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
 const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
   new Set(SUBSCRIBE_TO_AGENT_KEYS);
 
-const OBSERVED_AGENTS = new WeakSet<AbstractAgent>();
+const THREAD_ID_OBSERVER = Symbol.for("copilotkit.agent.threadIdObserver");
 
 /**
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
  * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
- * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
+ * `onMessagesChanged`, `onStateChanged`, the four run lifecycle
  * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
- * `onRunErrorEvent`).
+ * `onRunErrorEvent`), and `onThreadIdChanged`.
  *
  * Two categories of `AgentSubscriber` members are excluded:
  *
@@ -302,15 +302,23 @@ const OBSERVED_AGENTS = new WeakSet<AbstractAgent>();
  * path, `safeCall` discards those return values (see its inline
  * documentation).
  *
- * Use `agent.subscribe()` directly when event mutation or per-item
- * notification semantics are needed.
+ * `onThreadIdChanged` is delivered immediately and is not throttled. Use
+ * `agent.subscribe()` directly when event mutation or per-item notification
+ * semantics are needed.
  */
+/** Payload delivered after an observed agent's thread id changes. */
 export interface SubscribeToAgentThreadIdChangedEvent {
   agent: AbstractAgent;
   previousThreadId: string | undefined;
   threadId: string | undefined;
 }
 
+/**
+ * The subset of `AgentSubscriber` callbacks accepted by
+ * {@link CopilotKitCore.subscribeToAgentWithOptions}. Thread changes are
+ * delivered immediately and are not throttled; use `agent.subscribe()` for
+ * event mutation or per-item notification semantics.
+ */
 export type SubscribeToAgentSubscriber = Pick<
   AgentSubscriber,
   Exclude<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number], "onThreadIdChanged">
@@ -1180,16 +1188,81 @@ export class CopilotKitCore {
       }
     };
 
-    if (!OBSERVED_AGENTS.has(agent)) {
-      const descriptor = Object.getOwnPropertyDescriptor(agent, "threadId");
+    if (
+      subscriber.onThreadIdChanged &&
+      !(agent as AbstractAgent & { [THREAD_ID_OBSERVER]?: true })[
+        THREAD_ID_OBSERVER
+      ]
+    ) {
+      const ownDescriptor = Object.getOwnPropertyDescriptor(agent, "threadId");
+      const prototypeDescriptor = ownDescriptor
+        ? undefined
+        : Object.getOwnPropertyDescriptor(
+            Object.getPrototypeOf(agent),
+            "threadId",
+          );
+      const descriptor = ownDescriptor ?? prototypeDescriptor;
+      const observer = (event: SubscribeToAgentThreadIdChangedEvent) => {
+        for (const currentSubscriber of [
+          ...agent.subscribers,
+        ] as SubscribeToAgentSubscriber[]) {
+          const callback = currentSubscriber.onThreadIdChanged;
+          if (!callback) continue;
+          try {
+            const result = callback(event);
+            if (result instanceof Promise) void result.catch(() => undefined);
+          } catch {
+            // Core-wrapped callbacks report through their own safeCall closure.
+          }
+        }
+      };
+
       if (
-        !descriptor ||
-        !("value" in descriptor) ||
-        descriptor.writable !== true ||
-        descriptor.configurable !== true
+        descriptor &&
+        "value" in descriptor &&
+        descriptor.writable === true &&
+        descriptor.configurable === true
       ) {
+        let currentThreadId = descriptor.value as string | undefined;
+        Object.defineProperty(agent, "threadId", {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get: () => currentThreadId,
+          set: (threadId: string | undefined) => {
+            const previousThreadId = currentThreadId;
+            currentThreadId = threadId;
+            if (!Object.is(previousThreadId, threadId)) {
+              observer({ agent, previousThreadId, threadId });
+            }
+          },
+        });
+      } else if (
+        descriptor?.get &&
+        descriptor.set &&
+        (!ownDescriptor || descriptor.configurable === true)
+      ) {
+        const getThreadId = () =>
+          descriptor.get!.call(agent) as string | undefined;
+        Object.defineProperty(agent, "threadId", {
+          configurable: true,
+          enumerable: descriptor.enumerable,
+          get: getThreadId,
+          set: (threadId: string | undefined) => {
+            const previousThreadId = getThreadId();
+            descriptor.set!.call(agent, threadId);
+            const nextThreadId = getThreadId();
+            if (!Object.is(previousThreadId, nextThreadId)) {
+              observer({
+                agent,
+                previousThreadId,
+                threadId: nextThreadId,
+              });
+            }
+          },
+        });
+      } else {
         const error = new Error(
-          `Cannot observe agent ${agentLabel}: threadId must be a configurable writable property`,
+          `Cannot observe agent ${agentLabel}: threadId must be configurable and writable`,
         );
         this.logAndEmitError(error.message, {
           error,
@@ -1199,28 +1272,11 @@ export class CopilotKitCore {
         throw error;
       }
 
-      let currentThreadId = descriptor.value as string | undefined;
-      Object.defineProperty(agent, "threadId", {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        get: () => currentThreadId,
-        set: (threadId: string | undefined) => {
-          const previousThreadId = currentThreadId;
-          currentThreadId = threadId;
-          if (Object.is(previousThreadId, threadId)) return;
-
-          const event = { agent, previousThreadId, threadId };
-          for (const currentSubscriber of [
-            ...agent.subscribers,
-          ] as SubscribeToAgentSubscriber[]) {
-            const callback = currentSubscriber.onThreadIdChanged;
-            if (callback) {
-              safeCall("onThreadIdChanged", callback, event);
-            }
-          }
-        },
+      Object.defineProperty(agent, THREAD_ID_OBSERVER, {
+        configurable: true,
+        enumerable: false,
+        value: true,
       });
-      OBSERVED_AGENTS.add(agent);
     }
 
     const guardAll = (

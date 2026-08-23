@@ -1124,5 +1124,28 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
       expect(third).toHaveBeenCalledTimes(1);
       error.mockRestore();
     });
+
+    it("supports an accessor already installed on the agent", () => {
+      let currentThreadId = agent.threadId;
+      Object.defineProperty(agent, "threadId", {
+        configurable: true,
+        enumerable: true,
+        get: () => currentThreadId,
+        set: (threadId: string) => {
+          currentThreadId = threadId;
+        },
+      });
+      const onThreadIdChanged = vi.fn();
+      const previousThreadId = agent.threadId;
+
+      core.subscribeToAgentWithOptions(agent, { onThreadIdChanged });
+      agent.threadId = "thread-b";
+
+      expect(onThreadIdChanged).toHaveBeenCalledWith({
+        agent,
+        previousThreadId,
+        threadId: "thread-b",
+      });
+    });
   });
 });
