@@ -236,7 +236,7 @@ Per-tool filtering belongs to `@ag-ui/mcp-apps-middleware`. The runtime currentl
 
 ## Forwarding request headers to your agent
 
-When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (the `/run` path that actually dispatches the agent). This is how a token configured by the frontend provider reaches a self-hosted agent — see [Authentication](/auth).
+When a request reaches the runtime, some inbound headers are forwarded onto the outgoing call to your agent (both `/run` and `/connect` apply the same policy to the per-request agent, but no shipped runner consumes connect-path headers yet, so today only `/run` produces an outbound agent call). This is how a token configured by the frontend provider reaches a self-hosted agent — see [Authentication](/auth).
 
 By default the runtime forwards `authorization` and any `x-*` header, **minus** a built-in denylist of infrastructure, proxy, and platform headers that no legitimate agent integration needs forwarded from the edge. The denylist strips, among others:
 

@@ -1,10 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
-import {
-  mergeForwardableHeaders,
-  resolveForwardHeadersPolicy,
-} from "../header-utils";
 
 /**
  * `headers` lives on the HTTP-backed agent configs (e.g. `HttpAgent`), not on
@@ -23,9 +19,8 @@ interface HandleSseConnectParams {
   threadId: string;
   /**
    * The per-request agent clone, carrying any server-configured `agent.headers`
-   * (e.g. service-to-service auth). Used only to compute the merged header set
-   * threaded into `runner.connect` below — see the note there for why that
-   * merge is forward-looking plumbing rather than active outbound auth today.
+   * (e.g. service-to-service auth). The merged headers are computed once by
+   * `applyForwardedRequestHeaders` in `handle-connect.ts` and read below.
    */
   agent?: AgentWithHeaders;
 }
@@ -47,27 +42,12 @@ export function handleSseConnect({
       runtime.runner.connect({
         threadId,
         agentId,
-        // Forward-looking plumbing: we compute the merged header set (server
-        // `agent.headers` win on collision, case-insensitively; non-colliding
-        // inbound headers still forward — see `mergeForwardableHeaders`, #5712)
-        // and thread it into `runner.connect`. NO shipped runner consumes the
-        // `headers` field of `AgentRunnerConnectRequest` today — every runner
-        // (in-memory, intelligence, telemetry, sqlite) reads only `threadId`.
-        // The real outbound header forwarding is the /run path, where
-        // `cloneAgentForRequest` mutates `agent.headers` directly
-        // (agent-utils.ts). This wiring exists so a future outbound-connecting
-        // runner can pick the merged headers up without a route change; the
-        // collision precedence noted here is purely about that merge, not about
-        // middleware/mutation parity with /run.
-        headers: mergeForwardableHeaders(
-          agent?.headers,
-          request,
-          // Optional on `CopilotRuntimeLike` (non-breaking minor release);
-          // coalesce a policy-less external implementor to the default resolved
-          // policy (default-on denylist) instead of dereffing undefined.
-          runtime.forwardHeadersPolicy ??
-            resolveForwardHeadersPolicy(undefined),
-        ),
+        // `applyForwardedRequestHeaders` computed this once on the connect
+        // clone. Server-configured headers win case-insensitively (#5712/#5782).
+        // No shipped runner consumes AgentRunnerConnectRequest.headers today;
+        // every runner reads threadId/agentId only. This remains forward-looking
+        // plumbing for a future outbound-connecting runner.
+        headers: agent?.headers ?? {},
       }),
   });
 }
