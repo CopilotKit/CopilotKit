@@ -1053,4 +1053,76 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
     // Both fire immediately — no throttling
     expect(onMessagesUnthrottled).toHaveBeenCalledTimes(2);
   });
+  describe("threadId observation", () => {
+    it("notifies changed assignments synchronously with ordered payloads", () => {
+      const onThreadIdChanged = vi.fn();
+      core.subscribeToAgentWithOptions(agent, { onThreadIdChanged });
+
+      agent.threadId = "thread-a";
+      expect(agent.threadId).toBe("thread-a");
+      agent.threadId = "thread-b";
+      agent.threadId = "thread-a";
+
+      expect(onThreadIdChanged).toHaveBeenCalledTimes(3);
+      expect(
+        onThreadIdChanged.mock.calls.map(([event]) => [
+          event.previousThreadId,
+          event.threadId,
+        ]),
+      ).toEqual([
+        [expect.any(String), "thread-a"],
+        ["thread-a", "thread-b"],
+        ["thread-b", "thread-a"],
+      ]);
+    });
+
+    it("same threadId assignments are silent and remain immediate during throttling", () => {
+      const onMessagesChanged = vi.fn();
+      const onThreadIdChanged = vi.fn();
+      core.subscribeToAgentWithOptions(
+        agent,
+        { onMessagesChanged, onThreadIdChanged },
+        { throttleMs: 100 },
+      );
+
+      agent.messages = [userMsg("1", "a")];
+      notifyMessagesChanged(agent);
+      const sameThreadId = agent.threadId;
+      agent.threadId = sameThreadId;
+      expect(onThreadIdChanged).not.toHaveBeenCalled();
+      agent.threadId = "thread-b";
+      expect(onThreadIdChanged).toHaveBeenCalledTimes(1);
+      expect(onMessagesChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("threadId callback failures are isolated across subscribers and unsubscribe", async () => {
+      const first = vi.fn(() => {
+        throw new Error("sync failure");
+      });
+      const second = vi.fn(() => Promise.reject(new Error("async failure")));
+      const third = vi.fn();
+      const firstSub = core.subscribeToAgentWithOptions(agent, {
+        onThreadIdChanged: first,
+      });
+      core.subscribeToAgentWithOptions(agent, { onThreadIdChanged: second });
+      const thirdSub = core.subscribeToAgentWithOptions(agent, {
+        onThreadIdChanged: third,
+      });
+      const error = silenceConsoleError();
+
+      agent.threadId = "thread-b";
+      await Promise.resolve();
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(second).toHaveBeenCalledTimes(1);
+      expect(third).toHaveBeenCalledTimes(1);
+
+      thirdSub.unsubscribe();
+      firstSub.unsubscribe();
+      agent.threadId = "thread-c";
+      await Promise.resolve();
+      expect(first).toHaveBeenCalledTimes(1);
+      expect(third).toHaveBeenCalledTimes(1);
+      error.mockRestore();
+    });
+  });
 });

@@ -6,12 +6,15 @@ import {
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { test, expect, vi } from "vitest";
-import { HttpAgent } from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { Observable } from "rxjs";
+import { CopilotKitCore } from "@copilotkit/core";
 import {
   injectChatConfiguration,
   provideCopilotChatConfiguration,
 } from "./chat-configuration";
-import type { AgentStore } from "./agent";
+import { AgentStore } from "./agent";
 import { connectActiveThread } from "./active-thread-connector";
 
 /**
@@ -59,6 +62,46 @@ test("explicit switch connects the agent to the picked thread", async () => {
   expect(connect).toHaveBeenCalledWith(
     expect.objectContaining({ agent: fake.agent }),
   );
+});
+
+test("notifies the store when the active thread changes", async () => {
+  class ProductionAgent extends AbstractAgent {
+    run(_input: RunAgentInput): Observable<BaseEvent> {
+      return new Observable();
+    }
+  }
+
+  const core = new CopilotKitCore({});
+  const agent = new ProductionAgent({
+    agentId: "agent-1",
+    threadId: "thread-a",
+  });
+  agent.pendingInterrupts = [{ id: "approve-refund" } as never];
+  const store = new AgentStore(
+    agent,
+    { onDestroy: vi.fn(() => vi.fn()) } as never,
+    core.subscribeToAgentWithOptions.bind(core),
+  );
+  const agentStore = signal(store);
+  const connect = vi.fn();
+
+  TestBed.configureTestingModule({
+    providers: [provideCopilotChatConfiguration()],
+  });
+  const config = TestBed.runInInjectionContext(() => {
+    const cfg = injectChatConfiguration();
+    connectActiveThread(cfg, agentStore, connect);
+    return cfg;
+  });
+
+  expect(store.interruptController.hasInterrupt()).toBe(true);
+  config.setActiveThreadId("thread-b", { explicit: true });
+  TestBed.flushEffects();
+  await Promise.resolve();
+
+  expect(agent.threadId).toBe("thread-b");
+  expect(store.interruptController.hasInterrupt()).toBe(false);
+  expect(connect).toHaveBeenCalledTimes(1);
 });
 
 test("initial mount does not clear messages", async () => {

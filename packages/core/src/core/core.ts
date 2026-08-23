@@ -257,7 +257,8 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
   "onRunFinalized",
   "onRunFailed",
   "onRunErrorEvent",
-] as const satisfies readonly (keyof AgentSubscriber)[];
+  "onThreadIdChanged",
+] as const satisfies readonly (keyof AgentSubscriber | "onThreadIdChanged")[];
 
 /**
  * Runtime allowlist derived from {@link SUBSCRIBE_TO_AGENT_KEYS}. Hoisted
@@ -265,6 +266,8 @@ const SUBSCRIBE_TO_AGENT_KEYS = [
  */
 const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
   new Set(SUBSCRIBE_TO_AGENT_KEYS);
+
+const OBSERVED_AGENTS = new WeakSet<AbstractAgent>();
 
 /**
  * The subset of `AgentSubscriber` callbacks accepted by
@@ -302,10 +305,20 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
  * Use `agent.subscribe()` directly when event mutation or per-item
  * notification semantics are needed.
  */
+export interface SubscribeToAgentThreadIdChangedEvent {
+  agent: AbstractAgent;
+  previousThreadId: string | undefined;
+  threadId: string | undefined;
+}
+
 export type SubscribeToAgentSubscriber = Pick<
   AgentSubscriber,
-  (typeof SUBSCRIBE_TO_AGENT_KEYS)[number]
->;
+  Exclude<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number], "onThreadIdChanged">
+> & {
+  onThreadIdChanged?: (
+    event: SubscribeToAgentThreadIdChangedEvent,
+  ) => void | Promise<void>;
+};
 
 /** Options for {@link CopilotKitCore.subscribeToAgentWithOptions}. */
 export interface SubscribeToAgentOptions {
@@ -1167,6 +1180,49 @@ export class CopilotKitCore {
       }
     };
 
+    if (!OBSERVED_AGENTS.has(agent)) {
+      const descriptor = Object.getOwnPropertyDescriptor(agent, "threadId");
+      if (
+        !descriptor ||
+        !("value" in descriptor) ||
+        descriptor.writable !== true ||
+        descriptor.configurable !== true
+      ) {
+        const error = new Error(
+          `Cannot observe agent ${agentLabel}: threadId must be a configurable writable property`,
+        );
+        this.logAndEmitError(error.message, {
+          error,
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, property: "threadId" },
+        });
+        throw error;
+      }
+
+      let currentThreadId = descriptor.value as string | undefined;
+      Object.defineProperty(agent, "threadId", {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        get: () => currentThreadId,
+        set: (threadId: string | undefined) => {
+          const previousThreadId = currentThreadId;
+          currentThreadId = threadId;
+          if (Object.is(previousThreadId, threadId)) return;
+
+          const event = { agent, previousThreadId, threadId };
+          for (const currentSubscriber of [
+            ...agent.subscribers,
+          ] as SubscribeToAgentSubscriber[]) {
+            const callback = currentSubscriber.onThreadIdChanged;
+            if (callback) {
+              safeCall("onThreadIdChanged", callback, event);
+            }
+          }
+        },
+      });
+      OBSERVED_AGENTS.add(agent);
+    }
+
     const guardAll = (
       sub: SubscribeToAgentSubscriber,
     ): SubscribeToAgentSubscriber => {
@@ -1199,6 +1255,11 @@ export class CopilotKitCore {
         const fn = sub.onRunErrorEvent;
         guarded.onRunErrorEvent = (params) =>
           safeCall("onRunErrorEvent", fn, params);
+      }
+      if (sub.onThreadIdChanged) {
+        const fn = sub.onThreadIdChanged;
+        guarded.onThreadIdChanged = (params) =>
+          safeCall("onThreadIdChanged", fn, params);
       }
       return guarded;
     };
@@ -1273,6 +1334,8 @@ export class CopilotKitCore {
       lifecycleOnly.onRunFailed = subscriber.onRunFailed;
     if (subscriber.onRunErrorEvent)
       lifecycleOnly.onRunErrorEvent = subscriber.onRunErrorEvent;
+    if (subscriber.onThreadIdChanged)
+      lifecycleOnly.onThreadIdChanged = subscriber.onThreadIdChanged;
 
     const wrappedSubscriber: SubscribeToAgentSubscriber =
       guardAll(lifecycleOnly);

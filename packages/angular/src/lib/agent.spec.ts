@@ -744,7 +744,7 @@ describe("AgentStore.interruptController", () => {
     ]);
   });
 
-  it.skip("clears the store interrupt as soon as its agent changes threads", () => {
+  it("clears the store interrupt as soon as its agent changes threads", () => {
     const agent = new MockAgent("agent-1");
     agent.threadId = "thread-a";
     agent.pendingInterrupts = [interrupt("approve-refund")];
@@ -755,6 +755,17 @@ describe("AgentStore.interruptController", () => {
     agent.threadId = "thread-b";
 
     expect(store.interruptController.hasInterrupt()).toBe(false);
+  });
+
+  it("preserves the store interrupt when its agent keeps the same thread", () => {
+    const agent = new MockAgent("agent-1");
+    agent.threadId = "thread-a";
+    agent.pendingInterrupts = [interrupt("approve-refund")];
+    const { store } = hostFor(agent);
+
+    agent.threadId = "thread-a";
+
+    expect(store.interruptController.hasInterrupt()).toBe(true);
   });
 
   it("unregisters manual teardown and runs cleanup only once", () => {

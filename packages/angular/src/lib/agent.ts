@@ -101,6 +101,11 @@ export class AgentStore {
       onRunErrorEvent: () => {
         this.#isRunning.set(false);
       },
+      onThreadIdChanged: ({ threadId }) => {
+        if (threadId !== undefined) {
+          this.interruptController.setThreadId(threadId);
+        }
+      },
     });
     // Preserve the store projection as the agent's first subscriber so its
     // synchronous message/state updates keep their existing timing.
