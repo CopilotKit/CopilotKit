@@ -221,7 +221,7 @@ export class InterruptController<TValue = unknown, TResult = never> {
   }
 
   /** Clear pending decisions when the host changes threads. */
-  setThreadId(threadId: string): void {
+  setThreadId(threadId: string | undefined): void {
     if (this.#threadId === undefined) {
       this.#threadId = threadId;
       return;

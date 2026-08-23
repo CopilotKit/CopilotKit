@@ -1136,7 +1136,7 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
         },
       });
       const onThreadIdChanged = vi.fn();
-      const previousThreadId = agent.threadId;
+      const initialThreadId = agent.threadId;
 
       core.subscribeToAgentWithOptions(agent, { onThreadIdChanged });
       agent.threadId = "thread-b";
@@ -1146,6 +1146,35 @@ describe("CopilotKitCore.subscribeToAgentWithOptions", () => {
         previousThreadId,
         threadId: "thread-b",
       });
+    });
+
+    it("queues re-entrant assignments behind the current transition", () => {
+      const events: string[] = [];
+      const previousThreadId = agent.threadId;
+      let reentered = false;
+      core.subscribeToAgentWithOptions(agent, {
+        onThreadIdChanged: ({ previousThreadId: previous, threadId }) => {
+          events.push(`first:${previous}->${threadId}`);
+          if (!reentered) {
+            reentered = true;
+            agent.threadId = "thread-c";
+          }
+        },
+      });
+      core.subscribeToAgentWithOptions(agent, {
+        onThreadIdChanged: ({ previousThreadId: previous, threadId }) => {
+          events.push(`second:${previous}->${threadId}`);
+        },
+      });
+
+      agent.threadId = "thread-b";
+
+      expect(events).toEqual([
+        `first:${initialThreadId}->thread-b`,
+        `second:${initialThreadId}->thread-b`,
+        "first:thread-b->thread-c",
+        "second:thread-b->thread-c",
+      ]);
     });
   });
 });

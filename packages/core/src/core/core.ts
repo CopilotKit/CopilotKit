@@ -269,6 +269,10 @@ const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
 
 const THREAD_ID_OBSERVER = Symbol.for("copilotkit.agent.threadIdObserver");
 
+type ThreadIdObserverState = {
+  notify: (event: SubscribeToAgentThreadIdChangedEvent) => void;
+};
+
 /**
  * The subset of `AgentSubscriber` callbacks accepted by
  * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
@@ -1190,9 +1194,11 @@ export class CopilotKitCore {
 
     if (
       subscriber.onThreadIdChanged &&
-      !(agent as AbstractAgent & { [THREAD_ID_OBSERVER]?: true })[
-        THREAD_ID_OBSERVER
-      ]
+      !(
+        agent as AbstractAgent & {
+          [THREAD_ID_OBSERVER]?: ThreadIdObserverState;
+        }
+      )[THREAD_ID_OBSERVER]
     ) {
       const ownDescriptor = Object.getOwnPropertyDescriptor(agent, "threadId");
       const prototypeDescriptor = ownDescriptor
@@ -1202,19 +1208,35 @@ export class CopilotKitCore {
             "threadId",
           );
       const descriptor = ownDescriptor ?? prototypeDescriptor;
-      const observer = (event: SubscribeToAgentThreadIdChangedEvent) => {
-        for (const currentSubscriber of [
-          ...agent.subscribers,
-        ] as SubscribeToAgentSubscriber[]) {
-          const callback = currentSubscriber.onThreadIdChanged;
-          if (!callback) continue;
+      let dispatching = false;
+      const pendingEvents: SubscribeToAgentThreadIdChangedEvent[] = [];
+      const observer: ThreadIdObserverState = {
+        notify: (event) => {
+          pendingEvents.push(event);
+          if (dispatching) return;
+
+          dispatching = true;
           try {
-            const result = callback(event);
-            if (result instanceof Promise) void result.catch(() => undefined);
-          } catch {
-            // Core-wrapped callbacks report through their own safeCall closure.
+            while (pendingEvents.length > 0) {
+              const currentEvent = pendingEvents.shift()!;
+              for (const currentSubscriber of [
+                ...agent.subscribers,
+              ] as SubscribeToAgentSubscriber[]) {
+                const callback = currentSubscriber.onThreadIdChanged;
+                if (!callback) continue;
+                try {
+                  const result = callback(currentEvent);
+                  if (result instanceof Promise)
+                    void result.catch(() => undefined);
+                } catch {
+                  // Core-wrapped callbacks report through their safeCall closure.
+                }
+              }
+            }
+          } finally {
+            dispatching = false;
           }
-        }
+        },
       };
 
       if (
@@ -1232,7 +1254,7 @@ export class CopilotKitCore {
             const previousThreadId = currentThreadId;
             currentThreadId = threadId;
             if (!Object.is(previousThreadId, threadId)) {
-              observer({ agent, previousThreadId, threadId });
+              observer.notify({ agent, previousThreadId, threadId });
             }
           },
         });
@@ -1252,7 +1274,7 @@ export class CopilotKitCore {
             descriptor.set!.call(agent, threadId);
             const nextThreadId = getThreadId();
             if (!Object.is(previousThreadId, nextThreadId)) {
-              observer({
+              observer.notify({
                 agent,
                 previousThreadId,
                 threadId: nextThreadId,
@@ -1275,7 +1297,7 @@ export class CopilotKitCore {
       Object.defineProperty(agent, THREAD_ID_OBSERVER, {
         configurable: true,
         enumerable: false,
-        value: true,
+        value: observer,
       });
     }
 

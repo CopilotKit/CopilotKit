@@ -102,9 +102,7 @@ export class AgentStore {
         this.#isRunning.set(false);
       },
       onThreadIdChanged: ({ threadId }) => {
-        if (threadId !== undefined) {
-          this.interruptController.setThreadId(threadId);
-        }
+        this.interruptController.setThreadId(threadId);
       },
     });
     // Preserve the store projection as the agent's first subscriber so its
