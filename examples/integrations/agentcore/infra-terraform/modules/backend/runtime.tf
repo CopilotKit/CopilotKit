@@ -62,12 +62,10 @@ resource "aws_ecr_lifecycle_policy" "agent" {
 resource "terraform_data" "docker_image_hash" {
   input = local.is_docker && var.container_uri == null ? sha256(join("", concat(
     [filesha256("${local.pattern_dir}/Dockerfile")],
-    [filesha256("${local.pattern_dir}/requirements.txt")],
+    [filesha256("${local.pattern_dir}/pyproject.toml")],
+    [filesha256("${local.pattern_dir}/uv.lock")],
     [for f in fileset(local.pattern_dir, "**/*.py") : filesha256("${local.pattern_dir}/${f}")],
-    [for f in fileset("${local.project_root}/patterns/utils", "**/*.py") : filesha256("${local.project_root}/patterns/utils/${f}")],
-    [for f in fileset("${local.project_root}/gateway", "**/*.py") : filesha256("${local.project_root}/gateway/${f}")],
-    [for f in fileset("${local.project_root}/tools", "**/*.py") : filesha256("${local.project_root}/tools/${f}")],
-    [filesha256("${local.project_root}/pyproject.toml")],
+    [for f in fileset(local.shared_utils_dir, "**/*.py") : filesha256("${local.shared_utils_dir}/${f}")],
   ))) : "zip"
 }
 
@@ -88,7 +86,7 @@ resource "null_resource" "docker_build_push" {
       REGION="${local.region}"
       ACCOUNT_ID="${local.account_id}"
       PROJECT_ROOT="${local.project_root}"
-      DOCKERFILE="patterns/${var.backend_pattern}/Dockerfile"
+      DOCKERFILE="agents/${var.backend_pattern}/Dockerfile"
 
       # Verify Docker is running
       if ! docker info >/dev/null 2>&1; then

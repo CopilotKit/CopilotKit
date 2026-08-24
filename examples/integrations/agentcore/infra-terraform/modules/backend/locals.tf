@@ -46,8 +46,9 @@ locals {
   is_claude_agent_sdk = contains(["claude-agent-sdk-single-agent", "claude-agent-sdk-multi-agent"], var.backend_pattern)
 
   # Project paths (for zip packaging)
-  project_root = "${path.module}/../../.."
-  pattern_dir  = "${local.project_root}/patterns/${var.backend_pattern}"
+  project_root     = "${path.module}/../../.."
+  pattern_dir      = "${local.project_root}/agents/${var.backend_pattern}"
+  shared_utils_dir = "${local.project_root}/agents/utils"
 
   # Zip deployment configuration
   zip_entry_point                 = ["opentelemetry-instrument", "basic_agent.py"]

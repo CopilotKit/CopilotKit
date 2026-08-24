@@ -137,7 +137,7 @@ fi
 
 # Construct ECR repository URL
 ECR_REPO="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${STACK_NAME}-agent-runtime"
-DOCKERFILE="patterns/${PATTERN}/Dockerfile"
+DOCKERFILE="agents/${PATTERN}/Dockerfile"
 
 # Print configuration
 echo ""
@@ -155,8 +155,8 @@ echo ""
 # Verify Dockerfile exists
 if [[ ! -f "$PROJECT_ROOT/$DOCKERFILE" ]]; then
     echo -e "${RED}Error: Dockerfile not found at $PROJECT_ROOT/$DOCKERFILE${NC}"
-    echo -e "${YELLOW}Available patterns:${NC}"
-    ls -1 "$PROJECT_ROOT/patterns/" 2>/dev/null || echo "  No patterns found"
+    echo -e "${YELLOW}Available agents:${NC}"
+    ls -1 "$PROJECT_ROOT/agents/" 2>/dev/null || echo "  No patterns found"
     exit 1
 fi
 
