@@ -1332,10 +1332,21 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
           await flushInspector(inspector);
           const homeButton = inspectorButton(inspector, "Home");
           expect(homeButton, `${key}: Home nav`).toBeDefined();
+          // A live thread-list failure owns the launcher, so the first open
+          // lands on Threads instead of Home.
+          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          const landingButton =
+            landingLabel === "Home"
+              ? homeButton
+              : inspectorButton(inspector, "Threads");
           expect(
-            homeButton?.classList.contains("inspector-nav-control-active"),
-            `${key}: Home default`,
+            landingButton?.classList.contains("inspector-nav-control-active"),
+            `${key}: ${landingLabel} default`,
           ).toBe(true);
+          if (landingLabel !== "Home") {
+            homeButton?.click();
+            await flushInspector(inspector);
+          }
           const identity = scenario.inspectorMetadata?.identity;
           if (identity) {
             await vi.waitFor(() => {

@@ -708,6 +708,9 @@ test("a retained row hidden by a list error reports has_threads false", async ()
   });
   try {
     await harness.open();
+    // Launcher may already land on Threads for a list error. Move away
+    // first so the Threads click is a real tab change and emits telemetry.
+    await harness.selectLeaf("ag-ui-events");
     await harness.selectLeaf("threads");
 
     const tab = harness.telemetryFor(TELEMETRY_EVENTS.threadsTabClicked);

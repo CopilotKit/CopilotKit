@@ -8,12 +8,14 @@
 // method name, because the navigation has already been restructured once during
 // this cycle and will move again.
 //
-// Timers: fake for the settle window, which is otherwise two real seconds per
-// case. Beat *completion* keeps real timers, as the announcement suite does,
-// because that is the one assertion about a duration rather than a transition.
+// Timers: fake for the beat and pill, which would otherwise take several
+// real seconds per case. Beat *completion* keeps real timers, as the
+// announcement suite does, because that is the one assertion about a
+// duration rather than a transition.
 
 import {
   CopilotKitCore,
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateThreadStore,
   ɵselectThreadsError,
@@ -25,6 +27,7 @@ import type {
 } from "@copilotkit/shared";
 import { afterEach, expect, test, vi } from "vitest";
 
+import type { AbstractAgent } from "@ag-ui/client";
 import { WebInspectorElement } from "../index.js";
 import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
@@ -35,10 +38,9 @@ const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 
-// The contract, not an implementation detail: "a failure must persist for
-// approximately two seconds", and an error beats faster than product news.
-const SETTLE_MS = 2000;
-const ERROR_BEAT_MS = 1500;
+// The contract, not an implementation detail: an error beats faster than
+// product news. Wiring failures arm as soon as the network reports them.
+const ERROR_BEAT_MS = 400;
 const NEWS_BEAT_MS = 2100;
 
 // The gesture's remaining three phases, stated ONCE for this whole suite. The
@@ -158,6 +160,23 @@ class SignalTestCore extends CopilotKitCore {
           status,
         }),
       "Error-signal test runtime subscriber failed",
+    );
+  }
+
+  async emitAppError(
+    code: CopilotKitCoreErrorCode,
+    message = "lab failure",
+    context: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onError?.({
+          copilotkit: this,
+          error: new Error(message),
+          code,
+          context,
+        }),
+      "Error-signal test onError subscriber failed",
     );
   }
 }
@@ -434,6 +453,11 @@ type Harness = Readonly<{
   healConnection: () => Promise<void>;
   breakThreads: () => Promise<void>;
   healThreads: () => Promise<void>;
+  fireAppError: (
+    code: CopilotKitCoreErrorCode,
+    message?: string,
+    context?: Record<string, unknown>,
+  ) => Promise<void>;
   /** A real mouse press: pointerdown, pointerup, then click. */
   press: (element: Element | null) => Promise<void>;
   /** Keyboard activation, which fires click with no pointer events. */
@@ -573,9 +597,9 @@ async function setup(options: Options = {}): Promise<Harness> {
   if (store) core.registerThreadStore(AGENT_ID, store);
 
   if (!options.realTimers) {
-    // Installed before the Inspector mounts, so every settle window and every
-    // beat this suite asserts on belongs to the fake clock — a timer started
-    // during mount would otherwise stay on the real one and never be reached.
+    // Installed before the Inspector mounts, so every beat this suite asserts
+    // on belongs to the fake clock — a timer started during mount would
+    // otherwise stay on the real one and never be reached.
     // Limited to the two timer functions the feature uses, so the
     // announcement's date handling is untouched.
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -629,6 +653,10 @@ async function setup(options: Options = {}): Promise<Harness> {
       required(releaseAnnouncementFeed, "held announcement feed")();
       await flush();
     },
+    fireAppError: async (code, message, errorContext) => {
+      await core.emitAppError(code, message, errorContext);
+      await flush();
+    },
     breakConnection: async () => {
       await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Error);
       await flush();
@@ -673,33 +701,28 @@ async function setup(options: Options = {}): Promise<Harness> {
   };
 }
 
-/** Arms the connection latch from a healthy start, settle window included. */
+/** Arms the connection latch from a healthy start. */
 async function armConnectionFailure(context: Harness): Promise<void> {
   await context.breakConnection();
-  await context.advance(SETTLE_MS);
 }
 
-// ── The settle window ─────────────────────────────────────────────────────
+// ── Arming ────────────────────────────────────────────────────────────────
 
-test("a failure shorter than the settle window arms nothing at all", async () => {
+test("a connection failure that heals before the next render arms nothing", async () => {
   const context = await setup();
 
-  await context.breakConnection();
-  await context.advance(SETTLE_MS - 500);
-  // Nothing yet: a blip that trains a developer to ignore the signal is worse
-  // than no signal.
-  expect(launcherDot(context.inspector)).toBeNull();
-
-  await context.healConnection();
-  await context.advance(SETTLE_MS * 2);
+  await context.core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Error);
+  await context.core.emitStatus(
+    CopilotKitCoreRuntimeConnectionStatus.Connected,
+  );
+  await context.flush();
 
   expect(launcherDot(context.inspector)).toBeNull();
   expect(pulsing(context.inspector)).toBe(false);
 });
 
-test("a failure crossing the settle window arms once and beats once", async () => {
+test("a connection failure arms at once and beats once", async () => {
   const context = await setup();
-
   await armConnectionFailure(context);
 
   expect(launcherDot(context.inspector)).not.toBeNull();
@@ -742,6 +765,32 @@ test("a resolved failure clears itself, and a fresh outage beats again", async (
   expect(pulsing(context.inspector)).toBe(true);
 });
 
+test("a reconnect in flight does not clear a runtime error", async () => {
+  const context = await setup();
+  await armConnectionFailure(context);
+  expect(launcherDot(context.inspector)).not.toBeNull();
+
+  await context.core.emitStatus(
+    CopilotKitCoreRuntimeConnectionStatus.Connecting,
+  );
+  await context.flush();
+  expect(launcherDot(context.inspector)).not.toBeNull();
+
+  await context.healConnection();
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("a thread refetch that is still failing keeps the latch", async () => {
+  const context = await setup({
+    endpoints: ENABLED_ENDPOINTS,
+    listFails: true,
+  });
+  expect(dotSubject(context.inspector)).toBe("threads");
+
+  await context.breakThreads();
+  expect(dotSubject(context.inspector)).toBe("threads");
+});
+
 test("a second source arming behind the first produces no additional beat", async () => {
   const context = await setup({
     endpoints: ENABLED_ENDPOINTS,
@@ -749,7 +798,6 @@ test("a second source arming behind the first produces no additional beat", asyn
   });
 
   // The thread latch arms first and takes its beat.
-  await context.advance(SETTLE_MS);
   expect(dotSubject(context.inspector)).toBe("threads");
   expect(pulsing(context.inspector)).toBe(true);
   await context.advance(ERROR_BEAT_MS);
@@ -772,7 +820,7 @@ test("the disconnected, connecting and unattached states arm nothing", async () 
     CopilotKitCoreRuntimeConnectionStatus.Connecting,
   ]) {
     await context.core.emitStatus(status);
-    await context.advance(SETTLE_MS * 2);
+    await context.flush();
     // `disconnected` is also the INITIAL value, so counting it would paint the
     // launcher red on every single page load.
     expect(launcherDot(context.inspector), status).toBeNull();
@@ -783,7 +831,7 @@ test("the disconnected, connecting and unattached states arm nothing", async () 
   detached.setAttribute("auto-attach-core", "false");
   document.body.append(detached);
   await detached.updateComplete;
-  await context.advance(SETTLE_MS * 2);
+  await context.flush();
   expect(
     detached.shadowRoot?.querySelector("[data-cpk-signal-dot]"),
   ).toBeNull();
@@ -802,7 +850,7 @@ test("an unconfigured Intelligence and a locked Learning view arm nothing", asyn
       'button[data-inspector-menu-key="memories"]',
     ),
   );
-  await context.advance(SETTLE_MS * 2);
+  await context.flush();
 
   expect(markers(context.inspector)).toEqual([]);
   await context.closePanel();
@@ -827,7 +875,6 @@ test("a thread failure marks Threads and lands on Threads", async () => {
     listFails: true,
     persistedMenu: "ag-ui-events",
   });
-  await context.advance(SETTLE_MS);
 
   await context.press(launcher(context.inspector));
 
@@ -920,7 +967,6 @@ test("the navigation marker takes the failure colour, not the announcement colou
     persistedOpen: true,
     persistedMenu: "ag-ui-events",
   });
-  await context.advance(SETTLE_MS);
 
   expect(markers(context.inspector)).toEqual([
     { key: "whats-new", tone: "news" },
@@ -971,21 +1017,16 @@ test("a beat deferred because the tab is hidden runs when the tab returns", asyn
 test("a beat deferred behind a running beat runs when that beat ends", async () => {
   const context = await setup({ announcement: true });
 
-  // The announcement's beat is in flight; the failure's settle window is
-  // arranged to land inside it.
   expect(pulsing(context.inspector)).toBe(true);
   expect(dotSubject(context.inspector)).toBe("whats-new");
   await context.breakConnection();
-  await context.advance(SETTLE_MS);
 
-  // The failure owns the resting dot immediately, but did not truncate the
+  // The failure owns the resting dot immediately, but does not truncate the
   // announcement's beat or repaint it mid-flight.
   expect(dotSubject(context.inspector)).toBe("connection");
   expect(pulsing(context.inspector)).toBe(false);
 
-  // Just past the announcement's own cadence, so its beat ends and the
-  // failure's runs whole rather than as its final fraction.
-  await context.advance(NEWS_BEAT_MS - SETTLE_MS + 100);
+  await context.advance(NEWS_BEAT_MS + 100);
   expect(pulsing(context.inspector)).toBe(true);
   expect(dotSubject(context.inspector)).toBe("connection");
 });
@@ -1090,7 +1131,6 @@ test("a thread failure names its own class on the launcher and its entry", async
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS);
 
   expect(launcherName(context.inspector)).toBe(
     "Web Inspector, thread loading error",
@@ -1189,7 +1229,7 @@ test("a thread failure's pill carries the Threads view's own words", async () =>
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+  await context.advance(ERROR_BEAT_MS);
 
   expect(pillSubject(context.inspector)).toBe("threads");
   expect(pillHeading(context.inspector)).toBe(THREADS_ERROR_WORDS);
@@ -1214,7 +1254,7 @@ test("every subject's pill carries the same subline", async () => {
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+  await context.advance(ERROR_BEAT_MS);
 
   // Shared, not per-source: the invitation is about the control, not about
   // which thing broke.
@@ -1368,19 +1408,20 @@ test("a failure resolving mid-beat leaves the beat to finish and opens no pill",
   expect(pillOpen(context.inspector)).toBe(false);
 
   // An announcement is published while the failure's beat is in flight, and
-  // then the failure is fixed a third of the way through it. The beat is left
-  // alone, because a beat asserts nothing — it says *here*, and here is still
-  // where the launcher is. The announcement's own beat therefore keeps waiting
-  // for the slot until the failure's beat has run its full cadence.
+  // then the failure is fixed halfway through it. The beat is left alone,
+  // because a beat asserts nothing: it says *here*, and here is still where
+  // the launcher is. The announcement's own beat therefore keeps waiting for
+  // the slot until the failure's beat has run its full cadence.
   await context.releaseAnnouncement();
-  await context.advance(500);
+  const midBeat = Math.floor(ERROR_BEAT_MS / 2);
+  await context.advance(midBeat);
   await context.healConnection();
   expect(dotSubject(context.inspector)).toBe("whats-new");
   expect(pulsing(context.inspector)).toBe(false);
 
-  await context.advance(ERROR_BEAT_MS - 500 - 100);
+  await context.advance(ERROR_BEAT_MS - midBeat - 50);
   expect(pulsing(context.inspector)).toBe(false);
-  await context.advance(200);
+  await context.advance(100);
   expect(pulsing(context.inspector)).toBe(true);
 
   // And no pill ever opened: the condition was gone before the beat ended.
@@ -1647,7 +1688,7 @@ test("clicking a thread failure's pill lands on Threads", async () => {
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+  await context.advance(ERROR_BEAT_MS);
 
   await context.activate(pill(context.inspector));
   expect(currentMenu(context.inspector)).toBe("threads");
@@ -1806,7 +1847,7 @@ test("no rendered text anywhere carries the failure message", async () => {
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS + ERROR_BEAT_MS);
+  await context.advance(ERROR_BEAT_MS);
 
   // For width, and because a message can contain prompts, URLs and
   // identifiers: only the failure *class* is ever shown or spoken. Everything
@@ -1937,7 +1978,6 @@ test("the visibility event reports the thread source and reduced motion", async 
     listFails: true,
     reducedMotion: true,
   });
-  await context.advance(SETTLE_MS);
 
   expect(errorSignalEvents(context)).toHaveLength(1);
   expect(errorSignalEvents(context)[0]?.properties).toMatchObject({
@@ -1971,7 +2011,6 @@ test("no telemetry payload anywhere carries the failure message", async () => {
     endpoints: ENABLED_ENDPOINTS,
     listFails: true,
   });
-  await context.advance(SETTLE_MS);
   await context.press(launcher(context.inspector));
   await context.flush();
 
@@ -2005,6 +2044,304 @@ test("a runtime that disabled telemetry sends nothing whatever fails", async () 
   expect(context.telemetryBodies).toEqual([]);
 });
 
+// ── App errors as unread events ───────────────────────────────────────────
+
+test("a failed agent run names itself on the pill and lands on AG-UI Events", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+    "model refused the run",
+  );
+
+  expect(dotSubject(context.inspector)).toBe("run");
+  expect(launcherName(context.inspector)).toContain("agent run failed");
+  await context.advance(ERROR_BEAT_MS);
+  expect(pillHeading(context.inspector)).toBe("Agent run failed");
+
+  await context.activate(pill(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  expect(
+    root(context.inspector).querySelector('[data-cpk-event-error="run"]')
+      ?.textContent,
+  ).toContain("model refused the run");
+  expect(
+    root(context.inspector).querySelector('[data-cpk-event-error="run"]')
+      ?.textContent,
+  ).toContain("highlighted below");
+});
+
+function createLabAgent(agentId: string, messages: unknown[] = []) {
+  const subscribers: Array<{
+    onRunErrorEvent?: (params: {
+      event: { type: string; message: string };
+      input: {
+        threadId: string;
+        runId: string;
+        messages: unknown[];
+        state: Record<string, never>;
+        tools: unknown[];
+        context: unknown[];
+      };
+      state: Record<string, never>;
+      agent: unknown;
+      messages: unknown[];
+    }) => void | Promise<void>;
+  }> = [];
+
+  const agent = {
+    agentId,
+    messages,
+    state: {},
+    subscribe(subscriber: (typeof subscribers)[number]) {
+      subscribers.push(subscriber);
+      return {
+        unsubscribe() {
+          const index = subscribers.indexOf(subscriber);
+          if (index >= 0) subscribers.splice(index, 1);
+        },
+      };
+    },
+    abortRun() {},
+    clone() {
+      return agent;
+    },
+  };
+
+  return {
+    // AbstractAgent is a class. Tests only need this subscriber/message shape.
+    agent: agent as AbstractAgent,
+    emitRunError(message: string) {
+      const event = { type: "RUN_ERROR", message };
+      const input = {
+        threadId: "lab-thread",
+        runId: "lab-run",
+        messages: [],
+        state: {},
+        tools: [],
+        context: [],
+      };
+      for (const subscriber of subscribers) {
+        void subscriber.onRunErrorEvent?.({
+          event,
+          input,
+          state: {},
+          agent,
+          messages: [],
+        });
+      }
+    },
+  };
+}
+
+function stubAgent(agentId: string): AbstractAgent {
+  return createLabAgent(agentId).agent;
+}
+
+test("a missing tool names itself on the pill and lands on Agent", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+    "Tool not found: bookFlight",
+  );
+
+  expect(dotSubject(context.inspector)).toBe("tool");
+  await context.advance(ERROR_BEAT_MS);
+  expect(pillHeading(context.inspector)).toBe("Tool error");
+
+  await context.activate(pill(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("agents");
+  expect(
+    root(context.inspector).querySelector('[data-cpk-event-error="tool"]')
+      ?.textContent,
+  ).toContain("Tool not found: bookFlight");
+});
+
+test("a tool error selects the agent that failed, not All Agents", async () => {
+  const context = await setup();
+  context.core.addAgent__unsafe_dev_only({
+    id: "aisdk",
+    agent: stubAgent("aisdk"),
+  });
+  context.core.addAgent__unsafe_dev_only({
+    id: "tanstack",
+    agent: stubAgent("tanstack"),
+  });
+  await context.flush();
+
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+    "Inspector lab: tool handler crashed.",
+    { agentId: "tanstack", toolName: "crash", toolCallId: "call-crash-1" },
+  );
+  await context.advance(ERROR_BEAT_MS);
+  await context.activate(pill(context.inspector));
+
+  expect(currentMenu(context.inspector)).toBe("agents");
+  expect(
+    root(context.inspector).querySelector(
+      '[aria-label="Select agent scope: tanstack"]',
+    ),
+  ).not.toBeNull();
+  expect(root(context.inspector).textContent).not.toContain(
+    "No agent selected",
+  );
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="tool"]',
+  )?.textContent;
+  expect(banner).toContain("Agent: tanstack");
+  expect(banner).toContain("Tool: crash");
+  expect(banner).toContain("Inspector lab: tool handler crashed.");
+});
+
+test("a tool error highlights the failed tool call on Agent", async () => {
+  const context = await setup();
+  const lab = createLabAgent("tanstack", [
+    {
+      id: "assistant-1",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: "call-crash-1",
+          type: "function",
+          function: { name: "crash", arguments: "{}" },
+        },
+      ],
+    },
+    {
+      id: "tool-1",
+      role: "tool",
+      toolCallId: "call-crash-1",
+      content: "Error: Inspector lab: tool handler crashed.",
+    },
+  ]);
+  context.core.addAgent__unsafe_dev_only({
+    id: "aisdk",
+    agent: stubAgent("aisdk"),
+  });
+  context.core.addAgent__unsafe_dev_only({
+    id: "tanstack",
+    agent: lab.agent,
+  });
+  await context.flush();
+
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+    "Inspector lab: tool handler crashed.",
+    { agentId: "tanstack", toolName: "crash", toolCallId: "call-crash-1" },
+  );
+  await context.advance(ERROR_BEAT_MS);
+  await context.activate(pill(context.inspector));
+
+  const failedCall = root(context.inspector).querySelector(
+    '[data-cpk-failed-tool-call="call-crash-1"]',
+  );
+  expect(failedCall).not.toBeNull();
+  expect(failedCall?.textContent).toContain("crash failed");
+  expect(failedCall?.textContent).toContain(
+    "Inspector lab: tool handler crashed.",
+  );
+  expect(
+    root(context.inspector).querySelector(
+      '[data-cpk-failed-tool-result="call-crash-1"]',
+    ),
+  ).not.toBeNull();
+});
+
+test("a run error names the agent and highlights RUN_ERROR", async () => {
+  const context = await setup();
+  const lab = createLabAgent("tanstack");
+  context.core.addAgent__unsafe_dev_only({
+    id: "aisdk",
+    agent: stubAgent("aisdk"),
+  });
+  context.core.addAgent__unsafe_dev_only({
+    id: "tanstack",
+    agent: lab.agent,
+  });
+  await context.flush();
+
+  lab.emitRunError("Inspector lab: the agent run failed.");
+  await context.flush();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT,
+    "Inspector lab: the agent run failed.",
+    { agentId: "tanstack" },
+  );
+  await context.advance(ERROR_BEAT_MS);
+  await context.activate(pill(context.inspector));
+
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="run"]',
+  )?.textContent;
+  expect(banner).toContain("Agent: tanstack");
+  expect(banner).toContain("Inspector lab: the agent run failed.");
+  const failedEvent = root(context.inspector).querySelector(
+    "[data-cpk-failed-run-event]",
+  );
+  expect(failedEvent).not.toBeNull();
+  expect(failedEvent?.textContent).toContain("RUN_ERROR");
+  expect(failedEvent?.textContent).toContain(
+    "Inspector lab: the agent run failed.",
+  );
+});
+
+test("reading the landing view clears the unread event, not the how-to-fix card", async () => {
+  const context = await setup();
+  await context.fireAppError(CopilotKitCoreErrorCode.AGENT_RUN_FAILED);
+  await context.press(launcher(context.inspector));
+
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  expect(
+    root(context.inspector).querySelector('[data-cpk-event-error="run"]'),
+  ).not.toBeNull();
+
+  await context.closePanel();
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("a handshake failure does not also arm the run event", async () => {
+  const context = await setup();
+  await context.fireAppError(CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED);
+  await context.flush();
+
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("wiring still owns the launcher when a run also failed", async () => {
+  const context = await setup();
+  await context.fireAppError(CopilotKitCoreErrorCode.AGENT_RUN_FAILED);
+  await armConnectionFailure(context);
+
+  expect(dotSubject(context.inspector)).toBe("connection");
+  await context.press(launcher(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("home");
+  expect(markers(context.inspector)).toEqual(
+    expect.arrayContaining([
+      { key: "home", tone: "error" },
+      { key: "ag-ui-events", tone: "error" },
+    ]),
+  );
+});
+
+test("no telemetry payload for an app error carries the failure message", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+    "secret prompt in the stack",
+  );
+  await context.press(launcher(context.inspector));
+  await context.flush();
+
+  expect(context.telemetryBodies.length).toBeGreaterThan(0);
+  for (const body of context.telemetryBodies) {
+    expect(JSON.stringify(body.properties)).not.toContain(
+      "secret prompt in the stack",
+    );
+  }
+});
+
 // ── Beat completion, on real timers ───────────────────────────────────────
 
 // Real timers, as in the announcement suite: this is the one assertion about a
@@ -2013,7 +2350,7 @@ test("the beat ends and leaves the resting dot behind", async () => {
   const context = await setup({ realTimers: true });
 
   await context.breakConnection();
-  await context.advance(SETTLE_MS + 200);
+  await context.advance(200);
   expect(pulsing(context.inspector)).toBe(true);
 
   for (let attempt = 0; attempt < 400; attempt += 1) {
@@ -2028,13 +2365,13 @@ test("the beat ends and leaves the resting dot behind", async () => {
 
 // The one real-timer assertion about the gesture as a whole: it runs to the
 // end by itself and leaves the resting state behind. Every phase *boundary* is
-// asserted on the fake clock above, because the gesture is 4.5 seconds long and
+// asserted on the fake clock above, because the gesture is 3.4 seconds long and
 // real timers would make this suite slow and flaky.
 test("the whole gesture completes on its own and leaves the resting state behind", async () => {
   const context = await setup({ realTimers: true });
 
   await context.breakConnection();
-  await context.advance(SETTLE_MS + 200);
+  await context.advance(200);
   expect(pillPhase(context.inspector)).toBe("closed");
 
   let sawOpenPill = false;
