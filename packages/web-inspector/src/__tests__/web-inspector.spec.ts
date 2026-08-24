@@ -1996,6 +1996,15 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  /**
+   * Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
+   * function whose outcomes drive the runtime connection status (OSS-904).
+   * The owned thread store's `/threads*` requests go to the runtime, so they
+   * are runtime traffic and must be issued through this rather than the global
+   * `fetch` — that is what lets opening the Threads view restore the status
+   * after an outage without the user sending a message.
+   */
+  ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
     inspect: boolean;
@@ -2019,6 +2028,12 @@ function createHeaderMockCore(
   telemetryDisabled = true,
 ) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
+  // Delegates to the live `globalThis.fetch` so every existing assertion on the
+  // fetch stub keeps working, while a regression back to the global leaves this
+  // spy uncalled.
+  const runtimeFetch = vi.fn<typeof fetch>((...args) =>
+    globalThis.fetch(...args),
+  );
   const core: HeaderMockCore = {
     agents,
     context: {},
@@ -2028,6 +2043,7 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    ɵruntimeFetch: runtimeFetch,
     threadEndpoints: {
       list: true,
       inspect: true,
@@ -2055,6 +2071,7 @@ function createHeaderMockCore(
   const asCore = () => core as unknown as CopilotKitCore;
   return {
     core,
+    runtimeFetch,
     emitAgentsChanged() {
       subscribers.forEach((s) =>
         s.onAgentsChanged?.({ copilotkit: asCore(), agents: core.agents }),
@@ -2173,6 +2190,31 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "X-CSRF": "1",
       Authorization: "Bearer abc",
     });
+  });
+
+  // Thread requests are runtime traffic under the destination rule, so their
+  // outcomes have to reach the runtime connection status. That only happens if
+  // the owned store is handed the core's instrumented fetch instead of the
+  // global one (OSS-904) — assert the injection rather than infer it, because a
+  // regression here is invisible from the rendered thread list.
+  it("routes the owned store's /threads request through the core's instrumented fetch", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {});
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    expect(
+      harness.runtimeFetch.mock.calls.filter((call) =>
+        String(call[0]).includes("/threads?"),
+      ).length,
+    ).toBe(threadListCalls().length);
   });
 
   it("re-applies headers on the owned store when core headers change", async () => {

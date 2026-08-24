@@ -186,6 +186,11 @@ function createTestCore(
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeTransport: "auto",
     runtimeUrl: "https://runtime.example",
+    // Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
+    // function whose outcomes drive the runtime connection status (OSS-904).
+    // The standalone run-activity store's requests go to `${runtimeUrl}/threads*`
+    // and must be issued through this rather than the global `fetch`.
+    ɵruntimeFetch: vi.fn() as unknown as typeof fetch,
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
     reloadSuggestions: vi.fn(),
@@ -253,6 +258,20 @@ function emitRunActivity(store: RunActivityStore, threadId = "thread-current") {
 function connectCallThreadIds(calls: ConnectCall[]): Array<string | undefined> {
   return calls.map((call) => call.threadId);
 }
+
+test("the standalone run-activity store is built with the core's instrumented fetch", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+    // No registered store, so CopilotChat falls back to its own.
+    registeredStore: null,
+  });
+  await settleInitialConnect(rendered);
+
+  expect(coreMocks.createThreadStore).toHaveBeenCalledWith({
+    fetch: rendered.core.ɵruntimeFetch,
+  });
+});
 
 test("thread_run_activity for the current explicit Intelligence thread triggers connectAgent", async () => {
   const rendered = renderChatWithCore({

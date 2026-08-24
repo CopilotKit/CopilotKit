@@ -285,7 +285,12 @@ export function CopilotChat({
     copilotkit.threadEndpoints?.realtimeMetadata === true;
   const [standaloneRunActivityStore] = useState<ɵThreadStore>(() =>
     ɵcreateThreadStore({
-      fetch: globalThis.fetch,
+      // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
+      // traffic: routing them through the instrumented fetch is what lets a
+      // dead runtime turn the status red, and a live one turn it back
+      // (OSS-904). The instrumented fetch is a pass-through and is memoized
+      // per core, so this is stable across renders.
+      fetch: copilotkit.ɵruntimeFetch,
     }),
   );
 

@@ -44,6 +44,8 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const threadMocks = vi.hoisted(() => ({
   sockets: [] as any[],
   dispatchedContexts: [] as Array<ThreadState["context"]>,
+  /** Every environment `ɵcreateThreadStore` was constructed with. */
+  storeEnvironments: [] as Array<{ fetch?: unknown }>,
 }));
 
 function compareThreadsByActivity(left: ThreadRecord, right: ThreadRecord) {
@@ -344,7 +346,10 @@ vi.mock("@copilotkit/core", () => {
       Connected: "connected",
       Error: "error",
     },
-    ɵcreateThreadStore: () => new MockThreadStore(),
+    ɵcreateThreadStore: (environment: { fetch?: unknown }) => {
+      threadMocks.storeEnvironments.push(environment);
+      return new MockThreadStore();
+    },
     ɵselectThreads: select((state) => state.threads),
     ɵselectThreadsIsLoading: select((state) => state.isLoading),
     ɵselectThreadsError: select((state) => state.error),
@@ -357,6 +362,14 @@ vi.mock("@copilotkit/core", () => {
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
+
+/**
+ * Stands in for `CopilotKitCore.ɵruntimeFetch` — see {@link MockCopilotKit}.
+ * A distinct function so a regression back to `globalThis.fetch` is visible.
+ */
+const runtimeFetchMock = vi.fn((...args: unknown[]) =>
+  (fetchMock as (...a: unknown[]) => unknown)(...args),
+);
 
 const { CopilotKitCoreRuntimeConnectionStatus } =
   await import("@copilotkit/core");
@@ -391,6 +404,14 @@ type MockCopilotKit = {
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
   unregisterThreadStore: ReturnType<typeof vi.fn>;
+  /**
+   * Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
+   * function whose outcomes drive the runtime connection status (OSS-904).
+   * Thread requests go to `${runtimeUrl}/threads*`, so they are runtime traffic
+   * and the composable must hand THIS to the store rather than the global
+   * `fetch`.
+   */
+  ɵruntimeFetch: typeof fetch;
 };
 
 function setupCopilotKit(
@@ -410,6 +431,7 @@ function setupCopilotKit(
     threadEndpoints: supportedThreadEndpoints,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
+    ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
     ...overrides,
   });
   mockUseCopilotKit.mockReturnValue({ copilotkit });
@@ -487,8 +509,25 @@ describe("useThreads", () => {
   beforeEach(() => {
     threadMocks.sockets.splice(0);
     threadMocks.dispatchedContexts.splice(0);
+    threadMocks.storeEnvironments.splice(0);
     fetchMock.mockReset();
     setupCopilotKit();
+  });
+
+  // Thread requests are runtime traffic under the destination rule, so their
+  // outcomes have to reach the runtime connection status. That only happens if
+  // the store is handed the core's instrumented fetch instead of the global one
+  // (OSS-904). This suite substitutes the whole thread store, so the injection
+  // is asserted at the seam where it is made rather than by counting requests.
+  it("builds the thread store with the core's instrumented fetch", () => {
+    const copilotkit = setupCopilotKit();
+    mountHook();
+
+    expect(threadMocks.storeEnvironments).toHaveLength(1);
+    expect(threadMocks.storeEnvironments[0]!.fetch).toBe(
+      copilotkit.value.ɵruntimeFetch,
+    );
+    expect(threadMocks.storeEnvironments[0]!.fetch).not.toBe(globalThis.fetch);
   });
 
   it("fetches threads and subscribes to the user metadata channel", async () => {

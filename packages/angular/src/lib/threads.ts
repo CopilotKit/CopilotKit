@@ -219,11 +219,12 @@ function projectThread(thread: ɵThread): Thread {
 export class ThreadsStore implements InjectThreadsResult {
   readonly #copilotkit = inject(CopilotKit);
   readonly #store: ɵThreadStore = ɵcreateThreadStore({
-    // Cast to `typeof fetch`: the wrapper preserves correct `this` binding for
-    // globalThis.fetch but does not re-expose static members (e.g. `preconnect`)
-    // that newer DOM libs add and that the store never calls.
-    fetch: ((...args: Parameters<typeof fetch>) =>
-      globalThis.fetch(...args)) as typeof fetch,
+    // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
+    // traffic: routing them through the instrumented fetch is what lets
+    // opening this view restore the connection status after an outage, without
+    // the user having to send a message (OSS-904). The instrumented fetch is a
+    // pass-through and is memoized per core.
+    fetch: this.#copilotkit.core.ɵruntimeFetch,
   });
   readonly #subscriptions: Subscription[] = [];
 

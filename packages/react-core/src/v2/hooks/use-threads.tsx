@@ -242,7 +242,12 @@ export function useThreads({
 
   const [store] = useState(() =>
     ɵcreateThreadStore({
-      fetch: globalThis.fetch,
+      // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
+      // traffic: routing them through the instrumented fetch is what lets
+      // opening this view restore the connection status after an outage,
+      // without the user having to send a message (OSS-904). The instrumented
+      // fetch is a pass-through and is memoized per core, so this is stable.
+      fetch: copilotkit.ɵruntimeFetch,
     }),
   );
 

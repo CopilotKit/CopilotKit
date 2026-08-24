@@ -6596,7 +6596,12 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
+    // traffic: routing them through the instrumented fetch is what lets
+    // opening the Threads view restore the connection status after an outage,
+    // without the user having to send a message (OSS-904). The instrumented
+    // fetch is a pass-through and is memoized per core.
+    const store = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
