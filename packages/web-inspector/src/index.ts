@@ -300,21 +300,36 @@ const AGENT_RUN_FAILED_LABEL = "Agent run failed";
 const TOOL_ERROR_LABEL = "Tool error";
 const MEMORY_LOAD_ERROR_LABEL = "Failed to load learning data";
 
-/** Copy on the landing view. Titles match the pill. */
+/**
+ * Copy on the landing view. Titles match the pill.
+ *
+ * The two fields differ in what they can promise. `advice` is about the
+ * reader's next move and is always true. `highlight` is a claim about *this
+ * view* — that the failed item is visible below — and the error carries no
+ * guarantee of that: a code mapped to `run` can arrive with no run in the
+ * buffer at all, and a tool error can arrive without the call id the
+ * highlight needs. So it is rendered only once the item is actually there.
+ * A card pointing at something the reader cannot find is worse than a card
+ * that stays quiet, because it sends them looking.
+ */
 const EVENT_ERROR_GUIDANCE: Readonly<
-  Record<InspectorEventErrorSource, Readonly<{ title: string; fix: string }>>
+  Record<
+    InspectorEventErrorSource,
+    Readonly<{ title: string; advice?: string; highlight?: string }>
+  >
 > = {
   run: {
     title: AGENT_RUN_FAILED_LABEL,
-    fix: "The failed run event is highlighted below.",
+    highlight: "The failed run event is highlighted below.",
   },
   tool: {
     title: TOOL_ERROR_LABEL,
-    fix: "The failed tool call is highlighted below.",
+    highlight: "The failed tool call is highlighted below.",
   },
   memory: {
     title: MEMORY_LOAD_ERROR_LABEL,
-    fix: "Confirm CopilotKit Intelligence is connected, then retry Learning.",
+    advice:
+      "Confirm CopilotKit Intelligence is connected, then retry Learning.",
   },
 };
 
@@ -10125,7 +10140,16 @@ ${argsString}</pre
           ${error.agentId ? html`<p>Agent: ${error.agentId}</p>` : nothing}
           ${error.toolName ? html`<p>Tool: ${error.toolName}</p>` : nothing}
           <p class="break-words leading-relaxed">${error.message}</p>
-          <p class="leading-relaxed">${guide.fix}</p>
+          ${
+            guide.advice
+              ? html`<p class="leading-relaxed">${guide.advice}</p>`
+              : nothing
+          }
+          ${
+            guide.highlight && this.hasEventErrorHighlight()
+              ? html`<p class="leading-relaxed">${guide.highlight}</p>`
+              : nothing
+          }
         </div>
       </div>
     `;
@@ -14562,7 +14586,7 @@ ${argsString}</pre
               color: #c0333a;
             "
           >
-            ${EVENT_ERROR_GUIDANCE.memory.fix}
+            ${EVENT_ERROR_GUIDANCE.memory.advice}
           </span>
         </div>
       `;
@@ -15769,6 +15793,20 @@ ${prettyEvent}</pre
       this.expandedRows.add(event.id);
       this.pendingScrollToEventId = event.id;
     }
+  }
+
+  /**
+   * Whether the landing view really carries the item the card points at.
+   * Mirrors the two branches of `applyEventErrorLanding` that can bail out.
+   */
+  private hasEventErrorHighlight(): boolean {
+    const error = this.lastEventError;
+    if (!error) return false;
+    if (error.key === "tool") return error.toolCallId !== undefined;
+    if (error.key === "run") {
+      return this.findLatestRunErrorEvent(error.agentId) !== undefined;
+    }
+    return false;
   }
 
   private findLatestRunErrorEvent(

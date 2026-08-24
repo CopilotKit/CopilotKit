@@ -2064,10 +2064,43 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
     root(context.inspector).querySelector('[data-cpk-event-error="run"]')
       ?.textContent,
   ).toContain("model refused the run");
+});
+
+test("a run error with no run to point at claims no highlight", async () => {
+  const context = await setup();
+  // AGENT_RUN_FAILED with an empty event buffer is the ordinary shape for
+  // every code that reaches `run` through the catch-all without a run of its
+  // own — a locked thread, an agent that was never registered.
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+    "model refused the run",
+  );
+  await context.press(launcher(context.inspector));
+
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="run"]',
+  )?.textContent;
+  expect(banner).toContain("model refused the run");
+  expect(banner).not.toContain("highlighted below");
   expect(
-    root(context.inspector).querySelector('[data-cpk-event-error="run"]')
-      ?.textContent,
-  ).toContain("highlighted below");
+    root(context.inspector).querySelector("[data-cpk-failed-run-event]"),
+  ).toBeNull();
+});
+
+test("a tool error with no call id claims no highlight", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.TOOL_NOT_FOUND,
+    "Tool not found: bookFlight",
+    { agentId: "tanstack", toolName: "bookFlight" },
+  );
+  await context.press(launcher(context.inspector));
+
+  const banner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="tool"]',
+  )?.textContent;
+  expect(banner).toContain("Tool not found: bookFlight");
+  expect(banner).not.toContain("highlighted below");
 });
 
 function createLabAgent(agentId: string, messages: unknown[] = []) {
@@ -2246,6 +2279,10 @@ test("a tool error highlights the failed tool call on Agent", async () => {
       '[data-cpk-failed-tool-result="call-crash-1"]',
     ),
   ).not.toBeNull();
+  expect(
+    root(context.inspector).querySelector('[data-cpk-event-error="tool"]')
+      ?.textContent,
+  ).toContain("highlighted below");
 });
 
 test("a run error names the agent and highlights RUN_ERROR", async () => {
@@ -2277,6 +2314,7 @@ test("a run error names the agent and highlights RUN_ERROR", async () => {
   )?.textContent;
   expect(banner).toContain("Agent: tanstack");
   expect(banner).toContain("Inspector lab: the agent run failed.");
+  expect(banner).toContain("highlighted below");
   const failedEvent = root(context.inspector).querySelector(
     "[data-cpk-failed-run-event]",
   );
