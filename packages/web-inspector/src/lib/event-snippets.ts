@@ -340,16 +340,42 @@ export function snippetArgsJson(value: unknown): string {
   }
 }
 
+// ponytail: single depth scan instead of parse-every-prefix. Recovers the first
+// complete object from text with trailing junk, and bails at once on truncated
+// args (a streaming tool call) rather than walking the whole string.
 function firstJsonValue(raw: string): unknown {
   const start = raw.indexOf("{");
   if (start === -1) {
     return undefined;
   }
-  for (let end = start + 1; end <= raw.length; end += 1) {
-    try {
-      return JSON.parse(raw.slice(start, end));
-    } catch {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
       continue;
+    }
+    if (char === '"') {
+      inString = true;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, index + 1));
+        } catch {
+          return undefined;
+        }
+      }
     }
   }
   return undefined;

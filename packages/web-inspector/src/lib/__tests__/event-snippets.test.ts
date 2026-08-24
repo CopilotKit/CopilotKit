@@ -112,6 +112,24 @@ describe("event snippet recipes", () => {
     ).toBe('{"name":"Alem"}');
   });
 
+  it("rejects truncated tool args fast instead of scanning every prefix", () => {
+    // A streaming tool call. No prefix ever parses, so the old recovery loop
+    // walked the whole string once per character.
+    const truncated = `{"html":"${"a".repeat(200_000)}`;
+    const started = performance.now();
+    expect(() => snippetArgsJson(truncated)).toThrow(
+      "Tool args JSON is invalid.",
+    );
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
+
+  it("still recovers the first object when text follows it", () => {
+    expect(snippetArgsJson('{"a":{"b":"}"}} trailing junk')).toBe(
+      '{"a":{"b":"}"}}',
+    );
+    expect(snippetArgsJson('{"a":"\\""} tail')).toBe('{"a":"\\""}');
+  });
+
   it("compiles reasoning, text, and activity recipes", () => {
     expect(
       typesOf(

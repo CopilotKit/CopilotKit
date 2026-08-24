@@ -12407,11 +12407,13 @@ ${argsString}</pre
               Events JSON
               <textarea
                 class="mt-1 h-40 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
+                data-testid="cpk-snippet-json"
                 .value=${this.snippetJson}
                 @input=${(event: Event) => {
                   this.snippetJson = (
                     event.target as HTMLTextAreaElement
                   ).value;
+                  this.requestUpdate();
                 }}
               ></textarea>
             </label>

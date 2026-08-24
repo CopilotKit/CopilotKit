@@ -27,7 +27,7 @@ type AssistantToolCall = NonNullable<AssistantMessage["toolCalls"]>[number];
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
-      <copilot-save-snippet-beside [enabled]="inspectorEnabled()">
+      <copilot-save-snippet-beside [enabled]="inspectorEnabled(toolCall)">
         <copilot-render-tool-calls
           [message]="singleToolMessage(toolCall)"
           [messages]="messages()"
@@ -62,8 +62,11 @@ export class CopilotChatToolCallsView {
   protected readonly labels = injectChatLabels();
   protected readonly bookmarkIcon = Bookmark;
 
-  protected inspectorEnabled(): boolean {
-    return this.inspector?.isLocalInspectorEnabled === true;
+  protected inspectorEnabled(toolCall: AssistantToolCall): boolean {
+    return (
+      this.inspector?.isLocalInspectorEnabled === true &&
+      hasCompleteArgs(toolCall.function.arguments)
+    );
   }
 
   protected saveSnippetTitle(): string {
@@ -87,5 +90,20 @@ export class CopilotChatToolCallsView {
       threadId: this.chatConfig?.threadId(),
       agentId: this.chatConfig?.agentId(),
     });
+  }
+}
+
+// A streaming tool call has truncated arguments. Do not offer to capture it
+// until the JSON is complete, or the snippet holds a broken partial payload.
+function hasCompleteArgs(args: string | undefined): boolean {
+  const trimmed = (args ?? "").trim();
+  if (!trimmed) {
+    return true;
+  }
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
   }
 }

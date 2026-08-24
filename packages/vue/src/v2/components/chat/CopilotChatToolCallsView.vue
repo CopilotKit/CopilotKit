@@ -35,9 +35,26 @@ function getForwardedSlotNames(): ToolCallSlotName[] {
   return Object.keys(componentSlots) as ToolCallSlotName[];
 }
 
+// A streaming tool call has truncated arguments. Do not offer to capture it
+// until the JSON is complete, or the snippet holds a broken partial payload.
+function hasCompleteArgs(args: string | undefined): boolean {
+  const trimmed = (args ?? "").trim();
+  if (!trimmed) {
+    return true;
+  }
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const inspector = inject(InspectorKey, null);
 const chatConfiguration = useCopilotChatConfiguration();
-const canSave = () => inspector?.isLocalInspectorEnabled.value === true;
+const canSave = (toolCall: { function: { arguments: string } }) =>
+  inspector?.isLocalInspectorEnabled.value === true &&
+  hasCompleteArgs(toolCall.function.arguments);
 const saveLabel = () =>
   chatConfiguration.value?.labels.assistantMessageToolbarSaveSnippetLabel ??
   CopilotChatDefaultLabels.assistantMessageToolbarSaveSnippetLabel;
@@ -60,7 +77,7 @@ function saveToolCall(toolCall: {
 
 <template>
   <div v-for="toolCall in message.toolCalls ?? []" :key="toolCall.id">
-    <SaveSnippetBeside :enabled="canSave()">
+    <SaveSnippetBeside :enabled="canSave(toolCall)">
       <CopilotChatToolCallItem :tool-call="toolCall" :messages="messages">
         <template
           v-for="slotName in getForwardedSlotNames()"

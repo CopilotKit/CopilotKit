@@ -239,6 +239,41 @@ describe("CopilotChatAssistantMessage", () => {
       });
     });
 
+    it("hides the tool bookmark while the arguments are still streaming", () => {
+      const streamingMessage: AssistantMessage = {
+        role: "assistant",
+        content: "",
+        id: "tool-message-3",
+        toolCalls: [
+          {
+            id: "call-3",
+            type: "function",
+            function: { name: "sayHello", arguments: '{"name":"Al' },
+          },
+        ],
+      };
+
+      render(
+        <CopilotKitProvider renderToolCalls={[sayHelloRenderer]}>
+          <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
+            <CopilotKitInspectorContextProvider
+              value={{
+                isLocalInspectorEnabled: true,
+                openInspector: vi.fn(),
+                saveEventSnippet: vi.fn(),
+              }}
+            >
+              <CopilotChatAssistantMessage message={streamingMessage} />
+            </CopilotKitInspectorContextProvider>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      expect(
+        screen.queryByTestId("copilot-tool-save-snippet-button"),
+      ).toBeNull();
+    });
+
     it("renders all buttons when all callbacks provided", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage

@@ -1711,3 +1711,69 @@ test("Event Snippets groups by recipe and disables idle actions", async () => {
     context.teardown();
   }
 });
+
+test("Event Snippets enables Run and Save after typing into the raw recipe", async () => {
+  const context = await setup({ agentIds: ["default"] });
+  try {
+    await context.open();
+    await context.selectLeaf("event-snippets");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const recipe = requireElement(
+      root.querySelector<HTMLSelectElement>(
+        "[data-testid='cpk-snippet-recipe']",
+      ),
+      "Recipe selector was not rendered",
+    );
+    recipe.value = "raw";
+    recipe.dispatchEvent(new Event("change", { bubbles: true }));
+    await context.inspector.updateComplete;
+
+    const json = requireElement(
+      root.querySelector<HTMLTextAreaElement>(
+        "[data-testid='cpk-snippet-json']",
+      ),
+      "Events JSON field was not rendered",
+    );
+    expect(
+      requireElement(
+        root.querySelector<HTMLButtonElement>(
+          "[data-testid='cpk-snippet-run']",
+        ),
+        "Run was not rendered",
+      ).disabled,
+    ).toBe(true);
+
+    json.value = JSON.stringify([
+      { type: "RUN_STARTED", threadId: "thread-1", runId: "run-1" },
+      { type: "TEXT_MESSAGE_START", messageId: "msg-1", role: "assistant" },
+      { type: "TEXT_MESSAGE_CONTENT", messageId: "msg-1", delta: "hi" },
+      { type: "TEXT_MESSAGE_END", messageId: "msg-1" },
+      { type: "RUN_FINISHED", threadId: "thread-1", runId: "run-1" },
+    ]);
+    json.dispatchEvent(new Event("input", { bubbles: true }));
+    await context.inspector.updateComplete;
+
+    expect(
+      requireElement(
+        root.querySelector<HTMLButtonElement>(
+          "[data-testid='cpk-snippet-run']",
+        ),
+        "Run was not rendered after typing",
+      ).disabled,
+    ).toBe(false);
+    expect(
+      requireElement(
+        root.querySelector<HTMLButtonElement>(
+          "[data-testid='cpk-snippet-save']",
+        ),
+        "Save was not rendered after typing",
+      ).disabled,
+    ).toBe(false);
+  } finally {
+    context.teardown();
+  }
+});

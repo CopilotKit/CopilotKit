@@ -110,22 +110,31 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
 });
 
 const shouldRenderInspector = ref(false);
+// Mounting the overlay follows showDevConsole. The in-chat affordances are
+// narrower: a dev build on localhost only, so `showDevConsole: true` on a
+// staging URL never puts a bookmark into a production chat. Matches React.
+const canShowLocalInspectorAction = ref(false);
 
 const updateInspectorVisibility = () => {
+  const isLocalhost =
+    typeof window !== "undefined" &&
+    new Set(["localhost", "127.0.0.1"]).has(window.location?.hostname ?? "");
+  canShowLocalInspectorAction.value =
+    process.env.NODE_ENV === "development" && isLocalhost;
+
   if (props.showDevConsole === true) {
     shouldRenderInspector.value = true;
     return;
   }
   if (props.showDevConsole === "auto") {
-    if (typeof window === "undefined") {
-      shouldRenderInspector.value = false;
-      return;
+    shouldRenderInspector.value = isLocalhost;
+    if (!isLocalhost) {
+      canShowLocalInspectorAction.value = false;
     }
-    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-    shouldRenderInspector.value = localhostHosts.has(window.location.hostname);
     return;
   }
   shouldRenderInspector.value = false;
+  canShowLocalInspectorAction.value = false;
 };
 
 watch(() => props.showDevConsole, updateInspectorVisibility, {
@@ -133,38 +142,46 @@ watch(() => props.showDevConsole, updateInspectorVisibility, {
 });
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isLocalInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isLocalInspectorEnabled = computed(
+  () => shouldRenderInspector.value && canShowLocalInspectorAction.value,
+);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };
 }
 
 async function saveEventSnippet(request: VueInspectorSaveRequest) {
-  const mod = await import("@copilotkit/web-inspector");
-  const threadId = request.threadId ?? "inspector-snippet";
-  const runId = `inspector-snippet-${Date.now()}`;
-  const compiled = mod.compileChatSnippet({
-    ...request,
-    threadId,
-    runId,
-  });
-  const now = new Date().toISOString();
-  const snippet = {
-    id: crypto.randomUUID(),
-    name: compiled.name,
-    recipe: compiled.recipe,
-    events: compiled.events,
-    createdAt: now,
-    updatedAt: now,
-  };
-  mod.upsertEventSnippet(snippet);
-  openInspector({
-    messageId: request.messageId,
-    threadId: request.threadId,
-    agentId: request.agentId,
-    menu: "event-snippets",
-    snippetId: snippet.id,
-  });
+  try {
+    const mod = await import("@copilotkit/web-inspector");
+    const threadId = request.threadId ?? "inspector-snippet";
+    const runId = `inspector-snippet-${Date.now()}`;
+    const compiled = mod.compileChatSnippet({
+      ...request,
+      threadId,
+      runId,
+    });
+    const now = new Date().toISOString();
+    const snippet = {
+      id: crypto.randomUUID(),
+      name: compiled.name,
+      recipe: compiled.recipe,
+      events: compiled.events,
+      createdAt: now,
+      updatedAt: now,
+    };
+    mod.upsertEventSnippet(snippet);
+    openInspector({
+      messageId: request.messageId,
+      threadId: request.threadId,
+      agentId: request.agentId,
+      menu: "event-snippets",
+      snippetId: snippet.id,
+    });
+  } catch (error) {
+    // Compile can throw on bad args, and storage can throw QuotaExceededError.
+    // Callers fire this as `void saveEventSnippet(...)`, so report it here.
+    console.error("[CopilotKit] Could not save the event snippet.", error);
+  }
 }
 
 provide(InspectorKey, {

@@ -41,7 +41,10 @@ export function CopilotChatToolCallsView({
           toolMessage,
         });
 
-        if (!isLocalInspectorEnabled) {
+        if (
+          !isLocalInspectorEnabled ||
+          !hasCompleteArgs(toolCall.function.arguments)
+        ) {
           return <React.Fragment key={toolCall.id}>{rendered}</React.Fragment>;
         }
 
@@ -69,6 +72,21 @@ export function CopilotChatToolCallsView({
       })}
     </>
   );
+}
+
+// A streaming tool call has truncated arguments. Do not offer to capture it
+// until the JSON is complete, or the snippet holds a broken partial payload.
+function hasCompleteArgs(args: string | undefined): boolean {
+  const trimmed = (args ?? "").trim();
+  if (!trimmed) {
+    return true;
+  }
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function ToolCallSnippetChrome({
