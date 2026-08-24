@@ -140,8 +140,6 @@ def start_local_agent(
     print(f"  Region: {region}")
     print(f"  Stack Name: {stack_name}\n")
 
-    requirements_path = agent_path.parent / "requirements.txt"
-
     # Set up environment variables
     env = {
         **dict(subprocess.os.environ),
@@ -153,17 +151,18 @@ def start_local_agent(
         "PYTHONPATH": f"{agent_path.parent}{os.pathsep}{agent_path.parent.parent}",
     }
 
-    # Build command: uv run with requirements if available, else plain python3
-    if requirements_path.exists():
-        cmd = [
-            "uv",
-            "run",
-            "--with-requirements",
-            str(requirements_path),
-            str(agent_path),
-        ]
-    else:
-        cmd = ["python3", str(agent_path)]
+    # Run inside the agent's own uv project so the local agent gets exactly the
+    # dependency set its container image ships. --locked fails fast if uv.lock
+    # has fallen out of step with pyproject.toml rather than quietly resolving
+    # something else.
+    cmd = [
+        "uv",
+        "run",
+        "--locked",
+        "--project",
+        str(agent_path.parent),
+        str(agent_path),
+    ]
 
     # Start agent process
     try:

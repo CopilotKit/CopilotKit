@@ -12,15 +12,15 @@ and invokes the agent with streaming response display.
 Prerequisites:
     - Terraform infrastructure deployed (terraform apply)
     - AgentCore Runtime created
-    - Dependencies: pip install boto3 requests colorama
+    - uv installed (dependencies come from the example root's pyproject.toml)
 
 Usage:
     cd infra-terraform
-    python scripts/test-agent.py [message]
+    uv run --project .. scripts/test-agent.py [message]
 
 Examples:
-    python scripts/test-agent.py 'Hello'           # Test with message
-    python scripts/test-agent.py                   # Uses default message
+    uv run --project .. scripts/test-agent.py 'Hello'   # Test with message
+    uv run --project .. scripts/test-agent.py           # Uses default message
 """
 
 import getpass
