@@ -33,8 +33,12 @@ docker/.env
 # docker/.env holds creds + stack values — never commit it
 
 # Terraform
-infra-terraform/.terraform/
+# Unanchored: `terraform init` writes a provider cache next to EVERY module, not
+# just the root, and the nested ones are the large ones — a measured 834MB under
+# infra-terraform/modules/backend/. The anchored `infra-terraform/…` forms below
+# match only the root copy, so the nested trees stayed committable.
+**/.terraform/
+**/.terraform.lock.hcl
 infra-terraform/*.tfstate
 infra-terraform/*.tfstate.backup
-infra-terraform/.terraform.lock.hcl
 infra-terraform/terraform.tfvars
