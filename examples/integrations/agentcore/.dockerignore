@@ -1,8 +1,6 @@
-cdk.out*/
-infra-cdk/node_modules/
-infra-cdk/cdk.out*/
-frontend/node_modules/
+**/cdk.out*/
 **/node_modules/
 **/__pycache__/
 **/*.pyc
 **/.venv/
+**/venv/

@@ -60,11 +60,11 @@ locals {
   # `uv sync` (and the local agent tester) creates a virtualenv inside the agent
   # package — `.venv` by default, `venv` under some UV_PROJECT_ENVIRONMENT values.
   # Those trees hold thousands of dependency .py files that never reach the image
-  # (.dockerignore excludes `**/.venv/`), so they must not reach the image hash
-  # either: otherwise merely running the agent locally forces a spurious rebuild
-  # and a runtime replacement, and two developers plan differently from identical
-  # committed sources. fileset() has no exclude argument, so the comprehensions
-  # below filter on this pattern instead.
+  # (.dockerignore excludes `**/.venv/` and `**/venv/`), so they must not reach
+  # the image hash either: otherwise merely running the agent locally forces a
+  # spurious rebuild and a runtime replacement, and two developers plan
+  # differently from identical committed sources. fileset() has no exclude
+  # argument, so the comprehensions below filter on this pattern instead.
   venv_path_regex = "(^|/)\\.?venv/"
 }
 
