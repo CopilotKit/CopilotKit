@@ -14,7 +14,7 @@ description: >
 type: framework
 library: copilotkit
 framework: react
-library_version: "1.68.3"
+library_version: "1.69.0"
 requires:
   - copilotkit/react-core
   - copilotkit/runtime

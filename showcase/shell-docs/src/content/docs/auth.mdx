@@ -39,9 +39,11 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 ```
 
 <Callout type="info" title="About the explicit useSingleEndpoint">
-  The `createCopilotRuntimeHandler` route below serves multi-route, the default. Both `<CopilotKit>` and `<CopilotKitProvider>` negotiate the transport when the
-  prop is omitted, so this `{false}` is optional: it pins the multi-route REST
-  routes rather than probing for them. See
+  The `createCopilotRuntimeHandler` route below serves multi-route, the default.
+  `<CopilotKitProvider>` negotiates the transport when the prop is omitted, but
+  every released `<CopilotKit>` still pins it to `true` internally — which
+  selects the single-route transport and 404s against this route. Keep the
+  `{false}`. See
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 
@@ -463,7 +465,7 @@ Verifying *who* the caller is doesn't yet stop them reaching *someone else's con
 
 ### The Intelligence Platform scopes most thread routes
 
-The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform:
+The Intelligence runtime requires an `identifyUser` callback — construction throws without one (or without at least one Channel). It runs on the server, once per request, and the id it returns is the scope the runtime hands to the platform. (`intelligence` below is a `CopilotKitIntelligence` instance; [Connect your runtime to Intelligence](/premium/connect-your-runtime) covers building it.)
 
 ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 const runtime = new CopilotRuntime({

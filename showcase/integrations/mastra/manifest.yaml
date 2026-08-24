@@ -334,6 +334,7 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/mastra/tools/a2ui-generate.ts
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
