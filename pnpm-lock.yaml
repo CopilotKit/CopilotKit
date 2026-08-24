@@ -4016,7 +4016,7 @@ importers:
         version: 22.19.11
       '@vitejs/plugin-vue':
         specifier: ^5.2.1
-        version: 5.2.4(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
+        version: 5.2.4(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))(vue@3.5.34(typescript@5.8.2))
       '@vue/compiler-sfc':
         specifier: ^3.5.14
         version: 3.5.34
@@ -4031,10 +4031,10 @@ importers:
         version: 5.8.2
       vite:
         specifier: ^7.3.2
-        version: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0)
+        version: 7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
       vitest:
         specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
       vue-tsc:
         specifier: ^2.1.10
         version: 2.2.12(typescript@5.8.2)
