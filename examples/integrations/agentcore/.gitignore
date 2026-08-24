@@ -2,6 +2,11 @@
 __pycache__/
 *.py[cod]
 .venv/
+# Non-dotted layout too: uv puts the project environment in `venv/` under some
+# UV_PROJECT_ENVIRONMENT values. `.dockerignore` and the Terraform image-hash
+# filter in infra-terraform/modules/backend/runtime.tf both cover `**/venv/`
+# already — without this line the same tree is committable.
+venv/
 *.egg-info/
 .uv/
 

@@ -11,7 +11,7 @@ Tests agent invocation with conversation continuity:
 - Local mode (--local): Chat with agent running on localhost:8080
 - Automatically detects pattern from config.yaml
 
-Usage:
+Usage (run from examples/integrations/agentcore/):
     # Remote agent testing (prompts for credentials)
     uv run scripts/test-agent.py
 
@@ -452,8 +452,10 @@ Examples:
   uv run scripts/test-agent.py --local --pattern strands-single-agent
 
 Notes:
+  - Run from examples/integrations/agentcore/
   - Remote mode: Tests deployed agent
-  - Local mode: Pattern read from infra-cdk/config.yaml to start correct agent
+  - Local mode: Pattern read from config.yaml at the example root (next to
+    config.yaml.example) to start the correct agent
   - Use --pattern to override the config value for local testing
   - Always runs in interactive conversation mode
         """,

@@ -12,15 +12,18 @@ and invokes the agent with streaming response display.
 Prerequisites:
     - Terraform infrastructure deployed (terraform apply)
     - AgentCore Runtime created
-    - uv installed (dependencies come from the example root's pyproject.toml)
+    - uv installed. This script imports boto3, requests and colorama, which come
+      from the example-root pyproject.toml. No --project flag is needed: uv finds
+      that project by walking up from infra-terraform/, and the script path stays
+      relative to the shell's own directory either way.
 
 Usage:
     cd infra-terraform
-    uv run --project .. scripts/test-agent.py [message]
+    uv run scripts/test-agent.py [message]
 
 Examples:
-    uv run --project .. scripts/test-agent.py 'Hello'   # Test with message
-    uv run --project .. scripts/test-agent.py           # Uses default message
+    uv run scripts/test-agent.py 'Hello'   # Test with message
+    uv run scripts/test-agent.py           # Uses default message
 """
 
 import getpass

@@ -56,9 +56,13 @@ See `docs/LOCAL_DEVELOPMENT.md` for full details.
 
 ## Agent dependencies
 
-Each agent under `agents/` is its own uv project with its own `uv.lock`, and the
+Each single-agent directory under `agents/` — `langgraph-single-agent/` and
+`strands-single-agent/` — is its own uv project with its own `uv.lock`, and the
 Dockerfiles install with `uv sync --locked` — so the image gets exactly the
-dependency set in the lockfile, not whatever resolves that day.
+dependency set in the lockfile, not whatever resolves that day. `agents/utils/`
+is the exception: it is shared source that both Dockerfiles `COPY` in, not a
+project, so it has no `pyproject.toml` or lockfile of its own and anything it
+imports must be declared in each agent that copies it.
 
 ```bash
 cd agents/langgraph-single-agent

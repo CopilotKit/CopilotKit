@@ -16,7 +16,9 @@
 #
 # Options:
 #   -p, --pattern    Agent pattern to build (default: strands-single-agent)
-#   -r, --region     AWS region (default: from terraform.tfvars or us-east-1)
+#   -r, --region     AWS region (default: AWS_REGION, else AWS_DEFAULT_REGION,
+#                    else `aws configure get region`; no built-in fallback —
+#                    the script errors out if none of those is set)
 #   -s, --stack      Stack name (default: from terraform.tfvars)
 #   -h, --help       Show this help message
 #
@@ -45,7 +47,8 @@ usage() {
     echo ""
     echo "Options:"
     echo "  -p, --pattern    Agent pattern to build (default: strands-single-agent)"
-    echo "  -r, --region     AWS region (default: from terraform.tfvars or us-east-1)"
+    echo "  -r, --region     AWS region (default: AWS_REGION, else AWS_DEFAULT_REGION,"
+    echo "                   else 'aws configure get region'; no built-in fallback)"
     echo "  -s, --stack      Stack name (default: from terraform.tfvars)"
     echo "  -h, --help       Show this help message"
     echo ""
