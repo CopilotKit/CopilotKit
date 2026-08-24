@@ -17,5 +17,5 @@ terraform apply
 After apply, run the frontend deploy from the repo root:
 
 ```bash
-python3 scripts/deploy-frontend.py
+uv run scripts/deploy-frontend.py
 ```
