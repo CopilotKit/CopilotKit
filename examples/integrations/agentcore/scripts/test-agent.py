@@ -164,6 +164,20 @@ def start_local_agent(
         str(agent_path),
     ]
 
+    # Snapshot who owns port 8080 BEFORE spawning anything. Note the real
+    # semantics of check_port_available(): it returns True when the port
+    # ACCEPTS a connection, i.e. when the port is already OCCUPIED. If someone
+    # is listening before this child exists, then an open port later proves
+    # nothing about this child, so it must not be accepted as evidence that the
+    # agent started.
+    port_already_busy = check_port_available(8080)
+    if port_already_busy:
+        print_msg(
+            "Port 8080 is already in use before starting the agent - an open "
+            "port will not be treated as proof this agent started",
+            "info",
+        )
+
     # Start agent process.
     #
     # The child's stdout/stderr are deliberately left inherited rather than
@@ -185,12 +199,11 @@ def start_local_agent(
         # Wait for agent to start (check port becomes available)
         print("Waiting for agent to start on port 8080...")
         for i in range(30):  # Wait up to 30 seconds
-            if check_port_available(8080):
-                print_msg("Agent started successfully", "success")
-                return _agent_process
-
-            # Fail fast when the child is already gone (e.g. `uv run --locked`
-            # aborting on a stale uv.lock) instead of burning the full timeout.
+            # Liveness is checked FIRST. A child that has already exited (e.g.
+            # `uv run --locked` aborting on a stale uv.lock) is reported as the
+            # failure it is, rather than burning the full timeout - and, more
+            # importantly, rather than being masked by a port check that some
+            # other process happens to satisfy.
             exit_code = _agent_process.poll()
             if exit_code is not None:
                 print_msg(
@@ -201,9 +214,19 @@ def start_local_agent(
                 _agent_process = None
                 sys.exit(1)
 
+            # Only a port that was free before the spawn can be attributed to
+            # this child. When it was already busy, keep waiting instead: this
+            # child cannot bind 8080, so it will exit and be reported with its
+            # real exit code by the liveness check above.
+            if not port_already_busy and check_port_available(8080):
+                print_msg("Agent started successfully", "success")
+                return _agent_process
+
             time.sleep(1)
 
         print_msg("Agent failed to start (timeout)", "error")
+        if port_already_busy:
+            print("Port 8080 was already in use, so this agent could not bind it.")
         print("See the agent/uv output above for the failure reason.")
         stop_local_agent()
         sys.exit(1)
