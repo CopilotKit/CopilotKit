@@ -55,7 +55,7 @@ locals {
   zip_packager_lambda_source_path = "${path.module}/../../lambdas/zip-packager"
 
   # Lambda source paths
-  feedback_lambda_source_path = "${path.module}/../../../infra-cdk/lambdas/feedback"
+  feedback_lambda_source_path    = "${path.module}/../../../infra-cdk/lambdas/feedback"
   copilotkit_runtime_source_path = "${path.module}/../../../infra-cdk/lambdas/copilotkit-runtime"
 
   # SSM parameter paths

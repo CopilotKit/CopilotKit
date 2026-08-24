@@ -4,12 +4,12 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 
 ## Prerequisites
 
-| Tool    | Version                                                                    |
-| ------- | -------------------------------------------------------------------------- |
-| AWS CLI | configured (`aws configure`)                                               |
-| Node.js | 18+                                                                        |
+| Tool    | Version                                                                       |
+| ------- | ----------------------------------------------------------------------------- |
+| AWS CLI | configured (`aws configure`)                                                  |
+| Node.js | 18+                                                                           |
 | uv      | [any recent release](https://docs.astral.sh/uv/getting-started/installation/) |
-| Docker  | running                                                                    |
+| Docker  | running                                                                       |
 
 The Python side is managed entirely by uv — it provisions the interpreter, so
 there is no separate Python install step.
