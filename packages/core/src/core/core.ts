@@ -714,6 +714,25 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  /**
+   * Internal. A `fetch` that reports the outcome of every request made through
+   * it into the runtime connection status (OSS-904), and is otherwise a
+   * pass-through — the original `Response` is returned and the original error
+   * re-thrown.
+   *
+   * Runtime-bound requests issued outside the agent transports (threads,
+   * memory, suggestions — all of which already take their request function as
+   * an injected dependency) can adopt it so their outcomes count too. Anything
+   * NOT bound for our runtime must keep using plain `fetch`: a customer's own
+   * endpoint failing, or the Intelligence realtime endpoint failing, says
+   * nothing about the runtime's health and would produce a false diagnosis.
+   *
+   * Not part of the supported public API; may change without notice.
+   */
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }

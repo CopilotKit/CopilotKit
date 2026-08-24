@@ -452,6 +452,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      // Carry the request function over (HttpAgent.clone does the same). A
+      // clone talks to the same runtime, so it must keep whatever fetch the
+      // original was given — including the registry's instrumented one, which
+      // is how a cloned agent's runtime failures still reach the connection
+      // status (OSS-904).
+      fetch: this.fetch,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
