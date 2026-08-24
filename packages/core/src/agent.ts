@@ -675,6 +675,25 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
+      // The delegate's REST join request goes to the RUNTIME, so it counts as
+      // runtime traffic under the destination rule and its outcome must be
+      // observable (OSS-904). For a registry-minted agent `this.fetch` is the
+      // registry's instrumented fetch (`applyRuntimeFetchToAgent`, applied at
+      // construction — long before a delegate is lazily created here) and
+      // otherwise the plain global wrapper; either way the delegate should use
+      // whatever the proxy uses. Passing it once is enough because the
+      // registry's fetch is memoized, so re-applying it to the proxy hands
+      // back the same function.
+      //
+      // The delegate's WEBSOCKET to `intelligence.wsUrl` deliberately does NOT
+      // go through it — a separate service whose failure must never be
+      // reported as an unreachable runtime.
+      //
+      // The cast closes a declared-type gap only: `HttpAgent.fetch` is typed
+      // narrower than the value it always holds (`(url: string, init:
+      // RequestInit)` vs. `fetch`), and both the AG-UI default and the
+      // registry's instrumented function are real `fetch` implementations.
+      fetch: this.fetch as typeof fetch,
     });
   }
 

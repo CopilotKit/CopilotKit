@@ -68,6 +68,12 @@ interface Channel extends ɵPhoenixChannelLike {
   push(event: string, payload: unknown): ɵPhoenixPushLike;
 }
 
+/**
+ * Default request function for the runtime-bound REST join calls. Wrapped
+ * rather than referenced bare so the global keeps its own `this` binding.
+ */
+const globalFetch: typeof fetch = (...args) => fetch(...args);
+
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
@@ -149,6 +155,24 @@ export interface IntelligenceAgentConfig {
   headers?: Record<string, string>;
   /** Optional credentials mode for fetch requests */
   credentials?: RequestCredentials;
+  /**
+   * Request function for the REST join calls (`/connect`, `/run`). Defaults to
+   * the global `fetch`.
+   *
+   * Those calls go to the RUNTIME, so they are runtime traffic under the
+   * destination rule and their outcome has to be observable like any other
+   * (OSS-904). `ProxiedCopilotRuntimeAgent` passes its own instrumented fetch
+   * in here; without it an Intelligence-mode application would never notice a
+   * runtime that went away, which is the one case a rule keyed on the caller
+   * rather than on the destination would have missed entirely.
+   *
+   * Deliberately NOT used for the long-lived websocket to {@link url}: the
+   * realtime endpoint is a separate service at its own address with its own
+   * reconnection behaviour, it can fail while the runtime is perfectly healthy,
+   * and reporting "runtime unreachable" about a working runtime is a false
+   * diagnosis that costs more debugging time than no signal at all.
+   */
+  fetch?: typeof fetch;
 }
 
 export class IntelligenceAgent extends AbstractAgent {
@@ -206,6 +230,12 @@ export class IntelligenceAgent extends AbstractAgent {
     this.config = { ...this.config, credentials };
   }
 
+  /**
+   * Handing the whole config over is what keeps a clone talking to the same
+   * runtime the same way — including {@link IntelligenceAgentConfig.fetch}, so
+   * a per-thread clone's runtime failures still reach the connection status
+   * (OSS-904).
+   */
   clone(): IntelligenceAgent {
     return new IntelligenceAgent(this.config, this.sharedState);
   }
@@ -452,7 +482,12 @@ export class IntelligenceAgent extends AbstractAgent {
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
-        const response = await fetch(this.buildRuntimeUrl(mode), {
+        // Runtime-bound: goes to `${runtimeUrl}/agent/:id/(run|connect)`, not
+        // to the realtime endpoint. Routed through the injected request
+        // function so its outcome reaches the runtime connection status
+        // (OSS-904); falls back to the global `fetch` when none was given.
+        const requestFetch = this.config.fetch ?? globalFetch;
+        const response = await requestFetch(this.buildRuntimeUrl(mode), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
