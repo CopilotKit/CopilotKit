@@ -184,14 +184,6 @@ Before you begin, you'll need the following:
                 ```bash
                 export OPENAI_API_KEY=your_openai_api_key
                 ```
-
-                Your agent server listens on port 4111 by default. The frontend you build
-                next reaches it over HTTP and reads its address from `MASTRA_BASE_URL`, so
-                set that too — and point it at your deployed Mastra service in production:
-
-                ```bash
-                export MASTRA_BASE_URL=http://127.0.0.1:4111
-                ```
             </Step>
             <Step>
                 ### Start your agent
@@ -201,6 +193,10 @@ Before you begin, you'll need the following:
                 ```bash
                 npx mastra dev
                 ```
+
+                Note the port it prints. `mastra dev` takes 4111 when it is free and walks
+                up to 4131 when it is not, and the frontend you build next reaches this
+                agent over HTTP at that address.
 
                 Confirm it is serving your agent before you wire the frontend to it:
 
@@ -228,11 +224,12 @@ Before you begin, you'll need the following:
                 ```
 
                 <Callout type="warn" title="Don't point `next dev` at your Mastra project root">
-                  Next.js rewrites the `tsconfig.json` at its own root on first run,
-                  overwriting settings like `"moduleResolution": "NodeNext"` that your agent
-                  depends on. A sibling package leaves your agent's TypeScript config
-                  untouched — and it is why this guide reaches the agent over HTTP rather
-                  than importing it.
+                  On its first run Next.js rewrites the `tsconfig.json` at its own root:
+                  it forces `esModuleInterop`, `isolatedModules`, `resolveJsonModule` and
+                  `jsx`, sets `noEmit: true`, and replaces `include` and `exclude`. Pointed
+                  at a Mastra project that compiles with `tsc`, that rewrites the config
+                  your agent builds with. A sibling package leaves it untouched — and it is
+                  why this guide reaches the agent over HTTP rather than importing it.
                 </Callout>
             </Step>
             <Step>
@@ -264,11 +261,13 @@ Before you begin, you'll need the following:
                 });
 
                 const runtime = new CopilotRuntime({
-                  // getRemoteAgents is async; `agents` accepts the promise directly.
-                  agents: MastraAgent.getRemoteAgents({
-                    mastraClient,
-                    resourceId: "user-1", // your app's user id — scopes Mastra memory
-                  }),
+                  // A factory, so the agent list is fetched per request rather than at
+                  // module load — the route survives an agent server that is not up yet.
+                  agents: () =>
+                    MastraAgent.getRemoteAgents({
+                      mastraClient,
+                      resourceId: "user-1", // your app's user id — scopes Mastra memory
+                    }),
                   runner: new InMemoryAgentRunner(),
                 });
 
@@ -279,6 +278,14 @@ Before you begin, you'll need the following:
 
                 export const GET = handler;
                 export const POST = handler;
+                ```
+
+                The route defaults to `http://127.0.0.1:4111`. If your agent server took a
+                different port, or you are pointing at a deployed Mastra service, set the
+                address in *this* app's environment — the frontend reads it, not the agent:
+
+                ```bash title=".env.local"
+                MASTRA_BASE_URL=http://127.0.0.1:4111
                 ```
 
                 <Callout type="info" title="Embedding Mastra instead">

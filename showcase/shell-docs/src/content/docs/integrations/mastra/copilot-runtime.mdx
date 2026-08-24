@@ -43,22 +43,28 @@ const mastraClient = new MastraClient({
 });
 
 const runtime = new CopilotRuntime({
-  agents: MastraAgent.getRemoteAgents({
-    mastraClient,
-    resourceId: "user-1",
-  }),
+  agents: () =>
+    MastraAgent.getRemoteAgents({
+      mastraClient,
+      resourceId: "user-1",
+    }),
   runner: new InMemoryAgentRunner(),
 });
 ```
 
-`agents` accepts the promise directly, so there is no top-level `await` — the call
-starts when the module loads and the runtime awaits it on each request. It settles
-once: if your agent server is unreachable at that moment, the rejection is cached
-and every later request fails until the process restarts.
+Pass it as a **factory**, as above, rather than calling it at module scope. `agents`
+does accept the promise itself — `agents: MastraAgent.getRemoteAgents({ ... })` — but
+that starts the HTTP call when the module loads with nothing awaiting it yet. If the
+agent server is not up, the rejection is unhandled and Node terminates the process.
 
-Pass a factory instead to resolve per request. It costs one `listAgents()` call per
-request, and buys two things: a run that failed because the agent server was down
-recovers on its own, and `resourceId` can follow the caller.
+The factory has no such window. Nothing runs until a request arrives, a failure
+surfaces as a `500`, and the next request tries again — so a route that started
+before its agent server did recovers on its own once that server comes up. The cost
+is one `listAgents()` call per request; cache the result in a module-scope variable
+if that matters to you.
+
+Resolving per request is also what lets `resourceId` follow the caller, since the
+factory receives the request:
 
 ```ts
 const runtime = new CopilotRuntime({
