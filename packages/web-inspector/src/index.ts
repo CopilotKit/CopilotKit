@@ -17546,6 +17546,28 @@ ${prettyEvent}</pre
       const broken = this.isErrorSourceBroken(source);
       if (broken) {
         if (this.errorSignalArmed[source]) continue;
+        // Arming is immediate, with no window a short failure has to outlive
+        // first. That is a decision, not an omission, so here is what it costs
+        // and what would change it.
+        //
+        // `threads` can genuinely flap: the list is refetched on events, at up
+        // to one request per `THREAD_LIST_DEBOUNCE_MS`, so a failure followed
+        // by a success plays a whole gesture for a blip that is already over.
+        // The damage is bounded by machinery that is already here — one
+        // pending-beat slot, and a running gesture defers the next — so the
+        // ceiling is one gesture per gesture length, never a strobe. And the
+        // dot is not lying while it is up: the fetch really did fail.
+        //
+        // `connection` cannot flap on its own today, because nothing retries
+        // the handshake: it goes connecting → connected | error and then waits
+        // for something to call connect() again. If a fix for the mid-session
+        // gap above adds polling, re-read this: the `connecting` branch in
+        // `isErrorSourceBroken` already holds the dot steady across retries,
+        // so only genuinely intermittent connectivity would flap, which is
+        // exactly what the dot is for.
+        //
+        // So: revisit if someone reports the launcher going red without a
+        // lasting cause, and start with `threads`.
         this.errorSignalArmed[source] = true;
         continue;
       }
