@@ -273,9 +273,9 @@ Before you begin, you'll need the following:
             <Tab value="Deep Agent">
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                  InMemoryAgentRunner,
                 } from "@copilotkit/runtime/v2";
                 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
@@ -287,7 +287,15 @@ Before you begin, you'll need the following:
                             langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                         }),
                     },
-                  runner: new InMemoryAgentRunner(),
+                    // [!code highlight:8]
+                    intelligence: new CopilotKitIntelligence({
+                      apiKey: process.env.INTELLIGENCE_API_KEY!,
+                    }),
+                    // Threads are per-user. Without this, every visitor shares one history.
+                    identifyUser: (request) => ({
+                      id: request.headers.get("x-user-id") ?? "anonymous",
+                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -302,9 +310,9 @@ Before you begin, you'll need the following:
             <Tab value="FastAPI">
                 ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                  InMemoryAgentRunner,
                 } from "@copilotkit/runtime/v2";
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
 
@@ -314,7 +322,15 @@ Before you begin, you'll need the following:
                             url: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                         }),
                     },
-                  runner: new InMemoryAgentRunner(),
+                    // [!code highlight:8]
+                    intelligence: new CopilotKitIntelligence({
+                      apiKey: process.env.INTELLIGENCE_API_KEY!,
+                    }),
+                    // Threads are per-user. Without this, every visitor shares one history.
+                    identifyUser: (request) => ({
+                      id: request.headers.get("x-user-id") ?? "anonymous",
+                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -327,6 +343,21 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
         </Tabs>
+
+        The runtime reads the license key from step 1. Add it to the app that serves
+        this route:
+
+        ```plaintext title=".env.local"
+        INTELLIGENCE_API_KEY=your_license_key
+        ```
+
+        <Callout type="info" title="Running without the Intelligence Platform?">
+          Drop the `intelligence` and `identifyUser` options and the runtime falls back
+          to SSE mode with an in-memory runner. Chat still works, but Threads and the
+          Inspector stay locked and the key is never read. See
+          [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+          full constructor and how to confirm the key is in use.
+        </Callout>
     </Step>
     <Step>
         ### Configure CopilotKit Provider

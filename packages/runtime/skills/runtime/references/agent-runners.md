@@ -183,7 +183,10 @@ Correct:
 new CopilotRuntime({
   agents,
   intelligence,
-  identifyUser: (req) => ({ id: req.headers.get("x-user-id")! }),
+  identifyUser: (req) => ({
+    id: req.headers.get("x-user-id")!,
+    name: req.headers.get("x-user-name") ?? "Anonymous",
+  }),
 });
 ```
 

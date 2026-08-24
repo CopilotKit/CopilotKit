@@ -59,6 +59,7 @@ const runtime = new CopilotRuntime({
   // Threads are per-user. Without this every visitor shares one history.
   identifyUser: (request) => ({
     id: request.headers.get("x-user-id") ?? "anonymous",
+    name: request.headers.get("x-user-name") ?? "Anonymous",
   }),
 });
 
