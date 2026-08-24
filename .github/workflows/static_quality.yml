@@ -273,7 +273,10 @@ jobs:
             echo "NX_NO_CLOUD=true"
           } >> "$GITHUB_ENV"
 
-      - name: Run publint and attw
+      - name: Test the declaration-file validator
+        run: pnpm exec vitest run scripts/__tests__/validate-dts-ambient.test.ts
+
+      - name: Run publint, attw, and check-dts
         run: pnpm run check:packages
 
   check-types:

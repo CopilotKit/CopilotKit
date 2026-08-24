@@ -21,6 +21,7 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
+import { runtimeInfoError } from "../utils/runtime-info-error";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -937,9 +938,7 @@ export class AgentRegistry {
       ...(credentials ? { credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     return {
       runtimeInfo: (await response.json()) as RuntimeInfo,
@@ -959,9 +958,7 @@ export class AgentRegistry {
       ...(credentials ? { credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     return (await response.json()) as RuntimeInfo;
   }

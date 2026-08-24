@@ -14,6 +14,7 @@ import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
+import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -713,50 +714,9 @@ export class RunHandler {
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
-    if (message.role !== "tool") {
-      return false;
-    }
-
-    const normalized = this.normalizeToolResultContent(message.content);
-    return normalized === "Forwarded to client";
-  }
-
-  private normalizeToolResultContent(content: unknown): string | null {
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      const text = content
-        .flatMap((part) => {
-          if (typeof part === "string") {
-            return [part];
-          }
-          if (
-            part &&
-            typeof part === "object" &&
-            "text" in part &&
-            typeof (part as { text?: unknown }).text === "string"
-          ) {
-            return [(part as { text: string }).text];
-          }
-          return [];
-        })
-        .join("")
-        .trim();
-      return text.length > 0 ? text : null;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in content &&
-      typeof (content as { text?: unknown }).text === "string"
-    ) {
-      return (content as { text: string }).text.trim();
-    }
-
-    return null;
+    return (
+      message.role === "tool" && isForwardedToClientPlaceholder(message.content)
+    );
   }
 
   /**

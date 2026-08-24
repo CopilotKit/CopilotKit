@@ -1,12 +1,12 @@
-A common question: *how do I point CopilotKit's threads at my own database instead of the Enterprise Intelligence Platform?*
+A common question: *how do I point CopilotKit's threads at my own database instead of CopilotKit Intelligence?*
 
-The honest answer is that you can't, because there is no such extension point. CopilotKit does not define a "bring your own thread backend" endpoint spec that you can implement against — [Rich Threads](/threads) (`useThreads`, the [Threads Drawer](/prebuilt-components/copilot-threads-drawer), cross-device sync, replayable event history) are a capability of the [Enterprise Intelligence Platform](/premium/overview), not an interface with a swappable implementation.
+The honest answer is that you can't, because there is no such extension point. CopilotKit does not define a "bring your own thread backend" endpoint spec that you can implement against — [Rich Threads](/threads) (`useThreads`, the [Threads Drawer](/prebuilt-components/copilot-threads-drawer), cross-device sync, replayable event history) are a capability of [CopilotKit Intelligence](/premium/overview), not an interface with a swappable implementation.
 
 What you *can* do without the platform is persist conversations yourself. That path is real and it works — it just looks different from Rich Threads, and it's worth being clear about what you get and what you give up before you build it.
 
 ## What each path gives you
 
-| | Self-managed | Enterprise Intelligence Platform |
+| | Self-managed | CopilotKit Intelligence |
 | --- | --- | --- |
 | Conversation survives a page reload | Yes, if your framework checkpoints it | Yes |
 | Conversation follows the user across devices | Yes, if your store is server-side and user-scoped | Yes |
@@ -104,5 +104,5 @@ If you have existing conversations in a framework store and want them as Rich Th
 
 - [Thread lifecycle](/threads-lifecycle) — how ids are minted, hydrated, and switched
 - [Thread authorization](/auth#thread-authorization) — scoping threads to their owner
-- [OSS vs Enterprise Intelligence Platform](/concepts/oss-vs-enterprise) — where the capability boundary sits
+- [OSS vs CopilotKit Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits
 - [Rich Threads](/threads) — what the platform-backed path looks like

@@ -789,7 +789,12 @@ Do NOT touch anything else in the shell.
    you to write (exhaustiveness gates over a union, typed fixtures) are type-only —
    they are decoration until you run it.
 
-2. `pnpm dev` (needs `OPENAI_API_KEY`; copy `.env` from `.env.example`).
+2. `pnpm dev` (needs `OPENAI_API_KEY`; copy `.env` from `.env.example`). Enough
+   for YOUR skin — its agent runs in-process. It is NOT enough for `banking`,
+   whose agent is a separate Python service (`agent/`, :8124), and `/` redirects
+   to banking: so if your first "does this work at all" check is a message sent
+   on the default skin, you get silence and misread it as your own wiring. Send
+   it on `/<your-id>`, or start everything with `./run-demo.sh`.
 3. The skin appears in the **selector dropdown** at the top of the assistant
    column — open it from the trigger showing the active skin's brand.
 4. Navigating to `/<id>` renders your `Layout` with the correct theme (your

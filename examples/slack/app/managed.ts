@@ -51,6 +51,34 @@ const required = (name: string): string => {
 };
 
 /**
+ * Resolves the Intelligence project key.
+ *
+ * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
+ */
+const requiredIntelligenceKey = (): string => {
+  const key =
+    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+  if (!key) {
+    console.error(
+      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+        "Channels run only through the Intelligence runtime, which needs an " +
+        "Intelligence key (free tier).\n" +
+        "  Run `copilotkit project select` to provision one, or set it manually.\n" +
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
+    );
+    process.exit(1);
+  }
+  if (!process.env.INTELLIGENCE_API_KEY) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+    );
+  }
+  return key;
+};
+
+/**
  * The managed Channel `name` is chosen HERE, in code — it is the project-unique
  * identifier the runtime uses to derive the managed Channel's activation config
  * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
@@ -125,14 +153,14 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
   // overrides target a self-hosted or dev deployment. Set both or neither: the
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
     apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
     wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: required("COPILOTKIT_API_KEY"),
+    apiKey: requiredIntelligenceKey(),
   });
 
   const runtime = new CopilotRuntime({

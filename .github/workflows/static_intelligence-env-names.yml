@@ -1,0 +1,41 @@
+name: static / intelligence env names
+
+# Deliberately unfiltered. A non-canonical Intelligence key name can appear in
+# any README, example, skill, or doc page, and the two workflows that would
+# otherwise cover this both filter paths — plugin-skills-check by `paths:` and
+# static/quality by `paths-ignore: examples/**`, which is precisely where the
+# deprecated alias still lives. Scoping this job would re-open the hole it
+# exists to close.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Check Intelligence env var names are canonical
+        run: pnpm check:intelligence-env-names

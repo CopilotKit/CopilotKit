@@ -437,19 +437,18 @@
     {
       "name": "showcase-crewai-conversational-flows",
       "serviceId": "11859593-da4e-486c-a810-6cdffeff9750",
-      "prodInstanceId": "11859593-da4e-486c-a810-6cdffeff9750",
+      "prodInstanceId": "209031fe-2e02-4fbb-8f12-1276457d1916",
       "stagingInstanceId": "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
       "ciBuilt": true,
       "gateValidated": true,
-      "onlyEnvironment": "staging",
       "dispatchName": "crewai-conversational-flows",
       "domains": {
         "staging": "showcase-crewai-conversational-flows-staging.up.railway.app",
-        "prod": ""
+        "prod": "showcase-crewai-conversational-flows-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -461,6 +460,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       },
       "autoUpdates": {
@@ -1474,6 +1474,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-crewai-conversational-flows",
+        "tier": 2
+      },
+      {
         "name": "showcase-crewai-crews",
         "tier": 2
       },
@@ -1582,11 +1586,6 @@
         "tier": 2
       }
     ],
-    "skipped": [
-      {
-        "name": "showcase-crewai-conversational-flows",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      }
-    ]
+    "skipped": []
   }
 }

@@ -5,8 +5,8 @@ description: Inspector for debugging actions, readables, agent status, messages,
 ---
 
 The CopilotKit Inspector is a built-in debugging overlay for the live connection
-between your frontend and agents. It opens on **Threads** and keeps agent data,
-learning tools, project context, and settings in one window.
+between your frontend and agents. The first open lands on **Home**. Later opens
+return to the last pane you used.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
@@ -20,10 +20,21 @@ learning tools, project context, and settings in one window.
 
 ## Navigation and Threads
 
-The primary navigation groups the Inspector into **Threads**, **Agents**, and
-**Learning**. Threads is the default. Agents contains the existing AG-UI events,
-available agents, frontend tools, capabilities, and context views. Closing
-Settings returns to the exact group and child view you had open.
+The sidebar has three groups:
+
+- **Home**: project, runtime, services, and CopilotKit news.
+- **Workbench**: **Threads** and **Memory**.
+- **Inspect**: **Agent**, **AG-UI Events**, **Frontend Tools**, and **Context**.
+  **Capabilities** appears only when an A2UI catalog is present.
+
+The sidebar is live-only. Leaves that have no data stay hidden. On a narrow
+window, or when the Inspector is docked left, the sidebar collapses to icons.
+**Talk to an Engineer** stays in the sidebar footer.
+
+When Intelligence is connected, Home shows a small **Intelligence connected**
+chip on the right of **What's going on**. When it is not connected, Home shows
+a Connect card and a **CONNECT TO INTELLIGENCE** action when the Runtime
+supplies one.
 
 The Threads list initially selects the most recently updated visible real
 thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
@@ -44,11 +55,11 @@ details, and tour stay usable.
 ## Project context and usage
 
 An Intelligence-backed Runtime can supply optional trusted project metadata.
-Valid organization and project names and the plan label appear in the account
-strip. Each module is independent, so invalid or missing identity data does not
-hide valid usage or action data.
+Valid organization and project names, the plan label, and Thread usage appear
+on the Home project card. Each module is independent, so invalid or missing
+identity data does not hide valid usage or action data.
 
-Trusted Thread usage appears only in the Threads footer:
+Trusted Thread usage also appears in the Threads footer:
 
 | Usage state | Inspector behavior |
 | --- | --- |

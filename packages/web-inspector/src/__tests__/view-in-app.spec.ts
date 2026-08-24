@@ -144,6 +144,12 @@ async function setupInspector(threads: ɵThread[] = [SAVED_THREAD]): Promise<{
   );
   openButton?.click();
   await flushInspector(inspector);
+  const threadsButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+    'button[data-inspector-menu-key="threads"]',
+  );
+  if (!threadsButton) throw new Error("Threads group was not rendered");
+  threadsButton.click();
+  await flushInspector(inspector);
   return {
     inspector,
     store,

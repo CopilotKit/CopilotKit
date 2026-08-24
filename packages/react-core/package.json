@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.68.1",
+  "version": "1.69.0",
   "private": false,
   "keywords": [
     "ai",
@@ -59,7 +59,7 @@
   },
   "scripts": {
     "build:css": "tailwindcss -i ./src/v2/styles/globals.css -o ./dist/v2/index.css -m && node scripts/scope-preflight.mjs ./dist/v2/index.css",
-    "build": "tsdown && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
+    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-core && pnpm run build:css && node scripts/context-singleton-preflight.mjs",
     "size": "size-limit",
     "size:headline": "node scripts/measure-copilotchat.mjs",
     "size:assert-headless": "node scripts/assert-headless-purity.mjs",

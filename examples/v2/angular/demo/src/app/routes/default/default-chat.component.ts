@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, ChangeDetectionStrategy } from "@angular/core";
 
 import { CopilotChat } from "@copilotkit/angular";
 
@@ -6,6 +6,7 @@ import { CopilotChat } from "@copilotkit/angular";
   selector: "default-chat",
   standalone: true,
   imports: [CopilotChat],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <copilot-chat [threadId]="'xyz'" />
   `,
