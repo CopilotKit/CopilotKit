@@ -9,6 +9,7 @@ import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵselectThreads,
   ɵselectThreadsIsLoading,
@@ -22,7 +23,6 @@ import {
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
-  CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
   Memory,
@@ -131,6 +131,8 @@ import type {
   InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
   InspectorErrorSignalSource,
+  InspectorEventErrorSource,
+  InspectorWiringErrorSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
   MetadataActionPlacement,
@@ -263,12 +265,11 @@ const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
  * The failure gesture, four phases in series:
  *
  * ```
- * beat 1500ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (4500ms total)
+ * beat 400ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (3400ms total)
  * ```
  *
  * Sequential rather than simultaneous, deliberately: the beat says *here*, the
- * pill says *this*. The cost is about 1.6 seconds more motion than a combined
- * gesture would need.
+ * pill says *this*. The beat is short so the words arrive quickly.
  *
  * **All four durations live here and nowhere else.** The stylesheet reads the
  * two animated phases as custom properties injected from these numbers rather
@@ -277,7 +278,7 @@ const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
  */
 const ERROR_GESTURE_MS = {
   /** Phase 1: one beat, which is also the error signals' cadence. */
-  beat: 1500,
+  beat: 400,
   /** Phase 2: the sideways reveal. */
   open: 250,
   /** Phase 3: long enough to read three words without hurrying. */
@@ -295,6 +296,27 @@ const ERROR_GESTURE_MS = {
  */
 const RUNTIME_ERROR_LABEL = "Runtime error";
 const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
+const AGENT_RUN_FAILED_LABEL = "Agent run failed";
+const TOOL_ERROR_LABEL = "Tool error";
+const MEMORY_LOAD_ERROR_LABEL = "Failed to load learning data";
+
+/** Copy on the landing view. Titles match the pill. */
+const EVENT_ERROR_GUIDANCE: Readonly<
+  Record<InspectorEventErrorSource, Readonly<{ title: string; fix: string }>>
+> = {
+  run: {
+    title: AGENT_RUN_FAILED_LABEL,
+    fix: "The failed run event is highlighted below.",
+  },
+  tool: {
+    title: TOOL_ERROR_LABEL,
+    fix: "The failed tool call is highlighted below.",
+  },
+  memory: {
+    title: MEMORY_LOAD_ERROR_LABEL,
+    fix: "Confirm CopilotKit Intelligence is connected, then retry Learning.",
+  },
+};
 
 /**
  * The pill's second line, shared by every subject that carries a pill.
@@ -331,7 +353,7 @@ const LAUNCHER_SIGNALS: Readonly<
     markerTarget: "home",
     landingTarget: "home",
     cadence: ERROR_GESTURE_MS.beat,
-    priority: 2,
+    priority: 5,
     accessibleLabel: "runtime error",
     pillLabel: RUNTIME_ERROR_LABEL,
   },
@@ -342,9 +364,38 @@ const LAUNCHER_SIGNALS: Readonly<
     cadence: ERROR_GESTURE_MS.beat,
     // Below the connection signal: a connection failure cascades into thread
     // failures, so when both could be armed the root cause owns the dot.
-    priority: 1,
+    priority: 4,
     accessibleLabel: "thread loading error",
     pillLabel: THREADS_LOAD_ERROR_LABEL,
+  },
+  // Unread *events*. They beat and name the failure, then clear when the
+  // landing view is read. They lose the launcher dot to wiring state.
+  run: {
+    tone: "error",
+    markerTarget: "ag-ui-events",
+    landingTarget: "ag-ui-events",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 3,
+    accessibleLabel: "agent run failed",
+    pillLabel: AGENT_RUN_FAILED_LABEL,
+  },
+  tool: {
+    tone: "error",
+    markerTarget: "agents",
+    landingTarget: "agents",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 2,
+    accessibleLabel: "tool error",
+    pillLabel: TOOL_ERROR_LABEL,
+  },
+  memory: {
+    tone: "error",
+    markerTarget: "memories",
+    landingTarget: "memories",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 1,
+    accessibleLabel: "learning error",
+    pillLabel: MEMORY_LOAD_ERROR_LABEL,
   },
 };
 
@@ -353,28 +404,71 @@ const LAUNCHER_SIGNAL_PRIORITY_ORDER: ReadonlyArray<LauncherSignalKey> = (
   Object.keys(LAUNCHER_SIGNALS) as LauncherSignalKey[]
 ).sort((a, b) => LAUNCHER_SIGNALS[b].priority - LAUNCHER_SIGNALS[a].priority);
 
-/** The two error signals, in the shape the telemetry enum uses. */
-const ERROR_SIGNAL_KEYS = [
+/** Wiring *state* — red until the problem heals. */
+const WIRING_ERROR_KEYS = [
   "connection",
   "threads",
-] as const satisfies ReadonlyArray<InspectorErrorSignalSource>;
+] as const satisfies ReadonlyArray<InspectorWiringErrorSource>;
+
+/** Unread *events* — red until the landing view is read. */
+const EVENT_ERROR_KEYS = [
+  "run",
+  "tool",
+  "memory",
+] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
+
+function isWiringErrorKey(
+  key: LauncherSignalKey,
+): key is InspectorWiringErrorSource {
+  return (WIRING_ERROR_KEYS as readonly string[]).includes(key);
+}
+
+function isEventErrorKey(
+  key: LauncherSignalKey,
+): key is InspectorEventErrorSource {
+  return (EVENT_ERROR_KEYS as readonly string[]).includes(key);
+}
 
 /** Narrows a signal key to an error source, excluding the announcement. */
 function isErrorSignalKey(
   key: LauncherSignalKey,
 ): key is InspectorErrorSignalSource {
-  return key !== NEWS_SIGNAL_ID;
+  return isWiringErrorKey(key) || isEventErrorKey(key);
+}
+
+/** Attribute selector value. jsdom does not implement CSS.escape. */
+function escapeSelectorValue(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(
+    /[\0-\x1f\x7f!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g,
+    "\\$&",
+  );
+}
+
+function eventErrorKeyForCode(
+  code: CopilotKitCoreErrorCode,
+): InspectorEventErrorSource | null {
+  switch (code) {
+    case CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED:
+    case CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED:
+      return null;
+    case CopilotKitCoreErrorCode.TOOL_NOT_FOUND:
+    case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
+    case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
+      return "tool";
+    default:
+      return "run";
+  }
 }
 
 /**
- * How long a failure has to persist before it arms anything. A blip that
- * resolves inside this window produces neither dot nor beat, so a flaky
- * network cannot train a developer to ignore the signal.
- *
- * Clearing is NOT settled: once armed, the dot follows the state immediately
- * so the indicator never claims a problem that has already been fixed.
+ * Coalesce inspector-owned GET /threads sends. The first refresh goes out
+ * at once. Further calls in this window share one trailing request, so a
+ * flaky network does not fire a burst of list fetches and error cards.
  */
-const ERROR_SIGNAL_SETTLE_MS = 2000;
+const THREAD_LIST_DEBOUNCE_MS = 300;
 
 /** The launcher's accessible name with nothing wrong. */
 const LAUNCHER_BASE_LABEL = "Web Inspector";
@@ -615,6 +709,7 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  toolCallId?: string;
   /** Populated for role="activity" messages (Generative UI). */
   activityType?: string;
 };
@@ -5646,12 +5741,26 @@ export class WebInspectorElement extends LitElement {
    * could silently lose a live failure.
    */
   private readonly errorSignalArmed: Record<
-    InspectorErrorSignalSource,
+    InspectorWiringErrorSource,
     boolean
   > = { connection: false, threads: false };
-  /** In-flight settle timers, one per source. */
-  private readonly errorSignalSettleTimers: Map<
-    InspectorErrorSignalSource,
+  /** Unread app errors. Cleared when the landing view is read. */
+  private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
+    { run: false, tool: false, memory: false };
+  private lastEventError: {
+    key: InspectorEventErrorSource;
+    message: string;
+    agentId?: string;
+    toolName?: string;
+    toolCallId?: string;
+  } | null = null;
+  private pendingScrollToEventId: string | null = null;
+  private pendingScrollToToolCallId: string | null = null;
+  /** Last time an inspector-owned /threads refresh left this host, per agent. */
+  private readonly threadRefreshLastSentAt: Map<string, number> = new Map();
+  /** Trailing /threads refresh timers, one per agent. */
+  private readonly threadRefreshTrailingTimers: Map<
+    string,
     ReturnType<typeof setTimeout>
   > = new Map();
   /**
@@ -6195,7 +6304,7 @@ export class WebInspectorElement extends LitElement {
         }
         if (error) {
           this._threadsErrorByAgent.set(agentId, error);
-        } else {
+        } else if (!isLoading) {
           this._threadsErrorByAgent.delete(agentId);
         }
         this._threadsLoadingByAgent.set(agentId, isLoading);
@@ -6221,7 +6330,7 @@ export class WebInspectorElement extends LitElement {
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
-    } else {
+    } else if (!ɵselectThreadsIsLoading(initialState)) {
       this._threadsErrorByAgent.delete(agentId);
     }
     this.rebuildFlattenedThreads();
@@ -6344,9 +6453,42 @@ export class WebInspectorElement extends LitElement {
     if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+
+    const now = Date.now();
+    const lastSentAt = this.threadRefreshLastSentAt.get(agentId) ?? 0;
+    const waitMs = THREAD_LIST_DEBOUNCE_MS - (now - lastSentAt);
+    if (waitMs <= 0) {
+      this.sendOwnedThreadRefresh(agentId, store, now);
+      return;
+    }
+    if (this.threadRefreshTrailingTimers.has(agentId)) return;
+    this.threadRefreshTrailingTimers.set(
+      agentId,
+      setTimeout(() => {
+        this.threadRefreshTrailingTimers.delete(agentId);
+        const current = this._ownedThreadStores.get(agentId);
+        if (!current) return;
+        this.sendOwnedThreadRefresh(agentId, current, Date.now());
+      }, waitMs),
+    );
+  }
+
+  private sendOwnedThreadRefresh(
+    agentId: string,
+    store: ɵThreadStore,
+    sentAt: number,
+  ): void {
+    this.threadRefreshLastSentAt.set(agentId, sentAt);
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  private cancelThreadRefreshDebounce(): void {
+    for (const timer of this.threadRefreshTrailingTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.threadRefreshTrailingTimers.clear();
   }
 
   // Keep inspector-owned thread stores in sync when the host updates headers
@@ -6428,6 +6570,7 @@ export class WebInspectorElement extends LitElement {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
@@ -6481,8 +6624,9 @@ export class WebInspectorElement extends LitElement {
             },
           }
         : {}),
-      onError: ({ code, error }) => {
+      onError: ({ code, error, context }) => {
         this.lastCoreError = { code, message: error.message };
+        this.armEventErrorFromCode(code, error.message, context);
         this.requestUpdate();
       },
       onAgentsChanged: ({ agents }) => {
@@ -6625,6 +6769,11 @@ export class WebInspectorElement extends LitElement {
       }),
       memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
         this._memoriesError = v;
+        if (v) {
+          this.armEventError("memory", v.message);
+        } else if (this.eventErrorArmed.memory) {
+          this.clearEventError("memory");
+        }
         this.requestUpdate();
       }),
       memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
@@ -6725,10 +6874,7 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
-    // A settle window that outlived its Core would re-check against a state
-    // that no longer exists. The latches themselves self-clear on the next
-    // update, because a detached Core reports "unavailable" rather than error.
-    this.cancelErrorSignalSettleTimers();
+    this.cancelThreadRefreshDebounce();
     this.inspectorMetadataValue = undefined;
     this.inspectorMetadataProjection = projectInspectorMetadata(
       undefined,
@@ -6736,6 +6882,7 @@ export class WebInspectorElement extends LitElement {
     );
     this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     this.coreProperties = {};
     this.cachedTools = [];
     this.toolSignature = "";
@@ -7350,16 +7497,32 @@ export class WebInspectorElement extends LitElement {
           const argsString = this.formatToolCallArguments(
             call.function?.arguments,
           );
+          const isFailedCall =
+            this.lastEventError?.key === "tool" &&
+            this.lastEventError.toolCallId !== undefined &&
+            this.lastEventError.toolCallId === callId;
           return html`
             <div
-              class="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              class=${
+                isFailedCall
+                  ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
+                  : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              }
+              data-cpk-failed-tool-call=${isFailedCall ? callId : undefined}
             >
               <div
                 class="flex flex-wrap items-center justify-between gap-1 font-medium text-gray-900"
               >
-                <span>${functionName}</span>
-                <span class="text-[10px] text-gray-500">ID: ${callId}</span>
+                <span>${functionName}${isFailedCall ? " failed" : ""}</span>
+                <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
+              ${
+                isFailedCall && this.lastEventError?.message
+                  ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
+                    ${this.lastEventError.message}
+                  </p>`
+                  : nothing
+              }
               ${
                 argsString
                   ? html`<pre
@@ -8792,7 +8955,7 @@ ${argsString}</pre
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
     this.cancelGestureTail();
-    this.cancelErrorSignalSettleTimers();
+    this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
@@ -8888,6 +9051,8 @@ ${argsString}</pre
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
+    this.maybeCompleteEventErrorView();
+    this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
 
     if (!this.isOpen) {
@@ -9940,6 +10105,43 @@ ${argsString}</pre
       </section>
     `;
   }
+
+  private renderEventErrorBanner(key: InspectorEventErrorSource) {
+    if (this.lastEventError?.key !== key) return nothing;
+    const guide = EVENT_ERROR_GUIDANCE[key];
+    const error = this.lastEventError;
+    return html`
+      <div
+        class="mx-3 mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
+        role="alert"
+        tabindex="0"
+        data-cpk-event-error=${key}
+        @click=${this.refocusEventErrorLanding}
+        @keydown=${this.handleEventErrorBannerKeydown}
+      >
+        <span class="mt-0.5 shrink-0">${this.renderIcon("TriangleAlert")}</span>
+        <div class="min-w-0 flex-1 space-y-1">
+          <p class="font-semibold">${guide.title}</p>
+          ${error.agentId ? html`<p>Agent: ${error.agentId}</p>` : nothing}
+          ${error.toolName ? html`<p>Tool: ${error.toolName}</p>` : nothing}
+          <p class="break-words leading-relaxed">${error.message}</p>
+          <p class="leading-relaxed">${guide.fix}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  private handleEventErrorBannerKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    this.refocusEventErrorLanding();
+  };
+
+  /** Scroll the landing view to the failed tool call or RUN_ERROR again. */
+  private refocusEventErrorLanding = (): void => {
+    this.applyEventErrorLanding();
+    this.requestUpdate();
+  };
 
   private handleHomeLastEventSelect(eventId: string, agentId?: string): void {
     this.eventFilterText = "";
@@ -11433,6 +11635,9 @@ ${argsString}</pre
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
       this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
+      if (landing === "agents" || landing === "ag-ui-events") {
+        this.applyEventErrorLanding();
+      }
     }
 
     this.ensureAnnouncementLoading();
@@ -11821,6 +12026,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      toolCallId:
+        typeof raw.toolCallId === "string" ? raw.toolCallId : undefined,
       activityType:
         typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
@@ -12280,16 +12487,16 @@ ${argsString}</pre
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-800"
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
                 role="alert"
                 data-playground-error
               >
-                <span class="mt-0.5 shrink-0 text-rose-600"
+                <span class="mt-0.5 shrink-0"
                   >${this.renderIcon("TriangleAlert")}</span
                 >
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold">Agent run failed</p>
-                  <p class="mt-0.5 break-words leading-relaxed text-rose-700">
+                  <p class="mt-0.5 break-words leading-relaxed">
                     ${this.playgroundError}
                   </p>
                 </div>
@@ -12366,7 +12573,14 @@ ${argsString}</pre
     }
 
     if (this.selectedMenu === "ag-ui-events") {
-      return this.renderEventsTable();
+      return html`
+        <div class="flex h-full min-h-0 flex-col">
+          ${this.renderEventErrorBanner("run")}
+          <div class="min-h-0 flex-1 overflow-hidden">
+            ${this.renderEventsTable()}
+          </div>
+        </div>
+      `;
     }
 
     if (this.selectedMenu === "playground") {
@@ -14326,7 +14540,7 @@ ${argsString}</pre
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <span style="font-size: 13px; color: #c0333a;">
-            Failed to load learning data
+            ${MEMORY_LOAD_ERROR_LABEL}
           </span>
           <span
             style="
@@ -14338,6 +14552,17 @@ ${argsString}</pre
             "
           >
             ${this._memoriesError.message}
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${EVENT_ERROR_GUIDANCE.memory.fix}
           </span>
         </div>
       `;
@@ -14913,6 +15138,10 @@ ${argsString}</pre
         </div>
       `;
     } else {
+      const failedRunEventId =
+        this.lastEventError?.key === "run"
+          ? this.findLatestRunErrorEvent(this.lastEventError.agentId)?.id
+          : undefined;
       body = html`
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
@@ -14951,7 +15180,14 @@ ${argsString}</pre
             </thead>
             <tbody>
               ${filteredEvents.map((event, index) => {
-                const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                const isFailedRunEvent =
+                  failedRunEventId !== undefined &&
+                  event.id === failedRunEventId;
+                const rowBg = isFailedRunEvent
+                  ? "bg-rose-50"
+                  : index % 2 === 0
+                    ? "bg-white"
+                    : "bg-gray-50/50";
                 const badgeClasses = this.getEventBadgeClasses(event.type);
                 const extractedEvent = this.extractEventFromPayload(
                   event.payload,
@@ -14966,6 +15202,9 @@ ${argsString}</pre
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
                     data-inspector-event-id=${event.id}
+                    data-cpk-failed-run-event=${
+                      isFailedRunEvent ? event.id : undefined
+                    }
                     @click=${(clickEvent: Event) =>
                       this.toggleRowExpansion(event.id, clickEvent)}
                   >
@@ -15145,6 +15384,7 @@ ${prettyEvent}</pre
     // Show message if "all-agents" is selected or no agents available
     if (this.selectedContext === "all-agents") {
       return html`
+        ${this.renderEventErrorBanner("tool")}
         <div
           class="flex h-full items-center justify-center px-4 py-8 text-center"
         >
@@ -15177,6 +15417,7 @@ ${prettyEvent}</pre
 
     return html`
       <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
+        ${this.renderEventErrorBanner("tool")}
         <!-- Agent Overview Card -->
         <div
           class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
@@ -15326,8 +15567,23 @@ ${prettyEvent}</pre
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
+                        const isFailedResult =
+                          role === "tool" &&
+                          this.lastEventError?.key === "tool" &&
+                          this.lastEventError.toolCallId !== undefined &&
+                          this.lastEventError.toolCallId === msg.toolCallId;
+
                         return html`
-                          <div class="flex items-start">
+                          <div
+                            class=${
+                              isFailedResult
+                                ? "flex items-start bg-rose-50"
+                                : "flex items-start"
+                            }
+                            data-cpk-failed-tool-result=${
+                              isFailedResult ? msg.toolCallId : nothing
+                            }
+                          >
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
                                 class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
@@ -15477,6 +15733,115 @@ ${prettyEvent}</pre
     `;
   }
 
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private applyEventErrorLanding(): void {
+    const error = this.lastEventError;
+    if (!error) {
+      if (this.selectedMenu === "agents") {
+        this.focusAgentForView();
+      }
+      return;
+    }
+
+    if (
+      error.agentId &&
+      this.contextOptions.some((option) => option.key === error.agentId)
+    ) {
+      this.selectedContext = error.agentId;
+    } else if (this.selectedMenu === "agents") {
+      this.focusAgentForView();
+    }
+
+    if (error.key === "tool" && error.toolCallId) {
+      this.pendingScrollToToolCallId = error.toolCallId;
+      return;
+    }
+
+    if (error.key === "run") {
+      this.eventFilterText = "";
+      this.eventTypeFilter = "all";
+      const event = this.findLatestRunErrorEvent(error.agentId);
+      if (!event) return;
+      this.expandedRows.clear();
+      this.expandedRows.add(event.id);
+      this.pendingScrollToEventId = event.id;
+    }
+  }
+
+  private findLatestRunErrorEvent(
+    agentId?: string,
+  ): InspectorEvent | undefined {
+    const events =
+      agentId && agentId !== "all-agents"
+        ? (this.agentEvents.get(agentId) ?? [])
+        : this.flattenedEvents;
+    return events.find((event) => event.type === "RUN_ERROR");
+  }
+
+  private flushErrorLandingScroll(): void {
+    const eventId = this.pendingScrollToEventId;
+    if (eventId) {
+      this.pendingScrollToEventId = null;
+      const row = Array.from(
+        this.activeRoot.querySelectorAll<HTMLElement>(
+          "[data-inspector-event-id]",
+        ),
+      ).find((candidate) => candidate.dataset.inspectorEventId === eventId);
+      row?.scrollIntoView?.({ block: "center" });
+    }
+
+    const toolCallId = this.pendingScrollToToolCallId;
+    if (toolCallId) {
+      this.pendingScrollToToolCallId = null;
+      const escaped = escapeSelectorValue(toolCallId);
+      const card =
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-call="${escaped}"]`,
+        ) ??
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-result="${escaped}"]`,
+        );
+      card?.scrollIntoView?.({ block: "center" });
+    }
+  }
+
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private focusAgentForView(): void {
+    const agentOptions = this.contextOptions.filter(
+      (opt) => opt.key !== "all-agents",
+    );
+    if (agentOptions.length === 0) return;
+
+    const errorAgentId =
+      this.lastEventError?.key === "tool"
+        ? this.lastEventError.agentId
+        : undefined;
+    if (
+      errorAgentId &&
+      agentOptions.some((option) => option.key === errorAgentId)
+    ) {
+      this.selectedContext = errorAgentId;
+      return;
+    }
+
+    if (this.selectedContext !== "all-agents") return;
+
+    const mostRecent = agentOptions.reduce<{
+      key: string;
+      ts: number;
+    } | null>((best, opt) => {
+      const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+      return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+    }, null);
+    this.selectedContext = mostRecent ? mostRecent.key : agentOptions[0]!.key;
+  }
+
   private handleMenuSelect(key: MenuKey): void {
     if (!this.menuItems.some((item) => item.key === key)) {
       return;
@@ -15489,26 +15854,6 @@ ${prettyEvent}</pre
     this.settingsOpen = false;
     this.lastSelectedMenuByGroup[getGroupForMenu(key)] = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
-    if (key === "agents" && this.selectedContext === "all-agents") {
-      const agentOptions = this.contextOptions.filter(
-        (opt) => opt.key !== "all-agents",
-      );
-      if (agentOptions.length > 0) {
-        // Pick the agent with the most recent activity; fall back to first
-        const mostRecent = agentOptions.reduce<{
-          key: string;
-          ts: number;
-        } | null>((best, opt) => {
-          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
-          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
-        }, null);
-        this.selectedContext = mostRecent
-          ? mostRecent.key
-          : agentOptions[0]!.key;
-      }
-    }
-
     // If leaving the agents view with multiple agents registered, restore
     // "all-agents" so the Events tab isn't silently filtered to one agent.
     if (previousMenu === "agents" && key !== "agents") {
@@ -15518,6 +15863,10 @@ ${prettyEvent}</pre
       if (agentCount > 1) {
         this.selectedContext = "all-agents";
       }
+    }
+
+    if (key === "agents" || key === "ag-ui-events") {
+      this.applyEventErrorLanding();
     }
 
     if (key === "threads") {
@@ -15546,10 +15895,15 @@ ${prettyEvent}</pre
     }
 
     if (key === "ag-ui-events" || key === "agents") {
-      requestAnimationFrame(() => {
-        const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
-        if (scroller) scroller.scrollTop = 0;
-      });
+      const keepErrorLanding =
+        this.pendingScrollToEventId !== null ||
+        this.pendingScrollToToolCallId !== null;
+      if (!keepErrorLanding) {
+        requestAnimationFrame(() => {
+          const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
+          if (scroller) scroller.scrollTop = 0;
+        });
+      }
     }
 
     this.contextMenuOpen = false;
@@ -16641,9 +16995,9 @@ ${prettyEvent}</pre
 
   /** Whether a given subject currently has something to say. */
   private isSignalArmed(key: LauncherSignalKey): boolean {
-    return isErrorSignalKey(key)
-      ? this.errorSignalArmed[key]
-      : this.newsSignalArmed;
+    if (isWiringErrorKey(key)) return this.errorSignalArmed[key];
+    if (isEventErrorKey(key)) return this.eventErrorArmed[key];
+    return this.newsSignalArmed;
   }
 
   /**
@@ -16684,9 +17038,86 @@ ${prettyEvent}</pre
     return null;
   }
 
-  /** Whether either error source is currently red. */
+  /** Whether a wiring error source is currently red. */
   private hasArmedErrorSignal(): boolean {
-    return ERROR_SIGNAL_KEYS.some((source) => this.errorSignalArmed[source]);
+    return WIRING_ERROR_KEYS.some((source) => this.errorSignalArmed[source]);
+  }
+
+  private armEventErrorFromCode(
+    code: CopilotKitCoreErrorCode,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
+    const key = eventErrorKeyForCode(code);
+    if (key === null) return;
+    const agentId =
+      typeof context?.agentId === "string" && context.agentId.length > 0
+        ? context.agentId
+        : undefined;
+    const toolName =
+      typeof context?.toolName === "string" && context.toolName.length > 0
+        ? context.toolName
+        : undefined;
+    const toolCallId =
+      typeof context?.toolCallId === "string" && context.toolCallId.length > 0
+        ? context.toolCallId
+        : undefined;
+    this.armEventError(key, message, { agentId, toolName, toolCallId });
+  }
+
+  private armEventError(
+    key: InspectorEventErrorSource,
+    message: string,
+    extras: {
+      agentId?: string;
+      toolName?: string;
+      toolCallId?: string;
+    } = {},
+  ): void {
+    this.lastEventError = { key, message, ...extras };
+    const wasArmed = this.eventErrorArmed[key];
+    this.eventErrorArmed[key] = true;
+    if (!wasArmed) {
+      this.startSignalPulse(key);
+    }
+    if (
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget
+    ) {
+      this.applyEventErrorLanding();
+    }
+    this.requestUpdate();
+  }
+
+  private clearEventError(key: InspectorEventErrorSource): void {
+    if (!this.eventErrorArmed[key]) return;
+    this.eventErrorArmed[key] = false;
+    this.errorSignalViewedSources.delete(key);
+    this.retireSignal(key);
+    this.requestUpdate();
+  }
+
+  private clearAllEventErrors(): void {
+    this.lastEventError = null;
+    for (const key of EVENT_ERROR_KEYS) {
+      if (!this.eventErrorArmed[key]) continue;
+      this.eventErrorArmed[key] = false;
+      this.retireSignal(key);
+    }
+  }
+
+  /**
+   * An event error is unread until its landing view is actually on screen.
+   * Opening the Inspector for a different leaf must not burn it.
+   */
+  private maybeCompleteEventErrorView(): void {
+    if (!this.isOpen || this.settingsOpen) return;
+    for (const key of EVENT_ERROR_KEYS) {
+      if (!this.eventErrorArmed[key]) continue;
+      if (this.selectedMenu !== LAUNCHER_SIGNALS[key].landingTarget) continue;
+      this.clearEventError(key);
+    }
   }
 
   private isReducedMotionPreferred(): boolean {
@@ -16731,11 +17162,11 @@ ${prettyEvent}</pre
    * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
    * the animation, because the attribute it binds to does not change value and
    * the pseudo-element selectors match on attribute *presence*; the running
-   * beat would merely change colour mid-flight. With the settle window landing
-   * a failure near the end of an announcement beat, the failure's beat would
-   * otherwise be reduced to its final fraction.
+   * beat would merely change colour mid-flight. A failure that arms during an
+   * announcement beat must wait for that beat to end, or it would run only as
+   * its final fraction.
    *
-   * A failure's beat is followed by a pill, and the whole 4.5-second gesture
+   * A failure's beat is followed by a pill, and the whole 3.4-second gesture
    * holds this one slot for its full duration. That is not a second scheduling
    * concept: reason 3 already says "another beat is running", and a gesture is
    * simply a longer beat.
@@ -16776,9 +17207,9 @@ ${prettyEvent}</pre
     // The once-per-subject token is written HERE, where the beat actually
     // runs — never when a signal arms. Spending it on arming would burn a
     // deferred beat unfired.
-    if (isErrorSignalKey(key)) {
+    if (isWiringErrorKey(key)) {
       this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp) {
+    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
       saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
     }
     this.beginGestureTail(key);
@@ -17024,29 +17455,21 @@ ${prettyEvent}</pre
   // ── Error signal ────────────────────────────────────────────────────────
 
   /**
-   * Whether each error source is *raw* broken, before the settle window.
+   * Whether each error source is currently broken.
    *
-   * Only two conditions qualify. Notably absent:
+   * Only two *wiring* conditions qualify. App errors (runs, tools, memory)
+   * are unread events on a different latch — they name themselves on the pill
+   * and clear when their landing view is read. Notably absent from *this*
+   * latch:
    *
-   * - **A failed agent run.** The launcher dot is a state indicator and a
-   *   failed run is an event; putting an event on a state indicator means
-   *   either lying (it stays after the fact) or flickering (it clears on the
-   *   next run). System Health on Home already reports failed runs, which is a
-   *   latest-activity readout — a different job on a different surface. An
-   *   hour of iteration also produces many failed runs, and a signal that is
-   *   usually on carries no information.
-   * - **The core error channel.** This looks like an omission and is not: that
-   *   channel is dominated by run failures (a tool threw, a tool was not
-   *   found, arguments were unparseable, an agent was not found, a run failed,
-   *   a thread was locked). Its one wiring-class code is the runtime-info
-   *   handshake failure, and that path sets the connection state to error in
-   *   the same block — so subscribing would re-admit exactly the run failures
-   *   excluded above in exchange for nothing new.
-   * - **Memory failures.** The memory store's subscription is deliberately
-   *   lazy, because creating it opens a realtime connection. The state is
-   *   therefore unobservable until the Learning view has been opened once, and
-   *   an indicator that only sometimes knows the state is not an incomplete
-   *   feature but a false statement.
+   * - **A failed agent run.** A run is an event. It arms `run`, not this
+   *   state. The resting wiring dot must not stay red for the rest of a debug
+   *   hour.
+   * - **The core error channel as a wiring source.** Handshake failure already
+   *   sets the connection state. Other codes arm `run` or `tool`.
+   * - **Memory failures before Learning is live.** The memory store is lazy
+   *   because creating it opens a realtime connection. Once it exists, a load
+   *   failure arms `memory`.
    * - **Product states.** An unconfigured Intelligence and an unentitled
    *   Memory plan are not defects. The signal fires only where wiring is
    *   present and the call still fails — which for threads is guaranteed by
@@ -17060,12 +17483,15 @@ ${prettyEvent}</pre
    * established. Closing that gap means a re-probe in the core, which is a
    * runtime concern.
    */
-  private isErrorSourceBroken(source: InspectorErrorSignalSource): boolean {
+  private isErrorSourceBroken(source: InspectorWiringErrorSource): boolean {
     if (source === "connection") {
+      const state = this.getCoreStatusSummary().state;
       // The same derivation System Health reads, so the launcher dot is red
-      // exactly when System Health says the runtime needs attention. A second
-      // evaluation here could drift from it.
-      return runtimeConnectionNeedsAttention(this.getCoreStatusSummary().state);
+      // exactly when System Health says the runtime needs attention.
+      if (runtimeConnectionNeedsAttention(state)) return true;
+      // A reconnect is not a heal. Stay red through `connecting` so the
+      // cards do not flash off between retries.
+      return this.errorSignalArmed.connection && state === "connecting";
     }
     return this._threadsErrorByAgent.size > 0;
   }
@@ -17078,38 +17504,14 @@ ${prettyEvent}</pre
   private evaluateErrorSignals(): void {
     const wasArmed = this.hasArmedErrorSignal();
 
-    for (const source of ERROR_SIGNAL_KEYS) {
+    for (const source of WIRING_ERROR_KEYS) {
       const broken = this.isErrorSourceBroken(source);
       if (broken) {
         if (this.errorSignalArmed[source]) continue;
-        // Already waiting out the settle window for this source.
-        if (this.errorSignalSettleTimers.has(source)) continue;
-        if (typeof window === "undefined") continue;
-        this.errorSignalSettleTimers.set(
-          source,
-          setTimeout(() => {
-            this.errorSignalSettleTimers.delete(source);
-            // Re-check: the window exists precisely so a failure that healed
-            // inside it produces nothing.
-            if (!this.isErrorSourceBroken(source)) return;
-            const wasArmedBeforeThisSource = this.hasArmedErrorSignal();
-            this.errorSignalArmed[source] = true;
-            this.onErrorSignalsChanged(wasArmedBeforeThisSource);
-            this.requestUpdate();
-          }, ERROR_SIGNAL_SETTLE_MS),
-        );
+        this.errorSignalArmed[source] = true;
         continue;
       }
-
-      const settling = this.errorSignalSettleTimers.get(source);
-      if (settling !== undefined) {
-        clearTimeout(settling);
-        this.errorSignalSettleTimers.delete(source);
-      }
       if (!this.errorSignalArmed[source]) continue;
-      // Clearing is immediate and needs no user action: the indicator must
-      // never say things are fine while the app is broken, and must never say
-      // the app is broken once it is fixed.
       this.errorSignalArmed[source] = false;
       this.errorSignalViewedSources.delete(source);
       this.retireSignal(source);
@@ -17139,13 +17541,6 @@ ${prettyEvent}</pre
     if (active !== null && isErrorSignalKey(active)) {
       this.startSignalPulse(active);
     }
-  }
-
-  private cancelErrorSignalSettleTimers(): void {
-    for (const timer of this.errorSignalSettleTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.errorSignalSettleTimers.clear();
   }
 
   /**

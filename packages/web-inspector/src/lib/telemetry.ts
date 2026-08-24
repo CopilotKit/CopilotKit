@@ -177,11 +177,18 @@ export type LauncherSignalPresentation = "animated" | "reduced_motion";
 export type WhatsNewSignalPresentation = LauncherSignalPresentation;
 
 /**
- * Which broken-wiring class raised the launcher's error signal. A closed
- * two-value enum: the failure *message* is never transmitted, so prompts,
- * URLs and identifiers embedded in an error cannot leave the browser.
+ * Which failure class raised the launcher's error signal. A closed enum: the
+ * failure *message* is never transmitted, so prompts, URLs and identifiers
+ * embedded in an error cannot leave the browser.
+ *
+ * `connection` and `threads` are wiring *state*. `run`, `tool` and `memory`
+ * are unread *events* that clear when their landing view is read.
  */
-export type InspectorErrorSignalSource = "connection" | "threads";
+export type InspectorWiringErrorSource = "connection" | "threads";
+export type InspectorEventErrorSource = "run" | "tool" | "memory";
+export type InspectorErrorSignalSource =
+  | InspectorWiringErrorSource
+  | InspectorEventErrorSource;
 
 /**
  * Fires when What's new has rendered *with content*. A loading state is not
@@ -281,7 +288,7 @@ export type InspectorOpenedTelemetryProps = {
   runtime_url_type?: RuntimeUrlType;
   /** True when an unseen announcement was on screen at open time. */
   has_unseen_announcement?: boolean;
-  /** True when a broken-wiring signal was on the launcher at open time. */
+  /** True when an error signal was on the launcher at open time. */
   has_error_signal?: boolean;
   /** Which failure class was signalling at open time, when one was. */
   error_signal_source?: InspectorErrorSignalSource;

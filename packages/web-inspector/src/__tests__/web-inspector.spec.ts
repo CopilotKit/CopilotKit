@@ -1537,7 +1537,8 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     window.sessionStorage.clear();
     body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
-      if (String(input) === ANNOUNCEMENT_URL) {
+      const href = String(input);
+      if (href === ANNOUNCEMENT_URL) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -1547,6 +1548,14 @@ describe("WebInspectorElement open + What's new telemetry", () => {
             }),
             { status: 200 },
           ),
+        );
+      }
+      if (href.includes("/threads")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [], joinCode: null }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
         );
       }
       return Promise.resolve(new Response(null, { status: 204 }));
