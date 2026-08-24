@@ -1,0 +1,31 @@
+[project]
+name = "langgraph-single-agent"
+version = "0.1.0"
+description = "LangGraph agent exposed over AG-UI, deployed on AWS Bedrock AgentCore"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "fastapi==0.115.12",
+  "uvicorn==0.34.2",
+  "ag-ui-protocol>=0.1.15",
+  "ag-ui-langgraph==0.0.33",
+  "copilotkit==0.1.87",
+  "partialjson>=0.0.8",
+  # Kept in step with examples/integrations/langgraph-python. langgraph must be
+  # >=1.1 because langgraph-prebuilt reads `ExecutionInfo` off langgraph.runtime,
+  # which 1.0.x does not export; langchain 1.2.15 is the matching release.
+  "langgraph==1.1.6",
+  "langchain==1.2.15",
+  "langchain-aws==1.0.0",
+  "langchain-mcp-adapters==0.1.13",
+  "langgraph-checkpoint-aws==1.0.5",
+  "mcp==1.23.1",
+  "bedrock-agentcore==1.0.6",
+  # Emits OpenTelemetry traces to AgentCore's observability pipeline. Loaded by
+  # the `opentelemetry-instrument` wrapper in the Dockerfile CMD, not imported.
+  "aws-opentelemetry-distro==0.16.0",
+]
+
+[tool.uv]
+# The agent runs as loose modules on PYTHONPATH (`python -m langgraph_agent`),
+# so there is nothing to build or install — only the dependencies matter.
+package = false

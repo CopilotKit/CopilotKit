@@ -6,16 +6,20 @@ FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
 WORKDIR /app
 
 # Configure UV for container environment
-ENV UV_SYSTEM_PYTHON=1 \
-    UV_COMPILE_BYTECODE=1 \
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_NO_CACHE=1 \
     DOCKER_CONTAINER=1 \
     OTEL_PYTHON_LOG_CORRELATION=true \
     PYTHONUNBUFFERED=1
 
-# Copy and install agent-specific requirements first
-COPY agents/langgraph-single-agent/requirements.txt requirements.txt
-RUN uv pip install --no-cache -r requirements.txt && \
-    uv pip install --no-cache aws-opentelemetry-distro==0.16.0
+# Run out of the project venv without needing `uv run` at every entry point.
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Install the locked dependency set first, so editing agent code doesn't
+# invalidate the dependency layer.
+COPY agents/langgraph-single-agent/pyproject.toml agents/langgraph-single-agent/uv.lock ./
+RUN uv sync --locked --no-dev
 
 # Create non-root user
 RUN useradd -m -u 1000 bedrock_agentcore

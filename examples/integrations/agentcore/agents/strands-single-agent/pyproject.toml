@@ -1,0 +1,22 @@
+[project]
+name = "strands-single-agent"
+version = "0.1.0"
+description = "Strands agent exposed over AG-UI, deployed on AWS Bedrock AgentCore"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "strands-agents==1.24.0",
+  "mcp==1.26.0",
+  "bedrock-agentcore[strands-agents]==1.2.0",
+  "PyJWT[crypto]>=2.10.1",
+  "ag-ui-protocol>=0.1.10",
+  "ag-ui-strands==0.1.2",
+  "fastapi>=0.115.12",
+  # Emits OpenTelemetry traces to AgentCore's observability pipeline. Loaded by
+  # the `opentelemetry-instrument` wrapper in the Dockerfile CMD, not imported.
+  "aws-opentelemetry-distro==0.16.0",
+]
+
+[tool.uv]
+# The agent runs as loose modules on PYTHONPATH (`python -m strands_agent`),
+# so there is nothing to build or install — only the dependencies matter.
+package = false
