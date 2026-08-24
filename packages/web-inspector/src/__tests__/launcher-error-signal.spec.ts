@@ -107,6 +107,12 @@ type Marker = Readonly<{ key: string; tone: string | null }>;
 type Options = Readonly<{
   /** Omitted means Intelligence is not configured, which must arm nothing. */
   endpoints?: ThreadEndpointRuntimeInfo;
+  /**
+   * Configure Intelligence. Only the Learning tests need it: without it the
+   * view stays a locked teaser, so the memory latch is unreachable — which is
+   * itself the subject of one of those tests.
+   */
+  intelligence?: boolean;
   /** Start the thread list route broken, so the thread latch has a source. */
   listFails?: boolean;
   /** Serve a real announcement so the two signals can be exercised together. */
@@ -122,9 +128,83 @@ type Options = Readonly<{
   realTimers?: boolean;
 }>;
 
+/**
+ * A memory store whose error is settable.
+ *
+ * The real store cannot fail in this suite: it only fetches once it has an
+ * Intelligence context, and `intelligence` is overridden to undefined here on
+ * purpose. So the `memory` latch needs a store that can be told to fail.
+ * Defaults match an unconfigured deployment — not available, no error — so the
+ * exclusion tests keep meaning what they say.
+ */
+type TestMemoryState = {
+  memories: never[];
+  isLoading: boolean;
+  isMutating: boolean;
+  error: { message: string } | null;
+  context: null;
+  sessionId: number;
+  available: boolean;
+  realtimeStatus: "connecting" | "connected" | "unavailable";
+};
+
+function createTestMemoryStore() {
+  // Replaced, never mutated. The store's selectors are memoized on the state
+  // they were handed, so a stub that edits one object in place reports the
+  // stale value forever and looks exactly like a signal that does not fire.
+  let state: TestMemoryState = {
+    memories: [],
+    isLoading: false,
+    isMutating: false,
+    error: null,
+    context: null,
+    sessionId: 0,
+    available: false,
+    realtimeStatus: "unavailable",
+  };
+  const notifiers: Array<() => void> = [];
+  const store = {
+    getState: () => state,
+    select: <T>(selector: (s: TestMemoryState) => T) => ({
+      subscribe: (callback: (value: T) => void) => {
+        let last = selector(state);
+        callback(last);
+        const notify = () => {
+          const next = selector(state);
+          if (next === last) return;
+          last = next;
+          callback(next);
+        };
+        notifiers.push(notify);
+        return {
+          unsubscribe: () => {
+            const index = notifiers.indexOf(notify);
+            if (index >= 0) notifiers.splice(index, 1);
+          },
+        };
+      },
+    }),
+  };
+  return {
+    store,
+    /** A configured deployment whose load call is refused, or recovers. */
+    setError(message: string | null) {
+      state = {
+        ...state,
+        available: true,
+        realtimeStatus: "connected",
+        error: message === null ? null : { message },
+      };
+      // Copied: a callback may unsubscribe while this loop is running.
+      for (const notify of notifiers.slice()) notify();
+    },
+  };
+}
+
 class SignalTestCore extends CopilotKitCore {
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly telemetryDisabledValue: boolean;
+  private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
 
   constructor(options: Options) {
     super({
@@ -136,6 +216,10 @@ class SignalTestCore extends CopilotKitCore {
     });
     this.endpointsValue = options.endpoints;
     this.telemetryDisabledValue = options.telemetryDisabled ?? false;
+    this.intelligenceValue =
+      options.intelligence === true
+        ? { wsUrl: "wss://intelligence.test" }
+        : undefined;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -143,7 +227,18 @@ class SignalTestCore extends CopilotKitCore {
   }
 
   override get intelligence(): IntelligenceRuntimeInfo | undefined {
-    return undefined;
+    return this.intelligenceValue;
+  }
+
+  readonly memory = createTestMemoryStore();
+
+  // Same laziness as the real core: the store is only ever reached from the
+  // Learning view, which is the whole reason `memory` is an unread event
+  // rather than a state the launcher can mirror from a cold start.
+  override getMemoryStore() {
+    return this.memory.store as unknown as ReturnType<
+      CopilotKitCore["getMemoryStore"]
+    >;
   }
 
   override get telemetryDisabled(): boolean {
@@ -458,6 +553,8 @@ type Harness = Readonly<{
     message?: string,
     context?: Record<string, unknown>,
   ) => Promise<void>;
+  /** Refuse, or un-refuse, the Learning load on a configured deployment. */
+  failMemory: (message: string | null) => Promise<void>;
   /** A real mouse press: pointerdown, pointerup, then click. */
   press: (element: Element | null) => Promise<void>;
   /** Keyboard activation, which fires click with no pointer events. */
@@ -657,6 +754,10 @@ async function setup(options: Options = {}): Promise<Harness> {
       await core.emitAppError(code, message, errorContext);
       await flush();
     },
+    failMemory: async (message) => {
+      core.memory.setError(message);
+      await flush();
+    },
     breakConnection: async () => {
       await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Error);
       await flush();
@@ -839,9 +940,11 @@ test("the disconnected, connecting and unattached states arm nothing", async () 
 });
 
 test("an unconfigured Intelligence and a locked Learning view arm nothing", async () => {
-  // No thread endpoints is "not configured", not "configured and failing", and
-  // the Memory store is never even subscribed from here — its subscription is
-  // lazy on purpose, because creating it opens a realtime connection.
+  // No thread endpoints is "not configured", not "configured and failing". Same
+  // for Learning: opening the view does subscribe the Memory store — that is
+  // what the activation below does — but without an Intelligence context the
+  // store never fetches, so there is no failure to report. A locked view is a
+  // product state, not a defect.
   const context = await setup();
 
   await context.press(launcher(context.inspector));
@@ -2336,6 +2439,66 @@ test("reading the landing view clears the unread event, not the how-to-fix card"
   ).not.toBeNull();
 
   await context.closePanel();
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("a Learning failure names itself and lands on Learning", async () => {
+  const context = await setup({ intelligence: true });
+  // The store is only reached from the view, so visiting it once is what makes
+  // the latch reachable at all. This mirrors how a developer gets here.
+  await context.press(launcher(context.inspector));
+  await context.activate(
+    root(context.inspector).querySelector(
+      'button[data-inspector-menu-key="memories"]',
+    ),
+  );
+  await context.closePanel();
+
+  await context.failMemory("Failed to load memories: 500");
+
+  expect(dotSubject(context.inspector)).toBe("memory");
+  expect(launcherName(context.inspector)).toContain("learning error");
+  await context.advance(ERROR_BEAT_MS);
+  expect(pillHeading(context.inspector)).toBe("Failed to load learning data");
+
+  await context.activate(pill(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("memories");
+  // Learning keeps its own error display rather than the shared banner that
+  // run and tool use, so this asserts what the view actually renders: the
+  // store's message, and the advice line from the shared guidance table.
+  const view = root(context.inspector).textContent;
+  expect(view).toContain("Failed to load memories: 500");
+  expect(view).toContain("Intelligence is connected");
+  // Advice is not a claim about this view, so nothing here promises a
+  // highlight — and there is none to promise.
+  expect(view).not.toContain("highlighted below");
+});
+
+test("a Learning failure arms nothing while the view has never been opened", async () => {
+  const context = await setup({ intelligence: true });
+  // No visit, so nothing ever called getMemoryStore(). The latch cannot know
+  // the state, and a signal that only sometimes knows would be a false
+  // statement rather than an incomplete feature.
+  await context.failMemory("Failed to load memories: 500");
+
+  expect(launcherDot(context.inspector)).toBeNull();
+  expect(markers(context.inspector)).toEqual([]);
+});
+
+test("a resolved Learning failure clears itself", async () => {
+  const context = await setup({ intelligence: true });
+  await context.press(launcher(context.inspector));
+  await context.activate(
+    root(context.inspector).querySelector(
+      'button[data-inspector-menu-key="memories"]',
+    ),
+  );
+  await context.closePanel();
+  await context.failMemory("Failed to load memories: 500");
+  expect(dotSubject(context.inspector)).toBe("memory");
+
+  await context.failMemory(null);
+
   expect(launcherDot(context.inspector)).toBeNull();
 });
 

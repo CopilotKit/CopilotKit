@@ -451,15 +451,23 @@ function isErrorSignalKey(
   return isWiringErrorKey(key) || isEventErrorKey(key);
 }
 
+/**
+ * The control range is the point, not an oversight: an attribute selector has
+ * to escape those characters too, and CSS.escape — which the fallback below
+ * stands in for — escapes them as well. Hoisted so the suppression can sit on
+ * the pattern rather than three lines above it.
+ */
+// oxlint-disable no-control-regex -- deliberate, see above
+const SELECTOR_ESCAPE_PATTERN =
+  /[\0-\x1f\x7f!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g;
+// oxlint-enable no-control-regex
+
 /** Attribute selector value. jsdom does not implement CSS.escape. */
 function escapeSelectorValue(value: string): string {
   if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
     return CSS.escape(value);
   }
-  return value.replace(
-    /[\0-\x1f\x7f!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g,
-    "\\$&",
-  );
+  return value.replace(SELECTOR_ESCAPE_PATTERN, "\\$&");
 }
 
 function eventErrorKeyForCode(
