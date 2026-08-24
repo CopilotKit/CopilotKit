@@ -164,14 +164,21 @@ def start_local_agent(
         str(agent_path),
     ]
 
-    # Start agent process
+    # Start agent process.
+    #
+    # The child's stdout/stderr are deliberately left inherited rather than
+    # piped. Piping them without anyone draining the pipes deadlocks the child
+    # as soon as it writes ~64KB (uv alone prints its resolution and install
+    # progress to stderr before the agent starts), and reading such a pipe to
+    # EOF while the child is still alive hangs the tester instead of reporting
+    # the failure. Inheriting sends the agent's logs -- including the error
+    # `uv run --locked` prints when uv.lock has drifted from pyproject.toml --
+    # straight to the developer's terminal, live, which is what an interactive
+    # tool wants anyway.
     try:
         _agent_process = subprocess.Popen(  # nosec B607 B603 - command constructed from validated path, shell=False
             cmd,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
             shell=False,  # Explicitly disable shell
         )
 
@@ -181,12 +188,24 @@ def start_local_agent(
             if check_port_available(8080):
                 print_msg("Agent started successfully", "success")
                 return _agent_process
+
+            # Fail fast when the child is already gone (e.g. `uv run --locked`
+            # aborting on a stale uv.lock) instead of burning the full timeout.
+            exit_code = _agent_process.poll()
+            if exit_code is not None:
+                print_msg(
+                    f"Agent exited with code {exit_code} before port 8080 opened",
+                    "error",
+                )
+                print("See the agent/uv output above for the failure reason.")
+                _agent_process = None
+                sys.exit(1)
+
             time.sleep(1)
 
         print_msg("Agent failed to start (timeout)", "error")
-        if _agent_process.stderr:
-            print(_agent_process.stderr.read())
-        _agent_process.terminate()
+        print("See the agent/uv output above for the failure reason.")
+        stop_local_agent()
         sys.exit(1)
 
     except Exception as e:
@@ -197,14 +216,22 @@ def start_local_agent(
 def stop_local_agent() -> None:
     """Stop the local agent process if running."""
     global _agent_process
-    if _agent_process:
-        print("\nStopping local agent...")
-        _agent_process.terminate()
-        try:
-            _agent_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            _agent_process.kill()
-        print_msg("Agent stopped", "success")
+    if _agent_process is None:
+        return
+
+    # Clear the global first so this stays idempotent: the timeout path, the
+    # SIGINT handler and the atexit hook can all reach here for the same
+    # process, and only the first one should do (and announce) the work.
+    process, _agent_process = _agent_process, None
+
+    print("\nStopping local agent...")
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+    print_msg("Agent stopped", "success")
 
 
 # Register cleanup handler
