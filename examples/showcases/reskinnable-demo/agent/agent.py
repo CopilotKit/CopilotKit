@@ -3,9 +3,9 @@
     banking                       gpt-5.4, temp 0
       │  banking's own prompt; the browser's frontend tools and the
       │  Intelligence memory tools; `render_report` for the canvas
-      └─ expense-analyst          gpt-5.6-sol, reasoning_effort=high
+      └─ expense-analyst          gpt-5.6-sol, reasoning_effort=medium
            │  sandboxed shell (LocalShellBackend), `submit_expense_report`
-           └─ merchant-researcher gpt-5.4, streaming OFF, one per merchant
+           └─ merchant-researcher gpt-5.4, own lane, one per merchant
                 `search_merchant` (Tavily)
 
 The nesting is the design, not an accident of growth. Each level exists because
@@ -92,19 +92,30 @@ DO THIS, IN THIS ORDER:
 
 1. Fetch the statement into your working directory:
 
-   curl -sS -o expenses.csv {_app_base_url()}/sample-expenses-offsite.csv
+   curl -sS -o expenses.csv {_app_base_url()}/sample-expenses-offsite.csv && head -3 expenses.csv
 
-   Then check it is really a CSV — `head -3 expenses.csv`. If it came back as an
-   HTML error page, STOP and say so. Analysing a 404 page as if it were the
-   statement wastes minutes and produces a confident, wrong answer.
+   Fetch and check in that ONE command — the `head` is how you confirm it is
+   really a CSV, and there is nothing to decide between the two halves, so
+   splitting them just spends an extra turn to learn nothing. If the head shows
+   an HTML error page rather than a CSV header, STOP and say so. Analysing a 404
+   page as if it were the statement wastes minutes and produces a confident,
+   wrong answer.
 
 2. Write a short python script to parse and group the rows and RUN it with
    python3. Do not eyeball the rows by hand.
 
-3. For every merchant whose nature you cannot determine from its name alone,
-   delegate to the `merchant-researcher` subagent to find out what kind of
-   business it is. "Cardinal & Ash" could be a restaurant or a law firm; find
-   out rather than assume.
+3. Research only the rows where research can still change the answer.
+
+   A row dated outside {OFFSITE_START}..{OFFSITE_END} is already settled by its
+   date: it is not reimbursable whichever kind of business the merchant turns
+   out to be, so do not spend a subagent establishing that a charge a week after
+   the offsite was a bookshop. The exception is travel to or from the offsite,
+   which is in scope on the adjacent days — keep those rows in the running.
+
+   For the rows that survive that test, delegate to the `merchant-researcher`
+   subagent for every merchant whose nature you cannot determine from its name
+   alone. "Cardinal & Ash" could be a restaurant or a law firm; find out rather
+   than assume.
 
    DISPATCH ALL OF THEM IN ONE RESPONSE — emit one task call per merchant in the
    same assistant turn so they run concurrently. Do not wait for one to come
@@ -118,13 +129,30 @@ DO THIS, IN THIS ORDER:
    exactly the three fields `merchant`, `amount` and `note`, nothing else, and
    answers 201 with the new transaction's id:
 
-   curl -sS -X POST {_app_base_url()}/api/banking/v1/transactions \\
-     -H 'content-type: application/json' \\
-     -w '%{{http_code}}' \\
-     -d '{{"merchant":"Hotel Verrano","amount":318.55,"note":"Offsite {OFFSITE_CITY} — reimbursable"}}'
+   POST {_app_base_url()}/api/banking/v1/transactions
+     content-type: application/json
+     {{"merchant":"Hotel Verrano","amount":318.55,"note":"Offsite {OFFSITE_CITY} — reimbursable"}}
 
-   CHECK EVERY SINGLE CALL BEFORE MOVING ON. If a call does not come back 201
-   with an `id`, then for that row you must:
+   FILE THEM ALL IN ONE COMMAND. Write a short python script that walks your
+   expensable rows, POSTs each one, and prints a line per row with the merchant,
+   the status code and the id it read back — then run that script. One `curl`
+   per row is the same N requests dressed as N round-trips through the model,
+   and on a statement this size that serial shuttling is most of the time the
+   whole analysis takes.
+
+   THE SCRIPT MUST REFUSE TO FILE TWICE. Have it write the ids it collected to
+   `filed.json`, and on startup, if that file already exists, print the ids from
+   it and exit WITHOUT posting anything. This is not defensive padding — the
+   batched form made a real duplicate-filing bug: the script got run a second
+   time and every charge was filed twice, so the report card said six filings
+   while the ledger held twelve. A duplicate here is a reimbursement claimed
+   twice. The marker makes a second run free and harmless, and it means you can
+   re-read the ids without risking the ledger.
+
+   Batching the REQUESTS does not batch the CHECKING. The script must print each
+   row's own status and id, and you must read that output row by row before
+   moving on. If a row did not come back 201 with an `id`, then for that row you
+   must:
      - NOT invent, guess, pattern-match, or reuse a transaction id;
      - leave `filedTransactionId` absent from that row entirely;
      - state in that row's `reason` that the filing failed, with the status code.
@@ -196,7 +224,7 @@ def search_merchant(query: str) -> list[dict]:
 
     results = TavilyClient(api_key=api_key).search(
         query=query,
-        max_results=5,
+        max_results=3,
         include_raw_content=False,
         topic="general",
     )
@@ -204,8 +232,11 @@ def search_merchant(query: str) -> list[dict]:
         {
             "url": r.get("url", ""),
             "title": r.get("title", ""),
-            # Truncated: five untrimmed pages per merchant across seven
-            # concurrent subagents is a lot of context for "is this a hotel".
+            # Truncated, and only three results asked for: untrimmed pages per
+            # merchant across several concurrent subagents is a lot of context
+            # for "is this a hotel". Results four and five never changed a
+            # verdict — the first hits already say what the business is — and
+            # every one of them is tokens the researcher has to read first.
             "content": (r.get("content") or "")[:2000],
         }
         for r in results.get("results", [])
@@ -365,6 +396,16 @@ def _run_key_from_request(request) -> str:
     return _run_key_from_config(cfg)
 
 
+def _workspace_path() -> pathlib.Path:
+    """The analyst's sandbox directory.
+
+    Module-level because TWO places need it: the shell backend that runs inside
+    it, and the per-run reset below that clears the previous run's filing marker
+    out of it.
+    """
+    return pathlib.Path(os.environ.get("AGENT_WORKSPACE", "/tmp/expense-agent"))
+
+
 @wrap_model_call
 async def _stamp_run_start(request, handler):
     """Record when this run's first model call happened.
@@ -381,6 +422,22 @@ async def _stamp_run_start(request, handler):
     key = _run_key_from_request(request)
     if key not in _RUN_STARTS:
         _RUN_STARTS[key] = time.time()
+
+        # Clear the PREVIOUS run's filing marker.
+        #
+        # `filed.json` is how the filing script refuses to post twice within a
+        # run (prompt step 5), and it has to exist because the batched form
+        # really did double-file once: the script was run a second time and the
+        # ledger ended up with twelve rows behind a report card claiming six.
+        #
+        # But the workspace is a FIXED directory shared by every run, so a
+        # marker left in place would convince the next demo it had already
+        # filed and it would post nothing at all — the same bug wearing the
+        # opposite mask, and a quieter one, because a run that files nothing
+        # still produces a confident report. Clearing it here, in the branch
+        # that fires exactly once per run, is what keeps "cannot double-file"
+        # from turning into "never files again".
+        (_workspace_path() / "filed.json").unlink(missing_ok=True)
 
     # An ALARM, not a trace.
     #
@@ -589,7 +646,7 @@ def _build_expense_analyst():
     reaching `astream_events`, which is what `ag_ui_langgraph` builds AG-UI
     events from. So the console still draws the whole journey.
     """
-    workspace = pathlib.Path(os.environ.get("AGENT_WORKSPACE", "/tmp/expense-agent"))
+    workspace = _workspace_path()
     workspace.mkdir(parents=True, exist_ok=True)
 
     # The sandbox. `virtual_mode=False` so the agent's shell sees real paths it
@@ -603,12 +660,18 @@ def _build_expense_analyst():
 
     analyst_model = ChatOpenAI(
         model=os.environ.get("BANKING_EXPENSE_MODEL", "gpt-5.6-sol"),
-        # High effort is not padding. The judgement calls here are the genuinely
-        # hard part — whether a resolved merchant kind makes a charge
-        # reimbursable under the offsite's dates — and it is also the honest way
-        # to make a run take minutes: it thinks longer because there is more
-        # thinking to do, rather than waiting on a timer.
-        reasoning_effort=os.environ.get("BANKING_EXPENSE_EFFORT", "high"),
+        # The effort is real work, not padding: the judgement calls here are the
+        # genuinely hard part — whether a resolved merchant kind makes a charge
+        # reimbursable under the offsite's dates — so the run takes as long as it
+        # takes to think, rather than waiting on a timer.
+        #
+        # MEDIUM, not high. This was `high`, on the reasoning that a longer run
+        # was an honest one. It is, but the beat is watched, and high spent that
+        # length on the easy majority of the statement as well as the two or
+        # three rows that are actually arguable. Medium reaches the same verdicts
+        # on this statement in appreciably less wall-clock. Put `high` back via
+        # BANKING_EXPENSE_EFFORT if a harder statement ever needs it.
+        reasoning_effort=os.environ.get("BANKING_EXPENSE_EFFORT", "medium"),
         # REQUIRED with the two settings above, and the failure is a hard 400 on
         # the first model call inside the analyst:
         #

@@ -7,9 +7,25 @@
     "dev:standalone": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm exec vite dev dev --config dev/vite.config.ts --host 127.0.0.1 --port 5177",
+        "commands": [
+          {
+            "command": "pnpm run dev:css",
+            "forwardAllArgs": false
+          },
+          {
+            "command": "pnpm exec vite dev dev --config dev/vite.config.ts --host 127.0.0.1 --port 5177",
+            "forwardAllArgs": true
+          }
+        ],
+        "parallel": true,
         "cwd": "packages/web-inspector"
       },
+      "dependsOn": [
+        {
+          "target": "build:css",
+          "projects": "self"
+        }
+      ],
       "cache": false
     }
   }

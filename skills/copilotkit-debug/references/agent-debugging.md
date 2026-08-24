@@ -209,7 +209,7 @@ The tool's `execute` function threw an exception.
 Supported formats:
 
 - `"openai/gpt-5"`, `"openai/gpt-4o"`, `"openai/o3-mini"`
-- `"anthropic/claude-sonnet-4.5"`, `"anthropic/claude-opus-4"`
+- `"anthropic/claude-sonnet-4-6"`, `"anthropic/claude-opus-4-8"`
 - `"google/gemini-2.5-pro"`, `"google/gemini-2.5-flash"`
 - `"vertex/gemini-2.5-pro"` (uses Google Vertex AI)
 

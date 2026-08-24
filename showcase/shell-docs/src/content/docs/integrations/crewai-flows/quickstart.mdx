@@ -6,6 +6,8 @@ hideTOC: true
 doc_type: tutorial
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 <OpsPlatformCTA
   variant="card"
   title="Ship CrewAI Flows to production"
@@ -79,6 +81,11 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
             What do you think about React?
             ```
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     <TailoredContentOption
         id="code-along"
@@ -207,6 +214,11 @@ Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/
                 </Accordion>
             </Accordions>
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     </TailoredContent>
 </Step>

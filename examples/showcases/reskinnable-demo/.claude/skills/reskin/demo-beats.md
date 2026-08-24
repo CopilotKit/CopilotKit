@@ -221,8 +221,8 @@ filter through the page's real query params, and (iv) leaves the applied levers
 `navigateTo` does not earn this beat.
 
 ⚠️ **"Confirm the levers with them first" is read TWO ways, and one of them
-kills the beat.** You mean *the card confirms*; the model can just as well hear
-*ask them in chat*. Then it answers
+kills the beat.** You mean _the card confirms_; the model can just as well hear
+_ask them in chat_. Then it answers
 
 > Confirm the levers and I'll take you there: **pending** only, sorted by
 > **oldest first**, top **10**.

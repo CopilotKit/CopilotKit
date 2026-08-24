@@ -1,4 +1,10 @@
-import { afterNextRender, Component, DestroyRef, inject } from "@angular/core";
+import {
+  afterNextRender,
+  Component,
+  DestroyRef,
+  inject,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import { CopilotKit } from "@copilotkit/angular";
 import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
@@ -6,6 +12,7 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 @Component({
   selector: "angular-demo-web-inspector",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: "",
 })
 export class DemoWebInspectorComponent {

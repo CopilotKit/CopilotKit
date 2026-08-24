@@ -26,7 +26,7 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
@@ -60,7 +60,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertInputToTanStackAI,
@@ -97,7 +97,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -477,8 +477,8 @@ const agent = new BuiltInAgent({
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
     const adapter =
-      props.model === "anthropic/claude-sonnet-4"
-        ? anthropicText("claude-sonnet-4")
+      props.model === "anthropic/claude-sonnet-4-6"
+        ? anthropicText("claude-sonnet-4-6")
         : openaiText((props.model as string) ?? "gpt-4o");
 
     const modelOptions: Record<string, unknown> = {};
@@ -501,7 +501,7 @@ const agent = new BuiltInAgent({
 Forward props from the frontend using the `CopilotKit` provider's `properties` prop:
 
 ```tsx title="app/page.tsx"
-<CopilotKit properties={{ model: "anthropic/claude-sonnet-4", temperature: 0.3 }}>
+<CopilotKit properties={{ model: "anthropic/claude-sonnet-4-6", temperature: 0.3 }}>
   <CopilotChat />
 </CopilotKit>
 ```

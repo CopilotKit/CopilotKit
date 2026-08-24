@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-textarea",
-  "version": "1.68.3",
+  "version": "1.69.0",
   "private": false,
   "keywords": [
     "ai",
@@ -41,7 +41,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-textarea",
     "size": "size-limit",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",

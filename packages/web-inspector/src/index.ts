@@ -4,7 +4,7 @@ import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
-import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
+import inspectorLogoKiteUrl from "./assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
@@ -29,7 +29,7 @@ import type {
   MemoryRealtimeStatus,
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
-import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
 import type {
   Anchor,
   ContextKey,
@@ -48,7 +48,12 @@ import {
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers.js";
 import {
+  clearLegacyAnnouncementReadState,
+  loadAnnouncementPulsedTimestamp,
+  loadAnnouncementReadTimestamp,
   loadInspectorState,
+  saveAnnouncementPulsedTimestamp,
+  saveAnnouncementReadTimestamp,
   saveInspectorState,
   isValidAnchor,
   isValidPosition,
@@ -67,6 +72,20 @@ import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
 } from "./lib/inspector-metadata.js";
+import { buildHomeModel } from "./lib/home-briefing.js";
+import type {
+  HomeHeroAction,
+  HomeModel,
+  HomeRuntimeHealthTone,
+} from "./lib/home-briefing.js";
+import {
+  INSPECTOR_GROUPS,
+  INSPECTOR_NAV_SECTIONS,
+  getGroupForMenu,
+  isInspectorMenuKey,
+  shouldUseIconRail,
+} from "./lib/inspector-nav.js";
+import type { InspectorNavGroupKey, MenuKey } from "./lib/inspector-nav.js";
 import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
   TELEMETRY_DOCS_URL,
@@ -74,9 +93,8 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
-  trackBannerClicked,
-  trackBannerDismissed,
-  trackBannerViewed,
+  trackHomeCtaClicked,
+  trackHomeViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
@@ -95,12 +113,15 @@ import {
   trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackWhatsNewClicked,
+  trackWhatsNewSignalViewed,
+  trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import type {
-  BannerSurface,
   ExampleKind,
   ExampleTourStep,
   ExampleTourTab,
+  InspectorGroupKey,
   InspectorMetadataLicenseBucket,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
@@ -110,6 +131,8 @@ import type {
   MetadataActionPlacement,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
+  WhatsNewSignalPresentation,
+  WhatsNewSurface,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -129,41 +152,22 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
 /**
- * User-facing label for the memory view header. The legacy menu key stays
+ * User-facing label for the learning view. The legacy menu key stays
  * "memories" for persistence and telemetry stability.
  */
-const MEMORY_VIEW_LABEL = "Memory";
+const LEARNING_VIEW_LABEL = "Learning";
+
+/**
+ * User-facing label for the What's new view. Its menu key stays `whats-new`
+ * for persistence and telemetry stability, following the `memories`/"Memory"
+ * precedent above.
+ */
+const WHATS_NEW_VIEW_LABEL = "What's new";
+
+/** Menu key of the What's new leaf — the news signal's destination. */
+const WHATS_NEW_MENU_KEY = "whats-new";
 
 type LucideIconName = keyof typeof icons;
-
-const INSPECTOR_GROUPS = {
-  threads: ["threads"],
-  agents: [
-    "ag-ui-events",
-    "agents",
-    "frontend-tools",
-    "capabilities",
-    "agent-context",
-  ],
-  learning: ["memories"],
-} as const;
-
-type InspectorGroupKey = keyof typeof INSPECTOR_GROUPS;
-type MenuKey = (typeof INSPECTOR_GROUPS)[InspectorGroupKey][number];
-
-const INSPECTOR_MENU_KEYS: ReadonlyArray<MenuKey> = [
-  ...INSPECTOR_GROUPS.threads,
-  ...INSPECTOR_GROUPS.agents,
-  ...INSPECTOR_GROUPS.learning,
-];
-
-/** Return whether persisted state names a legacy Inspector leaf. */
-function isInspectorMenuKey(value: unknown): value is MenuKey {
-  return (
-    typeof value === "string" &&
-    INSPECTOR_MENU_KEYS.some((menuKey) => menuKey === value)
-  );
-}
 
 type MenuItem = {
   key: MenuKey;
@@ -171,39 +175,41 @@ type MenuItem = {
   icon: LucideIconName;
 };
 
-const INSPECTOR_PRIMARY_NAVIGATION = [
-  {
-    key: "threads",
-    label: "Threads",
-    icon: "MessageSquare",
-  },
-  {
-    key: "agents",
-    label: "Agents",
-    icon: "Bot",
-  },
-  {
-    key: "learning",
-    label: "Learning",
-    icon: "Brain",
-  },
-] as const satisfies ReadonlyArray<{
-  key: InspectorGroupKey;
+// ── Launcher signals ──────────────────────────────────────────────────────
+//
+// The destination stays explicit so the unread marker is derived from the
+// same state as the launcher dot rather than being armed independently.
+const NEWS_SIGNAL_ID = "whats-new";
+const NEWS_SIGNAL_TONE = "news";
+const NEWS_SIGNAL_COLOR = "#A78BFA";
+const NEWS_SIGNAL_CADENCE_MS = 2100;
+const NEWS_SIGNAL_DESTINATION: MenuKey = WHATS_NEW_MENU_KEY;
+
+type CoreStatusSummary = Readonly<{
   label: string;
-  icon: LucideIconName;
+  state: "connected" | "connecting" | "disconnected" | "error" | "unavailable";
+  description: string;
 }>;
+
+type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
 const DRAG_THRESHOLD = 6;
-const MIN_WINDOW_WIDTH = 600;
-const MIN_WINDOW_WIDTH_DOCKED_LEFT = 420;
-const MIN_WINDOW_HEIGHT = 200;
+const MIN_WINDOW_WIDTH = 880;
+const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
+const MIN_WINDOW_HEIGHT = 480;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
-const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
-const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
-const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
+// The launcher keeps its current touch target on compact screens and grows to
+// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
+const LAUNCHER_MIN_SIZE = 51.84;
+const LAUNCHER_MAX_SIZE = 62.208;
+const DEFAULT_BUTTON_SIZE: Size = {
+  width: LAUNCHER_MIN_SIZE,
+  height: LAUNCHER_MIN_SIZE,
+};
+const DEFAULT_WINDOW_SIZE: Size = { width: 960, height: 740 };
+const DOCKED_LEFT_WIDTH = 720;
 const MAX_AGENT_EVENTS = 200;
 const INTERACTIVE_FOCUS_BASE_STYLE =
   "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
@@ -211,13 +217,17 @@ const INTERACTIVE_FOCUS_BASE_STYLE =
 // runtime that never connects can't accumulate an unbounded queue.
 const MAX_PENDING_BANNER_VIEWED = 20;
 const MAX_TOTAL_EVENTS = 500;
-const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const INTELLIGENCE_SIGNUP_URL = "https://intelligence.copilotkit.ai";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Label for the Capabilities tab (client-authoritative dev experimentation
 // surface: toggle frontend tools + A2UI catalog components on/off, enforced
 // immediately via core.setToolEnabled / core.setCatalogComponentEnabled).
 // Renameable — keep the display string in this one place.
 const CAPABILITIES_TAB_LABEL = "Capabilities";
+
+function createPlaygroundThreadId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
+}
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const THREADS_RUNTIME_SETUP_DOCS_URL =
   "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
@@ -258,6 +268,26 @@ type ThreadStoreStatus = Readonly<{
   error: Error | null;
   isLoading: boolean;
 }>;
+
+/** Keep one row per thread id when flattening per-agent stores. */
+function uniqueThreadsById(threads: ɵThread[]): ɵThread[] {
+  const seen = new Set<string>();
+  const unique: ɵThread[] = [];
+  for (const thread of threads) {
+    if (seen.has(thread.id)) {
+      continue;
+    }
+    seen.add(thread.id);
+    unique.push(thread);
+  }
+  return unique;
+}
+
+function flattenThreadsByAgent(
+  threadsByAgent: Map<string, ɵThread[]>,
+): ɵThread[] {
+  return uniqueThreadsById(Array.from(threadsByAgent.values()).flat());
+}
 
 /**
  * Selects the Thread store status with a stable object identity so loading-only
@@ -929,6 +959,43 @@ function highlightedJson(obj: unknown): string {
   return result;
 }
 
+function coerceJsonValue(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return value;
+  }
+
+  const looksJson =
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"));
+  if (!looksJson) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function renderHighlightedJsonBlock(
+  value: unknown,
+  options: { maxHeight?: string } = {},
+) {
+  const parsed = coerceJsonValue(value);
+  const style = options.maxHeight
+    ? `max-height:${options.maxHeight}`
+    : undefined;
+  return html`<pre class="cpk-json-block" style=${style || nothing}>
+${unsafeHTML(highlightedJson(parsed))}</pre
+  >`;
+}
+
 function eventColors(type: string): { bg: string; fg: string } {
   if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
   if (type.startsWith("TOOL_CALL"))
@@ -956,6 +1023,22 @@ function formatTimestamp(ts: string | number): string {
     "." +
     ms
   );
+}
+
+function formatRelativeTimestamp(ts: string | number): string {
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const elapsedSeconds = Math.max(
+    1,
+    Math.floor((Date.now() - date.getTime()) / 1_000),
+  );
+  if (elapsedSeconds < 60) {
+    return `${elapsedSeconds} ${elapsedSeconds === 1 ? "second" : "seconds"} ago`;
+  }
+
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  return `${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"} ago`;
 }
 
 /**
@@ -1039,7 +1122,7 @@ class CpkThreadList extends PortableLitElement {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       padding: 7px 10px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid #dbdbe5;
       background: #ffffff;
       color: #010507;
@@ -1138,7 +1221,7 @@ class CpkThreadList extends PortableLitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       padding: 1px 7px;
-      border-radius: 4px;
+      border-radius: 5px;
       text-transform: uppercase;
       font-weight: 500;
       white-space: nowrap;
@@ -1165,6 +1248,51 @@ class CpkThreadList extends PortableLitElement {
 
     .cpk-tl__empty-icon {
       color: #c0c0c8;
+    }
+
+    :host([data-color-scheme="dark"]) {
+      color-scheme: dark;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl {
+      background: #15171e;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__search,
+    :host([data-color-scheme="dark"]) .cpk-tl__item {
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__search-input {
+      border-color: #464957;
+      background: #191c24;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__item:hover {
+      background: #20232d;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__item--active,
+    :host([data-color-scheme="dark"]) .cpk-tl__item--active:hover {
+      background: #292b43;
+      border-left-color: #8f93df;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__name {
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__name--unnamed,
+    :host([data-color-scheme="dark"]) .cpk-tl__time,
+    :host([data-color-scheme="dark"]) .cpk-tl__empty {
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tl__pill {
+      background: #302b43;
+      color: #d8d9ff;
     }
   `;
 
@@ -1682,7 +1810,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__tab:focus-visible {
       outline: 2px solid #5558b2;
       outline-offset: -3px;
-      border-radius: 4px;
+      border-radius: 5px;
     }
 
     .cpk-td__tab--active {
@@ -1764,7 +1892,7 @@ export class CpkThreadInspector extends PortableLitElement {
       max-width: 220px;
       padding: 3px 7px;
       border: 1px solid #e9e9ef;
-      border-radius: 5px;
+      border-radius: 6px;
       background: #ffffff;
       color: #57575b;
       font-family: "Spline Sans Mono", monospace;
@@ -1904,7 +2032,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__bubble-inner--user {
       background: #eee6fe;
       color: #57575b;
-      border-radius: 10px 10px 3px 10px;
+      border-radius: 12px 12px 4px 12px;
     }
 
     .cpk-td__show-more {
@@ -1921,14 +2049,14 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__bubble-inner--assistant {
       background: #f7f7f9;
       color: #010507;
-      border-radius: 10px 10px 10px 3px;
+      border-radius: 12px 12px 12px 4px;
       border: 1px solid #e9e9ef;
     }
 
     /* ── Tool call blocks ────────────────────────────────────────────── */
     .cpk-td__tool-block {
       border: 1px solid #e9e9ef;
-      border-radius: 6px;
+      border-radius: 7px;
       overflow: hidden;
     }
 
@@ -1994,7 +2122,7 @@ export class CpkThreadInspector extends PortableLitElement {
       font-size: 10px;
       background: #f7f7f9;
       padding: 6px 8px;
-      border-radius: 4px;
+      border-radius: 5px;
       overflow-x: auto;
       white-space: pre-wrap;
       word-break: break-all;
@@ -2005,7 +2133,7 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── Tool call group ─────────────────────────────────────────────── */
     .cpk-td__tool-group {
       border: 1px solid #e9e9ef;
-      border-radius: 6px;
+      border-radius: 7px;
       overflow: hidden;
     }
 
@@ -2053,7 +2181,7 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── Interaction timeline ───────────────────────────────────────── */
     .cpk-td__timeline-item {
       border: 1px solid #e9e9ef;
-      border-radius: 6px;
+      border-radius: 7px;
       background: #ffffff;
       overflow: hidden;
     }
@@ -2117,7 +2245,7 @@ export class CpkThreadInspector extends PortableLitElement {
       margin: 0;
       padding: 4px 8px;
       border: 1px solid #dcdce8;
-      border-radius: 6px;
+      border-radius: 7px;
       background: #ffffff;
       color: #36363a;
       cursor: pointer;
@@ -2196,6 +2324,84 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     }
 
+    @keyframes cpk-playground-message-enter {
+      from {
+        opacity: 0;
+        filter: blur(2px);
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        filter: blur(0);
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes cpk-playground-thinking {
+      0%,
+      60%,
+      100% {
+        opacity: 0.28;
+        transform: translateY(0);
+      }
+      30% {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+    }
+
+    .cpk-playground-root {
+      container-type: inline-size;
+    }
+
+    .cpk-playground-message-enter {
+      animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
+        both;
+    }
+
+    .cpk-playground-thinking-dot {
+      animation: cpk-playground-thinking 1.2s ease-in-out infinite;
+    }
+
+    .cpk-playground-thinking-dot:nth-child(2) {
+      animation-delay: 0.12s;
+    }
+
+    .cpk-playground-thinking-dot:nth-child(3) {
+      animation-delay: 0.24s;
+    }
+
+    .cpk-playground-reasoning summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
+      transform: rotate(90deg);
+    }
+
+    @container (max-width: 560px) {
+      .cpk-playground-header {
+        align-items: stretch;
+      }
+
+      .cpk-playground-actions {
+        width: 100%;
+      }
+
+      .cpk-playground-thread-select {
+        min-width: 0;
+        max-width: none;
+        flex: 1;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-playground-message-enter,
+      .cpk-playground-thinking-dot {
+        animation: none;
+      }
+    }
+
     .cpk-td__genui {
       display: flex;
       flex-direction: column;
@@ -2209,7 +2415,7 @@ export class CpkThreadInspector extends PortableLitElement {
       align-items: center;
       gap: 4px;
       padding: 2px 8px;
-      border-radius: 4px;
+      border-radius: 5px;
       background: #eee6fe;
       color: #57575b;
       font-size: 10px;
@@ -2219,7 +2425,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__genui-card {
       overflow: hidden;
-      border-radius: 12px;
+      border-radius: 14px;
       border: 1px solid #e2e8f0;
       background: #fff;
       box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
@@ -2227,7 +2433,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__genui-placeholder {
       padding: 8px 12px;
-      border-radius: 8px;
+      border-radius: 10px;
       border: 1px solid #ede9fe;
       background: #f5f3ff;
       color: #7c3aed;
@@ -2238,7 +2444,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__event {
       flex-shrink: 0;
       border: 1px solid #e9e9ef;
-      border-radius: 6px;
+      border-radius: 7px;
       overflow: hidden;
       /*
        * content-visibility: auto lets the browser skip layout + paint for
@@ -2287,7 +2493,8 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     /* ── JSON block (agent state) ────────────────────────────────────── */
-    .cpk-td__json-block {
+    .cpk-td__json-block,
+    .cpk-json-block {
       margin: 0;
       font-family: "Spline Sans Mono", monospace;
       font-size: 11px;
@@ -2389,6 +2596,101 @@ export class CpkThreadInspector extends PortableLitElement {
       white-space: normal;
       word-break: break-all;
       text-align: right;
+    }
+
+    :host([data-color-scheme="dark"]) {
+      color-scheme: dark;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td {
+      background: #111319;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tabs-header,
+    :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-header,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
+    :host([data-color-scheme="dark"]) .cpk-td__event,
+    :host([data-color-scheme="dark"]) .cpk-td__event-payload,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle {
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
+    :host([data-color-scheme="dark"]) .cpk-td__detail {
+      background: #15171e;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-block,
+    :host([data-color-scheme="dark"]) .cpk-td__event,
+    :host([data-color-scheme="dark"]) .cpk-td__genui-card,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle {
+      border-color: #343742;
+      background: #191c24;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+      background: #171a22;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-header:hover,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle:hover,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle:hover {
+      background: #20232d;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__panel-toggle--active,
+    :host([data-color-scheme="dark"]) .cpk-td__inline-chip,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind,
+    :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tab,
+    :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-label,
+    :host([data-color-scheme="dark"]) .cpk-td__event-time,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-time,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-body,
+    :host([data-color-scheme="dark"]) .cpk-tdp__label,
+    :host([data-color-scheme="dark"]) .cpk-tdp__section-title {
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tab:hover,
+    :host([data-color-scheme="dark"]) .cpk-td__tab--active,
+    :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-name,
+    :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
+    :host([data-color-scheme="dark"]) .cpk-tdp__value {
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-payload,
+    :host([data-color-scheme="dark"]) .cpk-td__json-block,
+    :host([data-color-scheme="dark"]) .cpk-json-block {
+      color: #c7c9d2;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-tdp__divider {
+      background: #343742;
     }
   `;
 
@@ -3641,40 +3943,40 @@ export class CpkThreadInspector extends PortableLitElement {
         ${
           item.details
             ? html`<button
-                type="button"
-                class="cpk-td__timeline-details-toggle"
-                aria-expanded=${detailsExpanded ? "true" : "false"}
-                @click=${() => this.toggleTimelineDetails(item.id)}
-              >
-                ${
-                  detailsExpanded
-                    ? html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      `
-                    : html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
-                      `
-                }
-                <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
-              </button>`
+              type="button"
+              class="cpk-td__timeline-details-toggle"
+              aria-expanded=${detailsExpanded ? "true" : "false"}
+              @click=${() => this.toggleTimelineDetails(item.id)}
+            >
+              ${
+                detailsExpanded
+                  ? html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    `
+                  : html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    `
+              }
+              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+            </button>`
             : nothing
         }
         ${
@@ -3684,9 +3986,9 @@ export class CpkThreadInspector extends PortableLitElement {
         }
         ${
           item.details && detailsExpanded
-            ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
-                highlightedJson(item.details),
-              )}</pre>`
+            ? html`<pre class="cpk-td__timeline-body">
+${unsafeHTML(highlightedJson(item.details))}</pre
+            >`
             : nothing
         }
       </div>
@@ -3987,9 +4289,7 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
     }
     const stateValue = this.activeState;
     return this.cachedPanelTpl("state", [stateValue], () => {
-      return html`<pre class="cpk-td__json-block">
-${unsafeHTML(highlightedJson(stateValue))}</pre
-      >`;
+      return renderHighlightedJsonBlock(stateValue);
     });
   }
 
@@ -4035,59 +4335,61 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
           const eventId = this.rawEventId(event);
           const detailsExpanded = this._expandedRawEvents.has(eventId);
           return html`
-          <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
-            <div class="cpk-td__event-header" style="background:${bg}">
-              <span class="cpk-td__event-type" style="color:${fg}"
-                >${event.type}</span
+            <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
+              <div class="cpk-td__event-header" style="background:${bg}">
+                <span class="cpk-td__event-type" style="color:${fg}"
+                  >${event.type}</span
+                >
+                <span class="cpk-td__event-time"
+                  >${formatTimestamp(event.timestamp)}</span
+                >
+              </div>
+              <button
+                type="button"
+                class="cpk-td__timeline-details-toggle"
+                aria-expanded=${detailsExpanded ? "true" : "false"}
+                @click=${() => this.toggleRawEventDetails(eventId)}
               >
-              <span class="cpk-td__event-time"
-                >${formatTimestamp(event.timestamp)}</span
-              >
-            </div>
-            <button
-              type="button"
-              class="cpk-td__timeline-details-toggle"
-              aria-expanded=${detailsExpanded ? "true" : "false"}
-              @click=${() => this.toggleRawEventDetails(eventId)}
-            >
+                ${
+                  detailsExpanded
+                    ? html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      `
+                    : html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      `
+                }
+                <span
+                  >${detailsExpanded ? "Hide details" : "Show details"}</span
+                >
+              </button>
               ${
                 detailsExpanded
-                  ? html`
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    `
-                  : html`
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    `
+                  ? html`<pre class="cpk-td__event-payload">
+${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
+                  >`
+                  : nothing
               }
-              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
-            </button>
-            ${
-              detailsExpanded
-                ? html`<pre class="cpk-td__event-payload">${unsafeHTML(
-                    highlightedJson(event.rawEvent ?? event),
-                  )}</pre>`
-                : nothing
-            }
-          </div>
-        `;
+            </div>
+          `;
         })}`;
       },
     );
@@ -4306,7 +4608,7 @@ class CpkMemoryList extends PortableLitElement {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       padding: 7px 10px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid #dbdbe5;
       background: #ffffff;
       color: #010507;
@@ -4333,7 +4635,7 @@ class CpkMemoryList extends PortableLitElement {
       font-size: 11px;
       font-weight: 500;
       padding: 3px 9px;
-      border-radius: 5px;
+      border-radius: 6px;
       border: 1px solid #dbdbe5;
       background: #ffffff;
       color: #57575b;
@@ -4376,7 +4678,7 @@ class CpkMemoryList extends PortableLitElement {
     .cpk-ml__card {
       background: #ffffff;
       border: 1px solid #e9e9ef;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
@@ -4395,7 +4697,7 @@ class CpkMemoryList extends PortableLitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       padding: 1px 7px;
-      border-radius: 4px;
+      border-radius: 5px;
       text-transform: uppercase;
       font-weight: 500;
       white-space: nowrap;
@@ -4421,7 +4723,7 @@ class CpkMemoryList extends PortableLitElement {
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       padding: 1px 7px;
-      border-radius: 4px;
+      border-radius: 5px;
       text-transform: uppercase;
       font-weight: 500;
       white-space: nowrap;
@@ -4487,7 +4789,7 @@ class CpkMemoryList extends PortableLitElement {
       font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       padding: 7px 10px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid #dbdbe5;
       background: #fff;
       color: #010507;
@@ -4502,7 +4804,7 @@ class CpkMemoryList extends PortableLitElement {
       font-size: 12px;
       font-weight: 500;
       padding: 7px 12px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid #dbdbe5;
       background: #fff;
       color: #010507;
@@ -4582,6 +4884,62 @@ class CpkMemoryList extends PortableLitElement {
     .cpk-ml__scope-badge--project {
       background: #fef3c7;
       color: #92660c;
+    }
+
+    :host([data-color-scheme="dark"]) {
+      color-scheme: dark;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml {
+      background: #15171e;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__search,
+    :host([data-color-scheme="dark"]) .cpk-ml__filter,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-section,
+    :host([data-color-scheme="dark"]) .cpk-ml__card {
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__search-input,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-input,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-btn,
+    :host([data-color-scheme="dark"]) .cpk-ml__filter-seg,
+    :host([data-color-scheme="dark"]) .cpk-ml__card {
+      border-color: #464957;
+      background: #191c24;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-section {
+      background: #171a22;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__filter-seg:hover,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-btn:hover:not(:disabled) {
+      background: #20232d;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__filter-seg--active {
+      border-color: #777aae;
+      background: #292b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__content,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-title {
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-ml__filter-count,
+    :host([data-color-scheme="dark"]) .cpk-ml__footer-threads,
+    :host([data-color-scheme="dark"]) .cpk-ml__footer-id,
+    :host([data-color-scheme="dark"]) .cpk-ml__empty,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-clear,
+    :host([data-color-scheme="dark"]) .cpk-ml__recall-msg {
+      color: #aeb1bd;
     }
   `;
 
@@ -4706,7 +5064,7 @@ class CpkMemoryList extends PortableLitElement {
         <input
           type="text"
           placeholder="Recall by meaning…"
-          aria-label="Recall memories by meaning"
+          aria-label="Recall learning records by meaning"
           class="cpk-ml__recall-input"
           .value=${this.recallQueryText}
           @input=${this.onRecallInput}
@@ -4746,7 +5104,7 @@ class CpkMemoryList extends PortableLitElement {
             </p>`
             : results.length === 0
               ? html`
-                  <p class="cpk-ml__recall-msg">No memories matched that query.</p>
+                  <p class="cpk-ml__recall-msg">No learning records matched that query.</p>
                 `
               : results.map((m) =>
                   this.renderCard(m, normalizeRelevance(m.score, max)),
@@ -4776,19 +5134,19 @@ class CpkMemoryList extends PortableLitElement {
             <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
           </svg>
-          No memories yet — tell the agent a durable fact and watch it appear.
+          No learning records yet — tell the agent a durable fact and watch it appear.
         </div>
       `;
     }
     if (q) {
       return html`
         <div class="cpk-ml__empty">
-          No memories match &ldquo;${q}&rdquo;.
+          No learning records match &ldquo;${q}&rdquo;.
         </div>
       `;
     }
     return html`
-      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+      <div class="cpk-ml__empty">No ${this.kind} learning records yet.</div>
     `;
   }
 
@@ -4809,7 +5167,7 @@ class CpkMemoryList extends PortableLitElement {
         <div class="cpk-ml__search">
           <input
             type="text"
-            placeholder="Search memories…"
+            placeholder="Search learning…"
             .value=${this.search}
             @input=${this.onSearchInput}
             class="cpk-ml__search-input"
@@ -4819,18 +5177,26 @@ class CpkMemoryList extends PortableLitElement {
         <!-- Kind filter -->
         <div class="cpk-ml__filter" @click=${this.onKindClick}>
           <button
-            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            class="cpk-ml__filter-seg ${
+              this.kind === "all" ? "cpk-ml__filter-seg--active" : ""
+            }"
             data-kind="all"
           >
-            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+            All<span class="cpk-ml__filter-count"
+              >${this.searchFiltered.length}</span
+            >
           </button>
           ${kinds.map(
             (k) => html`
               <button
-                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                class="cpk-ml__filter-seg ${
+                  this.kind === k ? "cpk-ml__filter-seg--active" : ""
+                }"
                 data-kind="${k}"
               >
-                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+                ${k}<span class="cpk-ml__filter-count"
+                  >${this.countForKind(k)}</span
+                >
               </button>
             `,
           )}
@@ -4940,18 +5306,29 @@ export class WebInspectorElement extends LitElement {
   private isDragging = false;
   private pointerContext: ContextKey | null = null;
   private isOpen = false;
+  private accountCtaMotionPaused = false;
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
-  private selectedMenu: MenuKey = "threads";
+  private selectedMenu: MenuKey = "home";
   private pendingPersistedMenu: MenuKey | null = null;
+  private hasOpenedInspector = false;
+  private sidebarCollapsed = false;
+  private sidebarRailTooltip: { label: string; top: number } | null = null;
+  private colorScheme: InspectorColorScheme = "light";
+  private hasExplicitColorScheme = false;
+  private systemColorSchemeMediaQuery: MediaQueryList | null = null;
+  private briefingRestoreMenu: MenuKey | null = null;
+  private homeViewedThisOpen = false;
   private hasResolvedCore = false;
   private settingsOpen = false;
-  private readonly lastSelectedMenuByGroup: Record<InspectorGroupKey, MenuKey> =
-    {
-      threads: "threads",
-      agents: "ag-ui-events",
-      learning: "memories",
-    };
+  private readonly lastSelectedMenuByGroup: Record<
+    InspectorNavGroupKey,
+    MenuKey
+  > = {
+    home: "home",
+    workbench: "threads",
+    inspect: "ag-ui-events",
+  };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
   private selectedRealThreadIsExplicit = false;
@@ -4967,6 +5344,8 @@ export class WebInspectorElement extends LitElement {
   private _threads: ɵThread[] = [];
   private _threadStoreSubscriptions: Map<string, () => void> = new Map();
   private _threadsByAgent: Map<string, ɵThread[]> = new Map();
+  private threadUsageSignature = "";
+  private threadUsageRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   // Error from each agent's thread store (REST list rejection, Phoenix
   // subscribe failure, retry exhaustion). When non-empty for the active
   // selection, the threads view renders an error state instead of stale
@@ -4975,13 +5354,27 @@ export class WebInspectorElement extends LitElement {
   private _threadsLoadingByAgent: Map<string, boolean> = new Map();
   // Thread stores created and owned by the inspector (keyed by agentId)
   private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private playgroundAgent: AbstractAgent | null = null;
+  private playgroundAgentId: string | null = null;
+  private playgroundAgentUnsubscribe: (() => void) | null = null;
+  private playgroundMessages: InspectorMessage[] = [];
+  private playgroundInput = "";
+  private playgroundIsRunning = false;
+  private playgroundRunStartedAt: number | null = null;
+  private playgroundReasoningDurations: Map<string, number> = new Map();
+  private playgroundIsLoadingThread = false;
+  private playgroundError: string | null = null;
+  private playgroundSourceThreadId: string | null = null;
+  private playgroundShowEphemeralNotice = false;
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
+  private layoutMenuOpen = false;
   private dockMode: DockMode = "floating";
   private popOut: PopOutHandle | null = null;
   private inspectorPortal: HTMLDivElement | null = null;
   private previousBodyMargins: { left: string; bottom: string } | null = null;
+  private previousHtmlOverflowX: string | null = null;
   private transitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
     new Set();
@@ -5007,29 +5400,37 @@ export class WebInspectorElement extends LitElement {
   } | null = null;
 
   private announcementHtml: string | null = null;
+  private announcementMarkdown: string | null = null;
   private announcementTimestamp: string | null = null;
   private announcementPreviewText: string | null = null;
   // Forward-compat for an optional `cta_label` field on the announcement
   // CDN payload (e.g. "Try threads", "New feature"). The current schema
   // ({timestamp, previewText, announcement}) doesn't carry it, so this is
   // null in production today; we read it defensively in fetchAnnouncement
-  // so a future CDN-side schema bump lights up `cta_label` on banner_clicked
-  // without an inspector release.
+  // so a future CDN-side schema bump lights up `cta_label` on
+  // whats_new_clicked without an inspector release.
   private announcementCtaLabel: string | null = null;
-  private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
-  private showAnnouncementPreview = true;
-  private announcementExpanded = false;
-  // Per-instance dedup for `oss.inspector.banner_viewed`, keyed by
+  private newsSignalArmed = false;
+  private newsSignalPulsing = false;
+  private newsSignalPulsePending = false;
+  private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private viewedNewsSignalIds: Set<string> = new Set();
+  private pendingNewsSignalViewed: {
+    banner_id: string;
+    surface: "launcher";
+    presentation: WhatsNewSignalPresentation;
+    cta_label?: string;
+  } | null = null;
+  // Per-instance dedup for `oss.inspector.whats_new_viewed`, keyed by
   // `${timestamp}:${surface}` so the event fires at most once per
   // announcement per surface per inspector mount. Plan calls for "de-dup per
   // timestamp per session"; instance-scoping is closer to per-mount than
   // per-tab (sessionStorage), but for the inspector the distinction is
-  // academic — inspector instances rarely outlive the page. The surface is
-  // part of the key (OSS-568) because the bubble on the collapsed widget and
-  // the card inside the opened panel are separate impressions: a user can see
-  // one without ever seeing the other.
+  // academic — inspector instances rarely outlive the page. The surface stays
+  // part of the key so a second announcement surface would get its own
+  // impression rather than being swallowed by the first one's.
   private viewedBannerSurfaces: Set<string> = new Set();
   // Impressions wait for the runtime handshake before going out: the runtime's
   // opt-out arrives in the /info response, and `telemetryDisabled` reads `false`
@@ -5039,10 +5440,10 @@ export class WebInspectorElement extends LitElement {
   // before the first impression has flushed.
   private pendingBannerViewed: Array<{
     banner_id: string;
-    surface: BannerSurface;
+    surface: WhatsNewSurface;
     cta_label?: string;
   }> = [];
-  // Per-instance dedup for `oss.inspector.banner_clicked` (keyed by
+  // Per-instance dedup for `oss.inspector.whats_new_clicked` (keyed by
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
@@ -5126,6 +5527,8 @@ export class WebInspectorElement extends LitElement {
   private resizePointerId: number | null = null;
   private resizeStart: Position | null = null;
   private resizeInitialSize: { width: number; height: number } | null = null;
+  private resizeInitialPosition: Position | null = null;
+  private resizeEdge: "e" | "w" | "s" | "se" | "sw" = "se";
   private isResizing = false;
 
   private readonly customTabIcons: Record<string, string> = {
@@ -5135,8 +5538,27 @@ export class WebInspectorElement extends LitElement {
   private get menuItems(): MenuItem[] {
     const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
     const hasCatalog = (this._core?.catalogComponents?.length ?? 0) > 0;
-    const hasCapabilities = hasFrontendTools || hasCatalog;
+    // Capabilities is the A2UI catalog + tool toggle surface. If the only
+    // live data is frontend tools, Frontend Tools already lists them, so
+    // showing Capabilities as well is a duplicate leaf.
+    const hasCapabilities = hasCatalog;
     return [
+      { key: "home", label: "Home", icon: "Home" as LucideIconName },
+      {
+        key: "whats-new",
+        label: "What's New",
+        icon: "Megaphone" as LucideIconName,
+      },
+      {
+        key: WHATS_NEW_MENU_KEY,
+        label: WHATS_NEW_VIEW_LABEL,
+        icon: "Megaphone" as LucideIconName,
+      },
+      {
+        key: "playground",
+        label: "Playground",
+        icon: "MessageCircle" as LucideIconName,
+      },
       {
         key: "ag-ui-events",
         label: "AG-UI Events",
@@ -5173,43 +5595,30 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "memories",
-        label: MEMORY_VIEW_LABEL,
+        label: LEARNING_VIEW_LABEL,
         icon: "Brain" as LucideIconName,
       },
     ];
   }
 
-  /** Return the primary navigation group that owns a legacy leaf key. */
-  private getGroupForMenu(key: MenuKey): InspectorGroupKey {
-    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
-      if (INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === key)) {
-        return group.key;
-      }
-    }
-
-    return "threads";
-  }
-
-  /** Return the primary group for the current legacy leaf selection. */
-  private get selectedGroup(): InspectorGroupKey {
-    return this.getGroupForMenu(this.selectedMenu);
-  }
-
-  /** Return only currently visible legacy leaves owned by a group. */
-  private getVisibleMenuItemsForGroup(group: InspectorGroupKey): MenuItem[] {
-    return this.menuItems.filter((item) =>
-      INSPECTOR_GROUPS[group].some((menuKey) => menuKey === item.key),
-    );
+  /** Return only currently visible leaves owned by a group. */
+  private getVisibleMenuItemsForGroup(group: InspectorNavGroupKey): MenuItem[] {
+    return INSPECTOR_GROUPS[group].flatMap((menuKey) => {
+      const item = this.menuItems.find(
+        (candidate) => candidate.key === menuKey,
+      );
+      return item ? [item] : [];
+    });
   }
 
   /** Resolve a group's last visible leaf, falling back to its first leaf. */
-  private getMenuForGroup(group: InspectorGroupKey): MenuKey {
+  private getMenuForGroup(group: InspectorNavGroupKey): MenuKey {
     const visibleItems = this.getVisibleMenuItemsForGroup(group);
     const rememberedMenu = this.lastSelectedMenuByGroup[group];
     return (
       visibleItems.find((item) => item.key === rememberedMenu)?.key ??
       visibleItems[0]?.key ??
-      "threads"
+      "home"
     );
   }
 
@@ -5219,15 +5628,15 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
-    const group = this.getGroupForMenu(this.selectedMenu);
+    const group = getGroupForMenu(this.selectedMenu);
     const fallbackMenu = this.getVisibleMenuItemsForGroup(group)[0]?.key;
-    this.selectedMenu = fallbackMenu ?? "threads";
+    this.selectedMenu = fallbackMenu ?? "home";
     this.lastSelectedMenuByGroup[group] = this.selectedMenu;
     this.persistState();
   }
 
-  /** Open a primary group at its last currently visible legacy leaf. */
-  private handleGroupSelect(group: InspectorGroupKey): void {
+  /** Open a sidebar group at its last currently visible leaf. */
+  private handleGroupSelect(group: InspectorNavGroupKey): void {
     this.handleMenuSelect(this.getMenuForGroup(group));
   }
 
@@ -5235,6 +5644,7 @@ export class WebInspectorElement extends LitElement {
   private handleSettingsToggle(): void {
     this.settingsOpen = !this.settingsOpen;
     this.contextMenuOpen = false;
+    this.layoutMenuOpen = false;
     this.requestUpdate();
   }
 
@@ -5399,7 +5809,7 @@ export class WebInspectorElement extends LitElement {
       has_threads: this.hasActiveVisibleThreads(),
       usage_bucket: this.getThreadsUsageBucket(),
       expiry_bucket: this.getThreadsExpiryBucket(),
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
     };
   }
@@ -5407,7 +5817,7 @@ export class WebInspectorElement extends LitElement {
   /** Add the frozen CTA leaves and anonymous URL attribution when allowed. */
   private getThreadsCtaTelemetryProps(
     cta: "signup" | "talk_to_engineer",
-    ctaSurface: "threads_locked" | "threads_header",
+    ctaSurface: "threads_locked" | "threads_header" | "sidebar_footer",
   ): InspectorThreadTelemetryProps {
     const distinctId = getTelemetryDistinctIdForUrl();
     return {
@@ -5498,7 +5908,7 @@ export class WebInspectorElement extends LitElement {
         return;
       }
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
-      this._threads = Array.from(this._threadsByAgent.values()).flat();
+      this.rebuildFlattenedThreads();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
@@ -5542,8 +5952,42 @@ export class WebInspectorElement extends LitElement {
     } else {
       this._threadsErrorByAgent.delete(agentId);
     }
-    this._threads = Array.from(this._threadsByAgent.values()).flat();
+    this.rebuildFlattenedThreads();
     this.autoSelectLatestThread();
+  }
+
+  private rebuildFlattenedThreads(): void {
+    this._threads = flattenThreadsByAgent(this._threadsByAgent);
+    this.scheduleInspectorUsageRefresh();
+  }
+
+  private scheduleInspectorUsageRefresh(): void {
+    const signature = this._threads
+      .map((thread) => thread.id)
+      .sort()
+      .join(",");
+    if (signature === this.threadUsageSignature) {
+      return;
+    }
+    this.threadUsageSignature = signature;
+    if (this.threadUsageRefreshTimer !== null) {
+      clearTimeout(this.threadUsageRefreshTimer);
+    }
+    this.threadUsageRefreshTimer = setTimeout(() => {
+      this.threadUsageRefreshTimer = null;
+      const core = this.core;
+      if (core && typeof core.refreshInspectorMetadata === "function") {
+        void core.refreshInspectorMetadata();
+      }
+    }, 300);
+  }
+
+  private clearInspectorUsageRefresh(): void {
+    if (this.threadUsageRefreshTimer !== null) {
+      clearTimeout(this.threadUsageRefreshTimer);
+      this.threadUsageRefreshTimer = null;
+    }
+    this.threadUsageSignature = "";
   }
 
   private autoSelectLatestThread(): void {
@@ -5597,6 +6041,7 @@ export class WebInspectorElement extends LitElement {
     this._threadsErrorByAgent.clear();
     this._threadsLoadingByAgent.clear();
     this._threads = [];
+    this.clearInspectorUsageRefresh();
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
@@ -5728,7 +6173,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingBannerViewed();
+          this.flushPendingWhatsNewTelemetry();
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -5741,6 +6186,7 @@ export class WebInspectorElement extends LitElement {
           // Clear stale thread data immediately when the server goes away
           this._threadsByAgent.clear();
           this._threads = [];
+          this.clearInspectorUsageRefresh();
         }
         this.requestUpdate();
       },
@@ -5782,6 +6228,10 @@ export class WebInspectorElement extends LitElement {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
       },
+      onSuggestionsChanged: () => this.requestUpdate(),
+      onSuggestionsStartedLoading: () => this.requestUpdate(),
+      onSuggestionsFinishedLoading: () => this.requestUpdate(),
+      onSuggestionsConfigChanged: () => this.requestUpdate(),
       onThreadStoreRegistered: ({ agentId, store }) => {
         if (!this.areThreadEndpointsAvailable()) return;
         this.subscribeToThreadStore(agentId, store);
@@ -5800,7 +6250,7 @@ export class WebInspectorElement extends LitElement {
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
         this._threadsLoadingByAgent.delete(agentId);
-        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.rebuildFlattenedThreads();
         this.autoSelectLatestThread();
         this.requestUpdate();
       },
@@ -5814,7 +6264,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingBannerViewed();
+      this.flushPendingWhatsNewTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -6014,6 +6464,7 @@ export class WebInspectorElement extends LitElement {
     this.cachedTools = [];
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
+    this.teardownPlaygroundAgent();
     this.teardownThreadStoreSubscriptions();
     this.teardownOwnedThreadStores();
   }
@@ -6473,8 +6924,9 @@ export class WebInspectorElement extends LitElement {
     this.pendingPersistedMenu = null;
     this.selectedMenu = "threads";
     this.settingsOpen = false;
-    this.lastSelectedMenuByGroup.threads = "threads";
+    this.lastSelectedMenuByGroup.workbench = "threads";
     this.contextMenuOpen = false;
+    this.layoutMenuOpen = false;
     this.selectedLocalExampleThreadId = null;
     this.exampleTourActive = false;
     this.selectedContext =
@@ -6843,6 +7295,30 @@ ${argsString}</pre
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       }
 
+      .rounded-sm {
+        border-radius: 3px;
+      }
+
+      .rounded-md {
+        border-radius: 7px;
+      }
+
+      .rounded-lg {
+        border-radius: 10px;
+      }
+
+      .rounded-xl {
+        border-radius: 14px;
+      }
+
+      :host([data-docked="true"]) {
+        top: 0;
+        left: 0;
+        bottom: 0;
+        transform: none !important;
+        will-change: auto;
+      }
+
       :host([data-transitioning="true"]) {
         transition: transform 300ms ease;
       }
@@ -6853,6 +7329,19 @@ ${argsString}</pre
       }
 
       .console-button {
+        /* The launcher's own size, exposed so the signal dot can be placed
+           against the OUTER rim with a length rather than a percentage.
+           Percentages resolve against the padding box, which the 1px border
+           insets, and the dot would land inside the rim. */
+        --cpk-launcher-size: clamp(
+          ${LAUNCHER_MIN_SIZE}px,
+          7vw,
+          ${LAUNCHER_MAX_SIZE}px
+        );
+        width: var(--cpk-launcher-size);
+        height: var(--cpk-launcher-size);
+        /* Keep the 1px border inside the declared outer size. */
+        box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
           opacity 160ms ease;
@@ -6871,11 +7360,49 @@ ${argsString}</pre
       .inspector-window[data-docked="true"] {
         border-radius: 0 !important;
         box-shadow: none !important;
+        top: 0 !important;
+        left: 0 !important;
+        bottom: 0 !important;
+        height: auto !important;
+        max-height: none !important;
       }
 
       .resize-handle {
         touch-action: none;
         user-select: none;
+        z-index: 60;
+      }
+
+      .edge-resize-handle {
+        position: absolute;
+        z-index: 55;
+        touch-action: none;
+        user-select: none;
+        background: transparent;
+      }
+
+      .edge-resize-handle-e {
+        top: 48px;
+        right: 0;
+        width: 8px;
+        height: calc(100% - 48px);
+        cursor: ew-resize;
+      }
+
+      .edge-resize-handle-w {
+        top: 48px;
+        left: 0;
+        width: 8px;
+        height: calc(100% - 48px);
+        cursor: ew-resize;
+      }
+
+      .edge-resize-handle-s {
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        height: 8px;
+        cursor: ns-resize;
       }
 
       .dock-resize-handle {
@@ -6904,7 +7431,7 @@ ${argsString}</pre
         background: rgba(1, 5, 7, 0.95);
         color: white;
         padding: 4px 8px;
-        border-radius: 6px;
+        border-radius: 7px;
         font-size: 10px;
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.2;
@@ -6922,118 +7449,9 @@ ${argsString}</pre
         transform: translateX(-50%) translateY(0);
       }
 
-      .announcement-preview {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        min-width: 300px;
-        max-width: 300px;
-        background: white;
-        color: #010507;
-        font-size: 13px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.4;
-        border-radius: 12px;
-        box-shadow: 0 12px 28px rgba(1, 5, 7, 0.12);
-        padding: 10px 12px;
-        display: inline-flex;
-        align-items: flex-start;
-        gap: 8px;
-        z-index: 4500;
-        animation: fade-slide-in 160ms ease;
-        border: 1px solid rgba(219, 219, 229, 0.4);
-        white-space: normal;
-        word-break: break-word;
-        text-align: left;
-      }
-
-      .announcement-preview[data-side="left"] {
-        right: 100%;
-        margin-right: 10px;
-      }
-
-      .announcement-preview[data-side="right"] {
-        left: 100%;
-        margin-left: 10px;
-      }
-
-      .announcement-preview__arrow {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        background: white;
-        border: 1px solid rgba(219, 219, 229, 0.4);
-        transform: rotate(45deg);
-        top: 50%;
-        margin-top: -5px;
-        z-index: -1;
-      }
-
-      .announcement-preview[data-side="left"] .announcement-preview__arrow {
-        right: -5px;
-        box-shadow: 6px -6px 10px rgba(1, 5, 7, 0.08);
-      }
-
-      .announcement-preview[data-side="right"] .announcement-preview__arrow {
-        left: -5px;
-        box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
-      }
-
-      .announcement-preview__dismiss {
-        flex: none;
-        margin-top: -1px;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        appearance: none;
-        background: none;
-        border: 0;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        color: #68686e;
-        cursor: pointer;
-        transition:
-          background 120ms ease,
-          color 120ms ease;
-      }
-
-      .announcement-preview__dismiss:hover {
-        background: rgba(0, 0, 0, 0.06);
-        color: #010507;
-      }
-
-      .announcement-preview__dismiss:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .announcement-dismiss {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: #68686e;
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        padding: 0;
-        transition:
-          background 120ms ease,
-          color 120ms ease;
-      }
-
-      .announcement-dismiss:hover {
-        background: rgba(0, 0, 0, 0.06);
-        color: #010507;
-      }
-
       /* ── Agent tab section cards ─────────────────────────────────────── */
       .cpk-section-card {
-        border-radius: 8px;
+        border-radius: 10px;
         background: #ffffff;
         overflow: hidden;
       }
@@ -7083,7 +7501,7 @@ ${argsString}</pre
         border: 1px solid #dbdbe5;
         cursor: pointer;
         padding: 2px 8px;
-        border-radius: 4px;
+        border-radius: 5px;
         flex-shrink: 0;
         transition:
           background-color 0.15s,
@@ -7186,7 +7604,7 @@ ${argsString}</pre
       .announcement-content :not(pre) > code {
         background: #f3f3f7;
         border: 1px solid #e4e4ec;
-        border-radius: 4px;
+        border-radius: 5px;
         padding: 1px 5px;
         font-size: 0.85em;
         color: #4a3a8a;
@@ -7200,7 +7618,7 @@ ${argsString}</pre
       .announcement-code pre {
         background: #0f1117;
         color: #e6e8f2;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 10px 12px;
         overflow-x: auto;
         font-size: 12px;
@@ -7219,7 +7637,7 @@ ${argsString}</pre
         top: 4px;
         right: 4px;
         padding: 4px 4px 4px 24px;
-        border-top-right-radius: 8px;
+        border-top-right-radius: 10px;
         background: linear-gradient(
           to right,
           rgba(15, 17, 23, 0) 0%,
@@ -7245,7 +7663,7 @@ ${argsString}</pre
       }
       .announcement-code pre::-webkit-scrollbar-thumb {
         background: rgba(255, 255, 255, 0.2);
-        border-radius: 3px;
+        border-radius: 4px;
       }
 
       .announcement-code__copy {
@@ -7258,7 +7676,7 @@ ${argsString}</pre
         color: #e6e8f2;
         background: #1f222d;
         border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 5px;
+        border-radius: 6px;
         cursor: pointer;
         transition:
           background 0.12s ease,
@@ -7273,42 +7691,41 @@ ${argsString}</pre
         border-color: transparent;
       }
 
-      .announcement-body {
-        position: relative;
-        overflow: hidden;
-        transition: max-height 0.25s ease;
-      }
-      .announcement-body--collapsed {
-        max-height: 72px;
-      }
-      .announcement-body--expanded {
-        max-height: 2000px;
-      }
-      .announcement-fade {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 48px;
-        background: linear-gradient(to bottom, transparent, #ffffff);
-        pointer-events: none;
-      }
-      .announcement-toggle {
+      /* ── What's new ──────────────────────────────────────────────── */
+      .whats-new {
         display: block;
-        width: 100%;
-        margin-top: 6px;
-        padding: 0;
-        background: none;
-        border: none;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 12px;
-        font-weight: 500;
-        color: #5558b2;
-        cursor: pointer;
-        text-align: center;
+        padding: 16px;
       }
-      .announcement-toggle:hover {
-        color: #6430ab;
+
+      .whats-new__heading {
+        margin: 0 0 10px;
+        color: #010507;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 15px;
+        font-weight: 700;
+        line-height: 1.35;
+        letter-spacing: -0.01em;
+      }
+
+      .whats-new__status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #57575b;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 13px;
+      }
+
+      .whats-new__status-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        background: #eee6fe;
+        color: #5558b2;
       }
 
       /* ── Brand typography ────────────────────────────────────────── */
@@ -7316,7 +7733,8 @@ ${argsString}</pre
       .font-mono,
       pre,
       code {
-        font-family: "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+        font-family:
+          "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
       }
 
       /* ── Floating button ─────────────────────────────────────────── */
@@ -7335,25 +7753,187 @@ ${argsString}</pre
         outline-color: #bec2ff !important;
       }
 
+      /* ── Launcher signal: water ripple + internal wash + dot ────── */
+      /*
+       * Two rings leave the rim in sequence, like ripples spreading from a
+       * drop's point of impact. They share one keyframe but the second begins
+       * 180ms later, so the first is already farther from the source.
+       *
+       * ONLY opacity and transform animate. This component is permanently
+       * mounted on top of a customer's application, so animating anything
+       * that forces a repaint every frame is not acceptable.
+       */
+      .console-button[data-cpk-signal] {
+        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
+        isolation: isolate;
+      }
+
+      /*
+       * The mark sits above the ripples. Both ring layers are absolutely
+       * positioned, so without a stacking position of its own the mark — an
+       * ordinary in-flow child — would paint under them. Keeping the centre
+       * readable is the reason the motion begins at the rim.
+       */
+      .cpk-launcher-mark {
+        position: relative;
+        z-index: 2;
+        width: auto;
+        height: calc(var(--cpk-launcher-size) / 1.8);
+      }
+
+      .console-button[data-cpk-signal]::before,
+      .console-button[data-cpk-signal]::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        box-sizing: border-box;
+        border-radius: 50%;
+        border: 2px solid
+          color-mix(in srgb, var(--cpk-launcher-signal) 68%, transparent);
+        box-shadow: 0 0 8px
+          color-mix(in srgb, var(--cpk-launcher-signal) 38%, transparent);
+        pointer-events: none;
+        opacity: 0;
+        transform: scale(1);
+      }
+
+      .cpk-launcher-signal-wash {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        overflow: hidden;
+        border-radius: 50%;
+        pointer-events: none;
+        opacity: 0;
+        background: radial-gradient(
+          circle at 50% 50%,
+          transparent 26%,
+          color-mix(in srgb, var(--cpk-launcher-signal) 78%, transparent) 63%,
+          color-mix(in srgb, var(--cpk-launcher-signal) 30%, transparent) 84%,
+          transparent 100%
+        );
+      }
+
+      @keyframes cpk-launcher-ripple {
+        0% {
+          opacity: 0.95;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: scale(1.5);
+        }
+      }
+
+      @keyframes cpk-launcher-wash {
+        0%,
+        100% {
+          opacity: 0;
+        }
+        45% {
+          opacity: 1;
+        }
+      }
+
+      /* Both ripples finish inside the existing one-beat pulse window. */
+      .console-button[data-cpk-signal-pulsing="true"]::before,
+      .console-button[data-cpk-signal-pulsing="true"]::after {
+        animation: cpk-launcher-ripple calc(var(--cpk-launcher-cadence) - 180ms)
+          cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
+      }
+      .console-button[data-cpk-signal-pulsing="true"]::after {
+        animation-delay: 180ms;
+      }
+      .console-button[data-cpk-signal-pulsing="true"]
+        .cpk-launcher-signal-wash {
+        animation: cpk-launcher-wash var(--cpk-launcher-cadence) ease-in-out 1
+          both;
+      }
+
+      /*
+       * The dot's centre sits exactly ON the button's outer rim at 45°, where
+       * 0.35355 is 0.5 x cos45. Lengths rather than percentage offsets:
+       * percentages resolve against the padding box, which the border insets,
+       * and the dot would land a pixel inside the rim.
+       */
+      .cpk-launcher-signal-dot {
+        position: absolute;
+        z-index: 3;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%)
+          translate(
+            calc(var(--cpk-launcher-size) * 0.35355),
+            calc(var(--cpk-launcher-size) * -0.35355)
+          );
+        width: 19%;
+        height: 19%;
+        border-radius: 50%;
+        background: var(--cpk-launcher-signal);
+        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+      }
+
+      /*
+       * Reduced motion: the halo is held statically rather than animated, so
+       * the information arrives without the movement.
+       */
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-signal-wash {
+          opacity: 0.85;
+        }
+        .console-button[data-cpk-signal]::before {
+          opacity: 0.5;
+        }
+        .console-button[data-cpk-signal]::after {
+          opacity: 0;
+        }
+        .console-button[data-cpk-signal-pulsing="true"]::before,
+        .console-button[data-cpk-signal-pulsing="true"]::after {
+          animation: none !important;
+        }
+        .console-button[data-cpk-signal-pulsing="true"]
+          .cpk-launcher-signal-wash {
+          animation: none !important;
+        }
+      }
+
+      /*
+       * Unread marker on the navigation entry, which is what keeps the signal
+       * alive once the panel is open and the launcher is hidden. Static by
+       * design: the pulse belongs to the launcher, and movement here would
+       * compete with the live event stream a developer is actually watching.
+       */
+      .inspector-nav-signal-dot {
+        display: inline-block;
+        flex: none;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: ${unsafeCSS(NEWS_SIGNAL_COLOR)};
+      }
+
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
-        border-color: #dbdbe5 !important;
-        box-shadow:
-          0 8px 32px rgba(1, 5, 7, 0.1),
-          0 2px 8px rgba(1, 5, 7, 0.06) !important;
+        border: 1px solid #d8d8e8 !important;
+        border-radius: 5px !important;
+        box-shadow: none !important;
       }
 
       /* ── Header drag area ────────────────────────────────────────── */
       .drag-handle {
-        border-bottom-color: #dbdbe5 !important;
-        /* Subtle pale lavender gradient — brand "light, spacious" surface */
-        background: linear-gradient(180deg, #f4f4fd 0%, #ffffff 100%) !important;
+        border-bottom-color: #d8d8e8 !important;
+        background-color: #f7f6fd !important;
       }
 
-      /* Tab strip row: soft off-white, separated from content */
-      .drag-handle > div:last-child {
-        border-top-color: #e2e2ea !important;
-        background-color: #fafafc !important;
+      .inspector-account-strip {
+        background: linear-gradient(
+          90deg,
+          #ffffff 0%,
+          #f3f1ff 58%,
+          #eefbf7 100%
+        ) !important;
+        color: #010507 !important;
       }
 
       /* ── Tab buttons ─────────────────────────────────────────────── */
@@ -7400,7 +7980,7 @@ ${argsString}</pre
         margin: 0 0 14px;
         overflow: hidden;
         border: 1px solid #dbdbe5;
-        border-radius: 8px;
+        border-radius: 10px;
         background:
           linear-gradient(
             135deg,
@@ -7416,9 +7996,9 @@ ${argsString}</pre
         object-fit: cover;
       }
 
-      /* ── Header controls on the dark account strip ──────────────── */
+      /* ── Header controls on the branded account strip ──────────── */
       .drag-handle > div[data-inspector-account-strip] button {
-        color: #afafb7 !important;
+        color: #57575b !important;
         cursor: pointer;
       }
       .drag-handle > div[data-inspector-account-strip] button,
@@ -7428,25 +8008,43 @@ ${argsString}</pre
         outline-offset: 2px;
       }
       .drag-handle > div[data-inspector-account-strip] button:hover {
-        background-color: rgba(255, 255, 255, 0.12) !important;
-        color: #ffffff !important;
+        background-color: rgba(100, 48, 171, 0.09) !important;
+        color: #3f176f !important;
       }
-      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
-        outline-color: #bec2ff !important;
-      }
-      .drag-handle > div[data-inspector-account-strip] button:focus,
       .drag-handle > div[data-inspector-account-strip] button:focus-visible {
         outline: 2px solid #bec2ff !important;
         outline-offset: 2px;
       }
-      .inspector-nav-control:focus,
       .inspector-nav-control:focus-visible,
-      [data-inspector-thread-cta]:focus,
       [data-inspector-thread-cta]:focus-visible,
-      [data-inspector-action-placement="threads-footer"]:focus,
       [data-inspector-action-placement="threads-footer"]:focus-visible {
         outline: 2px solid #6430ab !important;
         outline-offset: 2px;
+      }
+      .inspector-sidebar .inspector-nav-control,
+      .inspector-sidebar .inspector-sidebar-control,
+      .inspector-sidebar .inspector-sidebar-label {
+        display: flex !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        outline-offset: -2px;
+      }
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle {
+        justify-content: center !important;
+        align-items: center !important;
+        gap: 0 !important;
+        padding-inline: 0 !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-label,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-label {
+        display: none !important;
+      }
+      .inspector-sidebar .inspector-nav-control:focus-visible,
+      .inspector-sidebar .inspector-sidebar-label:focus-visible,
+      .inspector-sidebar .inspector-sidebar-toggle:focus-visible {
+        outline-offset: -2px !important;
       }
 
       /* ── Agent/context dropdown ──────────────────────────────────── */
@@ -7467,35 +8065,30 @@ ${argsString}</pre
       }
       [data-context-dropdown-root="true"] > div button:hover,
       [data-context-dropdown-root="true"] > div button:focus {
-        background-color: #f7f7f9 !important;
+        background-color: #eceafa !important;
+        color: #2f1664 !important;
       }
-      [data-inspector-account-strip]
+      .inspector-sidebar
         .inspector-agent-selector
         > [data-context-dropdown-root="true"]
         > button {
-        border-color: rgba(255, 255, 255, 0.28) !important;
-        background-color: transparent !important;
-        color: #e7e7ec !important;
+        border-color: #d8d8e8 !important;
+        background-color: rgba(255, 255, 255, 0.7) !important;
+        color: #010507 !important;
       }
-      [data-inspector-account-strip]
+      .inspector-sidebar
         .inspector-agent-selector
         > [data-context-dropdown-root="true"]
         > button:hover {
-        border-color: rgba(190, 194, 255, 0.7) !important;
-        background-color: rgba(255, 255, 255, 0.08) !important;
+        border-color: #a5a9ee !important;
+        background-color: #ffffff !important;
       }
-      [data-inspector-account-strip]
+      .inspector-sidebar
         .inspector-agent-selector
         > [data-context-dropdown-root="true"]
         > button
         > span:last-child {
-        color: #afafb7 !important;
-      }
-
-      /* ── Status bar (bottom chrome) ──────────────────────────────── */
-      .inspector-window > div > div:last-child {
-        border-top-color: #dbdbe5 !important;
-        background-color: #f7f7f9 !important;
+        color: #68686e !important;
       }
 
       /* ── Resize handle ───────────────────────────────────────────── */
@@ -7635,6 +8228,7 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.accountCtaMotionPaused = document.visibilityState !== "visible";
       this.threadsExampleOverviewVideoReducedMotion =
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
         false;
@@ -7645,6 +8239,10 @@ ${argsString}</pre
         this.handleGlobalPointerDown as EventListener,
       );
       window.addEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.addEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
       const viteHot = (
         import.meta as ImportMeta & {
           hot?: { on: (event: string, handler: () => void) => void };
@@ -7656,7 +8254,13 @@ ${argsString}</pre
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
+      // The superseded, origin-scoped read state is discarded rather than
+      // migrated: every existing user is re-armed exactly once so they
+      // discover the surface that replaced the announcement bubble. Deleting
+      // the key rather than leaving it means nothing can fall back to it.
+      clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
@@ -7667,16 +8271,33 @@ ${argsString}</pre
     ensureBrandFont(document);
   }
 
+  private handleDocumentVisibilityChange = (): void => {
+    this.accountCtaMotionPaused = document.visibilityState !== "visible";
+    if (
+      document.visibilityState === "visible" &&
+      this.newsSignalPulsePending &&
+      !this.isOpen
+    ) {
+      this.startNewsSignalPulse();
+    }
+    this.requestUpdate();
+  };
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
     this.closePopOut();
     if (typeof window !== "undefined") {
+      this.unsubscribeFromSystemColorScheme();
       window.removeEventListener("resize", this.handleResize);
       window.removeEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
       window.removeEventListener("beforeunload", this.handleAppBeforeUnload);
+      document.removeEventListener(
+        "visibilitychange",
+        this.handleDocumentVisibilityChange,
+      );
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -7693,6 +8314,8 @@ ${argsString}</pre
       this.threadsSetupPromptCopyResetTimeoutId = null;
     }
     this.threadsSetupPromptCopyState = "idle";
+    this.stopNewsSignalPulse();
+    this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
     this.detachFromCore();
@@ -7763,20 +8386,30 @@ ${argsString}</pre
 
   protected willUpdate(): void {
     this.reconcileSelectedMenuVisibility();
+    if (this.isOpen && this.dockMode === "docked-left") {
+      this.setAttribute("data-docked", "true");
+    } else {
+      this.removeAttribute("data-docked");
+    }
   }
 
   protected updated(): void {
     this.syncInspectorPortal();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
+    this.maybeTrackNewsSignalViewed();
+    // "Rendered with content" is a property of the finished render, so the
+    // news signal is retired here rather than from a render method.
+    this.maybeCompleteWhatsNewView();
+    this.maybeTrackHomeViewed();
 
-    if (!this.isOpen || this.selectedGroup !== "agents") {
+    if (!this.isOpen) {
       this.lastScrolledAgentNavigationLayout = null;
       return;
     }
 
     const navigation = this.activeRoot.querySelector<HTMLElement>(
-      'nav[aria-label="Agent navigation"]',
+      'nav[aria-label="Inspector"]',
     );
     if (!navigation) {
       return;
@@ -7808,14 +8441,20 @@ ${argsString}</pre
   }
 
   private renderButton() {
+    // `.console-button` owns the launcher dimensions and publishes the same
+    // number as `--cpk-launcher-size` for the signal dot's rim placement.
+    // Tailwind scan tokens retained for generated-sheet stability: ease-in-out
+    // ease-out
     const buttonClasses = [
       "console-button",
       "group",
       "relative",
       "pointer-events-auto",
       "inline-flex",
-      "h-12",
-      "w-12",
+      // Kept as Tailwind scan tokens so the generated sheet stays stable;
+      // the later `.console-button` rule owns the responsive dimensions.
+      "h-9",
+      "w-9",
       "items-center",
       "justify-center",
       "rounded-full",
@@ -7838,21 +8477,31 @@ ${argsString}</pre
       "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
-      this.isDragging ? "cursor-grabbing" : "cursor-grab",
+      this.isDragging ? "cursor-grabbing" : "cursor-pointer",
     ].join(" ");
 
-    // The announcement preview renders as a SIBLING of the floating button (not
-    // a child) so its dismiss affordance can be a real <button>. Nesting any
-    // interactive/tabbable element inside the floating <button> violates the
-    // HTML button content model. The wrapper is position: relative so the
-    // absolutely-positioned preview still anchors to the button's edge.
+    const signalStyles = this.newsSignalArmed
+      ? {
+          "--cpk-launcher-signal": NEWS_SIGNAL_COLOR,
+          "--cpk-launcher-cadence": `${NEWS_SIGNAL_CADENCE_MS}ms`,
+        }
+      : {};
+
     return html`
       <div class="console-button-wrapper">
         <button
           class=${buttonClasses}
           type="button"
           aria-label="Web Inspector"
+          title=${
+            this.newsSignalArmed ? `${WHATS_NEW_VIEW_LABEL} — unread` : nothing
+          }
           data-drag-context="button"
+          data-cpk-signal=${this.newsSignalArmed ? NEWS_SIGNAL_TONE : nothing}
+          data-cpk-signal-pulsing=${
+            this.newsSignalArmed && this.newsSignalPulsing ? "true" : nothing
+          }
+          style=${styleMap(signalStyles)}
           data-dragging=${
             this.isDragging && this.pointerContext === "button"
               ? "true"
@@ -7865,13 +8514,29 @@ ${argsString}</pre
           @click=${this.handleButtonClick}
         >
           <img
-            src=${inspectorLogoIconUrl}
+            src=${inspectorLogoKiteUrl}
             alt="Inspector logo"
-            class="h-5 w-auto"
+            class="cpk-launcher-mark h-6 w-auto"
             loading="lazy"
           />
+          ${
+            // Purely decorative: the button is the target and carries the
+            // hover hint, it keeps its stable accessible name, and the unread
+            // state is announced by the navigation entry, which is where a
+            // keyboard user arrives.
+            this.newsSignalArmed
+              ? html`<span
+                    class="cpk-launcher-signal-wash"
+                    aria-hidden="true"
+                  ></span>
+                  <span
+                    class="cpk-launcher-signal-dot"
+                    data-cpk-signal-dot=${NEWS_SIGNAL_ID}
+                    aria-hidden="true"
+                  ></span>`
+              : nothing
+          }
         </button>
-        ${this.renderAnnouncementPreview()}
       </div>
     `;
   }
@@ -7897,7 +8562,7 @@ ${argsString}</pre
         style=${
           placement === "threads-footer"
             ? ""
-            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:7px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
         }
         @click=${() =>
           this.handleInspectorMetadataActionClick(action, placement)}
@@ -7907,50 +8572,891 @@ ${argsString}</pre
     `;
   }
 
-  private renderInspectorMetadataHeader() {
-    const { identity, plan } = this.inspectorMetadataProjection;
-    if (!identity && !plan) {
+  private renderInspectorSidebar(
+    iconRail: boolean,
+    automaticallyCollapsed: boolean,
+    agentSelector: TemplateResult | typeof nothing,
+  ) {
+    const unread = this.newsSignalArmed && this.announcementLoaded;
+    const homeModel = this.getHomeModel();
+    return html`
+      <aside
+        class="inspector-sidebar"
+        data-icon-rail=${iconRail ? "true" : "false"}
+      >
+        ${
+          iconRail && this.sidebarRailTooltip
+            ? html`
+              <span
+                class="inspector-sidebar-rail-tooltip"
+                role="tooltip"
+                style=${`top: ${this.sidebarRailTooltip.top}px`}
+                >${this.sidebarRailTooltip.label}</span
+              >
+            `
+            : nothing
+        }
+        <div
+          class="inspector-sidebar-agent-scope"
+          data-inspector-sidebar-agent-selector
+        >
+          <div class="inspector-agent-selector">${agentSelector}</div>
+        </div>
+        <nav class="inspector-sidebar-nav" aria-label="Inspector">
+          ${INSPECTOR_NAV_SECTIONS.map(({ group, label }) => {
+            const items = this.getVisibleMenuItemsForGroup(group);
+            if (items.length === 0) {
+              return nothing;
+            }
+            return html`
+              <div
+                class="inspector-sidebar-section"
+                data-inspector-section=${group}
+              >
+                ${
+                  label
+                    ? html`<button
+                      type="button"
+                      class="inspector-sidebar-label"
+                      data-inspector-group=${group}
+                      aria-label=${label}
+                      style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                      @click=${() => this.handleGroupSelect(group)}
+                    >
+                      ${label}
+                    </button>`
+                    : nothing
+                }
+                ${items.map((item) => {
+                  const isSelected = this.selectedMenu === item.key;
+                  const showBadge =
+                    item.key === NEWS_SIGNAL_DESTINATION && unread;
+                  return html`
+                    <button
+                      type="button"
+                      class="inspector-nav-control inspector-sidebar-control ${
+                        isSelected ? "inspector-nav-control-active" : ""
+                      }"
+                      data-inspector-group=${group}
+                      data-inspector-menu-key=${item.key}
+                      aria-current=${isSelected ? "page" : nothing}
+                      aria-label=${
+                        showBadge ? `${item.label}, new content` : item.label
+                      }
+                      data-inspector-tooltip=${item.label}
+                      title=${iconRail ? nothing : item.label}
+                      style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                      @pointerenter=${
+                        iconRail ? this.handleSidebarRailTooltipShow : nothing
+                      }
+                      @pointerleave=${
+                        iconRail ? this.handleSidebarRailTooltipHide : nothing
+                      }
+                      @focus=${
+                        iconRail ? this.handleSidebarRailTooltipShow : nothing
+                      }
+                      @blur=${
+                        iconRail ? this.handleSidebarRailTooltipHide : nothing
+                      }
+                      @click=${() => this.handleMenuSelect(item.key)}
+                    >
+                      <span class="inspector-nav-icon" aria-hidden="true">
+                        ${
+                          item.key === "threads"
+                            ? unsafeHTML(this.customTabIcons.threads)
+                            : this.renderIcon(item.icon)
+                        }
+                      </span>
+                      <span class="inspector-nav-label">${item.label}</span>
+                      ${
+                        showBadge
+                          ? html`
+                              <span class="inspector-nav-signal-dot" aria-hidden="true"></span>
+                            `
+                          : nothing
+                      }
+                    </button>
+                  `;
+                })}
+              </div>
+            `;
+          })}
+        </nav>
+        ${
+          automaticallyCollapsed
+            ? nothing
+            : html`
+              <button
+                type="button"
+                class="inspector-sidebar-toggle"
+                data-inspector-sidebar-toggle
+                aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
+                aria-expanded=${iconRail ? "false" : "true"}
+                data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                title=${iconRail ? nothing : "Collapse sidebar"}
+                style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                @pointerenter=${
+                  iconRail ? this.handleSidebarRailTooltipShow : nothing
+                }
+                @pointerleave=${
+                  iconRail ? this.handleSidebarRailTooltipHide : nothing
+                }
+                @focus=${iconRail ? this.handleSidebarRailTooltipShow : nothing}
+                @blur=${iconRail ? this.handleSidebarRailTooltipHide : nothing}
+                @click=${this.handleSidebarToggle}
+              >
+                <span class="inspector-nav-icon" aria-hidden="true">
+                  ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                </span>
+                <span class="inspector-nav-label"
+                  >${iconRail ? "Expand" : "Collapse"}</span
+                >
+              </button>
+            `
+        }
+        ${
+          iconRail
+            ? nothing
+            : html`
+              <div class="inspector-sidebar-footer">
+                <div class="inspector-sidebar-status-list">
+                  ${this.renderSidebarIntelligenceStatus(homeModel)}
+                </div>
+              </div>
+            `
+        }
+      </aside>
+    `;
+  }
+
+  private renderSidebarIntelligenceStatus(model: HomeModel) {
+    const connected = model.hero.connection === "connected";
+    const organizationName = model.project?.organizationName;
+    const planLabel = model.project?.planLabel;
+    const action = model.hero.action;
+    const renewing = action?.kind === "renew";
+    if (!connected && action) {
+      const stateLabel = renewing
+        ? "Intelligence plan expired"
+        : "Intelligence is off";
+      const setupLabel = renewing
+        ? "Renew to restore access"
+        : "Set up Threads and Memory";
+      return html`
+        <a
+          class="inspector-sidebar-status-card inspector-sidebar-intelligence inspector-sidebar-intelligence-setup"
+          data-inspector-sidebar-intelligence
+          data-inspector-sidebar-intelligence-action=${action.kind}
+          data-state="disconnected"
+          href=${action.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="${action.label} to enable Threads and Memory (opens in a new tab)"
+          title=${action.label}
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+          @click=${() => this.handleHomeHeroCta(action)}
+        >
+          <span class="inspector-sidebar-status-copy">
+            <strong>${stateLabel}</strong>
+            <span>${setupLabel}</span>
+          </span>
+          <span class="inspector-sidebar-setup-arrow" aria-hidden="true">
+            ${this.renderIcon("ArrowUpRight")}
+          </span>
+        </a>
+      `;
+    }
+
+    const primaryLabel = connected
+      ? (organizationName ?? "Intelligence")
+      : "Intelligence unavailable";
+    const secondaryLabel = connected
+      ? planLabel
+        ? `${planLabel} plan`
+        : "Connected"
+      : "Threads and Memory are off";
+    const label = connected
+      ? `${primaryLabel}, ${secondaryLabel}, Intelligence connected`
+      : "Connect Intelligence";
+    const actionLabel = action?.label;
+    const description = connected
+      ? `${secondaryLabel} · Intelligence connected`
+      : "Threads and Memory need Intelligence.";
+    return html`
+      <section
+        class="inspector-sidebar-status-card inspector-sidebar-intelligence"
+        data-inspector-sidebar-intelligence
+        data-state=${connected ? "connected" : "disconnected"}
+        aria-label=${label}
+        title=${description}
+      >
+        <span class="inspector-sidebar-status-copy">
+          <strong>${primaryLabel}</strong>
+          <span>${secondaryLabel}</span>
+        </span>
+        ${
+          action
+            ? html`
+              <a
+                class="inspector-sidebar-status-action"
+                data-inspector-sidebar-intelligence-action=${action.kind}
+                href=${action.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="${actionLabel} (opens in a new tab)"
+                title=${actionLabel}
+                style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                @click=${() => this.handleHomeHeroCta(action)}
+              >
+                <span class="inspector-sidebar-status-action-label"
+                  >${actionLabel}</span
+                >
+                <span aria-hidden="true"
+                  >${this.renderIcon("ArrowUpRight")}</span
+                >
+              </a>
+            `
+            : nothing
+        }
+      </section>
+    `;
+  }
+
+  private handleSidebarToggle = (): void => {
+    this.sidebarRailTooltip = null;
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+    this.persistState();
+    this.requestUpdate();
+  };
+
+  private handleSidebarRailTooltipShow = (event: Event): void => {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const label = target.dataset.inspectorTooltip;
+    const sidebar = target.closest<HTMLElement>(".inspector-sidebar");
+    if (!label || !sidebar) {
+      return;
+    }
+
+    const targetBounds = target.getBoundingClientRect();
+    const sidebarBounds = sidebar.getBoundingClientRect();
+    this.sidebarRailTooltip = {
+      label,
+      top: targetBounds.top - sidebarBounds.top + targetBounds.height / 2,
+    };
+    this.requestUpdate();
+  };
+
+  private handleSidebarRailTooltipHide = (): void => {
+    if (this.sidebarRailTooltip === null) {
+      return;
+    }
+    this.sidebarRailTooltip = null;
+    this.requestUpdate();
+  };
+
+  private handleColorSchemeToggle = (): void => {
+    this.colorScheme = this.colorScheme === "light" ? "dark" : "light";
+    this.hasExplicitColorScheme = true;
+    this.persistState();
+    this.requestUpdate();
+  };
+
+  private getHomeModel(): HomeModel {
+    const lastRuntimeEvent = this.flattenedEvents[0];
+    return buildHomeModel({
+      intelligenceConnected: Boolean(this._core?.intelligence),
+      threadsAvailable: this.areThreadEndpointsAvailable(),
+      metadata: this.inspectorMetadataProjection,
+      runtimeUrl: this._core?.runtimeUrl,
+      runtimeConnectionState: this.getCoreStatusSummary().state,
+      lastRuntimeEvent: lastRuntimeEvent
+        ? {
+            id: lastRuntimeEvent.id,
+            agentId: lastRuntimeEvent.agentId,
+            type: lastRuntimeEvent.type,
+            timestamp: lastRuntimeEvent.timestamp,
+          }
+        : undefined,
+      memoriesOn: this._memoriesAvailable,
+      a2uiOn: this._core?.a2uiEnabled === true,
+      openGenUiOn: this._core?.openGenerativeUIEnabled === true,
+      suggestionsOn: this._core?.suggestions === true,
+      audioOn: this._core?.audioFileTranscriptionEnabled === true,
+      websocketUrl: this._core?.intelligence?.wsUrl,
+      announcementPreviewText: this.announcementPreviewText ?? undefined,
+      announcementMarkdown: this.announcementMarkdown ?? undefined,
+      announcementHtml: this.announcementHtml ?? undefined,
+      intelligenceSignupUrl: this.getIntelligenceSignupUrl(),
+    });
+  }
+
+  private renderHomeView() {
+    const model = this.getHomeModel();
+    const connected = model.hero.connection === "connected";
+    return html`
+      <div
+        class="inspector-home"
+        data-inspector-home
+        data-inspector-home-state=${connected ? "connected" : "disconnected"}
+      >
+        ${this.renderHomeWhatsNewPreview(model.news)}
+        ${this.renderHomeSystemHealth(model)}
+        ${this.renderHomeIntelligenceHud(model)}
+        ${this.renderHomeFeatures(model)}
+      </div>
+    `;
+  }
+
+  private renderHomeWhatsNewPreview(news: HomeModel["news"]) {
+    const unread = this.newsSignalArmed && this.announcementLoaded;
+    if (news.empty || !unread) {
       return nothing;
     }
 
     return html`
-      <div
-        style="display:flex;min-width:0;flex:1 1 220px;flex-wrap:wrap;align-items:center;gap:6px 8px;"
-        role="group"
-        aria-label="Inspector account details"
+      <section
+        class="inspector-whats-new-preview"
+        data-inspector-home-band="news"
+        data-unread="true"
+        role="note"
+        aria-label="New CopilotKit update"
       >
-        ${
-          identity
-            ? html`
-                <div
-                  data-inspector-metadata="identity"
-                  style="display:flex;min-width:0;max-width:100%;align-items:center;gap:6px;color:#e7e7ec;font-size:11px;line-height:1.3;"
-                  title="${identity.organizationName} / ${identity.projectName}"
-                >
-                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                    >${identity.organizationName}</span
+        <button
+          type="button"
+          class="inspector-whats-new-preview-body"
+          data-inspector-whats-new-preview
+          aria-label="Open What's New"
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+          @click=${() => this.handleMenuSelect(WHATS_NEW_MENU_KEY)}
+        >
+          <span class="inspector-whats-new-preview-copy">
+            <span class="inspector-whats-new-preview-title">
+              <span class="inspector-home-story-unread">New</span>
+              <strong>${news.title}</strong>
+            </span>
+            <span>${news.previewText}</span>
+          </span>
+          <span class="inspector-whats-new-preview-action">
+            View update ${this.renderIcon("ArrowRight")}
+          </span>
+        </button>
+      </section>
+    `;
+  }
+
+  private renderWhatsNewView() {
+    const state = this.getWhatsNewState();
+    const news = this.getHomeModel().news;
+    const updatedAt = this.announcementTimestamp
+      ? new Date(this.announcementTimestamp)
+      : null;
+    const updatedLabel =
+      updatedAt && !Number.isNaN(updatedAt.getTime())
+        ? new Intl.DateTimeFormat(undefined, {
+            month: "long",
+            day: "numeric",
+            year: "numeric",
+          }).format(updatedAt)
+        : null;
+    return html`
+      <div
+        class="inspector-home inspector-whats-new"
+        data-inspector-whats-new
+        data-cpk-whats-new
+        data-cpk-whats-new-state=${state}
+      >
+        <header class="inspector-whats-new-header">
+          <h1 class="inspector-home-title">What's New</h1>
+          ${
+            updatedLabel
+              ? html`
+                <p class="inspector-whats-new-updated">
+                  Updated
+                  <time datetime=${updatedAt?.toISOString()}
+                    >${updatedLabel}</time
                   >
-                  <span aria-hidden="true" style="color:#68686e;">/</span>
-                  <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                    >${identity.projectName}</span
+                </p>
+              `
+              : nothing
+          }
+        </header>
+        <section class="inspector-home-news" aria-label="CopilotKit updates">
+          ${
+            news.empty || !news.documentHtml
+              ? html`
+                <article class="inspector-whats-new-empty">
+                  <h2 class="inspector-home-card-title">${news.title}</h2>
+                  <p class="inspector-home-card-copy">${news.previewText}</p>
+                </article>
+              `
+              : html`
+                <article class="inspector-whats-new-document">
+                  <div
+                    class="announcement-content"
+                    @click=${this.handleAnnouncementContentClick}
                   >
-                </div>
+                    ${unsafeHTML(news.documentHtml)}
+                  </div>
+                </article>
               `
-            : nothing
-        }
-        ${
-          plan
-            ? html`
-                <span
-                  data-inspector-metadata="plan"
-                  style="display:inline-flex;min-height:22px;align-items:center;border:1px solid rgba(133,236,206,0.5);border-radius:4px;background:rgba(133,236,206,0.14);padding:2px 7px;color:#85ecce;font-size:10px;font-weight:600;line-height:1.2;white-space:nowrap;"
-                  >${plan.label}</span
-                >
-              `
-            : nothing
-        }
+          }
+        </section>
       </div>
     `;
+  }
+
+  private renderHomeIntelligenceHud(model: HomeModel) {
+    const project = model.project;
+    const connected = model.hero.connection === "connected";
+    const action = model.hero.action;
+    const renewing = action?.kind === "renew";
+    return html`
+      <section
+        class="inspector-home-section inspector-intelligence-hud"
+        data-inspector-home-card="intelligence"
+        data-state=${connected ? "connected" : "disconnected"}
+        aria-label="Intelligence ${
+          connected ? "connected" : renewing ? "plan expired" : "not enabled"
+        }"
+      >
+        <header class="inspector-intelligence-hud-header">
+          <div class="inspector-intelligence-hud-heading">
+            <h2 class="inspector-home-section-title">
+              ${connected ? "Intelligence" : model.hero.title}
+            </h2>
+            ${
+              connected
+                ? nothing
+                : html`
+                  <p class="inspector-intelligence-hud-description">
+                    ${model.hero.body}
+                  </p>
+                `
+            }
+          </div>
+          <div class="inspector-intelligence-hud-header-actions">
+            ${
+              connected || renewing
+                ? html`
+                  <span
+                    class="inspector-intelligence-hud-state"
+                    data-tone=${connected ? "success" : "checking"}
+                  >
+                    <span aria-hidden="true"></span>
+                    ${connected ? "Connected" : "Plan expired"}
+                  </span>
+                `
+                : nothing
+            }
+            ${
+              !connected && action
+                ? html`
+                  <a
+                    class="inspector-intelligence-hud-action inspector-intelligence-hud-connect-action"
+                    data-inspector-home-intelligence-action=${action.kind}
+                    href=${action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="${action.label} (opens in a new tab)"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleHomeHeroCta(action)}
+                  >
+                    ${action.label} ${this.renderIcon("ArrowUpRight")}
+                  </a>
+                `
+                : nothing
+            }
+          </div>
+        </header>
+
+        ${
+          connected
+            ? html`
+              <div
+                class="inspector-intelligence-hud-details"
+                role="group"
+                aria-label="Intelligence account details"
+              >
+                <section
+                  class="inspector-intelligence-hud-project"
+                  data-inspector-metadata=${
+                    model.projectLinked && project ? "identity" : nothing
+                  }
+                  aria-label=${
+                    model.projectLinked && project
+                      ? "Inspector account details"
+                      : nothing
+                  }
+                >
+                  <span class="inspector-intelligence-hud-detail-label">
+                    Project
+                  </span>
+                  <strong class="inspector-intelligence-hud-detail-value">
+                    ${
+                      model.projectLinked && project
+                        ? html`<span>${project.projectName}</span>`
+                        : "Not linked"
+                    }
+                  </strong>
+                  ${
+                    model.projectLinked && project
+                      ? html`
+                        <span
+                          class="inspector-intelligence-hud-detail-subvalue"
+                        >
+                          ${project.organizationName}
+                        </span>
+                      `
+                      : nothing
+                  }
+                </section>
+                <section class="inspector-intelligence-hud-plan">
+                  <div class="inspector-intelligence-hud-plan-summary">
+                    <span class="inspector-intelligence-hud-detail-label">
+                      Plan
+                    </span>
+                    <strong class="inspector-intelligence-hud-detail-value">
+                      ${
+                        project?.planLabel
+                          ? html`
+                            <span data-inspector-metadata="plan">
+                              ${project.planLabel}
+                            </span>
+                          `
+                          : "No plan"
+                      }
+                    </strong>
+                    ${
+                      project
+                        ? html`
+                          <span
+                            class="inspector-intelligence-hud-detail-subvalue"
+                          >
+                            License ${project.license}
+                          </span>
+                        `
+                        : nothing
+                    }
+                    ${
+                      action
+                        ? html`
+                          <a
+                            class="inspector-intelligence-hud-action inspector-intelligence-hud-plan-action"
+                            data-inspector-home-intelligence-action=${action.kind}
+                            href=${action.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="${action.label} (opens in a new tab)"
+                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                            @click=${() => this.handleHomeHeroCta(action)}
+                          >
+                            ${action.label} ${this.renderIcon("ArrowUpRight")}
+                          </a>
+                        `
+                        : nothing
+                    }
+                  </div>
+                  <div
+                    class="inspector-intelligence-hud-usage"
+                    role="group"
+                    aria-label="Threads usage"
+                  >
+                    <span class="inspector-intelligence-hud-detail-label">
+                      Threads usage
+                    </span>
+                    <strong class="inspector-intelligence-hud-detail-value">
+                      ${project?.usage?.limitLabel ?? "Unavailable"}
+                    </strong>
+                    ${
+                      project?.usage?.ratio !== undefined
+                        ? html`<span
+                          class="inspector-home-usage-bar"
+                          aria-hidden="true"
+                          ><span
+                            style="width:${Math.min(
+                              100,
+                              Math.round(project.usage.ratio * 100),
+                            )}%"
+                          ></span
+                        ></span>`
+                        : nothing
+                    }
+                  </div>
+                </section>
+              </div>
+            `
+            : nothing
+        }
+      </section>
+    `;
+  }
+
+  private renderHomeSystemHealth(model: HomeModel) {
+    const runtime = model.runtime;
+    const health = runtime.health;
+    const runtimeDetail = runtime.url ?? "Runtime URL not configured";
+    const connectionDetail =
+      health.liveUpdates.tone === "success"
+        ? "New events will appear here."
+        : health.lastEvent.timestamp !== undefined
+          ? `Last activity at ${formatTimestamp(health.lastEvent.timestamp)}`
+          : "Waiting for a connection";
+    const signals: Array<{
+      id: "runtime" | "connection" | "last-event";
+      label: string;
+      value: string;
+      detail: string;
+      tone: HomeRuntimeHealthTone;
+      eventId?: string;
+      agentId?: string;
+    }> = [
+      {
+        id: "runtime",
+        label: "Runtime",
+        value: health.runtime.label,
+        detail: runtimeDetail,
+        tone: health.runtime.tone,
+      },
+      {
+        id: "connection",
+        label: "Live updates",
+        value: health.liveUpdates.label,
+        detail: connectionDetail,
+        tone: health.liveUpdates.tone,
+      },
+      {
+        id: "last-event",
+        label: "Recent activity",
+        value: health.lastEvent.type ?? health.lastEvent.label,
+        detail:
+          health.lastEvent.timestamp !== undefined
+            ? formatRelativeTimestamp(health.lastEvent.timestamp)
+            : "Waiting for an agent to run.",
+        tone: health.lastEvent.tone,
+        eventId: health.lastEvent.id,
+        agentId: health.lastEvent.agentId,
+      },
+    ];
+    return html`
+      <section
+        class="inspector-home-section inspector-system-health-section"
+        data-inspector-home-band="health"
+      >
+        <header
+          class="inspector-home-section-header inspector-system-health-header"
+        >
+          <div class="inspector-system-health-heading">
+            <h1 class="inspector-home-section-title">System Health</h1>
+          </div>
+          <span
+            class="inspector-system-health-state"
+            data-tone=${health.state === "healthy" ? "success" : health.state}
+          >
+            <span aria-hidden="true"></span>
+            ${health.label}
+          </span>
+        </header>
+        <dl
+          class="inspector-system-health"
+          aria-label="System Health"
+          data-inspector-home-card="runtime"
+          data-health-state=${health.state}
+        >
+          ${signals.map(
+            (signal) => html`
+              <div
+                class="inspector-system-health-signal"
+                data-runtime-health-signal=${signal.id}
+                data-tone=${signal.tone}
+              >
+                <span class="inspector-system-health-copy">
+                  <dt>${signal.label}</dt>
+                  <dd title=${signal.value}>
+                    ${
+                      signal.eventId
+                        ? html`
+                          <button
+                            type="button"
+                            class="inspector-system-health-event-link"
+                            aria-label="View ${signal.value.toLowerCase()} in AG-UI Events"
+                            @click=${() => {
+                              if (signal.eventId) {
+                                this.handleHomeLastEventSelect(
+                                  signal.eventId,
+                                  signal.agentId,
+                                );
+                              }
+                            }}
+                          >
+                            <span class="inspector-system-health-event-type"
+                              >${signal.value}</span
+                            >
+                            <small class="inspector-system-health-event-meta">
+                              <span>${signal.detail}</span>
+                              <strong>View event</strong>
+                            </small>
+                          </button>
+                        `
+                        : signal.value
+                    }
+                  </dd>
+                  ${
+                    signal.eventId
+                      ? null
+                      : signal.id === "runtime"
+                        ? html`
+                          <small
+                            class="inspector-system-health-url"
+                            data-full-value=${runtime.url ?? signal.detail}
+                            aria-label=${signal.detail}
+                            title=${signal.detail}
+                            tabindex="0"
+                          >
+                            <span>${signal.detail}</span>
+                          </small>
+                        `
+                        : html`<small
+                          class="inspector-system-health-detail"
+                          title=${signal.detail}
+                          >${signal.detail}</small
+                        >`
+                  }
+                </span>
+              </div>
+            `,
+          )}
+        </dl>
+      </section>
+    `;
+  }
+
+  private handleHomeLastEventSelect(eventId: string, agentId?: string): void {
+    this.eventFilterText = "";
+    this.eventTypeFilter = "all";
+    this.selectedContext =
+      agentId && this.contextOptions.some((option) => option.key === agentId)
+        ? agentId
+        : "all-agents";
+    this.expandedRows.clear();
+    this.expandedRows.add(eventId);
+    this.handleMenuSelect("ag-ui-events");
+
+    void this.updateComplete.then(() => {
+      const row = Array.from(
+        this.activeRoot.querySelectorAll<HTMLElement>(
+          "[data-inspector-event-id]",
+        ),
+      ).find((candidate) => candidate.dataset.inspectorEventId === eventId);
+      row?.scrollIntoView?.({ block: "center" });
+    });
+  }
+
+  private renderHomeFeatures(model: HomeModel) {
+    const enabledServices = model.services.filter((service) => service.enabled);
+    const disabledServices = model.services.filter(
+      (service) => !service.enabled,
+    );
+    const renderService = (service: HomeModel["services"][number]) => html`
+      <a
+        class="inspector-home-feature"
+        data-inspector-service=${service.id}
+        data-state=${service.enabled ? "on" : "off"}
+        href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Learn more about ${service.label}, currently ${
+          service.enabled ? "on" : "off"
+        }"
+      >
+        <span>${service.label}</span>
+        <small>${service.enabled ? "On" : "Off"}</small>
+        <span class="inspector-home-feature-arrow" aria-hidden="true">
+          ${this.renderIcon("ArrowUpRight")}
+        </span>
+      </a>
+    `;
+    return html`
+      <section
+        class="inspector-home-section inspector-home-features"
+        data-inspector-home-card="services"
+      >
+        <header class="inspector-home-section-header">
+          <h2 class="inspector-home-section-title">Features</h2>
+          <span>
+            ${enabledServices.length} active, ${disabledServices.length} off
+          </span>
+        </header>
+        ${
+          model.services.length === 0
+            ? html`
+                <p class="inspector-home-features-empty">
+                  Feature availability is unavailable for this runtime.
+                </p>
+              `
+            : html`
+              <div class="inspector-home-feature-groups">
+                <section
+                  class="inspector-home-feature-group"
+                  data-feature-state-group="active"
+                  aria-label="Active features"
+                >
+                  <header class="inspector-home-feature-group-header">
+                    <strong>Active</strong>
+                    <span>${enabledServices.length}</span>
+                  </header>
+                  <div class="inspector-home-feature-list">
+                    ${
+                      enabledServices.length > 0
+                        ? enabledServices.map(renderService)
+                        : html`
+                            <p class="inspector-home-feature-group-empty">None enabled</p>
+                          `
+                    }
+                  </div>
+                </section>
+                <section
+                  class="inspector-home-feature-group"
+                  data-feature-state-group="available"
+                  aria-label="Available features"
+                >
+                  <header class="inspector-home-feature-group-header">
+                    <strong>Available</strong>
+                    <span>${disabledServices.length}</span>
+                  </header>
+                  <div class="inspector-home-feature-list">
+                    ${
+                      disabledServices.length > 0
+                        ? disabledServices.map(renderService)
+                        : html`
+                            <p class="inspector-home-feature-group-empty">Everything is active</p>
+                          `
+                    }
+                  </div>
+                </section>
+              </div>
+            `
+        }
+      </section>
+    `;
+  }
+
+  private handleHomeHeroCta(action: HomeHeroAction): void {
+    if (this.core?.telemetryDisabled) return;
+    trackHomeCtaClicked({ action_kind: action.kind });
+  }
+
+  private maybeTrackHomeViewed(): void {
+    if (this.selectedMenu !== "home" || this.settingsOpen || !this.isOpen) {
+      return;
+    }
+    if (!this.homeViewedThisOpen && !this.core?.telemetryDisabled) {
+      this.homeViewedThisOpen = true;
+      trackHomeViewed();
+    }
   }
 
   private renderWindow() {
@@ -7984,10 +9490,19 @@ ${argsString}</pre
     const hasContextDropdown = this.contextOptions.some(
       (option) => option.key !== "all-agents",
     );
+    const viewportWidth = isPoppedOut
+      ? (this.popOut?.win.innerWidth ?? windowState.size.width)
+      : typeof window === "undefined"
+        ? windowState.size.width
+        : window.innerWidth;
+    const automaticallyCollapsed = shouldUseIconRail({
+      dockedLeft: this.dockMode === "docked-left",
+      width: viewportWidth,
+    });
+    const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
     const contextDropdown = hasContextDropdown
-      ? this.renderContextDropdown()
+      ? this.renderContextDropdown(iconRail)
       : nothing;
-    const coreStatus = this.getCoreStatusSummary();
     const agentSelector = hasContextDropdown
       ? contextDropdown
       : html`
@@ -8005,12 +9520,14 @@ ${argsString}</pre
         style=${styleMap(windowStyles)}
         data-docked=${isDocked}
         data-transitioning=${isTransitioning}
+        data-color-scheme=${this.colorScheme}
       >
         ${
           isDocked && !isPoppedOut
             ? html`
               <div
                 class="dock-resize-handle pointer-events-auto"
+                data-resize-edge="e"
                 role="presentation"
                 aria-hidden="true"
                 @pointerdown=${this.handleResizePointerDown}
@@ -8039,43 +9556,74 @@ ${argsString}</pre
             @pointercancel=${disableDrag ? undefined : this.handlePointerCancel}
           >
             <div
-              class="inspector-account-strip flex flex-wrap items-center gap-3 px-4 py-3"
+              class="inspector-account-strip flex flex-wrap items-center gap-3 px-3 py-2"
               data-inspector-account-strip
-              style="width:100%;min-width:0;background-color:#010507;color:#ffffff;"
+              style="width:100%;min-width:0;color:#010507;"
             >
-              <div class="flex items-center min-w-0">
+              <div class="inspector-account-brand flex items-center min-w-0">
                 <img
                   src=${inspectorLogoUrl}
-                  alt="Inspector logo"
+                  alt="CopilotKit"
                   class="inspector-account-logo h-6 w-auto"
                   loading="lazy"
                 />
+                <img
+                  src=${inspectorLogoUrl}
+                  alt=""
+                  aria-hidden="true"
+                  class="inspector-account-logo-accent h-6 w-auto"
+                  loading="lazy"
+                />
               </div>
-              ${this.renderInspectorMetadataHeader()}
               <div class="ml-auto flex min-w-0 items-center gap-2">
-                <div class="inspector-agent-selector min-w-[160px] max-w-xs">
-                  ${agentSelector}
-                </div>
-                <div class="flex items-center gap-1">
-                  ${
-                    isPoppedOut
-                      ? nothing
-                      : html`
-                          ${this.renderDockControls()}
-                          <button
-                            class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                            type="button"
-                            aria-label="Detach Inspector into its own window"
-                            title="Detach into its own window"
-                            data-testid="cpk-inspector-pop-out"
-                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                            .click=${this.requestPopOut}
-                            @click=${this.requestPopOut}
-                          >
-                            ${this.renderIcon("PictureInPicture2")}
-                          </button>
-                        `
+                <a
+                  class="inspector-account-cta"
+                  data-inspector-thread-cta
+                  data-motion-paused=${
+                    this.accountCtaMotionPaused ? "true" : "false"
                   }
+                  href=${this.getThreadsTalkToEngineerUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Talk to an Engineer (opens in a new tab)"
+                  title="Talk to an Engineer"
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @click=${this.handleTalkToEngineerClick}
+                >
+                  <span aria-hidden="true"
+                    >${this.renderIcon("MessageCircle")}</span
+                  >
+                  <span class="inspector-account-cta-label"
+                    >Talk to an Engineer</span
+                  >
+                </a>
+                <div class="flex items-center gap-1">
+                  ${isPoppedOut ? nothing : this.renderWindowLayoutMenu()}
+                  <button
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                    type="button"
+                    aria-label=${
+                      this.colorScheme === "light"
+                        ? "Switch to dark mode"
+                        : "Switch to light mode"
+                    }
+                    aria-pressed=${this.colorScheme === "dark"}
+                    title=${
+                      this.colorScheme === "light" ? "Dark mode" : "Light mode"
+                    }
+                    data-inspector-theme-toggle
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${this.handleColorSchemeToggle}
+                  >
+                    <span
+                      class="inspector-account-control-icon"
+                      aria-hidden="true"
+                    >
+                      ${this.renderIcon(
+                        this.colorScheme === "light" ? "Moon" : "Sun",
+                      )}
+                    </span>
+                  </button>
                   <button
                     class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
                       this.settingsOpen
@@ -8089,7 +9637,10 @@ ${argsString}</pre
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${this.handleSettingsToggle}
                   >
-                    <span class="inspector-account-control-icon" aria-hidden="true">
+                    <span
+                      class="inspector-account-control-icon"
+                      aria-hidden="true"
+                    >
                       ${this.renderIcon("Settings")}
                     </span>
                   </button>
@@ -8097,133 +9648,32 @@ ${argsString}</pre
                     isPoppedOut
                       ? nothing
                       : html`
-                          <button
-                            class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                            type="button"
-                            aria-label="Close Web Inspector"
-                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                            @pointerdown=${this.handleClosePointerDown}
-                            @click=${this.handleCloseClick}
-                          >
-                            ${this.renderIcon("X")}
-                          </button>
-                        `
+                        <button
+                          class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                          type="button"
+                          aria-label="Close Web Inspector"
+                          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                          @pointerdown=${this.handleClosePointerDown}
+                          @click=${this.handleCloseClick}
+                        >
+                          ${this.renderIcon("X")}
+                        </button>
+                      `
                   }
                 </div>
               </div>
             </div>
-            <nav
-              class="inspector-primary-navigation"
-              aria-label="Inspector primary navigation"
-              style="overflow-x:auto;overflow-y:hidden;cursor:default;"
-            >
-              ${INSPECTOR_PRIMARY_NAVIGATION.map(({ key, label, icon }) => {
-                const isSelected = this.selectedGroup === key;
-                const legacyMenuKey =
-                  key === "threads"
-                    ? "threads"
-                    : key === "learning"
-                      ? "memories"
-                      : undefined;
-
-                return html`
-                  <button
-                    type="button"
-                    class="inspector-nav-control inspector-primary-control ${
-                      isSelected ? "inspector-nav-control-active" : ""
-                    }"
-                    data-inspector-group=${key}
-                    data-inspector-menu-key=${legacyMenuKey ?? nothing}
-                    aria-current=${isSelected ? "page" : nothing}
-                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                    @click=${() => this.handleGroupSelect(key)}
-                  >
-                    <span class="inspector-nav-icon" aria-hidden="true">
-                      ${
-                        key === "threads"
-                          ? unsafeHTML(this.customTabIcons.threads)
-                          : this.renderIcon(icon)
-                      }
-                    </span>
-                    <span>${label}</span>
-                  </button>
-                `;
-              })}
-              ${
-                this.selectedGroup === "threads"
-                  ? html`
-                      <a
-                        data-inspector-thread-cta
-                        href=${this.getThreadsTalkToEngineerUrl()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label="Talk to an Engineer (opens in a new tab)"
-                        style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                        @click=${this.handleTalkToEngineerClick}
-                      >
-                        Talk to an Engineer
-                      </a>
-                    `
-                  : nothing
-              }
-            </nav>
-            ${
-              this.selectedGroup === "agents"
-                ? html`
-                    <nav
-                      class="inspector-child-navigation"
-                      aria-label="Agent navigation"
-                      style="overflow-x:auto;overflow-y:hidden;white-space:nowrap;cursor:default;"
-                    >
-                      ${this.getVisibleMenuItemsForGroup("agents").map(
-                        ({ key, label, icon }) => {
-                          const isSelected = this.selectedMenu === key;
-                          return html`
-                            <button
-                              type="button"
-                              class="inspector-nav-control inspector-child-control ${
-                                isSelected ? "inspector-nav-control-active" : ""
-                              }"
-                              data-inspector-menu-key=${key}
-                              aria-current=${isSelected ? "page" : nothing}
-                              style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                              @click=${() => this.handleMenuSelect(key)}
-                            >
-                              <span
-                                class="inspector-nav-icon"
-                                aria-hidden="true"
-                                >${this.renderIcon(icon)}</span
-                              >
-                              <span>${label}</span>
-                            </button>
-                          `;
-                        },
-                      )}
-                    </nav>
-                  `
-                : nothing
-            }
           </div>
-          <div class="flex flex-1 flex-col overflow-hidden">
-            <div id="cpk-main-scroll" class="flex-1 overflow-auto">
-              ${this.renderAnnouncementBanner()}
-              ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
-              <slot></slot>
-            </div>
-            <div class="border-t border-gray-200 bg-gray-50 px-4 py-2">
-              <div
-                class="flex items-center gap-2 rounded-md px-3 py-2 text-xs ${coreStatus.tone} w-full overflow-hidden my-1"
-                title=${coreStatus.description}
-              >
-                <span
-                  class="flex h-6 w-6 items-center justify-center rounded bg-white/60"
-                >
-                  ${this.renderIcon("Activity")}
-                </span>
-                <span class="font-medium">${coreStatus.label}</span>
-                <span class="truncate text-[11px] opacity-80"
-                  >${coreStatus.description}</span
-                >
+          <div class="inspector-shell">
+            ${this.renderInspectorSidebar(
+              iconRail,
+              automaticallyCollapsed,
+              agentSelector,
+            )}
+            <div class="inspector-main">
+              <div id="cpk-main-scroll" class="flex-1 overflow-auto">
+                ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
+                <slot></slot>
               </div>
             </div>
           </div>
@@ -8232,28 +9682,75 @@ ${argsString}</pre
           isPoppedOut
             ? nothing
             : html`
-                <div
-                  class="resize-handle pointer-events-auto absolute bottom-1 right-1 flex h-5 w-5 cursor-nwse-resize items-center justify-center text-gray-400 transition hover:text-gray-600"
-                  role="presentation"
-                  aria-hidden="true"
-                  @pointerdown=${this.handleResizePointerDown}
-                  @pointermove=${this.handleResizePointerMove}
-                  @pointerup=${this.handleResizePointerUp}
-                  @pointercancel=${this.handleResizePointerCancel}
+              ${
+                isDocked
+                  ? nothing
+                  : html`
+                    <div
+                      class="edge-resize-handle edge-resize-handle-w pointer-events-auto"
+                      data-resize-edge="w"
+                      role="presentation"
+                      aria-hidden="true"
+                      @pointerdown=${this.handleResizePointerDown}
+                      @pointermove=${this.handleResizePointerMove}
+                      @pointerup=${this.handleResizePointerUp}
+                      @pointercancel=${this.handleResizePointerCancel}
+                    ></div>
+                    <div
+                      class="edge-resize-handle edge-resize-handle-e pointer-events-auto"
+                      data-resize-edge="e"
+                      role="presentation"
+                      aria-hidden="true"
+                      @pointerdown=${this.handleResizePointerDown}
+                      @pointermove=${this.handleResizePointerMove}
+                      @pointerup=${this.handleResizePointerUp}
+                      @pointercancel=${this.handleResizePointerCancel}
+                    ></div>
+                    <div
+                      class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
+                      data-resize-edge="s"
+                      role="presentation"
+                      aria-hidden="true"
+                      @pointerdown=${this.handleResizePointerDown}
+                      @pointermove=${this.handleResizePointerMove}
+                      @pointerup=${this.handleResizePointerUp}
+                      @pointercancel=${this.handleResizePointerCancel}
+                    ></div>
+                    <div
+                      class="resize-handle pointer-events-auto absolute bottom-0 left-0 flex h-7 w-7 cursor-nesw-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
+                      data-resize-edge="sw"
+                      role="presentation"
+                      aria-hidden="true"
+                      @pointerdown=${this.handleResizePointerDown}
+                      @pointermove=${this.handleResizePointerMove}
+                      @pointerup=${this.handleResizePointerUp}
+                      @pointercancel=${this.handleResizePointerCancel}
+                    ></div>
+                  `
+              }
+              <div
+                class="resize-handle pointer-events-auto absolute bottom-0 right-0 flex h-7 w-7 cursor-nwse-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
+                data-resize-edge="se"
+                role="presentation"
+                aria-hidden="true"
+                @pointerdown=${this.handleResizePointerDown}
+                @pointermove=${this.handleResizePointerMove}
+                @pointerup=${this.handleResizePointerUp}
+                @pointercancel=${this.handleResizePointerCancel}
+              >
+                <svg
+                  class="h-3 w-3"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.5"
                 >
-                  <svg
-                    class="h-3 w-3"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-width="1.5"
-                  >
-                    <path d="M5 15L15 5" />
-                    <path d="M9 15L15 9" />
-                  </svg>
-                </div>
-              `
+                  <path d="M5 15L15 5" />
+                  <path d="M9 15L15 9" />
+                </svg>
+              </div>
+            `
         }
       </section>
     `;
@@ -8265,6 +9762,7 @@ ${argsString}</pre
     }
 
     const persisted = loadInspectorState(INSPECTOR_STORAGE_KEY);
+    this.hydrateColorSchemePreference(persisted);
     if (!persisted) {
       return;
     }
@@ -8279,8 +9777,16 @@ ${argsString}</pre
       this.dockMode = persisted.dockMode;
     }
 
-    this.restorePersistedMenu(persisted.selectedMenu);
-
+    this.restorePersistedMenu(
+      persisted.selectedMenu,
+      persisted.hasOpenedInspector === true,
+    );
+    if (this.isOpen) {
+      this.hasOpenedInspector = true;
+    }
+    if (typeof persisted.sidebarCollapsed === "boolean") {
+      this.sidebarCollapsed = persisted.sidebarCollapsed;
+    }
     // Restore selected context (agent), will be validated later against available agents
     if (typeof persisted.selectedContext === "string") {
       this.selectedContext = persisted.selectedContext;
@@ -8294,11 +9800,18 @@ ${argsString}</pre
     }
 
     const persisted = loadInspectorState(INSPECTOR_STORAGE_KEY);
+    this.hydrateColorSchemePreference(persisted);
     if (!persisted) {
       return;
     }
 
-    this.restorePersistedMenu(persisted.selectedMenu);
+    this.restorePersistedMenu(
+      persisted.selectedMenu,
+      persisted.hasOpenedInspector === true,
+    );
+    if (this.isOpen) {
+      this.hasOpenedInspector = true;
+    }
 
     const persistedButton = persisted.button;
     if (persistedButton) {
@@ -8341,29 +9854,101 @@ ${argsString}</pre
       this.selectedContext = persisted.selectedContext;
       this.pendingSelectedContext = persisted.selectedContext;
     }
+    if (typeof persisted.sidebarCollapsed === "boolean") {
+      this.sidebarCollapsed = persisted.sidebarCollapsed;
+    }
   }
 
-  /** Restore a visible legacy leaf, or use Threads for stale state. */
-  private restorePersistedMenu(value: unknown): void {
-    this.selectedMenu = "threads";
-    this.lastSelectedMenuByGroup.threads = "threads";
-    this.pendingPersistedMenu = null;
-
-    if (!isInspectorMenuKey(value)) {
+  /** Follow the OS preference until a person deliberately picks a theme. */
+  private hydrateColorSchemePreference(persisted: PersistedState | null): void {
+    const preference = persisted?.colorSchemePreference;
+    if (preference === "light" || preference === "dark") {
+      this.hasExplicitColorScheme = true;
+      this.colorScheme = preference;
       return;
     }
 
-    const validMenu = this.menuItems.find((item) => item.key === value);
-    if (!validMenu) {
-      if (!this.hasResolvedCore) {
-        this.pendingPersistedMenu = value;
+    this.hasExplicitColorScheme = false;
+    this.colorScheme = this.getSystemColorScheme();
+  }
+
+  private getSystemColorScheme(): InspectorColorScheme {
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  }
+
+  private readonly handleSystemColorSchemeChange = (
+    event: MediaQueryListEvent,
+  ): void => {
+    if (this.hasExplicitColorScheme) {
+      return;
+    }
+    this.colorScheme = event.matches ? "dark" : "light";
+    this.requestUpdate();
+  };
+
+  private subscribeToSystemColorScheme(): void {
+    const mediaQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!mediaQuery || mediaQuery === this.systemColorSchemeMediaQuery) {
+      return;
+    }
+
+    this.unsubscribeFromSystemColorScheme();
+    this.systemColorSchemeMediaQuery = mediaQuery;
+    mediaQuery.addEventListener?.("change", this.handleSystemColorSchemeChange);
+  }
+
+  private unsubscribeFromSystemColorScheme(): void {
+    this.systemColorSchemeMediaQuery?.removeEventListener?.(
+      "change",
+      this.handleSystemColorSchemeChange,
+    );
+    this.systemColorSchemeMediaQuery = null;
+  }
+
+  /** Restore a visible leaf, or open Home for first install and stale state. */
+  private restorePersistedMenu(
+    value: unknown,
+    hasOpenedInspector = this.hasOpenedInspector,
+  ): void {
+    this.hasOpenedInspector = hasOpenedInspector;
+    this.pendingPersistedMenu = null;
+    this.briefingRestoreMenu = null;
+
+    const storedMenu = isInspectorMenuKey(value) ? value : null;
+    const visibleMenu =
+      storedMenu && this.menuItems.some((item) => item.key === storedMenu)
+        ? storedMenu
+        : null;
+
+    this.selectedMenu = "home";
+    this.lastSelectedMenuByGroup.home = "home";
+
+    if (!hasOpenedInspector) {
+      if (visibleMenu && visibleMenu !== "home") {
+        this.briefingRestoreMenu = visibleMenu;
+        this.lastSelectedMenuByGroup[getGroupForMenu(visibleMenu)] =
+          visibleMenu;
+      } else if (storedMenu && !visibleMenu && !this.hasResolvedCore) {
+        this.pendingPersistedMenu = storedMenu;
       }
       return;
     }
 
-    this.selectedMenu = validMenu.key;
-    this.lastSelectedMenuByGroup[this.getGroupForMenu(validMenu.key)] =
-      validMenu.key;
+    if (!storedMenu) {
+      return;
+    }
+
+    if (!visibleMenu) {
+      if (!this.hasResolvedCore) {
+        this.pendingPersistedMenu = storedMenu;
+      }
+      return;
+    }
+
+    this.selectedMenu = visibleMenu;
+    this.lastSelectedMenuByGroup[getGroupForMenu(visibleMenu)] = visibleMenu;
   }
 
   /** Resolve a valid stored leaf after the first Core exposes its sources. */
@@ -8374,7 +9959,7 @@ ${argsString}</pre
     }
 
     this.pendingPersistedMenu = null;
-    this.restorePersistedMenu(pendingMenu);
+    this.restorePersistedMenu(pendingMenu, this.hasOpenedInspector);
     this.persistState();
   }
 
@@ -8479,6 +10064,8 @@ ${argsString}</pre
       !this.isOpen &&
       !this.draggedDuringInteraction
     ) {
+      // Pointer events fire before `click`, so a mouse press opens from here
+      // and never reaches handleButtonClick. Both paths must behave the same.
       this.openInspector("floating_button");
     }
 
@@ -8512,6 +10099,8 @@ ${argsString}</pre
 
     if (!this.isOpen) {
       event.preventDefault();
+      // Reached by keyboard activation, which fires `click` with no pointer
+      // events. A mouse press has already opened from handlePointerUp.
       this.openInspector("floating_button");
     }
   };
@@ -8557,9 +10146,26 @@ ${argsString}</pre
 
   // Also bound as button.click so a blocked popup throws out of element.click().
   // jsdom swallows errors from click event listeners.
+  private getRenderedInspectorWindowSize(): Size {
+    const inspectorWindow =
+      this.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
+    if (inspectorWindow) {
+      const width = Math.round(Number.parseFloat(inspectorWindow.style.width));
+      const height = Math.round(
+        Number.parseFloat(inspectorWindow.style.height),
+      );
+      if (Number.isFinite(width) && Number.isFinite(height)) {
+        return { width, height };
+      }
+    }
+    return this.clampWindowSize(this.contextState.window.size);
+  }
+
   private requestPopOut = (): void => {
     if (this.isPoppedOut) return;
-    const size = this.contextState.window.size;
+    this.layoutMenuOpen = false;
+    this.requestUpdate();
+    const size = this.getRenderedInspectorWindowSize();
     const handle = openPopOutWindow({
       open: window.open.bind(window),
       features: buildPopOutFeatures(size),
@@ -8667,6 +10273,17 @@ ${argsString}</pre
     this.resizePointerId = event.pointerId;
     this.resizeStart = { x: event.clientX, y: event.clientY };
     this.resizeInitialSize = { ...this.contextState.window.size };
+    this.resizeInitialPosition = { ...this.contextState.window.position };
+    const edge = (event.currentTarget as HTMLElement | null)?.dataset
+      .resizeEdge;
+    this.resizeEdge =
+      edge === "w" ||
+      edge === "e" ||
+      edge === "s" ||
+      edge === "se" ||
+      edge === "sw"
+        ? edge
+        : "se";
 
     // Remove transition from body during resize to prevent lag
     if (document.body && this.dockMode !== "floating") {
@@ -8692,6 +10309,11 @@ ${argsString}</pre
     const deltaX = event.clientX - this.resizeStart.x;
     const deltaY = event.clientY - this.resizeStart.y;
     const state = this.contextState.window;
+    const edge = this.resizeEdge;
+    const growWest = edge === "w" || edge === "sw";
+    const growEast =
+      edge === "e" || edge === "se" || this.dockMode === "docked-left";
+    const growSouth = edge === "s" || edge === "se" || edge === "sw";
 
     // For docked states, only resize in the appropriate dimension
     if (this.dockMode === "docked-left") {
@@ -8705,11 +10327,33 @@ ${argsString}</pre
         document.body.style.marginLeft = `${state.size.width}px`;
       }
     } else {
-      // Full resize for floating mode
+      const initialSize = this.resizeInitialSize;
+      const initialPos = this.resizeInitialPosition ?? { ...state.position };
+      let nextWidth = initialSize.width;
+      let nextHeight = initialSize.height;
+
+      if (growEast) {
+        nextWidth = initialSize.width + deltaX;
+      } else if (growWest) {
+        nextWidth = initialSize.width - deltaX;
+      }
+      if (growSouth) {
+        nextHeight = initialSize.height + deltaY;
+      }
+
       state.size = this.clampWindowSize({
-        width: this.resizeInitialSize.width + deltaX,
-        height: this.resizeInitialSize.height + deltaY,
+        width: nextWidth,
+        height: nextHeight,
       });
+
+      if (growWest) {
+        const right = initialPos.x + initialSize.width;
+        state.position = {
+          x: right - state.size.width,
+          y: initialPos.y,
+        };
+      }
+
       this.keepPositionWithinViewport("window");
       this.updateAnchorFromPosition("window");
     }
@@ -8888,8 +10532,17 @@ ${argsString}</pre
       },
       isOpen: this.isOpen,
       dockMode: this.dockMode,
-      selectedMenu: this.pendingPersistedMenu ?? this.selectedMenu,
+      selectedMenu:
+        this.pendingPersistedMenu ??
+        (this.briefingRestoreMenu && this.selectedMenu === "home"
+          ? this.briefingRestoreMenu
+          : this.selectedMenu),
       selectedContext: this.selectedContext,
+      hasOpenedInspector: this.hasOpenedInspector,
+      sidebarCollapsed: this.sidebarCollapsed,
+      colorSchemePreference: this.hasExplicitColorScheme
+        ? this.colorScheme
+        : undefined,
     };
     saveInspectorState(INSPECTOR_STORAGE_KEY, state);
     this.pendingSelectedContext = state.selectedContext ?? null;
@@ -8984,6 +10637,10 @@ ${argsString}</pre
     // Apply body margins with the actual window sizes
     if (this.dockMode === "docked-left") {
       document.body.style.marginLeft = `${this.contextState.window.size.width}px`;
+      if (this.previousHtmlOverflowX === null) {
+        this.previousHtmlOverflowX = document.documentElement.style.overflowX;
+      }
+      document.documentElement.style.overflowX = "hidden";
     }
 
     // Remove transition after animation completes
@@ -9019,6 +10676,11 @@ ${argsString}</pre
       document.body.style.marginBottom = "";
     }
 
+    if (this.previousHtmlOverflowX !== null) {
+      document.documentElement.style.overflowX = this.previousHtmlOverflowX;
+      this.previousHtmlOverflowX = null;
+    }
+
     // Clean up transition after animation completes
     if (!skipTransition) {
       const id = setTimeout(() => {
@@ -9043,8 +10705,10 @@ ${argsString}</pre
 
     // For docked states, CSS handles positioning with fixed positioning
     if (this.isOpen && this.dockMode === "docked-left") {
-      this.style.transform = `translate3d(0, 0, 0)`;
+      this.setAttribute("data-docked", "true");
+      this.style.transform = "none";
     } else {
+      this.removeAttribute("data-docked");
       const { position } = this.contextState[context];
       this.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
     }
@@ -9118,6 +10782,8 @@ ${argsString}</pre
     this.resizePointerId = null;
     this.resizeStart = null;
     this.resizeInitialSize = null;
+    this.resizeInitialPosition = null;
+    this.resizeEdge = "se";
     this.isResizing = false;
   }
 
@@ -9144,19 +10810,22 @@ ${argsString}</pre
       return;
     }
 
-    const hadUnseenAnnouncement = this.hasUnseenAnnouncement;
-    this.showAnnouncementPreview = false; // hide the bubble once the inspector is opened
+    const hadUnseenAnnouncement = this.newsSignalArmed;
+    const firstOpen = !this.hasOpenedInspector;
+    this.hasOpenedInspector = true;
+    this.homeViewedThisOpen = false;
+
+    if (this.newsSignalArmed && source === "floating_button") {
+      this.selectedMenu = "home";
+      this.lastSelectedMenuByGroup.home = "home";
+    }
 
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
     this.persistState(); // Save the open state
 
-    this.trackOpened(source, hadUnseenAnnouncement);
-    // The in-panel announcement card is now the visible surface, so it earns
-    // its own banner_viewed impression (no-op when the announcement hasn't
-    // loaded yet — fetchAnnouncement records it on arrival instead).
-    this.maybeTrackBannerViewed();
+    this.trackOpened(source, hadUnseenAnnouncement, firstOpen);
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -9189,6 +10858,8 @@ ${argsString}</pre
     }
 
     this.isOpen = false;
+
+    if (this.newsSignalPulsePending) this.startNewsSignalPulse();
 
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
@@ -9228,37 +10899,86 @@ ${argsString}</pre
     return unsafeHTML(svgMarkup);
   }
 
-  private renderDockControls() {
-    if (this.dockMode === "floating") {
-      // Show dock left button
-      return html`
+  private renderWindowLayoutMenu() {
+    const dockAction =
+      this.dockMode === "floating"
+        ? {
+            label: "Dock to left",
+            icon: "PanelLeft" as LucideIconName,
+            mode: "docked-left" as DockMode,
+          }
+        : {
+            label: "Float window",
+            icon: "Maximize2" as LucideIconName,
+            mode: "floating" as DockMode,
+          };
+
+    return html`
+      <div
+        class="inspector-window-layout"
+        data-inspector-window-layout-root="true"
+      >
         <button
-          class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
+          class="inspector-account-control inspector-window-layout-trigger flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           type="button"
-          aria-label="Dock to left"
-          title="Dock Left"
+          aria-label="Window layout"
+          aria-haspopup="menu"
+          aria-expanded=${this.layoutMenuOpen}
+          title="Window layout"
           style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${() => this.handleDockClick("docked-left")}
+          @click=${this.handleLayoutMenuToggle}
         >
-          ${this.renderIcon("PanelLeft")}
+          ${this.renderIcon("PanelsTopLeft")}
         </button>
-      `;
-    } else {
-      // Show float button
-      return html`
-        <button
-          class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400"
-          type="button"
-          aria-label="Float window"
-          title="Float"
-          style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${() => this.handleDockClick("floating")}
-        >
-          ${this.renderIcon("Maximize2")}
-        </button>
-      `;
-    }
+        ${
+          this.layoutMenuOpen
+            ? html`
+              <div
+                class="inspector-window-layout-menu"
+                role="menu"
+                aria-label="Window layout"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-label=${dockAction.label}
+                  @click=${() => this.handleDockClick(dockAction.mode)}
+                >
+                  <span aria-hidden="true"
+                    >${this.renderIcon(dockAction.icon)}</span
+                  >
+                  <span>${dockAction.label}</span>
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  aria-label="Detach Inspector into its own window"
+                  data-testid="cpk-inspector-pop-out"
+                  .click=${this.requestPopOut}
+                  @click=${this.requestPopOut}
+                >
+                  <span aria-hidden="true"
+                    >${this.renderIcon("PictureInPicture2")}</span
+                  >
+                  <span>Open in new window</span>
+                </button>
+              </div>
+            `
+            : nothing
+        }
+      </div>
+    `;
   }
+
+  private handleLayoutMenuToggle = (event: Event): void => {
+    event.stopPropagation();
+    this.contextMenuOpen = false;
+    if (!this.layoutMenuOpen && this.dockMode === "floating") {
+      this.contextState.window.size = this.getRenderedInspectorWindowSize();
+    }
+    this.layoutMenuOpen = !this.layoutMenuOpen;
+    this.requestUpdate();
+  };
 
   private getDockedWindowStyles(): Record<string, string> {
     if (this.dockMode === "docked-left") {
@@ -9268,7 +10988,7 @@ ${argsString}</pre
         left: "0",
         bottom: "0",
         width: `${Math.round(this.contextState.window.size.width)}px`,
-        height: "100vh",
+        height: "auto",
         minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
         borderRadius: "0",
       };
@@ -9283,6 +11003,7 @@ ${argsString}</pre
   }
 
   private handleDockClick(mode: DockMode): void {
+    this.layoutMenuOpen = false;
     this.setDockMode(mode);
   }
 
@@ -9557,15 +11278,11 @@ ${argsString}</pre
     `;
   }
 
-  private getCoreStatusSummary(): {
-    label: string;
-    tone: string;
-    description: string;
-  } {
+  private getCoreStatusSummary(): CoreStatusSummary {
     if (!this._core) {
       return {
         label: "Core not attached",
-        tone: "border border-amber-200 bg-amber-50 text-amber-800",
+        state: "unavailable",
         description:
           "Pass a CopilotKitCore instance to <cpk-web-inspector> or enable auto-attach.",
       };
@@ -9578,7 +11295,7 @@ ${argsString}</pre
     if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
       return {
         label: "Runtime error",
-        tone: "border border-rose-200 bg-rose-50 text-rose-700",
+        state: "error",
         description:
           lastErrorMessage ?? "CopilotKit runtime reported an error.",
       };
@@ -9587,7 +11304,7 @@ ${argsString}</pre
     if (status === CopilotKitCoreRuntimeConnectionStatus.Connecting) {
       return {
         label: "Connecting",
-        tone: "border border-amber-200 bg-amber-50 text-amber-800",
+        state: "connecting",
         description: "Waiting for CopilotKit runtime to finish connecting.",
       };
     }
@@ -9595,17 +11312,417 @@ ${argsString}</pre
     if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
       return {
         label: "Connected",
-        tone: "border border-emerald-200 bg-emerald-50 text-emerald-700",
+        state: "connected",
         description: "Live runtime connection established.",
       };
     }
 
     return {
       label: "Disconnected",
-      tone: "border border-gray-200 bg-gray-50 text-gray-700",
+      state: "disconnected",
       description:
         lastErrorMessage ?? "Waiting for CopilotKit runtime to connect.",
     };
+  }
+
+  private resolvePlaygroundAgentId(preferredAgentId?: string): string | null {
+    const agents = this._core?.agents ?? {};
+    if (
+      preferredAgentId &&
+      preferredAgentId !== "all-agents" &&
+      agents[preferredAgentId]
+    ) {
+      return preferredAgentId;
+    }
+    return Object.keys(agents)[0] ?? null;
+  }
+
+  private teardownPlaygroundAgent(): void {
+    this.playgroundAgentUnsubscribe?.();
+    this.playgroundAgentUnsubscribe = null;
+    if (this.playgroundAgent && this.playgroundIsRunning) {
+      this.playgroundAgent.abortRun();
+      void this.playgroundAgent.detachActiveRun().catch(() => {});
+    }
+    this.playgroundAgent = null;
+    this.playgroundAgentId = null;
+    this.playgroundMessages = [];
+    this.playgroundIsRunning = false;
+    this.playgroundRunStartedAt = null;
+    this.playgroundReasoningDurations.clear();
+  }
+
+  private syncPlaygroundMessages(): void {
+    this.playgroundMessages =
+      this.normalizeAgentMessages(this.playgroundAgent?.messages) ?? [];
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      const messages = this.activeRoot.querySelector<HTMLElement>(
+        "[data-playground-messages]",
+      );
+      if (messages) messages.scrollTop = messages.scrollHeight;
+    });
+  }
+
+  private startPlaygroundSession(
+    showEphemeralNotice: boolean,
+    seedMessages: Message[] = [],
+    seedState: unknown = {},
+    preferredAgentId?: string,
+  ): void {
+    const agentId = this.resolvePlaygroundAgentId(
+      preferredAgentId ?? this.selectedContext,
+    );
+    const sourceAgent = agentId
+      ? typeof this._core?.getAgent === "function"
+        ? this._core.getAgent(agentId)
+        : this._core?.agents[agentId]
+      : undefined;
+
+    this.teardownPlaygroundAgent();
+    this.playgroundError = null;
+    this.playgroundSourceThreadId = null;
+    this.playgroundShowEphemeralNotice =
+      showEphemeralNotice && this._core?.runtimeMode !== "intelligence";
+
+    if (!agentId || !sourceAgent) {
+      this.requestUpdate();
+      return;
+    }
+
+    if (this.selectedContext !== agentId) {
+      this.selectedContext = agentId;
+    }
+
+    const playgroundAgent = sourceAgent.clone();
+    playgroundAgent.threadId = createPlaygroundThreadId();
+    playgroundAgent.setMessages(seedMessages);
+    playgroundAgent.setState(seedState);
+    const subscriber: AgentSubscriber = {
+      onMessagesChanged: () => this.syncPlaygroundMessages(),
+      onActivitySnapshotEvent: () => this.syncPlaygroundMessages(),
+      onActivityDeltaEvent: () => this.syncPlaygroundMessages(),
+      onRunErrorEvent: ({ event }) => {
+        this.playgroundError =
+          "message" in event && typeof event.message === "string"
+            ? event.message
+            : "The agent run failed.";
+        this.requestUpdate();
+      },
+      onRunFailed: ({ error }) => {
+        this.playgroundError = error.message;
+        this.requestUpdate();
+      },
+    };
+    const { unsubscribe } = playgroundAgent.subscribe(subscriber);
+
+    this.playgroundAgent = playgroundAgent;
+    this.playgroundAgentId = agentId;
+    this.playgroundAgentUnsubscribe = unsubscribe;
+    this.syncPlaygroundMessages();
+  }
+
+  private mapThreadMessagesToPlayground(
+    messages: ThreadDebuggerMessage[],
+  ): Message[] {
+    const mapped: Message[] = [];
+    for (const message of messages) {
+      if (message.role === "user") {
+        mapped.push({
+          id: message.id,
+          role: "user",
+          content: message.content ?? "",
+        });
+      } else if (message.role === "assistant") {
+        mapped.push({
+          id: message.id,
+          role: "assistant",
+          content: message.content ?? "",
+          ...(message.toolCalls?.length
+            ? {
+                toolCalls: message.toolCalls.map((toolCall) => ({
+                  id: toolCall.id,
+                  type: "function" as const,
+                  function: {
+                    name: toolCall.name,
+                    arguments:
+                      typeof toolCall.args === "string"
+                        ? toolCall.args
+                        : JSON.stringify(toolCall.args),
+                  },
+                })),
+              }
+            : {}),
+        });
+      } else if (message.role === "tool" && message.toolCallId) {
+        mapped.push({
+          id: message.id,
+          role: "tool",
+          content: message.content ?? "",
+          toolCallId: message.toolCallId,
+        });
+      }
+    }
+    return mapped;
+  }
+
+  private handlePlaygroundThreadSourceChange = async (
+    event: Event,
+  ): Promise<void> => {
+    const threadId = (event.currentTarget as HTMLSelectElement).value;
+    if (!threadId) {
+      this.startPlaygroundSession(false);
+      return;
+    }
+
+    const core = this._core;
+    const thread = this._threads.find((candidate) => candidate.id === threadId);
+    if (!core?.runtimeUrl || !thread) return;
+
+    this.playgroundIsLoadingThread = true;
+    this.playgroundError = null;
+    this.requestUpdate();
+
+    try {
+      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
+      const encodedThreadId = encodeURIComponent(threadId);
+      const [messagesResponse, stateResponse] = await Promise.all([
+        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+          headers: { ...core.headers },
+        }),
+        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+          headers: { ...core.headers },
+        }),
+      ]);
+      if (!messagesResponse.ok) {
+        throw new Error(
+          `Failed to load thread (HTTP ${messagesResponse.status}).`,
+        );
+      }
+      const messagesBody = (await messagesResponse.json()) as {
+        messages?: ThreadDebuggerMessage[];
+      };
+      const stateBody = stateResponse.ok
+        ? ((await stateResponse.json()) as { state?: unknown })
+        : { state: {} };
+      this.startPlaygroundSession(
+        false,
+        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
+        stateBody.state ?? {},
+        thread.agentId,
+      );
+      this.playgroundSourceThreadId = threadId;
+    } catch (error) {
+      this.playgroundError =
+        error instanceof Error ? error.message : "Failed to load thread.";
+    } finally {
+      this.playgroundIsLoadingThread = false;
+      this.requestUpdate();
+    }
+  };
+
+  private runPlaygroundAgent = async (): Promise<void> => {
+    const core = this._core;
+    const agent = this.playgroundAgent;
+    if (!core || !agent || this.playgroundIsRunning) return;
+
+    this.playgroundIsRunning = true;
+    this.playgroundRunStartedAt = Date.now();
+    this.playgroundError = null;
+    this.requestUpdate();
+    try {
+      await core.runAgent({ agent });
+    } catch (error) {
+      this.playgroundError =
+        error instanceof Error ? error.message : "The agent run failed.";
+    } finally {
+      this.playgroundIsRunning = false;
+      this.syncPlaygroundMessages();
+      let reasoningMessage: InspectorMessage | undefined;
+      for (
+        let index = this.playgroundMessages.length - 1;
+        index >= 0;
+        index -= 1
+      ) {
+        const message = this.playgroundMessages[index];
+        if (message?.role === "reasoning") {
+          reasoningMessage = message;
+          break;
+        }
+      }
+      if (reasoningMessage?.id && this.playgroundRunStartedAt !== null) {
+        this.playgroundReasoningDurations.set(
+          reasoningMessage.id,
+          Date.now() - this.playgroundRunStartedAt,
+        );
+      }
+      this.playgroundRunStartedAt = null;
+      this.requestUpdate();
+    }
+  };
+
+  private sendPlaygroundMessage(content: string): void {
+    if (
+      !content ||
+      this.playgroundIsRunning ||
+      this.playgroundIsLoadingThread
+    ) {
+      return;
+    }
+
+    const selectedAgentId = this.resolvePlaygroundAgentId(this.selectedContext);
+    if (!this.playgroundAgent || this.playgroundAgentId !== selectedAgentId) {
+      this.startPlaygroundSession(false, [], {}, selectedAgentId ?? undefined);
+    }
+    if (!this.playgroundAgent) return;
+
+    this.playgroundAgent.addMessage({
+      id: createPlaygroundThreadId(),
+      role: "user",
+      content,
+    });
+    this.playgroundInput = "";
+    this.syncPlaygroundMessages();
+    void this.runPlaygroundAgent();
+  }
+
+  private handlePlaygroundSubmit = (event: SubmitEvent): void => {
+    event.preventDefault();
+    this.sendPlaygroundMessage(this.playgroundInput.trim());
+  };
+
+  private handlePlaygroundSuggestion = (message: string): void => {
+    this.sendPlaygroundMessage(message.trim());
+  };
+
+  private handlePlaygroundInput = (event: Event): void => {
+    const input = event.currentTarget as HTMLTextAreaElement;
+    this.playgroundInput = input.value;
+    input.style.height = "auto";
+    input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
+    this.requestUpdate();
+  };
+
+  private handlePlaygroundKeyDown = (event: KeyboardEvent): void => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    (event.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
+  };
+
+  private handlePlaygroundRetry = (): void => {
+    const agent = this.playgroundAgent;
+    if (!agent || this.playgroundIsRunning) return;
+    let lastUserIndex = -1;
+    for (let index = agent.messages.length - 1; index >= 0; index -= 1) {
+      if (agent.messages[index]?.role === "user") {
+        lastUserIndex = index;
+        break;
+      }
+    }
+    if (lastUserIndex < 0) return;
+    agent.setMessages(agent.messages.slice(0, lastUserIndex + 1));
+    this.syncPlaygroundMessages();
+    void this.runPlaygroundAgent();
+  };
+
+  private handlePlaygroundStop = (): void => {
+    this.playgroundAgent?.abortRun();
+  };
+
+  private renderPlaygroundComposer(
+    agentId: string | null,
+    busy: boolean,
+    hasRetry: boolean,
+    centered = false,
+  ) {
+    const placeholder = !agentId
+      ? "Waiting for an agent..."
+      : this.playgroundIsLoadingThread
+        ? "Loading thread..."
+        : "Type a message...";
+    const sendDisabled =
+      !agentId ||
+      this.playgroundIsLoadingThread ||
+      (!this.playgroundIsRunning && !this.playgroundInput.trim());
+
+    return html`
+      <form
+        class=${centered ? "mt-5 w-full" : "bg-white px-3 pb-3 pt-1.5"}
+        @submit=${this.handlePlaygroundSubmit}
+      >
+        ${
+          this.playgroundError
+            ? html`<div
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-800"
+                role="alert"
+                data-playground-error
+              >
+                <span class="mt-0.5 shrink-0 text-rose-600"
+                  >${this.renderIcon("TriangleAlert")}</span
+                >
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold">Agent run failed</p>
+                  <p class="mt-0.5 break-words leading-relaxed text-rose-700">
+                    ${this.playgroundError}
+                  </p>
+                </div>
+                ${
+                  hasRetry
+                    ? html`
+                        <button
+                          type="button"
+                          class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
+                          ?disabled=${busy}
+                          @click=${this.handlePlaygroundRetry}
+                        >
+                          Retry
+                        </button>
+                      `
+                    : nothing
+                }
+              </div>`
+            : nothing
+        }
+        <div
+          class="mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+        >
+          <textarea
+            class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            rows="1"
+            placeholder=${placeholder}
+            aria-label="Playground message"
+            .value=${this.playgroundInput}
+            ?disabled=${!agentId || busy}
+            @input=${this.handlePlaygroundInput}
+            @keydown=${this.handlePlaygroundKeyDown}
+          ></textarea>
+          <button
+            type=${this.playgroundIsRunning ? "button" : "submit"}
+            class=${`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
+              sendDisabled
+                ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
+                : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
+            }`}
+            aria-label=${
+              this.playgroundIsRunning
+                ? "Stop agent"
+                : "Send playground message"
+            }
+            ?disabled=${sendDisabled}
+            @click=${
+              this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
+            }
+          >
+            ${this.renderIcon(this.playgroundIsRunning ? "Square" : "ArrowUp")}
+          </button>
+        </div>
+        <p
+          class="mx-auto max-w-3xl px-3 py-2 text-center text-[10px] leading-4 text-gray-500"
+        >
+          AI can make mistakes. Please verify important information.
+        </p>
+      </form>
+    `;
   }
 
   private renderMainContent() {
@@ -9613,8 +11730,20 @@ ${argsString}</pre
       return this.renderSettingsPanel();
     }
 
+    if (this.selectedMenu === "home") {
+      return this.renderHomeView();
+    }
+
+    if (this.selectedMenu === WHATS_NEW_MENU_KEY) {
+      return this.renderWhatsNewView();
+    }
+
     if (this.selectedMenu === "ag-ui-events") {
       return this.renderEventsTable();
+    }
+
+    if (this.selectedMenu === "playground") {
+      return this.renderPlaygroundView();
     }
 
     if (this.selectedMenu === "agents") {
@@ -9644,40 +11773,540 @@ ${argsString}</pre
     return nothing;
   }
 
-  private renderSettingsPanel() {
-    const optedOut = this.core?.telemetryDisabled ?? false;
-    return html`
-      <div class="flex h-full flex-col overflow-hidden">
-        <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            <h2 class="text-sm font-semibold text-slate-900">Settings</h2>
+  private renderPlaygroundView() {
+    const agentId = this.resolvePlaygroundAgentId(this.selectedContext);
+    const sourceThreads = this._threads.filter(
+      (thread) => !agentId || thread.agentId === agentId,
+    );
+    const visibleMessages = this.playgroundMessages.filter(
+      (message) =>
+        message.role === "user" ||
+        message.role === "assistant" ||
+        message.role === "reasoning" ||
+        message.role === "activity",
+    );
+    const hasRetry =
+      this.playgroundAgent?.messages.some(
+        (message) => message.role === "user",
+      ) ?? false;
+    const runtimeMode = this._core?.runtimeMode ?? "sse";
+    const runtimeLabel = this._core?.runtimeUrl ?? "Self-managed agent";
+    const busy = this.playgroundIsRunning || this.playgroundIsLoadingThread;
+    const suggestions =
+      agentId && this._core
+        ? this._core.getSuggestions(agentId).suggestions
+        : [];
+    const lastAssistantIndex = visibleMessages.reduce(
+      (last, message, index) => (message.role === "assistant" ? index : last),
+      -1,
+    );
+    const lastReasoningIndex = visibleMessages.reduce(
+      (last, message, index) => (message.role === "reasoning" ? index : last),
+      -1,
+    );
+    const showWelcome =
+      !this.playgroundIsLoadingThread && visibleMessages.length === 0;
 
-            <div class="space-y-2">
-              <h3 class="text-sm text-slate-500">Privacy</h3>
-              <div
-                class="rounded-lg border border-slate-200 bg-white p-4 space-y-3"
+    return html`
+      <div
+        class="cpk-playground-root flex h-full min-h-[420px] flex-col bg-white"
+      >
+        <header
+          class="cpk-playground-header flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2"
+        >
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5">
+              <h2 class="text-xs font-semibold text-gray-900">Playground</h2>
+              <span
+                class="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-medium text-gray-600"
+                >${runtimeMode.toUpperCase()}</span
               >
-                <p class="text-sm text-gray-600 flex items-start gap-2">
-                  <span>${optedOut ? "❌" : "✅"}</span>
-                  <span>
-                    ${
-                      optedOut
-                        ? "You have disabled anonymous interaction data collection."
-                        : "CopilotKit is currently collecting anonymous interaction data from the inspector so we know which features people use. We never collect message content, agent state, prompts, or completions."
-                    }
-                  </span>
-                </p>
-                <a
-                  class="inline-flex items-center gap-1 text-sm text-slate-700 underline hover:text-slate-900"
-                  href=${TELEMETRY_DOCS_URL}
-                  target="_blank"
-                  rel="noopener"
-                  >Learn more →</a
-                >
-              </div>
+            </div>
+            <div
+              class="mt-0.5 flex min-w-0 items-center gap-1.5 text-[9px] text-gray-600"
+            >
+              <span class="truncate">Agent: ${agentId ?? "waiting..."}</span>
+              <span
+                class="h-3 w-px shrink-0 bg-gray-200"
+                aria-hidden="true"
+              ></span>
+              <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
             </div>
           </div>
+          <div
+            class="cpk-playground-actions ml-auto flex min-w-0 items-center gap-2"
+          >
+            ${
+              sourceThreads.length > 0
+                ? html`
+                    <label class="sr-only" for="cpk-playground-thread-source"
+                      >Start from a thread</label
+                    >
+                    <select
+                      id="cpk-playground-thread-source"
+                      class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      .value=${this.playgroundSourceThreadId ?? ""}
+                      ?disabled=${busy}
+                      @change=${this.handlePlaygroundThreadSourceChange}
+                    >
+                      <option value="">Load a thread...</option>
+                      ${sourceThreads.map(
+                        (thread) => html`
+                          <option value=${thread.id}>
+                            ${
+                              thread.name?.trim() ||
+                              `Thread ${thread.id.slice(0, 8)}`
+                            }
+                          </option>
+                        `,
+                      )}
+                    </select>
+                  `
+                : nothing
+            }
+            <button
+              type="button"
+              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-3.5 [&>svg]:w-3.5"
+              ?disabled=${busy || !agentId}
+              @click=${() => this.startPlaygroundSession(true)}
+            >
+              ${this.renderIcon("Plus")} <span>New thread</span>
+            </button>
+          </div>
+        </header>
+
+        ${
+          this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
+            ? html`
+                <div
+                  role="alert"
+                  class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
+                  data-playground-ephemeral-notice
+                >
+                  <span
+                    class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                    >${this.renderIcon("Clock3")}</span
+                  >
+                  <p class="min-w-0 flex-1 leading-relaxed">
+                    Scratch threads are ephemeral and will be deleted when your
+                    local session ends. Need durable history?
+                    <a
+                      class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                      href=${this.getThreadsIntelligenceSignupUrl()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      >Set up Intelligence</a
+                    >.
+                  </p>
+                  <button
+                    type="button"
+                    class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                    aria-label="Dismiss ephemeral thread notice"
+                    @click=${() => {
+                      this.playgroundShowEphemeralNotice = false;
+                      this.requestUpdate();
+                    }}
+                  >
+                    ${this.renderIcon("X")}
+                  </button>
+                </div>
+              `
+            : nothing
+        }
+
+        <div
+          class="min-h-0 flex-1 overflow-y-auto px-3 py-3"
+          data-playground-messages
+        >
+          ${
+            this.playgroundIsLoadingThread
+              ? html`
+                  <div
+                    class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                  >
+                    <span
+                      class="text-gray-500 [&>svg]:animate-spin"
+                      aria-hidden="true"
+                      >${this.renderIcon("LoaderCircle")}</span
+                    >
+                    Loading thread into a scratch session...
+                  </div>
+                `
+              : visibleMessages.length === 0
+                ? html`
+                    <div
+                      class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
+                    >
+                      <p class="text-base font-medium tracking-tight text-gray-900">
+                        How can I help you today?
+                      </p>
+                      ${this.renderPlaygroundComposer(
+                        agentId,
+                        busy,
+                        hasRetry,
+                        true,
+                      )}
+                    </div>
+                  `
+                : html`
+                    <div class="mx-auto flex max-w-3xl flex-col pb-5">
+                      ${visibleMessages.map((message, index) => {
+                        const isUser = message.role === "user";
+                        const isReasoning = message.role === "reasoning";
+                        const isActivity = message.role === "activity";
+                        const content = isActivity
+                          ? (message.activityType ?? "Agent activity")
+                          : message.contentText;
+                        if (
+                          !isReasoning &&
+                          !content &&
+                          message.toolCalls.length === 0
+                        ) {
+                          return nothing;
+                        }
+                        if (isReasoning) {
+                          const isStreaming =
+                            this.playgroundIsRunning &&
+                            index === lastReasoningIndex;
+                          const duration = message.id
+                            ? this.playgroundReasoningDurations.get(message.id)
+                            : undefined;
+                          const durationLabel =
+                            duration === undefined || duration < 1000
+                              ? "a few seconds"
+                              : `${Math.round(duration / 1000)} seconds`;
+                          const label = isStreaming
+                            ? "Thinking…"
+                            : `Thought for ${durationLabel}`;
+
+                          if (isStreaming) {
+                            return html`
+                              <section
+                                class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                <div
+                                  class="inline-flex items-center gap-1 py-1 font-medium"
+                                >
+                                  <span>${label}</span>
+                                  ${
+                                    content
+                                      ? nothing
+                                      : html`
+                                          <span
+                                            class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
+                                            aria-hidden="true"
+                                          ></span>
+                                        `
+                                  }
+                                </div>
+                                ${
+                                  content
+                                    ? html`<div
+                                        class="pb-2 pt-1 leading-5 text-gray-500"
+                                      >
+                                        ${content}
+                                      </div>`
+                                    : nothing
+                                }
+                              </section>
+                            `;
+                          }
+
+                          return content
+                            ? html`
+                                <details
+                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
+                                  data-playground-message-role="reasoning"
+                                >
+                                  <summary
+                                    class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                  >
+                                    <span>${label}</span>
+                                    <span
+                                      class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
+                                      >${this.renderIcon("ChevronRight")}</span
+                                    >
+                                  </summary>
+                                  <div class="pb-2 pt-1 leading-5 text-gray-500">
+                                    ${content}
+                                  </div>
+                                </details>
+                              `
+                            : html`
+                                <div
+                                  class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
+                                  data-playground-message-role="reasoning"
+                                >
+                                  ${label}
+                                </div>
+                              `;
+                        }
+                        const isMultiline =
+                          content.includes("\n") || content.length > 72;
+                        const copyKey = `playground-message-${
+                          message.id ?? index
+                        }`;
+                        const showToolbar =
+                          !isUser &&
+                          !isActivity &&
+                          Boolean(content) &&
+                          !(
+                            this.playgroundIsRunning &&
+                            index === lastAssistantIndex
+                          );
+                        return html`
+                          <article
+                            class=${
+                              isActivity
+                                ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
+                                : isUser
+                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
+                                  : "cpk-playground-message-enter w-full"
+                            }
+                            data-playground-message-role=${message.role}
+                          >
+                            ${
+                              isActivity
+                                ? html`
+                                    <span class="text-gray-500"
+                                      >${this.renderIcon("Activity")}</span
+                                    >
+                                    <span class="font-medium text-gray-700"
+                                      >Activity</span
+                                    >
+                                    <span class="truncate">${content}</span>
+                                  `
+                                : isUser
+                                  ? html`
+                                      <div
+                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
+                                          isMultiline ? "py-2.5" : "py-1"
+                                        }`}
+                                      >${content}</div>
+                                    `
+                                  : html`
+                                      <div
+                                        class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
+                                      >${content}</div>
+                                    `
+                            }
+                            ${
+                              !isUser && message.toolCalls.length > 0
+                                ? this.renderToolCallDetails(message.toolCalls)
+                                : nothing
+                            }
+                            ${
+                              showToolbar
+                                ? html`
+                                    <div
+                                      class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
+                                      data-playground-assistant-toolbar
+                                    >
+                                      <button
+                                        type="button"
+                                        class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                        title="Copy message"
+                                        aria-label="Copy message"
+                                        @click=${(event: Event) =>
+                                          this.copyToClipboard(
+                                            content,
+                                            copyKey,
+                                            event,
+                                          )}
+                                      >
+                                        ${
+                                          this.copiedEvents.has(copyKey)
+                                            ? this.renderIcon("Check")
+                                            : this.renderIcon("Copy")
+                                        }
+                                      </button>
+                                      ${
+                                        index === lastAssistantIndex &&
+                                        hasRetry &&
+                                        !busy &&
+                                        !this.playgroundError
+                                          ? html`
+                                              <button
+                                                type="button"
+                                                class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                                title="Retry last prompt"
+                                                aria-label="Retry last prompt"
+                                                @click=${
+                                                  this.handlePlaygroundRetry
+                                                }
+                                              >
+                                                ${this.renderIcon("RotateCcw")}
+                                              </button>
+                                            `
+                                          : nothing
+                                      }
+                                    </div>
+                                  `
+                                : nothing
+                            }
+                          </article>
+                        `;
+                      })}
+                      ${
+                        this.playgroundIsRunning && lastReasoningIndex < 0
+                          ? html`
+                              <div
+                                class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
+                                aria-label="Agent is working"
+                              >
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                                <span
+                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                              </div>
+                            `
+                          : nothing
+                      }
+                      ${
+                        !busy &&
+                        lastAssistantIndex >= 0 &&
+                        suggestions.length > 0
+                          ? html`
+                              <div
+                                class="mt-3 flex flex-wrap items-center gap-1.5"
+                                data-playground-suggestions
+                              >
+                                ${suggestions.map(
+                                  (suggestion) => html`
+                                    <button
+                                      type="button"
+                                      class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
+                                      ?disabled=${suggestion.isLoading}
+                                      aria-busy=${
+                                        suggestion.isLoading ? "true" : "false"
+                                      }
+                                      @click=${() =>
+                                        this.handlePlaygroundSuggestion(
+                                          suggestion.message,
+                                        )}
+                                    >
+                                      ${
+                                        suggestion.isLoading
+                                          ? html`<span
+                                              class="[&>svg]:animate-spin"
+                                              aria-hidden="true"
+                                              >${this.renderIcon(
+                                                "LoaderCircle",
+                                              )}</span
+                                            >`
+                                          : nothing
+                                      }
+                                      <span>${suggestion.title}</span>
+                                    </button>
+                                  `,
+                                )}
+                              </div>
+                            `
+                          : nothing
+                      }
+                    </div>
+                  `
+          }
         </div>
+
+        ${
+          showWelcome
+            ? nothing
+            : this.renderPlaygroundComposer(agentId, busy, hasRetry)
+        }
+      </div>
+    `;
+  }
+
+  private renderSettingsPanel() {
+    const optedOut = this.core?.telemetryDisabled ?? false;
+    const privateContent = [
+      "Message content",
+      "Agent state",
+      "Prompts",
+      "Completions",
+    ];
+    return html`
+      <div
+        class="inspector-settings"
+        data-inspector-settings
+        data-state=${optedOut ? "disabled" : "enabled"}
+      >
+        <header class="inspector-settings-header">
+          <h1 class="inspector-settings-title">Settings</h1>
+          <p class="inspector-settings-subtitle">
+            Understand how the Inspector handles analytics and private content.
+          </p>
+        </header>
+
+        <section
+          class="inspector-settings-section"
+          aria-labelledby="inspector-settings-privacy-title"
+        >
+          <div class="inspector-settings-section-heading">
+            <span class="inspector-settings-section-icon" aria-hidden="true">
+              ${this.renderIcon(optedOut ? "ShieldOff" : "ShieldCheck")}
+            </span>
+            <div>
+              <h2 id="inspector-settings-privacy-title">Privacy</h2>
+              <p>Analytics without access to your agent content.</p>
+            </div>
+          </div>
+
+          <div
+            class="inspector-settings-privacy"
+            data-state=${optedOut ? "disabled" : "enabled"}
+          >
+            <div class="inspector-settings-status-row">
+              <div>
+                <h3>Anonymous usage analytics</h3>
+                <p>
+                  ${
+                    optedOut
+                      ? "Anonymous Inspector interaction data collection is disabled for this runtime."
+                      : "CopilotKit collects anonymous Inspector interactions to understand which features people use."
+                  }
+                </p>
+              </div>
+              <span class="inspector-settings-status">
+                ${optedOut ? "Analytics off" : "Analytics on"}
+              </span>
+            </div>
+
+            <div class="inspector-settings-private-content">
+              <strong>Content stays private</strong>
+              <p>CopilotKit never collects:</p>
+              <ul aria-label="Content CopilotKit never collects">
+                ${privateContent.map(
+                  (item) => html`
+                    <li>
+                      <span aria-hidden="true"
+                        >${this.renderIcon("Check")}</span
+                      >
+                      ${item}
+                    </li>
+                  `,
+                )}
+              </ul>
+            </div>
+
+            <a
+              class="inspector-settings-policy-link"
+              href=${TELEMETRY_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Read the telemetry policy
+              <span aria-hidden="true">${this.renderIcon("ArrowUpRight")}</span>
+            </a>
+          </div>
+        </section>
       </div>
     `;
   }
@@ -9689,6 +12318,7 @@ ${argsString}</pre
   private trackOpened(
     source: InspectorOpenSource,
     hadUnseenAnnouncement: boolean,
+    firstOpen = false,
   ): void {
     if (this.core?.telemetryDisabled) return;
     // `license_status` and `runtime_mode` come from /info. Before the handshake
@@ -9708,6 +12338,7 @@ ${argsString}</pre
         : {}),
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
+      first_open: firstOpen,
     });
   }
 
@@ -9744,14 +12375,10 @@ ${argsString}</pre
   }> {
     const selectedLeaf: unknown = this.selectedMenu;
     if (!isInspectorMenuKey(selectedLeaf)) return {};
-    for (const group of INSPECTOR_PRIMARY_NAVIGATION) {
-      if (
-        INSPECTOR_GROUPS[group.key].some((menuKey) => menuKey === selectedLeaf)
-      ) {
-        return { group_key: group.key, leaf_key: selectedLeaf };
-      }
-    }
-    return {};
+    return {
+      group_key: getGroupForMenu(selectedLeaf),
+      leaf_key: selectedLeaf,
+    };
   }
 
   /** Build metadata's shared coarse buckets and stable navigation context. */
@@ -9883,33 +12510,22 @@ ${argsString}</pre
     }
   };
 
-  // Fires `banner_dismissed` at most once per `${bannerId}:${surface}` per
-  // mount. Emitted alongside `banner_clicked { cta: "dismiss" }` rather than
-  // replacing it, so dashboards reading the `cta` value keep working.
-  private trackBannerDismissedOnce(surface: BannerSurface): void {
-    if (this.core?.telemetryDisabled) return;
-    const id = this.announcementTimestamp;
-    if (!id) return;
-    const key = `${id}:dismissed:${surface}`;
-    if (this.clickedBannerIds.has(key)) return;
-    this.clickedBannerIds.add(key);
-    trackBannerDismissed({
-      banner_id: id,
-      surface,
-      cta_label: this.announcementCtaLabel ?? undefined,
-    });
-  }
-
-  // Fires `banner_clicked` at most once per `${bannerId}:${cta}` per mount so
-  // copy-button retries and accidental multi-clicks don't inflate funnel counts.
-  private trackBannerClickedOnce(opts: { cta: "body" | "dismiss" }): void {
-    if (this.core?.telemetryDisabled) return;
+  // Fires `whats_new_clicked` at most once per `${bannerId}:${cta}` per mount
+  // so copy-button retries and accidental multi-clicks don't inflate funnel
+  // counts. `body` is the only cta left now that dismissal is gone.
+  private trackWhatsNewClickedOnce(opts: { cta: "body" }): void {
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      this.core?.telemetryDisabled
+    ) {
+      return;
+    }
     const id = this.announcementTimestamp;
     if (!id) return;
     const key = `${id}:${opts.cta}`;
     if (this.clickedBannerIds.has(key)) return;
     this.clickedBannerIds.add(key);
-    trackBannerClicked({
+    trackWhatsNewClicked({
       banner_id: id,
       cta: opts.cta,
       cta_label: this.announcementCtaLabel ?? undefined,
@@ -9919,7 +12535,7 @@ ${argsString}</pre
   private handleTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackTalkToEngineerClicked(
-      this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_header"),
+      this.getThreadsCtaTelemetryProps("talk_to_engineer", "sidebar_footer"),
     );
   };
 
@@ -10623,10 +13239,10 @@ ${argsString}</pre
       ${
         this.threadsExampleOverviewVideoState === "failed"
           ? html`
-              <p class="cpk-threads-overview-video-fallback" role="status">
-                ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
-              </p>
-            `
+            <p class="cpk-threads-overview-video-fallback" role="status">
+              ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
+            </p>
+          `
           : nothing
       }
     `;
@@ -10692,153 +13308,101 @@ ${argsString}</pre
     const { lockedAction } = this.inspectorMetadataProjection;
     const onboardingAction = this.getThreadsEmptyOnboardingAction();
     return html`
-      <div
-        style="
-          flex: 1;
-          min-width: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 32px;
-          background: #f7f7f9;
-        "
-      >
-        <div style="max-width: 440px; color: #57575b;">
-          <h2
-            style="
-              margin: 0 0 10px;
-              font-size: 20px;
-              line-height: 1.25;
-              font-weight: 600;
-              color: #010507;
-            "
-          >
+      <div class="cpk-threads-overview">
+        <div class="cpk-threads-overview-content">
+          <h2 class="cpk-threads-overview-title">
             ${
               lockedCopy?.heading ??
               "Threads are persistent, inspectable conversations"
             }
           </h2>
           ${this.renderThreadsExampleOverviewVideo()}
-          <p
-            style="
-              margin: 0 0 16px;
-              font-size: 13px;
-              line-height: 1.55;
-              color: #57575b;
-            "
-          >
+          <p class="cpk-threads-overview-copy">
             ${
               lockedCopy?.description ??
               "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
             }
           </p>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <div class="cpk-threads-overview-actions">
             ${
               locked
                 ? html`
-                    ${
-                      this.inspectorMetadataProjection.licenseState === "valid"
-                        ? html`
-                            <button
-                              data-inspector-threads-setup-prompt
-                              type="button"
-                              aria-label=${
-                                this.threadsSetupPromptCopyState === "copied"
-                                  ? "Setup prompt copied"
-                                  : this.threadsSetupPromptCopyState === "error"
-                                    ? "Copy setup prompt failed. Try again"
-                                    : "Copy setup prompt for your coding agent"
-                              }
-                              @click=${this.handleThreadsSetupPromptCopy}
-                            >
-                              ${this.renderIcon(
-                                this.threadsSetupPromptCopyState === "copied"
-                                  ? "Check"
-                                  : "Copy",
-                              )}
-                              ${
-                                this.threadsSetupPromptCopyState === "copied"
-                                  ? "Copied"
-                                  : this.threadsSetupPromptCopyState === "error"
-                                    ? "Copy blocked"
-                                    : "Copy prompt for your agent"
-                              }
-                            </button>
-                            <a
-                              data-inspector-threads-setup-link
-                              href=${this.getThreadsRuntimeSetupDocsUrl()}
-                              target="_blank"
-                              rel="noopener"
-                              aria-label="Open setup guide (opens in a new tab)"
-                            >
-                              Open setup guide
-                            </a>
-                            <span
-                              class="sr-only"
-                              data-inspector-threads-setup-copy-status
-                              aria-live="polite"
-                              >${
-                                this.threadsSetupPromptCopyState === "copied"
-                                  ? "Setup prompt copied."
-                                  : this.threadsSetupPromptCopyState === "error"
-                                    ? "Setup prompt copy failed. Open the setup guide and copy it manually."
-                                    : ""
-                              }</span
-                            >
-                          `
-                        : nothing
-                    }
-                    ${
-                      lockedAction
-                        ? this.renderInspectorAction(lockedAction, "locked")
-                        : nothing
-                    }
-                  `
+                  ${
+                    this.inspectorMetadataProjection.licenseState === "valid"
+                      ? html`
+                        <button
+                          data-inspector-threads-setup-prompt
+                          type="button"
+                          aria-label=${
+                            this.threadsSetupPromptCopyState === "copied"
+                              ? "Setup prompt copied"
+                              : this.threadsSetupPromptCopyState === "error"
+                                ? "Copy setup prompt failed. Try again"
+                                : "Copy setup prompt for your coding agent"
+                          }
+                          @click=${this.handleThreadsSetupPromptCopy}
+                        >
+                          ${this.renderIcon(
+                            this.threadsSetupPromptCopyState === "copied"
+                              ? "Check"
+                              : "Copy",
+                          )}
+                          ${
+                            this.threadsSetupPromptCopyState === "copied"
+                              ? "Copied"
+                              : this.threadsSetupPromptCopyState === "error"
+                                ? "Copy blocked"
+                                : "Copy prompt for your agent"
+                          }
+                        </button>
+                        <a
+                          data-inspector-threads-setup-link
+                          href=${this.getThreadsRuntimeSetupDocsUrl()}
+                          target="_blank"
+                          rel="noopener"
+                          aria-label="Open setup guide (opens in a new tab)"
+                        >
+                          Open setup guide
+                        </a>
+                        <span
+                          class="sr-only"
+                          data-inspector-threads-setup-copy-status
+                          aria-live="polite"
+                          >${
+                            this.threadsSetupPromptCopyState === "copied"
+                              ? "Setup prompt copied."
+                              : this.threadsSetupPromptCopyState === "error"
+                                ? "Setup prompt copy failed. Open the setup guide and copy it manually."
+                                : ""
+                          }</span
+                        >
+                      `
+                      : nothing
+                  }
+                  ${
+                    lockedAction
+                      ? this.renderInspectorAction(lockedAction, "locked")
+                      : nothing
+                  }
+                `
                 : html`
-                    <a
-                      href=${this.getThreadsDocsUrl()}
-                      target="_blank"
-                      rel="noopener"
-                      style="
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        min-height: 34px;
-                        border-radius: 6px;
-                        background: #010507;
-                        padding: 8px 12px;
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: #ffffff;
-                        text-decoration: none;
-                      "
-                    >
-                      Learn how Threads work
-                    </a>
-                    <a
-                      href=${onboardingAction.href}
-                      target="_blank"
-                      rel="noopener"
-                      style="
-                        display: inline-flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        min-height: 34px;
-                        border-radius: 6px;
-                        border: 1px solid #dbdbe5;
-                        background: #ffffff;
-                        padding: 8px 12px;
-                        font-size: 12px;
-                        font-weight: 600;
-                        color: #010507;
-                        text-decoration: none;
-                      "
-                    >
-                      ${onboardingAction.label}
-                    </a>
-                  `
+                  <a
+                    href=${this.getThreadsDocsUrl()}
+                    target="_blank"
+                    rel="noopener"
+                    class="cpk-threads-overview-action cpk-threads-overview-action-primary"
+                  >
+                    Learn how Threads work
+                  </a>
+                  <a
+                    href=${onboardingAction.href}
+                    target="_blank"
+                    rel="noopener"
+                    class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
+                  >
+                    ${onboardingAction.label}
+                  </a>
+                `
             }
           </div>
         </div>
@@ -10857,22 +13421,8 @@ ${argsString}</pre
     if (!this.exampleTourActive) {
       return html`
         <button
+          class="cpk-threads-tour-launch"
           type="button"
-          style="
-            position: absolute;
-            right: 16px;
-            bottom: 16px;
-            z-index: 2;
-            border: 1px solid #dbdbe5;
-            border-radius: 6px;
-            background: #ffffff;
-            padding: 7px 10px;
-            color: #57575b;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 8px 18px rgba(1, 5, 7, 0.08);
-          "
           @click=${() => this.startExampleTour(false)}
         >
           Show tour
@@ -10889,76 +13439,36 @@ ${argsString}</pre
 
     return html`
       <div
+        class="cpk-threads-tour"
         role="dialog"
         aria-label="Example thread tour"
-        style="
-          position: absolute;
-          right: 16px;
-          bottom: 16px;
-          z-index: 3;
-          width: min(340px, calc(100% - 32px));
-          border: 1px solid #dbdbe5;
-          border-radius: 8px;
-          background: #ffffff;
-          padding: 14px;
-          box-shadow: 0 16px 36px rgba(1, 5, 7, 0.14);
-          color: #57575b;
-        "
       >
-        <div
-          style="
-            margin-bottom: 8px;
-            font-family: 'Spline Sans Mono', monospace;
-            font-size: 10px;
-            font-weight: 600;
-            color: #087653;
-            text-transform: uppercase;
-          "
-        >
+        <div class="cpk-threads-tour-step">
           ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
           ${step.label}
         </div>
-        <div
-          style="
-            margin-bottom: 6px;
-            font-size: 14px;
-            line-height: 1.35;
-            font-weight: 600;
-            color: #010507;
-          "
-        >
-          ${step.title}
-        </div>
-        <div style="font-size: 12px; line-height: 1.5; color: #57575b;">
-          ${step.body}
-        </div>
-        <div
-          style="
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            margin-top: 14px;
-          "
-        >
+        <div class="cpk-threads-tour-title">${step.title}</div>
+        <div class="cpk-threads-tour-copy">${step.body}</div>
+        <div class="cpk-threads-tour-actions">
           <button
+            class="cpk-threads-tour-skip"
             type="button"
-            style="border:0;background:transparent;color:#68686e;font-size:12px;font-weight:600;cursor:pointer;padding:7px 0;"
             @click=${() => this.dismissExampleTour("skip")}
           >
             Skip
           </button>
-          <div style="display:flex;gap:8px;">
+          <div class="cpk-threads-tour-nav">
             <button
+              class="cpk-threads-tour-button cpk-threads-tour-button-secondary"
               type="button"
-              style="border:1px solid #dbdbe5;border-radius:6px;background:#ffffff;color:#57575b;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
               ?disabled=${isFirst}
               @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
             >
               Back
             </button>
             <button
+              class="cpk-threads-tour-button cpk-threads-tour-button-primary"
               type="button"
-              style="border:1px solid #010507;border-radius:6px;background:#010507;color:#ffffff;font-size:12px;font-weight:600;cursor:pointer;padding:7px 10px;"
               @click=${() =>
                 isLast
                   ? this.dismissExampleTour("done")
@@ -10983,144 +13493,41 @@ ${argsString}</pre
     ];
 
     return html`
-      <div
-        aria-hidden="true"
-        style="
-          position: absolute;
-          inset: 0;
-          display: grid;
-          grid-template-columns: minmax(180px, 28%) 1fr;
-          overflow: hidden;
-          opacity: 0.58;
-          pointer-events: none;
-        "
-      >
-        <div
-          style="
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            padding: 28px 24px;
-            border-right: 1px solid #dbdbe5;
-            background: #fafafa;
-          "
-        >
+      <div aria-hidden="true" class="cpk-locked-preview">
+        <div class="cpk-locked-preview-sidebar">
           ${threadRows.map(
             (row) => html`
               <div
-                style="
-                  padding: 12px;
-                  border-radius: 8px;
-                  background: ${row.accent ? "#eee6fe" : "#ffffff"};
-                  box-shadow: inset 0 0 0 1px #eeeef4;
-                "
+                class="cpk-locked-preview-row"
+                data-accent=${row.accent ? "true" : "false"}
               >
                 <div
-                  style="
-                    height: 8px;
-                    width: ${row.width}%;
-                    border-radius: 99px;
-                    background: ${row.accent ? "#a984f5" : "#d7d7df"};
-                  "
+                  class="cpk-locked-preview-bar cpk-locked-preview-row-title"
+                  style="--preview-width: ${row.width}%;"
                 ></div>
                 <div
-                  style="
-                    height: 6px;
-                    width: 88%;
-                    margin-top: 10px;
-                    border-radius: 99px;
-                    background: #e3e3eb;
-                  "
+                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
                 ></div>
                 <div
-                  style="
-                    height: 6px;
-                    width: 62%;
-                    margin-top: 7px;
-                    border-radius: 99px;
-                    background: #e8e8ef;
-                  "
+                  class="cpk-locked-preview-bar cpk-locked-preview-row-line"
                 ></div>
               </div>
             `,
           )}
         </div>
-        <div
-          style="
-            min-width: 0;
-            padding: 42px 48px;
-            background: #ffffff;
-          "
-        >
-          <div
-            style="
-              height: 10px;
-              width: 180px;
-              border-radius: 99px;
-              background: #d7d7df;
-            "
-          ></div>
-          <div
-            style="
-              height: 8px;
-              width: min(520px, 58%);
-              margin-top: 28px;
-              border-radius: 99px;
-              background: #e3e3eb;
-            "
-          ></div>
-          <div
-            style="
-              height: 8px;
-              width: min(430px, 48%);
-              margin-top: 12px;
-              border-radius: 99px;
-              background: #e8e8ef;
-            "
-          ></div>
-          <div
-            style="
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 16px;
-              max-width: 620px;
-              margin-top: 30px;
-            "
-          >
-            <div
-              style="
-                height: 116px;
-                border-radius: 8px;
-                background: #f5f5f8;
-                box-shadow: inset 0 0 0 1px #eeeef4;
-              "
-            ></div>
-            <div
-              style="
-                height: 116px;
-                border-radius: 8px;
-                background: #f5f5f8;
-                box-shadow: inset 0 0 0 1px #eeeef4;
-              "
-            ></div>
+        <div class="cpk-locked-preview-main">
+          <div class="cpk-locked-preview-bar cpk-locked-preview-heading"></div>
+          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
+          <div class="cpk-locked-preview-bar cpk-locked-preview-copy"></div>
+          <div class="cpk-locked-preview-cards">
+            <div class="cpk-locked-preview-card"></div>
+            <div class="cpk-locked-preview-card"></div>
           </div>
           <div
-            style="
-              height: 10px;
-              width: min(680px, 74%);
-              margin-top: 34px;
-              border-radius: 99px;
-              background: #e3e3eb;
-            "
+            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
           ></div>
           <div
-            style="
-              height: 10px;
-              width: min(560px, 60%);
-              margin-top: 14px;
-              border-radius: 99px;
-              background: #e8e8ef;
-            "
+            class="cpk-locked-preview-bar cpk-locked-preview-footer-line"
           ></div>
         </div>
       </div>
@@ -11209,115 +13616,29 @@ ${argsString}</pre
     // 1. Locked teaser — intelligence not configured or memories not available.
     if (!this.core?.intelligence || !this._memoriesAvailable) {
       return html`
-        <div
-          style="
-            position: relative;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 32px;
-            overflow: hidden;
-            background: #ffffff;
-          "
-        >
+        <div class="cpk-memory-locked">
           ${this.renderThreadsLockedBackgroundMockup()}
-          <div
-            aria-hidden="true"
-            style="
-              position: absolute;
-              inset: 0;
-              pointer-events: none;
-              background:
-                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
-            "
-          ></div>
-          <div
-            style="
-              position: relative;
-              z-index: 1;
-              max-width: 440px;
-              text-align: center;
-              color: #57575b;
-            "
-          >
-            <div
-              aria-hidden="true"
-              style="
-                margin: 0 auto 18px;
-                display: flex;
-                justify-content: center;
-              "
-            >
-              <div
-                style="
-                  display: flex;
-                  height: 44px;
-                  width: 44px;
-                  align-items: center;
-                  justify-content: center;
-                  border: 1px solid #dfd6fb;
-                  border-radius: 8px;
-                  background: #eee6fe;
-                  color: #57575b;
-                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
-                "
-              >
+          <div aria-hidden="true" class="cpk-memory-locked-scrim"></div>
+          <div class="cpk-memory-locked-content">
+            <div aria-hidden="true" class="cpk-memory-locked-icon-wrap">
+              <div class="cpk-memory-locked-icon">
                 ${this.renderIcon("Lock")}
               </div>
             </div>
-            <h2
-              style="
-                margin: 0 0 8px;
-                font-size: 16px;
-                line-height: 1.35;
-                font-weight: 600;
-                color: #010507;
-              "
-            >
-              Long-term memory
-            </h2>
-            <p
-              style="
-                margin: 0 auto 18px;
-                max-width: 380px;
-                font-size: 13px;
-                line-height: 1.55;
-                color: #57575b;
-              "
-            >
+            <h2 class="cpk-memory-locked-title">Learning</h2>
+            <p class="cpk-memory-locked-copy">
               ${
                 this._memoryStoreUnsupported
-                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
-                  : "Long-term memory isn't enabled on this deployment."
+                  ? "Learning is unavailable in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports long-term memory."
+                  : "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment."
               }
             </p>
-            <div
-              style="
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 8px;
-              "
-            >
+            <div class="cpk-memory-locked-actions">
               <a
                 href=${this.getTalkToEngineerUrl()}
                 target="_blank"
                 rel="noopener"
-                style="
-                  display: inline-flex;
-                  min-height: 34px;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  border-radius: 6px;
-                  background: #010507;
-                  padding: 8px 12px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  color: #ffffff;
-                  text-decoration: none;
-                "
+                class="cpk-memory-locked-action"
                 @click=${this.handleThreadsTalkToEngineerClick}
               >
                 Talk to an Engineer
@@ -11326,21 +13647,7 @@ ${argsString}</pre
                 href=${this.getIntelligenceSignupUrl()}
                 target="_blank"
                 rel="noopener"
-                style="
-                  display: inline-flex;
-                  min-height: 34px;
-                  align-items: center;
-                  justify-content: center;
-                  gap: 6px;
-                  border-radius: 6px;
-                  border: 1px solid #dbdbe5;
-                  background: #ffffff;
-                  padding: 8px 12px;
-                  font-size: 12px;
-                  font-weight: 600;
-                  color: #57575b;
-                  text-decoration: none;
-                "
+                class="cpk-memory-locked-action cpk-memory-locked-action-secondary"
                 @click=${this.handleThreadsIntelligenceSignupClick}
               >
                 Sign up for Intelligence
@@ -11382,7 +13689,7 @@ ${argsString}</pre
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <span style="font-size: 13px; color: #c0333a;">
-            Failed to load memories
+            Failed to load learning data
           </span>
           <span
             style="
@@ -11425,16 +13732,21 @@ ${argsString}</pre
           >
             <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
-          <span style="font-size: 13px">Loading memories…</span>
+          <span style="font-size: 13px">Loading learning…</span>
         </div>
       `;
     }
 
     // 4. Content — header + memory list.
     return html`
-      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
-        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
-          <h4>${MEMORY_VIEW_LABEL}</h4>
+      <div
+        style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
+      >
+        <div
+          class="cpk-section-header"
+          style="display:flex;align-items:center;justify-content:space-between;"
+        >
+          <h4>${LEARNING_VIEW_LABEL}</h4>
           <div style="display:flex;align-items:center;gap:6px;">
             ${this.renderMemoryRealtimeIndicator()}
             <span
@@ -11454,9 +13766,9 @@ ${argsString}</pre
         ${
           this._memoriesError
             ? html`
-                <div
-                  role="alert"
-                  style="
+              <div
+                role="alert"
+                style="
                     display: flex;
                     align-items: flex-start;
                     gap: 8px;
@@ -11468,30 +13780,31 @@ ${argsString}</pre
                     font-size: 12px;
                     line-height: 1.45;
                   "
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#c0333a"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="flex-shrink:0;margin-top:1px;"
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#c0333a"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    style="flex-shrink:0;margin-top:1px;"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span>Action failed: ${this._memoriesError.message}</span>
-                </div>
-              `
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>Action failed: ${this._memoriesError.message}</span>
+              </div>
+            `
             : nothing
         }
         <div style="flex:1;min-height:0;overflow:hidden;">
           <cpk-memory-list
             style="height:100%;"
+            data-color-scheme=${this.colorScheme}
             .memories=${this._memories}
             .recallResults=${this._recallResults}
             .recallLoading=${this._recallLoading}
@@ -11549,40 +13862,41 @@ ${argsString}</pre
         ${
           usage && countLabel
             ? html`
-                <div class="inspector-threads-usage">
-                  <span data-inspector-thread-count>${countLabel}</span>
-                  ${
-                    progressMax !== undefined && progressValue !== undefined
-                      ? html`
-                          <progress
-                            class="inspector-thread-progress"
-                            data-inspector-thread-progress
-                            data-inspector-thread-capacity=${capacityState}
-                            max=${progressMax}
-                            value=${progressValue}
-                            aria-label=${
-                              capacityState === "warning"
-                                ? `${countLabel}. Near thread limit.`
-                                : capacityState === "critical"
-                                  ? `${countLabel}. Thread limit reached.`
-                                  : countLabel
-                            }
-                            >${countLabel}</progress
-                          >
-                        `
-                      : nothing
-                  }
-                  ${
-                    usage.expiringSoonCount !== undefined
-                      ? html`
-                          <span data-inspector-thread-expiry
-                            >${usage.expiringSoonCount} Expiring Soon</span
-                          >
-                        `
-                      : nothing
-                  }
-                </div>
-              `
+              <div class="inspector-threads-usage">
+                <span data-inspector-thread-count>${countLabel}</span>
+                ${
+                  progressMax !== undefined && progressValue !== undefined
+                    ? html`
+                      <progress
+                        class="inspector-thread-progress"
+                        data-inspector-thread-progress
+                        data-inspector-thread-capacity=${capacityState}
+                        max=${progressMax}
+                        value=${progressValue}
+                        aria-label=${
+                          capacityState === "warning"
+                            ? `${countLabel}. Near thread limit.`
+                            : capacityState === "critical"
+                              ? `${countLabel}. Thread limit reached.`
+                              : countLabel
+                        }
+                      >
+                        ${countLabel}
+                      </progress>
+                    `
+                    : nothing
+                }
+                ${
+                  usage.expiringSoonCount !== undefined
+                    ? html`
+                      <span data-inspector-thread-expiry
+                        >${usage.expiringSoonCount} Expiring Soon</span
+                      >
+                    `
+                    : nothing
+                }
+              </div>
+            `
             : nothing
         }
         ${
@@ -11646,14 +13960,19 @@ ${argsString}</pre
     }
 
     return html`
-      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+      <div
+        style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
+      >
         <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
           <!-- Left sidebar: thread list -->
           <div
-            style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+            style="width:${
+              this.threadListWidth
+            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
           >
             <cpk-thread-list
               style="min-height:0;flex:1;"
+              data-color-scheme=${this.colorScheme}
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
               .errorMessage=${threadsErrorMessage}
@@ -11675,13 +13994,15 @@ ${argsString}</pre
           ></div>
 
           <!-- Center + right: thread details or empty state -->
-          <div style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;">
+          <div
+            style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;"
+          >
             ${
               !locked && threadsErrorMessage
                 ? html`
-                    <div
-                      role="alert"
-                      style="
+                  <div
+                    role="alert"
+                    style="
                         display: flex;
                         flex: 1;
                         flex-direction: column;
@@ -11692,13 +14013,16 @@ ${argsString}</pre
                         color: #c0333a;
                         text-align: center;
                       "
+                  >
+                    <strong style="font-size:13px;"
+                      >Failed to load threads</strong
                     >
-                      <strong style="font-size:13px;">Failed to load threads</strong>
-                      <span style="max-width:440px;font-size:12px;line-height:1.5;"
-                        >${threadsErrorMessage}</span
-                      >
-                    </div>
-                  `
+                    <span
+                      style="max-width:440px;font-size:12px;line-height:1.5;"
+                      >${threadsErrorMessage}</span
+                    >
+                  </div>
+                `
                 : loadingWithoutRows
                   ? html`
                       <div
@@ -11717,47 +14041,48 @@ ${argsString}</pre
                     `
                   : selectedThread
                     ? html`<cpk-thread-details
-                    style="flex:1;min-width:0;"
-                    .threadId=${selectedThread.id}
-                    .thread=${selectedThread}
-                    .provider=${
-                      selectedThreadIsLocalExample
-                        ? this.getExampleThreadProvider(selectedThread.id)
-                        : null
-                    }
-                    .runtimeUrl=${
-                      selectedThreadIsLocalExample
-                        ? ""
-                        : (this._core?.runtimeUrl ?? "")
-                    }
-                    .headers=${this._core?.headers ?? {}}
-                    .threadInspectionAvailable=${
-                      selectedThreadIsLocalExample ||
-                      (this.areThreadEndpointsAvailable() &&
-                        this._core?.threadEndpoints?.inspect !== false)
-                    }
-                    .liveMessageVersion=${
-                      this.liveMessageVersion.get(selectedThread.id) ?? 0
-                    }
-                    .focusMessageId=${this.focusedThreadMessageId}
-                    .focusRequestId=${this.threadFocusRequestId}
-                    .agentStateInput=${this.getLatestStateForAgent(
-                      selectedThread.agentId,
-                    )}
-                    .agentEventsInput=${
-                      this.agentEvents.get(selectedThread.agentId) ?? []
-                    }
-                  ></cpk-thread-details>
-                  ${
-                    selectedThreadIsLocalExample
-                      ? this.renderThreadsExampleTour()
-                      : nothing
-                  }`
+                        style="flex:1;min-width:0;"
+                        data-color-scheme=${this.colorScheme}
+                        .threadId=${selectedThread.id}
+                        .thread=${selectedThread}
+                        .provider=${
+                          selectedThreadIsLocalExample
+                            ? this.getExampleThreadProvider(selectedThread.id)
+                            : null
+                        }
+                        .runtimeUrl=${
+                          selectedThreadIsLocalExample
+                            ? ""
+                            : (this._core?.runtimeUrl ?? "")
+                        }
+                        .headers=${this._core?.headers ?? {}}
+                        .threadInspectionAvailable=${
+                          selectedThreadIsLocalExample ||
+                          (this.areThreadEndpointsAvailable() &&
+                            this._core?.threadEndpoints?.inspect !== false)
+                        }
+                        .liveMessageVersion=${
+                          this.liveMessageVersion.get(selectedThread.id) ?? 0
+                        }
+                        .focusMessageId=${this.focusedThreadMessageId}
+                        .focusRequestId=${this.threadFocusRequestId}
+                        .agentStateInput=${this.getLatestStateForAgent(
+                          selectedThread.agentId,
+                        )}
+                        .agentEventsInput=${
+                          this.agentEvents.get(selectedThread.agentId) ?? []
+                        }
+                      ></cpk-thread-details>
+                      ${
+                        selectedThreadIsLocalExample
+                          ? this.renderThreadsExampleTour()
+                          : nothing
+                      }`
                     : showingExamples
                       ? this.renderThreadsExampleOverview(locked)
                       : html`
-                    <div
-                      style="
+                        <div
+                          style="
                         flex: 1;
                         display: flex;
                         flex-direction: column;
@@ -11766,26 +14091,30 @@ ${argsString}</pre
                         gap: 8px;
                         color: #68686e;
                       "
-                    >
-                      <svg
-                        width="32"
-                        height="32"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#c0c0c8"
-                        stroke-width="1.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                      >
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                      <span style="font-size: 13px">${
-                        displayThreads.length === 0
-                          ? "No threads yet"
-                          : "Select a thread to inspect"
-                      }</span>
-                    </div>
-                  `
+                        >
+                          <svg
+                            width="32"
+                            height="32"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="#c0c0c8"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path
+                              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                            />
+                          </svg>
+                          <span style="font-size: 13px"
+                            >${
+                              displayThreads.length === 0
+                                ? "No threads yet"
+                                : "Select a thread to inspect"
+                            }</span
+                          >
+                        </div>
+                      `
             }
           </div>
         </div>
@@ -11793,16 +14122,120 @@ ${argsString}</pre
     `;
   }
 
-  private renderEventsTable() {
-    const events = this.getEventsForSelectedContext();
-    const filteredEvents = this.filterEvents(events);
+  private renderEventsToolbar(
+    events: InspectorEvent[],
+    filteredEvents: InspectorEvent[],
+    options: { showAgentFilter?: boolean } = {},
+  ) {
+    const showAgentFilter = options.showAgentFilter !== false;
     const selectedLabel =
       this.selectedContext === "all-agents"
         ? "all agents"
         : `agent ${this.selectedContext}`;
 
+    return html`
+      <div
+        class="flex flex-col gap-1.5 border-b border-gray-200 bg-white px-4 py-2.5"
+      >
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="relative min-w-[200px] flex-1">
+            <input
+              type="search"
+              class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
+              placeholder="Search agent, type, payload"
+              .value=${this.eventFilterText}
+              @input=${this.handleEventFilterInput}
+            />
+          </div>
+          ${
+            showAgentFilter
+              ? html`
+                <select
+                  class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+                  .value=${this.selectedContext}
+                  @change=${this.handleEventAgentChange}
+                  aria-label="Filter events by agent"
+                >
+                  ${this.contextOptions.map(
+                    (option) =>
+                      html`<option value=${option.key}>
+                        ${option.label}
+                      </option>`,
+                  )}
+                </select>
+              `
+              : nothing
+          }
+          <select
+            class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
+            .value=${this.eventTypeFilter}
+            @change=${this.handleEventTypeChange}
+            aria-label="Filter events by type"
+          >
+            <option value="all">All event types</option>
+            ${AGENT_EVENT_TYPES.map(
+              (type) =>
+                html`<option value=${type}>
+                  ${type.toLowerCase().replace(/_/g, " ")}
+                </option>`,
+            )}
+          </select>
+          <div class="flex items-center gap-1 text-[11px]">
+            <button
+              type="button"
+              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Reset filters"
+              data-tooltip="Reset filters"
+              aria-label="Reset filters"
+              @click=${this.resetEventFilters}
+              ?disabled=${
+                !this.eventFilterText && this.eventTypeFilter === "all"
+              }
+            >
+              ${this.renderIcon("RotateCw")}
+            </button>
+            <button
+              type="button"
+              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Export JSON"
+              data-tooltip="Export JSON"
+              aria-label="Export JSON"
+              @click=${() => this.exportEvents(filteredEvents)}
+              ?disabled=${filteredEvents.length === 0}
+            >
+              ${this.renderIcon("Download")}
+            </button>
+            <button
+              type="button"
+              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              title="Clear events"
+              data-tooltip="Clear events"
+              aria-label="Clear events"
+              @click=${this.handleClearEvents}
+              ?disabled=${events.length === 0}
+            >
+              ${this.renderIcon("Trash2")}
+            </button>
+          </div>
+        </div>
+        <div class="text-[11px] text-gray-500">
+          Showing ${filteredEvents.length} of
+          ${events.length}${
+            this.selectedContext === "all-agents" ? "" : ` for ${selectedLabel}`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderEventsTable(options: { embedded?: boolean } = {}) {
+    const events = this.getEventsForSelectedContext();
+    const filteredEvents = this.filterEvents(events);
+    const embedded = options.embedded === true;
+
+    let body;
     if (events.length === 0) {
-      return html`
+      body = html`
         <div
           class="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center"
         >
@@ -11815,10 +14248,8 @@ ${argsString}</pre
           >
         </div>
       `;
-    }
-
-    if (filteredEvents.length === 0) {
-      return html`
+    } else if (filteredEvents.length === 0) {
+      body = html`
         <div
           class="flex h-full items-center justify-center px-4 py-8 text-center"
         >
@@ -11844,83 +14275,8 @@ ${argsString}</pre
           </div>
         </div>
       `;
-    }
-
-    return html`
-      <div class="flex h-full flex-col">
-        <div
-          class="flex flex-col gap-1.5 border-b border-gray-200 bg-white px-4 py-2.5"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <div class="relative min-w-[200px] flex-1">
-              <input
-                type="search"
-                class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
-                placeholder="Search agent, type, payload"
-                .value=${this.eventFilterText}
-                @input=${this.handleEventFilterInput}
-              />
-            </div>
-            <select
-              class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
-              .value=${this.eventTypeFilter}
-              @change=${this.handleEventTypeChange}
-            >
-              <option value="all">All event types</option>
-              ${AGENT_EVENT_TYPES.map(
-                (type) =>
-                  html`<option value=${type}>
-                    ${type.toLowerCase().replace(/_/g, " ")}
-                  </option>`,
-              )}
-            </select>
-            <div class="flex items-center gap-1 text-[11px]">
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Reset filters"
-                data-tooltip="Reset filters"
-                aria-label="Reset filters"
-                @click=${this.resetEventFilters}
-                ?disabled=${
-                  !this.eventFilterText && this.eventTypeFilter === "all"
-                }
-              >
-                ${this.renderIcon("RotateCw")}
-              </button>
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Export JSON"
-                data-tooltip="Export JSON"
-                aria-label="Export JSON"
-                @click=${() => this.exportEvents(filteredEvents)}
-                ?disabled=${filteredEvents.length === 0}
-              >
-                ${this.renderIcon("Download")}
-              </button>
-              <button
-                type="button"
-                class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                title="Clear events"
-                data-tooltip="Clear events"
-                aria-label="Clear events"
-                @click=${this.handleClearEvents}
-                ?disabled=${events.length === 0}
-              >
-                ${this.renderIcon("Trash2")}
-              </button>
-            </div>
-          </div>
-          <div class="text-[11px] text-gray-500">
-            Showing ${filteredEvents.length} of
-            ${events.length}${
-              this.selectedContext === "all-agents"
-                ? ""
-                : ` for ${selectedLabel}`
-            }
-          </div>
-        </div>
+    } else {
+      body = html`
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
             <colgroup>
@@ -11972,6 +14328,7 @@ ${argsString}</pre
                 return html`
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
+                    data-inspector-event-id=${event.id}
                     @click=${(clickEvent: Event) =>
                       this.toggleRowExpansion(event.id, clickEvent)}
                   >
@@ -12042,6 +14399,21 @@ ${prettyEvent}</pre
             </tbody>
           </table>
         </div>
+      `;
+    }
+
+    return html`
+      <div
+        class="${
+          embedded
+            ? "flex h-[28rem] min-h-[20rem] flex-col"
+            : "flex h-full flex-col"
+        }"
+      >
+        ${this.renderEventsToolbar(events, filteredEvents, {
+          showAgentFilter: !embedded,
+        })}
+        <div class="min-h-0 flex-1 overflow-hidden">${body}</div>
       </div>
     `;
   }
@@ -12050,6 +14422,15 @@ ${prettyEvent}</pre
     const target = event.target as HTMLInputElement | null;
     this.eventFilterText = target?.value ?? "";
     this.requestUpdate();
+  }
+
+  private handleEventAgentChange(event: Event): void {
+    const target = event.target as HTMLSelectElement | null;
+    const value = target?.value;
+    if (!value) {
+      return;
+    }
+    this.handleContextOptionSelect(value);
   }
 
   private handleEventTypeChange(event: Event): void {
@@ -12158,9 +14539,11 @@ ${prettyEvent}</pre
     };
 
     return html`
-      <div class="flex flex-col gap-4 p-4 overflow-auto">
+      <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
         <!-- Agent Overview Card -->
-        <div class="rounded-lg border border-gray-200 bg-white p-4">
+        <div
+          class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
+        >
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div
@@ -12252,11 +14635,7 @@ ${prettyEvent}</pre
           <div class="overflow-auto p-4">
             ${
               this.hasRenderableState(state)
-                ? html`
-                  <pre
-                    class="overflow-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800 max-h-64"
-                  ><code>${this.formatStateForDisplay(state)}</code></pre>
-                `
+                ? renderHighlightedJsonBlock(state, { maxHeight: "16rem" })
                 : html`
                   <div
                     class="flex h-12 items-center justify-center text-xs text-gray-500"
@@ -12325,10 +14704,8 @@ ${prettyEvent}</pre
                               ${
                                 hasContent
                                   ? html`<div
-                                    class="whitespace-pre-line break-words text-gray-700"
-                                  >
-                                    ${rawContent}
-                                  </div>`
+                                    class="whitespace-pre-wrap break-words text-gray-700"
+                                  >${rawContent}</div>`
                                   : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
@@ -12360,11 +14737,20 @@ ${prettyEvent}</pre
             }
           </div>
         </div>
+
+        ${this.renderAgentToolsSection(agentId)}
+
+        <div class="cpk-section-card overflow-hidden">
+          <div class="cpk-section-header">
+            <h4>AG-UI Events</h4>
+          </div>
+          ${this.renderEventsTable({ embedded: true })}
+        </div>
       </div>
     `;
   }
 
-  private renderContextDropdown() {
+  private renderContextDropdown(iconRail = false) {
     // Filter out "all-agents" when in agents view
     const filteredOptions =
       this.selectedMenu === "agents"
@@ -12379,14 +14765,37 @@ ${prettyEvent}</pre
       <div
         class="relative z-40 min-w-0 flex-1"
         data-context-dropdown-root="true"
+        @pointerenter=${
+          iconRail ? this.handleIconRailContextPointerEnter : nothing
+        }
+        @pointerleave=${
+          iconRail ? this.handleIconRailContextPointerLeave : nothing
+        }
+        @focusin=${iconRail ? this.handleIconRailContextFocusIn : nothing}
+        @focusout=${iconRail ? this.handleIconRailContextFocusOut : nothing}
       >
         <button
           type="button"
           class="relative z-40 flex w-full min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-          @pointerdown=${this.handleContextDropdownToggle}
+          aria-label="Select agent scope: ${selectedLabel}"
+          title=${selectedLabel}
+          @pointerdown=${
+            iconRail
+              ? this.handleIconRailContextPointerDown
+              : this.handleContextDropdownToggle
+          }
         >
-          <span class="truncate flex-1 text-left">${selectedLabel}</span>
-          <span class="shrink-0 text-gray-400"
+          <span
+            class="inspector-context-dropdown-icon shrink-0"
+            aria-hidden="true"
+            >${this.renderIcon("Bot")}</span
+          >
+          <span
+            class="inspector-context-dropdown-label truncate flex-1 text-left"
+            >${selectedLabel}</span
+          >
+          <span
+            class="inspector-context-dropdown-chevron shrink-0 text-gray-400"
             >${this.renderIcon("ChevronDown")}</span
           >
         </button>
@@ -12438,9 +14847,10 @@ ${prettyEvent}</pre
 
     const previousMenu = this.selectedMenu;
     this.pendingPersistedMenu = null;
+    this.briefingRestoreMenu = null;
     this.selectedMenu = key;
     this.settingsOpen = false;
-    this.lastSelectedMenuByGroup[this.getGroupForMenu(key)] = key;
+    this.lastSelectedMenuByGroup[getGroupForMenu(key)] = key;
 
     // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
@@ -12480,6 +14890,10 @@ ${prettyEvent}</pre
       this.autoSelectLatestThread();
     }
 
+    if (key === "playground" && !this.playgroundAgent) {
+      this.startPlaygroundSession(false);
+    }
+
     if (key === "memories") {
       // Lazily create + subscribe to the memory store on first activation. This
       // is the only place that touches getMemoryStore(), so the store/realtime
@@ -12490,6 +14904,10 @@ ${prettyEvent}</pre
       }
     }
 
+    if (key === "home" && previousMenu !== "home") {
+      this.homeViewedThisOpen = false;
+    }
+
     if (key === "ag-ui-events" || key === "agents") {
       requestAnimationFrame(() => {
         const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
@@ -12498,6 +14916,7 @@ ${prettyEvent}</pre
     }
 
     this.contextMenuOpen = false;
+    this.layoutMenuOpen = false;
     this.persistState();
     this.requestUpdate();
   }
@@ -12505,9 +14924,58 @@ ${prettyEvent}</pre
   private handleContextDropdownToggle(event: PointerEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    this.layoutMenuOpen = false;
     this.contextMenuOpen = !this.contextMenuOpen;
     this.requestUpdate();
   }
+
+  /** Expand the icon-rail agent scope on hover while preserving keyboard access. */
+  private handleIconRailContextPointerEnter = (event: PointerEvent): void => {
+    if (event.pointerType === "touch" || this.contextMenuOpen) {
+      return;
+    }
+    this.layoutMenuOpen = false;
+    this.contextMenuOpen = true;
+    this.requestUpdate();
+  };
+
+  private handleIconRailContextPointerLeave = (): void => {
+    if (!this.contextMenuOpen) {
+      return;
+    }
+    this.contextMenuOpen = false;
+    this.requestUpdate();
+  };
+
+  private handleIconRailContextPointerDown = (event: PointerEvent): void => {
+    // A hover-only rail still needs to be operable on touch devices.
+    if (event.pointerType === "touch") {
+      this.handleContextDropdownToggle(event);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  private handleIconRailContextFocusIn = (): void => {
+    if (this.contextMenuOpen) {
+      return;
+    }
+    this.layoutMenuOpen = false;
+    this.contextMenuOpen = true;
+    this.requestUpdate();
+  };
+
+  private handleIconRailContextFocusOut = (event: FocusEvent): void => {
+    const nextFocus = event.relatedTarget;
+    if (
+      nextFocus instanceof Node &&
+      (event.currentTarget as HTMLElement).contains(nextFocus)
+    ) {
+      return;
+    }
+    this.handleIconRailContextPointerLeave();
+  };
 
   private handleContextOptionSelect(key: string): void {
     if (!this.contextOptions.some((option) => option.key === key)) {
@@ -12518,6 +14986,9 @@ ${prettyEvent}</pre
       this.selectedContext = key;
       this.expandedRows.clear();
       this.autoSelectLatestThread();
+      if (this.selectedMenu === "playground") {
+        this.startPlaygroundSession(false);
+      }
     }
 
     this.contextMenuOpen = false;
@@ -12544,9 +15015,13 @@ ${prettyEvent}</pre
 
     if (toolRows.length === 0 && !hasCatalog) {
       return html`
-        <div class="flex h-full items-center justify-center px-4 py-8 text-center">
+        <div
+          class="flex h-full items-center justify-center px-4 py-8 text-center"
+        >
           <div class="max-w-md">
-            <div class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
+            <div
+              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
+            >
               ${this.renderIcon("SlidersHorizontal")}
             </div>
             <p class="text-sm text-gray-600">No capabilities registered</p>
@@ -12582,12 +15057,13 @@ ${prettyEvent}</pre
               `
               : nothing
           }
-
           ${
             hasCatalog
               ? html`
                 <div class="mt-6 space-y-2">
-                  <h3 class="text-sm text-slate-500">A2UI catalog components</h3>
+                  <h3 class="text-sm text-slate-500">
+                    A2UI catalog components
+                  </h3>
                   <div class="space-y-2">
                     ${catalog.map((component) =>
                       this.renderCapabilityRow({
@@ -12614,19 +15090,31 @@ ${prettyEvent}</pre
     // so they contain a ":"; catalog keys are the bare component name.
     const isTool = row.key.includes(":");
     return html`
-      <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+      <div
+        class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3"
+      >
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="font-mono text-sm font-semibold text-gray-900">${row.name}</span>
+            <span class="font-mono text-sm font-semibold text-gray-900"
+              >${row.name}</span
+            >
             ${
               row.agentId
-                ? html`<span class="inline-flex items-center gap-1 text-xs text-gray-500">
-                    ${this.renderIcon("Bot")}<span class="font-mono">${row.agentId}</span>
-                  </span>`
+                ? html`<span
+                  class="inline-flex items-center gap-1 text-xs text-gray-500"
+                >
+                  ${this.renderIcon("Bot")}<span class="font-mono"
+                    >${row.agentId}</span
+                  >
+                </span>`
                 : nothing
             }
           </div>
-          ${row.description ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>` : nothing}
+          ${
+            row.description
+              ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>`
+              : nothing
+          }
         </div>
         ${this.renderCapabilitySwitch(row.enabled, () =>
           isTool
@@ -12648,7 +15136,9 @@ ${prettyEvent}</pre
         class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 ${track}"
         @click=${onToggle}
       >
-        <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"></span>
+        <span
+          class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"
+        ></span>
       </button>
     `;
   }
@@ -13312,22 +15802,9 @@ ${prettyEvent}</pre
                           }
                         </button>
                       </div>
-                      <pre
-                        style="
-                          margin: 0;
-                          max-height: 180px;
-                          overflow: auto;
-                          white-space: pre-wrap;
-                          word-break: break-word;
-                          border-radius: 6px;
-                          border: 1px solid #eeeef4;
-                          background: #f7f7f9;
-                          padding: 10px;
-                          font-size: 11px;
-                          line-height: 1.5;
-                          color: #2d2d30;
-                        "
-                      >${this.formatContextValue(context.value)}</pre>
+                      ${renderHighlightedJsonBlock(context.value, {
+                        maxHeight: "180px",
+                      })}
                     `
                     : html`
                         <div class="flex items-center justify-center py-4 text-xs text-gray-500">
@@ -13344,32 +15821,73 @@ ${prettyEvent}</pre
   }
 
   private getContextValuePreview(value: unknown): string {
-    if (value === undefined || value === null) {
+    const parsed = coerceJsonValue(value);
+
+    if (parsed === undefined || parsed === null) {
       return "—";
     }
 
-    if (typeof value === "string") {
-      return value.length > 50 ? `${value.slice(0, 50)}...` : value;
+    if (typeof parsed === "string") {
+      return parsed.length > 50 ? `${parsed.slice(0, 50)}...` : parsed;
     }
 
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value);
+    if (typeof parsed === "number" || typeof parsed === "boolean") {
+      return String(parsed);
     }
 
-    if (Array.isArray(value)) {
-      return `Array(${value.length})`;
+    if (Array.isArray(parsed)) {
+      return `Array(${parsed.length})`;
     }
 
-    if (typeof value === "object") {
-      const keys = Object.keys(value);
+    if (typeof parsed === "object") {
+      const keys = Object.keys(parsed);
       return `Object with ${keys.length} key${keys.length !== 1 ? "s" : ""}`;
     }
 
-    if (typeof value === "function") {
+    if (typeof parsed === "function") {
       return "Function";
     }
 
-    return String(value);
+    return String(parsed);
+  }
+
+  private getToolsForAgent(agentId: string): InspectorToolDefinition[] {
+    this.refreshToolsSnapshot();
+    return this.cachedTools.filter(
+      (tool) => !tool.agentId || tool.agentId === agentId,
+    );
+  }
+
+  private renderAgentToolsSection(agentId: string) {
+    const tools = this.getToolsForAgent(agentId);
+
+    return html`
+      <div class="cpk-section-card">
+        <div class="cpk-section-header">
+          <h4>Registered Tools</h4>
+        </div>
+        <div class="overflow-auto p-4">
+          ${
+            tools.length > 0
+              ? html`<div class="space-y-3">
+                ${tools.map((tool) => this.renderToolCard(tool))}
+              </div>`
+              : html`
+                <div
+                  class="flex h-12 items-center justify-center text-xs text-gray-500"
+                >
+                  <div class="flex items-center gap-2 text-gray-500">
+                    <span class="text-lg text-gray-400"
+                      >${this.renderIcon("Hammer")}</span
+                    >
+                    <span>No tools registered</span>
+                  </div>
+                </div>
+              `
+          }
+        </div>
+      </div>
+    `;
   }
 
   private formatContextValue(value: unknown): string {
@@ -13385,11 +15903,8 @@ ${prettyEvent}</pre
       return value.toString();
     }
 
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return String(value);
-    }
+    const pretty = this.formatStateForDisplay(coerceJsonValue(value));
+    return pretty.length > 0 ? pretty : String(value);
   }
 
   private async copyContextValue(
@@ -13427,11 +15942,12 @@ ${prettyEvent}</pre
   }
 
   private handleGlobalPointerDown = (event: PointerEvent): void => {
-    if (!this.contextMenuOpen) {
+    if (!this.contextMenuOpen && !this.layoutMenuOpen) {
       return;
     }
 
-    const clickedDropdown = event.composedPath().some((node) => {
+    const path = event.composedPath();
+    const clickedDropdown = path.some((node) => {
       const candidate = node as {
         getAttribute?: (name: string) => string | null;
       };
@@ -13440,9 +15956,26 @@ ${prettyEvent}</pre
         candidate.getAttribute("data-context-dropdown-root") === "true"
       );
     });
+    const clickedLayoutMenu = path.some((node) => {
+      const candidate = node as {
+        getAttribute?: (name: string) => string | null;
+      };
+      return (
+        typeof candidate.getAttribute === "function" &&
+        candidate.getAttribute("data-inspector-window-layout-root") === "true"
+      );
+    });
 
-    if (!clickedDropdown) {
+    let changed = false;
+    if (this.contextMenuOpen && !clickedDropdown) {
       this.contextMenuOpen = false;
+      changed = true;
+    }
+    if (this.layoutMenuOpen && !clickedLayoutMenu) {
+      this.layoutMenuOpen = false;
+      changed = true;
+    }
+    if (changed) {
       this.requestUpdate();
     }
   };
@@ -13467,105 +16000,139 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  private renderAnnouncementBanner() {
-    if (!this.hasUnseenAnnouncement) {
-      return nothing;
-    }
+  // ── What's new launcher signal ──────────────────────────────────────────
 
-    if (!this.announcementLoaded && !this.announcementHtml) {
-      return html`<div
-        class="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800"
-      >
-        <span
-          class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-        >
-          ${this.renderIcon("Megaphone")}
-        </span>
-        <span>Loading latest announcement…</span>
-      </div>`;
+  private armNewsSignal(options: { pulse: boolean }): void {
+    const wasArmed = this.newsSignalArmed;
+    this.newsSignalArmed = true;
+    if (options.pulse && this.isOpen) {
+      this.newsSignalPulsePending = true;
+      if (!wasArmed) this.requestUpdate();
+    } else if (options.pulse) {
+      this.startNewsSignalPulse();
+    } else if (!wasArmed) {
+      this.requestUpdate();
     }
+  }
 
-    if (!this.announcementHtml) {
-      return nothing;
+  private clearNewsSignal(): void {
+    if (!this.newsSignalArmed) return;
+    this.newsSignalArmed = false;
+    this.newsSignalPulsePending = false;
+    if (this.announcementTimestamp) {
+      saveAnnouncementReadTimestamp(this.announcementTimestamp);
     }
+    if (this.newsSignalPulsing) this.stopNewsSignalPulse();
+    this.requestUpdate();
+  }
 
-    return html`<div
-      class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
-    >
-      <div
-        class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
-      >
-        <span
-          class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-        >
-          ${this.renderIcon("Megaphone")}
-        </span>
-        <span>Announcement</span>
-        <button
-          class="announcement-dismiss ml-auto"
-          type="button"
-          @click=${() => this.dismissAnnouncement("expanded_card")}
-          aria-label="Dismiss announcement"
-        >
-          ${this.renderIcon("X")}
-        </button>
-      </div>
-      <div
-        class="announcement-body ${
-          this.announcementExpanded
-            ? "announcement-body--expanded"
-            : "announcement-body--collapsed"
-        }"
-      >
-        <div
-          class="announcement-content"
-          @click=${this.handleAnnouncementContentClick}
-        >
-          ${unsafeHTML(this.announcementHtml)}
-        </div>
-        ${
-          !this.announcementExpanded
-            ? html`
-                <div class="announcement-fade"></div>
-              `
-            : nothing
-        }
-      </div>
-      <button
-        class="announcement-toggle"
-        type="button"
-        @click=${() => {
-          this.announcementExpanded = !this.announcementExpanded;
-          this.requestUpdate();
-        }}
-      >
-        ${this.announcementExpanded ? "Show less ↑" : "Show more ↓"}
-      </button>
-    </div>`;
+  private startNewsSignalPulse(): void {
+    this.stopNewsSignalPulse();
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      this.newsSignalPulsePending = true;
+      this.requestUpdate();
+      return;
+    }
+    this.newsSignalPulsePending = false;
+    this.newsSignalPulsing = true;
+    if (this.announcementTimestamp) {
+      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    }
+    this.requestUpdate();
+    if (typeof window === "undefined") return;
+    this.pulseTimeoutId = setTimeout(() => {
+      this.pulseTimeoutId = null;
+      this.newsSignalPulsing = false;
+      this.requestUpdate();
+    }, NEWS_SIGNAL_CADENCE_MS);
+  }
+
+  private stopNewsSignalPulse(): void {
+    if (this.pulseTimeoutId !== null) {
+      clearTimeout(this.pulseTimeoutId);
+      this.pulseTimeoutId = null;
+    }
+    this.newsSignalPulsing = false;
+  }
+
+  private maybeTrackNewsSignalViewed(): void {
+    if (
+      !this.newsSignalArmed ||
+      !this.newsSignalPulsing ||
+      this.isOpen ||
+      typeof document === "undefined" ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    const id = this.announcementTimestamp;
+    if (!id || this.viewedNewsSignalIds.has(id)) return;
+    this.viewedNewsSignalIds.add(id);
+    this.pendingNewsSignalViewed = {
+      banner_id: id,
+      surface: "launcher",
+      presentation:
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+          ? "reduced_motion"
+          : "animated",
+      cta_label: this.announcementCtaLabel ?? undefined,
+    };
+    this.flushPendingWhatsNewTelemetry();
+  }
+
+  // ── What's new ─────────────────────────────────────────────────────────
+  //
+  // Built as a self-contained unit — its own render method, its own state,
+  // and no dependency on the shape of today's two-level navigation — so the
+  // planned sidebar restructuring can relocate it rather than rewrite it.
+
+  /** Which of the three What's new states the feed currently supports. */
+  private getWhatsNewState(): "loading" | "empty" | "content" {
+    if (this.announcementHtml) return "content";
+    return this.announcementLoaded ? "empty" : "loading";
   }
 
   /**
    * Which announcement surface is on screen right now, or null when the
-   * announcement isn't visible. Mirrors the render gates in
-   * `renderAnnouncementPreview` (bubble) and `renderAnnouncementBanner`
-   * (in-panel card) — opening the panel clears `showAnnouncementPreview`, so
-   * the two are mutually exclusive.
+   * announcement isn't visible. What's new is the only surface: an impression
+   * requires the panel open, that view selected, and content actually
+   * rendered — a loading state is not an impression.
    */
-  private getVisibleBannerSurface(): BannerSurface | null {
-    if (!this.hasUnseenAnnouncement) return null;
-    if (this.isOpen) {
-      return this.announcementHtml ? "expanded_card" : null;
-    }
-    return this.showAnnouncementPreview && this.announcementPreviewText
-      ? "collapsed_preview"
-      : null;
+  private getVisibleBannerSurface(): WhatsNewSurface | null {
+    if (!this.isOpen || this.settingsOpen) return null;
+    if (this.selectedMenu !== WHATS_NEW_MENU_KEY) return null;
+    return this.announcementHtml ? "whats_new" : null;
   }
 
   /**
-   * Records a `banner_viewed` impression for whichever surface is currently
-   * visible, once per announcement per surface.
+   * The single condition that retires the news signal: What's new has
+   * rendered *with content*.
+   *
+   * Deliberately not on panel open — the common reason to open the Inspector
+   * is AG-UI events, and clearing there would burn a whole announcement
+   * silently and turn "viewed" into "opened the Inspector at some point".
+   * Deliberately not behind an acknowledge button, which is a dismiss button
+   * under another name. And a loading state does not count, because the feed
+   * is asynchronous and a reader who arrived early has seen nothing.
+   *
+   * The launcher dot and the navigation marker both read the same signal, so
+   * the two can never disagree about whether something has been read.
    */
-  private maybeTrackBannerViewed(): void {
+  private maybeCompleteWhatsNewView(): void {
+    if (!this.getVisibleBannerSurface()) return;
+    this.maybeTrackWhatsNewViewed();
+    this.clearNewsSignal();
+  }
+
+  /**
+   * Records a `whats_new_viewed` impression for whichever surface is
+   * currently visible, once per announcement per surface.
+   */
+  private maybeTrackWhatsNewViewed(): void {
     const id = this.announcementTimestamp;
     if (!id) return;
     const surface = this.getVisibleBannerSurface();
@@ -13579,21 +16146,36 @@ ${prettyEvent}</pre
       surface,
       cta_label: this.announcementCtaLabel ?? undefined,
     });
-    this.flushPendingBannerViewed();
+    this.flushPendingWhatsNewTelemetry();
   }
 
-  // Releases held impressions once /info has answered, or discards them when it
-  // reports telemetry disabled.
-  private flushPendingBannerViewed(): void {
-    if (this.pendingBannerViewed.length === 0) return;
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = [];
+  // Releases held notification telemetry once /info has answered, or discards
+  // it when the runtime reports telemetry disabled.
+  private flushPendingWhatsNewTelemetry(): void {
+    if (
+      this.pendingBannerViewed.length === 0 &&
+      !this.pendingNewsSignalViewed
+    ) {
       return;
     }
-    if (this.runtimeStatus !== "connected") return;
+    if (this.core?.telemetryDisabled) {
+      this.pendingBannerViewed = [];
+      this.pendingNewsSignalViewed = null;
+      return;
+    }
+    if (
+      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
     const queued = this.pendingBannerViewed;
     this.pendingBannerViewed = [];
-    for (const props of queued) trackBannerViewed(props);
+    for (const props of queued) trackWhatsNewViewed(props);
+    if (this.pendingNewsSignalViewed) {
+      const props = this.pendingNewsSignalViewed;
+      this.pendingNewsSignalViewed = null;
+      trackWhatsNewSignalViewed(props);
+    }
   }
 
   private ensureAnnouncementLoading(): void {
@@ -13605,64 +16187,6 @@ ${prettyEvent}</pre
       return;
     }
     this.announcementPromise = this.fetchAnnouncement();
-  }
-
-  private renderAnnouncementPreview() {
-    if (
-      !this.hasUnseenAnnouncement ||
-      !this.showAnnouncementPreview ||
-      !this.announcementPreviewText
-    ) {
-      return nothing;
-    }
-
-    const side =
-      this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
-
-    // The preview is a sibling of the floating button (see renderButton), so the
-    // dismiss control is a real <button>. stopPropagation keeps the X from
-    // bubbling to the preview body, whose click opens the inspector.
-    return html`<div
-      class="announcement-preview"
-      data-side=${side}
-      role="note"
-      @click=${() => this.handleAnnouncementPreviewClick()}
-    >
-      <span>${this.announcementPreviewText}</span>
-      <button
-        type="button"
-        class="announcement-preview__dismiss"
-        aria-label="Dismiss announcement"
-        @click=${this.handleDismissAnnouncementPreview}
-      >
-        ${this.renderIcon("X")}
-      </button>
-      <span class="announcement-preview__arrow"></span>
-    </div>`;
-  }
-
-  private handleAnnouncementPreviewClick(): void {
-    this.showAnnouncementPreview = false;
-    this.openInspector("announcement_preview");
-  }
-
-  // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
-  // otherwise the bubble pops back out on the next mount because
-  // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
-  // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
-  // and openInspector do) is intentionally transient — it's the X that makes
-  // the dismissal stick.
-  private handleDismissAnnouncementPreview = (event: Event): void => {
-    // Don't let the dismiss bubble to the preview body, whose click opens the
-    // inspector.
-    event.stopPropagation();
-    this.dismissAnnouncement("collapsed_preview");
-  };
-
-  private dismissAnnouncement(surface: BannerSurface): void {
-    this.trackBannerClickedOnce({ cta: "dismiss" });
-    this.trackBannerDismissedOnce(surface);
-    this.markAnnouncementSeen();
   }
 
   private async fetchAnnouncement(): Promise<void> {
@@ -13692,21 +16216,27 @@ ${prettyEvent}</pre
         throw new Error("Malformed announcement payload");
       }
 
-      const storedTimestamp = this.loadStoredAnnouncementTimestamp();
-
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
+      this.announcementMarkdown = markdown;
       this.announcementCtaLabel = ctaLabel;
-      this.hasUnseenAnnouncement =
-        (!storedTimestamp || storedTimestamp !== timestamp) &&
-        !!this.announcementPreviewText;
-      this.showAnnouncementPreview = this.hasUnseenAnnouncement;
       this.announcementHtml = await this.convertMarkdownToHtml(markdown);
       this.announcementLoaded = true;
 
-      // banner_viewed: gate on actual visibility and per-mount dedup, and
-      // stamp the surface the announcement is showing on right now.
-      this.maybeTrackBannerViewed();
+      // The signal arms on a timestamp plus a body that actually renders —
+      // anything else would produce a dot that What's new can never clear,
+      // because clearing requires content. `previewText` does NOT gate it:
+      // that was defensible while the text was the bubble's headline, but it
+      // is now just the heading, and gating on it would mean an announcement
+      // without preview text produced no dot at all.
+      if (
+        this.announcementHtml &&
+        loadAnnouncementReadTimestamp() !== timestamp
+      ) {
+        this.armNewsSignal({
+          pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
+        });
+      }
 
       this.requestUpdate();
     } catch (error) {
@@ -13789,17 +16319,25 @@ ${prettyEvent}</pre
     const target = event.target as {
       closest?: (selector: string) => Element | null;
     } | null;
-    const closest =
+    const copyControl =
       typeof target?.closest === "function"
         ? target.closest(".announcement-code__copy")
         : null;
     const button =
-      closest?.tagName === "BUTTON" ? (closest as HTMLButtonElement) : null;
+      copyControl?.tagName === "BUTTON"
+        ? (copyControl as HTMLButtonElement)
+        : null;
     if (!button) {
-      // banner_clicked fires once per banner per cta-type per mount. Dedup
-      // prevents accidental multi-clicks from inflating funnel counts beyond
-      // one "body" signal and one "dismiss" signal per banner.
-      this.trackBannerClickedOnce({ cta: "body" });
+      const link =
+        typeof target?.closest === "function" ? target.closest("a") : null;
+      if (!link) return;
+
+      const href = link.getAttribute("href");
+      if (href) link.setAttribute("href", this.appendRefParam(href));
+
+      // whats_new_clicked fires once per banner per mount. Dedup prevents
+      // accidental multi-clicks from inflating the link-follow funnel.
+      this.trackWhatsNewClickedOnce({ cta: "body" });
       return;
     }
     event.preventDefault();
@@ -13849,11 +16387,13 @@ ${prettyEvent}</pre
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
-      // close the banner_viewed → banner_clicked → signup_attributed
+      // close the whats_new_viewed → whats_new_clicked → signup_attributed
       // funnel. Returns null when the user has opted out, so opt-out
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
+        this.runtimeStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Connected &&
         !this.core?.telemetryDisabled &&
         this.isCopilotKitDestination(url)
       ) {
@@ -13878,59 +16418,6 @@ ${prettyEvent}</pre
 
   private escapeHtmlAttr(value: string): string {
     return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-  }
-
-  private loadStoredAnnouncementTimestamp(): string | null {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return null;
-    }
-    try {
-      const raw = window.localStorage.getItem(ANNOUNCEMENT_STORAGE_KEY);
-      if (!raw) {
-        return null;
-      }
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.timestamp === "string") {
-        return parsed.timestamp;
-      }
-      // Backward compatibility: previous shape { hash }
-      return null;
-    } catch {
-      // ignore malformed storage
-    }
-    return null;
-  }
-
-  private persistAnnouncementTimestamp(timestamp: string): void {
-    if (typeof window === "undefined" || !window.localStorage) {
-      return;
-    }
-    try {
-      const payload = JSON.stringify({ timestamp });
-      window.localStorage.setItem(ANNOUNCEMENT_STORAGE_KEY, payload);
-    } catch {
-      // Non-fatal if storage is unavailable
-    }
-  }
-
-  private markAnnouncementSeen(): void {
-    // Clear badge only when explicitly dismissed
-    this.hasUnseenAnnouncement = false;
-    this.showAnnouncementPreview = false;
-
-    if (!this.announcementTimestamp) {
-      // If still loading, attempt once more after promise resolves; avoid infinite requeues
-      if (this.announcementPromise && !this.announcementLoaded) {
-        void this.announcementPromise
-          .then(() => this.markAnnouncementSeen())
-          .catch(() => undefined);
-      }
-      this.requestUpdate();
-      return;
-    }
-
-    this.persistAnnouncementTimestamp(this.announcementTimestamp);
-    this.requestUpdate();
   }
 }
 

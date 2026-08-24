@@ -359,7 +359,7 @@ export { handler as GET, handler as POST };
 ```
 </Tab>
 <Tab value="Single-route">
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -741,7 +741,7 @@ The Express adapter is compatible with `express.json()` body parsing. If you hav
 The Hono adapter returns a Hono app that you mount with `app.route()`.
 
 ```
-npm install hono
+npm install
 ```
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>

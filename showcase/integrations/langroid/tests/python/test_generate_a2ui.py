@@ -291,7 +291,7 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
     langroid's ``ChatAgent`` lazily constructs the LLM from the config —
     ``create_agent`` itself only instantiates the config, not the LLM.
     """
-    monkeypatch.setenv("LANGROID_MODEL", "anthropic/claude-opus-4")
+    monkeypatch.setenv("LANGROID_MODEL", "anthropic/claude-opus-4-8")
 
     captured_config_kwargs: list[dict] = []
     enable_message_calls: list[Any] = []
@@ -325,7 +325,7 @@ def test_create_agent_wires_all_tools_with_stream_true(monkeypatch):
     # Config kwargs: model from env, stream=True.
     assert len(captured_config_kwargs) == 1
     kwargs = captured_config_kwargs[0]
-    assert kwargs["chat_model"] == "anthropic/claude-opus-4"
+    assert kwargs["chat_model"] == "anthropic/claude-opus-4-8"
     assert kwargs["stream"] is True, (
         f"create_agent must construct primary LLM config with stream=True; "
         f"got stream={kwargs.get('stream')!r}"

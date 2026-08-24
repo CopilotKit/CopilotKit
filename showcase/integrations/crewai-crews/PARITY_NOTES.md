@@ -8,6 +8,13 @@ slug for existing links and deployment wiring.
 
 - Feature-specific routes run through regular CrewAI Flow `kickoff` or
   `astream` execution.
+- Cells with no feature-specific backend (chrome, headless, slots, CSS, auth,
+  voice, agent-config) share the neutral chat Flow on `/chat`. Every demo route
+  is served by `add_crewai_flow_fastapi_endpoint`, so no cell inherits CrewAI's
+  crew-chat system prompt. The remaining crew endpoints (`/mcp-apps`,
+  `/byoc-hashbrown`, `/byoc-json-render`) each override that prompt explicitly.
+- There is no root catch-all endpoint: a demo whose agent name is not routed
+  fails loudly instead of silently landing on someone else's backend.
 - The integration is pinned to the official `ag-ui-crewai==0.3.0` release,
   `ag-ui-protocol==0.1.19`, and `crewai==1.15.11`.
 - All model-backed showcase paths use `gpt-5.4`.

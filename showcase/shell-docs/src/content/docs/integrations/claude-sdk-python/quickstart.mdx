@@ -5,6 +5,8 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 This quickstart gives you two working paths:
 
 - **Start from scratch** to scaffold the full Claude Agent SDK Python showcase.
@@ -53,7 +55,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ANTHROPIC_MODEL=claude-opus-4-8
           ```
 
           The runtime route defaults to `AGENT_URL=http://localhost:8000`, which is where the starter's FastAPI agent server listens.
@@ -138,7 +140,7 @@ Before you begin, you'll need the following:
 
           ```plaintext title=".env"
           ANTHROPIC_API_KEY=your_anthropic_api_key
-          ANTHROPIC_MODEL=claude-sonnet-4-6
+          ANTHROPIC_MODEL=claude-opus-4-8
           ```
         </Step>
 
@@ -171,7 +173,7 @@ Before you begin, you'll need the following:
           adapter = ClaudeAgentAdapter(
               name="claude_agent",
               options={
-                  "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+                  "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
                   "system_prompt": "You are a helpful assistant embedded in a CopilotKit app.",
                   "tools": [],
                   "permission_mode": "dontAsk",
@@ -241,10 +243,9 @@ Before you begin, you'll need the following:
           import { HttpAgent } from "@ag-ui/client";
           import {
             CopilotRuntime,
-            ExperimentalEmptyAdapter,
-            copilotRuntimeNextJSAppRouterEndpoint,
-          } from "@copilotkit/runtime";
-          import { NextRequest } from "next/server";
+            createCopilotRuntimeHandler,
+          } from "@copilotkit/runtime/v2";
+          import type { NextRequest } from "next/server";
 
           const runtime = new CopilotRuntime({
             agents: {
@@ -254,15 +255,13 @@ Before you begin, you'll need the following:
             },
           });
 
-          export const POST = async (req: NextRequest) => {
-            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-              endpoint: "/api/copilotkit",
-              runtime,
-              serviceAdapter: new ExperimentalEmptyAdapter(),
-            });
+          const handler = createCopilotRuntimeHandler({
+            runtime,
+            basePath: "/api/copilotkit",
+            mode: "single-route",
+          });
 
-            return handleRequest(req);
-          };
+          export const POST = (req: NextRequest) => handler(req);
           ```
         </Step>
 
@@ -338,6 +337,11 @@ Before you begin, you'll need the following:
       </Accordion>
     </Accordions>
   </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## Backend tools and state

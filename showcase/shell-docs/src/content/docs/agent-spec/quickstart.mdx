@@ -4,6 +4,8 @@ description: Set up Agent Spec + AG‑UI and connect a CopilotKit UI. Includes p
 icon: "lucide/Play"
 hideTOC: true
 ---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 <OpsPlatformCTA
   variant="card"
   title="Ship Agent Spec to production"
@@ -169,6 +171,11 @@ hideTOC: true
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
       
     </TailoredContentOption>
     <TailoredContentOption
@@ -311,32 +318,28 @@ hideTOC: true
 
           Create an API route to connect CopilotKit to your Pydantic AI agent:
 
-          ```tsx title="app/api/copilotkit/route.ts"
+          ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
           import {
             CopilotRuntime,
-            ExperimentalEmptyAdapter,
-            copilotRuntimeNextJSAppRouterEndpoint,
-          } from "@copilotkit/runtime";
+            createCopilotRuntimeHandler,
+            InMemoryAgentRunner,
+          } from "@copilotkit/runtime/v2";
           import { HttpAgent } from "@ag-ui/client";
-          import { NextRequest } from "next/server";
-
-          const serviceAdapter = new ExperimentalEmptyAdapter();
 
           const runtime = new CopilotRuntime({
             agents: {
               my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
-            }
+            },
+            runner: new InMemoryAgentRunner(),
           });
 
-          export const POST = async (req: NextRequest) => {
-            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-              runtime,
-              serviceAdapter,
-              endpoint: "/api/copilotkit",
-            });
+          const handler = createCopilotRuntimeHandler({
+            runtime,
+            basePath: "/api/copilotkit",
+          });
 
-            return handleRequest(req);
-          };
+          export const GET = handler;
+          export const POST = handler;
           ```
       </Step>
       <Step>
@@ -356,7 +359,7 @@ hideTOC: true
               <html lang="en">
                 <body>
                   {/* [!code highlight:3] */}
-                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                     {children}
                   </CopilotKit>
                 </body>
@@ -456,6 +459,11 @@ hideTOC: true
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
   </TailoredContent>
   </Step>
