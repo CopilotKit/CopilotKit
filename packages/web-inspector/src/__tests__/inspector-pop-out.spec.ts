@@ -546,7 +546,7 @@ describe("Inspector pop-out", () => {
   // pop-out the panel is permanently open beside the application. So the
   // launcher signal is intentionally absent here — but the navigation marker
   // has to carry the failure, or the mode without a launcher becomes the mode
-  // without information. Real timers: the settle window is two real seconds.
+  // without information. Real timers: the beat still needs a real clock.
   it("carries a broken connection on the pop-out navigation, not on the host page", async () => {
     const context = await setup();
     try {
@@ -562,8 +562,8 @@ describe("Inspector pop-out", () => {
         context.popDoc.querySelector(
           'button[data-inspector-menu-key="home"] .inspector-nav-signal-dot',
         );
-      // The shared helper waits half a second; the settle window is two whole
-      // ones, on purpose, so this one wait needs its own budget.
+      // The shared helper waits half a second. Wiring now arms on the
+      // same turn as the failure, so this loop is only a render budget.
       for (let attempt = 0; attempt < 600 && !findMarker(); attempt += 1) {
         await new Promise<void>((resolve) => window.setTimeout(resolve, 10));
       }

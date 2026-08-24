@@ -177,11 +177,18 @@ export type LauncherSignalPresentation = "animated" | "reduced_motion";
 export type WhatsNewSignalPresentation = LauncherSignalPresentation;
 
 /**
- * Which broken-wiring class raised the launcher's error signal. A closed
- * two-value enum: the failure *message* is never transmitted, so prompts,
- * URLs and identifiers embedded in an error cannot leave the browser.
+ * Which failure class raised the launcher's error signal. A closed enum: the
+ * failure *message* is never transmitted, so prompts, URLs and identifiers
+ * embedded in an error cannot leave the browser.
+ *
+ * `connection` and `threads` are wiring *state*. `run`, `tool` and `memory`
+ * are unread *events* that clear when their landing view is read.
  */
-export type InspectorErrorSignalSource = "connection" | "threads";
+export type InspectorWiringErrorSource = "connection" | "threads";
+export type InspectorEventErrorSource = "run" | "tool" | "memory";
+export type InspectorErrorSignalSource =
+  | InspectorWiringErrorSource
+  | InspectorEventErrorSource;
 
 /**
  * Fires when What's new has rendered *with content*. A loading state is not
@@ -207,22 +214,41 @@ export function trackWhatsNewSignalViewed(props: {
 }
 
 /**
+ * Whether the launcher opened its pill for this outage, or suppressed it.
+ *
+ * `suppressed` means no pill was shown. In practice that is the no-room
+ * fallback — neither side of the launcher had space for the label — because
+ * every other path to a visible error signal opens one.
+ */
+export type InspectorErrorSignalLabel = "shown" | "suppressed";
+
+/**
  * Fires when the launcher's error signal becomes *visible* — not when it arms.
  * Arming can happen with the panel open or the tab hidden, where there is no
  * launcher to look at, so counting arms would inflate the denominator this
  * event exists to provide.
  *
- * Deliberately carries two fixed enum values and nothing else. This is the one
- * place a later change could casually attach a free-text field, and the
+ * Deliberately carries three fixed enum values and nothing else. This is the
+ * one place a later change could casually attach a free-text field, and the
  * failure message must never be transmitted.
+ *
+ * `label` is deliberately not a new event: the catalogue's size is asserted
+ * and spelled out in a test title, and a property answers the one open
+ * question — how often the no-room fallback fires — without touching either.
+ *
+ * The pill's own marginal effect cannot be measured here and must not be
+ * reverse-engineered from this data: it ships together with the dot and the
+ * beat, so there is no period with one and not the other.
  */
 export function trackErrorSignalViewed(props: {
   source: InspectorErrorSignalSource;
   presentation: LauncherSignalPresentation;
+  label: InspectorErrorSignalLabel;
 }): void {
   track(TELEMETRY_EVENTS.errorSignalViewed, {
     source: props.source,
     presentation: props.presentation,
+    label: props.label,
   });
 }
 
@@ -262,7 +288,7 @@ export type InspectorOpenedTelemetryProps = {
   runtime_url_type?: RuntimeUrlType;
   /** True when an unseen announcement was on screen at open time. */
   has_unseen_announcement?: boolean;
-  /** True when a broken-wiring signal was on the launcher at open time. */
+  /** True when an error signal was on the launcher at open time. */
   has_error_signal?: boolean;
   /** Which failure class was signalling at open time, when one was. */
   error_signal_source?: InspectorErrorSignalSource;

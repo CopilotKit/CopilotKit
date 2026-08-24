@@ -9,6 +9,7 @@ import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   ɵselectThreads,
   ɵselectThreadsIsLoading,
@@ -22,7 +23,6 @@ import {
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
-  CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
   Memory,
@@ -131,6 +131,8 @@ import type {
   InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
   InspectorErrorSignalSource,
+  InspectorEventErrorSource,
+  InspectorWiringErrorSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
   MetadataActionPlacement,
@@ -226,6 +228,22 @@ type LauncherSignalDefinition = Readonly<{
    * the panel says what.
    */
   accessibleLabel: string;
+  /**
+   * The words the launcher opens sideways to show, and the words spoken once
+   * into the polite live region. Absent means this subject opens no pill.
+   *
+   * Read from the signal rather than from a condition on the tone, so a third
+   * signal can carry a pill by declaring one — and whoever declares it owns
+   * the width problem that keeps the announcement out. The announcement's feed
+   * preview measures 54 characters against a 36-pixel launcher, and the width
+   * would be set by a feed we do not control.
+   *
+   * These are the words the panel already uses, never a paraphrase, so a
+   * reader who sees the pill and then opens the panel has nothing to
+   * reconcile. The failure *message* is never carried here — for width, and
+   * because it can contain prompts, URLs and identifiers.
+   */
+  pillLabel?: string;
 }>;
 
 const NEWS_SIGNAL_ID = "whats-new" as const;
@@ -242,6 +260,93 @@ const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
   news: NEWS_SIGNAL_COLOR,
   error: ERROR_SIGNAL_COLOR,
 };
+
+/**
+ * The failure gesture, four phases in series:
+ *
+ * ```
+ * beat 400ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (3400ms total)
+ * ```
+ *
+ * Sequential rather than simultaneous, deliberately: the beat says *here*, the
+ * pill says *this*. The beat is short so the words arrive quickly.
+ *
+ * **All four durations live here and nowhere else.** The stylesheet reads the
+ * two animated phases as custom properties injected from these numbers rather
+ * than restating them, because they are taste and will be tuned by eye after
+ * the first live look — tuning the feel must be a number, not a refactor.
+ */
+const ERROR_GESTURE_MS = {
+  /** Phase 1: one beat, which is also the error signals' cadence. */
+  beat: 400,
+  /** Phase 2: the sideways reveal. */
+  open: 250,
+  /** Phase 3: long enough to read three words without hurrying. */
+  hold: 2500,
+  /** Phase 4: back to the plain mark with its dot. */
+  close: 250,
+} as const;
+
+/**
+ * The words the pill carries, which are the words the panel already carries.
+ *
+ * `Runtime error` is the System Health runtime tile's own label, and
+ * `Failed to load threads` is the Threads view's own heading. The outside and
+ * the inside must agree, so these are shared rather than paraphrased.
+ */
+const RUNTIME_ERROR_LABEL = "Runtime error";
+const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
+const AGENT_RUN_FAILED_LABEL = "Agent run failed";
+const TOOL_ERROR_LABEL = "Tool error";
+const MEMORY_LOAD_ERROR_LABEL = "Failed to load learning data";
+
+/**
+ * Copy on the landing view. Titles match the pill.
+ *
+ * The two fields differ in what they can promise. `advice` is about the
+ * reader's next move and is always true. `highlight` is a claim about *this
+ * view* — that the failed item is visible below — and the error carries no
+ * guarantee of that: a code mapped to `run` can arrive with no run in the
+ * buffer at all, and a tool error can arrive without the call id the
+ * highlight needs. So it is rendered only once the item is actually there.
+ * A card pointing at something the reader cannot find is worse than a card
+ * that stays quiet, because it sends them looking.
+ */
+const EVENT_ERROR_GUIDANCE: Readonly<
+  Record<
+    InspectorEventErrorSource,
+    Readonly<{ title: string; advice?: string; highlight?: string }>
+  >
+> = {
+  run: {
+    title: AGENT_RUN_FAILED_LABEL,
+    highlight: "The failed run event is highlighted below.",
+  },
+  tool: {
+    title: TOOL_ERROR_LABEL,
+    highlight: "The failed tool call is highlighted below.",
+  },
+  memory: {
+    title: MEMORY_LOAD_ERROR_LABEL,
+    advice:
+      "Confirm CopilotKit Intelligence is connected, then retry Learning.",
+  },
+};
+
+/**
+ * The pill's second line, shared by every subject that carries a pill.
+ *
+ * **This is the one string in the feature that exists nowhere else in the
+ * product.** Every other word the launcher shows is word-identical to the
+ * panel, which is the standing rule; this line is a deliberate, owner-approved
+ * exception to it, because the pill became clickable and an invitation that
+ * says nothing is not an invitation.
+ *
+ * It is shown, never spoken: the polite live region carries the failure class
+ * alone. A screen-reader user cannot act on an instruction delivered through
+ * an announcement, and it would double the spoken length.
+ */
+const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -262,19 +367,50 @@ const LAUNCHER_SIGNALS: Readonly<
     tone: "error",
     markerTarget: "home",
     landingTarget: "home",
-    cadence: 1500,
-    priority: 2,
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 5,
     accessibleLabel: "runtime error",
+    pillLabel: RUNTIME_ERROR_LABEL,
   },
   threads: {
     tone: "error",
     markerTarget: "threads",
     landingTarget: "threads",
-    cadence: 1500,
+    cadence: ERROR_GESTURE_MS.beat,
     // Below the connection signal: a connection failure cascades into thread
     // failures, so when both could be armed the root cause owns the dot.
-    priority: 1,
+    priority: 4,
     accessibleLabel: "thread loading error",
+    pillLabel: THREADS_LOAD_ERROR_LABEL,
+  },
+  // Unread *events*. They beat and name the failure, then clear when the
+  // landing view is read. They lose the launcher dot to wiring state.
+  run: {
+    tone: "error",
+    markerTarget: "ag-ui-events",
+    landingTarget: "ag-ui-events",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 3,
+    accessibleLabel: "agent run failed",
+    pillLabel: AGENT_RUN_FAILED_LABEL,
+  },
+  tool: {
+    tone: "error",
+    markerTarget: "agents",
+    landingTarget: "agents",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 2,
+    accessibleLabel: "tool error",
+    pillLabel: TOOL_ERROR_LABEL,
+  },
+  memory: {
+    tone: "error",
+    markerTarget: "memories",
+    landingTarget: "memories",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 1,
+    accessibleLabel: "learning error",
+    pillLabel: MEMORY_LOAD_ERROR_LABEL,
   },
 };
 
@@ -283,31 +419,106 @@ const LAUNCHER_SIGNAL_PRIORITY_ORDER: ReadonlyArray<LauncherSignalKey> = (
   Object.keys(LAUNCHER_SIGNALS) as LauncherSignalKey[]
 ).sort((a, b) => LAUNCHER_SIGNALS[b].priority - LAUNCHER_SIGNALS[a].priority);
 
-/** The two error signals, in the shape the telemetry enum uses. */
-const ERROR_SIGNAL_KEYS = [
+/** Wiring *state* — red until the problem heals. */
+const WIRING_ERROR_KEYS = [
   "connection",
   "threads",
-] as const satisfies ReadonlyArray<InspectorErrorSignalSource>;
+] as const satisfies ReadonlyArray<InspectorWiringErrorSource>;
+
+/** Unread *events* — red until the landing view is read. */
+const EVENT_ERROR_KEYS = [
+  "run",
+  "tool",
+  "memory",
+] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
+
+function isWiringErrorKey(
+  key: LauncherSignalKey,
+): key is InspectorWiringErrorSource {
+  return (WIRING_ERROR_KEYS as readonly string[]).includes(key);
+}
+
+function isEventErrorKey(
+  key: LauncherSignalKey,
+): key is InspectorEventErrorSource {
+  return (EVENT_ERROR_KEYS as readonly string[]).includes(key);
+}
 
 /** Narrows a signal key to an error source, excluding the announcement. */
 function isErrorSignalKey(
   key: LauncherSignalKey,
 ): key is InspectorErrorSignalSource {
-  return key !== NEWS_SIGNAL_ID;
+  return isWiringErrorKey(key) || isEventErrorKey(key);
 }
 
 /**
- * How long a failure has to persist before it arms anything. A blip that
- * resolves inside this window produces neither dot nor beat, so a flaky
- * network cannot train a developer to ignore the signal.
- *
- * Clearing is NOT settled: once armed, the dot follows the state immediately
- * so the indicator never claims a problem that has already been fixed.
+ * The control range is the point, not an oversight: an attribute selector has
+ * to escape those characters too, and CSS.escape — which the fallback below
+ * stands in for — escapes them as well. Hoisted so the suppression can sit on
+ * the pattern rather than three lines above it.
  */
-const ERROR_SIGNAL_SETTLE_MS = 2000;
+// oxlint-disable no-control-regex -- deliberate, see above
+const SELECTOR_ESCAPE_PATTERN =
+  /[\0-\x1f\x7f!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g;
+// oxlint-enable no-control-regex
+
+/** Attribute selector value. jsdom does not implement CSS.escape. */
+function escapeSelectorValue(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(SELECTOR_ESCAPE_PATTERN, "\\$&");
+}
+
+function eventErrorKeyForCode(
+  code: CopilotKitCoreErrorCode,
+): InspectorEventErrorSource | null {
+  switch (code) {
+    case CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED:
+    case CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED:
+      return null;
+    case CopilotKitCoreErrorCode.TOOL_NOT_FOUND:
+    case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
+    case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
+      return "tool";
+    default:
+      return "run";
+  }
+}
+
+/**
+ * Coalesce inspector-owned GET /threads sends. The first refresh goes out
+ * at once. Further calls in this window share one trailing request, so a
+ * flaky network does not fire a burst of list fetches and error cards.
+ */
+const THREAD_LIST_DEBOUNCE_MS = 300;
 
 /** The launcher's accessible name with nothing wrong. */
 const LAUNCHER_BASE_LABEL = "Web Inspector";
+
+/**
+ * Where the pill is in the gesture.
+ *
+ * `closed` covers the whole beat: the pill is laid out at its full width and
+ * clipped to nothing from the first frame, so the room it needs can be
+ * measured before anything is shown and the reveal has nothing left to
+ * compute.
+ */
+type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
+
+/**
+ * Which side the pill grows towards. The launcher is anchored top-right, so
+ * the natural direction is leftwards, away from its own edge — but it is
+ * draggable and its position persists, so a reader who parked it near the left
+ * edge would otherwise get a permanently truncated pill.
+ */
+type LauncherPillDirection = "left" | "right";
+
+/**
+ * Whether the reader actually got a pill. `suppressed` is the honest-degrade
+ * case: neither side had room, so the dot and the beat fire alone.
+ */
+type LauncherPillOutcome = "shown" | "suppressed";
 
 type CoreStatusSummary = Readonly<{
   label: string;
@@ -521,6 +732,7 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  toolCallId?: string;
   /** Populated for role="activity" messages (Generative UI). */
   activityType?: string;
 };
@@ -5552,12 +5764,26 @@ export class WebInspectorElement extends LitElement {
    * could silently lose a live failure.
    */
   private readonly errorSignalArmed: Record<
-    InspectorErrorSignalSource,
+    InspectorWiringErrorSource,
     boolean
   > = { connection: false, threads: false };
-  /** In-flight settle timers, one per source. */
-  private readonly errorSignalSettleTimers: Map<
-    InspectorErrorSignalSource,
+  /** Unread app errors. Cleared when the landing view is read. */
+  private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
+    { run: false, tool: false, memory: false };
+  private lastEventError: {
+    key: InspectorEventErrorSource;
+    message: string;
+    agentId?: string;
+    toolName?: string;
+    toolCallId?: string;
+  } | null = null;
+  private pendingScrollToEventId: string | null = null;
+  private pendingScrollToToolCallId: string | null = null;
+  /** Last time an inspector-owned /threads refresh left this host, per agent. */
+  private readonly threadRefreshLastSentAt: Map<string, number> = new Map();
+  /** Trailing /threads refresh timers, one per agent. */
+  private readonly threadRefreshTrailingTimers: Map<
+    string,
     ReturnType<typeof setTimeout>
   > = new Map();
   /**
@@ -5570,6 +5796,30 @@ export class WebInspectorElement extends LitElement {
   /** Per-outage dedup for `oss.inspector.error_signal_viewed`. */
   private readonly errorSignalViewedSources: Set<InspectorErrorSignalSource> =
     new Set();
+  /**
+   * The signal whose gesture is running its tail — the pill on screen and the
+   * sentence in the live region, both of which outlive the beat.
+   *
+   * Together with `pulsingSignal` this IS the single pending-beat slot, not a
+   * second scheduling concept: `startSignalPulse` defers while either is set,
+   * so the third deferral reason simply covers a longer beat. Null for the
+   * announcement, which has no tail and therefore behaves exactly as before.
+   */
+  private gestureSignal: LauncherSignalKey | null = null;
+  /** Where the running gesture's pill is, or null when it has none. */
+  private pillPhase: LauncherPillPhase | null = null;
+  /**
+   * Which side the pill opens from, or null before the room has been measured.
+   * Decided once, at gesture start, and never revisited mid-gesture.
+   */
+  private pillDirection: LauncherPillDirection | null = null;
+  private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Whether this outage's pill actually opened. Per outage rather than per
+   * phase, so a second source arming behind the first reports the same answer
+   * the reader actually got. Reset with `errorBeatSpent`.
+   */
+  private pillOutcome: LauncherPillOutcome | null = null;
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
@@ -6077,7 +6327,7 @@ export class WebInspectorElement extends LitElement {
         }
         if (error) {
           this._threadsErrorByAgent.set(agentId, error);
-        } else {
+        } else if (!isLoading) {
           this._threadsErrorByAgent.delete(agentId);
         }
         this._threadsLoadingByAgent.set(agentId, isLoading);
@@ -6103,7 +6353,7 @@ export class WebInspectorElement extends LitElement {
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
-    } else {
+    } else if (!ɵselectThreadsIsLoading(initialState)) {
       this._threadsErrorByAgent.delete(agentId);
     }
     this.rebuildFlattenedThreads();
@@ -6226,9 +6476,42 @@ export class WebInspectorElement extends LitElement {
     if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+
+    const now = Date.now();
+    const lastSentAt = this.threadRefreshLastSentAt.get(agentId) ?? 0;
+    const waitMs = THREAD_LIST_DEBOUNCE_MS - (now - lastSentAt);
+    if (waitMs <= 0) {
+      this.sendOwnedThreadRefresh(agentId, store, now);
+      return;
+    }
+    if (this.threadRefreshTrailingTimers.has(agentId)) return;
+    this.threadRefreshTrailingTimers.set(
+      agentId,
+      setTimeout(() => {
+        this.threadRefreshTrailingTimers.delete(agentId);
+        const current = this._ownedThreadStores.get(agentId);
+        if (!current) return;
+        this.sendOwnedThreadRefresh(agentId, current, Date.now());
+      }, waitMs),
+    );
+  }
+
+  private sendOwnedThreadRefresh(
+    agentId: string,
+    store: ɵThreadStore,
+    sentAt: number,
+  ): void {
+    this.threadRefreshLastSentAt.set(agentId, sentAt);
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  private cancelThreadRefreshDebounce(): void {
+    for (const timer of this.threadRefreshTrailingTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.threadRefreshTrailingTimers.clear();
   }
 
   // Keep inspector-owned thread stores in sync when the host updates headers
@@ -6310,6 +6593,7 @@ export class WebInspectorElement extends LitElement {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
@@ -6363,8 +6647,9 @@ export class WebInspectorElement extends LitElement {
             },
           }
         : {}),
-      onError: ({ code, error }) => {
+      onError: ({ code, error, context }) => {
         this.lastCoreError = { code, message: error.message };
+        this.armEventErrorFromCode(code, error.message, context);
         this.requestUpdate();
       },
       onAgentsChanged: ({ agents }) => {
@@ -6507,6 +6792,11 @@ export class WebInspectorElement extends LitElement {
       }),
       memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
         this._memoriesError = v;
+        if (v) {
+          this.armEventError("memory", v.message);
+        } else if (this.eventErrorArmed.memory) {
+          this.clearEventError("memory");
+        }
         this.requestUpdate();
       }),
       memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
@@ -6607,10 +6897,7 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
-    // A settle window that outlived its Core would re-check against a state
-    // that no longer exists. The latches themselves self-clear on the next
-    // update, because a detached Core reports "unavailable" rather than error.
-    this.cancelErrorSignalSettleTimers();
+    this.cancelThreadRefreshDebounce();
     this.inspectorMetadataValue = undefined;
     this.inspectorMetadataProjection = projectInspectorMetadata(
       undefined,
@@ -6618,6 +6905,7 @@ export class WebInspectorElement extends LitElement {
     );
     this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     this.coreProperties = {};
     this.cachedTools = [];
     this.toolSignature = "";
@@ -7232,16 +7520,32 @@ export class WebInspectorElement extends LitElement {
           const argsString = this.formatToolCallArguments(
             call.function?.arguments,
           );
+          const isFailedCall =
+            this.lastEventError?.key === "tool" &&
+            this.lastEventError.toolCallId !== undefined &&
+            this.lastEventError.toolCallId === callId;
           return html`
             <div
-              class="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              class=${
+                isFailedCall
+                  ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
+                  : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              }
+              data-cpk-failed-tool-call=${isFailedCall ? callId : undefined}
             >
               <div
                 class="flex flex-wrap items-center justify-between gap-1 font-medium text-gray-900"
               >
-                <span>${functionName}</span>
-                <span class="text-[10px] text-gray-500">ID: ${callId}</span>
+                <span>${functionName}${isFailedCall ? " failed" : ""}</span>
+                <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
+              ${
+                isFailedCall && this.lastEventError?.message
+                  ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
+                    ${this.lastEventError.message}
+                  </p>`
+                  : nothing
+              }
               ${
                 argsString
                   ? html`<pre
@@ -7484,18 +7788,28 @@ ${argsString}</pre
       .console-button-wrapper {
         position: relative;
         display: inline-flex;
-      }
-
-      .console-button {
+        /* The launcher's surface and edge, shared by the button and the pill so
+           the two cannot drift apart. A dark grey rather than near-black: the
+           launcher sits on a customer's page, and 1,5,7 against white is a
+           harder edge than this surface needs. */
+        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
+        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
            Percentages resolve against the padding box, which the 1px border
-           insets, and the dot would land inside the rim. */
+           insets, and the dot would land inside the rim.
+
+           Declared on the wrapper rather than on the button so the pill, which
+           is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
           7vw,
           ${LAUNCHER_MAX_SIZE}px
         );
+      }
+
+      .console-button {
         width: var(--cpk-launcher-size);
         height: var(--cpk-launcher-size);
         /* Keep the 1px border inside the declared outer size. */
@@ -7897,14 +8211,14 @@ ${argsString}</pre
 
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
-        background-color: rgba(1, 5, 7, 0.95) !important;
-        border-color: rgba(190, 194, 255, 0.25) !important;
+        background-color: var(--cpk-launcher-face) !important;
+        border-color: var(--cpk-launcher-edge) !important;
         box-shadow:
           0 0 0 1px rgba(190, 194, 255, 0.15),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
       }
       .console-button:hover {
-        background-color: rgba(1, 5, 7, 1) !important;
+        background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
       }
       .console-button:focus-visible {
@@ -7922,7 +8236,6 @@ ${argsString}</pre
        * that forces a repaint every frame is not acceptable.
        */
       .console-button[data-cpk-signal] {
-        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
         isolation: isolate;
       }
 
@@ -8032,11 +8345,197 @@ ${argsString}</pre
         box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
       }
 
+      /* ── Launcher pill: the launcher opens sideways and says what ─── */
+      /*
+       * The pill is laid out at its FULL width from the first frame and
+       * revealed by animating a rectangular clip. Nothing is scaled and
+       * nothing is resized.
+       *
+       * That is not a stylistic choice. This component is permanently mounted
+       * on top of a customer's application, so no property that forces a
+       * layout on every frame is acceptable — and animating "width" does
+       * exactly that, sixty times a second, on someone else's page. A clip
+       * leaves the element's geometry constant and changes only the visible
+       * region, which the compositor handles. Animating a horizontal scale
+       * was the other candidate and squashes the mark itself, not merely the
+       * rounded end, so the logo would need counter-scaling and the dot and
+       * halo would become ellipses.
+       *
+       * The launcher's own face and border are repeated here so the two form
+       * one capsule: the button paints last and therefore on top, with no
+       * z-index needed. The mark's own ring and shadow are deliberately left
+       * alone for the whole gesture — the circle's outline staying visible
+       * inside the open pill was looked at against the alternative and kept.
+       *
+       * A column, not a row: the pill carries a heading and a subline stacked,
+       * centred against a height that does not change. "justify-content"
+       * centres the pair vertically and "align-items" keeps both lines flush
+       * left, so the pill never grows taller than the launcher it opens from.
+       */
+      .cpk-launcher-pill {
+        position: absolute;
+        top: 50%;
+        margin-top: calc(var(--cpk-launcher-size) / -2);
+        height: var(--cpk-launcher-size);
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1px;
+        box-sizing: border-box;
+        border-radius: 999px;
+        border: 1px solid var(--cpk-launcher-edge);
+        background: var(--cpk-launcher-face);
+        color: #ffffff;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      /* The failure class, word-identical to the panel's own wording. */
+      .cpk-launcher-pill__heading {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      /*
+       * The one line of copy in this feature that exists nowhere else in the
+       * product. The heading above is word-identical to the panel, which is
+       * the standing rule; this line is a deliberate, owner-approved exception
+       * to it, because the pill is now clickable and has to say so.
+       *
+       * It is NOT spoken. A screen-reader user cannot act on an instruction
+       * delivered through an announcement, and it would double the spoken
+       * length — so the live region carries the failure class alone.
+       */
+      .cpk-launcher-pill__subline {
+        font-size: 10.5px;
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.72;
+      }
+
+      /*
+       * Two directions, one animation with the inset on the other side. The
+       * padding on the launcher's side clears the mark, so the words never sit
+       * under it. The text-side padding is derived from the capsule's radius
+       * (half the launcher size), NOT a bare literal: padding is measured from
+       * the bounding box, but the first half-height of that side is the rounded
+       * cap. Half the size lands the text exactly where the cap ends and the
+       * straight edge begins. A literal 14px put it 16px inside the curve at the
+       * production launcher size, which is itself a clamp on the viewport.
+       */
+      .cpk-launcher-pill[data-cpk-pill-direction="left"] {
+        right: 0;
+        padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
+          calc(var(--cpk-launcher-size) / 2);
+        clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
+      }
+      .cpk-launcher-pill[data-cpk-pill-direction="right"] {
+        left: 0;
+        padding: 0 calc(var(--cpk-launcher-size) / 2) 0
+          calc(var(--cpk-launcher-size) + 12px);
+        clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
+      }
+
+      /*
+       * "round" on both stops, so the revealing edge is the capsule's own
+       * rounded end travelling sideways rather than a straight vertical line
+       * wiping across it. An unrounded inset reads as a wipe; this reads as an
+       * opening. It adds no animated property: the clip is still the clip.
+       */
+      @keyframes cpk-launcher-pill-left {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      @keyframes cpk-launcher-pill-right {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      /*
+       * The pill takes the pointer exactly while it is on screen, so the
+       * instruction it now carries is honest: a click on it opens the
+       * Inspector, the same action as pressing the mark. During the beat the
+       * clip covers only the mark itself, and a click target nobody can see
+       * over someone else's page is not something to ship — so the base rule
+       * keeps "pointer-events: none" and only the three visible phases take it
+       * back.
+       * The button paints last and therefore wins the pointer where the two
+       * overlap, so dragging the launcher is unaffected throughout.
+       */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      /* Closing is the same animation played backwards, so the two phases can
+         never drift apart. */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"] {
+        animation-duration: var(--cpk-launcher-pill-open);
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-duration: var(--cpk-launcher-pill-close);
+        animation-direction: reverse;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="left"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="left"] {
+        animation-name: cpk-launcher-pill-left;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="right"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="right"] {
+        animation-name: cpk-launcher-pill-right;
+      }
+
+      /* The hold is the end state of the reveal, held. */
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"] {
+        opacity: 1;
+        clip-path: inset(0 0 0 0);
+      }
+
       /*
        * Reduced motion: the halo is held statically rather than animated, so
        * the information arrives without the movement.
        */
       @media (prefers-reduced-motion: reduce) {
+        /*
+         * The pill is shown by opacity alone, with no clip animation and the
+         * same hold. The instruction is to reduce motion, not to withhold
+         * information, and this reader needs the label as much as anyone.
+         */
+        .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+        .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+        .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+          animation: none !important;
+          opacity: 1;
+          clip-path: inset(0 0 0 0);
+        }
         .cpk-launcher-signal-wash {
           opacity: 0.85;
         }
@@ -8478,7 +8977,8 @@ ${argsString}</pre
     }
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
-    this.cancelErrorSignalSettleTimers();
+    this.cancelGestureTail();
+    this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
@@ -8566,10 +9066,16 @@ ${argsString}</pre
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    // The pill's full width is only measurable once it has been laid out, and
+    // the answer decides both the direction and the telemetry label below, so
+    // this runs before the visibility event rather than after it.
+    this.resolvePillDirection();
     this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
+    this.maybeCompleteEventErrorView();
+    this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
 
     if (!this.isOpen) {
@@ -8662,6 +9168,7 @@ ${argsString}</pre
 
     return html`
       <div class="console-button-wrapper">
+        ${this.renderLauncherPill()}
         <button
           class=${buttonClasses}
           type="button"
@@ -8728,9 +9235,102 @@ ${argsString}</pre
               : nothing
           }
         </button>
+        ${
+          // The pill is a sighted-only surface, so the failure is also spoken
+          // once per outage — otherwise the reader who was given the failure
+          // class in the launcher's accessible name in the companion change is
+          // excluded again, since a changed name is only read on focus.
+          //
+          // POLITE, never assertive. Speech is serial: it occupies the channel
+          // the reader is using to operate their own software, and interrupting
+          // that mid-sentence is out of the question for a development tool.
+          //
+          // It is rendered whenever the launcher is, empty and with no visual
+          // footprint, because a live region has to exist on the page before
+          // its content lands to be announced reliably.
+          html`<span
+            class="sr-only"
+            data-cpk-launcher-announcement
+            role="status"
+            aria-live="polite"
+            >${this.getGestureLabel() ?? ""}</span
+          >`
+        }
       </div>
     `;
   }
+
+  /**
+   * The words the running gesture carries, or null when the launcher is quiet.
+   *
+   * Read from the signal's own description rather than from a condition on the
+   * tone, so a third signal can carry a pill by declaring a label.
+   */
+  private getGestureLabel(): string | null {
+    if (this.gestureSignal === null) return null;
+    return LAUNCHER_SIGNALS[this.gestureSignal].pillLabel ?? null;
+  }
+
+  /**
+   * The pill, laid out at its full width and clipped, for the whole gesture.
+   *
+   * It renders from the first frame of the beat — clipped to nothing, so it
+   * shows nothing — because the room it needs cannot be measured until it has
+   * been laid out, and the direction is decided at gesture start.
+   */
+  private renderLauncherPill(): TemplateResult | typeof nothing {
+    const key = this.gestureSignal;
+    if (key === null || this.pillPhase === null) return nothing;
+    const signal = LAUNCHER_SIGNALS[key];
+    const label = signal.pillLabel;
+    if (label === undefined) return nothing;
+    return html`
+      <span
+        class="cpk-launcher-pill"
+        data-cpk-launcher-pill=${key}
+        data-cpk-pill-phase=${this.pillPhase}
+        data-cpk-pill-direction=${
+          // Before the measurement the pill is laid out as if it were opening
+          // left, which is width-identical to the other side and shows nothing
+          // either way while the clip is closed.
+          this.pillDirection ?? "left"
+        }
+        style=${styleMap({
+          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
+          "--cpk-launcher-pill-open": `${ERROR_GESTURE_MS.open}ms`,
+          "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
+        })}
+        aria-hidden="true"
+        @click=${this.handlePillClick}
+      >
+        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
+          >${label}</span
+        >
+        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
+          >${PILL_SUBLINE_LABEL}</span
+        >
+      </span>
+    `;
+  }
+
+  /**
+   * A click on the pill opens the Inspector, exactly as pressing the mark
+   * does — reusing the launcher's own open source, so the telemetry catalogue
+   * is untouched and the two paths cannot be told apart downstream.
+   *
+   * Deliberately NOT focusable and deliberately not in the tab order: the
+   * launcher beside it is already a focusable control for this same action,
+   * and a second tab stop for one action is a regression. The pill stays
+   * `aria-hidden` and this handler is a pointer affordance only.
+   *
+   * The gesture ends with the open, because `openInspector` cancels the tail —
+   * the panel is over the launcher, so there is nothing left to reveal.
+   */
+  private handlePillClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openInspector("floating_button");
+  };
 
   /** Render a trusted action with optional context-specific copy. */
   private renderInspectorAction(
@@ -9528,6 +10128,52 @@ ${argsString}</pre
       </section>
     `;
   }
+
+  private renderEventErrorBanner(key: InspectorEventErrorSource) {
+    if (this.lastEventError?.key !== key) return nothing;
+    const guide = EVENT_ERROR_GUIDANCE[key];
+    const error = this.lastEventError;
+    return html`
+      <div
+        class="mx-3 mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
+        role="alert"
+        tabindex="0"
+        data-cpk-event-error=${key}
+        @click=${this.refocusEventErrorLanding}
+        @keydown=${this.handleEventErrorBannerKeydown}
+      >
+        <span class="mt-0.5 shrink-0">${this.renderIcon("TriangleAlert")}</span>
+        <div class="min-w-0 flex-1 space-y-1">
+          <p class="font-semibold">${guide.title}</p>
+          ${error.agentId ? html`<p>Agent: ${error.agentId}</p>` : nothing}
+          ${error.toolName ? html`<p>Tool: ${error.toolName}</p>` : nothing}
+          <p class="break-words leading-relaxed">${error.message}</p>
+          ${
+            guide.advice
+              ? html`<p class="leading-relaxed">${guide.advice}</p>`
+              : nothing
+          }
+          ${
+            guide.highlight && this.hasEventErrorHighlight()
+              ? html`<p class="leading-relaxed">${guide.highlight}</p>`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private handleEventErrorBannerKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    this.refocusEventErrorLanding();
+  };
+
+  /** Scroll the landing view to the failed tool call or RUN_ERROR again. */
+  private refocusEventErrorLanding = (): void => {
+    this.applyEventErrorLanding();
+    this.requestUpdate();
+  };
 
   private handleHomeLastEventSelect(eventId: string, agentId?: string): void {
     this.eventFilterText = "";
@@ -11021,11 +11667,17 @@ ${argsString}</pre
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
       this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
+      if (landing === "agents" || landing === "ag-ui-events") {
+        this.applyEventErrorLanding();
+      }
     }
 
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    // The launcher is gone, so its gesture is gone with it — and the slot it
+    // was holding is free again for whatever beats after the panel closes.
+    this.cancelGestureTail();
     this.persistState(); // Save the open state
 
     this.trackOpened(
@@ -11067,9 +11719,6 @@ ${argsString}</pre
 
     this.isOpen = false;
 
-    // Flush point for defer reason 1: there is a launcher again.
-    this.flushPendingSignalPulse();
-
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
       this.removeDockStyles();
@@ -11081,6 +11730,12 @@ ${argsString}</pre
     void this.updateComplete.then(() => {
       this.measureContext("button");
       this.applyAnchorPosition("button");
+      // Flush point for defer reason 1: there is a launcher again — and only
+      // now is it where it belongs. The anchor is applied after the render that
+      // would mount the pill, so flushing any earlier makes the pill measure
+      // the room around a launcher that has not moved into place yet, and a
+      // stale measurement can suppress a pill that had room all along.
+      this.flushPendingSignalPulse();
     });
   }
 
@@ -11403,6 +12058,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      toolCallId:
+        typeof raw.toolCallId === "string" ? raw.toolCallId : undefined,
       activityType:
         typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
@@ -11862,16 +12519,16 @@ ${argsString}</pre
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-800"
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
                 role="alert"
                 data-playground-error
               >
-                <span class="mt-0.5 shrink-0 text-rose-600"
+                <span class="mt-0.5 shrink-0"
                   >${this.renderIcon("TriangleAlert")}</span
                 >
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold">Agent run failed</p>
-                  <p class="mt-0.5 break-words leading-relaxed text-rose-700">
+                  <p class="mt-0.5 break-words leading-relaxed">
                     ${this.playgroundError}
                   </p>
                 </div>
@@ -11948,7 +12605,14 @@ ${argsString}</pre
     }
 
     if (this.selectedMenu === "ag-ui-events") {
-      return this.renderEventsTable();
+      return html`
+        <div class="flex h-full min-h-0 flex-col">
+          ${this.renderEventErrorBanner("run")}
+          <div class="min-h-0 flex-1 overflow-hidden">
+            ${this.renderEventsTable()}
+          </div>
+        </div>
+      `;
     }
 
     if (this.selectedMenu === "playground") {
@@ -13908,7 +14572,7 @@ ${argsString}</pre
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <span style="font-size: 13px; color: #c0333a;">
-            Failed to load learning data
+            ${MEMORY_LOAD_ERROR_LABEL}
           </span>
           <span
             style="
@@ -13920,6 +14584,17 @@ ${argsString}</pre
             "
           >
             ${this._memoriesError.message}
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${EVENT_ERROR_GUIDANCE.memory.advice}
           </span>
         </div>
       `;
@@ -14495,6 +15170,10 @@ ${argsString}</pre
         </div>
       `;
     } else {
+      const failedRunEventId =
+        this.lastEventError?.key === "run"
+          ? this.findLatestRunErrorEvent(this.lastEventError.agentId)?.id
+          : undefined;
       body = html`
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
@@ -14533,7 +15212,14 @@ ${argsString}</pre
             </thead>
             <tbody>
               ${filteredEvents.map((event, index) => {
-                const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                const isFailedRunEvent =
+                  failedRunEventId !== undefined &&
+                  event.id === failedRunEventId;
+                const rowBg = isFailedRunEvent
+                  ? "bg-rose-50"
+                  : index % 2 === 0
+                    ? "bg-white"
+                    : "bg-gray-50/50";
                 const badgeClasses = this.getEventBadgeClasses(event.type);
                 const extractedEvent = this.extractEventFromPayload(
                   event.payload,
@@ -14548,6 +15234,9 @@ ${argsString}</pre
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
                     data-inspector-event-id=${event.id}
+                    data-cpk-failed-run-event=${
+                      isFailedRunEvent ? event.id : undefined
+                    }
                     @click=${(clickEvent: Event) =>
                       this.toggleRowExpansion(event.id, clickEvent)}
                   >
@@ -14727,6 +15416,7 @@ ${prettyEvent}</pre
     // Show message if "all-agents" is selected or no agents available
     if (this.selectedContext === "all-agents") {
       return html`
+        ${this.renderEventErrorBanner("tool")}
         <div
           class="flex h-full items-center justify-center px-4 py-8 text-center"
         >
@@ -14759,6 +15449,7 @@ ${prettyEvent}</pre
 
     return html`
       <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
+        ${this.renderEventErrorBanner("tool")}
         <!-- Agent Overview Card -->
         <div
           class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
@@ -14908,8 +15599,23 @@ ${prettyEvent}</pre
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
+                        const isFailedResult =
+                          role === "tool" &&
+                          this.lastEventError?.key === "tool" &&
+                          this.lastEventError.toolCallId !== undefined &&
+                          this.lastEventError.toolCallId === msg.toolCallId;
+
                         return html`
-                          <div class="flex items-start">
+                          <div
+                            class=${
+                              isFailedResult
+                                ? "flex items-start bg-rose-50"
+                                : "flex items-start"
+                            }
+                            data-cpk-failed-tool-result=${
+                              isFailedResult ? msg.toolCallId : nothing
+                            }
+                          >
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
                                 class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
@@ -15059,6 +15765,129 @@ ${prettyEvent}</pre
     `;
   }
 
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private applyEventErrorLanding(): void {
+    const error = this.lastEventError;
+    if (!error) {
+      if (this.selectedMenu === "agents") {
+        this.focusAgentForView();
+      }
+      return;
+    }
+
+    if (
+      error.agentId &&
+      this.contextOptions.some((option) => option.key === error.agentId)
+    ) {
+      this.selectedContext = error.agentId;
+    } else if (this.selectedMenu === "agents") {
+      this.focusAgentForView();
+    }
+
+    if (error.key === "tool" && error.toolCallId) {
+      this.pendingScrollToToolCallId = error.toolCallId;
+      return;
+    }
+
+    if (error.key === "run") {
+      this.eventFilterText = "";
+      this.eventTypeFilter = "all";
+      const event = this.findLatestRunErrorEvent(error.agentId);
+      if (!event) return;
+      this.expandedRows.clear();
+      this.expandedRows.add(event.id);
+      this.pendingScrollToEventId = event.id;
+    }
+  }
+
+  /**
+   * Whether the landing view really carries the item the card points at.
+   * Mirrors the two branches of `applyEventErrorLanding` that can bail out.
+   */
+  private hasEventErrorHighlight(): boolean {
+    const error = this.lastEventError;
+    if (!error) return false;
+    if (error.key === "tool") return error.toolCallId !== undefined;
+    if (error.key === "run") {
+      return this.findLatestRunErrorEvent(error.agentId) !== undefined;
+    }
+    return false;
+  }
+
+  private findLatestRunErrorEvent(
+    agentId?: string,
+  ): InspectorEvent | undefined {
+    const events =
+      agentId && agentId !== "all-agents"
+        ? (this.agentEvents.get(agentId) ?? [])
+        : this.flattenedEvents;
+    return events.find((event) => event.type === "RUN_ERROR");
+  }
+
+  private flushErrorLandingScroll(): void {
+    const eventId = this.pendingScrollToEventId;
+    if (eventId) {
+      this.pendingScrollToEventId = null;
+      const row = Array.from(
+        this.activeRoot.querySelectorAll<HTMLElement>(
+          "[data-inspector-event-id]",
+        ),
+      ).find((candidate) => candidate.dataset.inspectorEventId === eventId);
+      row?.scrollIntoView?.({ block: "center" });
+    }
+
+    const toolCallId = this.pendingScrollToToolCallId;
+    if (toolCallId) {
+      this.pendingScrollToToolCallId = null;
+      const escaped = escapeSelectorValue(toolCallId);
+      const card =
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-call="${escaped}"]`,
+        ) ??
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-result="${escaped}"]`,
+        );
+      card?.scrollIntoView?.({ block: "center" });
+    }
+  }
+
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private focusAgentForView(): void {
+    const agentOptions = this.contextOptions.filter(
+      (opt) => opt.key !== "all-agents",
+    );
+    if (agentOptions.length === 0) return;
+
+    const errorAgentId =
+      this.lastEventError?.key === "tool"
+        ? this.lastEventError.agentId
+        : undefined;
+    if (
+      errorAgentId &&
+      agentOptions.some((option) => option.key === errorAgentId)
+    ) {
+      this.selectedContext = errorAgentId;
+      return;
+    }
+
+    if (this.selectedContext !== "all-agents") return;
+
+    const mostRecent = agentOptions.reduce<{
+      key: string;
+      ts: number;
+    } | null>((best, opt) => {
+      const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+      return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+    }, null);
+    this.selectedContext = mostRecent ? mostRecent.key : agentOptions[0]!.key;
+  }
+
   private handleMenuSelect(key: MenuKey): void {
     if (!this.menuItems.some((item) => item.key === key)) {
       return;
@@ -15071,26 +15900,6 @@ ${prettyEvent}</pre
     this.settingsOpen = false;
     this.lastSelectedMenuByGroup[getGroupForMenu(key)] = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
-    if (key === "agents" && this.selectedContext === "all-agents") {
-      const agentOptions = this.contextOptions.filter(
-        (opt) => opt.key !== "all-agents",
-      );
-      if (agentOptions.length > 0) {
-        // Pick the agent with the most recent activity; fall back to first
-        const mostRecent = agentOptions.reduce<{
-          key: string;
-          ts: number;
-        } | null>((best, opt) => {
-          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
-          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
-        }, null);
-        this.selectedContext = mostRecent
-          ? mostRecent.key
-          : agentOptions[0]!.key;
-      }
-    }
-
     // If leaving the agents view with multiple agents registered, restore
     // "all-agents" so the Events tab isn't silently filtered to one agent.
     if (previousMenu === "agents" && key !== "agents") {
@@ -15100,6 +15909,10 @@ ${prettyEvent}</pre
       if (agentCount > 1) {
         this.selectedContext = "all-agents";
       }
+    }
+
+    if (key === "agents" || key === "ag-ui-events") {
+      this.applyEventErrorLanding();
     }
 
     if (key === "threads") {
@@ -15128,10 +15941,15 @@ ${prettyEvent}</pre
     }
 
     if (key === "ag-ui-events" || key === "agents") {
-      requestAnimationFrame(() => {
-        const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
-        if (scroller) scroller.scrollTop = 0;
-      });
+      const keepErrorLanding =
+        this.pendingScrollToEventId !== null ||
+        this.pendingScrollToToolCallId !== null;
+      if (!keepErrorLanding) {
+        requestAnimationFrame(() => {
+          const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
+          if (scroller) scroller.scrollTop = 0;
+        });
+      }
     }
 
     this.contextMenuOpen = false;
@@ -16223,9 +17041,9 @@ ${prettyEvent}</pre
 
   /** Whether a given subject currently has something to say. */
   private isSignalArmed(key: LauncherSignalKey): boolean {
-    return isErrorSignalKey(key)
-      ? this.errorSignalArmed[key]
-      : this.newsSignalArmed;
+    if (isWiringErrorKey(key)) return this.errorSignalArmed[key];
+    if (isEventErrorKey(key)) return this.eventErrorArmed[key];
+    return this.newsSignalArmed;
   }
 
   /**
@@ -16266,9 +17084,86 @@ ${prettyEvent}</pre
     return null;
   }
 
-  /** Whether either error source is currently red. */
+  /** Whether a wiring error source is currently red. */
   private hasArmedErrorSignal(): boolean {
-    return ERROR_SIGNAL_KEYS.some((source) => this.errorSignalArmed[source]);
+    return WIRING_ERROR_KEYS.some((source) => this.errorSignalArmed[source]);
+  }
+
+  private armEventErrorFromCode(
+    code: CopilotKitCoreErrorCode,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
+    const key = eventErrorKeyForCode(code);
+    if (key === null) return;
+    const agentId =
+      typeof context?.agentId === "string" && context.agentId.length > 0
+        ? context.agentId
+        : undefined;
+    const toolName =
+      typeof context?.toolName === "string" && context.toolName.length > 0
+        ? context.toolName
+        : undefined;
+    const toolCallId =
+      typeof context?.toolCallId === "string" && context.toolCallId.length > 0
+        ? context.toolCallId
+        : undefined;
+    this.armEventError(key, message, { agentId, toolName, toolCallId });
+  }
+
+  private armEventError(
+    key: InspectorEventErrorSource,
+    message: string,
+    extras: {
+      agentId?: string;
+      toolName?: string;
+      toolCallId?: string;
+    } = {},
+  ): void {
+    this.lastEventError = { key, message, ...extras };
+    const wasArmed = this.eventErrorArmed[key];
+    this.eventErrorArmed[key] = true;
+    if (!wasArmed) {
+      this.startSignalPulse(key);
+    }
+    if (
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget
+    ) {
+      this.applyEventErrorLanding();
+    }
+    this.requestUpdate();
+  }
+
+  private clearEventError(key: InspectorEventErrorSource): void {
+    if (!this.eventErrorArmed[key]) return;
+    this.eventErrorArmed[key] = false;
+    this.errorSignalViewedSources.delete(key);
+    this.retireSignal(key);
+    this.requestUpdate();
+  }
+
+  private clearAllEventErrors(): void {
+    this.lastEventError = null;
+    for (const key of EVENT_ERROR_KEYS) {
+      if (!this.eventErrorArmed[key]) continue;
+      this.eventErrorArmed[key] = false;
+      this.retireSignal(key);
+    }
+  }
+
+  /**
+   * An event error is unread until its landing view is actually on screen.
+   * Opening the Inspector for a different leaf must not burn it.
+   */
+  private maybeCompleteEventErrorView(): void {
+    if (!this.isOpen || this.settingsOpen) return;
+    for (const key of EVENT_ERROR_KEYS) {
+      if (!this.eventErrorArmed[key]) continue;
+      if (this.selectedMenu !== LAUNCHER_SIGNALS[key].landingTarget) continue;
+      this.clearEventError(key);
+    }
   }
 
   private isReducedMotionPreferred(): boolean {
@@ -16313,9 +17208,14 @@ ${prettyEvent}</pre
    * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
    * the animation, because the attribute it binds to does not change value and
    * the pseudo-element selectors match on attribute *presence*; the running
-   * beat would merely change colour mid-flight. With the settle window landing
-   * a failure near the end of an announcement beat, the failure's beat would
-   * otherwise be reduced to its final fraction.
+   * beat would merely change colour mid-flight. A failure that arms during an
+   * announcement beat must wait for that beat to end, or it would run only as
+   * its final fraction.
+   *
+   * A failure's beat is followed by a pill, and the whole 3.4-second gesture
+   * holds this one slot for its full duration. That is not a second scheduling
+   * concept: reason 3 already says "another beat is running", and a gesture is
+   * simply a longer beat.
    */
   private startSignalPulse(key: LauncherSignalKey): void {
     const deferred =
@@ -16325,8 +17225,8 @@ ${prettyEvent}</pre
       // 2. Nobody is looking.
       (typeof document !== "undefined" &&
         document.visibilityState !== "visible") ||
-      // 3. Another beat is already running.
-      (this.pulsingSignal !== null && this.pulsingSignal !== key) ||
+      // 3. Another beat — or the pill that follows it — is already running.
+      (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
       // 4. Another signal currently owns the dot.
       this.getActiveLauncherSignal() !== key;
 
@@ -16353,17 +17253,29 @@ ${prettyEvent}</pre
     // The once-per-subject token is written HERE, where the beat actually
     // runs — never when a signal arms. Spending it on arming would burn a
     // deferred beat unfired.
-    if (isErrorSignalKey(key)) {
+    if (isWiringErrorKey(key)) {
       this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp) {
+    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
       saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
     }
+    this.beginGestureTail(key);
     this.requestUpdate();
     if (typeof window === "undefined") return;
     this.pulseTimeoutId = setTimeout(() => {
       this.pulseTimeoutId = null;
       this.pulsingSignal = null;
       this.requestUpdate();
+      // The beat says *here*; now the pill says *this*.
+      if (this.gestureSignal === key && this.pillPhase === "closed") {
+        this.openPill();
+        return;
+      }
+      // Nothing follows the beat: either this signal opens no pill, or there
+      // was no room for one, so the gesture ends with it.
+      if (this.gestureSignal === key) {
+        this.endGesture();
+        return;
+      }
       // Reason 3 has just cleared.
       this.flushPendingSignalPulse();
     }, LAUNCHER_SIGNALS[key].cadence);
@@ -16393,40 +17305,217 @@ ${prettyEvent}</pre
     this.startSignalPulse(key);
   }
 
-  /** Drops a signal's beat, running or pending, when the signal goes quiet. */
+  /**
+   * Drops a signal's gesture, pending or running, when the signal goes quiet.
+   *
+   * The pill closes early: it states a condition, and the condition has
+   * stopped being true. The beat is left to finish, because a beat asserts
+   * nothing — it says *here*, and "here" is still true.
+   */
   private retireSignal(key: LauncherSignalKey): void {
     if (this.pendingPulseSignal === key) this.pendingPulseSignal = null;
-    if (this.pulsingSignal === key) this.stopSignalPulse();
+    if (this.gestureSignal === key) this.closePillEarly();
     // A suppressed signal may now own the dot.
     this.flushPendingSignalPulse();
+  }
+
+  // ── The pill ────────────────────────────────────────────────────────────
+
+  /**
+   * The signal holding the single gesture slot: a beat in flight, or the pill
+   * and spoken sentence that follow it. One slot, not two — see reason 3 in
+   * `startSignalPulse`.
+   */
+  private get gestureSlotSignal(): LauncherSignalKey | null {
+    return this.pulsingSignal ?? this.gestureSignal;
+  }
+
+  /**
+   * Opens the gesture's tail alongside the beat, for a signal that carries a
+   * pill. The pill is rendered immediately — clipped to nothing, so it shows
+   * nothing — because its full width has to be on the page before the room
+   * either side of the launcher can be measured.
+   *
+   * A signal with no pill label gets no tail at all, so the announcement's
+   * gesture is exactly the beat it has always been.
+   */
+  private beginGestureTail(key: LauncherSignalKey): void {
+    this.cancelPillTimeout();
+    if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
+      this.gestureSignal = null;
+      this.pillPhase = null;
+      this.pillDirection = null;
+      return;
+    }
+    this.gestureSignal = key;
+    this.pillPhase = "closed";
+    this.pillDirection = null;
+  }
+
+  /**
+   * Chooses the side, or suppresses the pill, from the room actually available
+   * at gesture start. Measured once, from the DOM, because the launcher is
+   * draggable and its position persists: a reader who parked it near the left
+   * edge would otherwise get a permanently truncated pill.
+   *
+   * Where neither side has room there is no pill at all rather than a cut-off
+   * one — the dot and the beat still fire, so the signal is intact and only
+   * the label is lost. Constraining where the reader may drag the control to
+   * protect this animation was considered and rejected: the page is theirs.
+   */
+  private resolvePillDirection(): void {
+    if (this.pillDirection !== null || this.pillPhase === null) return;
+    const wrapper = this.activeRoot.querySelector<HTMLElement>(
+      ".console-button-wrapper",
+    );
+    const button = wrapper?.querySelector<HTMLElement>(".console-button");
+    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-pill");
+    if (!button || !pill || typeof window === "undefined") return;
+
+    const mark = button.getBoundingClientRect();
+    // A clip changes what is painted, never the layout box, so this is the
+    // pill's full width whichever phase it is in.
+    const overhang = Math.max(
+      0,
+      pill.getBoundingClientRect().width - mark.width,
+    );
+    const viewportWidth = window.innerWidth;
+
+    if (overhang === 0) {
+      // Nothing extends past the mark, so there is nothing to fit.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.left - overhang >= EDGE_MARGIN) {
+      // Leftwards is the natural direction: away from the launcher's own edge.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) {
+      this.setPillOutcome("right");
+      return;
+    }
+    this.setPillOutcome(null);
+  }
+
+  /** Records the measurement's verdict, and drops the pill when it is null. */
+  private setPillOutcome(direction: LauncherPillDirection | null): void {
+    if (direction === null) {
+      this.pillPhase = null;
+      this.pillDirection = null;
+      this.pillOutcome = "suppressed";
+      this.requestUpdate();
+      return;
+    }
+    this.pillDirection = direction;
+    this.pillOutcome = "shown";
+    this.requestUpdate();
+  }
+
+  /** Runs the pill's three phases in series once the beat has finished. */
+  private openPill(): void {
+    // Normally already measured during the beat; measured here too so the
+    // gesture cannot depend on a render having happened in between.
+    this.resolvePillDirection();
+    if (this.pillPhase === null) {
+      // The measurement found no room after all.
+      this.endGesture();
+      return;
+    }
+    this.advancePill("opening", ERROR_GESTURE_MS.open, () => {
+      this.advancePill("holding", ERROR_GESTURE_MS.hold, () => {
+        this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+          this.endGesture();
+        });
+      });
+    });
+  }
+
+  private advancePill(
+    phase: LauncherPillPhase,
+    duration: number,
+    next: () => void,
+  ): void {
+    this.cancelPillTimeout();
+    this.pillPhase = phase;
+    this.requestUpdate();
+    if (typeof window === "undefined") return;
+    this.pillTimeoutId = setTimeout(() => {
+      this.pillTimeoutId = null;
+      next();
+    }, duration);
+  }
+
+  /**
+   * Closes the pill before its hold is out, because the failure it names has
+   * been fixed. A pill that has not opened yet is simply dropped; the beat is
+   * never cut short.
+   */
+  private closePillEarly(): void {
+    // No pill in this gesture — there was no room for one — so the tail is
+    // only the spoken sentence, and it ends here.
+    if (this.pillPhase === null) {
+      this.endGesture();
+      return;
+    }
+    // Already on its way out.
+    if (this.pillPhase === "closing") return;
+    // Still inside the beat, so nothing has been asserted on screen yet: the
+    // pill is dropped rather than closed, and the beat runs on to its end.
+    if (this.pillPhase === "closed") {
+      this.pillPhase = null;
+      this.requestUpdate();
+      return;
+    }
+    this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+      this.endGesture();
+    });
+  }
+
+  /** Releases the slot and leaves the plain mark with its dot behind. */
+  private endGesture(): void {
+    this.cancelGestureTail();
+    this.requestUpdate();
+    this.flushPendingSignalPulse();
+  }
+
+  /**
+   * Drops the gesture's tail outright, with no closing animation, for the
+   * cases where the launcher itself has gone: the panel opened over it, or the
+   * element was removed from the page.
+   */
+  private cancelGestureTail(): void {
+    this.cancelPillTimeout();
+    this.gestureSignal = null;
+    this.pillPhase = null;
+    this.pillDirection = null;
+  }
+
+  private cancelPillTimeout(): void {
+    if (this.pillTimeoutId !== null) {
+      clearTimeout(this.pillTimeoutId);
+      this.pillTimeoutId = null;
+    }
   }
 
   // ── Error signal ────────────────────────────────────────────────────────
 
   /**
-   * Whether each error source is *raw* broken, before the settle window.
+   * Whether each error source is currently broken.
    *
-   * Only two conditions qualify. Notably absent:
+   * Only two *wiring* conditions qualify. App errors (runs, tools, memory)
+   * are unread events on a different latch — they name themselves on the pill
+   * and clear when their landing view is read. Notably absent from *this*
+   * latch:
    *
-   * - **A failed agent run.** The launcher dot is a state indicator and a
-   *   failed run is an event; putting an event on a state indicator means
-   *   either lying (it stays after the fact) or flickering (it clears on the
-   *   next run). System Health on Home already reports failed runs, which is a
-   *   latest-activity readout — a different job on a different surface. An
-   *   hour of iteration also produces many failed runs, and a signal that is
-   *   usually on carries no information.
-   * - **The core error channel.** This looks like an omission and is not: that
-   *   channel is dominated by run failures (a tool threw, a tool was not
-   *   found, arguments were unparseable, an agent was not found, a run failed,
-   *   a thread was locked). Its one wiring-class code is the runtime-info
-   *   handshake failure, and that path sets the connection state to error in
-   *   the same block — so subscribing would re-admit exactly the run failures
-   *   excluded above in exchange for nothing new.
-   * - **Memory failures.** The memory store's subscription is deliberately
-   *   lazy, because creating it opens a realtime connection. The state is
-   *   therefore unobservable until the Learning view has been opened once, and
-   *   an indicator that only sometimes knows the state is not an incomplete
-   *   feature but a false statement.
+   * - **A failed agent run.** A run is an event. It arms `run`, not this
+   *   state. The resting wiring dot must not stay red for the rest of a debug
+   *   hour.
+   * - **The core error channel as a wiring source.** Handshake failure already
+   *   sets the connection state. Other codes arm `run` or `tool`.
+   * - **Memory failures before Learning is live.** The memory store is lazy
+   *   because creating it opens a realtime connection. Once it exists, a load
+   *   failure arms `memory`.
    * - **Product states.** An unconfigured Intelligence and an unentitled
    *   Memory plan are not defects. The signal fires only where wiring is
    *   present and the call still fails — which for threads is guaranteed by
@@ -16440,12 +17529,15 @@ ${prettyEvent}</pre
    * established. Closing that gap means a re-probe in the core, which is a
    * runtime concern.
    */
-  private isErrorSourceBroken(source: InspectorErrorSignalSource): boolean {
+  private isErrorSourceBroken(source: InspectorWiringErrorSource): boolean {
     if (source === "connection") {
+      const state = this.getCoreStatusSummary().state;
       // The same derivation System Health reads, so the launcher dot is red
-      // exactly when System Health says the runtime needs attention. A second
-      // evaluation here could drift from it.
-      return runtimeConnectionNeedsAttention(this.getCoreStatusSummary().state);
+      // exactly when System Health says the runtime needs attention.
+      if (runtimeConnectionNeedsAttention(state)) return true;
+      // A reconnect is not a heal. Stay red through `connecting` so the
+      // cards do not flash off between retries.
+      return this.errorSignalArmed.connection && state === "connecting";
     }
     return this._threadsErrorByAgent.size > 0;
   }
@@ -16458,38 +17550,36 @@ ${prettyEvent}</pre
   private evaluateErrorSignals(): void {
     const wasArmed = this.hasArmedErrorSignal();
 
-    for (const source of ERROR_SIGNAL_KEYS) {
+    for (const source of WIRING_ERROR_KEYS) {
       const broken = this.isErrorSourceBroken(source);
       if (broken) {
         if (this.errorSignalArmed[source]) continue;
-        // Already waiting out the settle window for this source.
-        if (this.errorSignalSettleTimers.has(source)) continue;
-        if (typeof window === "undefined") continue;
-        this.errorSignalSettleTimers.set(
-          source,
-          setTimeout(() => {
-            this.errorSignalSettleTimers.delete(source);
-            // Re-check: the window exists precisely so a failure that healed
-            // inside it produces nothing.
-            if (!this.isErrorSourceBroken(source)) return;
-            const wasArmedBeforeThisSource = this.hasArmedErrorSignal();
-            this.errorSignalArmed[source] = true;
-            this.onErrorSignalsChanged(wasArmedBeforeThisSource);
-            this.requestUpdate();
-          }, ERROR_SIGNAL_SETTLE_MS),
-        );
+        // Arming is immediate, with no window a short failure has to outlive
+        // first. That is a decision, not an omission, so here is what it costs
+        // and what would change it.
+        //
+        // `threads` can genuinely flap: the list is refetched on events, at up
+        // to one request per `THREAD_LIST_DEBOUNCE_MS`, so a failure followed
+        // by a success plays a whole gesture for a blip that is already over.
+        // The damage is bounded by machinery that is already here — one
+        // pending-beat slot, and a running gesture defers the next — so the
+        // ceiling is one gesture per gesture length, never a strobe. And the
+        // dot is not lying while it is up: the fetch really did fail.
+        //
+        // `connection` cannot flap on its own today, because nothing retries
+        // the handshake: it goes connecting → connected | error and then waits
+        // for something to call connect() again. If a fix for the mid-session
+        // gap above adds polling, re-read this: the `connecting` branch in
+        // `isErrorSourceBroken` already holds the dot steady across retries,
+        // so only genuinely intermittent connectivity would flap, which is
+        // exactly what the dot is for.
+        //
+        // So: revisit if someone reports the launcher going red without a
+        // lasting cause, and start with `threads`.
+        this.errorSignalArmed[source] = true;
         continue;
       }
-
-      const settling = this.errorSignalSettleTimers.get(source);
-      if (settling !== undefined) {
-        clearTimeout(settling);
-        this.errorSignalSettleTimers.delete(source);
-      }
       if (!this.errorSignalArmed[source]) continue;
-      // Clearing is immediate and needs no user action: the indicator must
-      // never say things are fine while the app is broken, and must never say
-      // the app is broken once it is fixed.
       this.errorSignalArmed[source] = false;
       this.errorSignalViewedSources.delete(source);
       this.retireSignal(source);
@@ -16508,8 +17598,10 @@ ${prettyEvent}</pre
   private onErrorSignalsChanged(wasArmed: boolean): void {
     const isArmed = this.hasArmedErrorSignal();
     if (!isArmed) {
-      // Nothing is red, so the next outage is a new outage.
+      // Nothing is red, so the next outage is a new outage — and gets its own
+      // beat, its own pill and its own answer about whether there was room.
       this.errorBeatSpent = false;
+      this.pillOutcome = null;
       return;
     }
     if (wasArmed || this.errorBeatSpent) return;
@@ -16517,13 +17609,6 @@ ${prettyEvent}</pre
     if (active !== null && isErrorSignalKey(active)) {
       this.startSignalPulse(active);
     }
-  }
-
-  private cancelErrorSignalSettleTimers(): void {
-    for (const timer of this.errorSignalSettleTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.errorSignalSettleTimers.clear();
   }
 
   /**
@@ -16549,6 +17634,16 @@ ${prettyEvent}</pre
     const active = this.getActiveLauncherSignal();
     if (active === null || !isErrorSignalKey(active)) return;
     if (this.errorSignalViewedSources.has(active)) return;
+    // Held until this outage's pill has either opened or been suppressed,
+    // because `label` IS that answer and the launcher can be on screen a frame
+    // before the room around it has been measured. A signal that declares no
+    // pill has no answer to wait for.
+    if (
+      this.pillOutcome === null &&
+      LAUNCHER_SIGNALS[active].pillLabel !== undefined
+    ) {
+      return;
+    }
     if (this.core?.telemetryDisabled) return;
     this.errorSignalViewedSources.add(active);
     trackErrorSignalViewed({
@@ -16556,6 +17651,11 @@ ${prettyEvent}</pre
       presentation: this.isReducedMotionPreferred()
         ? "reduced_motion"
         : "animated",
+      // Whether this outage's pill actually opened. The design deliberately
+      // leaves the no-room case silent, and a degradation whose frequency is
+      // unknown is a degradation that gets argued about later. Two fixed
+      // values, never free text.
+      label: this.pillOutcome ?? "suppressed",
     });
   }
 

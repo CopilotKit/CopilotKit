@@ -41,6 +41,22 @@ thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
 The current row, tabs, links, actions, and window controls all support keyboard
 focus.
 
+## Errors
+
+When a CopilotKit error fires, the Inspector launcher turns red and names the
+failure. Click the launcher or the red pill. Inspector opens the pane that
+explains that error:
+
+- **Runtime / connection**: Home.
+- **Threads list**: Threads.
+- **Agent run / `RUN_ERROR`**: AG-UI Events. The banner names the agent and the
+  error. The failed `RUN_ERROR` event is highlighted and expanded.
+- **Tool handler / missing tool**: Agent. The banner names the agent, the tool,
+  and the error. The failed tool call is highlighted.
+
+Use `onError` on `CopilotKit` or `CopilotChat` if you also want the app UI to
+show the same error. The Inspector still records it.
+
 ## Empty Threads demo
 
 When Threads is enabled but has no real rows, or when Threads is locked, the
