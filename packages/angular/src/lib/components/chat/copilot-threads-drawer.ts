@@ -132,7 +132,7 @@ export class CopilotThreadsDrawerRow {
  * internally by {@link defineCopilotKitThreadsDrawer}) and projects it into the DOM
  * via the `CUSTOM_ELEMENTS_SCHEMA`-enabled template.
  *
- * Thread list state is fetched from the Intelligence platform via
+ * Thread list state is fetched from CopilotKit Intelligence via
  * {@link injectThreads} and pushed onto the element's JS properties via an
  * `effect`, following the imperative property-assignment pattern used elsewhere
  * in this package (see `CopilotA2UIActivityRenderer`).
@@ -337,7 +337,7 @@ export class CopilotThreadsDrawer {
     () => this.licenseContext().status === null,
   );
 
-  /** Live thread list from the Intelligence platform for the resolved agent. */
+  /** Live thread list from CopilotKit Intelligence for the resolved agent. */
   protected readonly threads = injectThreads({
     agentId: this.resolvedAgentId,
     includeArchived: true,

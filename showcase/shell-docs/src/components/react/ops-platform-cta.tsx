@@ -67,11 +67,11 @@ export interface OpsPlatformCTAProps {
    * `location` property so CTA attribution stays consistent across docs
    * surfaces. */
   surface: string;
-  /** Optional override for the link label. Defaults to "Get Enterprise Intelligence free" */
+  /** Optional override for the link label. Defaults to "Get CopilotKit Intelligence free" */
   ctaLabel?: string;
   /** Optional override for CTAs that should keep the Enterprise styling but point elsewhere. */
   href?: string;
-  /** PostHog event captured on click. Defaults to the Enterprise Intelligence signup event. */
+  /** PostHog event captured on click. Defaults to CopilotKit Intelligence signup event. */
   analyticsEvent?: OpsPlatformCTAAnalyticsEvent;
   /** Frontend selected by the docs route. Included in outbound and PostHog attribution. */
   frontend?: string;
@@ -111,7 +111,7 @@ export function OpsPlatformCTA({
   title,
   body,
   surface,
-  ctaLabel = "Get Enterprise Intelligence free",
+  ctaLabel = "Get CopilotKit Intelligence free",
   href: hrefOverride,
   analyticsEvent = "try_for_free_clicked",
   frontend,

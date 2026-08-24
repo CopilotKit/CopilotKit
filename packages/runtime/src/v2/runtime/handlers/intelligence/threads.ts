@@ -74,7 +74,7 @@ export async function handleListThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
-  // Intelligence platform path
+  // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
       const url = new URL(request.url);
@@ -127,7 +127,7 @@ export async function handleListThreads({
  *
  * The local-dev fallback exposes this so consumers (e.g. the demo's Clear
  * button) can wipe in-memory thread history without restarting the runtime.
- * Intentionally a no-op when the Intelligence platform is configured: real
+ * Intentionally a no-op when CopilotKit Intelligence is configured: real
  * thread history lives in the database and must not be wiped by a
  * client-side page load.
  */
@@ -268,7 +268,7 @@ export async function handleGetThreadMessages({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path
+  // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
       const user = await resolveIntelligenceUser({ runtime, request });
@@ -288,7 +288,7 @@ export async function handleGetThreadMessages({
   // Local in-memory fallback — useful for local development without Intelligence
   if (supportsLocalThreadEndpoints(runtime.runner)) {
     const messages = runtime.runner.getThreadMessages(threadId);
-    // Map ag-ui Message objects to the same shape the Intelligence platform
+    // Map ag-ui Message objects to the same shape CopilotKit Intelligence
     // returns. Switching on the discriminant `role` lets each branch read
     // the narrowed message arm directly, instead of laundering through
     // `Record<string, unknown>` and chained `as` casts.
@@ -342,7 +342,7 @@ export async function handleGetThreadEvents({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path. Delegates to the platform's `_inspect`
+  // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // endpoint (Intelligence PR #144). Auth still flows through the standard
   // identifyUser → API key path; threadId scoping happens server-side.
   if (isIntelligenceRuntime(runtime)) {
@@ -384,7 +384,7 @@ export async function handleGetThreadState({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path. Delegates to the platform's `_inspect`
+  // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // state endpoint, which folds STATE_DELTA events onto the latest
   // STATE_SNAPSHOT to return the thread's current state.
   if (isIntelligenceRuntime(runtime)) {
