@@ -12,15 +12,21 @@ Deploys the Next.js frontend to AWS Amplify by:
 4. Packaging and uploading to S3
 5. Triggering Amplify deployment
 
-Requires: Python 3.8+, AWS CLI, npm, Node.js, Terraform
-No external Python dependencies - uses standard library only.
+Requires: uv, AWS CLI, npm, Node.js, Terraform
+
+This script imports the standard library only, but it is launched through `uv`
+like every other script in this example. `--project ..` points uv at the
+example-root `pyproject.toml`, which is where the tooling project (and its
+`requires-python >= 3.12` floor) lives; `--project` does not change the working
+directory, so the relative `scripts/...` path below resolves from
+`infra-terraform/`.
 
 Usage:
     cd infra-terraform
-    python scripts/deploy-frontend.py
+    uv run --project .. scripts/deploy-frontend.py
 
     # Or with pattern override
-    python scripts/deploy-frontend.py --pattern langgraph-single-agent
+    uv run --project .. scripts/deploy-frontend.py --pattern langgraph-single-agent
 """
 
 import argparse
@@ -378,9 +384,12 @@ def parse_args() -> argparse.Namespace:
         description="Deploy frontend to AWS Amplify using Terraform outputs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Run from the infra-terraform directory; --project .. points uv at the
+example-root pyproject.toml that holds the tooling project.
+
 Examples:
-  python scripts/deploy-frontend.py
-  python scripts/deploy-frontend.py --pattern langgraph-single-agent
+  uv run --project .. scripts/deploy-frontend.py
+  uv run --project .. scripts/deploy-frontend.py --pattern langgraph-single-agent
         """,
     )
 
