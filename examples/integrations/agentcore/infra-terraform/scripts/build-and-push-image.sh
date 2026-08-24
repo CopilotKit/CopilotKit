@@ -156,7 +156,7 @@ echo ""
 if [[ ! -f "$PROJECT_ROOT/$DOCKERFILE" ]]; then
     echo -e "${RED}Error: Dockerfile not found at $PROJECT_ROOT/$DOCKERFILE${NC}"
     echo -e "${YELLOW}Available agents:${NC}"
-    ls -1 "$PROJECT_ROOT/agents/" 2>/dev/null || echo "  No patterns found"
+    ls -1 "$PROJECT_ROOT/agents/" 2>/dev/null || echo "  No agents found"
     exit 1
 fi
 
