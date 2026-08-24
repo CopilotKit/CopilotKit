@@ -6,7 +6,9 @@ import {
   useCopilotKit,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
-import type { CopilotKitCoreFriendsAccess } from "@copilotkit/core";
+// react-core/v2 re-exports the core types, so the example needs no direct
+// dependency on @copilotkit/core.
+import type { CopilotKitCoreFriendsAccess } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -206,6 +208,9 @@ export default function Index() {
             className="h-full w-full"
             attachments={{ enabled: true }}
             onError={(event) => {
+              // The prop also accepts React's DOM error handler, so a
+              // CopilotKit error is the narrower of the two shapes.
+              if (!("error" in event)) return;
               console.error("[CopilotChat] Error:", event);
               const agentId =
                 typeof event.context?.agentId === "string"
