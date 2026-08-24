@@ -1,5 +1,5 @@
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { AssistantMessage, BaseEvent, RunAgentInput } from "@ag-ui/client";
 import type { Observable } from "rxjs";
 import { EMPTY } from "rxjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -169,7 +169,7 @@ describe("ɵinjectInspectorEvents", () => {
     });
 
     const assistants = agent.messages.filter(
-      (message) =>
+      (message): message is AssistantMessage =>
         message.role === "assistant" && (message.toolCalls?.length ?? 0) > 0,
     );
     expect(assistants).toHaveLength(2);
