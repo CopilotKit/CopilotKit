@@ -10,9 +10,10 @@ dependencies = [
   "ag-ui-langgraph==0.0.33",
   "copilotkit==0.1.87",
   "partialjson>=0.0.8",
-  # Kept in step with examples/integrations/langgraph-python. langgraph must be
-  # >=1.1 because langgraph-prebuilt reads `ExecutionInfo` off langgraph.runtime,
-  # which 1.0.x does not export; langchain 1.2.15 is the matching release.
+  # This pair alone — not the rest of the file — tracks the versions used by
+  # examples/integrations/langgraph-python. langgraph must be >=1.1 because
+  # langgraph-prebuilt reads `ExecutionInfo` off langgraph.runtime, which 1.0.x
+  # does not export; langchain 1.2.15 is the matching release.
   "langgraph==1.1.6",
   "langchain==1.2.15",
   # `tools/todos.py` imports `langchain_core.messages` directly.
