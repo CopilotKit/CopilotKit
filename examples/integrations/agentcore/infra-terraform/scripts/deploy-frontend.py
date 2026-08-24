@@ -14,19 +14,18 @@ Deploys the Next.js frontend to AWS Amplify by:
 
 Requires: uv, AWS CLI, npm, Node.js, Terraform
 
-This script imports the standard library only, but it is launched through `uv`
-like every other script in this example. `--project ..` points uv at the
-example-root `pyproject.toml`, which is where the tooling project (and its
-`requires-python >= 3.12` floor) lives; `--project` does not change the working
-directory, so the relative `scripts/...` path below resolves from
-`infra-terraform/`.
+This script imports the standard library only, so `--no-project` tells uv to
+skip syncing the example-root virtualenv it never touches. uv still provisions
+the interpreter. Its sibling `test-agent.py` does import third-party packages
+and is run WITHOUT `--no-project`, so uv resolves the example-root project by
+walking up from `infra-terraform/`.
 
 Usage:
     cd infra-terraform
-    uv run --project .. scripts/deploy-frontend.py
+    uv run --no-project scripts/deploy-frontend.py
 
     # Or with pattern override
-    uv run --project .. scripts/deploy-frontend.py --pattern langgraph-single-agent
+    uv run --no-project scripts/deploy-frontend.py --pattern langgraph-single-agent
 """
 
 import argparse
@@ -384,12 +383,12 @@ def parse_args() -> argparse.Namespace:
         description="Deploy frontend to AWS Amplify using Terraform outputs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Run from the infra-terraform directory; --project .. points uv at the
-example-root pyproject.toml that holds the tooling project.
+Run from the infra-terraform directory. This script is standard-library only,
+so --no-project skips a virtualenv sync it does not need.
 
 Examples:
-  uv run --project .. scripts/deploy-frontend.py
-  uv run --project .. scripts/deploy-frontend.py --pattern langgraph-single-agent
+  uv run --no-project scripts/deploy-frontend.py
+  uv run --no-project scripts/deploy-frontend.py --pattern langgraph-single-agent
         """,
     )
 
