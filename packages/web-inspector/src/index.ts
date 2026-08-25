@@ -8412,9 +8412,24 @@ ${argsString}</pre
       .console-button {
         background-color: var(--cpk-launcher-face) !important;
         border-color: var(--cpk-launcher-edge) !important;
+        /* One hairline, not two. The border above is it; a second ring used to
+           sit 1px outside as a box-shadow and hardcoded the lilac instead of
+           reading the --cpk-launcher-edge token, so it could not follow it.
+           What replaces it is a one-pixel light edge along the top, which is
+           what keeps the face from reading flat without drawing a frame.
+
+           The border is not decoration: the face is #181C1F, which against a
+           dark host page (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) is
+           indistinguishable from the page. It is the only thing that gives the
+           launcher an outline there, so it stays. */
         box-shadow:
-          0 0 0 1px rgba(190, 194, 255, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
+        /* Promotes the launcher to its own compositing layer, which the
+           backdrop-filter this replaces used to do as a side effect. Without
+           a layer the hover scale re-rasterises the mark every frame and it
+           visibly jitters; with one, the compositor scales it as a texture. */
+        will-change: transform;
       }
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
@@ -8540,8 +8555,23 @@ ${argsString}</pre
         width: 19%;
         height: 19%;
         border-radius: 50%;
-        background: var(--cpk-launcher-signal);
-        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+        /* Lit from the upper left and shaded at the lower right, so the dot
+           reads as a lens rather than a flat disc. Both stops are derived from
+           the signal colour, so a new tone needs no new values. */
+        background: radial-gradient(
+          circle at 32% 28%,
+          color-mix(in srgb, var(--cpk-launcher-signal), white 40%) 0%,
+          var(--cpk-launcher-signal) 60%,
+          color-mix(in srgb, var(--cpk-launcher-signal), black 20%) 100%
+        );
+        /* Replaces an opaque 1.5px collar in the launcher's own face. That
+           collar was 21% of the dot's footprint, and because the dot's centre
+           sits *on* the rim, its outer half painted a hard dark crescent onto
+           the host page rather than onto the launcher. A hairline plus a soft
+           drop does the same separating job without the hard edge. */
+        box-shadow:
+          0 0 0 0.5px rgba(1, 5, 7, 0.4),
+          0 1px 2.5px rgba(1, 5, 7, 0.5);
       }
 
       /* ── Launcher pill: the launcher opens sideways and says what ─── */
@@ -9338,7 +9368,6 @@ ${argsString}</pre
       "text-xs",
       "font-medium",
       "text-white",
-      "backdrop-blur-md",
       "transition",
       "hover:scale-105",
       "focus-visible:outline",
