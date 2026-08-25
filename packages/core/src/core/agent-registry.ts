@@ -124,10 +124,21 @@ interface RuntimeConnectionOptions {
    */
   preserveOnFailure?: boolean;
   /**
-   * Recovery only. Never drop an agent this attempt's `/info` does not report:
-   * add and update, but do not remove.
+   * This attempt IS the recovery re-sync. Three things follow, and they only
+   * make sense together:
+   *
+   * - it never drops an agent its `/info` does not report (add and update, but
+   *   do not remove);
+   * - it does not re-notify `onAgentsChanged` for an unchanged agent set;
+   * - a success that landed after it started overtakes its failure verdict
+   *   rather than being painted over.
+   *
+   * The last one is safe ONLY here, because `recoverRuntimeConnection` has a
+   * follow-up attempt queued for that success. A configuration change has no
+   * such follow-up, so declining to paint would leave the status at
+   * `connecting` with nothing to settle it.
    */
-  preserveUnreportedAgents?: boolean;
+  recovery?: boolean;
 }
 
 /** Same ids, same instances — i.e. nothing a subscriber would need to hear. */
@@ -1201,7 +1212,7 @@ export class AgentRegistry {
    *
    * `preserveOnFailure` is what makes it safe to run at the moment the network
    * is least reliable (a container mid-rollout, a tunnel re-establishing), and
-   * `preserveUnreportedAgents` is what stops a runtime that is only PART-WAY
+   * `recovery` is what stops a runtime that is only PART-WAY
    * back — alive, and listing few or no agents — from destroying the
    * conversation through the success branch.
    *
@@ -1223,7 +1234,7 @@ export class AgentRegistry {
         this.runtimeRecoveryPending = false;
         await this.updateRuntimeConnection({
           preserveOnFailure: true,
-          preserveUnreportedAgents: true,
+          recovery: true,
         });
       } while (
         this.runtimeRecoveryPending &&
@@ -1402,7 +1413,7 @@ export class AgentRegistry {
       // reached through the success branch instead of the failure branch.
       // Removal stays correct on a deliberate configuration change and on a
       // fresh page load, where the report can be trusted.
-      this.remoteAgents = options?.preserveUnreportedAgents
+      this.remoteAgents = options?.recovery
         ? { ...this.remoteAgents, ...agents }
         : agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
@@ -1441,10 +1452,7 @@ export class AgentRegistry {
       // in `state-manager.ts`). The re-sync runs while the run's stream is
       // still open — the response arriving is what triggered it — so notifying
       // for an unchanged set silently detaches a live run's state.
-      if (
-        !options?.preserveUnreportedAgents ||
-        !sameAgentSet(previousAgents, this._agents)
-      ) {
+      if (!options?.recovery || !sameAgentSet(previousAgents, this._agents)) {
         await this.notifyAgentsChanged();
       }
       if (
@@ -1490,10 +1498,16 @@ export class AgentRegistry {
         // ORDERING. A success that landed after this attempt started has
         // already demonstrated the runtime is there, so this answer describes a
         // moment that has passed and must not paint the status red over it —
-        // the same rule the reachability probe applies, stated unconditionally
-        // in the PRD. `recoverRuntimeConnection` has a re-sync queued for that
-        // success, so leaving the status where it is does not strand it.
-        if (runtimeHealthGeneration !== this.runtimeHealthGeneration) {
+        // the same rule the reachability probe applies.
+        //
+        // Recovery only, because recovery is the only caller with a follow-up
+        // attempt queued for that success (see `recoverRuntimeConnection`). A
+        // configuration change reaching this branch has nothing queued, so
+        // declining to paint would leave the status at `connecting` forever.
+        if (
+          options?.recovery &&
+          runtimeHealthGeneration !== this.runtimeHealthGeneration
+        ) {
           return;
         }
         this.setRuntimeConnectionStatus(

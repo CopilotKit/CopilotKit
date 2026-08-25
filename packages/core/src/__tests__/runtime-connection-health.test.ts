@@ -1019,6 +1019,23 @@ describe("runtime connection health (OSS-904)", () => {
       return jsonResponse(DEFAULT_INFO);
     };
 
+    // Watch from here, so the transition INTO the outage is not counted.
+    const statuses: CopilotKitCoreRuntimeConnectionStatus[] = [];
+    const wiringErrors: unknown[] = [];
+    core.subscribe({
+      onRuntimeConnectionStatusChanged: ({ status }) => {
+        statuses.push(status);
+      },
+      onError: (event) => {
+        if (
+          (event as { code?: CopilotKitCoreErrorCode }).code ===
+          CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED
+        ) {
+          wiringErrors.push(event);
+        }
+      },
+    });
+
     // Success 1 starts the re-sync.
     await runOnce(core);
     await waitForCondition(() => infoCalls === 3);
@@ -1032,10 +1049,13 @@ describe("runtime connection health (OSS-904)", () => {
     releaseInfo();
     await settle();
 
-    expect(core.runtimeConnectionStatus).not.toBe(
-      CopilotKitCoreRuntimeConnectionStatus.Error,
-    );
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    // The overtaken verdict left no trace at all. Without the ordering guard it
+    // still paints red on its way past — a red System Health, a red launcher
+    // signal and a wiring error in the customer's own handler, all describing a
+    // runtime that has demonstrably been answering.
+    expect(statuses).not.toContain(CopilotKitCoreRuntimeConnectionStatus.Error);
+    expect(wiringErrors).toHaveLength(0);
   });
 
   // --- a configuration change while the status is red ----------------------
@@ -1070,6 +1090,44 @@ describe("runtime connection health (OSS-904)", () => {
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
     expect(core.getAgent("default")).toBe(agent);
+  });
+
+  it("does not strand the status at connecting when a configuration change made while red is overtaken by a success", async () => {
+    const core = await bootConnectedCore();
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    // Runs are answered again, but `/info` is slow and then fails.
+    runHandler = async () => sseResponse();
+    let releaseInfo: () => void = () => {};
+    const infoGate = new Promise<void>((resolve) => {
+      releaseInfo = resolve;
+    });
+    infoHandler = async () => {
+      await infoGate;
+      throw new TypeError("Failed to fetch");
+    };
+
+    // A configuration change from the red state. Unlike recovery, nothing has
+    // a follow-up attempt queued for it, so the ordering guard must not simply
+    // decline to paint — that would leave the status at `connecting` with no
+    // path back to any settled value.
+    core.setRuntimeTransport("single");
+    await waitForCondition(() => infoCalls === 3);
+    await runOnce(core);
+    await settle();
+
+    releaseInfo();
+    await settle();
+
+    expect(core.runtimeConnectionStatus).not.toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    // And whichever settled value it took, it is still leavable.
+    bringRuntimeUp();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
   });
 
   // --- destinations --------------------------------------------------------
