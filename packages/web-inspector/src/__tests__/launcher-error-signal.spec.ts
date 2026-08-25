@@ -2502,6 +2502,45 @@ test("a resolved Learning failure clears itself", async () => {
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
+test("navigating back to the events view keeps the reader's own filter", async () => {
+  const context = await setup();
+  // The reader arrives because of the failure once, reads it, and then works.
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+    "model refused the run",
+  );
+  await context.press(launcher(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+
+  const searchBox = () =>
+    root(context.inspector).querySelector<HTMLInputElement>(
+      'input[placeholder="Search agent, type, payload"]',
+    );
+  const typed = requireElement(searchBox());
+  typed.value = "bookFlight";
+  typed.dispatchEvent(new Event("input", { bubbles: true }));
+  await context.flush();
+  expect(searchBox()?.value).toBe("bookFlight");
+
+  // Leaving and coming back is a passing-through, not an arrival. The error is
+  // still in `lastEventError` — it outlives being read so the card survives —
+  // so re-landing here would silently reset the reader's own view, and would
+  // keep doing it for the rest of the session.
+  root(context.inspector)
+    .querySelector<HTMLButtonElement>('button[data-inspector-menu-key="home"]')
+    ?.click();
+  await context.flush();
+  root(context.inspector)
+    .querySelector<HTMLButtonElement>(
+      'button[data-inspector-menu-key="ag-ui-events"]',
+    )
+    ?.click();
+  await context.flush();
+
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  expect(searchBox()?.value).toBe("bookFlight");
+});
+
 test("a handshake failure does not also arm the run event", async () => {
   const context = await setup();
   await context.fireAppError(CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED);

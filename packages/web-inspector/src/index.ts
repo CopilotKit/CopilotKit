@@ -15911,9 +15911,17 @@ ${prettyEvent}</pre
       }
     }
 
-    if (key === "agents" || key === "ag-ui-events") {
-      this.applyEventErrorLanding();
-    }
+    // Deliberately NOT applying an event error's landing here. A landing is an
+    // arrival, not a passing-through: it selects the failed agent, clears the
+    // event filters and re-expands the failed row, which is help when the
+    // reader came *because* of that error and vandalism when they did not.
+    // `lastEventError` outlives being read on purpose, so that the how-to-fix
+    // card survives while it is being read — which means running this on every
+    // visit resets the reader's own filters and agent scope for the rest of
+    // the session, and silently undoes the `all-agents` restore eight lines
+    // above. The three arrivals that *are* landings keep it: pressing the
+    // launcher (`openInspector`), pressing the card (`refocusEventErrorLanding`)
+    // and an error arriving while its view is already open (`armEventError`).
 
     if (key === "threads") {
       if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
