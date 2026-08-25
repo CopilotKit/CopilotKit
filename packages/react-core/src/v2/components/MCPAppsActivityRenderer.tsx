@@ -315,6 +315,12 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     }>({});
     const [fetchedResource, setFetchedResource] =
       useState<FetchedResource | null>(null);
+    // Current MCP Apps display mode requested by the widget (ext-apps
+    // ui/request-display-mode). Host supports "inline" and "fullscreen";
+    // "pip" (and unknown values) fall back to "inline".
+    const [displayMode, setDisplayMode] = useState<
+      "inline" | "fullscreen" | "pip"
+    >("inline");
 
     // Use refs for values that shouldn't trigger re-renders but need latest values
     const contentRef = useRef(content);
@@ -374,6 +380,34 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       },
       [sendToIframe],
     );
+
+    // Host-initiated exit from fullscreen (close button or Escape key). Unlike a
+    // widget-initiated ui/request-display-mode, the host MUST notify the widget of
+    // the mode change via ui/notifications/host-context-changed (the only ext-apps
+    // mechanism to signal a host-context change) so the widget stays in sync.
+    const exitFullscreen = useCallback(() => {
+      setDisplayMode("inline");
+      sendNotification("ui/notifications/host-context-changed", {
+        displayMode: "inline",
+      });
+    }, [sendNotification]);
+
+    // While fullscreen: let the user exit with Escape and lock the background
+    // page scroll. The cleanup restores the previous body overflow even if the
+    // widget unmounts while fullscreen (no stuck scroll lock).
+    useEffect(() => {
+      if (displayMode !== "fullscreen") return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === "Escape") exitFullscreen();
+      };
+      window.addEventListener("keydown", onKeyDown);
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        window.removeEventListener("keydown", onKeyDown);
+        document.body.style.overflow = previousOverflow;
+      };
+    }, [displayMode, exitFullscreen]);
 
     // Effect 0: Fetch the resource content on mount
     // Uses ref-based deduplication to handle React StrictMode double-mounting
@@ -577,6 +611,8 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     hostContext: {
                       theme: "light",
                       platform: "web",
+                      displayMode,
+                      availableDisplayModes: ["inline", "fullscreen"],
                     },
                   });
                   break;
@@ -671,6 +707,31 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                   } else {
                     sendErrorResponse(msg.id, -32602, "Missing url parameter");
                   }
+                  break;
+                }
+
+                case "ui/request-display-mode": {
+                  // ext-apps: the widget requests a display mode. The host
+                  // supports "inline" and "fullscreen"; "pip" (and any unknown
+                  // value) falls back to "inline". The result reports the mode
+                  // actually applied, which may differ from the requested one.
+                  const requested = (
+                    msg.params as {
+                      mode?: "inline" | "fullscreen" | "pip";
+                    }
+                  )?.mode;
+                  const supported = ["inline", "fullscreen"] as const;
+                  const granted =
+                    requested &&
+                    supported.includes(
+                      requested as (typeof supported)[number],
+                    )
+                      ? requested
+                      : "inline";
+                  setDisplayMode(granted);
+                  // No host-context-changed notification here: the response is
+                  // authoritative for widget-initiated changes.
+                  sendResponse(msg.id, { mode: granted });
                   break;
                 }
 
@@ -861,18 +922,60 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           }
         : {};
 
+    const isFullscreen = displayMode === "fullscreen";
+
     return (
       <div
         ref={containerRef}
-        style={{
-          width: "100%",
-          height: iframeSize.height ? `${iframeSize.height}px` : "auto",
-          minHeight: "100px",
-          overflow: "hidden",
-          position: "relative",
-          ...borderStyle,
-        }}
+        style={
+          isFullscreen
+            ? {
+                position: "fixed",
+                inset: 0,
+                zIndex: 2147483000,
+                width: "100vw",
+                height: "100vh",
+                overflow: "auto",
+                background: "#fff",
+              }
+            : {
+                width: "100%",
+                height: iframeSize.height ? `${iframeSize.height}px` : "auto",
+                minHeight: "100px",
+                overflow: "hidden",
+                position: "relative",
+                ...borderStyle,
+              }
+        }
       >
+        {isFullscreen && (
+          <button
+            type="button"
+            aria-label="Exit fullscreen"
+            onClick={exitFullscreen}
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              zIndex: 1,
+              width: "32px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 0,
+              border: "none",
+              borderRadius: "50%",
+              background: "rgba(0, 0, 0, 0.6)",
+              color: "#fff",
+              fontSize: "18px",
+              lineHeight: 1,
+              cursor: "pointer",
+            }}
+          >
+            ×
+          </button>
+        )}
         {isLoading && (
           <div style={{ padding: "1rem", color: "#666" }}>Loading...</div>
         )}
