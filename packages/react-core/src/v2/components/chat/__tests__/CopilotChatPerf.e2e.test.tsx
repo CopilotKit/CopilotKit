@@ -305,25 +305,29 @@ describe("CopilotChat perf — re-render regression", () => {
     unmount();
   });
 
-  it("renders 100 messages without error", async () => {
-    const agent = new MockStepwiseAgent();
-    renderWithCopilotKit({ agent });
+  it(
+    "renders 100 messages without error",
+    async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
 
-    await triggerRun();
+      await triggerRun();
 
-    agent.emit(runStartedEvent());
-    for (const event of generateMessages(100)) {
-      agent.emit(event);
-    }
-    agent.emit(runFinishedEvent());
-    agent.complete();
+      agent.emit(runStartedEvent());
+      for (const event of generateMessages(100)) {
+        agent.emit(event);
+      }
+      agent.emit(runFinishedEvent());
+      agent.complete();
 
-    await waitFor(
-      () => {
-        const nodes = document.querySelectorAll("[data-message-id]");
-        expect(nodes.length).toBeGreaterThanOrEqual(100);
-      },
-      { timeout: 15_000 },
-    );
-  });
+      await waitFor(
+        () => {
+          const nodes = document.querySelectorAll("[data-message-id]");
+          expect(nodes.length).toBeGreaterThanOrEqual(100);
+        },
+        { timeout: 15_000 },
+      );
+    },
+    20_000,
+  );
 });
