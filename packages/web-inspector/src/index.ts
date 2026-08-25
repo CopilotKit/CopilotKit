@@ -8794,7 +8794,7 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud {
-        --hud-fill: var(--cpk-launcher-face-solid);
+        --hud-fill: rgb(28 31 36 / 0.88);
         --hud-line: rgb(190 194 255 / 0.5);
         --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
