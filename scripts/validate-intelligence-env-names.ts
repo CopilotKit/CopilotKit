@@ -78,7 +78,17 @@ const ALIAS_ALLOWLIST = [
  * Hostnames that serve no Intelligence traffic. Neither should appear in any
  * shipped page, README, example, or packaged skill.
  */
-const DEAD_HOSTS = ["api.copilotkit.ai", "realtime.copilotkit.ai"];
+const DEAD_HOSTS = [
+  {
+    host: "api.copilotkit.ai",
+    reason:
+      "routes nothing (empty-body 404); use api.intelligence.copilotkit.ai",
+  },
+  {
+    host: "realtime.copilotkit.ai",
+    reason: "does not resolve; use realtime.intelligence.copilotkit.ai",
+  },
+];
 
 /**
  * Paths allowed to name a {@link DEAD_HOSTS} entry.
@@ -99,16 +109,24 @@ interface Violation {
   reason: string;
 }
 
-/** Returns `git grep -n` hits for one literal, or `[]` when there are none. */
+/**
+ * Returns `git grep -n` hits for one literal, or `[]` when there are none.
+ *
+ * `ignoreCase` is for hostnames, which are case-insensitive in DNS and so can
+ * appear capitalized in prose. Env var names are case-SENSITIVE, so their rules
+ * leave it off.
+ */
 function grepRepo(
   literal: string,
+  ignoreCase = false,
 ): { file: string; line: number; text: string }[] {
   let out: string;
   try {
-    out = execFileSync("git", ["grep", "-n", "--fixed-strings", literal], {
-      cwd: REPO_ROOT,
-      encoding: "utf-8",
-    });
+    out = execFileSync(
+      "git",
+      ["grep", "-n", "--fixed-strings", ...(ignoreCase ? ["-i"] : []), literal],
+      { cwd: REPO_ROOT, encoding: "utf-8" },
+    );
   } catch {
     // git grep exits 1 when there are no matches.
     return [];
@@ -150,18 +168,10 @@ export function findViolations(): Violation[] {
     });
   }
 
-  for (const host of DEAD_HOSTS) {
-    for (const hit of grepRepo(host)) {
+  for (const { host, reason } of DEAD_HOSTS) {
+    for (const hit of grepRepo(host, true)) {
       if (DEAD_HOST_ALLOWLIST.includes(hit.file)) continue;
-      violations.push({
-        file: hit.file,
-        line: hit.line,
-        name: host,
-        reason:
-          host === "api.copilotkit.ai"
-            ? "routes nothing (empty-body 404); use api.intelligence.copilotkit.ai"
-            : "does not resolve; use realtime.intelligence.copilotkit.ai",
-      });
+      violations.push({ file: hit.file, line: hit.line, name: host, reason });
     }
   }
 

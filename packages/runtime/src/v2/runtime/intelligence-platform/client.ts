@@ -476,8 +476,8 @@ interface ThreadEnvelope {
  * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
  * managed service; leaving both unset is always correct against it.
  *
- * Override both together to target a non-production deployment (the hosts below
- * are placeholders — substitute your own):
+ * Override both together to target a non-production or future self-hosted
+ * deployment (the hosts below are placeholders — substitute your own):
  *
  * ```ts
  * const intelligence = new CopilotKitIntelligence({
