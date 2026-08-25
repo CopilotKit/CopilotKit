@@ -8794,6 +8794,9 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud {
+        --hud-fill: var(--cpk-launcher-face-solid);
+        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
         top: 0;
         z-index: 4;
@@ -8827,8 +8830,6 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__card {
-        --hud-fill: rgb(28 31 36 / 0.88);
-        --hud-line: rgb(190 194 255 / 0.5);
         position: relative;
         width: 228px;
         padding: 4px;
@@ -8836,7 +8837,8 @@ ${argsString}</pre
         border-radius: 10px;
         background: var(--hud-fill);
         color: #fff;
-        backdrop-filter: blur(12px) saturate(1.2);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
@@ -8845,20 +8847,19 @@ ${argsString}</pre
         top: calc(var(--cpk-launcher-size) / 2);
         width: 10px;
         height: 10px;
+        border: 0;
         background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
         transform: translateY(-50%) rotate(45deg);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
         right: -5px;
-        border-top: 1px solid var(--hud-line);
-        border-right: 1px solid var(--hud-line);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
         left: -5px;
-        border-bottom: 1px solid var(--hud-line);
-        border-left: 1px solid var(--hud-line);
       }
 
       .cpk-launcher-hud__list {
