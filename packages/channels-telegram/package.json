@@ -42,7 +42,7 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
+    "@ag-ui/client": "0.0.58",
     "@copilotkit/channels-core": "workspace:^",
     "@copilotkit/channels-ui": "workspace:^",
     "grammy": "^1.30.0",

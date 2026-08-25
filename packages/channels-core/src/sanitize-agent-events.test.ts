@@ -30,8 +30,12 @@ function streamResponse(
 
 /**
  * A run whose `TOOL_CALL_START` carries `parentMessageId: null` — the shape
- * `@ag-ui/langgraph` emits for the tool call that triggers an interrupt, and
- * the one `EventSchemas.parse` rejects with "Expected string, received null".
+ * `@ag-ui/langgraph` emits for the tool call that triggers an interrupt.
+ *
+ * `EventSchemas.parse` used to reject this with "Expected string, received
+ * null", which is why the sanitizer exists. `@ag-ui/core@0.0.58` widened
+ * `parentMessageId` to accept null and coerce it to `undefined`, so the raw
+ * stream now survives on its own; the sanitizer still normalizes it to `""`.
  */
 const nullParentRun = (): string[] => [
   frame({ type: "RUN_STARTED", threadId: "t1", runId: "r1" }),
@@ -77,12 +81,19 @@ describe("sanitizeAgentEventStream", () => {
     expect(started).toEqual(["ask_human"]);
   });
 
-  it("aborts that same run when the sanitizer is not applied", async () => {
+  it("lets that same run through even without the sanitizer, since @ag-ui/core@0.0.58 accepts the null", async () => {
     const agent = agentServing(nullParentRun());
 
-    await expect(agent.runAgent({})).rejects.toThrow(
-      /parentMessageId|received null/,
+    const started: string[] = [];
+    await agent.runAgent(
+      {},
+      {
+        onToolCallStartEvent: ({ event }) =>
+          void started.push(event.toolCallName),
+      },
     );
+
+    expect(started).toEqual(["ask_human"]);
   });
 
   it("coerces the null to an empty string and leaves every other byte alone", async () => {
@@ -249,11 +260,11 @@ describe("createChannel({ sanitizeAgentEvents })", () => {
     expect(failure).toBeUndefined();
   });
 
-  it("lets the run abort when sanitizing is disabled", async () => {
+  it("still completes the turn when sanitizing is disabled, because core tolerates the null", async () => {
     const failure = await runTurn(agentServing(nullParentRun()), {
       sanitizeAgentEvents: false,
     });
 
-    expect(String(failure)).toMatch(/parentMessageId|received null/);
+    expect(failure).toBeUndefined();
   });
 });
