@@ -8073,6 +8073,7 @@ ${argsString}</pre
         touch-action: none;
         user-select: none;
         z-index: 60;
+        background: transparent;
       }
 
       .edge-resize-handle {
@@ -8850,9 +8851,9 @@ ${argsString}</pre
         height: 10px;
         border: 0;
         /* The card frosts the page behind it, so it reads lighter than the
-           raw fill. The arrow sits over the gap and the launcher, so it uses
-           a lighter mix of the same fill instead of a second blur. */
-        background: color-mix(in srgb, var(--hud-fill) 78%, white 22%);
+           raw fill. Mix a little white so the arrow matches the glass card
+           without going lighter than the HUD. */
+        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
         transform: translateY(-50%) rotate(45deg);
       }
 
@@ -11250,16 +11251,6 @@ ${argsString}</pre
                     <div
                       class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
                       data-resize-edge="s"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="resize-handle pointer-events-auto absolute bottom-0 left-0 flex h-7 w-7 cursor-nesw-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
-                      data-resize-edge="sw"
                       role="presentation"
                       aria-hidden="true"
                       @pointerdown=${this.handleResizePointerDown}

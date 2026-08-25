@@ -256,6 +256,15 @@ test("pressing the circle still opens Inspector", async () => {
   expect(hud(inspector)).toBeNull();
 });
 
+test("the floating window does not cover the sidebar toggle with a SW handle", async () => {
+  const { inspector, pressLauncher } = await setup();
+  await pressLauncher();
+  const tree = root(inspector);
+  expect(tree.querySelector('[data-resize-edge="sw"]')).toBeNull();
+  expect(tree.querySelector('[data-resize-edge="se"]')).not.toBeNull();
+  expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
+});
+
 test("Open Inspector in the HUD opens the panel", async () => {
   const { inspector, openHud, clickHud } = await setup();
   await openHud();
