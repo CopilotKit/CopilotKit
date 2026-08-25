@@ -210,7 +210,7 @@ function expectedThreadCommonProperties(): Readonly<
     has_threads: true,
     usage_bucket: "within_limit",
     expiry_bucket: "positive",
-    group_key: "threads",
+    group_key: "workbench",
     leaf_key: "threads",
   };
 }
@@ -250,7 +250,7 @@ function createMetadataFixture(prefix: string): Readonly<{
     license_bucket: "expired",
     usage_bucket: "at_or_over_limit",
     expiry_bucket: "zero",
-    group_key: "threads",
+    group_key: "workbench",
     leaf_key: "threads",
     action_placement: "threads_footer",
     ...forbidden,
@@ -500,7 +500,7 @@ test.each<MetadataHelperCase>([
       license_bucket: "expired",
       usage_bucket: "at_or_over_limit",
       expiry_bucket: "zero",
-      group_key: "threads",
+      group_key: "workbench",
       leaf_key: "threads",
       action_placement: "threads_footer",
     };

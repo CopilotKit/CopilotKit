@@ -1,18 +1,13 @@
 <script setup lang="ts">
-import type {
-  AssistantMessage,
-  Message,
-  ToolCall,
-  ToolMessage,
-} from "@ag-ui/core";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { ToolCallStatus } from "@copilotkit/core";
-import { partialJSONParse } from "@copilotkit/shared";
-import { useCopilotKit } from "../../providers/useCopilotKit";
-import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { inject, useSlots } from "vue";
+import type { AssistantMessage, Message } from "@ag-ui/core";
 import type { CopilotChatToolCallRenderSlotProps } from "./types";
-import type { VueToolCallRenderer } from "../../types";
-import type { VueToolCallRendererRenderProps } from "../../types";
+import CopilotChatToolCallItem from "./CopilotChatToolCallItem.vue";
+import SaveSnippetBeside from "./SaveSnippetBeside.vue";
+import { InspectorKey } from "../../providers/keys";
+import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { CopilotChatDefaultLabels } from "../../providers/types";
+import { IconBookmark } from "../icons";
 
 const props = withDefaults(
   defineProps<{
@@ -31,131 +26,78 @@ defineSlots<{
   ) => unknown;
 }>();
 
-const { copilotkit, executingToolCallIds } = useCopilotKit();
-const config = useCopilotChatConfiguration();
-
-function findToolMessage(toolCallId: string): ToolMessage | undefined {
-  return props.messages.find(
-    (message) =>
-      message.role === "tool" &&
-      (message as ToolMessage).toolCallId === toolCallId,
-  ) as ToolMessage | undefined;
+type ToolCallSlotName = "tool-call" | `tool-call-${string}`;
+const componentSlots = useSlots() as Record<
+  ToolCallSlotName,
+  (props?: unknown) => unknown
+>;
+function getForwardedSlotNames(): ToolCallSlotName[] {
+  return Object.keys(componentSlots) as ToolCallSlotName[];
 }
 
-function getSlotName(toolName: string): `tool-call-${string}` {
-  return `tool-call-${toolName}`;
-}
-
-function isExecutingToolCall(toolCallId: string): boolean {
-  return executingToolCallIds.value.has(toolCallId);
-}
-
-function getToolResultContent(toolCallId: string): string | undefined {
-  return findToolMessage(toolCallId)?.content;
-}
-
-function getRenderProps(
-  toolCall: ToolCall,
-): CopilotChatToolCallRenderSlotProps {
-  const toolMessage = findToolMessage(toolCall.id);
-  const parsedArgs = partialJSONParse(toolCall.function.arguments);
-
-  if (toolMessage) {
-    return {
-      name: toolCall.function.name,
-      args: parsedArgs,
-      status: ToolCallStatus.Complete,
-      result: toolMessage.content,
-      toolCall,
-      toolMessage,
-    };
+// A streaming tool call has truncated arguments. Do not offer to capture it
+// until the JSON is complete, or the snippet holds a broken partial payload.
+function hasCompleteArgs(args: string | undefined): boolean {
+  const trimmed = (args ?? "").trim();
+  if (!trimmed) {
+    return true;
   }
-
-  const isExecuting = isExecutingToolCall(toolCall.id);
-  return {
-    name: toolCall.function.name,
-    args: parsedArgs,
-    status: isExecuting ? ToolCallStatus.Executing : ToolCallStatus.InProgress,
-    result: undefined,
-    toolCall,
-    toolMessage: undefined,
-  };
+  try {
+    JSON.parse(trimmed);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function getCoreRenderProps(
-  toolCall: ToolCall,
-): VueToolCallRendererRenderProps<unknown> {
-  const toolMessage = findToolMessage(toolCall.id);
-  const parsedArgs = partialJSONParse(toolCall.function.arguments);
+const inspector = inject(InspectorKey, null);
+const chatConfiguration = useCopilotChatConfiguration();
+const canSave = (toolCall: { function: { arguments: string } }) =>
+  inspector?.isLocalInspectorEnabled.value === true &&
+  hasCompleteArgs(toolCall.function.arguments);
+const saveLabel = () =>
+  chatConfiguration.value?.labels.assistantMessageToolbarSaveSnippetLabel ??
+  CopilotChatDefaultLabels.assistantMessageToolbarSaveSnippetLabel;
 
-  if (toolMessage) {
-    return {
-      name: toolCall.function.name,
-      toolCallId: toolCall.id,
-      args: parsedArgs,
-      status: ToolCallStatus.Complete,
-      result: toolMessage.content,
-    };
-  }
-
-  const isExecuting = isExecutingToolCall(toolCall.id);
-  if (isExecuting) {
-    return {
-      name: toolCall.function.name,
-      toolCallId: toolCall.id,
-      args: parsedArgs,
-      status: ToolCallStatus.Executing,
-      result: undefined,
-    };
-  }
-
-  return {
-    name: toolCall.function.name,
+function saveToolCall(toolCall: {
+  id: string;
+  function: { name: string; arguments: string };
+}) {
+  void inspector?.saveEventSnippet({
+    kind: "tool-call",
+    messageId: props.message.id,
     toolCallId: toolCall.id,
-    args: parsedArgs && typeof parsedArgs === "object" ? parsedArgs : {},
-    status: ToolCallStatus.InProgress,
-    result: undefined,
-  };
-}
-
-function getCoreRenderConfig(
-  toolCall: ToolCall,
-): VueToolCallRenderer<unknown> | undefined {
-  const renderToolCalls = copilotkit.value.renderToolCalls;
-  const agentId = config.value?.agentId ?? DEFAULT_AGENT_ID;
-  const exactMatches = renderToolCalls.filter(
-    (renderConfig) => renderConfig.name === toolCall.function.name,
-  );
-
-  return (
-    exactMatches.find((renderConfig) => renderConfig.agentId === agentId) ??
-    exactMatches.find((renderConfig) => !renderConfig.agentId) ??
-    exactMatches[0] ??
-    renderToolCalls.find((renderConfig) => renderConfig.name === "*")
-  );
+    toolName: toolCall.function.name,
+    argsJson: toolCall.function.arguments || "{}",
+    threadId: chatConfiguration.value?.threadId,
+    agentId: chatConfiguration.value?.agentId,
+  });
 }
 </script>
 
 <template>
-  <template v-for="toolCall in message.toolCalls ?? []" :key="toolCall.id">
-    <slot
-      :name="getSlotName(toolCall.function.name)"
-      v-bind="getRenderProps(toolCall)"
-    >
-      <slot name="tool-call" v-bind="getRenderProps(toolCall)">
-        <component
-          :is="getCoreRenderConfig(toolCall)?.render"
-          v-if="getCoreRenderConfig(toolCall)"
-          v-bind="getCoreRenderProps(toolCall)"
-          v-memo="[
-            toolCall.id,
-            toolCall.function.arguments,
-            getToolResultContent(toolCall.id),
-            isExecutingToolCall(toolCall.id),
-            getCoreRenderConfig(toolCall)?.render,
-          ]"
-        />
-      </slot>
-    </slot>
-  </template>
+  <div v-for="toolCall in message.toolCalls ?? []" :key="toolCall.id">
+    <SaveSnippetBeside :enabled="canSave(toolCall)">
+      <CopilotChatToolCallItem :tool-call="toolCall" :messages="messages">
+        <template
+          v-for="slotName in getForwardedSlotNames()"
+          :key="slotName"
+          #[slotName]="slotProps"
+        >
+          <slot :name="slotName" v-bind="slotProps ?? {}" />
+        </template>
+      </CopilotChatToolCallItem>
+      <template #save>
+        <button
+          type="button"
+          class="cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]"
+          data-testid="copilot-tool-save-snippet-button"
+          :aria-label="`${saveLabel()} (Local Only)`"
+          @click="saveToolCall(toolCall)"
+        >
+          <IconBookmark class="cpk:size-[18px]" />
+        </button>
+      </template>
+    </SaveSnippetBeside>
+  </div>
 </template>

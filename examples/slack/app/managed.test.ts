@@ -66,6 +66,7 @@ const envKeys = [
   "COPILOTKIT_INTELLIGENCE_URL",
   "COPILOTKIT_INTELLIGENCE_WS_URL",
   "COPILOTKIT_API_KEY",
+  "INTELLIGENCE_API_KEY",
 ] as const;
 
 describe("managed channel entrypoint", () => {
@@ -89,7 +90,7 @@ describe("managed channel entrypoint", () => {
     // plane is deployed separately, so there is no derive from apiUrl.
     process.env.COPILOTKIT_INTELLIGENCE_URL = "http://localhost:4201";
     process.env.COPILOTKIT_INTELLIGENCE_WS_URL = "ws://localhost:4401";
-    process.env.COPILOTKIT_API_KEY = "cpk-test";
+    process.env.INTELLIGENCE_API_KEY = "cpk-test";
 
     let sigterm: (() => void) | undefined;
     vi.spyOn(process, "on").mockImplementation(((event, listener) => {
@@ -104,6 +105,12 @@ describe("managed channel entrypoint", () => {
 
     await import("./managed.js");
     await vi.waitFor(() => expect(sigterm).toBeTypeOf("function"));
+
+    // The canonical name reaches the client. A key that is merely present in
+    // the environment proves nothing; this proves it was consumed.
+    expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "cpk-test" }),
+    );
 
     // The listener is created from the NORMAL runtime handler — no realtime
     // gateway launcher is involved.
@@ -129,5 +136,32 @@ describe("managed channel entrypoint", () => {
     expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it("still reads the deprecated COPILOTKIT_API_KEY alias", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    vi.resetModules();
+    fakes.CopilotKitIntelligence.mockClear();
+    process.env.AGENT_URL = "http://agent.test/run";
+    delete process.env.INTELLIGENCE_API_KEY;
+    process.env.COPILOTKIT_API_KEY = "cpk-legacy";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await import("./managed.js");
+
+    await vi.waitFor(() =>
+      expect(fakes.CopilotKitIntelligence).toHaveBeenCalledWith(
+        expect.objectContaining({ apiKey: "cpk-legacy" }),
+      ),
+    );
   });
 });

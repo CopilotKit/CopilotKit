@@ -25,15 +25,35 @@ mapping:
 
 | Provider | `useSingleEndpoint` | Transport | Needs handler | Route file |
 | --- | --- | --- | --- | --- |
-| `<CopilotKit>` (v1 wrapper) | omitted → defaults to `true` | `single` | single-route | `route.ts`, `POST` |
-| `<CopilotKit>` (v1 wrapper) | `{false}` | `rest` | multi-route | `[[...slug]]/route.ts`, 4 verbs |
-| `<CopilotKitProvider>` (v2) | omitted | `auto` — detected from `/info` | either | matches the handler |
-| `<CopilotKitProvider>` (v2) | `{true}` | `single` | single-route | `route.ts`, `POST` |
+| `<CopilotKitProvider>` | omitted | `auto` — detected from `/info` | either | matches the handler |
+| `<CopilotKit>` | omitted | `single` in released versions — see below | single-route | `route.ts`, `POST` |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{true}` | `single` | single-route | `route.ts`, `POST` |
+| `<CopilotKit>` or `<CopilotKitProvider>` | `{false}` | `rest` | multi-route | `[[...slug]]/route.ts`, 4 verbs |
 
 `<CopilotKit>` is a backward-compatible wrapper that renders
-`<CopilotKitProvider>` internally and pins `useSingleEndpoint` to `true` unless
-you pass the prop. **The v1 wrapper therefore asks for single-route transport
-even when your Runtime is multi-route.**
+`<CopilotKitProvider>` internally. Both are exported from
+`@copilotkit/react-core/v2`, but they do not treat an omitted
+`useSingleEndpoint` the same way, and that difference is what decides whether
+your app connects:
+
+- On `<CopilotKitProvider>`, omitting the prop gives `auto`: the client probes
+  `GET /info` and matches whichever mode your Runtime serves.
+- On `<CopilotKit>`, every released version still pins the flag to `true`
+  internally, so omitting it selects the **single-route** transport regardless
+  of what your Runtime serves. Against a multi-route handler that 404s.
+
+**So: with `<CopilotKit>` and a multi-route handler, pass
+`useSingleEndpoint={false}` explicitly.** The pin is removed on `main` and will
+ship in a future release, at which point the prop stays correct but stops being
+required — passing it is the forward-compatible choice either way.
+
+<Callout type="warn" title="Pinning the wrong mode 404s silently">
+  Passing `useSingleEndpoint={true}` to a multi-route Runtime sends an envelope
+  that matches no route, so the Runtime 404s while `GET /info` still returns 200
+  and the app looks connected. The same thing happens when you *omit* the prop
+  on `<CopilotKit>` in a released version, because that is what the pin above
+  does — the Runtime's error body names the fix in both cases.
+</Callout>
 
 Both ship from the same package entry point, so moving between them is an import
 change, not a migration.
@@ -222,9 +242,9 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 </CopilotKitProvider>
 ```
 
-If you still use the v1 `<CopilotKit>` wrapper from `@copilotkit/react-core`,
-set `useSingleEndpoint={false}`. Omitting that prop keeps the v1 wrapper's
-single-route default.
+The `<CopilotKit>` wrapper behaves the same way — omitting the prop lets it
+detect the multi-route Runtime. Passing `useSingleEndpoint={false}` is also
+correct here; it just pins what detection would have found anyway.
 </FrontendOnly>
 
 <FrontendOnly frontend="angular">
@@ -237,8 +257,8 @@ discovers the multi-route transport from `/info`; it has no
 <Step>
 ### Construct the Intelligence client
 
-`intelligence` is a `CopilotKitIntelligence` instance, not a plain object. Build
-it from your project's Intelligence API key:
+`intelligence` is a `CopilotKitIntelligence` instance. Build it from your
+project's Intelligence API key:
 
 ```ts
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
@@ -378,8 +398,8 @@ envelope:
 Its response and failure rules match `GET {basePath}/inspector-metadata`.
 
 <FrontendOnly frontend="react">
-On the frontend, opt into the matching transport with the `useSingleEndpoint`
-prop:
+The frontend detects this mode on its own, so no prop is required. To pin it
+explicitly, pass `useSingleEndpoint`:
 
 ```tsx
 import { CopilotKit } from '@copilotkit/react-core/v2';
@@ -392,8 +412,9 @@ import { CopilotKit } from '@copilotkit/react-core/v2';
 <Callout type="warn">
 The frontend transport must match the runtime mode. If the runtime is in
 single-route mode but the frontend is making multi-route requests (or vice
-versa), every call 404s. Set `useSingleEndpoint` on `<CopilotKit>` whenever the
-runtime uses `mode: "single-route"`.
+versa), every call 404s. Omitting the prop avoids that by construction, since
+the client then probes for the mode the runtime actually serves — so pin
+`useSingleEndpoint` only when you want to skip that probe.
 </Callout>
 </FrontendOnly>
 

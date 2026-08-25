@@ -60,7 +60,6 @@ accept a `defaultOpen` prop:
 The assistant-message toolbar can show thumbs-up and thumbs-down buttons. In v2
 you opt in by passing `onThumbsUp` / `onThumbsDown` to the **assistant message
 slot**. The buttons only render when a handler is provided:
-slot**. The buttons only render when a handler is provided:
 
 ```tsx
 import { CopilotChat } from "@copilotkit/react-core/v2";
@@ -83,6 +82,13 @@ Each handler receives the assistant `message`, so you can record the feedback
 against the specific response (`message.id`). The same `messageView` slot works on
 `<CopilotPopup>` and `<CopilotSidebar>` since they wrap `<CopilotChat>`.
 
+When the slot is rendered through `CopilotChatMessageView`, a live assistant
+message created by a direct AG-UI `TEXT_MESSAGE_START` can also include that
+event's opaque `rawEvent` value. The join happens when the thumbs callback runs;
+canonical messages and future run input stay unchanged. Chunk, snapshot,
+persisted, legacy, and direct `CopilotChatAssistantMessage` paths don't provide
+this callback metadata.
+
 The button labels come from the chat labels (`assistantMessageToolbarThumbsUpLabel`
 defaults to `"Good response"`, `assistantMessageToolbarThumbsDownLabel` to
 `"Bad response"`); override them via
@@ -91,7 +97,8 @@ defaults to `"Good response"`, `assistantMessageToolbarThumbsDownLabel` to
 <Callout type="info">
 Building a fully custom message component instead of using the slot? The
 underlying [`CopilotChatAssistantMessage`](/reference/components/CopilotChatAssistantMessage)
-exposes the same `onThumbsUp` / `onThumbsDown` props directly.
+exposes the same `onThumbsUp` / `onThumbsDown` props directly, but callback
+metadata enrichment is owned by `CopilotChatMessageView`.
 </Callout>
 
 ## Related

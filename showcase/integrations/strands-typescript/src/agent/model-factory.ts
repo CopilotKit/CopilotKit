@@ -96,19 +96,18 @@ export async function createModel(
       await import("@strands-agents/sdk/models/anthropic");
     return new AnthropicModel({
       apiKey,
-      modelId: process.env.MODEL_ID ?? "claude-sonnet-4-6",
+      modelId: process.env.MODEL_ID ?? "claude-opus-4-8",
     });
   }
 
   if (provider === "bedrock") {
     const { BedrockModel } = await import("@strands-agents/sdk");
     return new BedrockModel({
-      modelId: process.env.MODEL_ID ?? "global.anthropic.claude-sonnet-4-6",
+      modelId: process.env.MODEL_ID ?? "global.anthropic.claude-opus-4-8",
       ...(reasoning
         ? {
-            temperature: 1,
             additionalRequestFields: {
-              thinking: { type: "enabled", budget_tokens: 2000 },
+              thinking: { type: "adaptive" },
             },
           }
         : {}),

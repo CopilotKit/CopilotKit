@@ -1,5 +1,6 @@
 export * from "./lib/config";
 export * from "./lib/copilotkit";
+export * from "./lib/inspector";
 export * from "./lib/tools";
 export * from "./lib/render-tool-calls";
 export * from "./lib/activity-renderer";
@@ -7,6 +8,7 @@ export * from "./lib/open-generative-ui";
 export * from "./lib/agent";
 export * from "./lib/capabilities";
 export * from "./lib/interrupt";
+export * from "./lib/inject-interrupt";
 export * from "./lib/threads";
 export * from "./lib/chat-config";
 export * from "./lib/chat-configuration";
@@ -14,7 +16,7 @@ export * from "./lib/chat-state";
 export * from "./lib/transcription";
 export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
-export * from "./lib/utils";
+export { cn } from "./lib/utils";
 export * from "./lib/agent-context";
 export * from "./lib/memories";
 export type {

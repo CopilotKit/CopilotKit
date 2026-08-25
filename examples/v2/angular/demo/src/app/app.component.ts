@@ -1,4 +1,4 @@
-import { Component, inject } from "@angular/core";
+import { Component, inject, ChangeDetectionStrategy } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import {
   ActivatedRoute,
@@ -22,6 +22,7 @@ import { DemoWebInspectorComponent } from "./components/demo-web-inspector.compo
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .demo-shell {
       height: 100vh;

@@ -24,9 +24,9 @@ import type {
   BeforeRequestMiddleware,
   AfterRequestMiddleware,
 } from "./middleware";
-import { createLogger } from "../../../lib/logger";
-import type { CopilotRuntimeLogger } from "../../../lib/logger";
-import { logRuntimeTelemetryDisclosure } from "../../../lib/telemetry-disclosure";
+import { createLogger } from "../../../v1-deprecated/lib/logger";
+import type { CopilotRuntimeLogger } from "../../../v1-deprecated/lib/logger";
+import { logRuntimeTelemetryDisclosure } from "../../../v1-deprecated/lib/telemetry-disclosure";
 import type { TranscriptionService } from "../transcription-service/transcription-service";
 import { DebugEventBus } from "./debug-event-bus";
 import type { AgentRunner } from "../runner/agent-runner";
@@ -166,6 +166,16 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /**
+   * Properties added to every telemetry event this runtime sends.
+   *
+   * For what is true of the whole process rather than of one event. A product
+   * built on this runtime can name itself here and then be told apart in the
+   * events that already go, rather than sending events of its own.
+   *
+   * No effect when telemetry is off: nothing is sent, so nothing carries this.
+   */
+  telemetryProperties?: Record<string, unknown>;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
   /**
@@ -403,6 +413,13 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
       telemetry.setLicenseToken(this.resolvedLicenseToken);
     }
 
+    // Set here rather than per event, beside the license token and for the same
+    // reason: it describes the caller, not the call, and every event should
+    // carry it whichever handler fired.
+    if (options.telemetryProperties) {
+      telemetry.setGlobalProperties(options.telemetryProperties);
+    }
+
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
     }
@@ -482,8 +499,25 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      runner?: unknown;
       ɵlearning?: unknown;
     };
+    // Runtime guard mirroring the `channels` guard in `CopilotSseRuntime`: this
+    // constructor hardcodes `IntelligenceAgentRunner` into its `super()` call,
+    // so a caller-supplied `runner` can never be honored. The type forbids it
+    // (`runner` is declared only on `CopilotSseRuntimeOptions`), but that is an
+    // excess-property check — a JS / `as any` / non-literal caller passing
+    // `{ intelligence, runner }` would otherwise land here and have `runner`
+    // silently dropped in favor of the auto-wired one. Fail loud instead.
+    if (rawOptions.runner !== undefined) {
+      throw new Error(
+        "Intelligence Runtime auto-wires its own `runner`; passing `runner` " +
+          "alongside `intelligence` is not supported. Durability is managed by " +
+          "the Intelligence service, so `InMemoryAgentRunner` / a SQLite runner " +
+          "is unnecessary here — drop `runner`, or drop `intelligence` to run " +
+          "in SSE mode with a runner you control.",
+      );
+    }
     if (
       rawOptions.identifyUser !== undefined &&
       typeof rawOptions.identifyUser !== "function"

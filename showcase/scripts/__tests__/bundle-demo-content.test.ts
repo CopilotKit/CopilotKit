@@ -77,7 +77,7 @@ describe("Content Bundler", () => {
 
     // Backend agent file (from manifest.highlight) should be present.
     const agentFile = agenticChat.files.find((f: any) =>
-      /agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("agents/agentic_chat.py"),
     );
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
@@ -108,7 +108,7 @@ describe("Content Bundler", () => {
     const lgDemo = content.demos["langgraph-python::agentic-chat"];
     expect(lgDemo).toBeDefined();
     const lgAgent = lgDemo.files.find((f: any) =>
-      /src\/agents\/agentic_chat\.py$/.test(f.filename),
+      f.filename.endsWith("src/agents/agentic_chat.py"),
     );
     expect(lgAgent).toBeDefined();
     expect(lgAgent.language).toBe("python");

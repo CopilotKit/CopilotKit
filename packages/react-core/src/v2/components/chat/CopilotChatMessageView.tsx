@@ -11,6 +11,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot, isReactComponentType } from "../../lib/slots";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
+import type { CopilotChatFeedbackMessage } from "./CopilotChatAssistantMessage";
 import CopilotChatUserMessage from "./CopilotChatUserMessage";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage";
 import type {
@@ -31,6 +32,12 @@ import {
 } from "../intelligence-indicator";
 import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
+import { CopilotChatDefaultLabels } from "../../providers/CopilotChatConfigurationProvider";
+import {
+  SaveSnippetBesideChrome,
+  SaveSnippetIconButton,
+} from "./SaveSnippetIconButton";
 
 /**
  * Resolves a slot value into a { Component, slotProps } pair, handling the three
@@ -181,6 +188,50 @@ const MemoizedUserMessage = React.memo(
 /**
  * Memoized wrapper for activity messages to prevent re-renders when other messages change.
  */
+function ActivitySnippetChrome({
+  message,
+  children,
+}: {
+  message: ActivityMessage;
+  children: React.ReactNode;
+}) {
+  const { isLocalInspectorEnabled, saveEventSnippet } =
+    useCopilotKitInspector();
+  const chatConfiguration = useCopilotChatConfiguration();
+  const canSave =
+    isLocalInspectorEnabled &&
+    (message.activityType === "a2ui-surface" ||
+      message.activityType === "open-generative-ui");
+  if (!canSave) {
+    return children;
+  }
+  const labels = chatConfiguration?.labels ?? CopilotChatDefaultLabels;
+  const primaryLabel = labels.assistantMessageToolbarSaveSnippetLabel;
+  return (
+    <SaveSnippetBesideChrome
+      showSave
+      saveButton={
+        <SaveSnippetIconButton
+          data-testid="copilot-activity-save-snippet-button"
+          title={primaryLabel}
+          onClick={() =>
+            void saveEventSnippet({
+              kind: "activity",
+              messageId: message.id,
+              activityType: message.activityType,
+              content: message.content,
+              threadId: chatConfiguration?.threadId,
+              agentId: chatConfiguration?.agentId,
+            })
+          }
+        />
+      }
+    >
+      {children}
+    </SaveSnippetBesideChrome>
+  );
+}
+
 const MemoizedActivityMessage = React.memo(
   function MemoizedActivityMessage({
     message,
@@ -191,7 +242,11 @@ const MemoizedActivityMessage = React.memo(
       message: ActivityMessage,
     ) => React.ReactElement | null;
   }) {
-    return renderActivityMessage(message);
+    return (
+      <ActivitySnippetChrome message={message}>
+        {renderActivityMessage(message)}
+      </ActivitySnippetChrome>
+    );
   },
   (prevProps, nextProps) => {
     // Message ID changed = different message, must re-render
@@ -508,6 +563,39 @@ export function CopilotChatMessageView({
       () => resolveSlotComponent(assistantMessage, CopilotChatAssistantMessage),
       [assistantMessage],
     );
+  const agentId = config?.agentId;
+  const threadId = config?.threadId;
+  const assistantSlotPropsWithFeedback = useMemo(() => {
+    const onThumbsUp = assistantSlotProps?.onThumbsUp as
+      | ((message: CopilotChatFeedbackMessage) => void)
+      | undefined;
+    const onThumbsDown = assistantSlotProps?.onThumbsDown as
+      | ((message: CopilotChatFeedbackMessage) => void)
+      | undefined;
+    if (!onThumbsUp && !onThumbsDown) return assistantSlotProps;
+
+    const withRawEvent = (
+      message: AssistantMessage,
+    ): CopilotChatFeedbackMessage => {
+      const rawEvent =
+        agentId === undefined || threadId === undefined
+          ? undefined
+          : copilotkit.getRawEventForMessage(agentId, threadId, message.id);
+      return rawEvent === undefined ? message : { ...message, rawEvent };
+    };
+
+    return {
+      ...assistantSlotProps,
+      ...(onThumbsUp && {
+        onThumbsUp: (message: AssistantMessage) =>
+          onThumbsUp(withRawEvent(message)),
+      }),
+      ...(onThumbsDown && {
+        onThumbsDown: (message: AssistantMessage) =>
+          onThumbsDown(withRawEvent(message)),
+      }),
+    };
+  }, [assistantSlotProps, agentId, threadId, copilotkit]);
   const { Component: UserComponent, slotProps: userSlotProps } = useMemo(
     () => resolveSlotComponent(userMessage, CopilotChatUserMessage),
     [userMessage],
@@ -621,7 +709,7 @@ export function CopilotChatMessageView({
           messages={messages}
           isRunning={isRunning}
           AssistantMessageComponent={AssistantComponent}
-          slotProps={assistantSlotProps}
+          slotProps={assistantSlotPropsWithFeedback}
         />,
       );
     } else if (message.role === "user") {

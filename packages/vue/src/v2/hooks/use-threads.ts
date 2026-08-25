@@ -80,7 +80,7 @@ function bindThreadStoreSelector<T>(
 }
 
 /**
- * Vue composable for listing and managing Intelligence platform threads.
+ * Vue composable for listing and managing CopilotKit Intelligence threads.
  *
  * The hook fetches threads for the runtime-authenticated user and the given
  * `agentId`, then keeps the result in sync via the core thread store's realtime

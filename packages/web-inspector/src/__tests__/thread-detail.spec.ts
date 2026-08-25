@@ -327,13 +327,13 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
   await flushInspector(inspector);
 
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();
   await flushInspector(inspector);
   const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threads) throw new Error("Threads group was not rendered");
   threads.click();

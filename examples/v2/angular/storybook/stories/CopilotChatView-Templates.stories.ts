@@ -1,7 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, Injectable, Input, signal } from "@angular/core";
+import {
+  Component,
+  Injectable,
+  Input,
+  signal,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import {
   CopilotChatView,
@@ -128,7 +134,8 @@ export const CustomDisclaimerTemplate: Story = {
 @Component({
   selector: "template-custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       style="
@@ -313,7 +320,8 @@ export const CustomScrollButtonTemplate: Story = {
 @Component({
   selector: "combined-custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       style="

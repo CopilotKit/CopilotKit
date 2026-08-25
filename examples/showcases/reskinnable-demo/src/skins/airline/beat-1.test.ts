@@ -78,7 +78,9 @@ describe("beat 1 — the prompt sends frequency questions to the chart", () => {
   });
 
   it("demands the chart AND prose quoting its figures", () => {
-    expect(prompt.toLowerCase()).toMatch(/chart with no words|render it and say/);
+    expect(prompt.toLowerCase()).toMatch(
+      /chart with no words|render it and say/,
+    );
   });
 });
 

@@ -15,11 +15,12 @@
     "mint-dev-license": "node scripts/mint-dev-license.mjs"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "workspace:*",
-    "@copilotkit/core": "workspace:*",
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime": "workspace:*",
-    "@copilotkit/shared": "workspace:*",
+    "@ag-ui/client": "0.0.59-canary.1786716392.0",
+    "@copilotkit/a2ui-renderer": "1.68.3-canary.1786716392",
+    "@copilotkit/core": "1.68.3-canary.1786716392",
+    "@copilotkit/react-core": "1.68.3-canary.1786716392",
+    "@copilotkit/runtime": "1.68.3-canary.1786716392",
+    "@copilotkit/shared": "1.68.3-canary.1786716392",
     "@radix-ui/react-avatar": "^1.1.1",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
@@ -64,5 +65,14 @@
     "typescript": "^5",
     "vitest": "^3.2.0"
   },
-  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
+  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39",
+  "pnpm": {
+    "overrides": {
+      "@ag-ui/core": "0.0.59-canary.1786716392.0",
+      "@ag-ui/client": "0.0.59-canary.1786716392.0",
+      "@ag-ui/encoder": "0.0.59-canary.1786716392.0",
+      "@ag-ui/proto": "0.0.59-canary.1786716392.0",
+      "@ag-ui/langgraph": "0.0.43-canary.1786716392.0"
+    }
+  }
 }

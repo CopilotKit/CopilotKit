@@ -127,9 +127,8 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  // apiUrl / wsUrl default to the managed Intelligence platform — leave unset.
-  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
-  organizationId: process.env.COPILOTKIT_ORG_ID!,
+  // apiUrl / wsUrl default to cloud-hosted CopilotKit Intelligence — leave unset.
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotIntelligenceRuntime({
@@ -169,7 +168,7 @@ const { threads: archived } = useThreads({
 });
 ```
 
-`deleteThread` is irreversible at the Intelligence platform level. Use
+`deleteThread` is irreversible in CopilotKit Intelligence. Use
 `archiveThread` for user-facing delete UX and only call `deleteThread` for
 genuine "permanently erase" flows.
 

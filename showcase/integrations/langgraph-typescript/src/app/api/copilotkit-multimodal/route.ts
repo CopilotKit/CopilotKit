@@ -12,12 +12,12 @@
 // The page at src/app/demos/multimodal/page.tsx points its `runtimeUrl` at
 // this endpoint and sets `agent="multimodal-demo"` (the slug registered below).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const LANGGRAPH_URL =
@@ -41,17 +41,17 @@ const agents: Record<string, LangGraphAgent> = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-multimodal",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
         // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
         // plain Records. Fixed in source, pending release.
         agents,
       }),
+      basePath: "/api/copilotkit-multimodal",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(
