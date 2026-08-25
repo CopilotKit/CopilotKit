@@ -195,9 +195,7 @@ export class CopilotChatReasoningMessage {
   }
 
   protected canSaveReasoning(): boolean {
-    return (
-      this.inspector?.isInspectorEnabled === true && this.hasContent()
-    );
+    return this.inspector?.isInspectorEnabled === true && this.hasContent();
   }
 
   protected saveSnippetTitle(): string {

@@ -21,8 +21,7 @@ export function CopilotChatToolCallsView({
   messages = [],
 }: CopilotChatToolCallsViewProps) {
   const renderToolCall = useRenderToolCall();
-  const { isInspectorEnabled, saveEventSnippet } =
-    useCopilotKitInspector();
+  const { isInspectorEnabled, saveEventSnippet } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
   const labels = chatConfiguration?.labels ?? CopilotChatDefaultLabels;
 

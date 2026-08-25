@@ -195,8 +195,7 @@ function ActivitySnippetChrome({
   message: ActivityMessage;
   children: React.ReactNode;
 }) {
-  const { isInspectorEnabled, saveEventSnippet } =
-    useCopilotKitInspector();
+  const { isInspectorEnabled, saveEventSnippet } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
   const canSave =
     isInspectorEnabled &&

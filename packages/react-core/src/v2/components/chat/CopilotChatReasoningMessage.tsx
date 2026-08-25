@@ -48,8 +48,7 @@ export function CopilotChatReasoningMessage({
   const isLatest = messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
-  const { isInspectorEnabled, saveEventSnippet } =
-    useCopilotKitInspector();
+  const { isInspectorEnabled, saveEventSnippet } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
 
   // Track elapsed time while streaming
