@@ -270,7 +270,7 @@ describe("MCP Apps ui/request-display-mode", () => {
     expect(responseFor(spy, absentId)?.result).toEqual({ mode: "inline" });
   });
 
-  it("returns to inline when the widget requests inline after fullscreen", async () => {
+  it("emits host-context-changed for widget-initiated changes (fullscreen then inline)", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-roundtrip";
     const iframe = await setupMCPActivity(agent, "rdm-roundtrip");
@@ -282,10 +282,27 @@ describe("MCP Apps ui/request-display-mode", () => {
     });
 
     expect(responseFor(spy, backId)?.result).toEqual({ mode: "inline" });
-    // Widget-initiated change: no host-context-changed notification is emitted.
-    expect(
-      notificationsFor(spy, "ui/notifications/host-context-changed"),
-    ).toHaveLength(0);
+
+    // The app SDK caches hostContext only from the notification, so a
+    // widget-initiated change must ALSO emit host-context-changed (not just the
+    // response) or the widget's own toggle can never return to inline.
+    const notifs = notificationsFor(
+      spy,
+      "ui/notifications/host-context-changed",
+    );
+    expect(notifs.map((n) => n.params.displayMode)).toEqual([
+      "fullscreen",
+      "inline",
+    ]);
+    // Entering fullscreen advertises the available render surface.
+    expect(notifs[0].params.containerDimensions).toEqual(
+      expect.objectContaining({
+        width: expect.any(Number),
+        height: expect.any(Number),
+      }),
+    );
+    // Inline carries no container dimensions.
+    expect(notifs[1].params.containerDimensions).toBeUndefined();
   });
 
   it("advertises displayMode and availableDisplayModes at ui/initialize", async () => {
@@ -329,12 +346,14 @@ describe("MCP Apps ui/request-display-mode", () => {
       ).toBeNull();
     });
 
+    // One notification for entering fullscreen, one for the host-initiated exit.
     const notifications = notificationsFor(
       spy,
       "ui/notifications/host-context-changed",
     );
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].params).toEqual({ displayMode: "inline" });
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0].params.displayMode).toBe("fullscreen");
+    expect(notifications[1].params).toEqual({ displayMode: "inline" });
   });
 
   it("exits fullscreen on Escape and notifies the widget", async () => {
@@ -357,12 +376,37 @@ describe("MCP Apps ui/request-display-mode", () => {
       ).toBeNull();
     });
 
+    // One notification for entering fullscreen, one for the Escape-driven exit.
     const notifications = notificationsFor(
       spy,
       "ui/notifications/host-context-changed",
     );
-    expect(notifications).toHaveLength(1);
-    expect(notifications[0].params).toEqual({ displayMode: "inline" });
+    expect(notifications).toHaveLength(2);
+    expect(notifications[0].params.displayMode).toBe("fullscreen");
+    expect(notifications[1].params).toEqual({ displayMode: "inline" });
+  });
+
+  it("advertises containerDimensions and fills the iframe in fullscreen", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-surface";
+    const iframe = await setupMCPActivity(agent, "rdm-surface");
+    const spy = spyOnHostMessages(iframe);
+
+    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+
+    const notifs = notificationsFor(
+      spy,
+      "ui/notifications/host-context-changed",
+    );
+    expect(notifs[0].params.displayMode).toBe("fullscreen");
+    expect(notifs[0].params.containerDimensions).toEqual(
+      expect.objectContaining({
+        width: expect.any(Number),
+        height: expect.any(Number),
+      }),
+    );
+    // The iframe must fill the overlay, not keep its widget-reported height.
+    expect(iframe.style.height).toBe("100%");
   });
 
   it("locks the background scroll while fullscreen and restores it on exit", async () => {

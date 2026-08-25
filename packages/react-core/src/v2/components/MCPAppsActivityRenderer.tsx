@@ -58,6 +58,25 @@ export async function ɵrunMcpFollowUp({
 // Protocol version supported
 const PROTOCOL_VERSION = "2025-06-18";
 
+// Ref-counted body scroll lock shared across renderer instances, so two widgets
+// in fullscreen at once don't let the first one to exit unlock the page while
+// the second is still open.
+let fullscreenLockCount = 0;
+let bodyOverflowBeforeLock = "";
+function acquireBodyScrollLock(): void {
+  if (fullscreenLockCount === 0) {
+    bodyOverflowBeforeLock = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  fullscreenLockCount += 1;
+}
+function releaseBodyScrollLock(): void {
+  fullscreenLockCount = Math.max(0, fullscreenLockCount - 1);
+  if (fullscreenLockCount === 0) {
+    document.body.style.overflow = bodyOverflowBeforeLock;
+  }
+}
+
 // Build sandbox proxy HTML with optional extra CSP domains from resource metadata
 function buildSandboxHTML(extraCspDomains?: string[]): string {
   const baseScriptSrc =
@@ -381,33 +400,67 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       [sendToIframe],
     );
 
-    // Host-initiated exit from fullscreen (close button or Escape key). Unlike a
-    // widget-initiated ui/request-display-mode, the host MUST notify the widget of
-    // the mode change via ui/notifications/host-context-changed (the only ext-apps
-    // mechanism to signal a host-context change) so the widget stays in sync.
-    const exitFullscreen = useCallback(() => {
-      setDisplayMode("inline");
-      sendNotification("ui/notifications/host-context-changed", {
-        displayMode: "inline",
-      });
-    }, [sendNotification]);
+    const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-    // While fullscreen: let the user exit with Escape and lock the background
-    // page scroll. The cleanup restores the previous body overflow even if the
-    // widget unmounts while fullscreen (no stuck scroll lock).
+    // Notify the widget of the current display mode. Per ext-apps,
+    // ui/notifications/host-context-changed is the only channel to communicate a
+    // host-context change, and its params ARE a partial McpUiHostContext (flat,
+    // only the changed fields). The app SDK refreshes its cached hostContext ONLY
+    // from this notification (never from the ui/request-display-mode response) -
+    // so we emit it for BOTH host- and widget-initiated changes. When entering
+    // fullscreen we also advertise the available render surface via
+    // containerDimensions so the widget can lay out against the real space.
+    const notifyDisplayMode = useCallback(
+      (mode: "inline" | "fullscreen" | "pip") => {
+        const hostContext: Record<string, unknown> = { displayMode: mode };
+        if (mode === "fullscreen") {
+          hostContext.containerDimensions = {
+            width: Math.round(window.innerWidth),
+            height: Math.round(window.innerHeight),
+          };
+        }
+        sendNotification("ui/notifications/host-context-changed", hostContext);
+      },
+      [sendNotification],
+    );
+
+    // Apply a display mode and inform the widget. Single source of truth for both
+    // the widget-initiated ui/request-display-mode and the host-initiated exit.
+    const applyDisplayMode = useCallback(
+      (mode: "inline" | "fullscreen" | "pip") => {
+        setDisplayMode(mode);
+        notifyDisplayMode(mode);
+      },
+      [notifyDisplayMode],
+    );
+
+    // Host-initiated exit from fullscreen (close button or Escape key).
+    const exitFullscreen = useCallback(() => {
+      applyDisplayMode("inline");
+    }, [applyDisplayMode]);
+
+    // While fullscreen: move focus to the close button, allow Escape to exit,
+    // keep containerDimensions in sync on viewport resize, and lock the
+    // background page scroll (ref-counted so concurrent fullscreen widgets don't
+    // unlock the page early). Escape is a convenience only: it will not fire while
+    // focus is inside the sandboxed iframe, so the close (X) button is the primary
+    // exit path.
     useEffect(() => {
       if (displayMode !== "fullscreen") return;
+      closeButtonRef.current?.focus();
       const onKeyDown = (event: KeyboardEvent) => {
         if (event.key === "Escape") exitFullscreen();
       };
+      const onResize = () => notifyDisplayMode("fullscreen");
       window.addEventListener("keydown", onKeyDown);
-      const previousOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
+      window.addEventListener("resize", onResize);
+      acquireBodyScrollLock();
       return () => {
         window.removeEventListener("keydown", onKeyDown);
-        document.body.style.overflow = previousOverflow;
+        window.removeEventListener("resize", onResize);
+        releaseBodyScrollLock();
       };
-    }, [displayMode, exitFullscreen]);
+    }, [displayMode, exitFullscreen, notifyDisplayMode]);
 
     // Effect 0: Fetch the resource content on mount
     // Uses ref-based deduplication to handle React StrictMode double-mounting
@@ -611,6 +664,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     hostContext: {
                       theme: "light",
                       platform: "web",
+                      // `displayMode` is read from this handler's closure. The
+                      // effect deliberately omits it as a dependency (adding it
+                      // would tear down and rebuild the iframe on every toggle);
+                      // initialize only runs once at startup when the mode is
+                      // still "inline", and later changes are pushed via
+                      // ui/notifications/host-context-changed, so the closure
+                      // value is correct here.
                       displayMode,
                       availableDisplayModes: ["inline", "fullscreen"],
                     },
@@ -728,9 +788,11 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                     )
                       ? requested
                       : "inline";
-                  setDisplayMode(granted);
-                  // No host-context-changed notification here: the response is
-                  // authoritative for widget-initiated changes.
+                  // Apply AND emit host-context-changed: the app SDK caches
+                  // hostContext only from the notification, not from this
+                  // response, so a widget-driven toggle needs the notification to
+                  // observe the new mode on its next getHostContext().
+                  applyDisplayMode(granted);
                   sendResponse(msg.id, { mode: granted });
                   break;
                 }
@@ -876,21 +938,31 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       sendNotification,
       sendResponse,
       sendErrorResponse,
+      applyDisplayMode,
     ]);
 
-    // Effect 2: Update iframe size when it changes
+    // Effect 2: Update iframe size when it changes.
+    // In fullscreen the iframe must fill the overlay (100% of the fixed
+    // container), otherwise it would keep its widget-reported inline height and
+    // render as a small widget inside a full-viewport panel.
     useEffect(() => {
-      if (iframeRef.current) {
-        if (iframeSize.width !== undefined) {
-          // Use minWidth with min() to allow expansion but cap at 100%
-          iframeRef.current.style.minWidth = `min(${iframeSize.width}px, 100%)`;
-          iframeRef.current.style.width = "100%";
-        }
-        if (iframeSize.height !== undefined) {
-          iframeRef.current.style.height = `${iframeSize.height}px`;
-        }
+      const iframe = iframeRef.current;
+      if (!iframe) return;
+      if (displayMode === "fullscreen") {
+        iframe.style.minWidth = "100%";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";
+        return;
       }
-    }, [iframeSize]);
+      if (iframeSize.width !== undefined) {
+        // Use minWidth with min() to allow expansion but cap at 100%
+        iframe.style.minWidth = `min(${iframeSize.width}px, 100%)`;
+        iframe.style.width = "100%";
+      }
+      if (iframeSize.height !== undefined) {
+        iframe.style.height = `${iframeSize.height}px`;
+      }
+    }, [iframeSize, displayMode]);
 
     // Effect 3: Send tool input when iframe ready
     useEffect(() => {
@@ -924,9 +996,18 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
     const isFullscreen = displayMode === "fullscreen";
 
+    // NOTE: the fullscreen overlay uses `position: fixed` rather than a
+    // React portal on purpose. The iframe is created imperatively and appended
+    // to this container; portaling would reparent it and reload the sandboxed
+    // srcdoc (losing widget state) on every fullscreen toggle. `position: fixed`
+    // keeps the iframe alive; the trade-off is that a transformed/filtered
+    // ancestor in a host app could re-anchor it (v2's own chat CSS does not).
     return (
       <div
         ref={containerRef}
+        role={isFullscreen ? "dialog" : undefined}
+        aria-modal={isFullscreen ? true : undefined}
+        aria-label={isFullscreen ? "Fullscreen widget" : undefined}
         style={
           isFullscreen
             ? {
@@ -936,7 +1017,9 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 width: "100vw",
                 height: "100vh",
                 overflow: "auto",
-                background: "#fff",
+                // Theme-aware token so the overlay does not flash white in dark
+                // mode (v2 defines --background for light and .dark).
+                background: "var(--background, #fff)",
               }
             : {
                 width: "100%",
@@ -950,6 +1033,7 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       >
         {isFullscreen && (
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Exit fullscreen"
             onClick={exitFullscreen}
