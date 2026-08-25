@@ -20,7 +20,7 @@ export const POST = async (req: NextRequest) => {
           process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8125",
         graphId: process.env.LANGGRAPH_GRAPH_ID || "world_agent",
         langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
-        config: {
+        assistantConfig: {
           configurable: {
             openai_api_key: userApiKey || undefined,
           },
