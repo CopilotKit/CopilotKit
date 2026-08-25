@@ -1064,6 +1064,45 @@ describe("runtime connection health (OSS-904)", () => {
     expect(infoCalls).toBe(2);
   });
 
+  it("still reports the answer of a watched request that eventually arrives", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The run hangs and `/info` is gone, so the watchdog's probe paints the
+    // status red while the request is still open.
+    let answerTheRun: (response: Response) => void = () => {};
+    runHandler = () =>
+      new Promise<Response>((resolve) => {
+        answerTheRun = resolve;
+      });
+    infoHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    void runOnce(core).catch(() => undefined);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    expect(infoCalls).toBe(2);
+
+    // The runtime was only very, very slow. Because the watchdog never
+    // cancelled anything, the answer still arrives — and it is still evidence
+    // of contact, so it still recovers the status. Suppressing the duplicate
+    // FAILURE must not suppress this.
+    bringRuntimeUp();
+    answerTheRun(sseResponse());
+
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    expect(infoCalls).toBe(3);
+  });
+
   it("does not arm the watchdog for a request the caller declared non-critical", async () => {
     vi.useFakeTimers();
     const core = createCore();
