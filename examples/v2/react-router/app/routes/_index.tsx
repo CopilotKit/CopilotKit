@@ -20,8 +20,8 @@ const DEAD_RUNTIME_URL = "/api/nope";
 const toolbarButtonClass = (active: boolean) =>
   `px-3 py-1 text-sm rounded-md transition-colors ${
     active
-      ? "bg-black text-white"
-      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+      ? "bg-black text-white dark:bg-neutral-50 dark:text-neutral-900"
+      : "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700"
   }`;
 
 const FAIL_THREADS_COOKIE = "cpk_lab_fail_threads";
@@ -152,9 +152,9 @@ function InspectorErrorLab() {
     <div
       role="group"
       aria-label="Inspector error lab"
-      className="flex items-center gap-2 border-l border-gray-200 pl-3"
+      className="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-neutral-800"
     >
-      <span className="text-xs text-gray-500">
+      <span className="text-xs text-gray-500 dark:text-neutral-400">
         Runtime: {copilotkit.runtimeConnectionStatus}
         {threadsBroken ? " · threads broken" : ""}
         {memoriesBroken ? " · learning broken" : ""}
@@ -209,12 +209,37 @@ function InspectorErrorLab() {
 export default function Index() {
   const [agentType, setAgentType] = useState<AgentType>("tanstack");
   const [chatError, setChatError] = useState<string | null>(null);
+  // Same shape as the react demo's theme toggle: the host application owns the
+  // theme, and the `dark` class is what CopilotChat reads to swap its own
+  // variables. The colours below are Tailwind's neutral scale, which is where
+  // the demo's oklch literals come from -- neutral-950 is oklch(0.145 0 0),
+  // neutral-50 is oklch(0.985 0 0), neutral-800 is oklch(0.269 0 0).
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const dark = theme === "dark";
 
   return (
     <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL} showDevConsole="auto">
-      <div className="h-screen w-screen flex flex-col">
-        <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
-          <span className="text-sm font-medium text-gray-600">Agent:</span>
+      <div
+        className={`h-screen w-screen flex flex-col transition-colors ${
+          dark
+            ? "dark bg-neutral-950 text-neutral-50"
+            : "bg-white text-neutral-900"
+        }`}
+      >
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+          <button
+            type="button"
+            onClick={() => setTheme(dark ? "light" : "dark")}
+            className={toolbarButtonClass(false)}
+            aria-pressed={dark}
+            aria-label={`Switch to ${dark ? "light" : "dark"} mode`}
+            title="Switch the host page between light and dark, the way the react demo does. The launcher floats over customer pages, so both are worth looking at."
+          >
+            {dark ? "Light" : "Dark"}
+          </button>
+          <span className="text-sm font-medium text-gray-600 dark:text-neutral-300">
+            Agent:
+          </span>
           <button
             type="button"
             onClick={() => setAgentType("aisdk")}
@@ -234,7 +259,7 @@ export default function Index() {
         {chatError ? (
           <div
             role="alert"
-            className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-900"
+            className="border-b border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
           >
             {chatError}
           </div>
@@ -243,7 +268,7 @@ export default function Index() {
           <CopilotChat
             key={agentType}
             agentId={agentType}
-            className="h-full w-full"
+            className={dark ? "dark h-full w-full" : "h-full w-full"}
             attachments={{ enabled: true }}
             onError={(event) => {
               // The prop also accepts React's DOM error handler, so a
