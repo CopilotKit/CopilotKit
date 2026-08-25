@@ -57,8 +57,14 @@ export class StateManager {
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
 
-  // Agent subscriptions for cleanup
-  private agentSubscriptions: Map<string, () => void> = new Map();
+  // Agent subscriptions for cleanup. The agent instance is kept alongside the
+  // teardown so `subscribeToAgent` can tell "replace the agent behind this id"
+  // apart from "you already have this very agent" — see the revocation
+  // invariant there.
+  private agentSubscriptions: Map<
+    string,
+    { agent: AbstractAgent; unsubscribe: () => void }
+  > = new Map();
 
   // Internal follow-ups are marked in memory so the marker never reaches a
   // runtime or becomes user-controlled forwardedProps data.
@@ -115,10 +121,25 @@ export class StateManager {
 
     const agentId = agent.agentId;
 
-    // Unsubscribe existing subscription for this agent only
-    const existingUnsubscribe = this.agentSubscriptions.get(agentId);
-    if (existingUnsubscribe) {
-      existingUnsubscribe();
+    // Already subscribed to THIS VERY INSTANCE: leave the live subscription
+    // exactly as it is.
+    //
+    // Revocation below exists for one case — a DIFFERENT instance taking over
+    // an id, where the outgoing pipeline may still be pumping events for the
+    // agent that was replaced. Being handed the same instance again replaces
+    // nothing, so tearing down and re-subscribing has no upside and one sharp
+    // cost: the ag-ui pipeline captured its subscriber list at run start, so the
+    // replacement is silently ignored and a run that is still streaming loses
+    // its state and messages for the rest of the run. Callers re-announce an
+    // unchanged agent routinely (a header change, a transport change, an /info
+    // re-settle, and the OSS-904 recovery re-sync, which by design runs while
+    // the run that triggered it is still open).
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      if (existing.agent === agent) {
+        return;
+      }
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
 
@@ -130,7 +151,8 @@ export class StateManager {
     //    runAgent() start. If this subscription is replaced by a newer one before
     //    the pipeline finishes, the old pipeline may still call these callbacks
     //    with the old input.runId. `revoked = true` turns them into no-ops once
-    //    the replacement subscription is in place.
+    //    the replacement subscription is in place. Only a replacement revokes —
+    //    see the same-instance guard above.
     //
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
@@ -359,10 +381,13 @@ export class StateManager {
       },
     });
 
-    this.agentSubscriptions.set(agentId, () => {
-      revoked = true;
-      this.pendingContinuations.delete(agent);
-      unsubscribe();
+    this.agentSubscriptions.set(agentId, {
+      agent,
+      unsubscribe: () => {
+        revoked = true;
+        this.pendingContinuations.delete(agent);
+        unsubscribe();
+      },
     });
   }
 
@@ -370,9 +395,9 @@ export class StateManager {
    * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
-    const unsubscribe = this.agentSubscriptions.get(agentId);
-    if (unsubscribe) {
-      unsubscribe();
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
     this.rawEventByMessage.delete(agentId);
