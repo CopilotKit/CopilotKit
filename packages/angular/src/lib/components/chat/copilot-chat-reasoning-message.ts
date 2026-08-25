@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
   linkedSignal,
   signal,
@@ -11,10 +12,19 @@ import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { cn } from "../../utils";
 import { CopilotChatAssistantMessageRenderer } from "./copilot-chat-assistant-message-renderer";
 import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils";
+import { CopilotInspector } from "../../inspector";
+import { CopilotChatConfiguration } from "../../chat-configuration";
+import { injectChatLabels } from "../../chat-config";
+import { Bookmark, CopilotIcon } from "../icons/copilot-icon";
+import { CopilotChatAssistantMessageToolbarButton } from "./copilot-chat-assistant-message-buttons";
 
 @Component({
   selector: "copilot-chat-reasoning-message",
-  imports: [CopilotChatAssistantMessageRenderer],
+  imports: [
+    CopilotChatAssistantMessageRenderer,
+    CopilotIcon,
+    CopilotChatAssistantMessageToolbarButton,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -23,37 +33,50 @@ import { formatReasoningDuration } from "./copilot-chat-reasoning-message-utils"
       data-testid="copilot-chat-reasoning-message"
       data-copilot-reasoning-message
     >
-      <button
-        type="button"
-        data-testid="reasoning-block"
-        [class]="headerClass()"
-        [attr.aria-expanded]="hasContent() ? open() : null"
-        (click)="toggle()"
-      >
-        <span class="cpk:font-medium">{{ label() }}</span>
-        @if (isStreaming() && !hasContent()) {
-          <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
-            <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
-            ></span>
-          </span>
-        }
-        @if (hasContent()) {
-          <svg
-            aria-hidden="true"
-            focusable="false"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            [class]="chevronClass()"
+      <div class="cpk:flex cpk:items-center cpk:gap-1">
+        <button
+          type="button"
+          data-testid="reasoning-block"
+          [class]="headerClass()"
+          [attr.aria-expanded]="hasContent() ? open() : null"
+          (click)="toggle()"
+        >
+          <span class="cpk:font-medium">{{ label() }}</span>
+          @if (isStreaming() && !hasContent()) {
+            <span class="cpk:inline-flex cpk:items-center cpk:ml-1">
+              <span
+                class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
+              ></span>
+            </span>
+          }
+          @if (hasContent()) {
+            <svg
+              aria-hidden="true"
+              focusable="false"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              [class]="chevronClass()"
+            >
+              <path d="m9 18 6-6-6-6"></path>
+            </svg>
+          }
+        </button>
+        @if (canSaveReasoning()) {
+          <button
+            type="button"
+            copilotChatAssistantMessageToolbarButton
+            data-testid="copilot-reasoning-save-snippet-button"
+            [title]="saveSnippetTitle()"
+            (click)="saveReasoningSnippet()"
           >
-            <path d="m9 18 6-6-6-6"></path>
-          </svg>
+            <copilot-icon [img]="bookmarkIcon" [size]="18" />
+          </button>
         }
-      </button>
+      </div>
 
       @if (hasContent() || isStreaming()) {
         <div
@@ -89,6 +112,13 @@ export class CopilotChatReasoningMessage {
   readonly messages = input<Message[]>([]);
   readonly isRunning = input<boolean>(false);
   readonly inputClass = input<string | undefined>();
+
+  private readonly inspector = inject(CopilotInspector, { optional: true });
+  private readonly chatConfig = inject(CopilotChatConfiguration, {
+    optional: true,
+  });
+  protected readonly labels = injectChatLabels();
+  protected readonly bookmarkIcon = Bookmark;
 
   private readonly userToggled = signal(false);
 
@@ -162,5 +192,25 @@ export class CopilotChatReasoningMessage {
     if (!this.hasContent()) return;
     this.userToggled.set(true);
     this.open.update((value) => !value);
+  }
+
+  protected canSaveReasoning(): boolean {
+    return (
+      this.inspector?.isLocalInspectorEnabled === true && this.hasContent()
+    );
+  }
+
+  protected saveSnippetTitle(): string {
+    return `${this.labels.assistantMessageToolbarSaveSnippetLabel} (${this.labels.assistantMessageToolbarInspectorLocalOnlyLabel})`;
+  }
+
+  protected saveReasoningSnippet(): void {
+    void this.inspector?.saveEventSnippet({
+      kind: "reasoning",
+      messageId: this.message().id,
+      content: this.message().content ?? "",
+      threadId: this.chatConfig?.threadId(),
+      agentId: this.chatConfig?.agentId(),
+    });
   }
 }

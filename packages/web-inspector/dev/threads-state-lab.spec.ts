@@ -1325,17 +1325,42 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
 
           const launcher =
             inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-              'button[aria-label="Web Inspector"]',
+              'button[aria-label^="Web Inspector"]',
             );
           expect(launcher, `${key}: launcher`).toBeDefined();
+          // A live thread-list failure owns the launcher, so the first open
+          // lands on Threads instead of Home. The list request is still in
+          // flight at this point, and the signal only arms once it has been
+          // refused — so wait for the launcher to say so rather than assume
+          // the request already lost. Two microtask turns is not a wait.
+          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          if (landingLabel !== "Home") {
+            await vi.waitFor(
+              () => {
+                expect(
+                  launcher?.getAttribute("aria-label"),
+                  `${key}: launcher signal`,
+                ).toContain("thread loading error");
+              },
+              { timeout: 5_000, interval: 20 },
+            );
+          }
           launcher?.click();
           await flushInspector(inspector);
           const homeButton = inspectorButton(inspector, "Home");
           expect(homeButton, `${key}: Home nav`).toBeDefined();
+          const landingButton =
+            landingLabel === "Home"
+              ? homeButton
+              : inspectorButton(inspector, "Threads");
           expect(
-            homeButton?.classList.contains("inspector-nav-control-active"),
-            `${key}: Home default`,
+            landingButton?.classList.contains("inspector-nav-control-active"),
+            `${key}: ${landingLabel} default`,
           ).toBe(true);
+          if (landingLabel !== "Home") {
+            homeButton?.click();
+            await flushInspector(inspector);
+          }
           const identity = scenario.inspectorMetadata?.identity;
           if (identity) {
             await vi.waitFor(() => {
@@ -1371,6 +1396,21 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
             expect(inspectorText(inspector), `${key}: health state`).toContain(
               "Needs attention",
             );
+            // A failed run is an EVENT, and the launcher's signal is a STATE
+            // indicator: an hour of iteration produces many failed runs, and a
+            // signal that is usually on carries no information. System Health
+            // reports it, above; nothing outside the panel does.
+            expect(
+              collectDeep(
+                inspector.shadowRoot!,
+                '.inspector-nav-signal-dot[data-cpk-signal-tone="error"]',
+              ),
+              `${key}: run error raises no error signal`,
+            ).toHaveLength(0);
+            expect(
+              collectDeep(inspector.shadowRoot!, '[data-cpk-signal="error"]'),
+              `${key}: run error raises no launcher error tone`,
+            ).toHaveLength(0);
           }
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();

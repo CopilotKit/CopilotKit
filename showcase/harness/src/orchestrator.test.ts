@@ -3607,10 +3607,9 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
 /**
  * `makeRecycleExit` — the WORKER_MAX_JOBS recycle `exit` dep injected into the
  * worker loop. It must run the deregister-first graceful teardown
- * (`gracefulTeardown` → `drainFleetWorker`) BEFORE exiting, and it must ALWAYS
- * exit (with the non-zero recycle code) even if the teardown rejects — otherwise
- * a failed drain would strand a recycled worker that never surrenders to the
- * platform restart policy.
+ * (`gracefulTeardown` → `drainFleetWorker`) BEFORE exiting with success, and it
+ * must ALWAYS exit 1 if teardown rejects — otherwise a failed drain would strand
+ * a recycled worker that never surrenders to the platform restart policy.
  */
 describe("makeRecycleExit — deregister BEFORE process.exit", () => {
   const silentLogger: Logger = {
@@ -3620,7 +3619,7 @@ describe("makeRecycleExit — deregister BEFORE process.exit", () => {
     debug: () => {},
   };
 
-  it("runs gracefulTeardown (deregister) BEFORE process-exit and forwards the recycle code", async () => {
+  it("runs gracefulTeardown (deregister) BEFORE process-exit and exits 0 when teardown fulfills", async () => {
     const order: string[] = [];
     const gracefulTeardown = vi.fn(async (): Promise<void> => {
       order.push("teardown");
@@ -3634,15 +3633,15 @@ describe("makeRecycleExit — deregister BEFORE process.exit", () => {
       processExit,
     });
 
-    exit(42);
+    exit();
 
-    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(42));
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(0));
     // Teardown ran FIRST, then the exit — the ordering the roster-row fix needs.
-    expect(order).toEqual(["teardown", "exit:42"]);
+    expect(order).toEqual(["teardown", "exit:0"]);
     expect(gracefulTeardown).toHaveBeenCalledTimes(1);
   });
 
-  it("STILL exits with the non-zero code even if gracefulTeardown REJECTS (finally-guaranteed restart)", async () => {
+  it("exits 1 when gracefulTeardown REJECTS (finally-guaranteed restart)", async () => {
     const processExit = vi.fn<(code: number) => void>();
     const gracefulTeardown = vi.fn(async (): Promise<void> => {
       throw new Error("deregister blew up");
@@ -3653,10 +3652,34 @@ describe("makeRecycleExit — deregister BEFORE process.exit", () => {
       processExit,
     });
 
-    exit(42);
+    exit();
 
     // The rejected teardown does not swallow the exit — Railway still restarts.
-    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(42));
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(1));
+  });
+
+  it("still exits 1 if the logger throws while reporting a rejected teardown", async () => {
+    const processExit = vi.fn<(code: number) => void>();
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      throw new Error("deregister blew up");
+    });
+    const throwingLogger: Logger = {
+      info: () => {},
+      warn: () => {},
+      error: () => {
+        throw new Error("logger blew up");
+      },
+      debug: () => {},
+    };
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: throwingLogger,
+      processExit,
+    });
+
+    exit();
+
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(1));
   });
 });
 
@@ -3701,9 +3724,9 @@ describe("teardown once-latch (recycle + SIGTERM do not double-teardown)", () =>
       processExit,
     });
 
-    // Fire the recycle exit (path 1) and the handle's stop() (path 2 — SIGTERM)
-    // concurrently, then await both settling.
-    exit(0); // makeRecycleExit calls gracefulTeardown() then processExit
+    // Fire the zero-arg recycle exit (path 1) and the handle's stop() (path 2
+    // — SIGTERM) concurrently, then await both settling.
+    exit(); // makeRecycleExit calls gracefulTeardown() then processExit(0)
     await gracefulTeardown(); // the handle's stop() awaits the same teardown
     await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
 
@@ -3728,7 +3751,7 @@ describe("teardown once-latch (recycle + SIGTERM do not double-teardown)", () =>
       processExit,
     });
 
-    exit(0);
+    exit();
     await rawTeardown();
     await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
 
