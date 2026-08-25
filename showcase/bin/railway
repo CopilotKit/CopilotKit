@@ -1399,7 +1399,7 @@ module Railway
                     last_restart_policy = active_restart_policy
                     policy_ok = restart_policy_type.nil? ||
                         active_restart_policy == restart_policy_type
-                    if serving == expected_digest && policy_ok
+                    if deploy && deploy["id"] == new_deployment_id && serving == expected_digest && policy_ok
                         return inst
                     end
                     if serving == expected_digest &&
