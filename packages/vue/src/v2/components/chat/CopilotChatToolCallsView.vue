@@ -53,7 +53,7 @@ function hasCompleteArgs(args: string | undefined): boolean {
 const inspector = inject(InspectorKey, null);
 const chatConfiguration = useCopilotChatConfiguration();
 const canSave = (toolCall: { function: { arguments: string } }) =>
-  inspector?.isLocalInspectorEnabled.value === true &&
+  inspector?.isInspectorEnabled.value === true &&
   hasCompleteArgs(toolCall.function.arguments);
 const saveLabel = () =>
   chatConfiguration.value?.labels.assistantMessageToolbarSaveSnippetLabel ??

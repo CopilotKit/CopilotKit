@@ -195,11 +195,11 @@ function ActivitySnippetChrome({
   message: ActivityMessage;
   children: React.ReactNode;
 }) {
-  const { isLocalInspectorEnabled, saveEventSnippet } =
+  const { isInspectorEnabled, saveEventSnippet } =
     useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
   const canSave =
-    isLocalInspectorEnabled &&
+    isInspectorEnabled &&
     (message.activityType === "a2ui-surface" ||
       message.activityType === "open-generative-ui");
   if (!canSave) {

@@ -248,9 +248,7 @@ export interface CopilotKitProviderProps {
    */
   defaultThrottleMs?: number;
   /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load before the user drags to a custom position.
-   * Defaults to `{ horizontal: "right", vertical: "top" }`.
+   * @deprecated The web Inspector no longer supports a default anchor.
    */
   inspectorDefaultAnchor?: Anchor;
   /**
@@ -305,7 +303,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   onError,
   a2ui,
   defaultThrottleMs,
-  inspectorDefaultAnchor,
   debug,
 }) => {
   // Keep the server render and the first client render identical. The
@@ -323,7 +320,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
   }, [enableInspector]);
 
-  const isLocalInspectorEnabled = shouldRenderInspector;
   const [inspectorOpenRequest, setInspectorOpenRequest] =
     useState<CopilotKitInspectorOpenRequest | null>(null);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -387,11 +383,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   const inspectorContextValue = useMemo(
     () => ({
-      isLocalInspectorEnabled,
+      isInspectorEnabled: shouldRenderInspector,
       openInspector: requestInspectorOpen,
       saveEventSnippet,
     }),
-    [isLocalInspectorEnabled, requestInspectorOpen, saveEventSnippet],
+    [shouldRenderInspector, requestInspectorOpen, saveEventSnippet],
   );
 
   // Normalize array props to stable references with clear dev warnings
@@ -987,7 +983,6 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             {shouldRenderInspector ? (
               <CopilotKitInspector
                 core={copilotkit}
-                defaultAnchor={inspectorDefaultAnchor}
                 openRequest={inspectorOpenRequest}
               />
             ) : null}

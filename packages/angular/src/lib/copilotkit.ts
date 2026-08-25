@@ -11,10 +11,8 @@ import {
   type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
-  DestroyRef,
   Injectable,
   Injector,
-  PLATFORM_ID,
   Signal,
   WritableSignal,
   computed,
@@ -22,7 +20,6 @@ import {
   signal,
   inject,
 } from "@angular/core";
-import { DOCUMENT } from "@angular/common";
 import {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -209,7 +206,7 @@ export class CopilotKit {
   #a2UIContextIds: string[] = [];
 
   constructor() {
-    void this.#inspector.isLocalInspectorEnabled;
+    void this.#inspector.isInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);

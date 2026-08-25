@@ -196,7 +196,7 @@ export class CopilotChatReasoningMessage {
 
   protected canSaveReasoning(): boolean {
     return (
-      this.inspector?.isLocalInspectorEnabled === true && this.hasContent()
+      this.inspector?.isInspectorEnabled === true && this.hasContent()
     );
   }
 

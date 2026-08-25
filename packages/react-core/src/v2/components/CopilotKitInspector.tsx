@@ -3,27 +3,23 @@ import type { CopilotKitCore } from "@copilotkit/core";
 import type { Anchor, WebInspectorElement } from "@copilotkit/web-inspector";
 import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContext";
 
-type CopilotKitInspectorBaseProps = {
+export interface CopilotKitInspectorProps {
   core?: CopilotKitCore | null;
+  /** @deprecated The web Inspector no longer supports a default anchor. */
   defaultAnchor?: Anchor;
   openRequest?: CopilotKitInspectorOpenRequest | null;
-};
-
-export interface CopilotKitInspectorProps extends CopilotKitInspectorBaseProps {}
+}
 
 export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   core,
-  defaultAnchor,
   openRequest,
 }) => {
   const mountRef = React.useRef<HTMLSpanElement | null>(null);
   const inspectorRef = React.useRef<WebInspectorElement | null>(null);
   const latestCoreRef = React.useRef(core ?? null);
-  const latestDefaultAnchorRef = React.useRef(defaultAnchor);
   const latestOpenRequestRef = React.useRef(openRequest);
 
   latestCoreRef.current = core ?? null;
-  latestDefaultAnchorRef.current = defaultAnchor;
   latestOpenRequestRef.current = openRequest;
 
   React.useEffect(() => {
@@ -40,13 +36,6 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
           mod.WEB_INSPECTOR_TAG,
         ) as WebInspectorElement;
         mod.configureWebInspectorElement(inspector, latestCoreRef.current);
-        if (latestDefaultAnchorRef.current) {
-          Reflect.set(
-            inspector,
-            "defaultAnchor",
-            latestDefaultAnchorRef.current,
-          );
-        }
 
         mountRef.current.appendChild(inspector);
         inspectorRef.current = inspector;

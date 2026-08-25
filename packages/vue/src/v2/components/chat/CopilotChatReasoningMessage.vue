@@ -146,7 +146,7 @@ function toggleOpen() {
 const inspector = inject(InspectorKey, null);
 const chatConfiguration = useCopilotChatConfiguration();
 const canSaveReasoning = computed(
-  () => inspector?.isLocalInspectorEnabled.value === true && hasContent.value,
+  () => inspector?.isInspectorEnabled.value === true && hasContent.value,
 );
 const saveLabel = computed(
   () =>

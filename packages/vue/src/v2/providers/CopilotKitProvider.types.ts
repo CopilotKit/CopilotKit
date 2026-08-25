@@ -60,9 +60,7 @@ export interface CopilotKitProviderProps {
     includeSchema?: boolean;
   };
   /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load before the user drags to a custom position.
-   * Defaults to `{ horizontal: "right", vertical: "top" }`.
+   * @deprecated The web Inspector no longer supports a default anchor.
    */
   inspectorDefaultAnchor?: {
     horizontal: "left" | "right";

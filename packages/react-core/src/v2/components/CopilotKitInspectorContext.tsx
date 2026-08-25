@@ -40,14 +40,14 @@ export type CopilotKitInspectorSaveRequest = {
 );
 
 type CopilotKitInspectorContextValue = {
-  isLocalInspectorEnabled: boolean;
+  isInspectorEnabled: boolean;
   openInspector: (request: CopilotKitInspectorOpenRequest) => void;
   saveEventSnippet: (request: CopilotKitInspectorSaveRequest) => Promise<void>;
 };
 
 const CopilotKitInspectorContext =
   React.createContext<CopilotKitInspectorContextValue>({
-    isLocalInspectorEnabled: false,
+    isInspectorEnabled: false,
     openInspector: () => undefined,
     saveEventSnippet: async () => undefined,
   });

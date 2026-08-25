@@ -314,7 +314,7 @@ export class CopilotChatMessageView {
 
   canSaveActivity(message: ActivityMessage): boolean {
     return (
-      this.inspector?.isLocalInspectorEnabled === true &&
+      this.inspector?.isInspectorEnabled === true &&
       (message.activityType === "a2ui-surface" ||
         message.activityType === "open-generative-ui")
     );

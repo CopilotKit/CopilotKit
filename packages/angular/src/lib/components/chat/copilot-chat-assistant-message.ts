@@ -513,7 +513,7 @@ export class CopilotChatAssistantMessage {
   }
 
   inspectorEnabled(): boolean {
-    return this.inspector?.isLocalInspectorEnabled === true;
+    return this.inspector?.isInspectorEnabled === true;
   }
 
   inspectorTitle(): string {

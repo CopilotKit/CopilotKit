@@ -3,6 +3,7 @@ import {
   EnvironmentInjector,
   PLATFORM_ID,
   inject,
+  isDevMode,
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,11 +49,6 @@ async function renderHost(
 }
 
 describe("Angular inspector integration", () => {
-  async function settleInspectorLoad(): Promise<void> {
-    await vi.dynamicImportSettled();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-
   beforeEach(() => {
     TestBed.resetTestingModule();
     document.querySelectorAll(WEB_INSPECTOR_TAG).forEach((element) => {
@@ -67,6 +63,14 @@ describe("Angular inspector integration", () => {
     document.querySelectorAll(WEB_INSPECTOR_TAG).forEach((element) => {
       element.remove();
     });
+  });
+
+  it("uses Angular isDevMode as the default development policy", () => {
+    const provider = ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE as unknown as {
+      ɵprov: { factory: () => boolean };
+    };
+
+    expect(provider.ɵprov.factory).toBe(isDevMode);
   });
 
   it("mounts by default in development and attaches the exact core before connection", async () => {
@@ -103,20 +107,17 @@ describe("Angular inspector integration", () => {
 
   it("never loads in production, even when explicitly enabled", async () => {
     await renderHost({ enableInspector: true }, "browser", false);
-    await settleInspectorLoad();
     expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
     expect(defineWebInspector).not.toHaveBeenCalled();
   });
 
   it("does not load when explicitly disabled or rendering on the server", async () => {
     await renderHost({ enableInspector: false });
-    await settleInspectorLoad();
     expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
     expect(defineWebInspector).not.toHaveBeenCalled();
 
     TestBed.resetTestingModule();
     await renderHost({ enableInspector: true }, "server");
-    await settleInspectorLoad();
     expect(document.querySelector(WEB_INSPECTOR_TAG)).toBeNull();
     expect(defineWebInspector).not.toHaveBeenCalled();
   });

@@ -72,7 +72,7 @@ export class CopilotInspector {
   });
 
   /** Whether Inspector-backed message actions should be shown. */
-  readonly isLocalInspectorEnabled = this.shouldRenderInspector;
+  readonly isInspectorEnabled = this.shouldRenderInspector;
 
   constructor() {
     this.destroyRef.onDestroy(() => {

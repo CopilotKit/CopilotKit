@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
 import { ConfigurationError } from "@copilotkit/shared";
@@ -80,15 +80,14 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
     expectRendersCleanly({ publicApiKey: "ck_pub_test" });
   });
 
-  it("delegates enableInspector to the v2 provider", async () => {
+  it("delegates enableInspector=false to the v2 provider", async () => {
     vi.stubEnv("NODE_ENV", "development");
     renderKit({
       runtimeUrl: "http://localhost:3000/api/copilotkit",
-      enableInspector: true,
+      enableInspector: false,
     });
-    await waitFor(() => {
-      expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
-    });
-    expect(defineWebInspector).toHaveBeenCalledTimes(1);
+    await vi.dynamicImportSettled();
+    expect(document.querySelector("cpk-web-inspector")).toBeNull();
+    expect(defineWebInspector).not.toHaveBeenCalled();
   });
 });

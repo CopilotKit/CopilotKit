@@ -62,7 +62,7 @@ export type VueInspectorSaveRequest = {
 );
 
 export type VueInspectorContextValue = {
-  isLocalInspectorEnabled: ComputedRef<boolean>;
+  isInspectorEnabled: ComputedRef<boolean>;
   openInspector: (request: VueInspectorOpenRequest) => void;
   saveEventSnippet: (request: VueInspectorSaveRequest) => Promise<void>;
 };

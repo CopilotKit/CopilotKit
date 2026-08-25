@@ -92,8 +92,8 @@ const emit = defineEmits<{
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
 const inspector = inject(InspectorKey, null);
-const isLocalInspectorEnabled = computed(
-  () => inspector?.isLocalInspectorEnabled.value === true,
+const isInspectorEnabled = computed(
+  () => inspector?.isInspectorEnabled.value === true,
 );
 const instance = getCurrentInstance();
 const copied = ref(false);
@@ -668,7 +668,7 @@ const isLatestAssistantMessage = computed(
 const shouldShowToolbar = computed(
   () =>
     props.toolbarVisible &&
-    (hasContent.value || isLocalInspectorEnabled.value) &&
+    (hasContent.value || isInspectorEnabled.value) &&
     !(props.isRunning && isLatestAssistantMessage.value),
 );
 
@@ -843,7 +843,7 @@ onBeforeUnmount(() => {
             </slot>
 
             <button
-              v-if="isLocalInspectorEnabled"
+              v-if="isInspectorEnabled"
               data-testid="copilot-inspector-button"
               type="button"
               :class="toolbarButtonClass"
@@ -854,7 +854,7 @@ onBeforeUnmount(() => {
               I
             </button>
             <button
-              v-if="isLocalInspectorEnabled && hasContent"
+              v-if="isInspectorEnabled && hasContent"
               data-testid="copilot-save-snippet-button"
               type="button"
               :class="toolbarButtonClass"

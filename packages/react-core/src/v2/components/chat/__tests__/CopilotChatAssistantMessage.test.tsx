@@ -117,7 +117,7 @@ describe("CopilotChatAssistantMessage", () => {
       renderWithProvider(
         <CopilotKitInspectorContextProvider
           value={{
-            isLocalInspectorEnabled: true,
+            isInspectorEnabled: true,
             openInspector,
             saveEventSnippet,
           }}
@@ -173,7 +173,7 @@ describe("CopilotChatAssistantMessage", () => {
       renderWithProvider(
         <CopilotKitInspectorContextProvider
           value={{
-            isLocalInspectorEnabled: true,
+            isInspectorEnabled: true,
             openInspector,
             saveEventSnippet,
           }}
@@ -209,7 +209,7 @@ describe("CopilotChatAssistantMessage", () => {
           <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
             <CopilotKitInspectorContextProvider
               value={{
-                isLocalInspectorEnabled: true,
+                isInspectorEnabled: true,
                 openInspector,
                 saveEventSnippet,
               }}
@@ -258,7 +258,7 @@ describe("CopilotChatAssistantMessage", () => {
           <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
             <CopilotKitInspectorContextProvider
               value={{
-                isLocalInspectorEnabled: true,
+                isInspectorEnabled: true,
                 openInspector: vi.fn(),
                 saveEventSnippet: vi.fn(),
               }}

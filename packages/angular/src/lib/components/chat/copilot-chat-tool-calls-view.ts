@@ -64,7 +64,7 @@ export class CopilotChatToolCallsView {
 
   protected inspectorEnabled(toolCall: AssistantToolCall): boolean {
     return (
-      this.inspector?.isLocalInspectorEnabled === true &&
+      this.inspector?.isInspectorEnabled === true &&
       hasCompleteArgs(toolCall.function.arguments)
     );
   }

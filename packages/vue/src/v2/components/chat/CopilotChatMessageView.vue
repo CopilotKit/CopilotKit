@@ -43,7 +43,7 @@ interface ActivitySlotProps {
 
 const inspector = inject(InspectorKey, null);
 const canSaveActivity = (message: ActivityMessage) =>
-  inspector?.isLocalInspectorEnabled.value === true &&
+  inspector?.isInspectorEnabled.value === true &&
   (message.activityType === "a2ui-surface" ||
     message.activityType === "open-generative-ui");
 

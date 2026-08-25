@@ -123,7 +123,7 @@ onMounted(updateInspectorVisibility);
 watch(() => props.enableInspector, updateInspectorVisibility);
 
 const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
-const isLocalInspectorEnabled = computed(() => shouldRenderInspector.value);
+const isInspectorEnabled = computed(() => shouldRenderInspector.value);
 
 function openInspector(request: VueInspectorOpenRequest) {
   inspectorOpenRequest.value = { ...request };
@@ -164,7 +164,7 @@ async function saveEventSnippet(request: VueInspectorSaveRequest) {
 }
 
 provide(InspectorKey, {
-  isLocalInspectorEnabled,
+  isInspectorEnabled,
   openInspector,
   saveEventSnippet,
 });
@@ -694,7 +694,6 @@ const showExpiringBanner = computed(
   <CopilotKitInspector
     v-if="shouldRenderInspector"
     :core="copilotkit"
-    :default-anchor="props.inspectorDefaultAnchor"
     :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->

@@ -48,7 +48,7 @@ export function CopilotChatReasoningMessage({
   const isLatest = messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
-  const { isLocalInspectorEnabled, saveEventSnippet } =
+  const { isInspectorEnabled, saveEventSnippet } =
     useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
 
@@ -153,7 +153,7 @@ export function CopilotChatReasoningMessage({
     >
       <div className="cpk:flex cpk:items-center cpk:gap-1">
         {boundHeader}
-        {isLocalInspectorEnabled && hasContent && (
+        {isInspectorEnabled && hasContent && (
           <CopilotChatAssistantMessage.SaveSnippetButton
             onClick={() =>
               void saveEventSnippet({

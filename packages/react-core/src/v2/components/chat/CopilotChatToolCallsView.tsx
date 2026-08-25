@@ -21,7 +21,7 @@ export function CopilotChatToolCallsView({
   messages = [],
 }: CopilotChatToolCallsViewProps) {
   const renderToolCall = useRenderToolCall();
-  const { isLocalInspectorEnabled, saveEventSnippet } =
+  const { isInspectorEnabled, saveEventSnippet } =
     useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
   const labels = chatConfiguration?.labels ?? CopilotChatDefaultLabels;
@@ -42,7 +42,7 @@ export function CopilotChatToolCallsView({
         });
 
         if (
-          !isLocalInspectorEnabled ||
+          !isInspectorEnabled ||
           !hasCompleteArgs(toolCall.function.arguments)
         ) {
           return <React.Fragment key={toolCall.id}>{rendered}</React.Fragment>;
