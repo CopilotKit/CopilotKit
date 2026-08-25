@@ -25,11 +25,16 @@ const ABORT_MESSAGES: ReadonlySet<string> = new Set([
  *
  * Detection is by `name`, not `instanceof Error`: a `DOMException` is not an
  * `Error` in Safari and older engines, and this package runs client-side.
+ *
+ * A bare string is NOT a cancellation. Both call sites hand this a thrown
+ * value that is already an object — the runtime-health seam gets whatever
+ * `fetch` rejected with, and the connect path normalises through
+ * `new Error(String(error))` first — so a string branch here would be
+ * unreachable, and `isAbortError` in `suggestion-engine.ts` already answers
+ * `false` for one. Two definitions disagreeing about the same question is worse
+ * than either answer.
  */
 export function isAbortError(error: unknown): boolean {
-  if (typeof error === "string") {
-    return ABORT_MESSAGES.has(error);
-  }
   if (typeof error !== "object" || error === null) {
     return false;
   }

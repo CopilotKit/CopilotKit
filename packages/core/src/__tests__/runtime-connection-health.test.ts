@@ -44,6 +44,15 @@ const RUN_URL = `${RUNTIME_URL}/agent/default/run`;
  * shorter than the behaviour under test can only catch a retry loop whose
  * period happens to be shorter than the observation, which is precisely the
  * shape the PRD rejects by name.
+ *
+ * THE BOUNDARY, stated so nobody over-reads these tests: ten minutes of
+ * virtual time is all the suite ever sees, so scheduled work with a period
+ * longer than that is invisible to every absence test here. Extending the
+ * window does not fix that — it only moves the boundary, and any fixed window
+ * has one. What actually covers the gap is the complementary
+ * `vi.getTimerCount()` assertion: it is period-independent, so a timer left
+ * armed is caught whatever interval it would have used. Prefer adding one of
+ * those over lengthening this.
  */
 const TEN_MINUTES_MS = 10 * 60_000;
 
@@ -1032,6 +1041,41 @@ describe("runtime connection health (OSS-904)", () => {
     );
   });
 
+  it("watches a hung request exactly once, however long it hangs", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The run route hangs for good while `/info` keeps answering, so the
+    // watchdog reports once, the probe finds the runtime healthy, and the
+    // request is STILL open afterwards. That is the state in which a repeating
+    // timer would show itself: a fresh probe every interval for as long as one
+    // request hangs, i.e. exactly the recurring background traffic this design
+    // rejects by name — and against a forgotten tab, forever.
+    const timersBefore = vi.getTimerCount();
+    runHandler = hangs;
+    void runOnce(core).catch(() => undefined);
+
+    await waitForConditionVirtual(() => infoCalls === 2);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    // Period-independent: the watchdog is spent and the probe has settled, so
+    // nothing is scheduled at all. This holds whatever interval a repeating
+    // timer might have used.
+    expect(vi.getTimerCount()).toBe(timersBefore);
+
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
+    expect(infoCalls).toBe(2);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
   it("does not ask a second time when a watched request finally fails", async () => {
     vi.useFakeTimers();
     const core = createCore();
@@ -1278,6 +1322,43 @@ describe("runtime connection health (OSS-904)", () => {
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     expect(infoCalls).toBe(3);
+  });
+
+  it("issues no further probe and no duplicate error when a retry fails while already red", async () => {
+    const core = await bootConnectedCore();
+    const wiringErrors: CopilotKitCoreErrorCode[] = [];
+    core.subscribe({
+      onError: (event) => {
+        if (
+          (event as { code: CopilotKitCoreErrorCode }).code ===
+          CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED
+        ) {
+          wiringErrors.push(CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED);
+        }
+      },
+    });
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+    const infoAtRed = infoCalls;
+    const wiringAtRed = wiringErrors.length;
+
+    // A developer presses Send three times at a red indicator — which is what
+    // people do. While `Error` there is nothing left to confirm, so each
+    // further failure must buy nothing: probing again would be a retry loop the
+    // user is driving, one extra probe and one duplicate wiring error per
+    // press.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await runOnce(core).catch(() => undefined);
+    }
+    await settle(200);
+
+    expect(infoCalls).toBe(infoAtRed);
+    expect(wiringErrors.length).toBe(wiringAtRed);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
   });
 
   it("checks again when a runtime flaps back and dies immediately", async () => {
@@ -2011,6 +2092,83 @@ describe("runtime connection health (OSS-904)", () => {
     );
 
     store.stop();
+  });
+
+  it("lets a success on a request the caller declared non-critical restore the status", async () => {
+    const core = await bootConnectedCore();
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    // The runtime is back. A non-critical request cannot trigger a check when
+    // it FAILS — that is what the marker is for — but a success on it is the
+    // same evidence of contact any other successful runtime request carries,
+    // and the destination rule says it counts. Asymmetric on purpose, and
+    // asserted because the asymmetry is easy to "tidy up" into a symmetry.
+    bringRuntimeUp();
+    const init: RuntimeRequestInit = {
+      ɵruntimeRequest: { nonCritical: true },
+    };
+    const response = await core.ɵruntimeFetch(
+      `${RUNTIME_URL}/threads?agentId=default`,
+      init,
+    );
+    expect(response.ok).toBe(true);
+
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+  });
+
+  it("leaves the status alone when Stop is pressed against a runtime that has gone away", async () => {
+    const core = await bootConnectedCore();
+    const stream = controllableSseStream();
+    runHandler = async () => stream.response;
+
+    const agent = core.getAgent("default") as AbstractAgent;
+    agent.threadId = "thread-stop";
+    const run = core.runAgent({ agent }).catch(() => undefined);
+    stream.push({
+      type: "RUN_STARTED",
+      threadId: "thread-stop",
+      runId: "r1",
+    });
+    await settle();
+
+    // The runtime goes away, and only then does the user press Stop. The stop
+    // request fails — against a runtime that is gone it always will — and it is
+    // deliberately off the seam so that cancelling can never turn the status
+    // red. Bringing it on would make pressing Stop the one thing cancellation
+    // is promised never to be: a reported outage.
+    takeRuntimeDown();
+    agent.abortRun();
+    stream.close();
+    await run;
+    await settle(200);
+
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    expect(infoCalls).toBe(1);
+  });
+
+  it("counts the auto-detect `/info` a proxied agent issues to resolve its own mode", async () => {
+    const core = createCore({ runtimeTransport: "auto" });
+    // Registered before the handshake lands, so the proxy's runtime mode is
+    // still "pending" AND its transport is still the unresolved "auto". That
+    // pair is the only way into the agent's auto-detect branch, which the
+    // registry's own resolved-transport path never reaches — and it is the
+    // product default, so leaving it off the seam leaves the default broken.
+    const { agent } = core.registerProxiedAgent({
+      agentId: "proxy",
+      runtimeAgentId: "default",
+    });
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    takeRuntimeDown();
+    await core.runAgent({ agent }).catch(() => undefined);
+
+    // The agent never gets as far as issuing its run: resolving its own mode is
+    // what fails, so that request is the only evidence there is.
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
   });
 
   it("detects an outage and recovers the same way on the auto transport", async () => {
