@@ -1064,6 +1064,66 @@ describe("runtime connection health (OSS-904)", () => {
     expect(infoCalls).toBe(2);
   });
 
+  it("still checks the runtime when a watched request's silence report bought no check", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The run hangs, so its watchdog will fire at the bound.
+    let failTheRun: () => void = () => {};
+    runHandler = () =>
+      new Promise<Response>((_resolve, reject) => {
+        failTheRun = () => reject(new TypeError("Failed to fetch"));
+      });
+    void runOnce(core).catch(() => undefined);
+
+    // Late in the run's window another runtime request fails and starts a
+    // probe whose `/info` this test holds open. The probe is therefore still in
+    // flight when the run's watchdog fires, so the watchdog's report finds the
+    // latch held and buys no check of its own.
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS - 3_000);
+    let answerInfo: (response: Response) => void = () => {};
+    infoHandler = () =>
+      new Promise<Response>((resolve) => {
+        answerInfo = resolve;
+      });
+    threadListHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    void core
+      .ɵruntimeFetch(`${RUNTIME_URL}/threads?agentId=default`)
+      .catch(() => undefined);
+    await waitForConditionVirtual(() => infoCalls === 2);
+
+    // The watchdog fires while that probe is still open — and its report goes
+    // nowhere.
+    await vi.advanceTimersByTimeAsync(3_100);
+    expect(infoCalls).toBe(2);
+
+    // The probe comes back healthy, so nothing turns red and the latch is
+    // released. Then the runtime dies for real.
+    answerInfo(jsonResponse(DEFAULT_INFO));
+    await vi.advanceTimersByTimeAsync(100);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    takeRuntimeDown();
+
+    // The run's own failure is the first report that can buy a check. A flag
+    // claiming the watchdog already reported swallows it and leaves the status
+    // green against a dead runtime: suppression belongs to a report that
+    // actually CAUSED a check, not to a timer having fired.
+    failTheRun();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    expect(infoCalls).toBe(3);
+  });
+
   it("still reports the answer of a watched request that eventually arrives", async () => {
     vi.useFakeTimers();
     const core = createCore();

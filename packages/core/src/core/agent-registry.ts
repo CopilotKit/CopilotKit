@@ -740,7 +740,17 @@ export class AgentRegistry {
    *
    * The timer is always cleared when the request settles. The package has no
    * disposal path, so an uncleared timer has no owner to collect it — and would
-   * fire a probe ten seconds after a perfectly good run.
+   * fire a probe ten seconds after a perfectly good run. It is a `setTimeout`
+   * and must stay one: a repeating timer here would be exactly the recurring
+   * background traffic this design rejects by name, firing a fresh probe every
+   * interval for as long as one request hangs.
+   *
+   * `reported` records whether the watchdog's report actually CAUSED a check,
+   * not whether the timer fired. The report is discarded outright when a probe
+   * is already in flight, when the status is not `Connected`, or when there is
+   * no runtime url — and a flag claiming otherwise makes the request's own
+   * later failure short-circuit on a check that never happened, leaving the
+   * status green against a dead runtime.
    */
   private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
     clear: () => void;
@@ -753,14 +763,13 @@ export class AgentRegistry {
     ) {
       return { clear: () => {}, reported: () => false };
     }
-    let reported = false;
+    let checked = false;
     const timeoutId = setTimeout(() => {
-      reported = true;
-      this.handleRuntimeRequestOutcome("failed");
+      checked = this.handleRuntimeRequestOutcome("failed");
     }, RUNTIME_REQUEST_WATCHDOG_MS);
     return {
       clear: () => clearTimeout(timeoutId),
-      reported: () => reported,
+      reported: () => checked,
     };
   }
 
@@ -1042,33 +1051,42 @@ export class AgentRegistry {
    * back, and nothing else moves it. Deliberate consequence: while the
    * application is idle nothing is detected in either direction.
    *
-   * @param alreadyReported - This request's watchdog already reported its
-   * silence as a suspected outage. The failure now arriving is the same fact
-   * about the same request, not a second incident, so it must not buy a second
-   * probe. A SUCCESS still counts: the runtime answered after all, and that is
-   * the evidence that ends an outage. Neither the in-flight latch nor the
-   * "only probe while Connected" guard covers this on its own — a probe that
-   * came back healthy releases both, and the request can fail long after.
+   * @param alreadyChecked - This request's watchdog already reported its
+   * silence and that report actually STARTED a check. The failure now arriving
+   * is the same fact about the same request, not a second incident, so it must
+   * not buy a second probe. A SUCCESS still counts: the runtime answered after
+   * all, and that is the evidence that ends an outage. Neither the in-flight
+   * latch nor the "only probe while Connected" guard covers this on its own — a
+   * probe that came back healthy releases both, and the request can fail long
+   * after.
+   *
+   * It is deliberately "did a check happen" and not "did the timer fire". A
+   * report that found the latch held, the status already red, or no runtime url
+   * changed nothing; suppressing the request's real failure on the strength of
+   * it would swallow the only evidence there is. A failure arriving after a
+   * check came back healthy is new information, not part of that burst.
+   *
+   * @returns whether this call started a confirmation check.
    */
   private handleRuntimeRequestOutcome(
     outcome: RuntimeRequestOutcome,
-    alreadyReported: () => boolean = () => false,
-  ): void {
+    alreadyChecked: () => boolean = () => false,
+  ): boolean {
     // A cancelled request is the user pressing Stop (or a component
     // unmounting), not a connectivity problem. `ignored` is a failure the
     // caller declared harmless — see `RuntimeRequestMeta`.
     if (outcome === "aborted" || outcome === "ignored") {
-      return;
+      return false;
     }
-    if (outcome === "failed" && alreadyReported()) {
-      return;
+    if (outcome === "failed" && alreadyChecked()) {
+      return false;
     }
     // Never run during server rendering — same guard as `connectRuntime`.
     if (typeof window === "undefined") {
-      return;
+      return false;
     }
     if (!this._runtimeUrl) {
-      return;
+      return false;
     }
 
     if (outcome === "ok") {
@@ -1100,18 +1118,20 @@ export class AgentRegistry {
         // mechanism first.
         void this.recoverRuntimeConnection();
       }
-      return;
+      return false;
     }
 
     // A failure only means something while we believed we were connected.
     // While `Error` there is nothing to confirm (and issuing traffic would be
-    // the retry loop this design rejects); while `Connecting`/`Disconnected`
-    // the connection attempt itself owns the status.
+    // the retry loop this design rejects — one probe and one duplicate error
+    // emission per retry, driven by a user hammering Send at a red indicator);
+    // while `Connecting`/`Disconnected` the connection attempt itself owns the
+    // status.
     if (
       this._runtimeConnectionStatus !==
       CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
-      return;
+      return false;
     }
     // Burst collapsing is the in-flight latch's job and only the latch's:
     // several simultaneous failures against one dead runtime cost exactly one
@@ -1121,9 +1141,10 @@ export class AgentRegistry {
     // it is the window itself that does the damage: the second outage leaves no
     // trace and the status reads connected while nothing works.
     if (this.runtimeProbeInFlight) {
-      return;
+      return false;
     }
     void this.probeRuntimeReachability();
+    return true;
   }
 
   /**
