@@ -3595,6 +3595,13 @@ small.inspector-system-health-detail {
   color: #ff9aa0 !important;
 }
 
+/* Body copy on error cards must inherit. Per-line rose-* classes are
+   dark-on-dark in this scheme (~2:1) and fail WCAG AA. */
+.inspector-window[data-color-scheme="dark"] [data-cpk-event-error] p,
+.inspector-window[data-color-scheme="dark"] [data-playground-error] p {
+  color: inherit !important;
+}
+
 .inspector-window[data-color-scheme="dark"] [class*="bg-amber-50"],
 .inspector-window[data-color-scheme="dark"] [class*="bg-amber-100"] {
   background-color: #342916 !important;

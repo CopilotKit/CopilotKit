@@ -520,7 +520,7 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
     flush: () => flushInspector(inspector),
     open: () =>
       clickSelector(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
         "Web Inspector opener was not rendered",
       ),
     selectGroup: (key) =>
@@ -709,6 +709,9 @@ test("a retained row hidden by a list error reports has_threads false", async ()
   });
   try {
     await harness.open();
+    // Launcher may already land on Threads for a list error. Move away
+    // first so the Threads click is a real tab change and emits telemetry.
+    await harness.selectLeaf("ag-ui-events");
     await harness.selectLeaf("threads");
 
     const tab = harness.telemetryFor(TELEMETRY_EVENTS.threadsTabClicked);

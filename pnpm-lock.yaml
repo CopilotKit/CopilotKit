@@ -1730,6 +1730,9 @@ importers:
       react-router:
         specifier: ^7.11.0
         version: 7.13.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
     devDependencies:
       '@react-router/dev':
         specifier: ^7.11.0

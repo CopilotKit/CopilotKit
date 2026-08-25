@@ -236,7 +236,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
   await flushInspector(inspector);
 
   const openButton = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!openButton) throw new Error("Web Inspector open button not found");
   openButton.click();
