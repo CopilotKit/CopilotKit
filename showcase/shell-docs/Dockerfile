@@ -18,7 +18,6 @@ COPY showcase/integrations/ ./integrations/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell-docs/ ./shell-docs/
 COPY showcase/angular/src/ ./angular/src/
-COPY showcase/vue/src/ ./vue/src/
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
@@ -39,7 +38,6 @@ RUN ln -s ../scripts/node_modules harness/node_modules
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-angular-source-content.ts \
-    && node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-setup-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell-docs && npx next build

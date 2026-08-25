@@ -147,9 +147,13 @@ test("generates shell-docs data before tests on a fresh checkout", async () => {
   expect(packageJson.scripts?.predev).toContain(
     "bundle-angular-source-content.ts",
   );
-  expect(packageJson.scripts?.predev).toContain("bundle-vue-source-content.ts");
-  expect(packageJson.scripts?.build).toContain("bundle-vue-source-content.ts");
-  expect(packageJson.scripts?.pretypecheck).toContain(
+  expect(packageJson.scripts?.predev).not.toContain(
+    "bundle-vue-source-content.ts",
+  );
+  expect(packageJson.scripts?.build).not.toContain(
+    "bundle-vue-source-content.ts",
+  );
+  expect(packageJson.scripts?.pretypecheck).not.toContain(
     "bundle-vue-source-content.ts",
   );
 });
@@ -165,14 +169,14 @@ test("generates Angular source content in the shell-docs image", async () => {
   );
 });
 
-test("generates Vue source content in the shell-docs image", async () => {
+test("does not bundle Vue source content in the shell-docs image", async () => {
   const dockerfile = await readFile(
     resolve(repositoryRoot, "showcase/shell-docs/Dockerfile"),
     "utf8",
   );
 
-  expect(dockerfile).toContain("COPY showcase/vue/src/ ./vue/src/");
-  expect(dockerfile).toContain(
+  expect(dockerfile).not.toContain("COPY showcase/vue/src/ ./vue/src/");
+  expect(dockerfile).not.toContain(
     "node node_modules/tsx/dist/cli.mjs bundle-vue-source-content.ts",
   );
 });
