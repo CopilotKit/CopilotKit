@@ -7991,8 +7991,8 @@ ${argsString}</pre
            the two cannot drift apart. A dark grey rather than near-black: the
            launcher sits on a customer's page, and 1,5,7 against white is a
            harder edge than this surface needs. */
-        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
-        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-face: rgba(24, 28, 31, 0.95);
+        --cpk-launcher-face-solid: rgb(24, 28, 31);
         --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
@@ -9335,17 +9335,11 @@ ${argsString}</pre
       "justify-center",
       "rounded-full",
       "border",
-      "border-white/20",
-      "bg-slate-950/95",
       "text-xs",
       "font-medium",
       "text-white",
-      "ring-1",
-      "ring-white/10",
       "backdrop-blur-md",
       "transition",
-      "hover:border-white/30",
-      "hover:bg-slate-900/95",
       "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
