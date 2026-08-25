@@ -327,7 +327,7 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
   await flushInspector(inspector);
 
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();

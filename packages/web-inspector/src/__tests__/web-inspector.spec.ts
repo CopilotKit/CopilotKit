@@ -1518,7 +1518,7 @@ type OpenTelemetryInternals = {
  */
 async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   inspector.shadowRoot
-    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
     ?.click();
   await inspector.updateComplete;
   inspector.shadowRoot
@@ -1537,7 +1537,8 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     window.sessionStorage.clear();
     body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
-      if (String(input) === ANNOUNCEMENT_URL) {
+      const href = String(input);
+      if (href === ANNOUNCEMENT_URL) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -1547,6 +1548,14 @@ describe("WebInspectorElement open + What's new telemetry", () => {
             }),
             { status: 200 },
           ),
+        );
+      }
+      if (href.includes("/threads")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [], joinCode: null }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
         );
       }
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -1586,7 +1595,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     posts().filter((post) => post.event === name);
   const launcherIsPulsing = (inspector: WebInspectorElement) =>
     inspector.shadowRoot
-      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.querySelector('button[aria-label^="Web Inspector"]')
       ?.getAttribute("data-cpk-signal-pulsing") === "true";
   const announcementLink = (inspector: WebInspectorElement) => {
     const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -1790,7 +1799,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
     // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1821,7 +1830,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1839,7 +1848,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 

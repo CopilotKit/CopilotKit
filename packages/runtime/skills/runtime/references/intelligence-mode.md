@@ -57,7 +57,7 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  // apiUrl / wsUrl default to the managed Intelligence platform — leave them unset.
+  // apiUrl / wsUrl default to cloud-hosted CopilotKit Intelligence — leave them unset.
   apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 

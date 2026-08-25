@@ -316,6 +316,27 @@ function runtimeEventSignal(
   };
 }
 
+/**
+ * Whether the runtime *connection* needs attention — the single condition
+ * shared by System Health and the launcher's error signal, so the two can
+ * never disagree about whether the wiring is broken.
+ *
+ * Exactly one state counts. `disconnected` is also the initial value, so
+ * counting it would raise the signal on every page load; `connecting` is a
+ * normal startup step; `unavailable` means no Core is attached, which is not
+ * a defect of the developer's wiring.
+ *
+ * Note the deliberate asymmetry with `health.state`: a failed *run* also
+ * drives System Health to "Needs attention" while the connection is fine.
+ * That is an event rather than a state, and it is excluded from the launcher
+ * on purpose — see the launcher-signal comments in index.ts.
+ */
+export function runtimeConnectionNeedsAttention(
+  state: HomeRuntimeConnectionState,
+): boolean {
+  return state === "error";
+}
+
 function runtimeHealthFromInput(
   input: HomeBriefingInput,
 ): HomeModel["runtime"]["health"] {
@@ -351,14 +372,15 @@ function runtimeHealthFromInput(
     };
   }
 
+  const needsAttention = runtimeConnectionNeedsAttention(
+    input.runtimeConnectionState,
+  );
   return {
-    state: input.runtimeConnectionState === "error" ? "error" : "offline",
-    label:
-      input.runtimeConnectionState === "error" ? "Runtime error" : "Offline",
+    state: needsAttention ? "error" : "offline",
+    label: needsAttention ? "Runtime error" : "Offline",
     runtime: { label: "Offline", tone: "error" },
     liveUpdates: {
-      label:
-        input.runtimeConnectionState === "error" ? "Error" : "Disconnected",
+      label: needsAttention ? "Error" : "Disconnected",
       tone: "error",
     },
     lastEvent,

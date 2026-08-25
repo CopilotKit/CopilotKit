@@ -89,7 +89,7 @@ throwing — the superseded run's partial output is discarded rather than persis
 to history. `SqliteAgentRunner` has no such option and always throws. When the
 throw does happen, how it surfaces to the client depends on the runtime mode:
 
-- **Intelligence mode** — the Intelligence platform returns HTTP `409` when a lock is
+- **Intelligence mode** — CopilotKit Intelligence returns HTTP `409` when a lock is
   held. The client core maps this to `CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED`
   and fires `onError({ code: "agent_thread_locked", ... })`. Handle this in
   `<CopilotKit onError>` (the `CopilotKit` provider from `@copilotkit/react-core/v2`).
@@ -192,10 +192,13 @@ new CopilotRuntime({
 
 `CopilotIntelligenceRuntimeOptions` does not declare a `runner` field — Intelligence mode
 auto-wires `IntelligenceAgentRunner` pointed at the Intelligence service socket. Excess-property checks will
-flag a `runner:` key on an Intelligence-shaped options object as a type error, and at runtime
-the auto-wired Intelligence runner wins regardless of what you pass.
+flag a `runner:` key on an Intelligence-shaped options object as a type error, and a caller who
+evades that check (JS, `as any`, or a non-literal options object) gets a `throw` at construction
+rather than a silently ignored runner.
 
-Source: `packages/runtime/src/v2/runtime/core/runtime.ts:149-173,285-294`.
+Source: `packages/runtime/src/v2/runtime/core/runtime.ts` — `runner?` is declared only on
+`CopilotSseRuntimeOptions` (:239); the Intelligence constructor guard is at :512 and the
+auto-wired runner at :582.
 
 ### HIGH Forgetting the better-sqlite3 peer
 

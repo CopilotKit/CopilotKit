@@ -328,8 +328,8 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    const incomingThreadId = agent.threadId ?? null;
     try {
-      const incomingThreadId = agent.threadId ?? null;
       const restoreKey = this.getConnectRestoreKey(agent);
       const isFreshRestore =
         incomingThreadId !==
@@ -408,6 +408,9 @@ export class RunHandler {
         const context: Record<string, any> = {};
         if (agent.agentId) {
           context.agentId = agent.agentId;
+        }
+        if (incomingThreadId) {
+          context.threadId = incomingThreadId;
         }
         await this._internal.emitError({
           error: connectError,

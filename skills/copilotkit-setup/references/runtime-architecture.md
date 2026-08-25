@@ -17,7 +17,7 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),  // optional, this is the default
 });
 
-// Intelligence mode -- durable threads via CopilotKit Intelligence Platform
+// Intelligence mode -- durable threads via CopilotKit Intelligence
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
   intelligence: new CopilotKitIntelligence({ ... }),
@@ -105,7 +105,7 @@ abstract class AgentRunner {
 **Built-in runners:**
 
 - **`InMemoryAgentRunner`** -- Default. Stores thread state (events, runs) in process memory using a global `Map` keyed by thread ID. Survives hot reloads via `Symbol.for` on `globalThis`. Suitable for development and single-instance deployments.
-- **`IntelligenceAgentRunner`** -- Used automatically when `CopilotIntelligenceRuntime` is configured. Connects to the Intelligence Platform via WebSocket for durable, distributed thread management.
+- **`IntelligenceAgentRunner`** -- Used automatically when `CopilotIntelligenceRuntime` is configured. Connects to CopilotKit Intelligence via WebSocket for durable, distributed thread management.
 
 ## Endpoint Factories
 
