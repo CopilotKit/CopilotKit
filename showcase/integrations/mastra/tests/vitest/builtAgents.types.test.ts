@@ -31,10 +31,10 @@ vi.mock("next/server", () => ({
 }));
 
 import type { buildAgents } from "../../src/app/api/copilotkit/route";
-import { demoAgentNames } from "../../src/app/api/copilotkit/route";
-import type {
-  BuiltAgents,
-  DemoAgentName,
+import {
+  demoAgentNames,
+  type BuiltAgents,
+  type DemoAgentName,
 } from "../../src/app/api/copilotkit/route";
 
 // Helper: "these two types are assignable in both directions" (i.e. equal).

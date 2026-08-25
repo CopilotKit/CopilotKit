@@ -18,8 +18,7 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
-import type { RunAgentInput } from "@ag-ui/client";
+import { HttpAgent, type RunAgentInput } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
