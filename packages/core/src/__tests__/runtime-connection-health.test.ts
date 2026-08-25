@@ -1438,6 +1438,97 @@ describe("runtime connection health (OSS-904)", () => {
     expect(core.getAgent("default")).toBe(agent);
   });
 
+  it("keeps the conversation and a way out when a configuration change lands in the window recovery creates", async () => {
+    const core = await bootConnectedCore();
+    const agent = core.getAgent("default")!;
+    agent.setMessages([
+      { id: "assistant-1", role: "assistant", content: "Hello from run-1" },
+    ]);
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    // Recovery deliberately passes through `connecting`, and it sits there for
+    // as long as its `/info` is outstanding. What is at stake in that window is
+    // identical to the red state either side of it — the agents hold the
+    // conversation and keep the submission gate open — so a guard keyed on the
+    // status VALUE rather than on the knowledge misses it entirely.
+    const refuseInfo: Array<(error: Error) => void> = [];
+    infoHandler = () =>
+      new Promise<Response>((_resolve, reject) => {
+        refuseInfo.push(reject);
+      });
+    runHandler = async () => sseResponse();
+    void runOnce(core).catch(() => undefined);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connecting);
+
+    core.setRuntimeTransport("single");
+    await waitForCondition(() => refuseInfo.length === 2);
+    refuseInfo.forEach((reject) => reject(new TypeError("Failed to fetch")));
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    expect(core.getAgent("default")).toBe(agent);
+    expect(agent.messages).toHaveLength(1);
+    expect(Object.keys(core.agents)).toEqual(["default"]);
+
+    // And it really is leavable.
+    bringRuntimeUp();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    expect(core.getAgent("default")).toBe(agent);
+  });
+
+  it("still discards runtime knowledge when a configuration change fails from a healthy connection", async () => {
+    const core = await bootConnectedCore();
+    expect(Object.keys(core.agents)).toEqual(["default"]);
+
+    // Nothing to escape here: contact is established, so a failed deliberate
+    // change is the ordinary destructive case and must stay destructive — the
+    // developer can simply point the configuration somewhere that works.
+    altInfoHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    core.setRuntimeUrl(ALT_RUNTIME_URL);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    expect(Object.keys(core.agents)).toEqual([]);
+    expect(core.runtimeVersion).toBeUndefined();
+  });
+
+  it("still discards runtime knowledge when a configuration change fails with no live conversation to protect", async () => {
+    // A runtime advertising no agents: knowledge was obtained (the version),
+    // but nothing a live session is using depends on it.
+    infoHandler = async () => jsonResponse({ version: "1.0.0", agents: {} });
+    const core = await bootConnectedCore();
+    expect(core.runtimeVersion).toBe("1.0.0");
+    expect(Object.keys(core.agents)).toEqual([]);
+
+    // Park a re-connect in `connecting`, so the next change is made from the
+    // same status value the recovery window has — and must NOT be protected,
+    // because the protection is about live runtime knowledge, not about the
+    // status reading `connecting`.
+    const refuseInfo: Array<(error: Error) => void> = [];
+    infoHandler = () =>
+      new Promise<Response>((_resolve, reject) => {
+        refuseInfo.push(reject);
+      });
+    core.setRuntimeTransport("single");
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connecting);
+
+    altInfoHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    core.setRuntimeUrl(ALT_RUNTIME_URL);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+    refuseInfo.forEach((reject) => reject(new TypeError("Failed to fetch")));
+    await settle();
+
+    // A stale version left behind is the invisible wrong state this design is
+    // most afraid of.
+    expect(core.runtimeVersion).toBeUndefined();
+  });
+
   it("does not strand the status at connecting when a configuration change made while red is overtaken by a success", async () => {
     const core = await bootConnectedCore();
     takeRuntimeDown();
@@ -1667,6 +1758,73 @@ describe("runtime connection health (OSS-904)", () => {
     });
   });
 
+  it("does not revoke an in-flight run's state subscription when recovery adds an agent", async () => {
+    const core = await bootConnectedCore();
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    const announced: string[][] = [];
+    core.subscribe({
+      onAgentsChanged: ({ agents }) => {
+        announced.push(Object.keys(agents).sort());
+      },
+    });
+
+    // Manual scenario 3: the developer restarted the runtime BECAUSE they added
+    // an agent, so recovery has to announce the change — and announcing it is
+    // what makes core re-subscribe the state manager for every agent. The run
+    // whose response triggered the recovery is still streaming at that moment,
+    // so re-subscribing must not revoke the subscription it reports through.
+    bringRuntimeUp({
+      version: "1.0.0",
+      agents: {
+        default: { description: "assistant", capabilities: {} },
+        added: {
+          description: "the one added while it was down",
+          capabilities: {},
+        },
+      },
+    });
+    const stream = controllableSseStream();
+    runHandler = async () => stream.response;
+
+    const agent = core.getAgent("default") as AbstractAgent;
+    agent.threadId = "thread-mid-run";
+    const run = core.runAgent({ agent }).catch(() => undefined);
+
+    stream.push({
+      type: "RUN_STARTED",
+      threadId: "thread-mid-run",
+      runId: "r1",
+    });
+    stream.push({ type: "STATE_SNAPSHOT", snapshot: { step: "before" } });
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    stream.push({
+      type: "STATE_SNAPSHOT",
+      snapshot: { step: "after-recovery" },
+    });
+    stream.push({
+      type: "RUN_FINISHED",
+      threadId: "thread-mid-run",
+      runId: "r1",
+      result: { newMessages: [] },
+    });
+    stream.close();
+    await run;
+    await settle();
+
+    // The agent added while the runtime was down is here, and subscribers were
+    // told about it rather than silently left with the pre-outage set.
+    expect(Object.keys(core.agents).sort()).toEqual(["added", "default"]);
+    expect(announced).toContainEqual(["added", "default"]);
+    // And the run that proved the runtime was back kept reporting its state.
+    expect(core.getStateByRun("default", "thread-mid-run", "r1")).toEqual({
+      step: "after-recovery",
+    });
+  });
+
   // --- "did not answer" vs "answered, but refused" -------------------------
 
   it("reports a runtime that answered with a status differently from one that did not answer", async () => {
@@ -1699,10 +1857,13 @@ describe("runtime connection health (OSS-904)", () => {
     expect(wiring?.context?.reason).toBe("answered");
     expect(wiring?.context?.runtimeStatus).toBe(401);
     expect(wiring?.error.message).toMatch(/401/);
-    expect(warn.mock.calls.flat().join(" ")).toMatch(
-      /reachable but refused|status 401/i,
-    );
-    expect(warn.mock.calls.flat().join(" ")).not.toMatch(/is unreachable/i);
+    // Pinned on wording ONLY this branch can produce. The status code is no
+    // use for that: it is interpolated from the underlying error message and
+    // appears in both branches, so a test keyed on it passes against either.
+    const warned = warn.mock.calls.flat().join(" ");
+    expect(warned).toMatch(/is reachable but refused the request/i);
+    expect(warned).not.toMatch(/did not answer the identification request/i);
+    expect(warned).not.toMatch(/appears to be unreachable/i);
   });
 
   it("reports a runtime that did not answer as unreachable", async () => {
@@ -1731,7 +1892,10 @@ describe("runtime connection health (OSS-904)", () => {
     );
     expect(wiring?.context?.reason).toBe("no-answer");
     expect(wiring?.context?.runtimeStatus).toBeUndefined();
-    expect(warn.mock.calls.flat().join(" ")).toMatch(/did not answer/i);
+    const warned = warn.mock.calls.flat().join(" ");
+    expect(warned).toMatch(/did not answer the identification request/i);
+    expect(warned).toMatch(/appears to be unreachable/i);
+    expect(warned).not.toMatch(/is reachable but refused the request/i);
   });
 
   // --- both transports -----------------------------------------------------

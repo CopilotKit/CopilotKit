@@ -112,33 +112,19 @@ interface RuntimeConnectionOptions {
    */
   preserveOnFailure?: boolean;
   /**
-   * This attempt IS the recovery re-sync. Three things follow, and they only
-   * make sense together:
+   * This attempt IS the recovery re-sync. Two things follow:
    *
    * - it never drops an agent its `/info` does not report (add and update, but
    *   do not remove);
-   * - it does not re-notify `onAgentsChanged` for an unchanged agent set;
    * - a success that landed after it started overtakes its failure verdict
    *   rather than being painted over.
    *
-   * The last one is safe ONLY here, because `recoverRuntimeConnection` has a
+   * The second is safe ONLY here, because `recoverRuntimeConnection` has a
    * follow-up attempt queued for that success. A configuration change has no
    * such follow-up, so declining to paint would leave the status at
    * `connecting` with nothing to settle it.
    */
   recovery?: boolean;
-}
-
-/** Same ids, same instances — i.e. nothing a subscriber would need to hear. */
-function sameAgentSet(
-  before: Record<string, AbstractAgent>,
-  after: Record<string, AbstractAgent>,
-): boolean {
-  const beforeIds = Object.keys(before);
-  if (beforeIds.length !== Object.keys(after).length) {
-    return false;
-  }
-  return beforeIds.every((id) => before[id] === after[id]);
 }
 
 /** Build case-insensitive JSON headers without mutating the Core snapshot. */
@@ -440,23 +426,42 @@ export class AgentRegistry {
    * The PRD's safety argument names three interlocking sites — preserving
    * runtime knowledge on the way into the error state, preserving it again if
    * the recovery re-sync fails, and keeping the submission gate open
-   * throughout. A configuration change made FROM a mid-session error state is a
-   * fourth, and it is a plausible one: a developer fiddles with configuration
-   * precisely when the indicator is red. Reaching the destructive path from
-   * there wipes the agents, empties the conversation, closes the submission
-   * gate — and because `connectRuntime()` only fires from `Disconnected` and
-   * only a successful request restores the status, the application is stuck red
-   * for the rest of the page's life.
+   * throughout. A configuration change made while contact is lost is a fourth,
+   * and it is a plausible one: a developer fiddles with configuration precisely
+   * when the indicator is red. Reaching the destructive path from there wipes
+   * the agents, empties the conversation, closes the submission gate — and
+   * because `connectRuntime()` only fires from `Disconnected` and only a
+   * successful request restores the status, the application is stuck red for
+   * the rest of the page's life.
    *
-   * Deliberately narrow. From `Connected`, `Connecting` or `Disconnected` a
-   * failed configuration change keeps the existing destructive behaviour: no
-   * live error state is being escaped, so there is no way out to protect.
+   * The question is deliberately asked about the KNOWLEDGE and not about a
+   * status value. Two conditions, and each is load-bearing:
+   *
+   * - Remote agents exist. They are the thing being protected: the conversation
+   *   lives on the agent instance and the submission gate is open exactly while
+   *   one is bound. With none, there is nothing a failure could destroy, and
+   *   preserving would only leave a stale version and stale capabilities behind
+   *   — an invisible wrong state, which is the harder bug.
+   * - Contact is not currently established. From `Connected` a failed
+   *   deliberate change keeps the existing destructive behaviour, and correctly
+   *   so: the developer who just changed the configuration can change it again,
+   *   which is a way out that does not run through the agents.
+   *
+   * Phrasing it as `!== Connected` rather than `=== Error` is the whole point.
+   * Recovery passes through `Connecting` by design, so a guard pinned to
+   * `Error` leaves a window — open for as long as a re-sync's `/info` takes,
+   * against a runtime that is often only part-way back — in which a
+   * configuration change takes the destructive path and strands the
+   * application. `Disconnected` never carries remote agents, so the first
+   * condition covers it.
    */
   private hasLiveRuntimeKnowledgeToProtect(): boolean {
+    if (Object.keys(this.remoteAgents).length === 0) {
+      return false;
+    }
     return (
-      this._runtimeConnectionStatus ===
-        CopilotKitCoreRuntimeConnectionStatus.Error &&
-      Object.keys(this.remoteAgents).length > 0
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
     );
   }
 
@@ -1476,7 +1481,6 @@ export class AgentRegistry {
         ),
       );
 
-      const previousAgents = this._agents;
       // Ids present in `runtimeInfo.agents` are carried over (reused or freshly
       // minted above); ids no longer advertised are dropped because they are
       // absent from this rebuilt map.
@@ -1521,16 +1525,21 @@ export class AgentRegistry {
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
-      // On recovery, skip the notification when the agent set did not change.
-      // Core re-subscribes the state manager per agent on every
-      // `onAgentsChanged`, and re-subscribing REVOKES the subscription an
-      // in-flight run is still reporting through (see the revocation invariant
-      // in `state-manager.ts`). The re-sync runs while the run's stream is
-      // still open — the response arriving is what triggered it — so notifying
-      // for an unchanged set silently detaches a live run's state.
-      if (!options?.recovery || !sameAgentSet(previousAgents, this._agents)) {
-        await this.notifyAgentsChanged();
-      }
+      // Recovery announces its agent set like every other connection attempt.
+      //
+      // This used to be skipped for an unchanged set, because core re-subscribes
+      // the state manager per agent on every `onAgentsChanged` and that revoked
+      // the subscription an in-flight run was still reporting through — and the
+      // re-sync runs while that run's stream is open, since the response
+      // arriving is what triggered it. Suppressing the announcement was the
+      // wrong lever: it only helped when the set happened to be unchanged, so a
+      // developer who restarted the runtime BECAUSE they added an agent
+      // (the reason for restarting it) still lost the recovering run's state,
+      // and an unchanged-set check that stopped working would silently swallow a
+      // genuinely new agent. `state-manager.ts` now leaves a live subscription
+      // alone when it is handed the same agent instance, which fixes both
+      // directions at the source and for every caller, not just this one.
+      await this.notifyAgentsChanged();
       if (
         inspectorMetadataConnectionGeneration !==
           this.inspectorMetadataConnectionGeneration ||
