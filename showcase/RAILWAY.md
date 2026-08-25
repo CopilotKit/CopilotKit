@@ -280,8 +280,8 @@ Planned max-job recycling is an ordinary, clean worker replacement path: the
 worker drains, deregisters from the roster, shuts down its browser pool, then
 exits `0`. Railway's `ALWAYS` restart policy replaces both clean exits and
 failed exits. Staging reasserts the policy before creating desired state; prod
-reasserts and verifies it while promoting. Ordinary Ruby pin/restore operations
-preserve it. We do not manage a retry-max field or claim infinite restarts for
+reasserts and verifies it while promoting. The direct named `harness-workers`
+pin path preserves it. We do not manage a retry-max field or claim infinite restarts for
 pathological crash loops.
 
 Prod rollout waits for staging evidence. Direct named `harness-workers` rollback
