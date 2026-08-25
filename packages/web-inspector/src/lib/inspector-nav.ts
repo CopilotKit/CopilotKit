@@ -8,6 +8,7 @@ export const INSPECTOR_GROUPS = {
   inspect: [
     "agents",
     "ag-ui-events",
+    "event-snippets",
     "frontend-tools",
     "capabilities",
     "agent-context",

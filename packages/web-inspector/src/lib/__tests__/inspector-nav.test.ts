@@ -23,6 +23,8 @@ describe("inspector-nav", () => {
     expect(getGroupForMenu("threads")).toBe("workbench");
     expect(getGroupForMenu("memories")).toBe("workbench");
     expect(getGroupForMenu("agents")).toBe("inspect");
+    expect(getGroupForMenu("event-snippets")).toBe("inspect");
+    expect(isInspectorMenuKey("event-snippets")).toBe(true);
   });
 
   it("uses an icon rail when docked left or under 720px", () => {

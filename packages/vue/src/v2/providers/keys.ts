@@ -23,3 +23,50 @@ export const CopilotChatConfigurationKey: InjectionKey<
 export const SandboxFunctionsKey: InjectionKey<
   Ref<readonly SandboxFunction[]>
 > = Symbol("SandboxFunctions");
+
+export type VueInspectorOpenRequest = {
+  messageId: string;
+  threadId?: string;
+  agentId?: string;
+  menu?: "event-snippets";
+  snippetId?: string;
+};
+
+export type VueInspectorSaveRequest = {
+  threadId?: string;
+  agentId?: string;
+} & (
+  | {
+      kind: "text";
+      messageId: string;
+      content: string;
+    }
+  | {
+      kind: "reasoning";
+      messageId: string;
+      content: string;
+    }
+  | {
+      kind: "tool-call";
+      messageId: string;
+      toolCallId: string;
+      toolName: string;
+      argsJson: string | Record<string, unknown>;
+    }
+  | {
+      kind: "activity";
+      messageId: string;
+      activityType: string;
+      content: unknown;
+    }
+);
+
+export type VueInspectorContextValue = {
+  isLocalInspectorEnabled: ComputedRef<boolean>;
+  openInspector: (request: VueInspectorOpenRequest) => void;
+  saveEventSnippet: (request: VueInspectorSaveRequest) => Promise<void>;
+};
+
+export const InspectorKey: InjectionKey<VueInspectorContextValue> = Symbol(
+  "CopilotKitInspector",
+);

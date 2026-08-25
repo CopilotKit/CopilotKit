@@ -41,6 +41,7 @@ import {
   anyActivityContentSchema,
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
+import { CopilotInspector } from "./inspector";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
@@ -80,6 +81,7 @@ function withA2UICatalogCapability(
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
+  readonly #inspector = inject(CopilotInspector);
   readonly #extensionActivityMessageRenderers = inject(
     ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   );
@@ -201,6 +203,7 @@ export class CopilotKit {
   #a2UIContextIds: string[] = [];
 
   constructor() {
+    void this.#inspector.isLocalInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);
