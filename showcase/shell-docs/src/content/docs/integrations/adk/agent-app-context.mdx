@@ -1,0 +1,64 @@
+---
+title: Readables
+icon: "lucide/BookA"
+description: Share app specific context with your agent.
+hideTOC: true
+---
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
+This way, you can notify CopilotKit of what is going on in your app in real time.
+Some examples might be: the current user, the current page, etc.
+
+This context can then be shared with your ADK agent.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Add the data to the Copilot
+
+    The `useAgentContext` hook is used to add data as context to the agent.
+
+    ```tsx title="YourComponent.tsx"
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+    import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useState } from 'react';
+
+    export function YourComponent() {
+      const [colleagues, setColleagues] = useState([
+        { id: 1, name: "John Doe", role: "Developer" },
+        { id: 2, name: "Jane Smith", role: "Designer" },
+        { id: 3, name: "Bob Wilson", role: "Product Manager" }
+      ]);
+
+      useAgentContext({
+        description: "The current user's colleagues",
+        value: colleagues,
+      });
+      return <>...</>;
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Install the ADK + AG-UI bridge
+
+    ```bash
+    pip install ag-ui-adk
+    ```
+
+  </Step>
+
+  <Step>
+    ### Read CopilotKit context before each model call
+
+    `useAgentContext` entries arrive in ADK session state under `state["copilotkit"]["context"]`. Add `AGUIToolset()` to the agent and
+    use a `before_model_callback` to inject those read-only values into the system instruction.
+
+    <DemoCode file="src/agents/readonly_state_agent_context_agent.py" region="agent-context-setup" />
+  </Step>
+
+  <Step>
+    ### Give it a try!
+    Ask your agent a question about the context. It should be able to answer!
+  </Step>
+</Steps>
