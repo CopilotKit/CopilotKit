@@ -25,7 +25,7 @@ describe("backend-scoped Angular quickstart", () => {
     expect(quickstartSource).toContain(
       'surface="docs:angular/quickstart:production"',
     );
-    expect(quickstartSource).toContain("Enterprise Intelligence");
+    expect(quickstartSource).toContain("CopilotKit Intelligence");
   });
 
   it("imports the Angular Open Inspector step after the first chat", () => {

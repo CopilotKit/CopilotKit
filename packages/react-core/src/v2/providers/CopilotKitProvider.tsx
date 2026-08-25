@@ -21,7 +21,10 @@ export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
-import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
+import type {
+  CopilotKitInspectorOpenRequest,
+  CopilotKitInspectorSaveRequest,
+} from "../components/CopilotKitInspectorContext";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
@@ -124,10 +127,10 @@ export interface CopilotKitProviderProps {
   credentials?: RequestCredentials;
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /** Your public license key for accessing Enterprise Intelligence Platform features. */
+  /** Your public license key for accessing CopilotKit Intelligence features. */
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of Enterprise Intelligence Platform features.
+   * Signed license token for offline verification of CopilotKit Intelligence features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
@@ -352,12 +355,50 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [],
   );
 
+  const saveEventSnippet = useCallback(
+    async (request: CopilotKitInspectorSaveRequest) => {
+      try {
+        const mod = await import("@copilotkit/web-inspector");
+        const threadId = request.threadId ?? "inspector-snippet";
+        const runId = `inspector-snippet-${Date.now()}`;
+        const compiled = mod.compileChatSnippet({
+          ...request,
+          threadId,
+          runId,
+        });
+        const now = new Date().toISOString();
+        const snippet = {
+          id: crypto.randomUUID(),
+          name: compiled.name,
+          recipe: compiled.recipe,
+          events: compiled.events,
+          createdAt: now,
+          updatedAt: now,
+        };
+        mod.upsertEventSnippet(snippet);
+        requestInspectorOpen({
+          messageId: request.messageId,
+          threadId: request.threadId,
+          agentId: request.agentId,
+          menu: "event-snippets",
+          snippetId: snippet.id,
+        });
+      } catch (error) {
+        // Compile can throw on bad args, and storage can throw QuotaExceededError.
+        // Callers fire this as `void saveEventSnippet(...)`, so report it here.
+        console.error("[CopilotKit] Could not save the event snippet.", error);
+      }
+    },
+    [requestInspectorOpen],
+  );
+
   const inspectorContextValue = useMemo(
     () => ({
       isLocalInspectorEnabled,
       openInspector: requestInspectorOpen,
+      saveEventSnippet,
     }),
-    [isLocalInspectorEnabled, requestInspectorOpen],
+    [isLocalInspectorEnabled, requestInspectorOpen, saveEventSnippet],
   );
 
   // Normalize array props to stable references with clear dev warnings
@@ -468,7 +509,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
-  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence offering.
+  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence tier.
   // The signal is advisory and client-side only (not enforced): warn — in both
   // development and production — when it is used without a license key so
   // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
@@ -478,7 +519,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     if (hasSelfManagedAgents && !resolvedPublicKey) {
       console.warn(
         "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
-          "Intelligence offering. Provide a `publicLicenseKey` for production " +
+          "Intelligence tier. Provide a `publicLicenseKey` for production " +
           "use — contact the CopilotKit team about licensing.",
       );
     }

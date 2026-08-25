@@ -14,14 +14,14 @@ npm install @copilotkit/angular
 
 Peer dependencies you provide in your app:
 
-- `@angular/core` and `@angular/common` (20, 21, or 22)
+- `@angular/core` and `@angular/common` (Angular 22)
 - `@angular/cdk` (match your Angular major)
 - `rxjs` 7.8 or newer
 
 The exact versions exercised by the packed-consumer release matrix are stored
 in `package.json` under `copilotkit.angularSupport`. The library is compiled at
-the Angular 20 support floor and installed with strict peer checking against
-all three supported majors.
+the Angular 22 baseline and installed with strict peer checking against that
+supported major.
 
 ## Quick start
 

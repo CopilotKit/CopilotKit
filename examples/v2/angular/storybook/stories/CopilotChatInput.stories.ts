@@ -8,6 +8,7 @@ import {
   Input,
   Output,
   signal,
+  ChangeDetectionStrategy,
 } from "@angular/core";
 import { fn } from "storybook/test";
 import {
@@ -38,6 +39,7 @@ class StoryChatState extends ChatState {
 @Component({
   selector: "airplane-send-button",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <button
       [disabled]="disabled"
@@ -63,6 +65,7 @@ class AirplaneSendButtonComponent {
 @Component({
   selector: "rocket-send-button",
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <button
       [disabled]="disabled"

@@ -209,7 +209,7 @@ The tool's `execute` function threw an exception.
 Supported formats:
 
 - `"openai/gpt-5"`, `"openai/gpt-4o"`, `"openai/o3-mini"`
-- `"anthropic/claude-sonnet-4.5"`, `"anthropic/claude-opus-4"`
+- `"anthropic/claude-sonnet-4-6"`, `"anthropic/claude-opus-4-8"`
 - `"google/gemini-2.5-pro"`, `"google/gemini-2.5-flash"`
 - `"vertex/gemini-2.5-pro"` (uses Google Vertex AI)
 
@@ -268,7 +268,7 @@ Intelligence mode uses the `CopilotKitIntelligence` client to manage threads:
 
 Intelligence mode uses WebSocket for real-time events:
 
-- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with the Intelligence platform
+- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with CopilotKit Intelligence
 - Client WebSocket: `{wsUrl}/client` -- used by the frontend for real-time thread updates
 
 If WebSocket connections fail:

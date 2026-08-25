@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -119,6 +118,11 @@ agents["interrupt-headless"] = createAgent("/interrupt");
 // `set_steps` tool + per-call STATE_SNAPSHOT emit (see
 // src/agents/gen_ui_agent.py).
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// gen-ui-tool-based has its own Flow (src/agents/gen_ui_tool_based.py) for
+// the same reason langgraph-python gives it a dedicated graph: it must force
+// a `render_*` chart call on the user turn, which the neutral chat Flow does
+// not do.
+agents["gen-ui-tool-based"] = createAgent("/gen-ui-tool-based");
 // tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
 // backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
 // AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price` so the
@@ -139,16 +143,16 @@ export const POST = async (req: NextRequest) => {
   }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
+    const response = await copilotHandler(req);
     if (!response.ok) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     } else if (ROUTE_DEBUG) {

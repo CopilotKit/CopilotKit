@@ -25,27 +25,34 @@ mapping:
 
 | Provider | `useSingleEndpoint` | Transport | Needs handler | Route file |
 | --- | --- | --- | --- | --- |
-| `<CopilotKit>` or `<CopilotKitProvider>` | omitted | `auto` — detected from `/info` | either | matches the handler |
+| `<CopilotKitProvider>` | omitted | `auto` — detected from `/info` | either | matches the handler |
+| `<CopilotKit>` | omitted | `single` in released versions — see below | single-route | `route.ts`, `POST` |
 | `<CopilotKit>` or `<CopilotKitProvider>` | `{true}` | `single` | single-route | `route.ts`, `POST` |
 | `<CopilotKit>` or `<CopilotKitProvider>` | `{false}` | `rest` | multi-route | `[[...slug]]/route.ts`, 4 verbs |
 
 `<CopilotKit>` is a backward-compatible wrapper that renders
 `<CopilotKitProvider>` internally. Both are exported from
-`@copilotkit/react-core/v2` and both leave `useSingleEndpoint` unset by default,
-so **omitting the prop is the safe choice on either** — the client probes
-`GET /info` and falls back to the single-route envelope, matching whichever mode
-your Runtime serves.
+`@copilotkit/react-core/v2`, but they do not treat an omitted
+`useSingleEndpoint` the same way, and that difference is what decides whether
+your app connects:
+
+- On `<CopilotKitProvider>`, omitting the prop gives `auto`: the client probes
+  `GET /info` and matches whichever mode your Runtime serves.
+- On `<CopilotKit>`, every released version still pins the flag to `true`
+  internally, so omitting it selects the **single-route** transport regardless
+  of what your Runtime serves. Against a multi-route handler that 404s.
+
+**So: with `<CopilotKit>` and a multi-route handler, pass
+`useSingleEndpoint={false}` explicitly.** The pin is removed on `main` and will
+ship in a future release, at which point the prop stays correct but stops being
+required — passing it is the forward-compatible choice either way.
 
 <Callout type="warn" title="Pinning the wrong mode 404s silently">
   Passing `useSingleEndpoint={true}` to a multi-route Runtime sends an envelope
   that matches no route, so the Runtime 404s while `GET /info` still returns 200
-  and the app looks connected. Drop the prop rather than guessing the other
-  value.
-
-  Older releases pinned `useSingleEndpoint` to `true` inside `<CopilotKit>`, so
-  code written against those versions may pass `{false}` explicitly to
-  compensate. That is still correct against a multi-route handler — it is just no
-  longer required.
+  and the app looks connected. The same thing happens when you *omit* the prop
+  on `<CopilotKit>` in a released version, because that is what the pin above
+  does — the Runtime's error body names the fix in both cases.
 </Callout>
 
 Both ship from the same package entry point, so moving between them is an import
@@ -250,8 +257,8 @@ discovers the multi-route transport from `/info`; it has no
 <Step>
 ### Construct the Intelligence client
 
-`intelligence` is a `CopilotKitIntelligence` instance, not a plain object. Build
-it from your project's Intelligence API key:
+`intelligence` is a `CopilotKitIntelligence` instance. Build it from your
+project's Intelligence API key:
 
 ```ts
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";

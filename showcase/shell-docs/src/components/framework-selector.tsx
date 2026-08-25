@@ -201,7 +201,7 @@ export function FrameworkSelector({
   }
 
   // Single flat list, ordered by the canonical display order. The
-  // category buckets ("Most Popular / Agent Frameworks / Intelligence Platform /
+  // category buckets ("Most Popular / Agent Frameworks / Intelligence /
   // Emerging") used to live here but partners read them as a tier
   // list — we now show every backend in one neutral list.
   const flatOptions = options
