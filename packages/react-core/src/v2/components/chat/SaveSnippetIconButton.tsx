@@ -45,10 +45,10 @@ export function SaveSnippetIconButton({
           <Bookmark className="cpk:size-[18px]" />
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom">
-        <div className="cpk:flex cpk:flex-col cpk:gap-0.5">
+      <TooltipContent side="bottom" className="cpk:max-w-72">
+        <div className="cpk:flex cpk:flex-col cpk:gap-1">
           <span>{primaryLabel}</span>
-          <span className="cpk:text-[10px] cpk:opacity-65">
+          <span className="cpk:text-[10px] cpk:leading-4 cpk:opacity-65">
             {localOnlyLabel}
           </span>
         </div>
