@@ -193,6 +193,18 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     await super.detachActiveRun();
   }
 
+  /**
+   * The stop requests below deliberately use the GLOBAL fetch rather than
+   * `this.fetch`, and so are the one runtime destination excluded from the
+   * connection-health seam (OSS-904).
+   *
+   * They exist only because the user pressed Stop, and a user-initiated stop is
+   * explicitly excluded from triggering a confirmation check: a stop against a
+   * runtime that has gone away would otherwise turn the status red as a side
+   * effect of cancelling, which is the one thing cancellation is promised not
+   * to do. They are fire-and-forget, nothing reads their outcome, and the run
+   * request they cancel is already observed at the seam.
+   */
   abortRun(): void {
     if (this.delegate) {
       this.syncDelegate(this.delegate);
@@ -539,6 +551,16 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
+  /**
+   * Re-resolve this agent's own runtime mode and transport from `/info`.
+   *
+   * Routed through `this.fetch` — the registry's instrumented fetch for any
+   * agent the registry handed out — because this request goes to the RUNTIME
+   * and so counts as runtime traffic under the destination rule (OSS-904).
+   * Skipping the seam here meant an agent registered before the startup
+   * handshake landed resolved its mode through an uninstrumented call, so a
+   * dead runtime kept the status green.
+   */
   private async fetchRuntimeInfo(): Promise<RuntimeInfo> {
     const headers: Record<string, string> = {
       ...this.headers,
@@ -565,7 +587,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       init = {};
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetch(url, {
       ...init,
       headers,
       ...(this.credentials ? { credentials: this.credentials } : {}),
@@ -579,9 +601,10 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private async fetchRuntimeInfoAutoDetect(
     headers: Record<string, string>,
   ): Promise<RuntimeInfo> {
-    // Try REST first (GET /info)
+    // Try REST first (GET /info). Through `this.fetch` for the same reason as
+    // `fetchRuntimeInfo` above.
     try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
+      const response = await this.fetch(`${this.runtimeUrl}/info`, {
         headers: { ...headers },
         ...(this.credentials ? { credentials: this.credentials } : {}),
       });
@@ -601,7 +624,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (!singleHeaders["Content-Type"]) {
       singleHeaders["Content-Type"] = "application/json";
     }
-    const response = await fetch(this.runtimeUrl!, {
+    const response = await this.fetch(this.runtimeUrl!, {
       method: "POST",
       headers: singleHeaders,
       body: JSON.stringify({ method: "info" }),

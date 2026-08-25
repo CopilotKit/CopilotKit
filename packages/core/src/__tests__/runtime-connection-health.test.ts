@@ -29,6 +29,7 @@ import {
   RUNTIME_PROBE_COOLDOWN_MS,
   RUNTIME_PROBE_TIMEOUT_MS,
 } from "../core/agent-registry";
+import { ɵcreateThreadStore, ɵTHREAD_REQUEST_TIMEOUT_MS } from "../threads";
 import { waitForCondition } from "./test-utils";
 import { logger } from "@copilotkit/shared";
 
@@ -1073,6 +1074,22 @@ describe("runtime connection health (OSS-904)", () => {
 
   // --- destinations --------------------------------------------------------
 
+  it("counts the `/info` request a proxied agent issues to resolve its own runtime mode", async () => {
+    const core = createCore();
+    // Registered before the handshake lands, so the proxy's runtime mode is
+    // still "pending" and its first run re-resolves it through `/info`.
+    const { agent } = core.registerProxiedAgent({
+      agentId: "proxy",
+      runtimeAgentId: "default",
+    });
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    takeRuntimeDown();
+    await core.runAgent({ agent }).catch(() => undefined);
+
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+  });
+
   it("counts runtime requests from an agent registered through registerProxiedAgent", async () => {
     const core = await bootConnectedCore();
     const { agent } = core.registerProxiedAgent({
@@ -1333,6 +1350,70 @@ describe("runtime connection health (OSS-904)", () => {
   });
 
   // --- thread routes: timeouts are not cancellations -----------------------
+
+  it("treats a thread request its own timeout aborted as a failure, not a cancellation", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The runtime hangs on the thread route and is gone for `/info` — the
+    // Threads view against a container that is mid-rollout.
+    threadListHandler = hangs;
+    takeRuntimeDown();
+
+    const store = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: RUNTIME_URL,
+      headers: {},
+      agentId: "default",
+    });
+
+    // The store gives up on its own after its request timeout, and gives up by
+    // aborting ITS OWN controller. That is a caller-initiated timeout, not a
+    // user cancellation, and it must still be able to trigger a check.
+    await vi.advanceTimersByTimeAsync(ɵTHREAD_REQUEST_TIMEOUT_MS + 1_000);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    store.stop();
+  });
+
+  it("does not check the runtime when a request the caller treats as non-fatal fails", async () => {
+    const core = await bootConnectedCore();
+    expect(infoCalls).toBe(1);
+
+    // The realtime-metadata credentials route is explicitly non-fatal by
+    // design, and older runtimes refuse it outright because they do not offer
+    // the feature. Neither is news about the runtime's health.
+    threadListHandler = async () =>
+      jsonResponse({ threads: [], joinCode: "join-code" });
+    threadSubscribeHandler = async () =>
+      jsonResponse({ message: "not found" }, 404);
+
+    const store = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: RUNTIME_URL,
+      headers: {},
+      agentId: "default",
+      wsUrl: "wss://realtime.example/socket",
+    });
+
+    await settle(200);
+
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    store.stop();
+  });
 
   it("detects an outage and recovers the same way on the auto transport", async () => {
     const core = await bootConnectedCore({ runtimeTransport: "auto" });

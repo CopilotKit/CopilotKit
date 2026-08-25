@@ -12,7 +12,6 @@ import {
   take,
   takeUntil,
   tap,
-  timeout,
   withLatestFrom,
 } from "rxjs/operators";
 import {
@@ -27,6 +26,10 @@ import {
   props,
 } from "./utils/micro-redux";
 import type { Reducer, Store } from "./utils/micro-redux";
+import type {
+  RuntimeRequestInit,
+  RuntimeRequestMeta,
+} from "./utils/runtime-request";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
@@ -774,16 +777,48 @@ function createThreadRequestId(): string {
   return `thread-request-${threadRequestId}`;
 }
 
+/**
+ * One thread REST request as an Observable.
+ *
+ * It owns its own timeout rather than being wrapped in rxjs `timeout()`. The
+ * wrapper unsubscribed on expiry, the teardown aborted this controller, and the
+ * resulting `AbortError` was indistinguishable from the user pressing Stop — so
+ * a caller-initiated timeout against a hung runtime was laundered into "the
+ * user cancelled" and its outcome was dropped by the connection-health seam
+ * (OSS-904). Owning the timeout is what lets it say which of the two happened,
+ * via `timedOut` on the request meta; genuine stop/unmount cancellation, which
+ * still arrives through `signal` or through unsubscription, is unaffected.
+ */
 function threadFromFetch<T>(
   input: string,
   init: RequestInit & {
     selector: (response: Response) => Promise<T>;
     fetch: typeof fetch;
+    /** Give up after this long and fail with "Request timed out". */
+    timeoutMs?: number;
+    /**
+     * This request is allowed to fail without saying anything about the
+     * runtime's health — see {@link RuntimeRequestMeta}.
+     */
+    nonCritical?: boolean;
   },
 ): Observable<T> {
   return new Observable<T>((subscriber) => {
-    const { fetch: fetchImpl, selector, signal, ...requestInit } = init;
+    const {
+      fetch: fetchImpl,
+      selector,
+      signal,
+      timeoutMs,
+      nonCritical,
+      ...requestInit
+    } = init;
     const controller = new AbortController();
+    // Shared by reference with the fetch below, which reads it when the request
+    // SETTLES — so `timedOut` set here still reaches it.
+    const runtimeRequest: RuntimeRequestMeta = nonCritical
+      ? { nonCritical: true }
+      : {};
+    let timedOut = false;
     const abortRequest = () => controller.abort();
 
     if (signal?.aborted) {
@@ -792,20 +827,40 @@ function threadFromFetch<T>(
       signal?.addEventListener("abort", abortRequest, { once: true });
     }
 
-    fetchImpl(input, { ...requestInit, signal: controller.signal })
+    const timeoutId =
+      timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            timedOut = true;
+            runtimeRequest.timedOut = true;
+            abortRequest();
+          }, timeoutMs);
+
+    const requestInitWithMeta: RuntimeRequestInit = {
+      ...requestInit,
+      signal: controller.signal,
+      ɵruntimeRequest: runtimeRequest,
+    };
+
+    fetchImpl(input, requestInitWithMeta)
       .then((response) => selector(response))
       .then((value) => {
         if (subscriber.closed) return;
         subscriber.next(value);
         subscriber.complete();
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         if (!subscriber.closed) {
-          subscriber.error(error);
+          subscriber.error(
+            timedOut ? new Error("Request timed out") : (error as Error),
+          );
         }
       });
 
     return () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
       signal?.removeEventListener("abort", abortRequest);
       abortRequest();
     };
@@ -837,15 +892,10 @@ function createThreadFetchObservable(
         return response.json() as Promise<ThreadListResponse>;
       },
       fetch: environment.fetch,
+      timeoutMs: REQUEST_TIMEOUT_MS,
       method: "GET",
       headers: { ...context.headers },
     }).pipe(
-      timeout({
-        first: REQUEST_TIMEOUT_MS,
-        with: () => {
-          throw new Error("Request timed out");
-        },
-      }),
       map((data) =>
         threadRestEvents.listSucceeded({
           sessionId,
@@ -889,6 +939,13 @@ function createThreadMetadataCredentialsObservable(
         return response.json() as Promise<ThreadMetadataCredentialsResponse>;
       },
       fetch: environment.fetch,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      // Non-fatal by design: its failure only means the thread list may be
+      // stale until reconnect (see the warning in the realtime effect), and
+      // older runtimes refuse this route outright because they do not offer
+      // realtime metadata. Neither is news about the runtime's health, so it
+      // must not be able to trigger a confirmation check (OSS-904).
+      nonCritical: true,
       method: "POST",
       headers: {
         ...context.headers,
@@ -896,12 +953,6 @@ function createThreadMetadataCredentialsObservable(
       },
       body: JSON.stringify({}),
     }).pipe(
-      timeout({
-        first: REQUEST_TIMEOUT_MS,
-        with: () => {
-          throw new Error("Request timed out");
-        },
-      }),
       map((data) => {
         if (typeof data.joinToken !== "string" || data.joinToken.length === 0) {
           throw new Error("missing joinToken");
@@ -1292,16 +1343,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 return response.json() as Promise<ThreadListResponse>;
               },
               fetch: environment.fetch,
+              timeoutMs: REQUEST_TIMEOUT_MS,
               method: "GET",
               headers: { ...context.headers },
             },
           ).pipe(
-            timeout({
-              first: REQUEST_TIMEOUT_MS,
-              with: () => {
-                throw new Error("Request timed out");
-              },
-            }),
             map((data) =>
               threadRestEvents.nextPageSucceeded({
                 sessionId: state.sessionId,
@@ -1610,3 +1656,9 @@ export { createThreadStore as ɵcreateThreadStore };
  * hardcoding the threshold separately from production.
  */
 export const ɵMAX_SOCKET_RETRIES = MAX_SOCKET_RETRIES;
+/**
+ * How long a thread REST request is given before the store gives up on it.
+ * Exposed for tests for the same reason as {@link ɵMAX_SOCKET_RETRIES}: a
+ * separately hardcoded copy silently drifts away from this one.
+ */
+export const ɵTHREAD_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS;
