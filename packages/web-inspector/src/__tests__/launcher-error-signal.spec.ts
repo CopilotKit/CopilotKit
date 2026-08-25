@@ -2119,7 +2119,16 @@ test("no telemetry payload anywhere carries the failure message", async () => {
 
   expect(context.telemetryBodies.length).toBeGreaterThan(0);
   for (const body of context.telemetryBodies) {
-    const serialized = JSON.stringify(body.properties);
+    // The two id fields are random hex, so a short numeric needle like "503"
+    // lands inside one about once in a few hundred runs — a flake that reads
+    // like a privacy breach. They are opaque and carry nothing from the
+    // failure, so they are excluded by name rather than by weakening the
+    // needles, which are the point of the test.
+    const { distinct_id, inspector_distinct_id, ...carriers } = body.properties;
+    expect(typeof distinct_id).toBe("string");
+    expect(typeof inspector_distinct_id).toBe("string");
+
+    const serialized = JSON.stringify(carriers);
     expect(serialized).not.toContain("list refused");
     expect(serialized).not.toContain("503");
     expect(serialized).not.toContain(RUNTIME_URL);
