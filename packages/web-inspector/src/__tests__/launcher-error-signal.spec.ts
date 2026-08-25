@@ -2119,7 +2119,16 @@ test("no telemetry payload anywhere carries the failure message", async () => {
 
   expect(context.telemetryBodies.length).toBeGreaterThan(0);
   for (const body of context.telemetryBodies) {
-    const serialized = JSON.stringify(body.properties);
+    // The two id fields are random hex, so a short numeric needle like "503"
+    // lands inside one about once in a few hundred runs — a flake that reads
+    // like a privacy breach. They are opaque and carry nothing from the
+    // failure, so they are excluded by name rather than by weakening the
+    // needles, which are the point of the test.
+    const { distinct_id, inspector_distinct_id, ...carriers } = body.properties;
+    expect(typeof distinct_id).toBe("string");
+    expect(typeof inspector_distinct_id).toBe("string");
+
+    const serialized = JSON.stringify(carriers);
     expect(serialized).not.toContain("list refused");
     expect(serialized).not.toContain("503");
     expect(serialized).not.toContain(RUNTIME_URL);
@@ -2188,6 +2197,32 @@ test("a run error with no run to point at claims no highlight", async () => {
   expect(
     root(context.inspector).querySelector("[data-cpk-failed-run-event]"),
   ).toBeNull();
+});
+
+test("run and tool errors retain their own detail while both are unread", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
+    "The run failed first.",
+  );
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED,
+    "The tool failed second.",
+    { agentId: "tanstack", toolName: "crash" },
+  );
+
+  expect(dotSubject(context.inspector)).toBe("run");
+  await context.press(launcher(context.inspector));
+
+  expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  const runBanner = root(context.inspector).querySelector(
+    '[data-cpk-event-error="run"]',
+  )?.textContent;
+  expect(runBanner).toContain("The run failed first.");
+  expect(runBanner).not.toContain("The tool failed second.");
+
+  await context.closePanel();
+  expect(dotSubject(context.inspector)).toBe("tool");
 });
 
 test("a tool error with no call id claims no highlight", async () => {
@@ -2485,7 +2520,7 @@ test("a Learning failure arms nothing while the view has never been opened", asy
   expect(markers(context.inspector)).toEqual([]);
 });
 
-test("a resolved Learning failure clears itself", async () => {
+test("a resolved Learning failure stays unread until Learning renders", async () => {
   const context = await setup({ intelligence: true });
   await context.press(launcher(context.inspector));
   await context.activate(
@@ -2499,6 +2534,10 @@ test("a resolved Learning failure clears itself", async () => {
 
   await context.failMemory(null);
 
+  expect(dotSubject(context.inspector)).toBe("memory");
+  await context.press(launcher(context.inspector));
+  expect(currentMenu(context.inspector)).toBe("memories");
+  await context.closePanel();
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
@@ -2547,6 +2586,17 @@ test("a handshake failure does not also arm the run event", async () => {
   await context.flush();
 
   expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("unclassified core errors do not claim the run error surface", async () => {
+  const context = await setup();
+  await context.fireAppError(
+    CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED,
+    "The agent is busy.",
+  );
+
+  expect(launcherDot(context.inspector)).toBeNull();
+  expect(markers(context.inspector)).toEqual([]);
 });
 
 test("wiring still owns the launcher when a run also failed", async () => {

@@ -1,5 +1,6 @@
 export * from "./lib/config";
 export * from "./lib/copilotkit";
+export * from "./lib/inspector";
 export * from "./lib/tools";
 export * from "./lib/render-tool-calls";
 export * from "./lib/activity-renderer";

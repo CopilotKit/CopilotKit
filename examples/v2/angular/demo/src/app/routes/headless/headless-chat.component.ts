@@ -29,6 +29,7 @@ import { z } from "zod";
   selector: "require-approval",
   standalone: true,
   imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div>Require approval</div>
     <button (click)="respond({ approved: true })">Approve</button>

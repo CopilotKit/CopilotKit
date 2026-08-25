@@ -1,0 +1,20 @@
+{
+  "name": "repo-scripts",
+  "$schema": "../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "scripts",
+  "projectType": "library",
+  "targets": {
+    "validate-retired-anthropic-models": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "commands": [
+          "node --test scripts/__tests__/validate-retired-anthropic-models.test.mjs",
+          "node scripts/validate-retired-anthropic-models.mjs"
+        ],
+        "parallel": false
+      }
+    }
+  },
+  "tags": []
+}

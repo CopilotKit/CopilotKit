@@ -41,13 +41,12 @@ import type { Logger } from "../types/index.js";
 import type { FleetRoleConfig } from "./role-config.js";
 import type { FleetQueueClient } from "./contracts.js";
 import { buildWorkerHealthServer } from "./worker/worker-health.js";
-import {
-  startWorkerLoop,
-  safeLog,
-  type PayloadToDriverInput,
-  type ServiceJobDriver,
-  type DriverRegistry,
-  type WorkerLoopHandle,
+import { startWorkerLoop, safeLog } from "./worker/worker-loop.js";
+import type {
+  PayloadToDriverInput,
+  ServiceJobDriver,
+  DriverRegistry,
+  WorkerLoopHandle,
 } from "./worker/worker-loop.js";
 import {
   createD6PayloadToInput,

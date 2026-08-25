@@ -143,12 +143,62 @@ const handler = createCopilotRuntimeHandler({
 });
 
 const FAIL_THREADS_COOKIE = "cpk_lab_fail_threads=1";
+const FAIL_MEMORIES_COOKIE = "cpk_lab_fail_memories=1";
+const LAB_MEMORY_WS_URL = "ws://127.0.0.1:9/memories";
 
 function shouldFailThreadList(request: Request): boolean {
   const cookie = request.headers.get("cookie") ?? "";
   if (!cookie.includes(FAIL_THREADS_COOKIE)) return false;
   const path = new URL(request.url).pathname;
   return request.method === "GET" && path.endsWith("/threads");
+}
+
+function hasCookie(request: Request, cookie: string): boolean {
+  return (request.headers.get("cookie") ?? "").includes(cookie);
+}
+
+function handleLabMemoryRequest(request: Request): Response | null {
+  const path = new URL(request.url).pathname;
+  if (request.method === "GET" && path.endsWith("/memories")) {
+    if (hasCookie(request, FAIL_MEMORIES_COOKIE)) {
+      return new Response(JSON.stringify({ error: "memory list refused" }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ memories: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }
+
+  // The lab needs a memory REST failure, not a live Intelligence connection.
+  // A 422 is the SDK's supported silent-degrade signal for this optional feed.
+  if (path.endsWith("/memories/subscribe")) {
+    return new Response(null, { status: 422 });
+  }
+
+  return null;
+}
+
+async function handleLabRequest(request: Request): Promise<Response> {
+  const memoryResponse = handleLabMemoryRequest(request);
+  if (memoryResponse) return memoryResponse;
+
+  const response = await handler(request);
+  const path = new URL(request.url).pathname;
+  if (request.method !== "GET" || !path.endsWith("/info") || !response.ok) {
+    return response;
+  }
+
+  const runtimeInfo = (await response.json()) as Record<string, unknown>;
+  return Response.json(
+    {
+      ...runtimeInfo,
+      intelligence: { wsUrl: LAB_MEMORY_WS_URL },
+    },
+    { status: response.status, headers: response.headers },
+  );
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -158,9 +208,9 @@ export async function loader({ request }: Route.LoaderArgs) {
       headers: { "content-type": "application/json" },
     });
   }
-  return handler(request);
+  return handleLabRequest(request);
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  return handler(request);
+  return handleLabRequest(request);
 }

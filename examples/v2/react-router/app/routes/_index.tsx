@@ -25,6 +25,7 @@ const toolbarButtonClass = (active: boolean) =>
   }`;
 
 const FAIL_THREADS_COOKIE = "cpk_lab_fail_threads";
+const FAIL_MEMORIES_COOKIE = "cpk_lab_fail_memories";
 
 function setFailThreadsCookie(fail: boolean) {
   document.cookie = fail
@@ -32,16 +33,25 @@ function setFailThreadsCookie(fail: boolean) {
     : `${FAIL_THREADS_COOKIE}=; Path=/; Max-Age=0`;
 }
 
+function setFailMemoriesCookie(fail: boolean) {
+  document.cookie = fail
+    ? `${FAIL_MEMORIES_COOKIE}=1; Path=/`
+    : `${FAIL_MEMORIES_COOKIE}=; Path=/; Max-Age=0`;
+}
+
 if (typeof document !== "undefined") {
   // Clear before React mounts. Inspector fetches /threads during setup, so
   // a leftover cookie from "Break threads" would fail the first list call.
   setFailThreadsCookie(false);
+  setFailMemoriesCookie(false);
 }
 
 /**
  * Local lab for inspector error signals.
  * Break runtime points the core at a dead /info route.
  * Break threads makes the list route return 503 while the connection stays up.
+ * Break learning makes the memory list route return 503. Visit Learning once
+ * first: its store is intentionally lazy, matching the production Inspector.
  * Chat: send "crash the run" or "crash the tool" for real run/tool failures.
  */
 function InspectorErrorLab() {
@@ -66,6 +76,7 @@ function InspectorErrorLab() {
     ),
   });
   const [threadsBroken, setThreadsBroken] = useState(false);
+  const [memoriesBroken, setMemoriesBroken] = useState(false);
   const runtimeBroken = copilotkit.runtimeUrl === DEAD_RUNTIME_URL;
 
   const refreshThreadStores = () => {
@@ -106,16 +117,34 @@ function InspectorErrorLab() {
     );
   };
 
+  const breakLearning = () => {
+    setFailMemoriesCookie(true);
+    setMemoriesBroken(true);
+    // The error surface is fed by the real memory-store subscription. Calling
+    // refresh is a no-op until Learning has been visited, by design.
+    void copilotkit
+      .getMemoryStore()
+      .refresh()
+      .catch(() => {});
+  };
+
   const restore = () => {
     setFailThreadsCookie(false);
+    setFailMemoriesCookie(false);
     setThreadsBroken(false);
+    setMemoriesBroken(false);
     copilotkit.setRuntimeUrl(HEALTHY_RUNTIME_URL);
     refreshThreadStores();
+    void copilotkit
+      .getMemoryStore()
+      .refresh()
+      .catch(() => {});
   };
 
   useEffect(() => {
     return () => {
       setFailThreadsCookie(false);
+      setFailMemoriesCookie(false);
     };
   }, []);
 
@@ -128,6 +157,7 @@ function InspectorErrorLab() {
       <span className="text-xs text-gray-500">
         Runtime: {copilotkit.runtimeConnectionStatus}
         {threadsBroken ? " · threads broken" : ""}
+        {memoriesBroken ? " · learning broken" : ""}
       </span>
       <button
         type="button"
@@ -156,6 +186,14 @@ function InspectorErrorLab() {
         className={toolbarButtonClass(false)}
       >
         Break tool
+      </button>
+      <button
+        type="button"
+        onClick={breakLearning}
+        className={toolbarButtonClass(memoriesBroken)}
+        title="Open Inspector > Learning once before triggering this failure."
+      >
+        Break learning
       </button>
       <button
         type="button"
