@@ -149,6 +149,25 @@ class HarnessWorkerRestartPolicyTest < Minitest::Test
         cmd
     end
 
+    def pin_command_with(argv, gql:)
+        cmd = Railway::PinCommand.new(argv)
+        cmd.instance_variable_set(:@gql, gql)
+        cmd
+    end
+
+    def with_resolved_service_id(expected_env_id:, expected_name:, service_id:)
+        original = Railway::RollbackCommand.instance_method(:resolve_service_id)
+        Railway::RollbackCommand.define_method(:resolve_service_id) do |env_id, name|
+            raise "unexpected env_id #{env_id.inspect}" unless env_id == expected_env_id
+            raise "unexpected service name #{name.inspect}" unless name == expected_name
+
+            service_id
+        end
+        yield
+    ensure
+        Railway::RollbackCommand.define_method(:resolve_service_id, original)
+    end
+
     def worker_rollback_guidance
         "Direct rollback is disabled for harness-workers; use " \
             "`bin/railway pin --env <env> --service harness-workers " \
@@ -259,6 +278,45 @@ class HarnessWorkerRestartPolicyTest < Minitest::Test
         assert_includes err, worker_rollback_guidance
         refute_includes err, "without --yes"
         refute_includes err, "Type 'production'"
+    end
+
+    def test_worker_pin_reasserts_ssot_restart_policy_and_replicas_then_deploys_and_verifies
+        image = "ghcr.io/copilotkit/showcase-harness@sha256:expected"
+        gql = RecordingGQL.new(deployment_meta_by_service: {
+            "svc-worker" => worker_policy_meta,
+        })
+        cmd = pin_command_with(
+            [
+                "--env", "production",
+                "--service", "harness-workers",
+                "--image", image,
+                "--yes",
+                "--non-interactive",
+            ],
+            gql: gql,
+        )
+
+        out, err = capture_io do
+            @rc = with_resolved_service_id(
+                expected_env_id: Railway::PRODUCTION_ENV_ID,
+                expected_name: "harness-workers",
+                service_id: "svc-worker",
+            ) do
+                cmd.run
+            end
+        end
+
+        assert_equal 0, @rc, "pin should succeed with recording fake; out=#{out.inspect} err=#{err.inspect}"
+        assert_includes err, "[non-interactive] proceeding with pin on production (--yes given)."
+        assert_includes out, "pinned harness-workers -> #{image}"
+
+        worker_vars = gql.update_vars_for("svc-worker")
+        assert_equal image, worker_vars.dig(:input, :source, :image)
+        assert_equal "ALWAYS", worker_vars.dig(:input, :restartPolicyType)
+        assert_equal 6, worker_vars.dig(:input, :multiRegionConfig, "us-west2", :numReplicas)
+        assert_equal [:recheck, :update, :deploy, :recheck, :recheck],
+            gql.call_order_for("svc-worker"),
+            "worker pin should deploy and verify the newly spawned deployment"
     end
 
     def test_non_worker_named_rollback_still_reaches_existing_rollback_path

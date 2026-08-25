@@ -2610,8 +2610,25 @@ module Railway
                 return 0
             end
 
-            RestoreCommand.pin_and_redeploy(gql,
-                service_id: service_id, env_id: env_id, image: image)
+            if options[:service] == "harness-workers"
+                ssot_env = env_id == PRODUCTION_ENV_ID ? "prod" : "staging"
+                promote_helper = PromoteCommand.new([])
+                ssot_entry = promote_helper.ssot_service(options[:service]) || {}
+                ssot_healthcheck = ssot_entry.dig("healthcheckPath", ssot_env)
+                ssot_replicas = promote_helper.ssot_replica_config(options[:service], ssot_env)
+                ssot_restart_policy = ssot_entry.dig("workerProvisioning", ssot_env, "restartPolicyType")
+
+                PromoteCommand.pin_and_verify(gql,
+                    service_id: service_id,
+                    env_id: env_id,
+                    image: image,
+                    healthcheck_path: ssot_healthcheck,
+                    replica_config: ssot_replicas,
+                    restart_policy_type: ssot_restart_policy)
+            else
+                RestoreCommand.pin_and_redeploy(gql,
+                    service_id: service_id, env_id: env_id, image: image)
+            end
             puts "pinned #{options[:service]} -> #{image}"
             0
         end
