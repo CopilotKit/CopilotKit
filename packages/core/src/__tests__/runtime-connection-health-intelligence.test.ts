@@ -125,6 +125,12 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
     fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
       const target = String(url);
       requestedUrls.push(target);
+      // Single-endpoint transport asks for `/info` as a POST envelope against
+      // the runtime root instead of a GET on `/info`.
+      if (target === RUNTIME_URL) {
+        infoCalls += 1;
+        return infoHandler();
+      }
       if (target === INFO_URL) {
         infoCalls += 1;
         return infoHandler();
@@ -151,10 +157,12 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
   });
 
   /** A core connected to a healthy Intelligence runtime — page load. */
-  async function bootConnectedCore(): Promise<CopilotKitCoreInstance> {
+  async function bootConnectedCore(
+    runtimeTransport: "rest" | "single" = "rest",
+  ): Promise<CopilotKitCoreInstance> {
     const core = new CopilotKitCore({
       runtimeUrl: RUNTIME_URL,
-      runtimeTransport: "rest",
+      runtimeTransport,
     });
     await waitForCondition(
       () =>
@@ -376,5 +384,20 @@ describe("runtime connection health — Intelligence mode (OSS-904)", () => {
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     expect(infoCalls).toBe(2);
+  });
+  it("detects an unreachable runtime the same way when `/info` was negotiated over the single-endpoint transport", async () => {
+    // Both suites otherwise pin "rest" while the product default is "auto", so
+    // neither transport was covered other than by accident.
+    const core = await bootConnectedCore("single");
+    expect(infoCalls).toBe(1);
+    const agent = core.getAgent("default") as AbstractAgent;
+
+    takeRuntimeDown();
+    await core.runAgent({ agent }).catch(() => undefined);
+
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+    expect(infoCalls).toBe(2);
+    // The conversation survives the transition here too.
+    expect(core.getAgent("default")).toBe(agent);
   });
 });

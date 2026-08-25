@@ -758,3 +758,144 @@ test("queued thread_run_activity reconnect is discarded on agent change", async 
     "thread-current",
   ]);
 });
+
+/**
+ * OSS-904 made the runtime connection status able to change AFTER page load.
+ * Until then it only moved during startup, so nothing in a mounted tree had
+ * ever exercised a mid-session transition — and this effect lists the status in
+ * its dependencies, so a round trip tears it down and re-establishes it.
+ *
+ * The PRD flagged the consequence as reasoned rather than measured. These pin
+ * what actually happens.
+ */
+function setRuntimeStatus(
+  rendered: ReturnType<typeof renderChatWithCore>,
+  status: CopilotKitCoreRuntimeConnectionStatus,
+) {
+  rendered.core.runtimeConnectionStatus = status;
+  act(() => {
+    rendered.rerender(
+      <CopilotKitContext.Provider
+        value={{
+          copilotkit: rendered.core as never,
+          executingToolCallIds: EMPTY_SET,
+        }}
+      >
+        <CopilotChat threadId="thread-current" welcomeScreen={false} />
+      </CopilotKitContext.Provider>,
+    );
+  });
+}
+
+async function roundTripTheRuntimeStatus(
+  rendered: ReturnType<typeof renderChatWithCore>,
+) {
+  // connected -> error (outage) -> connecting (recovery re-sync) -> connected.
+  setRuntimeStatus(rendered, CopilotKitCoreRuntimeConnectionStatus.Error);
+  setRuntimeStatus(rendered, CopilotKitCoreRuntimeConnectionStatus.Connecting);
+  setRuntimeStatus(rendered, CopilotKitCoreRuntimeConnectionStatus.Connected);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+}
+
+test("a mid-session status round trip does not detach an in-flight run or reconnect it", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+
+  const activeRun = createDeferred();
+  rendered.runDeferrals.push(activeRun);
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(rendered.runAgent).toHaveBeenCalledTimes(1);
+  });
+  const detachesBeforeRoundTrip = rendered.agent.detachActiveRunCalls;
+
+  await roundTripTheRuntimeStatus(rendered);
+
+  // The agent instance is preserved across the transition (OSS-904 keeps it
+  // deliberately), and the teardown only detaches a WAKE reconnect it started
+  // itself — so a user-initiated run in flight is left alone.
+  expect(rendered.agent.detachActiveRunCalls).toBe(detachesBeforeRoundTrip);
+  // And nothing re-connected off the back of the status moving.
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+
+  await act(async () => {
+    activeRun.resolve();
+    await activeRun.promise;
+  });
+});
+
+test("run activity still reconnects after a mid-session status round trip", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+
+  await roundTripTheRuntimeStatus(rendered);
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+
+  // The subscription was torn down while the status was not connected and must
+  // be back now — otherwise the outage would silently cost the chat its wake
+  // signal for the rest of the page's life.
+  emitRunActivity(rendered.store);
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+  expect(rendered.connectAgentCalls[0]?.agent).toBe(rendered.agent);
+});
+
+test("run activity arriving while the status is red is ignored rather than queued", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+
+  setRuntimeStatus(rendered, CopilotKitCoreRuntimeConnectionStatus.Error);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+
+  emitRunActivity(rendered.store);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  // Nothing is subscribed while red, so the notification is dropped — and it
+  // does not resurface when the status returns.
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+  setRuntimeStatus(rendered, CopilotKitCoreRuntimeConnectionStatus.Connected);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
+test("a mid-session status round trip restarts the standalone run-activity store", async () => {
+  const standaloneStore = createRunActivityStore();
+  coreMocks.createThreadStore.mockReturnValue(standaloneStore);
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { list: true, realtimeMetadata: true },
+    registeredStore: null,
+  });
+  await settleInitialConnect(rendered);
+  const startsBefore = standaloneStore.start.mock.calls.length;
+
+  await roundTripTheRuntimeStatus(rendered);
+
+  // Documented rather than fixed: when this chat owns its run-activity store,
+  // a status round trip stops and restarts it, so the thread-list and
+  // subscribe requests are issued again. That is one extra pair of requests per
+  // outage, caused by user activity and paid only on a transition — it does not
+  // touch the "no background traffic" guarantee, which is about the idle case.
+  expect(standaloneStore.stop).toHaveBeenCalled();
+  expect(standaloneStore.start.mock.calls.length).toBeGreaterThan(startsBefore);
+  // The store is the SAME instance across the round trip (it is component
+  // state, not effect state), so nothing accumulates.
+  expect(coreMocks.createThreadStore).toHaveBeenCalledTimes(1);
+});
