@@ -266,6 +266,19 @@ test("Turn on Threads lands on the Threads view", async () => {
   expect(currentMenu(inspector)).toBe("threads");
 });
 
+test("a press on the row body lands, not only the title", async () => {
+  const { inspector, openHud } = await setup();
+  await openHud();
+  const detail = requireElement(
+    root(inspector).querySelector<HTMLElement>(
+      '[data-cpk-hud-row="threads"] .cpk-launcher-hud__detail',
+    ),
+  );
+  detail.click();
+  await settle(inspector);
+  expect(currentMenu(inspector)).toBe("threads");
+});
+
 test("Threads on still lands on the Threads view", async () => {
   const { inspector, openHud, clickHud } = await setup({
     endpoints: ENABLED_ENDPOINTS,
@@ -291,6 +304,7 @@ test("the help mark keeps a row's detail open without hover", async () => {
       ?.getAttribute("data-cpk-hud-help"),
   ).toBe("open");
   expect(help.getAttribute("aria-expanded")).toBe("true");
+  expect(root(inspector).querySelector(".inspector-window")).toBeNull();
 });
 
 test("Turn on Intelligence lands on Home", async () => {

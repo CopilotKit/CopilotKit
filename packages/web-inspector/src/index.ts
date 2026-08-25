@@ -8674,10 +8674,12 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__row {
+        position: relative;
         display: grid;
         grid-template-columns: 1fr 28px;
         align-items: start;
         border-radius: 7px;
+        cursor: pointer;
       }
 
       .cpk-launcher-hud__row + .cpk-launcher-hud__row {
@@ -8707,6 +8709,14 @@ ${argsString}</pre
         cursor: pointer;
       }
 
+      /* Stretch the row action over the whole tab, including the detail
+         copy. The help mark sits above this layer. */
+      .cpk-launcher-hud__action::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+
       .cpk-launcher-hud__check {
         flex: none;
         width: 14px;
@@ -8715,6 +8725,8 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__help {
+        position: relative;
+        z-index: 1;
         display: inline-flex;
         width: 28px;
         height: 32px;
@@ -8757,6 +8769,7 @@ ${argsString}</pre
         font-weight: 400;
         line-height: 1.4;
         opacity: 0;
+        pointer-events: none;
       }
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
@@ -9677,6 +9690,17 @@ ${argsString}</pre
     this.requestUpdate();
   };
 
+  private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+    ) {
+      return;
+    }
+    this.handleHudActionClick(event, row);
+  };
+
   private renderHudCheck(): TemplateResult {
     return html`
       <svg
@@ -9711,6 +9735,7 @@ ${argsString}</pre
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
         data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
         <button
           type="button"
