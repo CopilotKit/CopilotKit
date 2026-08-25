@@ -82,6 +82,35 @@ export const RUNTIME_PROBE_COOLDOWN_MS = 2_000;
 export const RUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
 /**
+ * How long a runtime-bound request may go without producing RESPONSE HEADERS
+ * before its silence is reported as a suspected outage.
+ *
+ * Everything else in this feature reacts to the OUTCOME of a request. A runtime
+ * that accepts the connection and never answers produces no outcome at all, so
+ * nothing is reported and no probe is started — and that is the common shape of
+ * the failures this feature exists for: a container mid-restart, a half-switched
+ * deploy, a dropped tunnel. Only a stopped dev server refuses fast. Measured
+ * against the demo before this existed: a server accepting TCP and never
+ * writing left System Health reading healthy 35 seconds after the message was
+ * sent, with the request still pending.
+ *
+ * The probe's own bound does not cover this. It bounds a probe; here no probe
+ * is ever started.
+ *
+ * HEADERS, not the body. `fetch` resolves as soon as the response head arrives
+ * and the SSE body streams afterwards, so an agent that thinks for a minute
+ * still resolves this within milliseconds and is never touched.
+ *
+ * The watchdog OBSERVES. It never aborts the request, so a runtime that is
+ * merely slow still completes the user's run and still reports its eventual
+ * outcome.
+ *
+ * Exported for tests, which must derive their waits from it rather than
+ * hardcode a number that silently drifts away from this one.
+ */
+export const RUNTIME_REQUEST_WATCHDOG_MS = 10_000;
+
+/**
  * What the instrumented fetch observed about one runtime-bound request.
  *
  * Only `ok` and `failed` carry information about the runtime. `aborted` is a
@@ -694,6 +723,11 @@ export class AgentRegistry {
    * through this fetch is runtime traffic, so a runtime route added later
    * inherits the behaviour without anyone remembering to update a list.
    *
+   * A request that never SETTLES is observed too, by
+   * {@link armRuntimeRequestWatchdog} — see {@link RUNTIME_REQUEST_WATCHDOG_MS}
+   * for why an outcome-only seam has a hole exactly where this feature's
+   * motivating failures live.
+   *
    * The returned function is memoized so re-applying it to an agent (headers
    * change, re-connection) is idempotent.
    */
@@ -706,21 +740,76 @@ export class AgentRegistry {
         // Read on settle, not here: a caller may still be filling this in (a
         // timeout it has not hit yet). See `RuntimeRequestMeta`.
         const meta = () => runtimeRequestMeta(init);
+        const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
           const response = await fetch(input, init);
+          watchdog.clear();
           this.handleRuntimeRequestOutcome(
             response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
+            watchdog.reported,
           );
           return response;
         } catch (error) {
+          watchdog.clear();
           this.handleRuntimeRequestOutcome(
             classifyRuntimeRequestFailure(error, meta()),
+            watchdog.reported,
           );
           throw error;
         }
       }) as typeof fetch;
     }
     return this.runtimeFetch;
+  }
+
+  /**
+   * Watch ONE runtime request for silence (OSS-904).
+   *
+   * If no response head arrives within {@link RUNTIME_REQUEST_WATCHDOG_MS} the
+   * request's silence is reported as the same "suspected outage" a failure
+   * reports, which runs the ordinary confirmation probe. The request is left
+   * strictly alone: not aborted, not cancelled, not raced. A runtime that is
+   * only slow still finishes the user's run and still reports its own outcome
+   * afterwards.
+   *
+   * Two requests never arm it:
+   *
+   * - one the caller declared non-critical, consistent with every other rule
+   *   keyed on that marker: a request the code itself treats as harmless must
+   *   not be able to trigger anything;
+   * - one the caller already bounds with its own timeout (the thread routes).
+   *   Such a request cannot fail to produce an outcome, which is the ONLY gap
+   *   this exists to fill, and a shorter bound of ours would quietly override
+   *   the budget the caller chose.
+   *
+   * Guarded on `window` like every other side effect here: this package also
+   * runs in React Native and during server rendering, and nothing new may run
+   * on the server.
+   *
+   * The timer is always cleared when the request settles. The package has no
+   * disposal path, so an uncleared timer has no owner to collect it — and would
+   * fire a probe ten seconds after a perfectly good run.
+   */
+  private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
+    clear: () => void;
+    reported: () => boolean;
+  } {
+    if (
+      typeof window === "undefined" ||
+      meta?.nonCritical ||
+      meta?.selfBounded
+    ) {
+      return { clear: () => {}, reported: () => false };
+    }
+    let reported = false;
+    const timeoutId = setTimeout(() => {
+      reported = true;
+      this.handleRuntimeRequestOutcome("failed");
+    }, RUNTIME_REQUEST_WATCHDOG_MS);
+    return {
+      clear: () => clearTimeout(timeoutId),
+      reported: () => reported,
+    };
   }
 
   /**
@@ -1000,12 +1089,26 @@ export class AgentRegistry {
    * runtime request can move the status to error, a successful one can move it
    * back, and nothing else moves it. Deliberate consequence: while the
    * application is idle nothing is detected in either direction.
+   *
+   * @param alreadyReported - This request's watchdog already reported its
+   * silence as a suspected outage. The failure now arriving is the same fact
+   * about the same request, not a second incident, so it must not buy a second
+   * probe. A SUCCESS still counts: the runtime answered after all, and that is
+   * the evidence that ends an outage. Neither the in-flight latch nor the
+   * "only probe while Connected" guard covers this on its own — a probe that
+   * came back healthy releases both, and the request can fail long after.
    */
-  private handleRuntimeRequestOutcome(outcome: RuntimeRequestOutcome): void {
+  private handleRuntimeRequestOutcome(
+    outcome: RuntimeRequestOutcome,
+    alreadyReported: () => boolean = () => false,
+  ): void {
     // A cancelled request is the user pressing Stop (or a component
     // unmounting), not a connectivity problem. `ignored` is a failure the
     // caller declared harmless — see `RuntimeRequestMeta`.
     if (outcome === "aborted" || outcome === "ignored") {
+      return;
+    }
+    if (outcome === "failed" && alreadyReported()) {
       return;
     }
     // Never run during server rendering — same guard as `connectRuntime`.

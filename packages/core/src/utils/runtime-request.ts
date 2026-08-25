@@ -34,6 +34,20 @@ export interface RuntimeRequestMeta {
    */
   nonCritical?: boolean;
   /**
+   * The caller gives up on its own clock, so this request is guaranteed to
+   * produce an outcome.
+   *
+   * That is the whole reason the silence watchdog exists — a request that never
+   * settles reports nothing at all — so a request that cannot go silent does
+   * not arm one. Arming it anyway would put a second, shorter bound on top of
+   * the budget the caller deliberately chose, and would take the caller's own
+   * timeout classification (`timedOut` below) out of play.
+   *
+   * Unlike {@link timedOut}, this is known when the request is ISSUED and is
+   * read then.
+   */
+  selfBounded?: boolean;
+  /**
    * The caller aborted this request because ITS OWN timeout fired.
    *
    * A cancellation is excluded from triggering a check because pressing Stop

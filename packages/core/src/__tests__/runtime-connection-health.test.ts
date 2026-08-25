@@ -28,7 +28,9 @@ import {
 import {
   RUNTIME_PROBE_COOLDOWN_MS,
   RUNTIME_PROBE_TIMEOUT_MS,
+  RUNTIME_REQUEST_WATCHDOG_MS,
 } from "../core/agent-registry";
+import type { RuntimeRequestInit } from "../utils/runtime-request";
 import { ɵcreateThreadStore, ɵTHREAD_REQUEST_TIMEOUT_MS } from "../threads";
 import { waitForCondition } from "./test-utils";
 import { logger } from "@copilotkit/shared";
@@ -905,6 +907,257 @@ describe("runtime connection health (OSS-904)", () => {
       CopilotKitCoreRuntimeConnectionStatus.Error,
     );
     expect(altInfoCalls).toBe(2);
+  });
+
+  // --- a request that never settles (the watchdog) -------------------------
+  //
+  // Everything above reacts to the OUTCOME of a request. A runtime that
+  // accepts the connection and never answers produces no outcome at all, so
+  // without a watchdog nothing is ever reported and no probe is ever started —
+  // the status stays green forever against exactly the failures this feature
+  // names. Reproduced manually against the demo: a server that accepts TCP and
+  // never writes, a message sent, and System Health still reading healthy after
+  // 35 seconds with the request still pending.
+  //
+  // The probe's own bound does not help: it bounds a probe, and no probe is
+  // started.
+
+  it("confirms an outage when the run request itself hangs and never answers", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // Nothing refuses and nothing answers — the container is mid-restart, the
+    // deploy is half switched, the tunnel dropped.
+    takeRuntimeDown({ hang: true });
+    void runOnce(core).catch(() => undefined);
+
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    // One probe, reached through the watchdog rather than through an outcome.
+    expect(infoCalls).toBe(2);
+  });
+
+  it("waits the bounded interval before treating silence as a suspected outage", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    takeRuntimeDown({ hang: true });
+    void runOnce(core).catch(() => undefined);
+
+    // Just short of the bound nothing has been asked: a runtime that is merely
+    // taking its time is not an outage.
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS - 100);
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(infoCalls).toBe(2);
+  });
+
+  it("leaves a slow but healthy runtime alone and lets its run finish normally", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // Headers promptly, body streaming for far longer than the bound — an
+    // agent that thinks for a minute. The watchdog watches for RESPONSE
+    // HEADERS, which is what `fetch` resolves on, so the stream that follows
+    // is none of its business.
+    const stream = controllableSseStream();
+    runHandler = async () => stream.response;
+    const agent = core.getAgent("default") as AbstractAgent;
+    agent.threadId = "thread-slow";
+    const run = core.runAgent({ agent });
+
+    stream.push({
+      type: "RUN_STARTED",
+      threadId: "thread-slow",
+      runId: "slow-run",
+    });
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 3);
+
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // And the run still completes, unaffected: the watchdog observes, it never
+    // interferes with the user's run.
+    stream.push({
+      type: "RUN_FINISHED",
+      threadId: "thread-slow",
+      runId: "slow-run",
+      result: { newMessages: [] },
+    });
+    stream.close();
+    await run;
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
+
+    expect(infoCalls).toBe(1);
+    expect(runCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
+  it("leaves no timer behind when a request settles normally and fast", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The package has no disposal path, so a watchdog that is not cleared on
+    // settle is a leak with no owner to collect it — and a probe that fires
+    // ten seconds after a perfectly good run.
+    const timersBefore = vi.getTimerCount();
+    await runOnce(core);
+    expect(vi.getTimerCount()).toBe(timersBefore);
+
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
+  it("does not ask a second time when a watched request finally fails", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The run route hangs while `/info` answers: the watchdog reports, and the
+    // probe finds the runtime healthy, so the status stays green and the latch
+    // is released.
+    let failTheRun: () => void = () => {};
+    runHandler = () =>
+      new Promise<Response>((_resolve, reject) => {
+        failTheRun = () => reject(new TypeError("Failed to fetch"));
+      });
+    void runOnce(core).catch(() => undefined);
+
+    await waitForConditionVirtual(() => infoCalls === 2);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The hung request now gives up. That is the same fact the watchdog
+    // already reported about the same request, not a second incident, so it
+    // must not buy another probe.
+    failTheRun();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(infoCalls).toBe(2);
+  });
+
+  it("does not arm the watchdog for a request the caller declared non-critical", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    takeRuntimeDown({ hang: true });
+    const controller = new AbortController();
+    const init: RuntimeRequestInit = {
+      method: "POST",
+      signal: controller.signal,
+      ɵruntimeRequest: { nonCritical: true },
+    };
+    const timersBefore = vi.getTimerCount();
+    const pending = core.ɵruntimeFetch(RUN_URL, init).catch(() => undefined);
+
+    // Nothing was scheduled at all: a request the code itself treats as
+    // harmless must not be able to trigger anything.
+    expect(vi.getTimerCount()).toBe(timersBefore);
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 3);
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    controller.abort();
+    await pending;
+  });
+
+  it("does not arm the watchdog for a request the caller already bounds itself", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    // The thread store gives up on its own clock, so its request cannot fail
+    // to produce an outcome — which is the only gap the watchdog fills. Its
+    // own budget decides when, not ours.
+    threadListHandler = hangs;
+    takeRuntimeDown();
+    const store = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: RUNTIME_URL,
+      headers: {},
+      agentId: "default",
+    });
+
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS + 1_000);
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    store.stop();
+  });
+
+  it("arms no watchdog during server rendering", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    const runtimeFetch = core.ɵruntimeFetch;
+
+    takeRuntimeDown({ hang: true });
+    delete (globalThis as { window?: unknown }).window;
+
+    const controller = new AbortController();
+    const timersBefore = vi.getTimerCount();
+    const pending = runtimeFetch(RUN_URL, {
+      method: "POST",
+      signal: controller.signal,
+    }).catch(() => undefined);
+
+    expect(vi.getTimerCount()).toBe(timersBefore);
+    await vi.advanceTimersByTimeAsync(RUNTIME_REQUEST_WATCHDOG_MS * 3);
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    controller.abort();
+    await pending;
   });
 
   // --- the cooldown --------------------------------------------------------

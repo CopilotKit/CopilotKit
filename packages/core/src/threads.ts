@@ -814,10 +814,14 @@ function threadFromFetch<T>(
     } = init;
     const controller = new AbortController();
     // Shared by reference with the fetch below, which reads it when the request
-    // SETTLES — so `timedOut` set here still reaches it.
-    const runtimeRequest: RuntimeRequestMeta = nonCritical
-      ? { nonCritical: true }
-      : {};
+    // SETTLES — so `timedOut` set here still reaches it. `selfBounded` is the
+    // exception and is read when the request is issued: it says this request
+    // owns a bound of its own, so the connection-health seam must not put a
+    // shorter one on top of it (OSS-904).
+    const runtimeRequest: RuntimeRequestMeta = {
+      ...(nonCritical ? { nonCritical: true } : {}),
+      ...(timeoutMs === undefined ? {} : { selfBounded: true }),
+    };
     let timedOut = false;
     const abortRequest = () => controller.abort();
 
