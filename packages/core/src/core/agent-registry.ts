@@ -710,14 +710,14 @@ export class AgentRegistry {
           watchdog.clear();
           this.handleRuntimeRequestOutcome(
             response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
-            watchdog.reported,
+            watchdog.checked,
           );
           return response;
         } catch (error) {
           watchdog.clear();
           this.handleRuntimeRequestOutcome(
             classifyRuntimeRequestFailure(error, meta()),
-            watchdog.reported,
+            watchdog.checked,
           );
           throw error;
         }
@@ -757,7 +757,7 @@ export class AgentRegistry {
    * background traffic this design rejects by name, firing a fresh probe every
    * interval for as long as one request hangs.
    *
-   * `reported` records whether the watchdog's report actually CAUSED a check,
+   * `checked` records whether the watchdog's report actually CAUSED a check,
    * not whether the timer fired. The report is discarded outright when a probe
    * is already in flight, when the status is not `Connected`, or when there is
    * no runtime url — and a flag claiming otherwise makes the request's own
@@ -766,14 +766,14 @@ export class AgentRegistry {
    */
   private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
     clear: () => void;
-    reported: () => boolean;
+    checked: () => boolean;
   } {
     if (
       typeof window === "undefined" ||
       meta?.nonCritical ||
       meta?.selfBounded
     ) {
-      return { clear: () => {}, reported: () => false };
+      return { clear: () => {}, checked: () => false };
     }
     let checked = false;
     const timeoutId = setTimeout(() => {
@@ -781,7 +781,7 @@ export class AgentRegistry {
     }, RUNTIME_REQUEST_WATCHDOG_MS);
     return {
       clear: () => clearTimeout(timeoutId),
-      reported: () => checked,
+      checked: () => checked,
     };
   }
 
