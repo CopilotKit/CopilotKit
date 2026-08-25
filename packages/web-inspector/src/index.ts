@@ -8845,21 +8845,23 @@ ${argsString}</pre
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
+        z-index: 1;
         width: 10px;
         height: 10px;
         border: 0;
-        background: var(--hud-fill);
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
+        /* The card frosts the page behind it, so it reads lighter than the
+           raw fill. The arrow sits over the gap and the launcher, so it uses
+           a lighter mix of the same fill instead of a second blur. */
+        background: color-mix(in srgb, var(--hud-fill) 78%, white 22%);
         transform: translateY(-50%) rotate(45deg);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
-        right: -5px;
+        right: 9px;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
-        left: -5px;
+        left: 9px;
       }
 
       .cpk-launcher-hud__list {
@@ -9983,8 +9985,8 @@ ${argsString}</pre
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
       >
+        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
-          <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
           <ul class="cpk-launcher-hud__list" role="list">
             ${this.renderHudRow({
               id: "inspector",
