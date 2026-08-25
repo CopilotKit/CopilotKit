@@ -186,14 +186,51 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             <Step>
+                ### Start your agent
+
+                Leave the Mastra server running in its own terminal:
+
+                ```bash
+                npx mastra dev
+                ```
+
+                Note the port it prints. `mastra dev` takes 4111 when it is free and walks
+                up to 4131 when it is not, and the frontend you build next reaches this
+                agent over HTTP at that address.
+
+                Confirm it is serving your agent before you wire the frontend to it:
+
+                ```bash
+                curl http://127.0.0.1:4111/api/agents
+                ```
+
+                <Callout type="warn" title="A bare `GET /` is not a liveness check">
+                  Mastra serves its web console on the agent port and answers `200` whether
+                  or not any agent is registered. Check `/api/agents` and look for your
+                  agent by name.
+                </Callout>
+            </Step>
+            <Step>
                 ### Create your frontend
 
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
+                Create it *beside* your Mastra project, not inside it:
+
                 ```bash
+                cd ..
                 npx create-next-app@latest my-copilot-app
                 cd my-copilot-app
                 ```
+
+                <Callout type="warn" title="Don't point `next dev` at your Mastra project root">
+                  On its first run Next.js rewrites the `tsconfig.json` at its own root:
+                  it forces `esModuleInterop`, `isolatedModules`, `resolveJsonModule` and
+                  `jsx`, sets `noEmit: true`, and replaces `include` and `exclude`. Pointed
+                  at a Mastra project that compiles with `tsc`, that rewrites the config
+                  your agent builds with. A sibling package leaves it untouched — and it is
+                  why this guide reaches the agent over HTTP rather than importing it.
+                </Callout>
             </Step>
             <Step>
                 ### Install CopilotKit packages
@@ -205,19 +242,33 @@ Before you begin, you'll need the following:
             <Step>
                 ### Setup Copilot Runtime
 
-                Create an API route to connect CopilotKit to your Mastra agent:
+                Create an API route that connects CopilotKit to the Mastra server you
+                started above. `MastraAgent.getRemoteAgents` asks that server which agents
+                it has and bridges each one over HTTP, so your agent keeps running as its
+                own process:
 
-                ```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+                ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
                   CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
                 } from "@copilotkit/runtime/v2";
-                import { MastraAgent } from "@ag-ui/mastra"
-                import { mastra } from "@/mastra"; // the path to your Mastra instance
+                import { MastraAgent } from "@ag-ui/mastra";
+                import { MastraClient } from "@mastra/client-js";
+
+                const mastraClient = new MastraClient({
+                  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
+                });
 
                 const runtime = new CopilotRuntime({
-                  agents: MastraAgent.getLocalAgents({ mastra }),
+                  // A factory, so the agent list is fetched per request rather than at
+                  // module load — the route survives an agent server that is not up yet.
+                  agents: ({ request }) =>
+                    MastraAgent.getRemoteAgents({
+                      mastraClient,
+                      // Scopes Mastra's own memory to the same user identified below.
+                      resourceId: request.headers.get("x-user-id") ?? "anonymous",
+                    }),
                   // [!code highlight:8]
                   intelligence: new CopilotKitIntelligence({
                     apiKey: process.env.INTELLIGENCE_API_KEY!,
@@ -238,12 +289,26 @@ Before you begin, you'll need the following:
                 export const POST = handler;
                 ```
 
-                The runtime reads the license key from step 1. Add it to the app that serves
-                this route:
+                This route needs two values from *this* app's environment — the license
+                key from step 1, and the address of the agent server you started earlier.
+                It reads them here, not in the Mastra project:
 
                 ```plaintext title=".env.local"
                 INTELLIGENCE_API_KEY=your_license_key
+                MASTRA_BASE_URL=http://127.0.0.1:4111
                 ```
+
+                `MASTRA_BASE_URL` defaults to `http://127.0.0.1:4111`, so you only need it
+                if your agent server took a different port or you are pointing at a
+                deployed Mastra service.
+
+                <Callout type="info" title="Embedding Mastra instead">
+                  If your Mastra instance lives inside this Next.js app rather than in its
+                  own process, swap `getRemoteAgents` for
+                  `MastraAgent.getLocalAgents({ mastra, resourceId })` and drop the client.
+                  See [local vs remote agents](/mastra/copilot-runtime#local-vs-remote-agents)
+                  for which one to choose.
+                </Callout>
 
                 <Callout type="info" title="Running without the Intelligence Platform?">
                   Drop the `intelligence` and `identifyUser` options and the runtime falls back
@@ -301,7 +366,8 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your UI
 
-                Start the development server:
+                With the agent still running from earlier, start the frontend in a second
+                terminal:
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -349,7 +415,8 @@ Before you begin, you'll need the following:
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your Mastra agent is running on port 4111
+                - Make sure your Mastra agent is running on port 4111, and that `MASTRA_BASE_URL` points at it
+                - `curl http://127.0.0.1:4111/api/agents` should list your agent by name
                 - Check that your OpenAI API key is correctly set in the `.env` file
             </Accordion>
         </Accordions>
