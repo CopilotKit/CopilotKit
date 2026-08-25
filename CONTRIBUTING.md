@@ -60,7 +60,7 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ## Step 3: Prepare the development environment
 
-### 1)Install Prerequisites
+### 1) Install Prerequisites
 
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
