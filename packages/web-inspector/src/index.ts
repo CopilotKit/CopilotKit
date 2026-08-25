@@ -490,9 +490,14 @@ function isWiringErrorKey(
   return (WIRING_ERROR_KEYS as readonly string[]).includes(key);
 }
 
-function isEventErrorKey(
-  key: LauncherSignalKey,
-): key is InspectorEventErrorSource {
+/**
+ * Takes a plain string rather than a `LauncherSignalKey`, because one caller
+ * reads the subject back out of a `data-` attribute, where the DOM can only
+ * offer `string | undefined`. Narrowing untrusted input is what a guard is
+ * for; `LauncherSignalKey` still satisfies the parameter, so the callers that
+ * already hold one are unaffected.
+ */
+function isEventErrorKey(key: string): key is InspectorEventErrorSource {
   return (EVENT_ERROR_KEYS as readonly string[]).includes(key);
 }
 
