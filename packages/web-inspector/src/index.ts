@@ -399,6 +399,25 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
+type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+
+const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
+const HUD_THREADS_OFF_LABEL = "Turn on Threads";
+const HUD_THREADS_ON_LABEL = "Threads on";
+const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
+const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
+const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
+const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
+const HUD_INTELLIGENCE_OFF_DETAIL =
+  "Connect Intelligence to use Threads and Learning.";
+const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
+const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
+const HUD_LEARNING_ON_LABEL = "Learning on";
+const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
+const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
+const HUD_OPEN_INSPECTOR_DETAIL =
+  "Same as clicking the circle. Opens the full Inspector.";
+
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
 > = {
@@ -595,6 +614,8 @@ type CoreStatusSummary = Readonly<{
 type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
+/** HUD card plus the hover bridge. Used to pick left vs right. */
+const LAUNCHER_HUD_WIDTH = 248;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -5988,6 +6009,16 @@ export class WebInspectorElement extends LitElement {
    */
   private pillDirection: LauncherPillDirection | null = null;
   private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /** Hover/focus menu on the closed launcher. */
+  private launcherHudOpen = false;
+  private launcherHudSide: "left" | "right" = "left";
+  private launcherHudHelp: LauncherHudRowId | null = null;
+  private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
+   * the circle cannot steal "Turn on Threads". Not a public open option.
+   */
+  private hudLandingMenu: MenuKey | null = null;
   /**
    * Whether this outage's pill actually opened. Per outage rather than per
    * phase, so a second source arming behind the first reports the same answer
@@ -8754,6 +8785,215 @@ ${argsString}</pre
         }
       }
 
+      /* ── Launcher HUD: hover menu, quieter than the error island ── */
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
+        pointer-events: auto;
+        opacity: 1;
+        transform: none;
+        visibility: visible;
+      }
+
+      .cpk-launcher-hud {
+        position: absolute;
+        top: 0;
+        z-index: 4;
+        padding-right: 14px;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(8px);
+        transition:
+          opacity 160ms ease,
+          transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] {
+        right: 100%;
+        padding-right: 14px;
+        padding-left: 0;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] {
+        left: 100%;
+        right: auto;
+        padding-right: 0;
+        padding-left: 14px;
+        transform: translateX(-8px);
+      }
+
+      .console-button-wrapper[data-cpk-hud="open"]
+        .cpk-launcher-hud[data-cpk-hud-side="right"] {
+        transform: none;
+      }
+
+      .cpk-launcher-hud__card {
+        --hud-fill: rgb(28 31 36 / 0.88);
+        --hud-line: rgb(190 194 255 / 0.5);
+        position: relative;
+        width: 228px;
+        padding: 4px;
+        border: 1px dotted var(--hud-line);
+        border-radius: 10px;
+        background: var(--hud-fill);
+        color: #fff;
+        backdrop-filter: blur(12px) saturate(1.2);
+        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+      }
+
+      .cpk-launcher-hud__arrow {
+        position: absolute;
+        top: calc(var(--cpk-launcher-size) / 2);
+        width: 10px;
+        height: 10px;
+        background: var(--hud-fill);
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
+        right: -5px;
+        border-top: 1px solid var(--hud-line);
+        border-right: 1px solid var(--hud-line);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
+        left: -5px;
+        border-bottom: 1px solid var(--hud-line);
+        border-left: 1px solid var(--hud-line);
+      }
+
+      .cpk-launcher-hud__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px dotted var(--hud-line);
+      }
+
+      .cpk-launcher-hud__row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 28px;
+        align-items: start;
+        border-radius: 7px;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__row + .cpk-launcher-hud__row {
+        margin-top: 1px;
+      }
+
+      .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: rgb(255 255 255 / 0.06);
+      }
+
+      .cpk-launcher-hud__action {
+        display: flex;
+        gap: 8px;
+        min-height: 32px;
+        align-items: center;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: #fff;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      /* Stretch the row action over the whole tab, including the detail
+         copy. The help mark sits above this layer. */
+      .cpk-launcher-hud__action::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+
+      .cpk-launcher-hud__check {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        color: #34d399;
+      }
+
+      .cpk-launcher-hud__help {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        width: 28px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: rgb(255 255 255 / 0.78);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__help span {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        align-items: center;
+        justify-content: center;
+        border: 1px dotted rgb(190 194 255 / 0.55);
+        border-radius: 50%;
+        line-height: 1;
+      }
+
+      .cpk-launcher-hud__help:focus-visible,
+      .cpk-launcher-hud__action:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__detail {
+        grid-column: 1 / -1;
+        max-height: 0;
+        margin: 0;
+        padding: 0 8px;
+        overflow: hidden;
+        color: rgb(255 255 255 / 0.78);
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.4;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-6px);
+        transition:
+          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          opacity 150ms ease-out,
+          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
+      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
+      .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
+        max-height: 72px;
+        padding: 0 8px 7px;
+        opacity: 1;
+        transform: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud,
+        .cpk-launcher-hud__detail {
+          transition: none;
+        }
+      }
+
       /*
        * Marker on the navigation entry, which is what keeps a signal alive
        * once the panel is open and the launcher is hidden. Static by design:
@@ -9368,11 +9608,21 @@ ${argsString}</pre
       : {};
 
     return html`
-      <div class="console-button-wrapper">
+      <div
+        class="console-button-wrapper"
+        data-cpk-hud=${this.launcherHudOpen ? "open" : "closed"}
+        @pointerenter=${this.handleLauncherHudEnter}
+        @pointerleave=${this.handleLauncherHudLeave}
+        @focusin=${this.handleLauncherHudFocusIn}
+        @focusout=${this.handleLauncherHudFocusOut}
+        @keydown=${this.handleLauncherHudKeydown}
+      >
         ${this.renderLauncherPill()}
         <button
           class=${buttonClasses}
           type="button"
+          aria-expanded=${this.launcherHudOpen ? "true" : "false"}
+          aria-controls=${this.launcherHudOpen ? "cpk-launcher-hud" : nothing}
           aria-label=${
             // The dot is decorative and hidden from assistive technology, and
             // the accessible signal for an announcement lives on its
@@ -9457,6 +9707,7 @@ ${argsString}</pre
             >${this.getGestureLabel() ?? ""}</span
           >`
         }
+        ${this.renderLauncherHud()}
       </div>
     `;
   }
@@ -9532,6 +9783,248 @@ ${argsString}</pre
     event.stopPropagation();
     this.openInspector("floating_button");
   };
+
+  private isLauncherHudBlocked(): boolean {
+    return this.gestureSignal !== null;
+  }
+
+  private resolveLauncherHudSide(): void {
+    if (typeof window === "undefined") {
+      this.launcherHudSide = "left";
+      return;
+    }
+    const button =
+      this.activeRoot.querySelector<HTMLElement>(".console-button");
+    if (!button) {
+      this.launcherHudSide = "left";
+      return;
+    }
+    const mark = button.getBoundingClientRect();
+    if (mark.left - LAUNCHER_HUD_WIDTH >= EDGE_MARGIN) {
+      this.launcherHudSide = "left";
+      return;
+    }
+    this.launcherHudSide = "right";
+  }
+
+  private openLauncherHud(): void {
+    if (this.isLauncherHudBlocked() || this.isOpen) return;
+    this.resolveLauncherHudSide();
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+      this.launcherHudCloseTimer = null;
+    }
+    if (this.launcherHudOpen) return;
+    this.launcherHudOpen = true;
+    this.requestUpdate();
+  }
+
+  private closeLauncherHud(): void {
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+      this.launcherHudCloseTimer = null;
+    }
+    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    this.launcherHudOpen = false;
+    this.launcherHudHelp = null;
+    this.requestUpdate();
+  }
+
+  private handleLauncherHudEnter = (): void => {
+    this.openLauncherHud();
+  };
+
+  private handleLauncherHudLeave = (): void => {
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+    }
+    this.launcherHudCloseTimer = setTimeout(() => {
+      this.launcherHudCloseTimer = null;
+      this.closeLauncherHud();
+    }, 160);
+  };
+
+  private handleLauncherHudFocusIn = (): void => {
+    this.openLauncherHud();
+  };
+
+  private handleLauncherHudFocusOut = (event: FocusEvent): void => {
+    const next = event.relatedTarget;
+    const wrapper = event.currentTarget;
+    if (
+      next instanceof Node &&
+      wrapper instanceof Node &&
+      wrapper.contains(next)
+    ) {
+      return;
+    }
+    this.closeLauncherHud();
+  };
+
+  private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    if (!this.launcherHudOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeLauncherHud();
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(".console-button")
+      ?.focus();
+  };
+
+  private handleHudActionClick = (
+    event: Event,
+    row: LauncherHudRowId,
+  ): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.hudLandingMenu =
+      row === "inspector"
+        ? null
+        : row === "threads"
+          ? "threads"
+          : row === "learning"
+            ? "memories"
+            : "home";
+    this.closeLauncherHud();
+    this.openInspector("floating_button");
+  };
+
+  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
+    this.requestUpdate();
+  };
+
+  private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+    ) {
+      return;
+    }
+    this.handleHudActionClick(event, row);
+  };
+
+  private renderHudCheck(): TemplateResult {
+    return html`
+      <svg
+        class="cpk-launcher-hud__check"
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        focusable="false"
+        data-cpk-hud-check
+      >
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M3 8.5 6.5 12 13 4.5"
+        />
+      </svg>
+    `;
+  }
+
+  private renderHudRow(args: {
+    id: LauncherHudRowId;
+    label: string;
+    detail: string;
+    connected?: boolean;
+  }): TemplateResult {
+    const helpOpen = this.launcherHudHelp === args.id;
+    const detailId = `cpk-hud-detail-${args.id}`;
+    return html`
+      <li
+        class="cpk-launcher-hud__row"
+        data-cpk-hud-row=${args.id}
+        data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
+      >
+        <button
+          type="button"
+          class="cpk-launcher-hud__action"
+          data-cpk-hud-action
+          aria-describedby=${detailId}
+          @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
+          @pointerdown=${(event: Event) => event.stopPropagation()}
+        >
+          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
+        </button>
+        <button
+          type="button"
+          class="cpk-launcher-hud__help"
+          aria-expanded=${helpOpen ? "true" : "false"}
+          aria-controls=${detailId}
+          aria-label=${`About ${args.label}`}
+          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
+          @pointerdown=${(event: Event) => event.stopPropagation()}
+        >
+          <span aria-hidden="true">?</span>
+        </button>
+        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
+      </li>
+    `;
+  }
+
+  private renderLauncherHud(): TemplateResult | typeof nothing {
+    if (!this.launcherHudOpen) return nothing;
+    const threadsOn = this.areThreadEndpointsAvailable();
+    const intelligenceOn = Boolean(this._core?.intelligence);
+    const learningOn = intelligenceOn && this._memoriesAvailable;
+    return html`
+      <div
+        class="cpk-launcher-hud"
+        id="cpk-launcher-hud"
+        data-cpk-launcher-hud
+        data-cpk-hud-side=${this.launcherHudSide}
+      >
+        <div class="cpk-launcher-hud__card">
+          <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+          <ul class="cpk-launcher-hud__list" role="list">
+            ${this.renderHudRow({
+              id: "inspector",
+              label: HUD_OPEN_INSPECTOR_LABEL,
+              detail: HUD_OPEN_INSPECTOR_DETAIL,
+            })}
+          </ul>
+          <ul class="cpk-launcher-hud__list" role="list">
+            ${this.renderHudRow({
+              id: "threads",
+              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
+              detail: threadsOn
+                ? HUD_THREADS_ON_DETAIL
+                : HUD_THREADS_OFF_DETAIL,
+              connected: threadsOn,
+            })}
+            ${this.renderHudRow({
+              id: "intelligence",
+              label: intelligenceOn
+                ? HUD_INTELLIGENCE_ON_LABEL
+                : HUD_INTELLIGENCE_OFF_LABEL,
+              detail: intelligenceOn
+                ? HUD_INTELLIGENCE_ON_DETAIL
+                : HUD_INTELLIGENCE_OFF_DETAIL,
+              connected: intelligenceOn,
+            })}
+            ${this.renderHudRow({
+              id: "learning",
+              label: learningOn
+                ? HUD_LEARNING_ON_LABEL
+                : HUD_LEARNING_OFF_LABEL,
+              detail: learningOn
+                ? HUD_LEARNING_ON_DETAIL
+                : HUD_LEARNING_OFF_DETAIL,
+              connected: learningOn,
+            })}
+          </ul>
+        </div>
+      </div>
+    `;
+  }
 
   /** Render a trusted action with optional context-specific copy. */
   private renderInspectorAction(
@@ -11865,11 +12358,19 @@ ${argsString}</pre
     const firstOpen = !this.hasOpenedInspector;
     this.hasOpenedInspector = true;
     this.homeViewedThisOpen = false;
+    this.closeLauncherHud();
 
     // A press on the launcher is a gesture towards whatever the dot is about,
     // so it lands where that subject is explained. Restoring a persisted-open
     // panel is not a gesture and deliberately does not route through here.
-    if (activeSignalAtOpen !== null && source === "floating_button") {
+    // A HUD row sets `hudLandingMenu` and wins, so a red dot cannot steal
+    // "Turn on Threads".
+    const hudMenu = this.hudLandingMenu;
+    this.hudLandingMenu = null;
+    if (hudMenu) {
+      this.selectedMenu = hudMenu;
+      this.lastSelectedMenuByGroup[getGroupForMenu(hudMenu)] = hudMenu;
+    } else if (activeSignalAtOpen !== null && source === "floating_button") {
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
       this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
@@ -18421,6 +18922,7 @@ ${prettyEvent}</pre
     this.gestureSignal = key;
     this.pillPhase = "closed";
     this.pillDirection = null;
+    this.closeLauncherHud();
   }
 
   /**
