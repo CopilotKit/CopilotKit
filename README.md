@@ -57,7 +57,7 @@ CopilotKit is a best-in-class SDK for building full-stack agentic applications, 
 
 What started as a React library is now the **horizontal layer between your agents and your users**: the same agent can power your web app, your mobile app, and your team's Slack or Microsoft Teams workspace.
 
-We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** — adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 ## Quick Start
 
