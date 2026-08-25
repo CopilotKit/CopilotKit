@@ -2196,7 +2196,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   // outcomes have to reach the runtime connection status. That only happens if
   // the owned store is handed the core's instrumented fetch instead of the
   // global one (OSS-904) — assert the injection rather than infer it, because a
-  // regression here is invisible from the rendered thread list.
+  // regression here cannot be seen from the rendered thread list.
   it("routes the owned store's /threads request through the core's instrumented fetch", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, {});
