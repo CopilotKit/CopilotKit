@@ -35,12 +35,46 @@ type RuntimeInfoFetchResult = {
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
- * How long after a completed reachability probe further failures are absorbed
- * without asking again. A burst of simultaneous failures (several agents on one
- * dead runtime) then costs exactly one probe rather than one per failure. This
- * is a timestamp comparison, not a timer — nothing is scheduled.
+ * How long after a probe returned a CONFIRMED-UNREACHABLE verdict further
+ * failures are absorbed without asking again. A burst of simultaneous failures
+ * (several agents on one dead runtime) then costs exactly one probe rather than
+ * one per failure. This is a timestamp comparison, not a timer — nothing is
+ * scheduled.
+ *
+ * Deliberately NOT armed after a probe came back healthy: a failure arriving
+ * once the runtime has demonstrably answered is new information, not part of
+ * the burst that probe answered, and suppressing it would open a window in
+ * which a real outage leaves no trace at all.
+ *
+ * Exported for tests, which must derive their waits from it rather than
+ * hardcode a number that silently drifts away from this one.
  */
-const RUNTIME_PROBE_COOLDOWN_MS = 2_000;
+export const RUNTIME_PROBE_COOLDOWN_MS = 2_000;
+
+/**
+ * Maximum wait for the reachability probe's `/info` answer before the runtime
+ * is treated as unreachable.
+ *
+ * A server fails two ways: it refuses the connection (fast) or it accepts and
+ * never answers. A stopped dev server refuses; a container mid-rollout, a
+ * half-switched deploy and a dropped tunnel all HANG — which is the motivating
+ * list for this whole feature. Without a bound the probe never settles, its
+ * in-flight latch is never released, every later failure short-circuits on that
+ * latch, and the status stays green forever: the original bug, restored in full,
+ * for exactly the cases the ticket names.
+ *
+ * This is the ONE timer this feature is allowed. It is armed only inside the
+ * handling of a request that already failed, it is always cleared, and it
+ * schedules no work of its own — see the "no polling, no retry loop" decision.
+ *
+ * Matches {@link INSPECTOR_METADATA_REQUEST_TIMEOUT_MS}: the same runtime, the
+ * same kind of optional-at-this-moment question, and a developer watching a
+ * dead runtime should not wait longer for the light to turn red than for
+ * metadata to degrade to absence.
+ *
+ * Exported for tests for the same reason as the cooldown above.
+ */
+export const RUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
 /**
  * What the instrumented fetch observed about one runtime-bound request.

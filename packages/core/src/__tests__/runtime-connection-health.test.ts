@@ -24,11 +24,26 @@ import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "../core";
+import {
+  RUNTIME_PROBE_COOLDOWN_MS,
+  RUNTIME_PROBE_TIMEOUT_MS,
+} from "../core/agent-registry";
 import { waitForCondition } from "./test-utils";
 
 const RUNTIME_URL = "https://runtime.example/api";
+/** A second runtime, for the "the configuration changed" cases. */
+const ALT_RUNTIME_URL = "https://other-runtime.example/api";
 const INFO_URL = `${RUNTIME_URL}/info`;
 const RUN_URL = `${RUNTIME_URL}/agent/default/run`;
+
+/**
+ * Long enough that any plausible background period would have fired many times
+ * inside it. Absences are asserted over this window on FAKE timers: a window
+ * shorter than the behaviour under test can only catch a retry loop whose
+ * period happens to be shorter than the observation, which is precisely the
+ * shape the PRD rejects by name.
+ */
+const TEN_MINUTES_MS = 10 * 60_000;
 
 const encoder = new TextEncoder();
 
@@ -70,6 +85,13 @@ const settle = (ms = 60) => new Promise((r) => setTimeout(r, ms));
 
 type Handler = () => Promise<Response>;
 
+/**
+ * A runtime that ACCEPTS the connection and never answers — the second way a
+ * server fails, and the one a stopped dev server does not model. A container
+ * mid-rollout, a half-switched deploy and a dropped tunnel all look like this.
+ */
+const hangs: Handler = () => new Promise<Response>(() => {});
+
 const DEFAULT_INFO = {
   version: "1.0.0",
   agents: { default: { description: "assistant", capabilities: {} } },
@@ -84,26 +106,62 @@ describe("runtime connection health (OSS-904)", () => {
   let infoHandler: Handler;
   /** Answers the agent run route. */
   let runHandler: Handler;
+  /** Answers the SECOND runtime, used by the configuration-change cases. */
+  let altInfoHandler: Handler;
+  let altRunHandler: Handler;
   let infoCalls: number;
   let runCalls: number;
+  let altInfoCalls: number;
   let otherCalls: string[];
 
   beforeEach(() => {
     (globalThis as { window?: unknown }).window = {};
     infoCalls = 0;
     runCalls = 0;
+    altInfoCalls = 0;
     otherCalls = [];
     infoHandler = async () => jsonResponse(DEFAULT_INFO);
     runHandler = async () => sseResponse();
-    fetchMock = vi.fn(async (url: unknown, _init?: RequestInit) => {
+    altInfoHandler = async () => jsonResponse(DEFAULT_INFO);
+    altRunHandler = async () => sseResponse();
+    fetchMock = vi.fn(async (url: unknown, init?: RequestInit) => {
       const target = String(url);
+      const method = (init?.method ?? "GET").toUpperCase();
+
+      // Single-endpoint transport: every call is a POST to the runtime root
+      // carrying an envelope that names the operation.
+      if (target === RUNTIME_URL && method === "POST") {
+        let envelopeMethod = "";
+        try {
+          envelopeMethod = String(
+            (JSON.parse(String(init?.body ?? "{}")) as { method?: unknown })
+              .method ?? "",
+          );
+        } catch {
+          envelopeMethod = "";
+        }
+        if (envelopeMethod === "info") {
+          infoCalls += 1;
+          return infoHandler();
+        }
+        runCalls += 1;
+        return runHandler();
+      }
+
       if (target === INFO_URL) {
         infoCalls += 1;
         return infoHandler();
       }
-      if (target === RUN_URL) {
+      if (target.startsWith(`${RUNTIME_URL}/agent/`)) {
         runCalls += 1;
         return runHandler();
+      }
+      if (target === `${ALT_RUNTIME_URL}/info`) {
+        altInfoCalls += 1;
+        return altInfoHandler();
+      }
+      if (target.startsWith(`${ALT_RUNTIME_URL}/agent/`)) {
+        return altRunHandler();
       }
       otherCalls.push(target);
       throw new Error(`Unexpected fetch: ${target}`);
@@ -112,6 +170,7 @@ describe("runtime connection health (OSS-904)", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     global.fetch = originalFetch;
     if (originalWindow === undefined) {
@@ -122,11 +181,10 @@ describe("runtime connection health (OSS-904)", () => {
   });
 
   /** A core connected to a reachable runtime — the state at page load. */
-  async function bootConnectedCore(): Promise<CopilotKitCore> {
-    const core = new CopilotKitCore({
-      runtimeUrl: RUNTIME_URL,
-      runtimeTransport: "rest",
-    });
+  async function bootConnectedCore(
+    options?: Parameters<typeof createCore>[0],
+  ): Promise<CopilotKitCore> {
+    const core = createCore(options);
     await waitForCondition(
       () =>
         core.runtimeConnectionStatus ===
@@ -135,14 +193,36 @@ describe("runtime connection health (OSS-904)", () => {
     return core;
   }
 
-  /** Everything to the runtime now fails outright — the dev server is gone. */
-  function takeRuntimeDown(): void {
-    infoHandler = async () => {
+  function createCore(options?: {
+    runtimeUrl?: string;
+    runtimeTransport?: "rest" | "single" | "auto";
+  }): CopilotKitCore {
+    return new CopilotKitCore({
+      runtimeUrl: options?.runtimeUrl ?? RUNTIME_URL,
+      runtimeTransport: options?.runtimeTransport ?? "rest",
+    });
+  }
+
+  /**
+   * Everything to the runtime now fails outright — the dev server is gone.
+   *
+   * `hang` models the OTHER way a server dies: the connection is accepted and
+   * the answer never comes. `info` and `runs` are independent because the
+   * interesting cases are asymmetric — a runtime whose run route answers while
+   * `/info` hangs is a container mid-rollout, and it is the case that keeps the
+   * status green forever if the probe is unbounded.
+   */
+  function takeRuntimeDown(
+    options: { hang?: boolean | { info?: boolean; runs?: boolean } } = {},
+  ): void {
+    const hang = options.hang ?? false;
+    const hangInfo = hang === true || (hang !== false && hang.info === true);
+    const hangRuns = hang === true || (hang !== false && hang.runs === true);
+    const refuse: Handler = async () => {
       throw new TypeError("Failed to fetch");
     };
-    runHandler = async () => {
-      throw new TypeError("Failed to fetch");
-    };
+    infoHandler = hangInfo ? hangs : refuse;
+    runHandler = hangRuns ? hangs : refuse;
   }
 
   function bringRuntimeUp(info: unknown = DEFAULT_INFO): void {
@@ -150,13 +230,53 @@ describe("runtime connection health (OSS-904)", () => {
     runHandler = async () => sseResponse();
   }
 
-  const runOnce = (core: CopilotKitCore) =>
-    core.runAgent({ agent: core.getAgent("default") as AbstractAgent });
+  /**
+   * A runtime that is PART-WAY BACK: it answers `/info` truthfully and with a
+   * 200, but with a different — often empty — agent list, because it has not
+   * finished booting. Its report cannot be trusted to mean "these agents are
+   * gone".
+   */
+  function bringRuntimePartWayBack(
+    agents: Record<string, { description: string; capabilities: object }> = {},
+    version = "1.0.0",
+  ): void {
+    bringRuntimeUp({ version, agents });
+  }
+
+  const runOnce = (core: CopilotKitCore, agentId = "default") =>
+    core.runAgent({ agent: core.getAgent(agentId) as AbstractAgent });
 
   const waitForStatus = (
     core: CopilotKitCore,
     status: CopilotKitCoreRuntimeConnectionStatus,
   ) => waitForCondition(() => core.runtimeConnectionStatus === status);
+
+  /**
+   * `waitForCondition` on FAKE timers: it drives the clock instead of waiting
+   * on it, so anything the implementation schedules (a probe timeout, and any
+   * background work that should not exist) fires inside the window.
+   */
+  async function waitForConditionVirtual(
+    condition: () => boolean,
+    budgetMs = 30_000,
+  ): Promise<void> {
+    const step = 10;
+    let elapsed = 0;
+    while (!condition()) {
+      if (elapsed > budgetMs) {
+        throw new Error("Timeout waiting for condition (virtual clock)");
+      }
+      await vi.advanceTimersByTimeAsync(step);
+      elapsed += step;
+    }
+    // Let any promise chain the condition unblocked run to completion.
+    await vi.advanceTimersByTimeAsync(0);
+  }
+
+  const waitForStatusVirtual = (
+    core: CopilotKitCore,
+    status: CopilotKitCoreRuntimeConnectionStatus,
+  ) => waitForConditionVirtual(() => core.runtimeConnectionStatus === status);
 
   // --- 1/2: detection -----------------------------------------------------
 
@@ -435,7 +555,7 @@ describe("runtime connection health (OSS-904)", () => {
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     // Past the cooldown window, so a per-failure probe would have shown up.
-    await settle(2500);
+    await settle(RUNTIME_PROBE_COOLDOWN_MS + 500);
 
     // One probe answered for all of them, not one per failure.
     expect(infoCalls).toBe(2);
@@ -443,15 +563,29 @@ describe("runtime connection health (OSS-904)", () => {
 
   // --- 11/12: absences ----------------------------------------------------
 
-  it("issues no requests at all while the status is error and nothing else happens", async () => {
-    const core = await bootConnectedCore();
+  // These two are the ONLY evidence for "no polling, no heartbeat, no retry
+  // loop". They run entirely on fake timers, installed BEFORE the core exists,
+  // so a timer armed anywhere in the implementation is a fake one and fires
+  // inside the window. Observing a real 2.5s window instead would only catch a
+  // loop whose period is shorter than the observation — which is exactly the
+  // behaviour the PRD rejects ("works for the first minute and then stops").
+
+  it("issues no requests at all over ten minutes while the status is error", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
     takeRuntimeDown();
-    await runOnce(core);
-    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+    void runOnce(core).catch(() => undefined);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
 
     const callsAtRed = fetchMock.mock.calls.length;
-    // Longer than the probe cooldown: a retry loop would show up here.
-    await settle(2500);
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
 
     expect(fetchMock.mock.calls.length).toBe(callsAtRed);
     expect(core.runtimeConnectionStatus).toBe(
@@ -459,12 +593,17 @@ describe("runtime connection health (OSS-904)", () => {
     );
   });
 
-  it("issues no extra requests in the healthy case", async () => {
-    const core = await bootConnectedCore();
+  it("issues no extra requests over ten minutes in the healthy case", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
     expect(infoCalls).toBe(1);
 
     await runOnce(core);
-    await settle(300);
+    await vi.advanceTimersByTimeAsync(TEN_MINUTES_MS);
 
     // Exactly what the application caused: one handshake, one run.
     expect(infoCalls).toBe(1);
