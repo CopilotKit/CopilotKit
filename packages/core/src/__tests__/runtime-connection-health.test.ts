@@ -25,12 +25,9 @@ import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "../core";
-import {
-  RUNTIME_PROBE_COOLDOWN_MS,
-  RUNTIME_PROBE_TIMEOUT_MS,
-  RUNTIME_REQUEST_WATCHDOG_MS,
-} from "../core/agent-registry";
+import { RUNTIME_PROBE_TIMEOUT_MS } from "../core/agent-registry";
 import type { RuntimeRequestInit } from "../utils/runtime-request";
+import { RUNTIME_REQUEST_WATCHDOG_MS } from "../utils/runtime-request";
 import { ɵcreateThreadStore, ɵTHREAD_REQUEST_TIMEOUT_MS } from "../threads";
 import { waitForCondition } from "./test-utils";
 import { logger } from "@copilotkit/shared";
@@ -619,7 +616,7 @@ describe("runtime connection health (OSS-904)", () => {
     );
   });
 
-  // --- 10: the cooldown ---------------------------------------------------
+  // --- 10: one probe per burst --------------------------------------------
 
   it("answers a burst of simultaneous failures with exactly one probe", async () => {
     const core = await bootConnectedCore();
@@ -635,8 +632,10 @@ describe("runtime connection health (OSS-904)", () => {
     );
 
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
-    // Past the cooldown window, so a per-failure probe would have shown up.
-    await settle(RUNTIME_PROBE_COOLDOWN_MS + 500);
+    // Long enough for a per-failure probe to have shown up. Collapsing the
+    // burst is the in-flight latch's job and nothing else's — there is no
+    // post-probe window absorbing anything.
+    await settle(500);
 
     // One probe answered for all of them, not one per failure.
     expect(infoCalls).toBe(2);
@@ -855,10 +854,6 @@ describe("runtime connection health (OSS-904)", () => {
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     );
     expect(infoCalls).toBe(3);
-
-    // Past the cooldown the confirmed outage armed, so that what this asserts
-    // is the latch and not the cooldown.
-    await vi.advanceTimersByTimeAsync(RUNTIME_PROBE_COOLDOWN_MS + 100);
 
     // It dies again. A latch left stuck by the abandoned probe would swallow
     // this failure and leave the status green — the original bug, restored.
@@ -1160,7 +1155,7 @@ describe("runtime connection health (OSS-904)", () => {
     await pending;
   });
 
-  // --- the cooldown --------------------------------------------------------
+  // --- consecutive incidents are each their own -----------------------------
 
   it("does not suppress a new failure after the probe came back healthy", async () => {
     const core = await bootConnectedCore();
@@ -1176,9 +1171,9 @@ describe("runtime connection health (OSS-904)", () => {
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     );
 
-    // Well inside the cooldown window, the runtime genuinely goes away. That
-    // is new information, not part of the burst the healthy probe answered:
-    // absorbing it opens a window in which a real outage leaves no trace.
+    // Immediately afterwards the runtime genuinely goes away. That is new
+    // information, not part of the burst the healthy probe answered, and
+    // absorbing it would open a window in which a real outage leaves no trace.
     takeRuntimeDown();
     await runOnce(core);
 
@@ -1186,16 +1181,18 @@ describe("runtime connection health (OSS-904)", () => {
     expect(infoCalls).toBe(3);
   });
 
-  it("absorbs a further failure inside the cooldown after a confirmed outage", async () => {
+  it("checks again when a runtime flaps back and dies immediately", async () => {
     const core = await bootConnectedCore();
     takeRuntimeDown();
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
     expect(infoCalls).toBe(2);
 
-    // The runtime flaps back for one request and dies again, all within the
-    // cooldown: one incident, one check. Without the cooldown the crash loop
-    // would cost a probe per flap.
+    // A crash-looping runtime: back for one request, then gone again. Each
+    // outage is its own incident and gets its own check. The alternative — a
+    // window after a confirmed outage in which failures are absorbed — buys
+    // nothing the in-flight latch does not already buy, and costs a blind
+    // window in exactly the case it is meant to cover.
     bringRuntimeUp();
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
@@ -1203,12 +1200,9 @@ describe("runtime connection health (OSS-904)", () => {
 
     takeRuntimeDown();
     await runOnce(core);
-    await settle();
 
-    expect(infoCalls).toBe(3);
-    expect(core.runtimeConnectionStatus).toBe(
-      CopilotKitCoreRuntimeConnectionStatus.Connected,
-    );
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+    expect(infoCalls).toBe(4);
   });
 
   // --- recovery collapsing and ordering ------------------------------------

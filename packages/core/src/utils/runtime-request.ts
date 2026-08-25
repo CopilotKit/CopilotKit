@@ -1,4 +1,37 @@
 /**
+ * How long a runtime-bound request may go without producing RESPONSE HEADERS
+ * before its silence is reported as a suspected outage.
+ *
+ * Everything else in this feature reacts to the OUTCOME of a request. A runtime
+ * that accepts the connection and never answers produces no outcome at all, so
+ * nothing is reported and no probe is started — and that is the common shape of
+ * the failures this feature exists for: a container mid-restart, a half-switched
+ * deploy, a dropped tunnel. Only a stopped dev server refuses fast. Measured
+ * against the demo before this existed: a server accepting TCP and never
+ * writing left System Health reading healthy 35 seconds after the message was
+ * sent, with the request still pending.
+ *
+ * The probe's own bound does not cover this. It bounds a probe; here no probe
+ * is ever started.
+ *
+ * HEADERS, not the body. `fetch` resolves as soon as the response head arrives
+ * and the SSE body streams afterwards, so an agent that thinks for a minute
+ * still resolves this within milliseconds and is never touched.
+ *
+ * The watchdog OBSERVES. It never aborts the request, so a runtime that is
+ * merely slow still completes the user's run and still reports its eventual
+ * outcome.
+ *
+ * It lives here rather than beside the probe's own bound so that it stays OFF
+ * the package index: `core/index.ts` re-exports `agent-registry` wholesale,
+ * this module is not re-exported anywhere, and tests reach it by path. Nothing
+ * about this number is a promise to anyone outside the package, and tests must
+ * derive their waits from it rather than hardcode a number that silently drifts
+ * away from this one.
+ */
+export const RUNTIME_REQUEST_WATCHDOG_MS = 10_000;
+
+/**
  * What a caller can tell the instrumented runtime fetch about ONE request
  * (OSS-904).
  *

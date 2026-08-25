@@ -27,7 +27,10 @@ import {
 } from "../utils/runtime-info-error";
 import { isAbortError } from "../utils/abort-error";
 import type { RuntimeRequestMeta } from "../utils/runtime-request";
-import { runtimeRequestMeta } from "../utils/runtime-request";
+import {
+  RUNTIME_REQUEST_WATCHDOG_MS,
+  runtimeRequestMeta,
+} from "../utils/runtime-request";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -38,23 +41,6 @@ type RuntimeInfoFetchResult = {
 
 /** Maximum wait for optional Inspector metadata before degrading to absence. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
-
-/**
- * How long after a probe returned a CONFIRMED-UNREACHABLE verdict further
- * failures are absorbed without asking again. A burst of simultaneous failures
- * (several agents on one dead runtime) then costs exactly one probe rather than
- * one per failure. This is a timestamp comparison, not a timer — nothing is
- * scheduled.
- *
- * Deliberately NOT armed after a probe came back healthy: a failure arriving
- * once the runtime has demonstrably answered is new information, not part of
- * the burst that probe answered, and suppressing it would open a window in
- * which a real outage leaves no trace at all.
- *
- * Exported for tests, which must derive their waits from it rather than
- * hardcode a number that silently drifts away from this one.
- */
-export const RUNTIME_PROBE_COOLDOWN_MS = 2_000;
 
 /**
  * Maximum wait for the reachability probe's `/info` answer before the runtime
@@ -68,47 +54,20 @@ export const RUNTIME_PROBE_COOLDOWN_MS = 2_000;
  * latch, and the status stays green forever: the original bug, restored in full,
  * for exactly the cases the ticket names.
  *
- * This is the ONE timer this feature is allowed. It is armed only inside the
- * handling of a request that already failed, it is always cleared, and it
- * schedules no work of its own — see the "no polling, no retry loop" decision.
+ * Like {@link RUNTIME_REQUEST_WATCHDOG_MS} it is a per-request bound and not a
+ * schedule: armed inside the handling of one request, always cleared, and it
+ * starts no work of its own. Those two are the only timers this feature has —
+ * see the "no polling, no retry loop" decision.
  *
  * Matches {@link INSPECTOR_METADATA_REQUEST_TIMEOUT_MS}: the same runtime, the
  * same kind of optional-at-this-moment question, and a developer watching a
  * dead runtime should not wait longer for the light to turn red than for
  * metadata to degrade to absence.
  *
- * Exported for tests for the same reason as the cooldown above.
- */
-export const RUNTIME_PROBE_TIMEOUT_MS = 5_000;
-
-/**
- * How long a runtime-bound request may go without producing RESPONSE HEADERS
- * before its silence is reported as a suspected outage.
- *
- * Everything else in this feature reacts to the OUTCOME of a request. A runtime
- * that accepts the connection and never answers produces no outcome at all, so
- * nothing is reported and no probe is started — and that is the common shape of
- * the failures this feature exists for: a container mid-restart, a half-switched
- * deploy, a dropped tunnel. Only a stopped dev server refuses fast. Measured
- * against the demo before this existed: a server accepting TCP and never
- * writing left System Health reading healthy 35 seconds after the message was
- * sent, with the request still pending.
- *
- * The probe's own bound does not cover this. It bounds a probe; here no probe
- * is ever started.
- *
- * HEADERS, not the body. `fetch` resolves as soon as the response head arrives
- * and the SSE body streams afterwards, so an agent that thinks for a minute
- * still resolves this within milliseconds and is never touched.
- *
- * The watchdog OBSERVES. It never aborts the request, so a runtime that is
- * merely slow still completes the user's run and still reports its eventual
- * outcome.
- *
  * Exported for tests, which must derive their waits from it rather than
  * hardcode a number that silently drifts away from this one.
  */
-export const RUNTIME_REQUEST_WATCHDOG_MS = 10_000;
+export const RUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
 /**
  * What the instrumented fetch observed about one runtime-bound request.
@@ -276,12 +235,6 @@ export class AgentRegistry {
   private runtimeProbeToken: number = 0;
   /** Aborts the in-flight probe's `/info` request when it is abandoned. */
   private runtimeProbeAbortController?: AbortController;
-  /**
-   * `Date.now()` before which failures are absorbed without a new probe. Armed
-   * ONLY by a confirmed-unreachable verdict — see
-   * {@link RUNTIME_PROBE_COOLDOWN_MS}.
-   */
-  private runtimeProbeCooldownUntil: number = 0;
   /**
    * A recovery re-sync is running. Guards against the window in which the
    * re-sync has already set the status back to `Error` but is still notifying
@@ -518,7 +471,6 @@ export class AgentRegistry {
   private abandonRuntimeHealthProbe(): void {
     this.runtimeProbeToken += 1;
     this.runtimeProbeInFlight = false;
-    this.runtimeProbeCooldownUntil = 0;
     this.runtimeHealthGeneration += 1;
     this.runtimeProbeAbortController?.abort();
     this.runtimeProbeAbortController = undefined;
@@ -1161,10 +1113,14 @@ export class AgentRegistry {
     ) {
       return;
     }
+    // Burst collapsing is the in-flight latch's job and only the latch's:
+    // several simultaneous failures against one dead runtime cost exactly one
+    // probe. There is deliberately no window after a probe has SETTLED in which
+    // failures are absorbed. Such a window only ever suppressed a runtime
+    // flapping error -> connected -> failing again inside it, and for that case
+    // it is the window itself that does the damage: the second outage leaves no
+    // trace and the status reads connected while nothing works.
     if (this.runtimeProbeInFlight) {
-      return;
-    }
-    if (Date.now() < this.runtimeProbeCooldownUntil) {
       return;
     }
     void this.probeRuntimeReachability();
@@ -1223,11 +1179,7 @@ export class AgentRegistry {
       if (generation !== this.runtimeHealthGeneration) {
         return;
       }
-      // Confirmed unreachable. Only NOW is the cooldown armed: it exists to let
-      // one check answer for a burst of failures, and a failure arriving after
-      // a check came back healthy is new information rather than part of that
-      // burst.
-      this.runtimeProbeCooldownUntil = Date.now() + RUNTIME_PROBE_COOLDOWN_MS;
+      // Confirmed unreachable.
       await this.markRuntimeUnreachable(
         error instanceof Error ? error : new Error(String(error)),
       );
