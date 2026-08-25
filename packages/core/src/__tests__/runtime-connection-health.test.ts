@@ -1442,6 +1442,36 @@ describe("runtime connection health (OSS-904)", () => {
     store.stop();
   });
 
+  it("still ignores a thread request cancelled by the caller going away", async () => {
+    const core = await bootConnectedCore();
+    expect(infoCalls).toBe(1);
+
+    // The runtime is hanging and gone, exactly as in the timeout case above.
+    threadListHandler = hangs;
+    takeRuntimeDown();
+
+    const store = ɵcreateThreadStore({ fetch: core.ɵruntimeFetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: RUNTIME_URL,
+      headers: {},
+      agentId: "default",
+    });
+    await settle();
+
+    // The difference is WHO gave up: here the caller tore the request down
+    // (the view unmounted / the context changed), which is a cancellation and
+    // must stay excluded. Telling caller-timeout apart from cancellation must
+    // not weaken this.
+    store.stop();
+    await settle(200);
+
+    expect(infoCalls).toBe(1);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
   it("does not check the runtime when a request the caller treats as non-fatal fails", async () => {
     const core = await bootConnectedCore();
     expect(infoCalls).toBe(1);
