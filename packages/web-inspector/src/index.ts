@@ -477,6 +477,13 @@ const EVENT_ERROR_KEYS = [
   "memory",
 ] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
 
+type InspectorEventErrorDetails = Readonly<{
+  message: string;
+  agentId?: string;
+  toolName?: string;
+  toolCallId?: string;
+}>;
+
 function isWiringErrorKey(
   key: LauncherSignalKey,
 ): key is InspectorWiringErrorSource {
@@ -519,15 +526,18 @@ function eventErrorKeyForCode(
   code: CopilotKitCoreErrorCode,
 ): InspectorEventErrorSource | null {
   switch (code) {
-    case CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED:
-    case CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED:
-      return null;
     case CopilotKitCoreErrorCode.TOOL_NOT_FOUND:
     case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
     case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_NOT_FOUND:
       return "tool";
-    default:
+    case CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
+    case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
       return "run";
+    default:
+      return null;
   }
 }
 
@@ -5835,13 +5845,11 @@ export class WebInspectorElement extends LitElement {
   /** Unread app errors. Cleared when the landing view is read. */
   private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
     { run: false, tool: false, memory: false };
-  private lastEventError: {
-    key: InspectorEventErrorSource;
-    message: string;
-    agentId?: string;
-    toolName?: string;
-    toolCallId?: string;
-  } | null = null;
+  /** Latest detail for each event source, retained after that source is read. */
+  private readonly eventErrorDetails: Record<
+    InspectorEventErrorSource,
+    InspectorEventErrorDetails | null
+  > = { run: null, tool: null, memory: null };
   private pendingScrollToEventId: string | null = null;
   private pendingScrollToToolCallId: string | null = null;
   /** Last time an inspector-owned /threads refresh left this host, per agent. */
@@ -6864,8 +6872,6 @@ export class WebInspectorElement extends LitElement {
         this._memoriesError = v;
         if (v) {
           this.armEventError("memory", v.message);
-        } else if (this.eventErrorArmed.memory) {
-          this.clearEventError("memory");
         }
         this.requestUpdate();
       }),
@@ -7601,6 +7607,8 @@ export class WebInspectorElement extends LitElement {
       return nothing;
     }
 
+    const toolError = this.eventErrorDetails.tool;
+
     return html`
       <div class="mt-2 space-y-2">
         ${toolCalls.map((call, index) => {
@@ -7612,9 +7620,8 @@ export class WebInspectorElement extends LitElement {
             call.function?.arguments,
           );
           const isFailedCall =
-            this.lastEventError?.key === "tool" &&
-            this.lastEventError.toolCallId !== undefined &&
-            this.lastEventError.toolCallId === callId;
+            toolError?.toolCallId !== undefined &&
+            toolError.toolCallId === callId;
           return html`
             <div
               class=${
@@ -7631,9 +7638,9 @@ export class WebInspectorElement extends LitElement {
                 <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
               ${
-                isFailedCall && this.lastEventError?.message
+                isFailedCall && toolError?.message
                   ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
-                    ${this.lastEventError.message}
+                    ${toolError.message}
                   </p>`
                   : nothing
               }
@@ -10221,9 +10228,9 @@ ${argsString}</pre
   }
 
   private renderEventErrorBanner(key: InspectorEventErrorSource) {
-    if (this.lastEventError?.key !== key) return nothing;
+    const error = this.eventErrorDetails[key];
+    if (!error) return nothing;
     const guide = EVENT_ERROR_GUIDANCE[key];
-    const error = this.lastEventError;
     return html`
       <div
         class="mx-3 mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
@@ -10245,7 +10252,7 @@ ${argsString}</pre
               : nothing
           }
           ${
-            guide.highlight && this.hasEventErrorHighlight()
+            guide.highlight && this.hasEventErrorHighlight(key)
               ? html`<p class="leading-relaxed">${guide.highlight}</p>`
               : nothing
           }
@@ -10257,12 +10264,15 @@ ${argsString}</pre
   private handleEventErrorBannerKeydown = (event: KeyboardEvent): void => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    this.refocusEventErrorLanding();
+    this.refocusEventErrorLanding(event);
   };
 
   /** Scroll the landing view to the failed tool call or RUN_ERROR again. */
-  private refocusEventErrorLanding = (): void => {
-    this.applyEventErrorLanding();
+  private refocusEventErrorLanding = (event: Event): void => {
+    const key = (event.currentTarget as HTMLElement | null)?.dataset
+      .cpkEventError;
+    if (!key || !isEventErrorKey(key)) return;
+    this.applyEventErrorLanding(key);
     this.requestUpdate();
   };
 
@@ -11761,7 +11771,9 @@ ${argsString}</pre
       this.selectedMenu = landing;
       this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
       if (landing === "agents" || landing === "ag-ui-events") {
-        this.applyEventErrorLanding();
+        if (isEventErrorKey(activeSignalAtOpen)) {
+          this.applyEventErrorLanding(activeSignalAtOpen);
+        }
       }
     }
 
@@ -16003,10 +16015,10 @@ ${argsString}</pre
         </div>
       `;
     } else {
-      const failedRunEventId =
-        this.lastEventError?.key === "run"
-          ? this.findLatestRunErrorEvent(this.lastEventError.agentId)?.id
-          : undefined;
+      const runError = this.eventErrorDetails.run;
+      const failedRunEventId = runError
+        ? this.findLatestRunErrorEvent(runError.agentId)?.id
+        : undefined;
       body = html`
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
@@ -16432,11 +16444,11 @@ ${prettyEvent}</pre
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
+                        const toolError = this.eventErrorDetails.tool;
                         const isFailedResult =
                           role === "tool" &&
-                          this.lastEventError?.key === "tool" &&
-                          this.lastEventError.toolCallId !== undefined &&
-                          this.lastEventError.toolCallId === msg.toolCallId;
+                          toolError?.toolCallId !== undefined &&
+                          toolError.toolCallId === msg.toolCallId;
 
                         return html`
                           <div
@@ -16602,8 +16614,8 @@ ${prettyEvent}</pre
    * The Agent view is empty on "All Agents". Pick the agent that just failed
    * a tool, or the one with the most recent activity.
    */
-  private applyEventErrorLanding(): void {
-    const error = this.lastEventError;
+  private applyEventErrorLanding(key: InspectorEventErrorSource): void {
+    const error = this.eventErrorDetails[key];
     if (!error) {
       if (this.selectedMenu === "agents") {
         this.focusAgentForView();
@@ -16617,15 +16629,15 @@ ${prettyEvent}</pre
     ) {
       this.selectedContext = error.agentId;
     } else if (this.selectedMenu === "agents") {
-      this.focusAgentForView();
+      this.focusAgentForView(error);
     }
 
-    if (error.key === "tool" && error.toolCallId) {
+    if (key === "tool" && error.toolCallId) {
       this.pendingScrollToToolCallId = error.toolCallId;
       return;
     }
 
-    if (error.key === "run") {
+    if (key === "run") {
       this.eventFilterText = "";
       this.eventTypeFilter = "all";
       const event = this.findLatestRunErrorEvent(error.agentId);
@@ -16640,11 +16652,11 @@ ${prettyEvent}</pre
    * Whether the landing view really carries the item the card points at.
    * Mirrors the two branches of `applyEventErrorLanding` that can bail out.
    */
-  private hasEventErrorHighlight(): boolean {
-    const error = this.lastEventError;
+  private hasEventErrorHighlight(key: InspectorEventErrorSource): boolean {
+    const error = this.eventErrorDetails[key];
     if (!error) return false;
-    if (error.key === "tool") return error.toolCallId !== undefined;
-    if (error.key === "run") {
+    if (key === "tool") return error.toolCallId !== undefined;
+    if (key === "run") {
       return this.findLatestRunErrorEvent(error.agentId) !== undefined;
     }
     return false;
@@ -16691,16 +16703,13 @@ ${prettyEvent}</pre
    * The Agent view is empty on "All Agents". Pick the agent that just failed
    * a tool, or the one with the most recent activity.
    */
-  private focusAgentForView(): void {
+  private focusAgentForView(error?: InspectorEventErrorDetails): void {
     const agentOptions = this.contextOptions.filter(
       (opt) => opt.key !== "all-agents",
     );
     if (agentOptions.length === 0) return;
 
-    const errorAgentId =
-      this.lastEventError?.key === "tool"
-        ? this.lastEventError.agentId
-        : undefined;
+    const errorAgentId = error?.agentId;
     if (
       errorAgentId &&
       agentOptions.some((option) => option.key === errorAgentId)
@@ -16748,7 +16757,7 @@ ${prettyEvent}</pre
     // arrival, not a passing-through: it selects the failed agent, clears the
     // event filters and re-expands the failed row, which is help when the
     // reader came *because* of that error and vandalism when they did not.
-    // `lastEventError` outlives being read on purpose, so that the how-to-fix
+    // Event-error details outlive being read on purpose, so the how-to-fix
     // card survives while it is being read — which means running this on every
     // visit resets the reader's own filters and agent scope for the rest of
     // the session, and silently undoes the `all-agents` restore eight lines
@@ -17965,7 +17974,7 @@ ${prettyEvent}</pre
       toolCallId?: string;
     } = {},
   ): void {
-    this.lastEventError = { key, message, ...extras };
+    this.eventErrorDetails[key] = { message, ...extras };
     const wasArmed = this.eventErrorArmed[key];
     this.eventErrorArmed[key] = true;
     if (!wasArmed) {
@@ -17976,7 +17985,7 @@ ${prettyEvent}</pre
       !this.settingsOpen &&
       this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget
     ) {
-      this.applyEventErrorLanding();
+      this.applyEventErrorLanding(key);
     }
     this.requestUpdate();
   }
@@ -17990,8 +17999,8 @@ ${prettyEvent}</pre
   }
 
   private clearAllEventErrors(): void {
-    this.lastEventError = null;
     for (const key of EVENT_ERROR_KEYS) {
+      this.eventErrorDetails[key] = null;
       if (!this.eventErrorArmed[key]) continue;
       this.eventErrorArmed[key] = false;
       this.retireSignal(key);
