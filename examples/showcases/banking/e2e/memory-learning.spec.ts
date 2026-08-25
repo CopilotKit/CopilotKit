@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 /**
  * Deterministic cross-thread memory proof (Task 7 / FOR-149).
@@ -215,7 +216,7 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
   });
 
   // The former bespoke-inspector test was removed with that pane (banking
-  // migration D). The product web-inspector is now enabled via showDevConsole
+  // migration D). The product web-inspector is enabled automatically in development
   // and is owned/covered by packages/web-inspector's own tests; the
   // self-learning recall behavior is asserted by the headless test above.
 });

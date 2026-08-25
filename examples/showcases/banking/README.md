@@ -277,10 +277,10 @@ screen rather than wherever you happened to be.
 ### Inspector (dev console)
 
 The demo surfaces CopilotKit's **product web-inspector** — the same dev console
-that ships with `@copilotkit/react-core`. It is enabled via `showDevConsole` on
-the `<CopilotKitProvider>` (see `src/app/wrapper.tsx`); open it from the
-inspector launcher. It shows AG-UI events, the registered agent, and the
-frontend tools + capabilities the demo exposes.
+that ships with `@copilotkit/react-core`. The provider mounts it automatically
+in development (see `src/app/wrapper.tsx`); open it from the inspector launcher.
+It shows AG-UI events, the registered agent, and the frontend tools +
+capabilities the demo exposes.
 
 Its **Memory** ("Learning") tab lists and recalls durable memory in Intelligence
 mode. That requires two things, both already set for this demo: the runtime runs
