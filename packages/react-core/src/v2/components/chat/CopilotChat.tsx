@@ -15,8 +15,9 @@ import {
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
-import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type { Suggestion } from "@copilotkit/core";
 import {
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
   ɵcreateThreadStore,
@@ -41,6 +42,7 @@ import {
 } from "../../lib/transcription-client";
 import { LastUserMessageContext } from "./last-user-message-context";
 import type { LastUserMessageState } from "./last-user-message-context";
+import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -106,7 +108,7 @@ export function CopilotChat({
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
   const providedThreadId = threadId ?? existingConfig?.threadId;
-  const resolvedThreadId = useMemo(
+  const baseThreadId = useMemo(
     () => providedThreadId ?? randomUUID(),
     [providedThreadId],
   );
@@ -117,8 +119,16 @@ export function CopilotChat({
   // ThreadsProvider chain) does NOT count; treating it as explicit is
   // what made /connect fire against 404s and the welcome screen stay
   // hidden for fresh empty chats.
-  const hasExplicitThreadId =
+  const baseHasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
+  const { inspectorThreadId, inspectorRequestId, failInspectorOverride } =
+    useInspectorThreadOverride({
+      agentId: resolvedAgentId,
+      baseThreadId,
+    });
+  const resolvedThreadId = inspectorThreadId ?? baseThreadId;
+  const hasExplicitThreadId =
+    inspectorThreadId !== null || baseHasExplicitThreadId;
 
   const { agent, isReady } = useAgent({
     agentId: resolvedAgentId,
@@ -169,6 +179,27 @@ export function CopilotChat({
       subscription.unsubscribe();
     };
   }, [copilotkit, resolvedAgentId]);
+
+  useEffect(() => {
+    if (!inspectorRequestId) return;
+    const requestId = inspectorRequestId;
+    const expectedThreadId = resolvedThreadId;
+    const subscription = copilotkit.subscribe({
+      onError: (event) => {
+        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (event.context?.agentId !== resolvedAgentId) return;
+        if (event.context?.threadId !== expectedThreadId) return;
+        failInspectorOverride(requestId);
+      },
+    });
+    return () => subscription.unsubscribe();
+  }, [
+    copilotkit,
+    failInspectorOverride,
+    inspectorRequestId,
+    resolvedAgentId,
+    resolvedThreadId,
+  ]);
 
   // Transcription state
   const [transcribeMode, setTranscribeMode] =
@@ -260,7 +291,10 @@ export function CopilotChat({
 
   // Tracks the threadId the connect effect last ran for, so it can tell a real
   // thread SWITCH from an incidental re-render (agent identity change, etc.).
-  const previousThreadIdRef = useRef<string | null>(null);
+  const previousThreadRef = useRef<{
+    threadId: string;
+    inspectorRequestId: string | null;
+  } | null>(null);
 
   // Latest explicitness, readable from an async connect that may resolve after
   // the user has already switched threads (see the stale-connect guard below).
@@ -330,8 +364,26 @@ export function CopilotChat({
   }, []);
 
   useEffect(() => {
-    const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
-    previousThreadIdRef.current = resolvedThreadId;
+    const previousThread = previousThreadRef.current;
+    const threadChanged = previousThread?.threadId !== resolvedThreadId;
+    const inspectorTransition =
+      threadChanged &&
+      previousThread !== null &&
+      previousThread.inspectorRequestId !== inspectorRequestId &&
+      (previousThread.inspectorRequestId !== null ||
+        inspectorRequestId !== null);
+    previousThreadRef.current = {
+      threadId: resolvedThreadId,
+      inspectorRequestId,
+    };
+
+    if (inspectorTransition) {
+      if (typeof copilotkit.stopAgent === "function") {
+        copilotkit.stopAgent({ agent });
+      } else {
+        agent.abortRun?.();
+      }
+    }
 
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
@@ -376,6 +428,9 @@ export function CopilotChat({
         // connectAgent already emits via the subscriber system, but catch
         // here to prevent unhandled rejections from unexpected errors.
         console.error("CopilotChat: connectAgent failed", error);
+        if (inspectorRequestId) {
+          failInspectorOverride(inspectorRequestId);
+        }
       } finally {
         // Whether the connect succeeded or failed, we're no longer in the
         // transitional "connecting" state for this thread — unblock the
@@ -431,7 +486,14 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
+  }, [
+    resolvedThreadId,
+    agent,
+    resolvedAgentId,
+    hasExplicitThreadId,
+    inspectorRequestId,
+    failInspectorOverride,
+  ]);
 
   useEffect(() => {
     if (!hasNativeIntelligenceRunActivity) return;
