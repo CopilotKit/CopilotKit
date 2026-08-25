@@ -348,21 +348,20 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "snippet";
+type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
 
 const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
 const HUD_THREADS_OFF_LABEL = "Turn on Threads";
 const HUD_THREADS_ON_LABEL = "Threads on";
 const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
 const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_SNIPPET_LABEL = "Save event snippet";
 const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
 const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
 const HUD_INTELLIGENCE_OFF_DETAIL =
   "Connect Intelligence to use Threads and Learning.";
 const HUD_INTELLIGENCE_ON_DETAIL =
-  "Intelligence is connected. Opens the Learning view.";
-const HUD_SNIPPET_DETAIL = "Replay this run from the Inspector.";
+  "Intelligence is connected. Opens Home.";
+const HUD_LEARNING_DETAIL = "Open saved memories and recall.";
 const HUD_OPEN_INSPECTOR_DETAIL =
   "Same as clicking the circle. Opens the full Inspector.";
 
@@ -8770,6 +8769,12 @@ ${argsString}</pre
         line-height: 1.4;
         opacity: 0;
         pointer-events: none;
+        transform: translateY(-6px);
+        transition:
+          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          opacity 150ms ease-out,
+          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
@@ -8778,10 +8783,12 @@ ${argsString}</pre
         max-height: 72px;
         padding: 0 8px 7px;
         opacity: 1;
+        transform: none;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .cpk-launcher-hud {
+        .cpk-launcher-hud,
+        .cpk-launcher-hud__detail {
           transition: none;
         }
       }
@@ -9668,17 +9675,14 @@ ${argsString}</pre
   ): void => {
     event.preventDefault();
     event.stopPropagation();
-    const intelligenceOn = Boolean(this._core?.intelligence);
     this.hudLandingMenu =
       row === "inspector"
         ? null
         : row === "threads"
           ? "threads"
-          : row === "snippet"
-            ? "ag-ui-events"
-            : intelligenceOn
-              ? "memories"
-              : "home";
+          : row === "learning"
+            ? "memories"
+            : "home";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -9803,9 +9807,9 @@ ${argsString}</pre
               connected: intelligenceOn,
             })}
             ${this.renderHudRow({
-              id: "snippet",
-              label: HUD_SNIPPET_LABEL,
-              detail: HUD_SNIPPET_DETAIL,
+              id: "learning",
+              label: LEARNING_VIEW_LABEL,
+              detail: HUD_LEARNING_DETAIL,
             })}
           </ul>
         </div>

@@ -208,7 +208,7 @@ test("the HUD is closed until the launcher is hovered", async () => {
   expect(hud(inspector)).toBeNull();
 });
 
-test("hovering the launcher shows Open Inspector, Threads, Intelligence, and snippet", async () => {
+test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Learning", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
   expect(hudOpen(inspector)).toBe(true);
@@ -216,7 +216,7 @@ test("hovering the launcher shows Open Inspector, Threads, Intelligence, and sni
     "Open Inspector",
     "Turn on Threads",
     "Turn on Intelligence",
-    "Save event snippet",
+    "Learning",
   ]);
 });
 
@@ -230,7 +230,7 @@ test("connected Intelligence and Threads keep their slots and show a check", asy
     "Open Inspector",
     "Threads on",
     "Intelligence connected",
-    "Save event snippet",
+    "Learning",
   ]);
   expect(
     root(inspector).querySelector(
@@ -314,18 +314,18 @@ test("Turn on Intelligence lands on Home", async () => {
   expect(currentMenu(inspector)).toBe("home");
 });
 
-test("Intelligence connected lands on Learning", async () => {
+test("Intelligence connected lands on Home", async () => {
   const { inspector, openHud, clickHud } = await setup({ intelligence: true });
   await openHud();
   await clickHud("intelligence");
-  expect(currentMenu(inspector)).toBe("memories");
+  expect(currentMenu(inspector)).toBe("home");
 });
 
-test("Save event snippet lands on AG-UI Events", async () => {
+test("Learning lands on the Learning view", async () => {
   const { inspector, openHud, clickHud } = await setup();
   await openHud();
-  await clickHud("snippet");
-  expect(currentMenu(inspector)).toBe("ag-ui-events");
+  await clickHud("learning");
+  expect(currentMenu(inspector)).toBe("memories");
 });
 
 test("focusing the launcher opens the HUD; Escape closes it", async () => {
