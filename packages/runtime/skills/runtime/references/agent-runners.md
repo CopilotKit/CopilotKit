@@ -192,10 +192,13 @@ new CopilotRuntime({
 
 `CopilotIntelligenceRuntimeOptions` does not declare a `runner` field — Intelligence mode
 auto-wires `IntelligenceAgentRunner` pointed at the Intelligence service socket. Excess-property checks will
-flag a `runner:` key on an Intelligence-shaped options object as a type error, and at runtime
-the auto-wired Intelligence runner wins regardless of what you pass.
+flag a `runner:` key on an Intelligence-shaped options object as a type error, and a caller who
+evades that check (JS, `as any`, or a non-literal options object) gets a `throw` at construction
+rather than a silently ignored runner.
 
-Source: `packages/runtime/src/v2/runtime/core/runtime.ts:149-173,285-294`.
+Source: `packages/runtime/src/v2/runtime/core/runtime.ts` — `runner?` is declared only on
+`CopilotSseRuntimeOptions` (:239); the Intelligence constructor guard is at :512 and the
+auto-wired runner at :582.
 
 ### HIGH Forgetting the better-sqlite3 peer
 
