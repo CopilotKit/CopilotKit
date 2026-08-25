@@ -43,16 +43,22 @@ focus.
 
 ## Errors
 
-When a CopilotKit error fires, the Inspector launcher turns red and names the
-failure. Click the launcher or the red pill. Inspector opens the pane that
-explains that error:
+When a CopilotKit error fires, the Inspector launcher turns red. Where there is
+room beside it, a pill names the failure for a few seconds. Click the launcher —
+or the pill while it is open — and Inspector opens the pane that explains that
+error:
 
 - **Runtime / connection**: Home.
 - **Threads list**: Threads.
 - **Agent run / `RUN_ERROR`**: AG-UI Events. The banner names the agent and the
-  error. The failed `RUN_ERROR` event is highlighted and expanded.
+  error. If the run's `RUN_ERROR` is still in the event buffer, it is
+  highlighted and expanded.
 - **Tool handler / missing tool**: Agent. The banner names the agent, the tool,
-  and the error. The failed tool call is highlighted.
+  and the error. When the error carries a tool call id, that call is
+  highlighted — a missing tool has no call to point at, so nothing is.
+- **Learning / memory**: Learning. Only once the Learning view has been opened:
+  the memory store is created on first visit, so before that there is nothing
+  to report.
 
 Use `onError` on `CopilotKit` or `CopilotChat` if you also want the app UI to
 show the same error. The Inspector still records it.
