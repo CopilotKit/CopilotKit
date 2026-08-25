@@ -137,16 +137,14 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
 </PropertyReference>
 
 <PropertyReference name="enableInspector" type="boolean">
-  Controls the CopilotKit Inspector. `true` shows it on every browser host,
-  `false` hides it, and an omitted value shows it only on `localhost`,
-  `127.0.0.1`, or `0.0.0.0`. The Inspector is not loaded during SSR. In a Vue
-  template, pass this as `:enable-inspector="false"`.
+  Controls the CopilotKit Inspector during development. It is enabled by
+  default in browser development builds and is never loaded in production or
+  during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
 </PropertyReference>
 
 <PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
-  **Deprecated:** use `enableInspector`. This compatibility alias retains its
-  existing behavior when `enableInspector` is omitted. `enableInspector` wins
-  when both props are supplied.
+  **Deprecated:** use `enableInspector`. This prop no longer controls the
+  Inspector.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -188,10 +186,6 @@ function handleError(event: {
 </template>
 ```
 
-</PropertyReference>
-
-<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default='{ horizontal: "right", vertical: "top" }'>
-  Default anchor corner for the inspector button and window. Used only on first load, before the user drags it to a custom position.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">

@@ -48,12 +48,6 @@ dump full message/tool-call payloads.
 />
 ```
 
-### Anchor the inspector on narrow viewports
-
-```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" inspectorDefaultAnchor="bottom-left" />
-```
-
 ### Env-gate the inspector
 
 ```tsx
@@ -127,21 +121,18 @@ Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx` (DebugConf
 Wrong:
 
 ```tsx
-// App embedded in a sandboxed iframe with showDevConsole on
-<CopilotKit runtimeUrl="..." showDevConsole="auto" />
+// App embedded in a sandboxed iframe with the development Inspector enabled
+<CopilotKit runtimeUrl="..." />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKit
-  runtimeUrl="..."
-  showDevConsole={typeof window !== "undefined" && window.self === window.top}
-/>
+<CopilotKit runtimeUrl="..." enableInspector={false} />
 ```
 
 The inspector persists its anchor via `localStorage`. In sandboxed iframes
-without storage access, the component throws on mount. Either disable in
-iframes or whitelist storage in the sandbox attrs.
+without storage access, the component throws on mount. Disable it for an
+iframe deployment or whitelist storage in the sandbox attrs.
 
 Source: `packages/react-core/src/v2/components/CopilotKitInspector.tsx:16-53`
