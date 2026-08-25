@@ -216,7 +216,7 @@ test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Lea
     "Open Inspector",
     "Turn on Threads",
     "Turn on Intelligence",
-    "Learning",
+    "Turn on Learning",
   ]);
 });
 
@@ -230,7 +230,7 @@ test("connected Intelligence and Threads keep their slots and show a check", asy
     "Open Inspector",
     "Threads on",
     "Intelligence connected",
-    "Learning",
+    "Learning on",
   ]);
   expect(
     root(inspector).querySelector(
@@ -240,6 +240,11 @@ test("connected Intelligence and Threads keep their slots and show a check", asy
   expect(
     root(inspector).querySelector(
       '[data-cpk-hud-row="intelligence"] [data-cpk-hud-check]',
+    ),
+  ).not.toBeNull();
+  expect(
+    root(inspector).querySelector(
+      '[data-cpk-hud-row="learning"] [data-cpk-hud-check]',
     ),
   ).not.toBeNull();
 });
@@ -321,8 +326,15 @@ test("Intelligence connected lands on Home", async () => {
   expect(currentMenu(inspector)).toBe("home");
 });
 
-test("Learning lands on the Learning view", async () => {
+test("Turn on Learning lands on the Learning view", async () => {
   const { inspector, openHud, clickHud } = await setup();
+  await openHud();
+  await clickHud("learning");
+  expect(currentMenu(inspector)).toBe("memories");
+});
+
+test("Learning on still lands on the Learning view", async () => {
+  const { inspector, openHud, clickHud } = await setup({ intelligence: true });
   await openHud();
   await clickHud("learning");
   expect(currentMenu(inspector)).toBe("memories");

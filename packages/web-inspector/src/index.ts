@@ -361,7 +361,10 @@ const HUD_INTELLIGENCE_OFF_DETAIL =
   "Connect Intelligence to use Threads and Learning.";
 const HUD_INTELLIGENCE_ON_DETAIL =
   "Intelligence is connected. Opens Home.";
-const HUD_LEARNING_DETAIL = "Open saved memories and recall.";
+const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
+const HUD_LEARNING_ON_LABEL = "Learning on";
+const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
+const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
 const HUD_OPEN_INSPECTOR_DETAIL =
   "Same as clicking the circle. Opens the full Inspector.";
 
@@ -9771,6 +9774,7 @@ ${argsString}</pre
     if (!this.launcherHudOpen) return nothing;
     const threadsOn = this.areThreadEndpointsAvailable();
     const intelligenceOn = Boolean(this._core?.intelligence);
+    const learningOn = intelligenceOn && this._memoriesAvailable;
     return html`
       <div
         class="cpk-launcher-hud"
@@ -9808,8 +9812,13 @@ ${argsString}</pre
             })}
             ${this.renderHudRow({
               id: "learning",
-              label: LEARNING_VIEW_LABEL,
-              detail: HUD_LEARNING_DETAIL,
+              label: learningOn
+                ? HUD_LEARNING_ON_LABEL
+                : HUD_LEARNING_OFF_LABEL,
+              detail: learningOn
+                ? HUD_LEARNING_ON_DETAIL
+                : HUD_LEARNING_OFF_DETAIL,
+              connected: learningOn,
             })}
           </ul>
         </div>
