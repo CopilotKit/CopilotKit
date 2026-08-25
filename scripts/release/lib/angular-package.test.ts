@@ -151,7 +151,7 @@ test("creates an exact packed Angular consumer without framework overrides", () 
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
+      "@ag-ui/client": "0.0.58",
       "@angular/cdk": "22.0.0",
       "@angular/common": "22.0.0",
       "@angular/core": "22.0.0",
