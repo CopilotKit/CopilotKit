@@ -70,8 +70,8 @@ class HudTestCore extends CopilotKitCore {
   }
 }
 
-function requireElement<T extends Element>(element: T | null): T {
-  if (element === null) {
+function requireElement<T extends Node>(element: T | null | undefined): T {
+  if (!element) {
     throw new Error("Expected an element");
   }
   return element;
