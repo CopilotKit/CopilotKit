@@ -471,13 +471,18 @@ interface ThreadEnvelope {
  * });
  * ```
  *
- * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence.
- * Override both together to target a self-hosted or non-production deployment:
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence —
+ * `https://api.intelligence.copilotkit.ai` and
+ * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
+ * managed service; leaving both unset is always correct against it.
+ *
+ * Override both together to target a non-production deployment (the hosts below
+ * are placeholders — substitute your own):
  *
  * ```ts
  * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://intelligence.internal",
- *   wsUrl: "wss://realtime.intelligence.internal",
+ *   apiUrl: "https://api.intelligence.example.com",
+ *   wsUrl: "wss://realtime.intelligence.example.com",
  *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  * ```
