@@ -211,9 +211,9 @@ export interface WorkerLoopDeps {
   onCurrentJobChange?: (currentJobId: string | null) => void;
   /**
    * Max SETTLED jobs this worker processes before it recycles: stops claiming,
-   * runs the existing graceful drain, and exits non-zero so the platform
-   * restarts a fresh container (pre-empting slow Chromium/heap growth on a
-   * long-lived worker — Gunicorn `--max-requests` / Celery
+   * runs the existing graceful drain, and exits cleanly so Railway's ALWAYS
+   * restart policy starts a fresh container (pre-empting slow Chromium/heap
+   * growth on a long-lived worker — Gunicorn `--max-requests` / Celery
    * `max-tasks-per-child`). Injectable override; when omitted the loop resolves
    * `WORKER_MAX_JOBS` (default `DEFAULT_WORKER_MAX_JOBS`). `0` DISABLES the
    * feature (the worker runs forever, pre-recycle behavior).
@@ -232,11 +232,11 @@ export interface WorkerLoopDeps {
    * Injectable process-exit, ABSTRACTED so the recycle path is unit-testable
    * without killing the test process. Defaults to `process.exit`. The
    * entrypoint MAY inject a richer exit that runs the full graceful teardown
-   * (`drainFleetWorker` — deregister + pool shutdown) BEFORE exiting non-zero;
+   * (`drainFleetWorker` — deregister + pool shutdown) BEFORE exiting cleanly;
    * the bare default only fires the loop-local `requestDrain()` (which, at the
    * settle point, has no in-flight run to drain) then exits.
    */
-  exit?: (code: number) => void;
+  exit?: () => void;
 }
 
 /** Handle returned by `startWorkerLoop` — `stop()` requests a bounded drain. */
@@ -452,7 +452,7 @@ export function safeLog(
 
 /**
  * Default recycle threshold: after this many SETTLED jobs a worker drains and
- * exits non-zero for a fresh restart. 100 mirrors a conservative Gunicorn
+ * exits cleanly for a fresh restart. 100 mirrors a conservative Gunicorn
  * `--max-requests`; the exact value trades restart churn against how much
  * Chromium/heap growth accumulates on a long-lived worker. Env-overridable via
  * `WORKER_MAX_JOBS`; `0` disables the feature.
@@ -466,16 +466,6 @@ export const DEFAULT_WORKER_MAX_JOBS = 100;
  * `WORKER_MAX_JOBS_JITTER`.
  */
 export const DEFAULT_WORKER_MAX_JOBS_JITTER = 15;
-/**
- * Exit code the worker uses when RECYCLING (max-jobs reached). NON-ZERO is
- * REQUIRED: Railway's `restartPolicyType: ON_FAILURE` only replaces the
- * container on a non-zero exit — a zero exit reads as an intentional stop and
- * may NOT restart, which would silently drain the fleet. 42 is an arbitrary
- * distinctive non-zero sentinel (distinct from the boot-failure `1`) so a
- * recycle is greppable in platform logs.
- */
-export const WORKER_RECYCLE_EXIT_CODE = 42;
-
 /**
  * Resolve a NON-NEGATIVE integer env knob (the recycle max-jobs / jitter share
  * this shape: `0` is a MEANINGFUL value — disabled / no-stagger — so unlike the
@@ -1287,11 +1277,7 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
           ),
       )
     : 0;
-  const exit =
-    deps.exit ??
-    ((code: number): void => {
-      process.exit(code);
-    });
+  const exit = deps.exit ?? ((): void => process.exit(0));
   // Count of SETTLED jobs (claimed → ran → reported). Never incremented on
   // empty poll cycles or abandoned (grace-expiry) runs. Closure-scoped so each
   // loop instance counts independently (one worker per process in production;
@@ -1684,7 +1670,7 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
       // runs never reach here. Once the per-process threshold is crossed, stop
       // claiming (the EXISTING loop-local drain, `requestDrain()` — no in-flight
       // run remains at the settle point, so nothing to wait on), break the loop,
-      // and exit NON-ZERO below so the platform restart policy replaces the
+      // and exit cleanly below so Railway's ALWAYS restart policy replaces the
       // container — pre-empting slow Chromium/heap growth on a long-lived worker
       // (Gunicorn `--max-requests` / Celery `max-tasks-per-child`).
       completedJobs++;
@@ -1695,7 +1681,6 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
           recycleThreshold,
           maxJobs,
           maxJobsJitter,
-          exitCode: WORKER_RECYCLE_EXIT_CODE,
         });
         recycleTriggered = true;
         requestDrain();
@@ -1704,13 +1689,12 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
     }
     safeLog(logger, "info", "fleet.worker.loop-stopped", { workerId });
     if (recycleTriggered) {
-      // Exit NON-ZERO so the platform (Railway `restartPolicyType: ON_FAILURE`)
-      // replaces this container with a fresh one. A zero exit would read as an
-      // intentional stop and might NOT restart — silently shrinking the fleet.
-      // `exit` is injectable (default `process.exit`) so the recycle path is
-      // testable without killing the test process; a richer injected exit MAY
-      // run the full graceful teardown (deregister + pool shutdown) first.
-      exit(WORKER_RECYCLE_EXIT_CODE);
+      // Exit cleanly so Railway's ALWAYS restart policy replaces this
+      // container with a fresh one. `exit` is injectable (default
+      // `process.exit(0)`) so the recycle path is testable without killing the
+      // test process; a richer injected exit MAY run the full graceful teardown
+      // (deregister + pool shutdown) first.
+      exit();
     }
   })();
 
