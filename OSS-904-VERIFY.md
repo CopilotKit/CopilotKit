@@ -245,8 +245,12 @@ Live updates Ready ... Recent activity RUN_FINISHED
 ```
 
 The Threads view also renders against this runtime (in-memory store) and issues
-`GET /threads` and `GET /threads/<id>/events` to :4002 — so scenario 4 (recovery via
-non-chat runtime traffic) has real traffic to work with.
+`GET /threads` and `GET /threads/<id>/events` to :4002. That traffic exercises
+DETECTION through the thread routes — a thread failure while the status is
+connected does trigger a check. It does not make scenario 4 runnable: every
+binding withholds its thread requests until the status is already connected, so
+while the status is red no thread request is issued at all and there is nothing
+to recover from. Scenario 4 is NOT DELIVERED; see the not-covered list below.
 
 ## Caveats
 
@@ -277,10 +281,13 @@ non-chat runtime traffic) has real traffic to work with.
 - **Enter does not submit** in the demo chat input; click the round send button.
 - **`showDevConsole="auto"`** only renders the Inspector on `localhost` /
   `127.0.0.1`, not on a LAN IP.
-- **Scenarios still not covered by this setup**: 11 (gateway error — needs a proxy
-  in front of :4002), 12/13 (Intelligence mode — needs `INTELLIGENCE_API_KEY` and
-  the intelligence-mode runtime config), 14 (a customer-owned agent endpoint —
-  needs a third server), 15 (Vue/Angular demos — they have their own
-  `runtimeUrl` wiring and no equivalent env hook yet).
+- **Scenarios still not covered by this setup**: 4 (recovery through other runtime
+  traffic — NOT DELIVERED, and not a setup gap: the bindings issue no thread
+  requests while the status is red, so the scenario cannot pass as written and
+  must not be run), 11 (gateway error — needs a proxy in front of :4002), 12/13
+  (Intelligence mode — needs `INTELLIGENCE_API_KEY` and the intelligence-mode
+  runtime config), 14 (a customer-owned agent endpoint — needs a third server),
+  15 (Vue/Angular demos — they have their own `runtimeUrl` wiring and no
+  equivalent env hook yet).
 - **Ports 4002 and 3005** were chosen to stay clear of the other Inspector
   worktrees already using 3000–3002 and 5188.

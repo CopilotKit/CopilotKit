@@ -195,8 +195,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
   /**
    * The stop requests below deliberately use the GLOBAL fetch rather than
-   * `this.fetch`, and so are the one runtime destination excluded from the
-   * connection-health seam (OSS-904).
+   * `this.fetch`, keeping them off the connection-health seam (OSS-904).
+   *
+   * Off it BY DESIGN, which is what distinguishes them from the other runtime
+   * destinations that are also still off it — the suggestion route's stateless
+   * path, the memory store, `/inspector-metadata` — where it is a matter of
+   * adoption rather than of principle.
    *
    * They exist only because the user pressed Stop, and a user-initiated stop is
    * explicitly excluded from triggering a confirmation check: a stop against a

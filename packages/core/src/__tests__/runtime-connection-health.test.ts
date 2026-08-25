@@ -25,7 +25,7 @@ import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "../core";
-import { RUNTIME_PROBE_TIMEOUT_MS } from "../core/agent-registry";
+import { ɵRUNTIME_PROBE_TIMEOUT_MS } from "../core/agent-registry";
 import type { RuntimeRequestInit } from "../utils/runtime-request";
 import { RUNTIME_REQUEST_WATCHDOG_MS } from "../utils/runtime-request";
 import { ɵcreateThreadStore, ɵTHREAD_REQUEST_TIMEOUT_MS } from "../threads";
@@ -827,7 +827,7 @@ describe("runtime connection health (OSS-904)", () => {
     await waitForConditionVirtual(() => infoCalls === 2);
 
     // Just short of the bound the verdict is still open.
-    await vi.advanceTimersByTimeAsync(RUNTIME_PROBE_TIMEOUT_MS - 100);
+    await vi.advanceTimersByTimeAsync(ɵRUNTIME_PROBE_TIMEOUT_MS - 100);
     expect(core.runtimeConnectionStatus).toBe(
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     );

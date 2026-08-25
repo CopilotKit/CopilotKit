@@ -2001,8 +2001,9 @@ type HeaderMockCore = {
    * function whose outcomes drive the runtime connection status (OSS-904).
    * The owned thread store's `/threads*` requests go to the runtime, so they
    * are runtime traffic and must be issued through this rather than the global
-   * `fetch` — that is what lets opening the Threads view restore the status
-   * after an outage without the user sending a message.
+   * `fetch` — that is what lets a dead runtime turn the status red. Detection
+   * only: thread requests are withheld while the status is red, so they never
+   * restore it.
    */
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
@@ -2215,6 +2216,26 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
         String(call[0]).includes("/threads?"),
       ).length,
     ).toBe(threadListCalls().length);
+  });
+
+  // The Inspector ships independently of the core it attaches to, so a newer
+  // Inspector can meet an older pinned core with no `ɵruntimeFetch`. Losing
+  // detection through the Threads view is acceptable; handing the thread store
+  // `undefined` and breaking the view outright is not.
+  it("falls back to the global fetch when the core has no instrumented fetch", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {});
+    delete (harness.core as { ɵruntimeFetch?: unknown }).ɵruntimeFetch;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+    expect(harness.runtimeFetch).not.toHaveBeenCalled();
   });
 
   it("re-applies headers on the owned store when core headers change", async () => {

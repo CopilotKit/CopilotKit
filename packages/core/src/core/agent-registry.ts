@@ -66,8 +66,15 @@ const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
  *
  * Exported for tests, which must derive their waits from it rather than
  * hardcode a number that silently drifts away from this one.
+ *
+ * `ɵ`-prefixed because `core/index.ts` re-exports this module wholesale, so
+ * anything named here is public API of `@copilotkit/core` whatever its doc
+ * comment says. The prefix marks it as internal, matching
+ * `ɵTHREAD_REQUEST_TIMEOUT_MS`, which is on the index for the same reason.
+ * {@link RUNTIME_REQUEST_WATCHDOG_MS} takes the other route out and lives in a
+ * module the index does not re-export.
  */
-export const RUNTIME_PROBE_TIMEOUT_MS = 5_000;
+export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
 /**
  * What the instrumented fetch observed about one runtime-bound request.
@@ -1169,7 +1176,7 @@ export class AgentRegistry {
    * the second way a server dies and the one this feature's own motivating list
    * is made of; an unbounded probe against it never settles, never releases its
    * latch, and restores the original bug in full. See
-   * {@link RUNTIME_PROBE_TIMEOUT_MS}.
+   * {@link ɵRUNTIME_PROBE_TIMEOUT_MS}.
    */
   private async probeRuntimeReachability(): Promise<void> {
     const generation = this.runtimeHealthGeneration;
@@ -1186,10 +1193,10 @@ export class AgentRegistry {
           abortController.abort();
           reject(
             new Error(
-              `Runtime did not answer within ${RUNTIME_PROBE_TIMEOUT_MS}ms`,
+              `Runtime did not answer within ${ɵRUNTIME_PROBE_TIMEOUT_MS}ms`,
             ),
           );
-        }, RUNTIME_PROBE_TIMEOUT_MS);
+        }, ɵRUNTIME_PROBE_TIMEOUT_MS);
       });
       // `Promise.race` attaches a rejection handler to the loser as well, so a
       // late failure from the abandoned request cannot surface as unhandled.

@@ -62,8 +62,12 @@ export interface RuntimeRequestMeta {
    *
    * A SUCCESS on such a request still counts. The runtime demonstrably
    * answered, and that is the same evidence any other successful runtime
-   * request carries; the destination rule says a success on an optional route
-   * restores the status.
+   * request carries, so the destination rule lets it restore the status. In
+   * practice that rarely fires for the thread routes specifically: every
+   * binding withholds its thread requests until the status is already
+   * connected, so while it is red none is sent. The asymmetry is still the
+   * right rule — it is about what the evidence means, not about which caller
+   * happens to produce it.
    */
   nonCritical?: boolean;
   /**
