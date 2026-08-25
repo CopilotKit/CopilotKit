@@ -11,7 +11,9 @@
  * A body that isn't JSON, or carries no string `message`, contributes nothing:
  * the status is then the whole error.
  */
-export async function runtimeInfoError(response: Response): Promise<Error> {
+export async function runtimeInfoError(
+  response: Response,
+): Promise<RuntimeInfoRequestError> {
   const base = `Runtime info request failed with status ${response.status}`;
 
   let detail: string | undefined;
@@ -25,5 +27,34 @@ export async function runtimeInfoError(response: Response): Promise<Error> {
     // Unparseable or already-consumed body — fall back to the status.
   }
 
-  return new Error(detail ? `${base}: ${detail}` : base);
+  const error = new Error(
+    detail ? `${base}: ${detail}` : base,
+  ) as RuntimeInfoRequestError;
+  error.runtimeInfoStatus = response.status;
+  return error;
+}
+
+/**
+ * A `/info` failure where the runtime ANSWERED and the answer was a refusal —
+ * an expired token, a denied authorisation, an internal error.
+ *
+ * Carried on the error rather than re-derived from the message so the caller
+ * can say "answered with 401" instead of "unreachable". Both mean the
+ * application cannot work, so both are the error status; sending the reader to
+ * check addresses, ports and containers when the cause is a credential is what
+ * costs the debugging time (OSS-904).
+ */
+export interface RuntimeInfoRequestError extends Error {
+  runtimeInfoStatus: number;
+}
+
+export function isRuntimeInfoRequestError(
+  error: unknown,
+): error is RuntimeInfoRequestError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    typeof (error as { runtimeInfoStatus?: unknown }).runtimeInfoStatus ===
+      "number"
+  );
 }
