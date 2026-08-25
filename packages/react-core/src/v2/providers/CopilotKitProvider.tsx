@@ -25,7 +25,6 @@ import type {
   CopilotKitInspectorOpenRequest,
   CopilotKitInspectorSaveRequest,
 } from "../components/CopilotKitInspectorContext";
-import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
@@ -247,10 +246,6 @@ export interface CopilotKitProviderProps {
    * @default undefined (components/hooks without an explicit throttleMs will be unthrottled)
    */
   defaultThrottleMs?: number;
-  /**
-   * @deprecated The web Inspector no longer supports a default anchor.
-   */
-  inspectorDefaultAnchor?: Anchor;
   /**
    * Enable debug logging for the client-side event pipeline.
    */

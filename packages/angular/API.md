@@ -259,6 +259,7 @@ secondary entry points can contribute built-in renderers. Applications must
 not depend on it; its `ɵ` prefix and TSDoc mark it internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
+- `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 <!-- public-api:root:end -->
 
 ## MCP Apps entry point

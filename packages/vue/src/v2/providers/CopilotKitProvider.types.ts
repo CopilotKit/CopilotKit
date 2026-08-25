@@ -60,13 +60,6 @@ export interface CopilotKitProviderProps {
     includeSchema?: boolean;
   };
   /**
-   * @deprecated The web Inspector no longer supports a default anchor.
-   */
-  inspectorDefaultAnchor?: {
-    horizontal: "left" | "right";
-    vertical: "top" | "bottom";
-  };
-  /**
    * Enable debug logging for the client-side event pipeline.
    *
    * Accepts:

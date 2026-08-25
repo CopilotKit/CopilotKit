@@ -1,12 +1,10 @@
 import * as React from "react";
 import type { CopilotKitCore } from "@copilotkit/core";
-import type { Anchor, WebInspectorElement } from "@copilotkit/web-inspector";
+import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContext";
 
 export interface CopilotKitInspectorProps {
   core?: CopilotKitCore | null;
-  /** @deprecated The web Inspector no longer supports a default anchor. */
-  defaultAnchor?: Anchor;
   openRequest?: CopilotKitInspectorOpenRequest | null;
 }
 

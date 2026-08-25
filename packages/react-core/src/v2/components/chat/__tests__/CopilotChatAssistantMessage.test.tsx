@@ -110,7 +110,7 @@ describe("CopilotChatAssistantMessage", () => {
       ).toBeNull();
     });
 
-    it("renders the local Inspector action and opens it from the toolbar", () => {
+    it("renders the development Inspector action and opens it from the toolbar", () => {
       const openInspector = vi.fn();
       const saveEventSnippet = vi.fn();
 
@@ -127,7 +127,7 @@ describe("CopilotChatAssistantMessage", () => {
       );
 
       const inspectorButton = screen.getByRole("button", {
-        name: "View in Inspector (Local Only)",
+        name: "View in Inspector (Development Only)",
       });
       const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
 
@@ -142,7 +142,7 @@ describe("CopilotChatAssistantMessage", () => {
 
       fireEvent.click(
         screen.getByRole("button", {
-          name: "Save as snippet (Local Only)",
+          name: "Save as snippet (Development Only)",
         }),
       );
       expect(saveEventSnippet).toHaveBeenCalledWith({

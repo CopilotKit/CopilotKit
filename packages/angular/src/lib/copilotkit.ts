@@ -87,9 +87,6 @@ export class CopilotKit {
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
-  readonly #destroyRef = inject(DestroyRef);
-  readonly #document = inject(DOCUMENT);
-  readonly #platformId = inject(PLATFORM_ID);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;

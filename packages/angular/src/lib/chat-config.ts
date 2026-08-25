@@ -36,7 +36,7 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
   assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Local Only",
+  assistantMessageToolbarInspectorLocalOnlyLabel: "Development Only",
   assistantMessageToolbarSaveSnippetLabel: "Save as snippet",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",

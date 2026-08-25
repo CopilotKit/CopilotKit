@@ -3,6 +3,7 @@ import {
   afterNextRender,
   DestroyRef,
   Injectable,
+  InjectionToken,
   Injector,
   PLATFORM_ID,
   inject,
@@ -13,6 +14,11 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
 import { COPILOT_KIT_CONFIG, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
+
+export const ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE =
+  new InjectionToken<boolean>("CopilotKit Inspector development mode", {
+    factory: isDevMode,
+  });
 
 export type AngularInspectorOpenRequest = {
   messageId: string;
@@ -61,6 +67,9 @@ export class CopilotInspector {
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly platformId = inject(PLATFORM_ID);
+  private readonly isDevelopment = inject(
+    ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE,
+  );
   private element: WebInspectorElement | null = null;
   private ownsElement = false;
   private destroyed = false;
@@ -68,7 +77,7 @@ export class CopilotInspector {
   readonly shouldRenderInspector = shouldEnableInspector({
     enableInspector: this.config?.enableInspector,
     isBrowser: isPlatformBrowser(this.platformId),
-    isDevelopment: isDevMode(),
+    isDevelopment: this.isDevelopment,
   });
 
   /** Whether Inspector-backed message actions should be shown. */

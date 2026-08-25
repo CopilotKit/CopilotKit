@@ -92,7 +92,7 @@ function saveToolCall(toolCall: {
           type="button"
           class="cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]"
           data-testid="copilot-tool-save-snippet-button"
-          :aria-label="`${saveLabel()} (Local Only)`"
+          :aria-label="`${saveLabel()} (Development Only)`"
           @click="saveToolCall(toolCall)"
         >
           <IconBookmark class="cpk:size-[18px]" />

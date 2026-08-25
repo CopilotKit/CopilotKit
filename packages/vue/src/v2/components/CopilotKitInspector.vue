@@ -31,7 +31,7 @@ const vConfigureInspector: ObjectDirective<WebInspectorElement, undefined> = {
     configureInspector?.(element, props.core ?? null);
     inspector.value = element;
     if (props.openRequest) {
-      element.openInspector("message_toolbar", props.openRequest);
+      element.openInspector?.("message_toolbar", props.openRequest);
     }
   },
 };
@@ -65,7 +65,7 @@ watch(
 watch(
   () => props.openRequest,
   (request) => {
-    if (request) inspector.value?.openInspector("message_toolbar", request);
+    if (request) inspector.value?.openInspector?.("message_toolbar", request);
   },
 );
 </script>

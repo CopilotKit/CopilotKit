@@ -55,5 +55,28 @@ describe("CopilotKitInspector", () => {
     expect(inspectorElement.autoAttachCore).toBe(false);
     expect(inspectorElement.core).toBeInstanceOf(CopilotKitCoreVue);
     expect(inspectorElement.core?.runtimeUrl).toBe("/api/copilotkit");
+
+    await wrapper.setProps({ "data-surface": "updated" });
+    expect(wrapper.get("cpk-web-inspector").attributes("data-surface")).toBe(
+      "updated",
+    );
+  });
+
+  it("forwards Inspector open requests to the mounted element", async () => {
+    const openRequest = { messageId: "message-1" };
+    const wrapper = mount(CopilotKitInspector, {
+      props: { openRequest },
+    });
+
+    await settleInspectorLoad();
+
+    const inspector = wrapper.get("cpk-web-inspector")
+      .element as HTMLElement & {
+      openInspector: ReturnType<typeof vi.fn>;
+    };
+    expect(inspector.openInspector).toHaveBeenCalledWith(
+      "message_toolbar",
+      openRequest,
+    );
   });
 });

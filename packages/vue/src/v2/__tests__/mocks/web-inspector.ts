@@ -7,6 +7,7 @@ export class WebInspectorElement extends HTMLElement {
   core: unknown = null;
   autoAttachCoreAtConnection = true;
   coreAtConnection: unknown = null;
+  openInspector = vi.fn();
 
   connectedCallback() {
     this.autoAttachCoreAtConnection = this.autoAttachCore;

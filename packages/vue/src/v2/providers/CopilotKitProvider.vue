@@ -106,7 +106,6 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   useSingleEndpoint: undefined,
   a2ui: undefined,
   enableInspector: undefined,
-  showDevConsole: undefined,
 });
 
 const shouldRenderInspector = ref(false);

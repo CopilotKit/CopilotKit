@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CopilotChatAssistantMessage } from "../../components/chat/CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../CopilotKitProvider";
-import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
+import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 const assistantMessage: AssistantMessage = {
   id: "assistant-message",
@@ -29,7 +29,7 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("CopilotKitProvider local Inspector action", () => {
+describe("CopilotKitProvider development Inspector action", () => {
   it("renders in development on any browser host", async () => {
     vi.stubEnv("NODE_ENV", "development");
     const restoreLocation = stubWindowLocation("http://192.168.1.25:3000");
