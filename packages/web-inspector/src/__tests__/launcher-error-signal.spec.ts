@@ -2640,9 +2640,10 @@ test("the beat ends and leaves the resting dot behind", async () => {
   const context = await setup({ realTimers: true });
 
   await context.breakConnection();
-  await context.advance(200);
-  expect(pulsing(context.inspector)).toBe(true);
 
+  // No assertion about *being* mid-beat here: on real timers that is a race
+  // against ERROR_BEAT_MS, and the fake clock already pins it above. This test
+  // only claims the beat ends on its own.
   for (let attempt = 0; attempt < 400; attempt += 1) {
     if (!pulsing(context.inspector)) break;
     await context.advance(20);
@@ -2661,9 +2662,10 @@ test("the whole gesture completes on its own and leaves the resting state behind
   const context = await setup({ realTimers: true });
 
   await context.breakConnection();
-  await context.advance(200);
-  expect(pillPhase(context.inspector)).toBe("closed");
 
+  // No assertion about the phase *before* the beat here: on real timers that is
+  // a race against ERROR_BEAT_MS, and the fake clock already pins it above.
+  // This test only claims the gesture runs to its end on its own.
   let sawOpenPill = false;
   for (let attempt = 0; attempt < 500; attempt += 1) {
     if (pillOpen(context.inspector)) sawOpenPill = true;
