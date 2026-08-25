@@ -410,8 +410,7 @@ const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
 const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
 const HUD_INTELLIGENCE_OFF_DETAIL =
   "Connect Intelligence to use Threads and Learning.";
-const HUD_INTELLIGENCE_ON_DETAIL =
-  "Intelligence is connected. Opens Home.";
+const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
 const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
 const HUD_LEARNING_ON_LABEL = "Learning on";
 const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
