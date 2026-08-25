@@ -108,14 +108,14 @@ The official troubleshooting docs are at:
 
 ## Key File Locations in the CopilotKit Codebase
 
-| Component                    | Path                                                              |
-| ---------------------------- | ----------------------------------------------------------------- |
-| Legacy error classes & codes | `packages/shared/src/utils/errors.ts`                             |
-| V2 Core error codes          | `packages/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
-| V2 Transcription errors      | `packages/shared/src/transcription-errors.ts`                     |
-| Runtime SSE response         | `packages/runtime/src/v2/runtime/handlers/shared/sse-response.ts` |
-| Runtime info endpoint        | `packages/runtime/src/v2/runtime/handlers/get-runtime-info.ts`    |
-| Runtime CORS config          | `packages/runtime/src/v2/runtime/core/fetch-cors.ts`              |
-| Intelligence platform client | `packages/runtime/src/v2/runtime/intelligence-platform/client.ts` |
-| BuiltInAgent                 | `packages/runtime/src/agent/index.ts`                             |
-| Web Inspector                | `packages/web-inspector/src/index.ts`                             |
+| Component                      | Path                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| Legacy error classes & codes   | `packages/shared/src/utils/errors.ts`                             |
+| V2 Core error codes            | `packages/core/src/core/core.ts` (`CopilotKitCoreErrorCode` enum) |
+| V2 Transcription errors        | `packages/shared/src/transcription-errors.ts`                     |
+| Runtime SSE response           | `packages/runtime/src/v2/runtime/handlers/shared/sse-response.ts` |
+| Runtime info endpoint          | `packages/runtime/src/v2/runtime/handlers/get-runtime-info.ts`    |
+| Runtime CORS config            | `packages/runtime/src/v2/runtime/core/fetch-cors.ts`              |
+| CopilotKit Intelligence client | `packages/runtime/src/v2/runtime/intelligence-platform/client.ts` |
+| BuiltInAgent                   | `packages/runtime/src/agent/index.ts`                             |
+| Web Inspector                  | `packages/web-inspector/src/index.ts`                             |

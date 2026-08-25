@@ -86,7 +86,7 @@ describe("seoRedirects", () => {
     );
   });
 
-  it("redirects retired Intelligence Platform observability URLs to overview pages", () => {
+  it("redirects retired Intelligence observability URLs to overview pages", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([
         {

@@ -32,7 +32,7 @@ import CopilotUI from "@/snippets/copilot-ui.mdx";
 <OpsPlatformCTA
   variant="card"
   title="Ship Mastra to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
+  body="Add persistent threads and the inspector with CopilotKit Intelligence."
   ctaLabel="Create a free account"
   surface="docs_mastra_quickstart"
 />
@@ -51,7 +51,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -78,7 +78,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **Enterprise Intelligence Platform** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
                 - **Framework** — pick **Mastra** when prompted.
             </Step>
             <Step>
@@ -249,9 +249,9 @@ Before you begin, you'll need the following:
 
                 ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
                   createCopilotRuntimeHandler,
-                  InMemoryAgentRunner,
                 } from "@copilotkit/runtime/v2";
                 import { MastraAgent } from "@ag-ui/mastra";
                 import { MastraClient } from "@mastra/client-js";
@@ -263,12 +263,21 @@ Before you begin, you'll need the following:
                 const runtime = new CopilotRuntime({
                   // A factory, so the agent list is fetched per request rather than at
                   // module load — the route survives an agent server that is not up yet.
-                  agents: () =>
+                  agents: ({ request }) =>
                     MastraAgent.getRemoteAgents({
                       mastraClient,
-                      resourceId: "user-1", // your app's user id — scopes Mastra memory
+                      // Scopes Mastra's own memory to the same user identified below.
+                      resourceId: request.headers.get("x-user-id") ?? "anonymous",
                     }),
-                  runner: new InMemoryAgentRunner(),
+                  // [!code highlight:8]
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.INTELLIGENCE_API_KEY!,
+                  }),
+                  // Threads are per-user. Without this, every visitor shares one history.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
                 });
 
                 const handler = createCopilotRuntimeHandler({
@@ -280,13 +289,18 @@ Before you begin, you'll need the following:
                 export const POST = handler;
                 ```
 
-                The route defaults to `http://127.0.0.1:4111`. If your agent server took a
-                different port, or you are pointing at a deployed Mastra service, set the
-                address in *this* app's environment — the frontend reads it, not the agent:
+                This route needs two values from *this* app's environment — the license
+                key from step 1, and the address of the agent server you started earlier.
+                It reads them here, not in the Mastra project:
 
-                ```bash title=".env.local"
+                ```plaintext title=".env.local"
+                INTELLIGENCE_API_KEY=your_license_key
                 MASTRA_BASE_URL=http://127.0.0.1:4111
                 ```
+
+                `MASTRA_BASE_URL` defaults to `http://127.0.0.1:4111`, so you only need it
+                if your agent server took a different port or you are pointing at a
+                deployed Mastra service.
 
                 <Callout type="info" title="Embedding Mastra instead">
                   If your Mastra instance lives inside this Next.js app rather than in its
@@ -294,6 +308,14 @@ Before you begin, you'll need the following:
                   `MastraAgent.getLocalAgents({ mastra, resourceId })` and drop the client.
                   See [local vs remote agents](/mastra/copilot-runtime#local-vs-remote-agents)
                   for which one to choose.
+                </Callout>
+
+                <Callout type="info" title="Running without the Intelligence Platform?">
+                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
+                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
+                  Inspector stay locked and the key is never read. See
+                  [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+                  full constructor and how to confirm the key is in use.
                 </Callout>
             </Step>
             <Step>

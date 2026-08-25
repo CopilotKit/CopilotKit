@@ -41,6 +41,7 @@ type InspectorLeafKey =
   | "threads"
   | "whats-new"
   | "ag-ui-events"
+  | "event-snippets"
   | "agents"
   | "frontend-tools"
   | "capabilities"
@@ -1132,7 +1133,7 @@ test("has_threads follows only real rows visible in the active Agent context", a
 });
 
 test("metadata telemetry uses every stable legacy leaf key", async () => {
-  const revisions = Array.from({ length: 8 }, (_, index) =>
+  const revisions = Array.from({ length: 9 }, (_, index) =>
     planRevision(index),
   );
   const harness = await setup({
@@ -1151,6 +1152,7 @@ test("metadata telemetry uses every stable legacy leaf key", async () => {
       { group: "home", leaf: "whats-new" },
       { group: "workbench", leaf: "threads" },
       { group: "inspect", leaf: "ag-ui-events" },
+      { group: "inspect", leaf: "event-snippets" },
       { group: "inspect", leaf: "agents" },
       { group: "inspect", leaf: "frontend-tools" },
       { group: "inspect", leaf: "capabilities" },

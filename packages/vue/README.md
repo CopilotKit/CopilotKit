@@ -305,7 +305,7 @@ function loadMoreThreads() {
 </template>
 ```
 
-`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
+`useThreads` is a headless composable for CopilotKit Intelligence thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
 
 ### `useInterrupt`
 

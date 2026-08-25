@@ -32,13 +32,13 @@ const memoryRequestHeaders = (
 });
 
 /**
- * REST base URL of CopilotKit's managed Intelligence platform — the default
+ * REST base URL of cloud-hosted CopilotKit Intelligence — the default
  * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
  */
 const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
 
 /**
- * Websocket base URL of CopilotKit's managed Intelligence platform — the
+ * Websocket base URL of cloud-hosted CopilotKit Intelligence — the
  * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
  *
  * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
@@ -50,7 +50,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
- * Error thrown when an Intelligence platform HTTP request returns a non-2xx
+ * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
  * parsing the error message string.
@@ -86,7 +86,7 @@ export interface ThreadDeletedPayload {
 
 export interface CopilotKitIntelligenceConfig {
   /**
-   * Base URL of the intelligence platform API.
+   * Base URL of the CopilotKit Intelligence API.
    *
    * Defaults to CopilotKit's managed platform,
    * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
@@ -106,10 +106,10 @@ export interface CopilotKitIntelligenceConfig {
    * different deployments, which logs a warning.
    */
   wsUrl?: string;
-  /** API key for authenticating with the intelligence platform */
+  /** API key for authenticating with CopilotKit Intelligence */
   apiKey: string;
   /**
-   * Enable Enterprise Learning — expose the Intelligence platform's
+   * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
    * intelligence runtime that resolve a user. Attached uniformly across
    * agent frameworks by `attachIntelligenceEnterpriseLearning` via
@@ -321,7 +321,7 @@ export interface AnnotateParams {
   threadId: string;
   /**
    * Discriminator identifying the annotation type.
-   * Must match a type known to the Intelligence platform
+   * Must match a type known to CopilotKit Intelligence
    * (for example, `"user_action"`).
    */
   type: string;
@@ -453,7 +453,7 @@ interface ThreadEnvelope {
 }
 
 /**
- * Client for the CopilotKit Intelligence Platform REST API.
+ * Client for the CopilotKit Intelligence REST API.
  *
  * Construct the client once and pass it to any consumers that need it
  * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
@@ -471,7 +471,7 @@ interface ThreadEnvelope {
  * });
  * ```
  *
- * `apiUrl` and `wsUrl` default to CopilotKit's managed Intelligence platform.
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence.
  * Override both together to target a self-hosted or non-production deployment:
  *
  * ```ts
@@ -1188,7 +1188,7 @@ export class CopilotKitIntelligence {
   }
 
   /**
-   * Annotate a thread event on the Intelligence platform's general annotation
+   * Annotate a thread event on CopilotKit Intelligence's general annotation
    * endpoint (`PUT /connector/annotate/:clientEventId`).
    *
    * This is the generalized replacement for the old

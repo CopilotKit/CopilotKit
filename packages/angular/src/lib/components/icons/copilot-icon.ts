@@ -74,6 +74,9 @@ export const ArrowUp: CopilotIconData = [
   path("m5 12 7-7 7 7"),
   path("M12 19V5"),
 ];
+export const Bookmark: CopilotIconData = [
+  path("m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"),
+];
 export const Check: CopilotIconData = [path("M20 6 9 17l-5-5")];
 export const ChevronDown: CopilotIconData = [path("m6 9 6 6 6-6")];
 export const ChevronLeft: CopilotIconData = [path("m15 18-6-6 6-6")];

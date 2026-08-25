@@ -300,9 +300,15 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4-6", {
-        thinking: { type: "enabled", budgetTokens: 10000 },
-      }),
+      model: anthropic("claude-sonnet-4-6"),
+      providerOptions: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+          // `effort` replaces the fixed token budget used by the older
+          // `{ type: "enabled", budgetTokens }` form.
+          effort: "high",
+        },
+      },
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       abortSignal,
     }),
@@ -310,6 +316,12 @@ const agent = new BuiltInAgent({
 ```
 
 Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`) are automatically extracted from the AI SDK stream.
+
+<Callout type="info">
+Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), Anthropic defaults thinking `display` to `"omitted"` — the model still reasons, but no reasoning text comes back, so the events above arrive empty. `@ai-sdk/anthropic` does not expose `display` yet, so choose a model that defaults to summarized thinking (such as `claude-sonnet-4-6`) when you want the reasoning to be visible.
+</Callout>
+
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions` — see [Advanced Configuration](/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
 <Callout type="warn">
@@ -329,7 +341,9 @@ const agent = new BuiltInAgent({
       adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: { thinking: { type: "enabled", budgetTokens: 10000 } },
+      modelOptions: {
+        thinking: { type: "adaptive", display: "summarized" },
+      },
       abortController,
     });
   },
