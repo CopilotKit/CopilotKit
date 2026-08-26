@@ -32,7 +32,9 @@ const runtime = new CopilotRuntime({
             ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
             : {}),
         }),
-        // Threads are per-user. Without this every visitor shares one history.
+        // Threads are per-user, so until your app sends x-user-id every
+        // visitor shares the "anonymous" history. Wire these headers to
+        // your auth-derived identity before any multi-user deployment.
         identifyUser: (request) => ({
           id: request.headers.get("x-user-id") ?? "anonymous",
           name: request.headers.get("x-user-name") ?? "Anonymous",
