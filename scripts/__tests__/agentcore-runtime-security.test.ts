@@ -138,15 +138,15 @@ test("only the explicit local resolver supplies a demo user", () => {
   });
 });
 
-test("AgentCore Docker reaches host Intelligence without allowing that host in AWS", () => {
+test("AgentCore documents Docker host overrides without allowing that host in AWS", () => {
   const environmentSource = readAgentCoreSource(".env.example");
   const composeSource = readAgentCoreSource("docker/docker-compose.yml");
 
   expect(environmentSource).toContain(
-    "INTELLIGENCE_API_URL=http://host.docker.internal:4201",
+    "# INTELLIGENCE_API_URL=http://host.docker.internal:4201",
   );
   expect(environmentSource).toContain(
-    "INTELLIGENCE_GATEWAY_WS_URL=ws://host.docker.internal:4401",
+    "# INTELLIGENCE_GATEWAY_WS_URL=ws://host.docker.internal:4401",
   );
   expect(composeSource).toContain("extra_hosts:");
   expect(composeSource).toContain("host.docker.internal:host-gateway");

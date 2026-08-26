@@ -63,11 +63,11 @@ echo "── CopilotKit + AWS AgentCore (LangGraph) ─────────�
 check_command() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 is required but not installed."; exit 1; }
 }
-require_remote_endpoint() {
+validate_remote_override() {
   local name="$1"
   local value="$2"
   local example="$3"
-  if [[ -z "$value" || "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1|host\.docker\.internal)([:/]|$) ]]; then
+  if [[ -n "$value" && "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1|host\.docker\.internal)([:/]|$) ]]; then
     echo "ERROR: $name must be a non-local endpoint reachable from AWS (for example, $example). Set it in .env or prefix the deploy command."
     exit 1
   fi
@@ -75,8 +75,8 @@ require_remote_endpoint() {
 check_command aws
 check_command uv
 if [ "$SKIP_BACKEND" = false ]; then
-  require_remote_endpoint INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
-  require_remote_endpoint INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
+  validate_remote_override INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
+  validate_remote_override INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
   check_command node
   check_command docker
 fi

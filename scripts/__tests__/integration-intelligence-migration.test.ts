@@ -751,6 +751,26 @@ function objectPropertyAssignment(
   return null;
 }
 
+/** Returns a direct value or conditional spread that reads one env name. */
+function objectEnvironmentExpression(
+  objectLiteral: ts.ObjectLiteralExpression,
+  name: string,
+): ts.Expression | null {
+  const direct = objectPropertyAssignment(objectLiteral, name);
+  if (direct) return direct.initializer;
+
+  for (const property of objectLiteral.properties) {
+    if (
+      ts.isSpreadAssignment(property) &&
+      expressionContainsEnvRead(property.expression, name)
+    ) {
+      return property.expression;
+    }
+  }
+
+  return null;
+}
+
 /** Returns whether one expression contains the exact managed env read. */
 function expressionContainsEnvRead(
   expression: ts.Expression,
@@ -2337,7 +2357,7 @@ function expectAgentCoreVariantBehavior(
     /npx cdk@latest deploy --all --require-approval never/,
   );
   expect(contents).toMatch(
-    /python3 scripts\/deploy-frontend\.py "\$STACK_NAME"/,
+    /uv run --project "\$SCRIPT_DIR" "\$SCRIPT_DIR\/scripts\/deploy-frontend\.py" "\$STACK_NAME"/,
   );
 }
 
@@ -2427,11 +2447,14 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
       : null;
   const apiUrl =
     environmentObject && ts.isObjectLiteralExpression(environmentObject)
-      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_API_URL)
+      ? objectEnvironmentExpression(environmentObject, INTELLIGENCE_API_URL)
       : null;
   const gatewayWsUrl =
     environmentObject && ts.isObjectLiteralExpression(environmentObject)
-      ? objectPropertyAssignment(environmentObject, INTELLIGENCE_GATEWAY_WS_URL)
+      ? objectEnvironmentExpression(
+          environmentObject,
+          INTELLIGENCE_GATEWAY_WS_URL,
+        )
       : null;
   expect(managedKey).not.toBeNull();
   expect(telemetryId).not.toBeNull();
@@ -2461,14 +2484,9 @@ function expectAgentCoreRuntimeDeploymentContract(contents: string): void {
   expect(expressionContainsSecretResolution(telemetryId.initializer)).toBe(
     false,
   );
+  expect(expressionContainsEnvRead(apiUrl, INTELLIGENCE_API_URL)).toBe(true);
   expect(
-    expressionContainsEnvRead(apiUrl.initializer, INTELLIGENCE_API_URL),
-  ).toBe(true);
-  expect(
-    expressionContainsEnvRead(
-      gatewayWsUrl.initializer,
-      INTELLIGENCE_GATEWAY_WS_URL,
-    ),
+    expressionContainsEnvRead(gatewayWsUrl, INTELLIGENCE_GATEWAY_WS_URL),
   ).toBe(true);
 }
 
@@ -3233,14 +3251,6 @@ for (const scriptName of [
       },
       expectedVariable: INTELLIGENCE_API_URL,
     },
-    {
-      label: "empty gateway URL",
-      envFile: {
-        apiUrl: "https://intelligence.example.com/api",
-        gatewayWsUrl: "",
-      },
-      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
-    },
   ] as const) {
     test(`${scriptName} rejects ${invalidEndpoint.label} without exposing the managed key`, () => {
       const result = runAgentCoreDeployHarness({
@@ -3256,6 +3266,18 @@ for (const scriptName of [
       expect(result.cdkEnvironment).toBeNull();
     });
   }
+
+  test(`${scriptName} uses managed endpoint defaults when overrides are omitted`, () => {
+    const result = runAgentCoreDeployHarness({
+      scriptName,
+      envFile: {},
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.cdkEnvironment).toBe("\n\n");
+    expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
+    expect(result.output).not.toContain(LEGACY_LICENSE_TOKEN_SENTINEL);
+  });
 
   test(`${scriptName} accepts sourced HTTPS and WSS endpoints and passes them to CDK`, () => {
     const result = runAgentCoreDeployHarness({
@@ -4270,12 +4292,13 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
   }
 }
 
-/** Assert AgentCore's AWS instructions require caller-provided remote endpoints. */
+/** Assert AgentCore's AWS instructions document optional remote overrides. */
 function expectAgentCoreAwsEndpointReadmeContract(contents: string): void {
-  expect(contents).toMatch(/managed or self-hosted Intelligence endpoints/i);
-  expect(contents).toMatch(/reachable from AWS/i);
+  expect(contents).toMatch(/Managed Intelligence uses its default endpoints/i);
+  expect(contents).toMatch(/For self-hosted\s+Intelligence/i);
+  expect(contents).toMatch(/endpoint overrides that AWS can reach/i);
   expect(contents).toMatch(
-    /must not use[\s`]*localhost[\s\S]{0,40}127\.0\.0\.1/i,
+    /do not use\s+`localhost`[\s\S]{0,40}`127\.0\.0\.1`/i,
   );
 
   for (const scriptName of [
@@ -4302,10 +4325,10 @@ function expectAgentCoreAwsEndpointDeployContract(contents: string): void {
     ),
   );
   const apiGuardIndex = lines.findIndex((line) =>
-    /require_remote_endpoint\s+INTELLIGENCE_API_URL\b/.test(line),
+    /validate_remote_override\s+INTELLIGENCE_API_URL\b/.test(line),
   );
   const gatewayGuardIndex = lines.findIndex((line) =>
-    /require_remote_endpoint\s+INTELLIGENCE_GATEWAY_WS_URL\b/.test(line),
+    /validate_remote_override\s+INTELLIGENCE_GATEWAY_WS_URL\b/.test(line),
   );
   const firstAwsWriteIndex = lines.findIndex((line) =>
     /aws\s+secretsmanager\s+(?:create-secret|put-secret-value)\b/.test(line),
