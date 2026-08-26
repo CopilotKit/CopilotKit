@@ -128,8 +128,7 @@ Before you begin, you'll need the following:
                         ```bash title="agent/.env (Azure OpenAI)"
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
                         AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.4-mini
-                        # If you are not relying on az login:
-                        # AZURE_OPENAI_API_KEY=...
+                        AZURE_OPENAI_API_KEY=...
                         ```
                     </Tab>
                 </Tabs>
@@ -290,7 +289,7 @@ Before you begin, you'll need the following:
                         # or Azure OpenAI (agent/.env)
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
                         AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.4-mini
-                        # (optional) AZURE_OPENAI_API_KEY=...
+                        AZURE_OPENAI_API_KEY=...
 
                         # Run the agent
                         uv run main.py

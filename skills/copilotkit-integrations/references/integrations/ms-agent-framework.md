@@ -15,7 +15,8 @@ Microsoft Agent Framework integrates with CopilotKit via `agent-framework-ag-ui`
 ```toml
 [project]
 dependencies = [
-    "agent-framework-ag-ui>=1.0.0b251117",
+    "agent-framework-ag-ui>=1.2.0,<2",
+    "agent-framework-openai>=1.14.0,<2",
     "python-dotenv",
 ]
 ```
@@ -29,7 +30,7 @@ from __future__ import annotations
 from textwrap import dedent
 from typing import Annotated
 
-from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+from agent_framework import Agent, SupportsChatGetResponse, tool
 from agent_framework_ag_ui import AgentFrameworkAgent
 from pydantic import Field
 
@@ -50,7 +51,7 @@ PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
     }
 }
 
-@ai_function(
+@tool(
     name="update_proverbs",
     description="Replace the entire list of proverbs with the provided values.",
 )
@@ -62,7 +63,7 @@ def update_proverbs(
 ) -> str:
     return f"Proverbs updated. Tracking {len(proverbs)} item(s)."
 
-@ai_function(
+@tool(
     name="get_weather",
     description="Share a quick weather update for a location.",
 )
@@ -71,20 +72,13 @@ def get_weather(
 ) -> str:
     return f"The weather in {location.strip().title()} is mild with a light breeze."
 
-@ai_function(
-    name="go_to_moon",
-    description="Request human-in-the-loop confirmation before launching.",
-    approval_mode="always_require",
-)
-def go_to_moon() -> str:
-    return "Mission control requested. Awaiting human approval."
-
-def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
-    base_agent = ChatAgent(
+def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
+    base_agent = Agent(
         name="proverbs_agent",
         instructions=dedent("..."),  # Agent instructions
-        chat_client=chat_client,
-        tools=[update_proverbs, get_weather, go_to_moon],
+        client=chat_client,
+        # Frontend tools such as `go_to_moon` are supplied by AG-UI at run time.
+        tools=[update_proverbs, get_weather],
     )
     return AgentFrameworkAgent(
         agent=base_agent,
@@ -98,11 +92,11 @@ def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
 
 Key patterns:
 
-- `@ai_function` decorator defines tools with `name`, `description`, and optional `approval_mode`
-- `approval_mode="always_require"` enables human-in-the-loop approval
+- `@tool` defines backend tools with `name` and `description`
+- Frontend tools registered with `useHumanInTheLoop` are supplied through AG-UI at run time; do not also register the same tool name on the backend
 - `STATE_SCHEMA` defines the AG-UI shared state structure
 - `PREDICT_STATE_CONFIG` maps state fields to tool names/arguments for predictive updates -- when a tool is called, the framework can predict the state change without waiting for execution
-- `AgentFrameworkAgent` wraps the base `ChatAgent` for AG-UI compatibility
+- `AgentFrameworkAgent` wraps the base `Agent` for AG-UI compatibility
 
 ### Server (agent/main.py)
 
@@ -112,7 +106,7 @@ from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
 from fastapi import FastAPI
 
 chat_client = OpenAIChatClient(
-    model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+    model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
     api_key=os.getenv("OPENAI_API_KEY"),
 )
 my_agent = create_agent(chat_client)
@@ -124,13 +118,12 @@ add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
 For Azure OpenAI:
 
 ```python
-from agent_framework.azure import AzureOpenAIChatClient
-from azure.identity import DefaultAzureCredential
+from agent_framework.openai import OpenAIChatClient
 
-chat_client = AzureOpenAIChatClient(
-    credential=DefaultAzureCredential(),
-    deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-    endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+chat_client = OpenAIChatClient(
+    model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
 )
 ```
 
@@ -148,6 +141,7 @@ Azure OpenAI:
 ```
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
+AZURE_OPENAI_API_KEY=your-api-key
 ```
 
 ---
