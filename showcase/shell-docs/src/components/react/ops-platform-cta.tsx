@@ -1,6 +1,10 @@
 "use client";
 
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import {
+  buildIntelligenceAuthEntryHref,
+  buildTrackedDocsHref,
+} from "@/lib/docs-cta-href";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import posthog from "posthog-js";
 import { useCallback } from "react";
@@ -96,14 +100,10 @@ function buildHref(
   // CTA treatment for related Enterprise actions, such as talking to an
   // engineer about self-hosting.
   const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
-  const url = new URL(hrefOverride ?? signupUrl);
-  url.searchParams.set("utm_source", "docs");
-  url.searchParams.set("utm_medium", "cta");
-  url.searchParams.set("utm_campaign", "intelligence");
-  url.searchParams.set("utm_content", surface);
-  if (frontend) url.searchParams.set("utm_frontend", frontend);
-  if (backend) url.searchParams.set("utm_backend", backend);
-  return url.toString();
+  const attribution = { surface, frontend, backend };
+  return hrefOverride
+    ? buildTrackedDocsHref(hrefOverride, attribution)
+    : buildIntelligenceAuthEntryHref(signupUrl, attribution);
 }
 
 export function OpsPlatformCTA({
