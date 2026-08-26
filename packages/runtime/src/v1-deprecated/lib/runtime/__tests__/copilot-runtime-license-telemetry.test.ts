@@ -12,8 +12,8 @@ import {
 import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import { CopilotRuntime } from "../copilot-runtime";
 import telemetry from "../../telemetry-client";
-import { telemetry as delegatedTelemetry } from "../../../v2/runtime/telemetry";
-import { createCopilotRuntimeHandler } from "../../../v2/runtime";
+import { telemetry as delegatedTelemetry } from "../../../../v2/runtime/telemetry";
+import { createCopilotRuntimeHandler } from "../../../../v2/runtime";
 
 const inheritedTelemetrySampleRate = vi.hoisted(() => {
   const value = process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE;

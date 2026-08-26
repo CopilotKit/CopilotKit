@@ -123,7 +123,7 @@ import type {
   LLMResponseData,
 } from "../observability";
 import type { AbstractAgent } from "@ag-ui/client";
-import { firstNonBlankTelemetryId } from "../../v2/runtime/telemetry/telemetry-identity";
+import { firstNonBlankTelemetryId } from "../../../v2/runtime/telemetry/telemetry-identity";
 
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
