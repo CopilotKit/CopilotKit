@@ -10,6 +10,7 @@ import {
 } from "@copilotkit/core";
 import type {
   IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import { afterEach, expect, test, vi } from "vitest";
@@ -29,11 +30,13 @@ const ENABLED_ENDPOINTS = {
 type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
+  licenseStatus?: RuntimeLicenseStatus;
 }>;
 
 class HudTestCore extends CopilotKitCore {
   private readonly endpointsValue: ThreadEndpointRuntimeInfo | undefined;
   private readonly intelligenceValue: IntelligenceRuntimeInfo | undefined;
+  private readonly licenseStatusValue: RuntimeLicenseStatus | undefined;
 
   constructor(options: Options) {
     super({
@@ -46,6 +49,7 @@ class HudTestCore extends CopilotKitCore {
       options.intelligence === true
         ? { wsUrl: "wss://intelligence.launcher-hud.test" }
         : undefined;
+    this.licenseStatusValue = options.licenseStatus;
   }
 
   override get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
@@ -54,6 +58,10 @@ class HudTestCore extends CopilotKitCore {
 
   override get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this.intelligenceValue;
+  }
+
+  override get licenseStatus(): RuntimeLicenseStatus | undefined {
+    return this.licenseStatusValue;
   }
 
   async emitStatus(
@@ -249,11 +257,44 @@ test("connected Intelligence and Threads keep their slots and show a check", asy
   ).not.toBeNull();
 });
 
+test("the HUD respects a runtime that is not entitled to Intelligence", async () => {
+  const { inspector, openHud } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+    licenseStatus: "none",
+  });
+
+  await openHud();
+
+  expect(hudRowLabels(inspector)).toEqual([
+    "Open Inspector",
+    "Turn on Threads",
+    "Turn on Intelligence",
+    "Turn on Learning",
+  ]);
+  for (const row of ["threads", "intelligence", "learning"] as const) {
+    expect(
+      root(inspector).querySelector(
+        `[data-cpk-hud-row="${row}"] [data-cpk-hud-check]`,
+      ),
+    ).toBeNull();
+  }
+});
+
 test("pressing the circle still opens Inspector", async () => {
   const { inspector, pressLauncher } = await setup();
   await pressLauncher();
   expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
   expect(hud(inspector)).toBeNull();
+});
+
+test("the floating window does not cover the sidebar toggle with a SW handle", async () => {
+  const { inspector, pressLauncher } = await setup();
+  await pressLauncher();
+  const tree = root(inspector);
+  expect(tree.querySelector('[data-resize-edge="sw"]')).toBeNull();
+  expect(tree.querySelector('[data-resize-edge="se"]')).not.toBeNull();
+  expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
 test("Open Inspector in the HUD opens the panel", async () => {
