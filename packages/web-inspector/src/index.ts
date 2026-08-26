@@ -8409,7 +8409,7 @@ export class WebInspectorElement extends LitElement {
 
       .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
         border-color: #464957;
-        background: #191c24 !important;
+        background: #15171e !important;
         box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
           0 1px 2px rgba(0, 0, 0, 0.36);
       }

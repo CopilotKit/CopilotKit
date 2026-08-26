@@ -616,6 +616,9 @@ test("Playground surface styles live in the Web Inspector shadow root", () => {
   expect(cssText).toMatch(
     /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
   );
+  expect(cssText).toMatch(
+    /\.inspector-window\[data-color-scheme="dark"\]\s+\.cpk-playground-composer\s*\{[^}]*background:\s*#15171e\s*!important/s,
+  );
   expect(cssText).toContain("@keyframes cpk-playground-message-enter");
 });
 
