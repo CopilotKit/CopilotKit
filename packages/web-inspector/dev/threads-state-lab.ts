@@ -372,7 +372,13 @@ function expectedRequests(
   if (data === "zero") {
     return { ...ZERO_COUNTERS, list: 1, subscribe: 1 };
   }
-  return { ...ZERO_COUNTERS, list: 1, subscribe: 1, events: 1 };
+  return {
+    ...ZERO_COUNTERS,
+    list: 1,
+    subscribe: 1,
+    events: 1,
+    messages: 1,
+  };
 }
 
 function metadata(
