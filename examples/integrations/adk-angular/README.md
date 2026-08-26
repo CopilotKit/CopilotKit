@@ -6,11 +6,11 @@ This is a starter template for building AI agents using Google's [ADK](https://g
 
 Three processes run behind a single `npm run dev` (via `concurrently`):
 
-| Process | Port | What it is |
-| --- | --- | --- |
-| `ui` | `4200` | The Angular app (`ng serve`) |
+| Process   | Port   | What it is                                                                    |
+| --------- | ------ | ----------------------------------------------------------------------------- |
+| `ui`      | `4200` | The Angular app (`ng serve`)                                                  |
 | `runtime` | `8200` | The standalone Copilot Runtime (`tsx server.ts`), served at `/api/copilotkit` |
-| `agent` | `8000` | The Python ADK agent (`uv`) |
+| `agent`   | `8000` | The Python ADK agent (`uv`)                                                   |
 
 The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), and the runtime proxies the ADK agent (`AGENT_URL`, default `http://localhost:8000/`).
 
@@ -92,7 +92,7 @@ Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN`
 > **Notes for the Intelligence path:**
 >
 > - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
-> - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. The Intelligence platform requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
+> - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. CopilotKit Intelligence requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
 > - Set `INTELLIGENCE_API_KEY` whenever you set `COPILOTKIT_LICENSE_TOKEN`. The runtime builds `CopilotKitIntelligence` off the license token alone; if the API key is missing, threads/memory fail with an opaque auth error at request time rather than a clear startup error.
 
 ## 📚 Documentation

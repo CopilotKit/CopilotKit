@@ -464,10 +464,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  it("holds twenty-three event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-four event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(24);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

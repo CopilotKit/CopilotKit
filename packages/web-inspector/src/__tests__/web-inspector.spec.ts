@@ -770,6 +770,7 @@ describe("ɵCpkThreadDetails caching", () => {
       },
     ];
     internals._fetchedEvents = events;
+    const originalConversation = internals._conversation;
 
     const timelineTpl = internals.renderTimeline();
     expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
@@ -786,6 +787,7 @@ describe("ɵCpkThreadDetails caching", () => {
       fallbackTpl,
     );
 
+    internals._conversation = originalConversation;
     internals._fetchedEvents = events;
     expect(internals.renderTimeline()).toBe(timelineTpl);
   });
@@ -988,7 +990,7 @@ describe("CpkThreadInspector provider contract", () => {
       "thread-1234567890",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(provider.getMessages).not.toHaveBeenCalled();
+    expect(provider.getMessages).toHaveBeenCalledTimes(1);
     expect(internals._fetchedMetadata?.agentId).toBe("agent-a");
     expect(internals._fetchedEvents).toHaveLength(6);
 
@@ -997,7 +999,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
-    expect(text).toContain("assistant message");
+    expect(text).toContain("Assistant message");
     expect(text).toContain("hello from events");
     expect(text).toContain("lookup_docs");
     expect(text).toContain("Could not decode tool call arguments");
@@ -1189,7 +1191,10 @@ describe("CpkThreadInspector provider contract", () => {
       if (url.endsWith("/threads/t1/state")) return t1State.promise;
       if (url.endsWith("/threads/t2/events")) return t2Events.promise;
       if (url.endsWith("/threads/t2/state")) return t2State.promise;
-      if (url.endsWith("/threads/t2/messages")) {
+      if (
+        url.endsWith("/threads/t1/messages") ||
+        url.endsWith("/threads/t2/messages")
+      ) {
         return Promise.resolve(
           new Response(JSON.stringify({ messages: [] }), { status: 200 }),
         );
@@ -1272,6 +1277,8 @@ describe("CpkThreadInspector provider contract", () => {
       fetchMock.mock.calls.filter((call) =>
         String(call[0]).startsWith("http://runtime"),
       );
+    const eventFetches = () =>
+      threadFetches().filter((call) => String(call[0]).endsWith("/events"));
 
     internals.runtimeUrl = "http://runtime";
     internals.threadInspectionAvailable = true;
@@ -1280,7 +1287,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(threadFetches()).toHaveLength(1);
+      expect(eventFetches()).toHaveLength(1);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer first",
       });
@@ -1290,12 +1297,12 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     await vi.waitFor(() => {
-      expect(threadFetches()).toHaveLength(2);
+      expect(eventFetches()).toHaveLength(2);
       expect(internals._fetchedEvents?.[0]?.payload).toEqual({
         auth: "Bearer second",
       });
     });
-    expect(headersOf(threadFetches().at(-1)!)).toMatchObject({
+    expect(headersOf(eventFetches().at(-1)!)).toMatchObject({
       Authorization: "Bearer second",
     });
   });
@@ -1363,7 +1370,7 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     expect(internals.activeTimelineItems).toHaveLength(1);
-    expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Thread state written");
     expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain("checkpointId");
     expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
@@ -1518,7 +1525,7 @@ type OpenTelemetryInternals = {
  */
 async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
   inspector.shadowRoot
-    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
     ?.click();
   await inspector.updateComplete;
   inspector.shadowRoot
@@ -1537,7 +1544,8 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     window.sessionStorage.clear();
     body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
-      if (String(input) === ANNOUNCEMENT_URL) {
+      const href = String(input);
+      if (href === ANNOUNCEMENT_URL) {
         return Promise.resolve(
           new Response(
             JSON.stringify({
@@ -1547,6 +1555,14 @@ describe("WebInspectorElement open + What's new telemetry", () => {
             }),
             { status: 200 },
           ),
+        );
+      }
+      if (href.includes("/threads")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [], joinCode: null }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
         );
       }
       return Promise.resolve(new Response(null, { status: 204 }));
@@ -1586,7 +1602,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     posts().filter((post) => post.event === name);
   const launcherIsPulsing = (inspector: WebInspectorElement) =>
     inspector.shadowRoot
-      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.querySelector('button[aria-label^="Web Inspector"]')
       ?.getAttribute("data-cpk-signal-pulsing") === "true";
   const announcementLink = (inspector: WebInspectorElement) => {
     const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -1790,7 +1806,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
     // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1821,7 +1837,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -1839,7 +1855,7 @@ describe("WebInspectorElement open + What's new telemetry", () => {
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -2213,6 +2229,11 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
         if (url.includes("/threads?")) {
           return Promise.resolve(
             new Response(JSON.stringify({ threads: [] }), { status: 200 }),
+          );
+        }
+        if (url.includes("/threads/") && url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
           );
         }
         return Promise.reject(new Error(`Unexpected URL ${url}`));

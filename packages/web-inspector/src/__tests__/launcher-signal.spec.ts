@@ -109,7 +109,7 @@ function launcherDot(inspector: WebInspectorElement): HTMLElement | null {
 function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
   return requireElement(
     root(inspector).querySelector<HTMLButtonElement>(
-      'button[aria-label="Web Inspector"]',
+      'button[aria-label^="Web Inspector"]',
     ),
   );
 }
@@ -738,23 +738,31 @@ test("no acknowledge or dismiss control is offered anywhere in What's new", asyn
 
 // ── Launcher treatment ────────────────────────────────────────────────────
 
-test("the halo animates opacity and transform only", async () => {
+test("the launcher animates opacity, transform and a clip — nothing that forces layout", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
-  const keyframes = Array.from(
+  const keyframeMatches = Array.from(
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
-  ).map((match) => match[1] ?? "");
-  expect(keyframes).toHaveLength(2);
+  );
+  const keyframes = keyframeMatches.map((match) => match[1] ?? "");
+  // Two for the halo, one per direction for both launcher reveals, and one
+  // each for the HUD row and connected check stagger.
+  expect(keyframes).toHaveLength(8);
 
   const animated = new Set(
     keyframes
       .flatMap((body) => Array.from(body.matchAll(/([a-z-]+)\s*:/g)))
       .map((match) => match[1]),
   );
-  // This component is mounted permanently on top of a customer's app, so a
-  // property that forces a repaint every frame is not acceptable.
-  expect([...animated].sort()).toEqual(["opacity", "transform"]);
+  // THE RULE IS THE LAYOUT GUARANTEE, not this literal list. This component is
+  // mounted permanently on top of a customer's application, so no property
+  // that forces a layout on every frame is acceptable — `width` and `height`
+  // are what this test exists to keep out. `clip-path` joined the list when
+  // the pill landed: it leaves the element's geometry constant and changes
+  // only the visible region, so it satisfies the guarantee rather than
+  // weakening it. Any further addition has to clear the same bar.
+  expect([...animated].sort()).toEqual(["clip-path", "opacity", "transform"]);
 });
 
 test("the pulse sends two water-drop rings outward from the launcher rim", async () => {
@@ -979,12 +987,26 @@ test("the navigation marker is static, and shares the dot's colour", async () =>
   expect(entry.querySelector(".inspector-nav-signal-dot")).not.toBeNull();
   expect(entry.getAttribute("aria-label")).toBe("What's New, new content");
 
+  const marker = requireElement(
+    entry.querySelector<HTMLElement>(".inspector-nav-signal-dot"),
+  );
+  // The marker is tone-selected rather than one hardcoded colour, because a
+  // second signal now marks a different entry in a different colour. The
+  // announcement keeps the lilac it always had.
+  expect(marker.getAttribute("data-cpk-signal-tone")).toBe("news");
+
+  const css = stylesheetText(context.inspector);
   const rule =
-    /\.inspector-nav-signal-dot\s*\{([\s\S]*?)\}/.exec(
-      stylesheetText(context.inspector),
-    )?.[1] ?? "";
+    /\.inspector-nav-signal-dot\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
   // Same colour token as the launcher dot, and no movement: an animation here
   // would compete with the live event stream a developer is watching.
   expect(rule.toUpperCase()).toContain("#A78BFA");
   expect(rule).not.toContain("animation");
+
+  const errorRule =
+    /\.inspector-nav-signal-dot\[data-cpk-signal-tone="error"\]\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  expect(errorRule.toUpperCase()).not.toContain("#A78BFA");
+  expect(errorRule).not.toContain("animation");
 });

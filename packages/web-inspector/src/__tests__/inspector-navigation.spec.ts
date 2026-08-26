@@ -185,7 +185,7 @@ async function setup(
     document.body.appendChild(inspector);
     await inspector.updateComplete;
     const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Web Inspector"]',
+      'button[aria-label^="Web Inspector"]',
     );
     if (!opener) {
       throw new Error("Web Inspector opener was not rendered before Core");
@@ -245,7 +245,7 @@ async function setup(
         return;
       }
       const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!opener) {
         throw new Error("Web Inspector opener was not rendered");
@@ -560,6 +560,66 @@ test("Playground omits the durability CTA when Intelligence is active", async ()
   } finally {
     context.teardown();
   }
+});
+
+test("Playground composer stays readable in dark mode", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+
+    expect(
+      root
+        .querySelector('textarea[aria-label="Playground message"]')
+        ?.classList.contains("cpk-playground-input"),
+    ).toBe(true);
+    expect(root.querySelector(".cpk-playground-composer")).not.toBeNull();
+    expect(
+      root
+        .querySelector('button[aria-label="Send playground message"]')
+        ?.classList.contains("cpk-playground-send"),
+    ).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground surface styles live in the Web Inspector shadow root", () => {
+  const styles = WebInspectorElement.styles as Array<{ cssText?: string }>;
+  const cssText = styles.map((style) => style.cssText ?? "").join("\n");
+
+  expect(cssText).toMatch(
+    /\.cpk-playground-root\s*\{[^}]*background:\s*#fbfbfd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-header\s*\{[^}]*min-height:\s*58px[^}]*background:\s*#f7f6fd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
+  );
+  expect(cssText).toMatch(
+    /\.inspector-window\[data-color-scheme="dark"\]\s+\.cpk-playground-composer\s*\{[^}]*background:\s*#15171e\s*!important/s,
+  );
+  expect(cssText).toContain("@keyframes cpk-playground-message-enter");
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
@@ -1336,7 +1396,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     const visibleOption = () =>
       scope.querySelector(
-        '[data-context-dropdown-root="true"] > button[data-context-dropdown-root="true"]',
+        '.inspector-icon-rail-menu[data-open="true"] button[data-context-dropdown-root="true"]',
       );
     expect(visibleOption()).not.toBeNull();
     scopeTrigger.dispatchEvent(
@@ -1350,6 +1410,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     expect(visibleOption()).not.toBeNull();
     scopeRoot.dispatchEvent(new Event("pointerleave"));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await context.inspector.updateComplete;
     expect(visibleOption()).toBeNull();
     expect(sidebar.querySelector(".inspector-sidebar-footer")).toBeNull();

@@ -173,6 +173,8 @@ export function getFrontendCanonicalSlug(
 }
 
 const FRONTEND_REFERENCE_SLUGS = {
+  // A React SPA uses the root React reference unchanged.
+  "react-spa": "reference",
   vue: "reference",
   "react-native": "reference/react-native",
   angular: "reference/angular",

@@ -9,7 +9,14 @@ import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
+  createInspectorThreadRequestId,
+  emitInspectorStopViewing,
+  emitInspectorViewThread,
+  isInspectorThreadBridgeEnabled,
+  onInspectorActiveThread,
+  onInspectorViewThreadResult,
   ɵselectThreads,
   ɵselectThreadsIsLoading,
   ɵselectThreadsError,
@@ -22,7 +29,6 @@ import {
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
-  CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
   Memory,
@@ -72,7 +78,10 @@ import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
 } from "./lib/inspector-metadata.js";
-import { buildHomeModel } from "./lib/home-briefing.js";
+import {
+  buildHomeModel,
+  runtimeConnectionNeedsAttention,
+} from "./lib/home-briefing.js";
 import type {
   HomeHeroAction,
   HomeModel,
@@ -93,6 +102,7 @@ import {
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
+  trackErrorSignalViewed,
   trackHomeCtaClicked,
   trackHomeViewed,
   trackInspectorOpened,
@@ -126,6 +136,9 @@ import type {
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
   InspectorMemoryTelemetryProps,
+  InspectorErrorSignalSource,
+  InspectorEventErrorSource,
+  InspectorWiringErrorSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
   MetadataActionPlacement,
@@ -177,13 +190,375 @@ type MenuItem = {
 
 // ── Launcher signals ──────────────────────────────────────────────────────
 //
-// The destination stays explicit so the unread marker is derived from the
-// same state as the launcher dot rather than being armed independently.
-const NEWS_SIGNAL_ID = "whats-new";
-const NEWS_SIGNAL_TONE = "news";
+// There is one dot on the closed launcher and more than one thing that can
+// claim it, so each subject is described once, here, and every call site reads
+// the description rather than hardcoding a subject.
+//
+// The rule for this table is **no field without a second consumer**. That is
+// why there is no lifecycle field (one value was ever used, and "never
+// persisted" is expressed by not persisting) and why the two destinations are
+// separate: the news signal genuinely marks one entry and lands on another.
+//
+// This reintroduces a small shared shape where an earlier generic version was
+// removed as speculative. That removal was correct at the time — the
+// abstraction had exactly one user. A second user now exists.
+//
+// **The two subjects beat by different rules, deliberately**: an error beats
+// once per outage, an announcement once per tab per announcement. That follows
+// from a recurring condition versus a one-time publication. Do not harmonise
+// them; harmonising breaks one of them.
+
+/** Tone drives colour only. The launcher treatment is shared by every tone. */
+type LauncherSignalTone = "news" | "error";
+
+/**
+ * The error keys ARE the telemetry enum, so a source can never be reported
+ * under a name the signal table does not describe.
+ */
+type LauncherSignalKey = "whats-new" | InspectorErrorSignalSource;
+
+type LauncherSignalDefinition = Readonly<{
+  tone: LauncherSignalTone;
+  /** Which navigation entry carries the marker while this signal is armed. */
+  markerTarget: MenuKey;
+  /** Where a press on the launcher opens while this signal owns the dot. */
+  landingTarget: MenuKey;
+  /** One beat's duration. Errors beat faster than product news. */
+  cadence: number;
+  /** Higher wins the single dot. Errors outrank news. */
+  priority: number;
+  /**
+   * Suffix appended to the marked navigation entry's accessible name, and —
+   * for error tones only — to the launcher's own accessible name. Never
+   * rendered as visible text: the dot says there is something to look at, and
+   * the panel says what.
+   */
+  accessibleLabel: string;
+  /**
+   * The words the launcher opens sideways to show, and the words spoken once
+   * into the polite live region. Absent means this subject opens no pill.
+   *
+   * Read from the signal rather than from a condition on the tone, so a third
+   * signal can carry a pill by declaring one — and whoever declares it owns
+   * the width problem that keeps the announcement out. The announcement's feed
+   * preview measures 54 characters against a 36-pixel launcher, and the width
+   * would be set by a feed we do not control.
+   *
+   * These are the words the panel already uses, never a paraphrase, so a
+   * reader who sees the pill and then opens the panel has nothing to
+   * reconcile. The failure *message* is never carried here — for width, and
+   * because it can contain prompts, URLs and identifiers.
+   */
+  pillLabel?: string;
+}>;
+
+const NEWS_SIGNAL_ID = "whats-new" as const;
 const NEWS_SIGNAL_COLOR = "#A78BFA";
-const NEWS_SIGNAL_CADENCE_MS = 2100;
-const NEWS_SIGNAL_DESTINATION: MenuKey = WHATS_NEW_MENU_KEY;
+/**
+ * The error tone's red. Bright enough to read against the launcher's dark
+ * face at the same perceived weight as the news lilac, and in the same family
+ * as System Health's error tone (#b32d3b light / #ff9aa0 dark), which is too
+ * dark and too pale respectively to use directly on the launcher.
+ */
+const ERROR_SIGNAL_COLOR = "#F87171";
+
+const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
+  news: NEWS_SIGNAL_COLOR,
+  error: ERROR_SIGNAL_COLOR,
+};
+
+/**
+ * The failure gesture, four phases in series:
+ *
+ * ```
+ * beat 400ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (3400ms total)
+ * ```
+ *
+ * Sequential rather than simultaneous, deliberately: the beat says *here*, the
+ * pill says *this*. The beat is short so the words arrive quickly.
+ *
+ * **All four durations live here and nowhere else.** The stylesheet reads the
+ * two animated phases as custom properties injected from these numbers rather
+ * than restating them, because they are taste and will be tuned by eye after
+ * the first live look — tuning the feel must be a number, not a refactor.
+ */
+const ERROR_GESTURE_MS = {
+  /** Phase 1: one beat, which is also the error signals' cadence. */
+  beat: 400,
+  /** Phase 2: the sideways reveal. */
+  open: 250,
+  /** Phase 3: long enough to read three words without hurrying. */
+  hold: 2500,
+  /** Phase 4: back to the plain mark with its dot. */
+  close: 250,
+} as const;
+
+/**
+ * The words the pill carries, which are the words the panel already carries.
+ *
+ * `Runtime error` is the System Health runtime tile's own label, and
+ * `Failed to load threads` is the Threads view's own heading. The outside and
+ * the inside must agree, so these are shared rather than paraphrased.
+ */
+const RUNTIME_ERROR_LABEL = "Runtime error";
+const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
+const AGENT_RUN_FAILED_LABEL = "Agent run failed";
+const TOOL_ERROR_LABEL = "Tool error";
+const MEMORY_LOAD_ERROR_LABEL = "Failed to load learning data";
+
+/**
+ * Copy on the landing view. Titles match the pill.
+ *
+ * The two fields differ in what they can promise. `advice` is about the
+ * reader's next move and is always true. `highlight` is a claim about *this
+ * view* — that the failed item is visible below — and the error carries no
+ * guarantee of that: a code mapped to `run` can arrive with no run in the
+ * buffer at all, and a tool error can arrive without the call id the
+ * highlight needs. So it is rendered only once the item is actually there.
+ * A card pointing at something the reader cannot find is worse than a card
+ * that stays quiet, because it sends them looking.
+ */
+const EVENT_ERROR_GUIDANCE: Readonly<
+  Record<
+    InspectorEventErrorSource,
+    Readonly<{ title: string; advice?: string; highlight?: string }>
+  >
+> = {
+  run: {
+    title: AGENT_RUN_FAILED_LABEL,
+    highlight: "The failed run event is highlighted below.",
+  },
+  tool: {
+    title: TOOL_ERROR_LABEL,
+    highlight: "The failed tool call is highlighted below.",
+  },
+  memory: {
+    title: MEMORY_LOAD_ERROR_LABEL,
+    advice:
+      "Confirm CopilotKit Intelligence is connected, then retry Learning.",
+  },
+};
+
+/**
+ * The pill's second line, shared by every subject that carries a pill.
+ *
+ * **This is the one string in the feature that exists nowhere else in the
+ * product.** Every other word the launcher shows is word-identical to the
+ * panel, which is the standing rule; this line is a deliberate, owner-approved
+ * exception to it, because the pill became clickable and an invitation that
+ * says nothing is not an invitation.
+ *
+ * It is shown, never spoken: the polite live region carries the failure class
+ * alone. A screen-reader user cannot act on an instruction delivered through
+ * an announcement, and it would double the spoken length.
+ */
+const PILL_SUBLINE_LABEL = "Open Inspector for details";
+
+type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+
+const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
+const HUD_THREADS_OFF_LABEL = "Turn on Threads";
+const HUD_THREADS_ON_LABEL = "Threads on";
+const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
+const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
+const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
+const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
+const HUD_INTELLIGENCE_OFF_DETAIL =
+  "Connect Intelligence to use Threads and Learning.";
+const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
+const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
+const HUD_LEARNING_ON_LABEL = "Learning on";
+const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
+const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
+const HUD_OPEN_INSPECTOR_DETAIL =
+  "Same as clicking the circle. Opens the full Inspector.";
+
+const LAUNCHER_SIGNALS: Readonly<
+  Record<LauncherSignalKey, LauncherSignalDefinition>
+> = {
+  // Marks What's new, lands on Home: Home carries the preview band that is
+  // the way onward. Unchanged from before this table existed.
+  "whats-new": {
+    tone: "news",
+    markerTarget: WHATS_NEW_MENU_KEY,
+    landingTarget: "home",
+    cadence: 2100,
+    priority: 0,
+    accessibleLabel: "new content",
+  },
+  // Errors mark and land on the same place, because the place that carries
+  // the marker is the place that explains the failure.
+  connection: {
+    tone: "error",
+    markerTarget: "home",
+    landingTarget: "home",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 5,
+    accessibleLabel: "runtime error",
+    pillLabel: RUNTIME_ERROR_LABEL,
+  },
+  threads: {
+    tone: "error",
+    markerTarget: "threads",
+    landingTarget: "threads",
+    cadence: ERROR_GESTURE_MS.beat,
+    // Below the connection signal: a connection failure cascades into thread
+    // failures, so when both could be armed the root cause owns the dot.
+    priority: 4,
+    accessibleLabel: "thread loading error",
+    pillLabel: THREADS_LOAD_ERROR_LABEL,
+  },
+  // Unread *events*. They beat and name the failure, then clear when the
+  // landing view is read. They lose the launcher dot to wiring state.
+  run: {
+    tone: "error",
+    markerTarget: "ag-ui-events",
+    landingTarget: "ag-ui-events",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 3,
+    accessibleLabel: "agent run failed",
+    pillLabel: AGENT_RUN_FAILED_LABEL,
+  },
+  tool: {
+    tone: "error",
+    markerTarget: "agents",
+    landingTarget: "agents",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 2,
+    accessibleLabel: "tool error",
+    pillLabel: TOOL_ERROR_LABEL,
+  },
+  memory: {
+    tone: "error",
+    markerTarget: "memories",
+    landingTarget: "memories",
+    cadence: ERROR_GESTURE_MS.beat,
+    priority: 1,
+    accessibleLabel: "learning error",
+    pillLabel: MEMORY_LOAD_ERROR_LABEL,
+  },
+};
+
+/** Highest priority first, so the winner of the single dot is the head. */
+const LAUNCHER_SIGNAL_PRIORITY_ORDER: ReadonlyArray<LauncherSignalKey> = (
+  Object.keys(LAUNCHER_SIGNALS) as LauncherSignalKey[]
+).sort((a, b) => LAUNCHER_SIGNALS[b].priority - LAUNCHER_SIGNALS[a].priority);
+
+/** Wiring *state* — red until the problem heals. */
+const WIRING_ERROR_KEYS = [
+  "connection",
+  "threads",
+] as const satisfies ReadonlyArray<InspectorWiringErrorSource>;
+
+/** Unread *events* — red until the landing view is read. */
+const EVENT_ERROR_KEYS = [
+  "run",
+  "tool",
+  "memory",
+] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
+
+type InspectorEventErrorDetails = Readonly<{
+  message: string;
+  agentId?: string;
+  toolName?: string;
+  toolCallId?: string;
+}>;
+
+function isWiringErrorKey(
+  key: LauncherSignalKey,
+): key is InspectorWiringErrorSource {
+  return (WIRING_ERROR_KEYS as readonly string[]).includes(key);
+}
+
+/**
+ * Takes a plain string rather than a `LauncherSignalKey`, because one caller
+ * reads the subject back out of a `data-` attribute, where the DOM can only
+ * offer `string | undefined`. Narrowing untrusted input is what a guard is
+ * for; `LauncherSignalKey` still satisfies the parameter, so the callers that
+ * already hold one are unaffected.
+ */
+function isEventErrorKey(key: string): key is InspectorEventErrorSource {
+  return (EVENT_ERROR_KEYS as readonly string[]).includes(key);
+}
+
+/** Narrows a signal key to an error source, excluding the announcement. */
+function isErrorSignalKey(
+  key: LauncherSignalKey,
+): key is InspectorErrorSignalSource {
+  return isWiringErrorKey(key) || isEventErrorKey(key);
+}
+
+/**
+ * The control range is the point, not an oversight: an attribute selector has
+ * to escape those characters too, and CSS.escape — which the fallback below
+ * stands in for — escapes them as well. Hoisted so the suppression can sit on
+ * the pattern rather than three lines above it.
+ */
+// oxlint-disable no-control-regex -- deliberate, see above
+const SELECTOR_ESCAPE_PATTERN =
+  /[\0-\x1f\x7f!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/g;
+// oxlint-enable no-control-regex
+
+/** Attribute selector value. jsdom does not implement CSS.escape. */
+function escapeSelectorValue(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replace(SELECTOR_ESCAPE_PATTERN, "\\$&");
+}
+
+function eventErrorKeyForCode(
+  code: CopilotKitCoreErrorCode,
+): InspectorEventErrorSource | null {
+  switch (code) {
+    case CopilotKitCoreErrorCode.TOOL_NOT_FOUND:
+    case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
+    case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_NOT_FOUND:
+      return "tool";
+    case CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
+    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
+    case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
+      return "run";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Coalesce inspector-owned GET /threads sends. The first refresh goes out
+ * at once. Further calls in this window share one trailing request, so a
+ * flaky network does not fire a burst of list fetches and error cards.
+ */
+const THREAD_LIST_DEBOUNCE_MS = 300;
+
+/** The launcher's accessible name with nothing wrong. */
+const LAUNCHER_BASE_LABEL = "Web Inspector";
+
+/**
+ * Where the pill is in the gesture.
+ *
+ * `closed` covers the whole beat: the pill is laid out at its full width and
+ * clipped to nothing from the first frame, so the room it needs can be
+ * measured before anything is shown and the reveal has nothing left to
+ * compute.
+ */
+type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
+
+/**
+ * Which side the pill grows towards. The launcher is anchored top-right, so
+ * the natural direction is leftwards, away from its own edge — but it is
+ * draggable and its position persists, so a reader who parked it near the left
+ * edge would otherwise get a permanently truncated pill.
+ */
+type LauncherPillDirection = "left" | "right";
+
+/**
+ * Whether the reader actually got a pill. `suppressed` is the honest-degrade
+ * case: neither side had room, so the dot and the beat fire alone.
+ */
+type LauncherPillOutcome = "shown" | "suppressed";
 
 type CoreStatusSummary = Readonly<{
   label: string;
@@ -194,6 +569,23 @@ type CoreStatusSummary = Readonly<{
 type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
+/** HUD card plus the hover bridge. Used to pick left vs right. */
+const LAUNCHER_HUD_WIDTH = 248;
+/**
+ * One page-load preview of the launcher's feature HUD.
+ *
+ * The card arrives after the host page has had a beat to settle. Its four rows
+ * then come online in order, stay readable, and leave together. Nothing is
+ * persisted: a new Inspector element means a new preview.
+ */
+const LAUNCHER_HUD_INTRO_MS = {
+  delay: 500,
+  duration: 3400,
+  rowStart: 180,
+  rowStagger: 170,
+  rowDuration: 300,
+  blockedRetry: 250,
+} as const;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -397,9 +789,35 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  toolCallId?: string;
   /** Populated for role="activity" messages (Generative UI). */
   activityType?: string;
 };
+
+const EMPTY_INSPECTOR_MESSAGES: InspectorMessage[] = [];
+
+function textFromUnknownContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const part of content) {
+      if (typeof part === "string") {
+        parts.push(part);
+        continue;
+      }
+      if (typeof part === "object" && part !== null && "text" in part) {
+        const text = part.text;
+        if (typeof text === "string") parts.push(text);
+      }
+    }
+    return parts.join("");
+  }
+  if (typeof content === "object" && content !== null && "text" in content) {
+    const text = content.text;
+    if (typeof text === "string") return text;
+  }
+  return "";
+}
 
 type InspectorToolDefinition = {
   agentId: string;
@@ -923,13 +1341,6 @@ function highlightedJson(obj: unknown): string {
     const cached = highlightedJsonCache.get(obj);
     if (cached !== undefined) return cached;
   }
-  const colors = {
-    key: "#5558B2",
-    str: "#087653",
-    num: "#8a5900",
-    bool: "#c0333a",
-    nil: "#68686e",
-  };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
   const parts: string[] = [];
@@ -940,15 +1351,17 @@ function highlightedJson(obj: unknown): string {
   while ((match = re.exec(json)) !== null) {
     parts.push(escapeHtml(json.slice(lastIndex, match.index)));
     const m = match[0];
-    let color = colors.num;
+    let token = "num";
     if (m.startsWith('"')) {
-      color = m.trimEnd().endsWith(":") ? colors.key : colors.str;
+      token = m.trimEnd().endsWith(":") ? "key" : "str";
     } else if (m === "true" || m === "false") {
-      color = colors.bool;
+      token = "bool";
     } else if (m === "null") {
-      color = colors.nil;
+      token = "nil";
     }
-    parts.push(`<span style="color:${color}">${escapeHtml(m)}</span>`);
+    parts.push(
+      `<span class="cpk-json-token cpk-json-token--${token}">${escapeHtml(m)}</span>`,
+    );
     lastIndex = match.index + m.length;
   }
   parts.push(escapeHtml(json.slice(lastIndex)));
@@ -996,17 +1409,34 @@ ${unsafeHTML(highlightedJson(parsed))}</pre
   >`;
 }
 
-function eventColors(type: string): { bg: string; fg: string } {
-  if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
-  if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
-  if (type.startsWith("STATE"))
-    return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
-  if (type === "RUN_ERROR" || type === "ERROR")
-    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
-  if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
-  return { bg: "#F7F7F9", fg: "#68686e" };
+function humanizeEventType(type: string): string {
+  const words = type
+    .trim()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.toLowerCase());
+  if (words.length === 0) return "Event";
+  const [first = "event", ...rest] = words;
+  return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...rest].join(
+    " ",
+  );
+}
+
+function messageTitle(role: string): string {
+  const normalized = role.trim() || "message";
+  const label = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1).toLowerCase()}`;
+  return `${label} message`;
+}
+
+function eventCategory(
+  type: string,
+): "message" | "tool" | "state" | "run" | "error" | "event" {
+  if (type === "RUN_ERROR" || type === "ERROR") return "error";
+  if (type.startsWith("TEXT_MESSAGE")) return "message";
+  if (type.startsWith("TOOL_CALL")) return "tool";
+  if (type.startsWith("STATE") || type.startsWith("MESSAGES")) return "state";
+  if (type.startsWith("RUN_") || type.startsWith("STEP_")) return "run";
+  return "event";
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -1074,12 +1504,14 @@ class CpkThreadList extends PortableLitElement {
   static properties = {
     threads: { attribute: false },
     selectedThreadId: { attribute: false },
+    inAppThreadId: { attribute: false },
     errorMessage: { attribute: false },
     suppressEmptyState: { attribute: false },
     _query: { state: true },
   };
   threads: ɵThread[] = [];
   selectedThreadId: string | null = null;
+  inAppThreadId: string | null = null;
   /**
    * Non-null when the underlying thread store reported a load error
    * (REST list rejection, Phoenix subscribe failure, retry exhaustion).
@@ -1234,6 +1666,11 @@ class CpkThreadList extends PortableLitElement {
       color: #087653;
     }
 
+    .cpk-tl__pill--in-app {
+      background: #bec2ff;
+      color: #010507;
+    }
+
     /* ── Empty state ── */
     .cpk-tl__empty {
       padding: 32px 16px;
@@ -1385,6 +1822,13 @@ class CpkThreadList extends PortableLitElement {
                         `
                       : nothing
                   }
+                  ${
+                    this.inAppThreadId === thread.id
+                      ? html`
+                          <span class="cpk-tl__pill cpk-tl__pill--in-app">In app</span>
+                        `
+                      : nothing
+                  }
                 </span>
               </button>
             `,
@@ -1465,7 +1909,10 @@ export class CpkThreadInspector extends PortableLitElement {
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
+    agentMessagesInput: { attribute: false },
     liveMessageVersion: { attribute: false },
+    viewInAppMode: { attribute: false },
+    viewInAppError: { attribute: false },
     focusMessageId: { attribute: false },
     focusRequestId: { attribute: false },
     _tab: { state: true },
@@ -1499,6 +1946,11 @@ export class CpkThreadInspector extends PortableLitElement {
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
+  agentMessagesInput: ReadonlyArray<{
+    id?: string;
+    role: string;
+    contentText: string;
+  }> = EMPTY_INSPECTOR_MESSAGES;
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
@@ -1506,6 +1958,8 @@ export class CpkThreadInspector extends PortableLitElement {
    * so the conversation view reflects live streaming output.
    */
   liveMessageVersion = 0;
+  viewInAppMode: "hidden" | "view" | "stop" = "hidden";
+  viewInAppError: string | null = null;
   focusMessageId: string | null = null;
   focusRequestId = 0;
 
@@ -1566,6 +2020,8 @@ export class CpkThreadInspector extends PortableLitElement {
   > = new Map();
   private _timelineItemsCache: {
     events: ApiAgentEvent[];
+    conversation: ConversationItem[];
+    agentMessages: CpkThreadInspector["agentMessagesInput"];
     items: TimelineItem[];
   } | null = null;
   private _liveEventsWithSourceIndexCache: {
@@ -1742,6 +2198,11 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       flex-direction: row;
       overflow: hidden;
+      --cpk-json-key: #3d408f;
+      --cpk-json-str: #0b6b4c;
+      --cpk-json-num: #8a5900;
+      --cpk-json-bool: #c0333a;
+      --cpk-json-nil: #57575b;
     }
 
     .cpk-td {
@@ -1866,11 +2327,25 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__chrome-actions {
+      margin-inline-start: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      padding-inline: 8px;
+      min-width: 0;
+    }
+
+    .cpk-td__chrome-actions + .cpk-td__panel-toggle {
+      margin-inline-start: 0;
+    }
+
     .cpk-td__metadata-strip {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 8px;
       padding: 10px 16px;
       border-bottom: 1px solid #e9e9ef;
       background: #fbfbfd;
@@ -1879,19 +2354,22 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__metadata-pills {
       display: flex;
+      align-items: center;
       gap: 6px;
-      flex: 1;
-      flex-wrap: wrap;
+      width: 100%;
       min-width: 0;
+      flex-wrap: nowrap;
     }
 
     .cpk-td__metadata-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      max-width: 220px;
-      padding: 3px 7px;
-      border: 1px solid #e9e9ef;
+      gap: 6px;
+      flex: 1 1 0;
+      min-width: 0;
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid #dbdbe5;
       border-radius: 6px;
       background: #ffffff;
       color: #57575b;
@@ -1907,20 +2385,69 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__metadata-value {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
+    .cpk-td__metadata-value--wrap,
     .cpk-td__metadata-pill--wrap {
-      max-width: 100%;
-      white-space: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .cpk-td__metadata-value--wrap {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
+    .cpk-td__view-in-app {
+      appearance: none;
+      flex-shrink: 0;
+      margin: 0;
+      border: 1px solid #5558b2;
+      border-radius: 6px;
+      background: #5558b2;
+      color: #ffffff;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.2;
+      min-height: 24px;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition:
+        transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+        background 120ms ease,
+        color 120ms ease,
+        border-color 120ms ease;
+    }
+
+    .cpk-td__view-in-app:focus-visible {
+      outline: 2px solid #010507;
+      outline-offset: 2px;
+    }
+
+    .cpk-td__view-in-app:active {
+      transform: scale(0.96);
+    }
+
+    .cpk-td__view-in-app--stop {
+      background: #ffffff;
+      color: #5558b2;
+    }
+
+    .cpk-td__view-in-app-error {
+      flex-basis: 100%;
+      color: #c0333a;
+      font-size: 11px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__view-in-app {
+        transition: none;
+      }
+
+      .cpk-td__view-in-app:active {
+        transform: none;
+      }
     }
 
     /*
@@ -2119,15 +2646,16 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__tool-pre {
       margin: 0;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
+      font-size: 12px;
       background: #f7f7f9;
-      padding: 6px 8px;
-      border-radius: 5px;
+      padding: 10px 12px;
+      border-radius: 6px;
       overflow-x: auto;
       white-space: pre-wrap;
-      word-break: break-all;
+      overflow-wrap: anywhere;
+      word-break: normal;
       color: #010507;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* ── Tool call group ─────────────────────────────────────────────── */
@@ -2180,10 +2708,29 @@ export class CpkThreadInspector extends PortableLitElement {
 
     /* ── Interaction timeline ───────────────────────────────────────── */
     .cpk-td__timeline-item {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      background: #ffffff;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
       overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--run,
+    .cpk-td__timeline-item--state,
+    .cpk-td__timeline-item--event,
+    .cpk-td__timeline-item--tool,
+    .cpk-td__event--run,
+    .cpk-td__event--event,
+    .cpk-td__event--state,
+    .cpk-td__event--message,
+    .cpk-td__event--tool {
+      border-color: #dbdbe5;
+      background: #ffffff;
+    }
+
+    .cpk-td__timeline-item--message {
+      border-color: #dbdbe5;
+      background: #ffffff;
+      box-shadow: 0 1px 2px #0105070d;
     }
 
     .cpk-td__timeline-item--warning {
@@ -2195,27 +2742,70 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 10px;
+      padding: 6px 10px;
+      background: transparent;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-header {
+      padding: 10px 12px;
       background: #f7f7f9;
     }
 
+    .cpk-td__timeline-item--user .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
     .cpk-td__timeline-kind {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #57575b;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
       text-transform: uppercase;
-      color: #5558b2;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-kind {
+      background: #bec2ff33;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-kind {
+      background: #85ecce4d;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--warning .cpk-td__timeline-kind {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__timeline-title {
       flex: 1;
       min-width: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       font-weight: 500;
-      color: #010507;
+      color: #57575b;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #010507;
     }
 
     .cpk-td__timeline-time {
@@ -2228,6 +2818,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__timeline-body {
       margin: 0;
       padding: 0 10px 9px;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       line-height: 1.55;
       color: #57575b;
@@ -2235,21 +2826,26 @@ export class CpkThreadInspector extends PortableLitElement {
       word-break: break-word;
     }
 
+    .cpk-td__timeline-item--message .cpk-td__timeline-body {
+      padding: 0 12px 12px;
+      font-size: 13px;
+      color: #010507;
+    }
+
     .cpk-td__timeline-toolbar {
       display: flex;
       gap: 6px;
-      margin-left: auto;
     }
 
     .cpk-td__timeline-bulk-toggle {
       margin: 0;
-      padding: 4px 8px;
-      border: 1px solid #dcdce8;
-      border-radius: 7px;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
       background: #ffffff;
       color: #36363a;
       cursor: pointer;
-      font-family: "Inter", sans-serif;
+      font-family: "Spline Sans Mono", monospace;
       font-size: 11px;
       font-weight: 600;
       line-height: 1.2;
@@ -2324,84 +2920,6 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     }
 
-    @keyframes cpk-playground-message-enter {
-      from {
-        opacity: 0;
-        filter: blur(2px);
-        transform: translateY(4px);
-      }
-      to {
-        opacity: 1;
-        filter: blur(0);
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes cpk-playground-thinking {
-      0%,
-      60%,
-      100% {
-        opacity: 0.28;
-        transform: translateY(0);
-      }
-      30% {
-        opacity: 1;
-        transform: translateY(-2px);
-      }
-    }
-
-    .cpk-playground-root {
-      container-type: inline-size;
-    }
-
-    .cpk-playground-message-enter {
-      animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-        both;
-    }
-
-    .cpk-playground-thinking-dot {
-      animation: cpk-playground-thinking 1.2s ease-in-out infinite;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(2) {
-      animation-delay: 0.12s;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(3) {
-      animation-delay: 0.24s;
-    }
-
-    .cpk-playground-reasoning summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
-      transform: rotate(90deg);
-    }
-
-    @container (max-width: 560px) {
-      .cpk-playground-header {
-        align-items: stretch;
-      }
-
-      .cpk-playground-actions {
-        width: 100%;
-      }
-
-      .cpk-playground-thread-select {
-        min-width: 0;
-        max-width: none;
-        flex: 1;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .cpk-playground-message-enter,
-      .cpk-playground-thinking-dot {
-        animation: none;
-      }
-    }
-
     .cpk-td__genui {
       display: flex;
       flex-direction: column;
@@ -2443,8 +2961,9 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── AG-UI Events ────────────────────────────────────────────────── */
     .cpk-td__event {
       flex-shrink: 0;
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
+      border: 1px solid #dbdbe5;
+      border-radius: 10px;
+      background: #ffffff;
       overflow: hidden;
       /*
        * content-visibility: auto lets the browser skip layout + paint for
@@ -2460,48 +2979,89 @@ export class CpkThreadInspector extends PortableLitElement {
       contain-intrinsic-size: 0 80px;
     }
 
+    .cpk-td__event--error {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
     .cpk-td__event-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 5px 10px;
+      gap: 8px;
+      padding: 6px 10px;
+      background: transparent;
     }
 
     .cpk-td__event-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #010507;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
-      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .cpk-td__event--message .cpk-td__event-type {
+      background: #bec2ff33;
+    }
+
+    .cpk-td__event--tool .cpk-td__event-type {
+      background: #85ecce4d;
+    }
+
+    .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__event-time {
+      margin-inline-start: auto;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       color: #68686e;
+      flex-shrink: 0;
     }
 
-    .cpk-td__event-payload {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
-      padding: 8px 10px;
-      border-top: 1px solid #e9e9ef;
-    }
-
-    /* ── JSON block (agent state) ────────────────────────────────────── */
+    .cpk-td__event-payload,
     .cpk-td__json-block,
     .cpk-json-block {
       margin: 0;
+      padding: 10px 12px;
+      border-top: 1px solid #dbdbe5;
+      background: #f7f7f9;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 11px;
-      line-height: 1.8;
+      font-size: 12px;
+      line-height: 1.65;
       white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      color: #010507;
+      overflow: auto;
+    }
+
+    .cpk-json-token--key {
+      color: var(--cpk-json-key);
+    }
+
+    .cpk-json-token--str {
+      color: var(--cpk-json-str);
+    }
+
+    .cpk-json-token--num {
+      color: var(--cpk-json-num);
+    }
+
+    .cpk-json-token--bool {
+      color: var(--cpk-json-bool);
+    }
+
+    .cpk-json-token--nil {
+      color: var(--cpk-json-nil);
     }
 
     /* ── Resize divider ──────────────────────────────────────────────── */
@@ -2600,6 +3160,11 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) {
       color-scheme: dark;
+      --cpk-json-key: #bec2ff;
+      --cpk-json-str: #85ecce;
+      --cpk-json-num: #ffac4d;
+      --cpk-json-bool: #fa5f67;
+      --cpk-json-nil: #afafb7;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td {
@@ -2640,9 +3205,13 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
       background: #171a22;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+      background: #111319;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -2654,10 +3223,113 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle--active,
     :host([data-color-scheme="dark"]) .cpk-td__inline-chip,
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind,
     :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
       background: #302b43;
       color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--message {
+      background: #191c24;
+      border-color: #343742;
+      box-shadow: none;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--user
+      .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-kind {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-kind {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--run,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--event,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--state,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--tool,
+    :host([data-color-scheme="dark"]) .cpk-td__event--run,
+    :host([data-color-scheme="dark"]) .cpk-td__event--event,
+    :host([data-color-scheme="dark"]) .cpk-td__event--state,
+    :host([data-color-scheme="dark"]) .cpk-td__event--message,
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool {
+      background: #191c24;
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind {
+      background: #20232d;
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-title {
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-type {
+      background: #20232d;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--message .cpk-td__event-type {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool .cpk-td__event-type {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.2);
+      color: #fa5f67;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-body {
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__tab,
@@ -2686,7 +3358,9 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__json-block,
     :host([data-color-scheme="dark"]) .cpk-json-block {
-      color: #c7c9d2;
+      background: #111319;
+      border-top-color: #343742;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-tdp__divider {
@@ -2705,14 +3379,14 @@ export class CpkThreadInspector extends PortableLitElement {
       if (this.threadId) {
         // Timeline is the default tab and should be event-derived. Fetch
         // events eagerly; the raw tab reuses the same response when opened.
+        // User messages often never appear as TEXT_MESSAGE events (they are
+        // added locally before RUN_STARTED), so also load the conversation.
         void this.fetchMetadata(this.threadId);
         if (this.canFetchEvents()) {
           this._eventsFetched = true;
           void this.fetchEvents(this.threadId);
-        } else {
-          // Last-resort compatibility path for consumers that only implement
-          // messages. New integrations should provide events so Timeline can
-          // expose source references and decode warnings.
+        }
+        if (this.canFetchMessages()) {
           void this.fetchMessages(this.threadId);
         }
       } else {
@@ -2739,6 +3413,7 @@ export class CpkThreadInspector extends PortableLitElement {
     const focusedContentChanged =
       _changed.has("_fetchedEvents") ||
       _changed.has("agentEventsInput") ||
+      _changed.has("agentMessagesInput") ||
       _changed.has("_conversation");
     if (
       this.focusMessageId &&
@@ -2954,25 +3629,16 @@ export class CpkThreadInspector extends PortableLitElement {
       if (result.status === "not-available") {
         this._eventsNotAvailable = true;
         this._fetchedEvents = [];
-        if (this.canFetchMessages()) {
-          void this.fetchMessages(threadId);
-        }
         return;
       }
       const mappedEvents = this.mapApiEvents(result.events);
       this._fetchedEvents = mappedEvents;
-      if (mappedEvents.length === 0 && this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
-      if (this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -3079,13 +3745,16 @@ export class CpkThreadInspector extends PortableLitElement {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
-      if (msg.role === "user" && msg.content) {
-        items.push({
-          id: msg.id,
-          type: "user",
-          content: msg.content,
-          createdAt: "",
-        });
+      if (msg.role === "user") {
+        const content = textFromUnknownContent(msg.content);
+        if (content) {
+          items.push({
+            id: msg.id,
+            type: "user",
+            content,
+            createdAt: "",
+          });
+        }
       } else if (msg.role === "assistant") {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
@@ -3118,11 +3787,12 @@ export class CpkThreadInspector extends PortableLitElement {
             items.push(item);
           }
         }
-        if (msg.content) {
+        const assistantContent = textFromUnknownContent(msg.content);
+        if (assistantContent) {
           items.push({
             id: msg.id,
             type: "assistant",
-            content: msg.content,
+            content: assistantContent,
             createdAt: "",
           });
         }
@@ -3186,12 +3856,105 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
-    if (this._timelineItemsCache?.events === events) {
+    const conversation = this._conversation;
+    const agentMessages = this.agentMessagesInput;
+    if (
+      this._timelineItemsCache?.events === events &&
+      this._timelineItemsCache.conversation === conversation &&
+      this._timelineItemsCache.agentMessages === agentMessages
+    ) {
       return this._timelineItemsCache.items;
     }
-    const items = this.timelineItemsFromEvents(events);
-    this._timelineItemsCache = { events, items };
+    const items = this.mergeUserMessagesIntoTimeline(
+      this.timelineItemsFromEvents(events),
+    );
+    this._timelineItemsCache = { events, conversation, agentMessages, items };
     return items;
+  }
+
+  private conversationUsers(): ConversationUser[] {
+    const users: ConversationUser[] = [];
+    const seenIds = new Set<string>();
+    const seenBodies = new Set<string>();
+    const push = (user: ConversationUser) => {
+      const body = user.content.trim();
+      if (!body) return;
+      if (seenIds.has(user.id) || seenBodies.has(body)) return;
+      seenIds.add(user.id);
+      seenBodies.add(body);
+      users.push(user);
+    };
+    for (const item of this._conversation) {
+      if (item.type === "user") push(item);
+    }
+    this.agentMessagesInput.forEach((message, index) => {
+      if (message.role !== "user") return;
+      push({
+        id: message.id ?? `live-user-${index}`,
+        type: "user",
+        content: message.contentText,
+        createdAt: "",
+      });
+    });
+    return users;
+  }
+
+  private mergeUserMessagesIntoTimeline(items: TimelineItem[]): TimelineItem[] {
+    if (items.length === 0) return items;
+    const users = this.conversationUsers();
+    if (users.length === 0) return items;
+
+    const shownIds = new Set<string>();
+    const shownBodies = new Set<string>();
+    for (const item of items) {
+      if (item.kind !== "message") continue;
+      if (!item.title.toLowerCase().startsWith("user")) continue;
+      if (item.messageId) shownIds.add(item.messageId);
+      const body = item.body?.trim();
+      if (body) shownBodies.add(body);
+    }
+
+    const missing = users.filter((user) => {
+      if (shownIds.has(user.id)) return false;
+      if (shownBodies.has(user.content.trim())) return false;
+      return true;
+    });
+    if (missing.length === 0) return items;
+
+    const insertAt: number[] = [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      if (item.kind === "run" && item.title === "Run started") {
+        insertAt.push(index);
+      }
+    }
+    if (insertAt.length === 0) {
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index]!;
+        if (
+          item.kind === "message" &&
+          item.title.toLowerCase().includes("assistant")
+        ) {
+          insertAt.push(index);
+        }
+      }
+    }
+
+    const merged = [...items];
+    for (let index = missing.length - 1; index >= 0; index--) {
+      const user = missing[index]!;
+      const row: TimelineItem = {
+        id: `conversation-user-${user.id}`,
+        messageId: user.id,
+        kind: "message",
+        title: "User message",
+        body: user.content,
+        timestamp: user.createdAt || 0,
+        sourceIndex: 0,
+      };
+      merged.splice(insertAt[index] ?? 0, 0, row);
+    }
+    return merged;
   }
 
   private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
@@ -3247,7 +4010,7 @@ export class CpkThreadInspector extends PortableLitElement {
           id: `message-${key}`,
           messageId: key,
           kind: "message",
-          title: `${role || "message"} message`,
+          title: messageTitle(role || "message"),
           body: "",
           timestamp: event.timestamp,
           sourceIndex,
@@ -3420,10 +4183,7 @@ export class CpkThreadInspector extends PortableLitElement {
         items.push({
           id: `${type}-${sourceIndex}`,
           kind: "state",
-          title:
-            type === "STATE_SNAPSHOT"
-              ? "State snapshot captured"
-              : "State delta captured",
+          title: type === "STATE_SNAPSHOT" ? "State snapshot" : "State delta",
           timestamp: event.timestamp,
           sourceIndex,
           details: payload,
@@ -3434,7 +4194,7 @@ export class CpkThreadInspector extends PortableLitElement {
       items.push({
         id: `event-${sourceIndex}`,
         kind: "event",
-        title: type,
+        title: humanizeEventType(type),
         timestamp: event.timestamp,
         sourceIndex,
         details: payload,
@@ -3632,6 +4392,7 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   render() {
+    const viewInApp = this.renderViewInAppAction();
     return html`
       <div class="cpk-td">
         <!-- ── Left area: tabs + content ─────────────────────────────────── -->
@@ -3664,6 +4425,11 @@ export class CpkThreadInspector extends PortableLitElement {
                 `,
               )}
             </div>
+            ${
+              viewInApp !== nothing
+                ? html`<div class="cpk-td__chrome-actions">${viewInApp}</div>`
+                : nothing
+            }
             ${this.renderPanelToggle()}
           </div>
           ${this.renderMetadataStrip()}
@@ -3731,7 +4497,7 @@ export class CpkThreadInspector extends PortableLitElement {
         label: "Name",
         value: metadata?.name ?? this.thread?.name ?? "Untitled",
       },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
     ];
     for (const fact of [
       { label: "Agent", value: metadata?.agentId },
@@ -3747,8 +4513,6 @@ export class CpkThreadInspector extends PortableLitElement {
             : fact.value,
       });
     }
-    const bulkControls = this.renderActiveBulkControls();
-
     return html`
       <div
         class="cpk-td__metadata-strip"
@@ -3777,15 +4541,46 @@ export class CpkThreadInspector extends PortableLitElement {
             `,
           )}
         </div>
-        ${bulkControls}
       </div>
     `;
   }
 
-  private renderActiveBulkControls() {
+  private renderViewInAppAction() {
+    if (this.viewInAppMode === "hidden") return nothing;
+    const isStop = this.viewInAppMode === "stop";
+    return html`
+      <button
+        type="button"
+        class="cpk-td__view-in-app ${isStop ? "cpk-td__view-in-app--stop" : ""}"
+        data-testid="cpk-inspector-view-in-app"
+        aria-label=${
+          isStop
+            ? "Stop viewing this thread in the app"
+            : "View this thread in your app"
+        }
+        @click=${() => {
+          this.dispatchEvent(
+            new CustomEvent(isStop ? "stopViewing" : "viewInApp", {
+              bubbles: true,
+              composed: true,
+            }),
+          );
+        }}
+      >
+        ${isStop ? "Stop viewing" : "View in your app"}
+      </button>
+      ${
+        this.viewInAppError
+          ? html`<span class="cpk-td__view-in-app-error" role="alert"
+              >${this.viewInAppError}</span
+            >`
+          : nothing
+      }
+    `;
+  }
+
+  private renderTimelineBulkControls() {
     if (this._eventsNotAvailable) return nothing;
-    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
-    if (this._tab !== "timeline") return nothing;
 
     const detailIds = this.timelineItemsForEvents(this.activeEvents)
       .filter((item) => item.details)
@@ -3888,6 +4683,8 @@ export class CpkThreadInspector extends PortableLitElement {
     const events = this.activeEvents;
     const cachedTimeline = this.getCachedPanelTpl("timeline", [
       events,
+      this._conversation,
+      this.agentMessagesInput,
       this._expandedTimelineDetails,
     ]);
     if (cachedTimeline) return cachedTimeline;
@@ -3909,19 +4706,43 @@ export class CpkThreadInspector extends PortableLitElement {
 
     return this.cachedPanelTpl(
       "timeline",
-      [events, this._expandedTimelineDetails],
-      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+      [
+        events,
+        this._conversation,
+        this.agentMessagesInput,
+        this._expandedTimelineDetails,
+      ],
+      () =>
+        html`${this.renderTimelineBulkControls()}${timelineItems.map((item) =>
+          this.renderTimelineItem(item),
+        )}`,
     );
   }
 
+  private timelineItemClass(item: TimelineItem): string {
+    const classes = [
+      "cpk-td__timeline-item",
+      `cpk-td__timeline-item--${item.kind}`,
+    ];
+    if (item.kind === "warning" || item.severity === "error") {
+      classes.push("cpk-td__timeline-item--warning");
+    }
+    if (item.kind === "message") {
+      const title = item.title.toLowerCase();
+      if (title.startsWith("user")) {
+        classes.push("cpk-td__timeline-item--user");
+      } else if (title.includes("assistant")) {
+        classes.push("cpk-td__timeline-item--assistant");
+      }
+    }
+    return classes.join(" ");
+  }
+
   private renderTimelineItem(item: TimelineItem) {
-    const isWarning = item.kind === "warning";
     const detailsExpanded = this._expandedTimelineDetails.has(item.id);
     return html`
       <div
-        class="cpk-td__timeline-item ${
-          isWarning ? "cpk-td__timeline-item--warning" : ""
-        }"
+        class=${this.timelineItemClass(item)}
         data-message-id=${item.messageId ?? nothing}
       >
         <div class="cpk-td__timeline-header">
@@ -3929,13 +4750,19 @@ export class CpkThreadInspector extends PortableLitElement {
             >${item.severity === "error" ? "error" : item.kind}</span
           >
           <span class="cpk-td__timeline-title">${item.title}</span>
-          <button
-            type="button"
-            class="cpk-td__source-link"
-            @click=${() => this.revealSourceEvent(item.sourceIndex)}
-          >
-            Source event #${item.sourceIndex}
-          </button>
+          ${
+            item.sourceIndex
+              ? html`
+                  <button
+                    type="button"
+                    class="cpk-td__source-link"
+                    @click=${() => this.revealSourceEvent(item.sourceIndex)}
+                  >
+                    Source event #${item.sourceIndex}
+                  </button>
+                `
+              : nothing
+          }
           <span class="cpk-td__timeline-time"
             >${formatTimestamp(item.timestamp)}</span
           >
@@ -3986,9 +4813,7 @@ export class CpkThreadInspector extends PortableLitElement {
         }
         ${
           item.details && detailsExpanded
-            ? html`<pre class="cpk-td__timeline-body">
-${unsafeHTML(highlightedJson(item.details))}</pre
-            >`
+            ? renderHighlightedJsonBlock(item.details)
             : nothing
         }
       </div>
@@ -4174,9 +4999,7 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
             ? html`
               <div class="cpk-td__tool-body">
                 <div class="cpk-td__tool-section-label">Arguments</div>
-                <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.arguments))}</pre
-                >
+                ${renderHighlightedJsonBlock(item.arguments)}
                 ${
                   item.result
                     ? html`
@@ -4186,9 +5009,7 @@ ${unsafeHTML(highlightedJson(item.arguments))}</pre
                       >
                         Result
                       </div>
-                      <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.result))}</pre
-                      >
+                      ${renderHighlightedJsonBlock(item.result)}
                     `
                     : nothing
                 }
@@ -4330,15 +5151,18 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       "raw-events",
       [events, this._expandedRawEvents],
       () => {
-        return html`${events.map((event) => {
-          const { bg, fg } = eventColors(event.type);
-          const eventId = this.rawEventId(event);
-          const detailsExpanded = this._expandedRawEvents.has(eventId);
-          return html`
-            <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
-              <div class="cpk-td__event-header" style="background:${bg}">
-                <span class="cpk-td__event-type" style="color:${fg}"
-                  >${event.type}</span
+        return html`${this.renderRawEventBulkControls()}${events.map(
+          (event) => {
+            const eventId = this.rawEventId(event);
+            const detailsExpanded = this._expandedRawEvents.has(eventId);
+            return html`
+            <div
+              class="cpk-td__event cpk-td__event--${eventCategory(event.type)}"
+              data-source-index=${event.sourceIndex}
+            >
+              <div class="cpk-td__event-header">
+                <span class="cpk-td__event-type" title=${event.type}
+                  >${humanizeEventType(event.type)}</span
                 >
                 <span class="cpk-td__event-time"
                   >${formatTimestamp(event.timestamp)}</span
@@ -4383,14 +5207,13 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
               </button>
               ${
                 detailsExpanded
-                  ? html`<pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
-                  >`
+                  ? renderHighlightedJsonBlock(event.rawEvent ?? event)
                   : nothing
               }
             </div>
           `;
-        })}`;
+          },
+        )}`;
       },
     );
   }
@@ -5331,6 +6154,12 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private selectedThreadId: string | null = null;
+  private inAppThreadId: string | null = null;
+  private inAppAgentId: string | null = null;
+  private inAppSource: "app" | "override" | null = null;
+  private activeViewInAppRequestId: string | null = null;
+  private viewInAppError: string | null = null;
+  private inspectorBridgeUnsubscribers: Array<() => void> = [];
   private selectedRealThreadIsExplicit = false;
   private selectedLocalExampleThreadId: string | null = null;
   private requestedThreadId: string | null = null;
@@ -5369,6 +6198,8 @@ export class WebInspectorElement extends LitElement {
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
+  private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
+    null;
   private layoutMenuOpen = false;
   private dockMode: DockMode = "floating";
   private popOut: PopOutHandle | null = null;
@@ -5413,9 +6244,89 @@ export class WebInspectorElement extends LitElement {
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
   private newsSignalArmed = false;
-  private newsSignalPulsing = false;
-  private newsSignalPulsePending = false;
+  /** Which signal's beat is in flight, or null between beats. */
+  private pulsingSignal: LauncherSignalKey | null = null;
+  /**
+   * The single pending-beat slot. A beat that cannot land is deferred, never
+   * discarded — see `startSignalPulse` for the four reasons it cannot land.
+   */
+  private pendingPulseSignal: LauncherSignalKey | null = null;
   private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Per-source latches for the error signal, fed from the subscriptions that
+   * already exist rather than from the event history: the event buffer is
+   * bounded per agent and in total and evicts entries, so counting events
+   * could silently lose a live failure.
+   */
+  private readonly errorSignalArmed: Record<
+    InspectorWiringErrorSource,
+    boolean
+  > = { connection: false, threads: false };
+  /** Unread app errors. Cleared when the landing view is read. */
+  private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
+    { run: false, tool: false, memory: false };
+  /** Latest detail for each event source, retained after that source is read. */
+  private readonly eventErrorDetails: Record<
+    InspectorEventErrorSource,
+    InspectorEventErrorDetails | null
+  > = { run: null, tool: null, memory: null };
+  private pendingScrollToEventId: string | null = null;
+  private pendingScrollToToolCallId: string | null = null;
+  /** Last time an inspector-owned /threads refresh left this host, per agent. */
+  private readonly threadRefreshLastSentAt: Map<string, number> = new Map();
+  /** Trailing /threads refresh timers, one per agent. */
+  private readonly threadRefreshTrailingTimers: Map<
+    string,
+    ReturnType<typeof setTimeout>
+  > = new Map();
+  /**
+   * Whether this outage has already had its beat. Global rather than
+   * per-source: a connection failure cascades into thread failures, so one
+   * root cause must not produce two nudges. Reset when nothing is red, which
+   * is what makes a resolved-then-recurring failure beat again.
+   */
+  private errorBeatSpent = false;
+  /** Per-outage dedup for `oss.inspector.error_signal_viewed`. */
+  private readonly errorSignalViewedSources: Set<InspectorErrorSignalSource> =
+    new Set();
+  /**
+   * The signal whose gesture is running its tail — the pill on screen and the
+   * sentence in the live region, both of which outlive the beat.
+   *
+   * Together with `pulsingSignal` this IS the single pending-beat slot, not a
+   * second scheduling concept: `startSignalPulse` defers while either is set,
+   * so the third deferral reason simply covers a longer beat. Null for the
+   * announcement, which has no tail and therefore behaves exactly as before.
+   */
+  private gestureSignal: LauncherSignalKey | null = null;
+  /** Where the running gesture's pill is, or null when it has none. */
+  private pillPhase: LauncherPillPhase | null = null;
+  /**
+   * Which side the pill opens from, or null before the room has been measured.
+   * Decided once, at gesture start, and never revisited mid-gesture.
+   */
+  private pillDirection: LauncherPillDirection | null = null;
+  private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  /** Hover/focus menu on the closed launcher. */
+  private launcherHudOpen = false;
+  private launcherHudSide: "left" | "right" = "left";
+  private launcherHudHelp: LauncherHudRowId | null = null;
+  private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private launcherHudIntro = false;
+  private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
+   * the circle cannot steal "Turn on Threads". Not a public open option.
+   */
+  private hudLandingMenu: MenuKey | null = null;
+  /**
+   * Whether this outage's pill actually opened. Per outage rather than per
+   * phase, so a second source arming behind the first reports the same answer
+   * the reader actually got. Reset with `errorBeatSpent`.
+   */
+  private pillOutcome: LauncherPillOutcome | null = null;
   private viewedNewsSignalIds: Set<string> = new Set();
   private pendingNewsSignalViewed: {
     banner_id: string;
@@ -5923,7 +6834,7 @@ export class WebInspectorElement extends LitElement {
         }
         if (error) {
           this._threadsErrorByAgent.set(agentId, error);
-        } else {
+        } else if (!isLoading) {
           this._threadsErrorByAgent.delete(agentId);
         }
         this._threadsLoadingByAgent.set(agentId, isLoading);
@@ -5949,7 +6860,7 @@ export class WebInspectorElement extends LitElement {
     const initialError = ɵselectThreadsError(initialState);
     if (initialError) {
       this._threadsErrorByAgent.set(agentId, initialError);
-    } else {
+    } else if (!ɵselectThreadsIsLoading(initialState)) {
       this._threadsErrorByAgent.delete(agentId);
     }
     this.rebuildFlattenedThreads();
@@ -6072,9 +6983,42 @@ export class WebInspectorElement extends LitElement {
     if (!this.areThreadEndpointsAvailable()) return;
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+
+    const now = Date.now();
+    const lastSentAt = this.threadRefreshLastSentAt.get(agentId) ?? 0;
+    const waitMs = THREAD_LIST_DEBOUNCE_MS - (now - lastSentAt);
+    if (waitMs <= 0) {
+      this.sendOwnedThreadRefresh(agentId, store, now);
+      return;
+    }
+    if (this.threadRefreshTrailingTimers.has(agentId)) return;
+    this.threadRefreshTrailingTimers.set(
+      agentId,
+      setTimeout(() => {
+        this.threadRefreshTrailingTimers.delete(agentId);
+        const current = this._ownedThreadStores.get(agentId);
+        if (!current) return;
+        this.sendOwnedThreadRefresh(agentId, current, Date.now());
+      }, waitMs),
+    );
+  }
+
+  private sendOwnedThreadRefresh(
+    agentId: string,
+    store: ɵThreadStore,
+    sentAt: number,
+  ): void {
+    this.threadRefreshLastSentAt.set(agentId, sentAt);
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  private cancelThreadRefreshDebounce(): void {
+    for (const timer of this.threadRefreshTrailingTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.threadRefreshTrailingTimers.clear();
   }
 
   // Keep inspector-owned thread stores in sync when the host updates headers
@@ -6156,6 +7100,7 @@ export class WebInspectorElement extends LitElement {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
     this.updateInspectorMetadataProjection(
       this.readCoreInspectorMetadata(core),
@@ -6209,8 +7154,9 @@ export class WebInspectorElement extends LitElement {
             },
           }
         : {}),
-      onError: ({ code, error }) => {
+      onError: ({ code, error, context }) => {
         this.lastCoreError = { code, message: error.message };
+        this.armEventErrorFromCode(code, error.message, context);
         this.requestUpdate();
       },
       onAgentsChanged: ({ agents }) => {
@@ -6353,6 +7299,9 @@ export class WebInspectorElement extends LitElement {
       }),
       memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
         this._memoriesError = v;
+        if (v) {
+          this.armEventError("memory", v.message);
+        }
         this.requestUpdate();
       }),
       memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
@@ -6453,6 +7402,7 @@ export class WebInspectorElement extends LitElement {
     this._recallQuery = "";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
+    this.cancelThreadRefreshDebounce();
     this.inspectorMetadataValue = undefined;
     this.inspectorMetadataProjection = projectInspectorMetadata(
       undefined,
@@ -6460,6 +7410,7 @@ export class WebInspectorElement extends LitElement {
     );
     this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
+    this.clearAllEventErrors();
     this.coreProperties = {};
     this.cachedTools = [];
     this.toolSignature = "";
@@ -6796,7 +7747,7 @@ export class WebInspectorElement extends LitElement {
       // selected thread and re-fetches `/threads/:id/messages` when it ticks,
       // so the conversation view stays in sync with the streaming agent
       // without the parent re-implementing AG-UI → ConversationItem mapping.
-      const runThreadId = (agent as { threadId?: string }).threadId;
+      const runThreadId = this.readAgentThreadId(agent);
       if (runThreadId) {
         this.liveMessageVersion.set(
           runThreadId,
@@ -6997,6 +7948,25 @@ export class WebInspectorElement extends LitElement {
     return messages ?? null;
   }
 
+  private readAgentThreadId(agent: AbstractAgent): string | undefined {
+    if (!("threadId" in agent)) return undefined;
+    const threadId = agent.threadId;
+    return typeof threadId === "string" ? threadId : undefined;
+  }
+
+  private getLiveAgentMessagesForThread(thread: ɵThread): InspectorMessage[] {
+    const messages =
+      this.agentMessages.get(thread.agentId) ?? EMPTY_INSPECTOR_MESSAGES;
+    const core = this._core;
+    if (!core || typeof core.getAgent !== "function") return messages;
+    const agent = core.getAgent(thread.agentId);
+    if (!agent) return EMPTY_INSPECTOR_MESSAGES;
+    if (this.readAgentThreadId(agent) !== thread.id) {
+      return EMPTY_INSPECTOR_MESSAGES;
+    }
+    return messages;
+  }
+
   private getAgentStatus(agentId: string): "running" | "idle" | "error" {
     const events = this.agentEvents.get(agentId) ?? [];
     if (events.length === 0) {
@@ -7064,6 +8034,8 @@ export class WebInspectorElement extends LitElement {
       return nothing;
     }
 
+    const toolError = this.eventErrorDetails.tool;
+
     return html`
       <div class="mt-2 space-y-2">
         ${toolCalls.map((call, index) => {
@@ -7074,23 +8046,38 @@ export class WebInspectorElement extends LitElement {
           const argsString = this.formatToolCallArguments(
             call.function?.arguments,
           );
+          const isFailedCall =
+            toolError?.toolCallId !== undefined &&
+            toolError.toolCallId === callId;
           return html`
             <div
-              class="rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              class=${
+                isFailedCall
+                  ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
+                  : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              }
+              data-cpk-failed-tool-call=${isFailedCall ? callId : undefined}
             >
               <div
                 class="flex flex-wrap items-center justify-between gap-1 font-medium text-gray-900"
               >
-                <span>${functionName}</span>
-                <span class="text-[10px] text-gray-500">ID: ${callId}</span>
+                <span>${functionName}${isFailedCall ? " failed" : ""}</span>
+                <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
               ${
+                isFailedCall && toolError?.message
+                  ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
+                    ${toolError.message}
+                  </p>`
+                  : nothing
+              }
+              ${
                 argsString
-                  ? html`<pre
-                    class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
-                  >
-${argsString}</pre
-                  >`
+                  ? html`<div class="mt-2">
+                    ${renderHighlightedJsonBlock(
+                      coerceJsonValue(call.function?.arguments),
+                    )}
+                  </div>`
                   : nothing
               }
             </div>
@@ -7177,37 +8164,33 @@ ${argsString}</pre
 
   private getEventBadgeClasses(type: string): string {
     const base =
-      "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
+      "font-mono text-[10px] font-semibold inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
     if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
-    }
-
-    if (type.startsWith("RUN_")) {
-      return `${base} bg-blue-50 text-blue-700 border-blue-200`;
+      return `${base} bg-rose-50 text-rose-800 border-rose-200`;
     }
 
     if (type.startsWith("TEXT_MESSAGE")) {
-      return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
     if (type.startsWith("TOOL_CALL")) {
-      return `${base} bg-amber-50 text-amber-700 border-amber-200`;
+      return `${base} bg-emerald-50 text-gray-900 border-emerald-200`;
+    }
+
+    if (type.startsWith("RUN_") || type.startsWith("STEP_")) {
+      return `${base} bg-gray-100 text-gray-900 border-gray-200`;
     }
 
     if (type.startsWith("REASONING")) {
-      return `${base} bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("STATE")) {
-      return `${base} bg-violet-50 text-violet-700 border-violet-200`;
+    if (type.startsWith("STATE") || type.startsWith("MESSAGES")) {
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("MESSAGES")) {
-      return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    return `${base} bg-gray-100 text-gray-600 border-gray-200`;
+    return `${base} bg-gray-100 text-gray-900 border-gray-200`;
   }
 
   private stringifyPayload(payload: unknown, pretty: boolean): string {
@@ -7286,6 +8269,13 @@ ${argsString}</pre
     unsafeCSS(tailwindStyles),
     css`
       :host {
+        --cpk-inspector-shell-radius: 5px;
+        --cpk-inspector-surface-dark: #111319;
+        --cpk-json-key: #3d408f;
+        --cpk-json-str: #0b6b4c;
+        --cpk-json-num: #8a5900;
+        --cpk-json-bool: #c0333a;
+        --cpk-json-nil: #57575b;
         position: fixed;
         top: 0;
         left: 0;
@@ -7293,6 +8283,191 @@ ${argsString}</pre
         display: block;
         will-change: transform;
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+
+      :host([data-color-scheme="dark"]),
+      .inspector-window[data-color-scheme="dark"] {
+        --cpk-json-key: #bec2ff;
+        --cpk-json-str: #85ecce;
+        --cpk-json-num: #ffac4d;
+        --cpk-json-bool: #fa5f67;
+        --cpk-json-nil: #afafb7;
+      }
+
+      .cpk-json-token--key {
+        color: var(--cpk-json-key);
+      }
+
+      .cpk-json-token--str {
+        color: var(--cpk-json-str);
+      }
+
+      .cpk-json-token--num {
+        color: var(--cpk-json-num);
+      }
+
+      .cpk-json-token--bool {
+        color: var(--cpk-json-bool);
+      }
+
+      .cpk-json-token--nil {
+        color: var(--cpk-json-nil);
+      }
+
+      .cpk-json-block {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background: #f7f7f9;
+        font-family: "Spline Sans Mono", monospace;
+        font-size: 12px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        color: #010507;
+        overflow: auto;
+      }
+
+      :host([data-color-scheme="dark"]) .cpk-json-block,
+      .inspector-window[data-color-scheme="dark"] .cpk-json-block {
+        background: #111319;
+        border-color: #343742;
+        color: #f3f4f8;
+      }
+
+      @keyframes cpk-playground-message-enter {
+        from {
+          opacity: 0;
+          filter: blur(2px);
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cpk-playground-thinking {
+        0%,
+        60%,
+        100% {
+          opacity: 0.28;
+          transform: translateY(0);
+        }
+        30% {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+      }
+
+      .cpk-playground-root {
+        container-type: inline-size;
+        background: #fbfbfd !important;
+      }
+
+      .cpk-playground-header {
+        min-height: 58px;
+        background: #f7f6fd !important;
+      }
+
+      .cpk-playground-welcome {
+        max-width: 560px;
+        padding: 24px;
+      }
+
+      .cpk-playground-welcome-title {
+        color: #24242b;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .cpk-playground-composer {
+        border: 1px solid #dcdce8;
+        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+          0 1px 2px rgba(31, 23, 57, 0.1);
+      }
+
+      .cpk-playground-composer:focus-within {
+        border-color: #aaa4d4;
+        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+          0 0 0 3px rgba(190, 194, 255, 0.3);
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-root,
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-header {
+        background: #15171e !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-welcome-title {
+        color: #f3f4f8 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
+        border-color: #464957;
+        background: #15171e !important;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+          0 1px 2px rgba(0, 0, 0, 0.36);
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-composer:focus-within {
+        border-color: #777aae;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+          0 0 0 3px rgba(102, 106, 158, 0.3);
+      }
+
+      .cpk-playground-message-enter {
+        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
+          both;
+      }
+
+      .cpk-playground-thinking-dot {
+        animation: cpk-playground-thinking 1.2s ease-in-out infinite;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(2) {
+        animation-delay: 0.12s;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(3) {
+        animation-delay: 0.24s;
+      }
+
+      .cpk-playground-reasoning summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .cpk-playground-reasoning[open]
+        .cpk-playground-reasoning-chevron {
+        transform: rotate(90deg);
+      }
+
+      @container (max-width: 560px) {
+        .cpk-playground-header {
+          align-items: stretch;
+        }
+
+        .cpk-playground-actions {
+          width: 100%;
+        }
+
+        .cpk-playground-thread-select {
+          min-width: 0;
+          max-width: none;
+          flex: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-playground-message-enter,
+        .cpk-playground-thinking-dot {
+          animation: none;
+        }
       }
 
       .rounded-sm {
@@ -7326,24 +8501,38 @@ ${argsString}</pre
       .console-button-wrapper {
         position: relative;
         display: inline-flex;
-      }
-
-      .console-button {
+        /* The launcher's surface and edge, shared by the button and the pill so
+           the two cannot drift apart. A dark grey rather than near-black: the
+           launcher sits on a customer's page, and 1,5,7 against white is a
+           harder edge than this surface needs. */
+        --cpk-launcher-face: rgba(24, 28, 31, 0.95);
+        --cpk-launcher-face-solid: rgb(24, 28, 31);
+        --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
            Percentages resolve against the padding box, which the 1px border
-           insets, and the dot would land inside the rim. */
+           insets, and the dot would land inside the rim.
+
+           Declared on the wrapper rather than on the button so the pill, which
+           is the button's sibling, can clear the mark by the same length. */
         --cpk-launcher-size: clamp(
           ${LAUNCHER_MIN_SIZE}px,
           7vw,
           ${LAUNCHER_MAX_SIZE}px
         );
+      }
+
+      .console-button {
         width: var(--cpk-launcher-size);
         height: var(--cpk-launcher-size);
         /* Keep the 1px border inside the declared outer size. */
         box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          background-color 200ms ease,
+          border-color 200ms ease,
+          box-shadow 200ms ease,
           opacity 160ms ease;
       }
 
@@ -7371,6 +8560,7 @@ ${argsString}</pre
         touch-action: none;
         user-select: none;
         z-index: 60;
+        background: transparent;
       }
 
       .edge-resize-handle {
@@ -7505,17 +8695,76 @@ ${argsString}</pre
         flex-shrink: 0;
         transition:
           background-color 0.15s,
-          border-color 0.15s;
+          border-color 0.15s,
+          color 0.15s;
       }
       .cpk-copy-btn:hover {
         background-color: #f0f0f4;
         border-color: #afafb7;
       }
 
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn {
+        background: #191c24;
+        border-color: #3a3d49;
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn:hover {
+        background: #20232d;
+        border-color: #57575b;
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div {
+        left: 100%;
+        margin-inline-start: 8px;
+      }
+
+      .inspector-icon-rail-menu {
+        transform-origin: left center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-8px) scale(0.96);
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease,
+          visibility 180ms ease;
+      }
+
+      .inspector-icon-rail-menu[data-open="true"] {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0) scale(1);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .inspector-icon-rail-menu {
+          transition: none;
+        }
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        inset-inline-end: 100%;
+        width: 12px;
+      }
+
       .cpk-section-header {
         background: #e8edf5;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px 16px;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-section-header {
+        border-bottom-color: #3a3d49;
       }
       .cpk-section-header h4 {
         font-size: 11px;
@@ -7739,15 +8988,31 @@ ${argsString}</pre
 
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
-        background-color: rgba(1, 5, 7, 0.95) !important;
-        border-color: rgba(190, 194, 255, 0.25) !important;
+        background-color: var(--cpk-launcher-face) !important;
+        border-color: var(--cpk-launcher-edge) !important;
+        /* One hairline, not two. The border above is it; a second ring used to
+           sit 1px outside as a box-shadow and hardcoded the lilac instead of
+           reading the --cpk-launcher-edge token, so it could not follow it.
+           What replaces it is a one-pixel light edge along the top, which is
+           what keeps the face from reading flat without drawing a frame.
+
+           The border is not decoration: the face is #181C1F, which against a
+           dark host page (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) is
+           indistinguishable from the page. It is the only thing that gives the
+           launcher an outline there, so it stays. */
         box-shadow:
-          0 0 0 1px rgba(190, 194, 255, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
+        /* Promotes the launcher to its own compositing layer, which the
+           backdrop-filter this replaces used to do as a side effect. Without
+           a layer the hover scale re-rasterises the mark every frame and it
+           visibly jitters; with one, the compositor scales it as a texture. */
+        will-change: transform;
       }
       .console-button:hover {
-        background-color: rgba(1, 5, 7, 1) !important;
+        background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
+        transform: scale(1.05);
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
@@ -7764,7 +9029,6 @@ ${argsString}</pre
        * that forces a repaint every frame is not acceptable.
        */
       .console-button[data-cpk-signal] {
-        --cpk-launcher-face: rgba(1, 5, 7, 0.95);
         isolation: isolate;
       }
 
@@ -7870,8 +9134,197 @@ ${argsString}</pre
         width: 19%;
         height: 19%;
         border-radius: 50%;
-        background: var(--cpk-launcher-signal);
-        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+        /* Lit from the upper left and shaded at the lower right, so the dot
+           reads as a lens rather than a flat disc. Both stops are derived from
+           the signal colour, so a new tone needs no new values. */
+        background: radial-gradient(
+          circle at 32% 28%,
+          color-mix(in srgb, var(--cpk-launcher-signal), white 40%) 0%,
+          var(--cpk-launcher-signal) 60%,
+          color-mix(in srgb, var(--cpk-launcher-signal), black 20%) 100%
+        );
+        /* Replaces an opaque 1.5px collar in the launcher's own face. That
+           collar was 21% of the dot's footprint, and because the dot's centre
+           sits *on* the rim, its outer half painted a hard dark crescent onto
+           the host page rather than onto the launcher. A hairline plus a soft
+           drop does the same separating job without the hard edge. */
+        box-shadow:
+          0 0 0 0.5px rgba(1, 5, 7, 0.4),
+          0 1px 2.5px rgba(1, 5, 7, 0.5);
+      }
+
+      /* ── Launcher pill: the launcher opens sideways and says what ─── */
+      /*
+       * The pill is laid out at its FULL width from the first frame and
+       * revealed by animating a rectangular clip. Nothing is scaled and
+       * nothing is resized.
+       *
+       * That is not a stylistic choice. This component is permanently mounted
+       * on top of a customer's application, so no property that forces a
+       * layout on every frame is acceptable — and animating "width" does
+       * exactly that, sixty times a second, on someone else's page. A clip
+       * leaves the element's geometry constant and changes only the visible
+       * region, which the compositor handles. Animating a horizontal scale
+       * was the other candidate and squashes the mark itself, not merely the
+       * rounded end, so the logo would need counter-scaling and the dot and
+       * halo would become ellipses.
+       *
+       * The launcher's own face and border are repeated here so the two form
+       * one capsule: the button paints last and therefore on top, with no
+       * z-index needed. The mark's own ring and shadow are deliberately left
+       * alone for the whole gesture — the circle's outline staying visible
+       * inside the open pill was looked at against the alternative and kept.
+       *
+       * A column, not a row: the pill carries a heading and a subline stacked,
+       * centred against a height that does not change. "justify-content"
+       * centres the pair vertically and "align-items" keeps both lines flush
+       * left, so the pill never grows taller than the launcher it opens from.
+       */
+      .cpk-launcher-pill {
+        position: absolute;
+        top: 50%;
+        margin-top: calc(var(--cpk-launcher-size) / -2);
+        height: var(--cpk-launcher-size);
+        display: inline-flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 1px;
+        box-sizing: border-box;
+        border-radius: 999px;
+        border: 1px solid var(--cpk-launcher-edge);
+        background: var(--cpk-launcher-face);
+        color: #ffffff;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+      }
+
+      /* The failure class, word-identical to the panel's own wording. */
+      .cpk-launcher-pill__heading {
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.2;
+      }
+
+      /*
+       * The one line of copy in this feature that exists nowhere else in the
+       * product. The heading above is word-identical to the panel, which is
+       * the standing rule; this line is a deliberate, owner-approved exception
+       * to it, because the pill is now clickable and has to say so.
+       *
+       * It is NOT spoken. A screen-reader user cannot act on an instruction
+       * delivered through an announcement, and it would double the spoken
+       * length — so the live region carries the failure class alone.
+       */
+      .cpk-launcher-pill__subline {
+        font-size: 10.5px;
+        font-weight: 500;
+        line-height: 1.2;
+        opacity: 0.72;
+      }
+
+      /*
+       * Two directions, one animation with the inset on the other side. The
+       * padding on the launcher's side clears the mark, so the words never sit
+       * under it. The text-side padding is derived from the capsule's radius
+       * (half the launcher size), NOT a bare literal: padding is measured from
+       * the bounding box, but the first half-height of that side is the rounded
+       * cap. Half the size lands the text exactly where the cap ends and the
+       * straight edge begins. A literal 14px put it 16px inside the curve at the
+       * production launcher size, which is itself a clamp on the viewport.
+       */
+      .cpk-launcher-pill[data-cpk-pill-direction="left"] {
+        right: 0;
+        padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
+          calc(var(--cpk-launcher-size) / 2);
+        clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
+      }
+      .cpk-launcher-pill[data-cpk-pill-direction="right"] {
+        left: 0;
+        padding: 0 calc(var(--cpk-launcher-size) / 2) 0
+          calc(var(--cpk-launcher-size) + 12px);
+        clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
+      }
+
+      /*
+       * "round" on both stops, so the revealing edge is the capsule's own
+       * rounded end travelling sideways rather than a straight vertical line
+       * wiping across it. An unrounded inset reads as a wipe; this reads as an
+       * opening. It adds no animated property: the clip is still the clip.
+       */
+      @keyframes cpk-launcher-pill-left {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      @keyframes cpk-launcher-pill-right {
+        0% {
+          opacity: 0;
+          clip-path: inset(
+            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
+          );
+        }
+        100% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round 999px);
+        }
+      }
+
+      /*
+       * The pill takes the pointer exactly while it is on screen, so the
+       * instruction it now carries is honest: a click on it opens the
+       * Inspector, the same action as pressing the mark. During the beat the
+       * clip covers only the mark itself, and a click target nobody can see
+       * over someone else's page is not something to ship — so the base rule
+       * keeps "pointer-events: none" and only the three visible phases take it
+       * back.
+       * The button paints last and therefore wins the pointer where the two
+       * overlap, so dragging the launcher is unaffected throughout.
+       */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        pointer-events: auto;
+        cursor: pointer;
+      }
+
+      /* Closing is the same animation played backwards, so the two phases can
+         never drift apart. */
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"] {
+        animation-duration: var(--cpk-launcher-pill-open);
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        animation-duration: var(--cpk-launcher-pill-close);
+        animation-direction: reverse;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="left"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="left"] {
+        animation-name: cpk-launcher-pill-left;
+      }
+      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="right"],
+      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="right"] {
+        animation-name: cpk-launcher-pill-right;
+      }
+
+      /* The hold is the end state of the reveal, held. */
+      .cpk-launcher-pill[data-cpk-pill-phase="holding"] {
+        opacity: 1;
+        clip-path: inset(0 0 0 0);
       }
 
       /*
@@ -7879,6 +9332,18 @@ ${argsString}</pre
        * the information arrives without the movement.
        */
       @media (prefers-reduced-motion: reduce) {
+        /*
+         * The pill is shown by opacity alone, with no clip animation and the
+         * same hold. The instruction is to reduce motion, not to withhold
+         * information, and this reader needs the label as much as anyone.
+         */
+        .cpk-launcher-pill[data-cpk-pill-phase="opening"],
+        .cpk-launcher-pill[data-cpk-pill-phase="holding"],
+        .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+          animation: none !important;
+          opacity: 1;
+          clip-path: inset(0 0 0 0);
+        }
         .cpk-launcher-signal-wash {
           opacity: 0.85;
         }
@@ -7896,13 +9361,360 @@ ${argsString}</pre
           .cpk-launcher-signal-wash {
           animation: none !important;
         }
+        .console-button {
+          transition: opacity 160ms ease;
+        }
+        .console-button:hover {
+          transform: none;
+        }
+      }
+
+      /* ── Launcher HUD: hover menu, quieter than the error island ── */
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
+        pointer-events: auto;
+        opacity: 1;
+        transform: none;
+        visibility: visible;
+      }
+
+      .cpk-launcher-hud {
+        --hud-fill: var(--cpk-inspector-surface-dark);
+        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-blur: blur(12px) saturate(1.2);
+        position: absolute;
+        top: 0;
+        z-index: 4;
+        padding-right: 14px;
+        pointer-events: none;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(8px);
+        transition:
+          opacity 160ms ease,
+          transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] {
+        right: 100%;
+        padding-right: 14px;
+        padding-left: 0;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] {
+        left: 100%;
+        right: auto;
+        padding-right: 0;
+        padding-left: 14px;
+        transform: translateX(-8px);
+      }
+
+      .console-button-wrapper[data-cpk-hud="open"]
+        .cpk-launcher-hud[data-cpk-hud-side="right"] {
+        transform: none;
+      }
+
+      .cpk-launcher-hud__card {
+        position: relative;
+        width: 228px;
+        padding: 4px;
+        border: 1px dotted var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        color: #fff;
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] {
+        --hud-fill: #fff;
+        --hud-line: #d8d8e8;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+        color: #010507;
+      }
+
+      .cpk-launcher-hud__arrow {
+        position: absolute;
+        top: calc(var(--cpk-launcher-size) / 2);
+        z-index: 1;
+        width: 10px;
+        height: 10px;
+        border: 0;
+        /* The card frosts the page behind it, so it reads lighter than the
+           raw fill. Mix a little white so the arrow matches the glass card
+           without going lighter than the HUD. */
+        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
+        right: 9px;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
+        left: 9px;
+      }
+
+      .cpk-launcher-hud__list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px dotted var(--hud-line);
+      }
+
+      .cpk-launcher-hud__row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 28px;
+        align-items: start;
+        border-radius: 7px;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__row + .cpk-launcher-hud__row {
+        margin-top: 1px;
+      }
+
+      .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: rgb(255 255 255 / 0.06);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: #f0f0f4;
+      }
+
+      .cpk-launcher-hud__action {
+        display: flex;
+        gap: 8px;
+        min-height: 32px;
+        align-items: center;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 7px;
+        background: transparent;
+        color: #fff;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
+        color: #010507;
+      }
+
+      /* Stretch the row action over the whole tab, including the detail
+         copy. The help mark sits above this layer. */
+      .cpk-launcher-hud__action::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+      }
+
+      .cpk-launcher-hud__check {
+        flex: none;
+        width: 14px;
+        height: 14px;
+        color: #34d399;
+      }
+
+      .cpk-launcher-hud__help {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        width: 28px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: rgb(255 255 255 / 0.78);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__help span {
+        display: inline-flex;
+        width: 16px;
+        height: 16px;
+        align-items: center;
+        justify-content: center;
+        border: 1px dotted rgb(190 194 255 / 0.55);
+        border-radius: 50%;
+        line-height: 1;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
+        color: #68686e;
+      }
+
+      .cpk-launcher-hud__help:focus-visible,
+      .cpk-launcher-hud__action:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__detail {
+        grid-column: 1 / -1;
+        max-height: 0;
+        margin: 0;
+        padding: 0 8px;
+        overflow: hidden;
+        color: rgb(255 255 255 / 0.78);
+        font-size: 11px;
+        font-weight: 400;
+        line-height: 1.4;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-6px);
+        transition:
+          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          opacity 150ms ease-out,
+          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
+        color: #68686e;
+      }
+
+      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
+      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
+      .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
+        max-height: 72px;
+        padding: 0 8px 7px;
+        opacity: 1;
+        transform: none;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud,
+        .cpk-launcher-hud__detail {
+          transition: none;
+        }
       }
 
       /*
-       * Unread marker on the navigation entry, which is what keeps the signal
-       * alive once the panel is open and the launcher is hidden. Static by
-       * design: the pulse belongs to the launcher, and movement here would
-       * compete with the live event stream a developer is actually watching.
+       * On mount, borrow the hover HUD for one short introduction. The card
+       * establishes the destination first; its rows then resolve in order so
+       * the eye can count the available features instead of receiving one
+       * undifferentiated block. Only opacity and transform move.
+       */
+      @keyframes cpk-launcher-hud-intro {
+        0% {
+          opacity: 0;
+          transform: translateX(8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-intro-right {
+        0% {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-row-online {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes cpk-launcher-hud-check-online {
+        from {
+          opacity: 0;
+          transform: scale(0.65);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
+        animation: cpk-launcher-hud-intro
+          var(--cpk-launcher-hud-intro-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+        animation-name: cpk-launcher-hud-intro-right;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__row {
+        animation: cpk-launcher-hud-row-online
+          var(--cpk-launcher-hud-row-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--cpk-hud-row-delay);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__check {
+        animation: cpk-launcher-hud-check-online 220ms
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"],
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row,
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__check {
+          animation: none !important;
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /*
+       * Marker on the navigation entry, which is what keeps a signal alive
+       * once the panel is open and the launcher is hidden. Static by design:
+       * the beat belongs to the launcher, and movement here would compete with
+       * the live event stream a developer is actually watching.
+       *
+       * Tone-selected rather than tone-agnostic, because the marker has to
+       * agree with the dot that sent the reader here. Same shape, same
+       * placement, one declaration different — as on the launcher, where the
+       * treatment is shared and only the injected colour changes.
        */
       .inspector-nav-signal-dot {
         display: inline-block;
@@ -7910,13 +9722,16 @@ ${argsString}</pre
         width: 6px;
         height: 6px;
         border-radius: 50%;
-        background: ${unsafeCSS(NEWS_SIGNAL_COLOR)};
+        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.news)};
+      }
+      .inspector-nav-signal-dot[data-cpk-signal-tone="error"] {
+        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.error)};
       }
 
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
         border: 1px solid #d8d8e8 !important;
-        border-radius: 5px !important;
+        border-radius: var(--cpk-inspector-shell-radius) !important;
         box-shadow: none !important;
       }
 
@@ -8032,10 +9847,69 @@ ${argsString}</pre
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle {
+        box-sizing: border-box !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         justify-content: center !important;
         align-items: center !important;
         gap: 0 !important;
-        padding-inline: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon svg,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon
+        svg,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder svg {
+        width: 18px !important;
+        height: 18px !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"] {
+        display: flex !important;
+        flex: none !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder {
+        display: flex !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        max-width: 36px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        padding: 0 !important;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-label,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-chevron {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: none !important;
+        overflow: hidden !important;
       }
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-label,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-label {
@@ -8263,6 +10137,7 @@ ${argsString}</pre
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
+      this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
   }
@@ -8273,12 +10148,9 @@ ${argsString}</pre
 
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
-    if (
-      document.visibilityState === "visible" &&
-      this.newsSignalPulsePending &&
-      !this.isOpen
-    ) {
-      this.startNewsSignalPulse();
+    // Flush point for defer reason 2: somebody is looking again.
+    if (document.visibilityState === "visible" && !this.isOpen) {
+      this.flushPendingSignalPulse();
     }
     this.requestUpdate();
   };
@@ -8308,13 +10180,18 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.clearIconRailContextCloseTimer();
+    this.unsubscribeFromInspectorThreadBridge();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
       this.threadsSetupPromptCopyResetTimeoutId = null;
     }
     this.threadsSetupPromptCopyState = "idle";
-    this.stopNewsSignalPulse();
+    this.stopSignalPulse();
+    this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
+    this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
     this.removeDockStyles(true); // Clean up any docking styles, skip transition
@@ -8374,6 +10251,7 @@ ${argsString}</pre
     this.ensureAnnouncementLoading();
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
+    this.scheduleLauncherHudIntro();
   }
 
   render() {
@@ -8385,6 +10263,10 @@ ${argsString}</pre
   }
 
   protected willUpdate(): void {
+    // Before the render that paints the dot: every mutation of the underlying
+    // connection / thread state already requests an update, so mirroring the
+    // latches here keeps the resting dot in step with the state it reports.
+    this.evaluateErrorSignals();
     this.reconcileSelectedMenuVisibility();
     if (this.isOpen && this.dockMode === "docked-left") {
       this.setAttribute("data-docked", "true");
@@ -8398,9 +10280,16 @@ ${argsString}</pre
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
+    // The pill's full width is only measurable once it has been laid out, and
+    // the answer decides both the direction and the telemetry label below, so
+    // this runs before the visibility event rather than after it.
+    this.resolvePillDirection();
+    this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
+    this.maybeCompleteEventErrorView();
+    this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
 
     if (!this.isOpen) {
@@ -8459,18 +10348,9 @@ ${argsString}</pre
       "justify-center",
       "rounded-full",
       "border",
-      "border-white/20",
-      "bg-slate-950/95",
       "text-xs",
       "font-medium",
       "text-white",
-      "ring-1",
-      "ring-white/10",
-      "backdrop-blur-md",
-      "transition",
-      "hover:border-white/30",
-      "hover:bg-slate-900/95",
-      "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
@@ -8480,26 +10360,59 @@ ${argsString}</pre
       this.isDragging ? "cursor-grabbing" : "cursor-pointer",
     ].join(" ");
 
-    const signalStyles = this.newsSignalArmed
+    // One dot, and the highest-priority armed signal owns it. Everything the
+    // launcher paints comes from that signal's description.
+    const activeSignal = this.getActiveLauncherSignal();
+    const signal = activeSignal ? LAUNCHER_SIGNALS[activeSignal] : null;
+    const signalStyles = signal
       ? {
-          "--cpk-launcher-signal": NEWS_SIGNAL_COLOR,
-          "--cpk-launcher-cadence": `${NEWS_SIGNAL_CADENCE_MS}ms`,
+          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
+          "--cpk-launcher-cadence": `${signal.cadence}ms`,
         }
       : {};
 
     return html`
-      <div class="console-button-wrapper">
+      <div
+        class="console-button-wrapper"
+        data-cpk-hud=${this.launcherHudOpen ? "open" : "closed"}
+        @pointerenter=${this.handleLauncherHudEnter}
+        @pointerleave=${this.handleLauncherHudLeave}
+        @focusin=${this.handleLauncherHudFocusIn}
+        @focusout=${this.handleLauncherHudFocusOut}
+        @keydown=${this.handleLauncherHudKeydown}
+      >
+        ${this.renderLauncherPill()}
         <button
           class=${buttonClasses}
           type="button"
-          aria-label="Web Inspector"
+          aria-expanded=${this.launcherHudOpen ? "true" : "false"}
+          aria-controls=${this.launcherHudOpen ? "cpk-launcher-hud" : nothing}
+          aria-label=${
+            // The dot is decorative and hidden from assistive technology, and
+            // the accessible signal for an announcement lives on its
+            // navigation entry. A broken setup has no such entry until the
+            // panel is open, so the launcher itself has to name the failure
+            // class — otherwise a screen-reader user is the only user with no
+            // signal outside the panel.
+            signal && signal.tone === "error"
+              ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
+              : LAUNCHER_BASE_LABEL
+          }
           title=${
-            this.newsSignalArmed ? `${WHATS_NEW_VIEW_LABEL} — unread` : nothing
+            // Visible text, so it is offered for the announcement only. No
+            // error detail is rendered over the host application: a developer
+            // who ships the Inspector to production must not leak internal
+            // failure detail to their end users.
+            activeSignal === NEWS_SIGNAL_ID
+              ? `${WHATS_NEW_VIEW_LABEL} — unread`
+              : nothing
           }
           data-drag-context="button"
-          data-cpk-signal=${this.newsSignalArmed ? NEWS_SIGNAL_TONE : nothing}
+          data-cpk-signal=${signal ? signal.tone : nothing}
           data-cpk-signal-pulsing=${
-            this.newsSignalArmed && this.newsSignalPulsing ? "true" : nothing
+            activeSignal !== null && this.pulsingSignal === activeSignal
+              ? "true"
+              : nothing
           }
           style=${styleMap(signalStyles)}
           data-dragging=${
@@ -8520,23 +10433,432 @@ ${argsString}</pre
             loading="lazy"
           />
           ${
-            // Purely decorative: the button is the target and carries the
-            // hover hint, it keeps its stable accessible name, and the unread
-            // state is announced by the navigation entry, which is where a
-            // keyboard user arrives.
-            this.newsSignalArmed
+            // Purely decorative: the button is the target, it carries the
+            // hover hint and the accessible name, and an unread announcement
+            // is announced by its navigation entry, which is where a keyboard
+            // user arrives.
+            activeSignal !== null
               ? html`<span
                     class="cpk-launcher-signal-wash"
                     aria-hidden="true"
                   ></span>
                   <span
                     class="cpk-launcher-signal-dot"
-                    data-cpk-signal-dot=${NEWS_SIGNAL_ID}
+                    data-cpk-signal-dot=${activeSignal}
                     aria-hidden="true"
                   ></span>`
               : nothing
           }
         </button>
+        ${
+          // The pill is a sighted-only surface, so the failure is also spoken
+          // once per outage — otherwise the reader who was given the failure
+          // class in the launcher's accessible name in the companion change is
+          // excluded again, since a changed name is only read on focus.
+          //
+          // POLITE, never assertive. Speech is serial: it occupies the channel
+          // the reader is using to operate their own software, and interrupting
+          // that mid-sentence is out of the question for a development tool.
+          //
+          // It is rendered whenever the launcher is, empty and with no visual
+          // footprint, because a live region has to exist on the page before
+          // its content lands to be announced reliably.
+          html`<span
+            class="sr-only"
+            data-cpk-launcher-announcement
+            role="status"
+            aria-live="polite"
+            >${this.getGestureLabel() ?? ""}</span
+          >`
+        }
+        ${this.renderLauncherHud()}
+      </div>
+    `;
+  }
+
+  /**
+   * The words the running gesture carries, or null when the launcher is quiet.
+   *
+   * Read from the signal's own description rather than from a condition on the
+   * tone, so a third signal can carry a pill by declaring a label.
+   */
+  private getGestureLabel(): string | null {
+    if (this.gestureSignal === null) return null;
+    return LAUNCHER_SIGNALS[this.gestureSignal].pillLabel ?? null;
+  }
+
+  /**
+   * The pill, laid out at its full width and clipped, for the whole gesture.
+   *
+   * It renders from the first frame of the beat — clipped to nothing, so it
+   * shows nothing — because the room it needs cannot be measured until it has
+   * been laid out, and the direction is decided at gesture start.
+   */
+  private renderLauncherPill(): TemplateResult | typeof nothing {
+    const key = this.gestureSignal;
+    if (key === null || this.pillPhase === null) return nothing;
+    const signal = LAUNCHER_SIGNALS[key];
+    const label = signal.pillLabel;
+    if (label === undefined) return nothing;
+    return html`
+      <span
+        class="cpk-launcher-pill"
+        data-cpk-launcher-pill=${key}
+        data-cpk-pill-phase=${this.pillPhase}
+        data-cpk-pill-direction=${
+          // Before the measurement the pill is laid out as if it were opening
+          // left, which is width-identical to the other side and shows nothing
+          // either way while the clip is closed.
+          this.pillDirection ?? "left"
+        }
+        style=${styleMap({
+          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
+          "--cpk-launcher-pill-open": `${ERROR_GESTURE_MS.open}ms`,
+          "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
+        })}
+        aria-hidden="true"
+        @click=${this.handlePillClick}
+      >
+        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
+          >${label}</span
+        >
+        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
+          >${PILL_SUBLINE_LABEL}</span
+        >
+      </span>
+    `;
+  }
+
+  /**
+   * A click on the pill opens the Inspector, exactly as pressing the mark
+   * does — reusing the launcher's own open source, so the telemetry catalogue
+   * is untouched and the two paths cannot be told apart downstream.
+   *
+   * Deliberately NOT focusable and deliberately not in the tab order: the
+   * launcher beside it is already a focusable control for this same action,
+   * and a second tab stop for one action is a regression. The pill stays
+   * `aria-hidden` and this handler is a pointer affordance only.
+   *
+   * The gesture ends with the open, because `openInspector` cancels the tail —
+   * the panel is over the launcher, so there is nothing left to reveal.
+   */
+  private handlePillClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.openInspector("floating_button");
+  };
+
+  private isLauncherHudBlocked(): boolean {
+    return this.gestureSignal !== null;
+  }
+
+  private scheduleLauncherHudIntro(
+    delay: number = LAUNCHER_HUD_INTRO_MS.delay,
+  ): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+    }
+    this.launcherHudIntroStartTimer = setTimeout(() => {
+      this.launcherHudIntroStartTimer = null;
+      if (!this.isConnected || this.isOpen) return;
+      if (this.isLauncherHudBlocked()) {
+        this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
+        return;
+      }
+
+      this.resolveLauncherHudSide();
+      this.launcherHudIntro = true;
+      this.launcherHudOpen = true;
+      this.requestUpdate();
+      this.launcherHudIntroEndTimer = setTimeout(() => {
+        this.launcherHudIntroEndTimer = null;
+        this.launcherHudIntro = false;
+        this.launcherHudOpen = false;
+        this.launcherHudHelp = null;
+        this.requestUpdate();
+      }, LAUNCHER_HUD_INTRO_MS.duration);
+    }, delay);
+  }
+
+  private cancelLauncherHudIntro(): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+      this.launcherHudIntroStartTimer = null;
+    }
+    if (this.launcherHudIntroEndTimer !== null) {
+      clearTimeout(this.launcherHudIntroEndTimer);
+      this.launcherHudIntroEndTimer = null;
+    }
+    if (!this.launcherHudIntro) return;
+    this.launcherHudIntro = false;
+    if (this.isConnected) {
+      this.requestUpdate();
+    }
+  }
+
+  private resolveLauncherHudSide(): void {
+    if (typeof window === "undefined") {
+      this.launcherHudSide = "left";
+      return;
+    }
+    const button =
+      this.activeRoot.querySelector<HTMLElement>(".console-button");
+    if (!button) {
+      this.launcherHudSide = "left";
+      return;
+    }
+    const mark = button.getBoundingClientRect();
+    if (mark.left - LAUNCHER_HUD_WIDTH >= EDGE_MARGIN) {
+      this.launcherHudSide = "left";
+      return;
+    }
+    this.launcherHudSide = "right";
+  }
+
+  private openLauncherHud(): void {
+    if (this.isLauncherHudBlocked() || this.isOpen) return;
+    this.resolveLauncherHudSide();
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+      this.launcherHudCloseTimer = null;
+    }
+    if (this.launcherHudOpen) return;
+    this.launcherHudOpen = true;
+    this.requestUpdate();
+  }
+
+  private closeLauncherHud(): void {
+    this.cancelLauncherHudIntro();
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+      this.launcherHudCloseTimer = null;
+    }
+    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    this.launcherHudOpen = false;
+    this.launcherHudHelp = null;
+    this.requestUpdate();
+  }
+
+  private handleLauncherHudEnter = (): void => {
+    this.cancelLauncherHudIntro();
+    this.openLauncherHud();
+  };
+
+  private handleLauncherHudLeave = (): void => {
+    if (this.launcherHudCloseTimer !== null) {
+      clearTimeout(this.launcherHudCloseTimer);
+    }
+    this.launcherHudCloseTimer = setTimeout(() => {
+      this.launcherHudCloseTimer = null;
+      this.closeLauncherHud();
+    }, 160);
+  };
+
+  private handleLauncherHudFocusIn = (): void => {
+    this.cancelLauncherHudIntro();
+    this.openLauncherHud();
+  };
+
+  private handleLauncherHudFocusOut = (event: FocusEvent): void => {
+    const next = event.relatedTarget;
+    const wrapper = event.currentTarget;
+    if (
+      next instanceof Node &&
+      wrapper instanceof Node &&
+      wrapper.contains(next)
+    ) {
+      return;
+    }
+    this.closeLauncherHud();
+  };
+
+  private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape") return;
+    if (!this.launcherHudOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeLauncherHud();
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(".console-button")
+      ?.focus();
+  };
+
+  private handleHudActionClick = (
+    event: Event,
+    row: LauncherHudRowId,
+  ): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.hudLandingMenu =
+      row === "inspector"
+        ? null
+        : row === "threads"
+          ? "threads"
+          : row === "learning"
+            ? "memories"
+            : "home";
+    this.closeLauncherHud();
+    this.openInspector("floating_button");
+  };
+
+  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
+    this.requestUpdate();
+  };
+
+  private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+    ) {
+      return;
+    }
+    this.handleHudActionClick(event, row);
+  };
+
+  private renderHudCheck(): TemplateResult {
+    return html`
+      <svg
+        class="cpk-launcher-hud__check"
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        focusable="false"
+        data-cpk-hud-check
+      >
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M3 8.5 6.5 12 13 4.5"
+        />
+      </svg>
+    `;
+  }
+
+  private renderHudRow(args: {
+    id: LauncherHudRowId;
+    label: string;
+    detail: string;
+    connected?: boolean;
+    introIndex: number;
+  }): TemplateResult {
+    const helpOpen = this.launcherHudHelp === args.id;
+    const detailId = `cpk-hud-detail-${args.id}`;
+    return html`
+      <li
+        class="cpk-launcher-hud__row"
+        data-cpk-hud-row=${args.id}
+        data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        style=${styleMap({
+          "--cpk-hud-row-index": `${args.introIndex}`,
+          "--cpk-hud-row-delay": `${
+            LAUNCHER_HUD_INTRO_MS.rowStart +
+            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
+          }ms`,
+        })}
+        @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
+      >
+        <button
+          type="button"
+          class="cpk-launcher-hud__action"
+          data-cpk-hud-action
+          aria-describedby=${detailId}
+          @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
+          @pointerdown=${(event: Event) => event.stopPropagation()}
+        >
+          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
+        </button>
+        <button
+          type="button"
+          class="cpk-launcher-hud__help"
+          aria-expanded=${helpOpen ? "true" : "false"}
+          aria-controls=${detailId}
+          aria-label=${`About ${args.label}`}
+          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
+          @pointerdown=${(event: Event) => event.stopPropagation()}
+        >
+          <span aria-hidden="true">?</span>
+        </button>
+        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
+      </li>
+    `;
+  }
+
+  private renderLauncherHud(): TemplateResult | typeof nothing {
+    if (!this.launcherHudOpen) return nothing;
+    // The launcher must agree with Home about feature availability. Raw
+    // transport flags can be present for a runtime that is not entitled to use
+    // Intelligence, which previously made the HUD show every service as on.
+    const homeModel = this.getHomeModel();
+    const threadsOn = homeModel.services.some(
+      (service) => service.id === "threads" && service.enabled,
+    );
+    const learningOn = homeModel.services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    const intelligenceOn = homeModel.hero.connection === "connected";
+    return html`
+      <div
+        class="cpk-launcher-hud"
+        id="cpk-launcher-hud"
+        data-cpk-launcher-hud
+        data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
+        data-color-scheme=${this.colorScheme}
+        style=${styleMap({
+          "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
+          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+        })}
+      >
+        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
+        <div class="cpk-launcher-hud__card">
+          <ul class="cpk-launcher-hud__list" role="list">
+            ${this.renderHudRow({
+              id: "inspector",
+              label: HUD_OPEN_INSPECTOR_LABEL,
+              detail: HUD_OPEN_INSPECTOR_DETAIL,
+              introIndex: 0,
+            })}
+          </ul>
+          <ul class="cpk-launcher-hud__list" role="list">
+            ${this.renderHudRow({
+              id: "threads",
+              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
+              detail: threadsOn
+                ? HUD_THREADS_ON_DETAIL
+                : HUD_THREADS_OFF_DETAIL,
+              connected: threadsOn,
+              introIndex: 1,
+            })}
+            ${this.renderHudRow({
+              id: "intelligence",
+              label: intelligenceOn
+                ? HUD_INTELLIGENCE_ON_LABEL
+                : HUD_INTELLIGENCE_OFF_LABEL,
+              detail: intelligenceOn
+                ? HUD_INTELLIGENCE_ON_DETAIL
+                : HUD_INTELLIGENCE_OFF_DETAIL,
+              connected: intelligenceOn,
+              introIndex: 2,
+            })}
+            ${this.renderHudRow({
+              id: "learning",
+              label: learningOn
+                ? HUD_LEARNING_ON_LABEL
+                : HUD_LEARNING_OFF_LABEL,
+              detail: learningOn
+                ? HUD_LEARNING_ON_DETAIL
+                : HUD_LEARNING_OFF_DETAIL,
+              connected: learningOn,
+              introIndex: 3,
+            })}
+          </ul>
+        </div>
       </div>
     `;
   }
@@ -8577,7 +10899,6 @@ ${argsString}</pre
     automaticallyCollapsed: boolean,
     agentSelector: TemplateResult | typeof nothing,
   ) {
-    const unread = this.newsSignalArmed && this.announcementLoaded;
     const homeModel = this.getHomeModel();
     return html`
       <aside
@@ -8629,8 +10950,7 @@ ${argsString}</pre
                 }
                 ${items.map((item) => {
                   const isSelected = this.selectedMenu === item.key;
-                  const showBadge =
-                    item.key === NEWS_SIGNAL_DESTINATION && unread;
+                  const marker = this.getNavigationSignalFor(item.key);
                   return html`
                     <button
                       type="button"
@@ -8641,7 +10961,9 @@ ${argsString}</pre
                       data-inspector-menu-key=${item.key}
                       aria-current=${isSelected ? "page" : nothing}
                       aria-label=${
-                        showBadge ? `${item.label}, new content` : item.label
+                        marker
+                          ? `${item.label}, ${marker.accessibleLabel}`
+                          : item.label
                       }
                       data-inspector-tooltip=${item.label}
                       title=${iconRail ? nothing : item.label}
@@ -8669,9 +10991,13 @@ ${argsString}</pre
                       </span>
                       <span class="inspector-nav-label">${item.label}</span>
                       ${
-                        showBadge
+                        marker
                           ? html`
-                              <span class="inspector-nav-signal-dot" aria-hidden="true"></span>
+                              <span
+                                class="inspector-nav-signal-dot"
+                                data-cpk-signal-tone=${marker.tone}
+                                aria-hidden="true"
+                              ></span>
                             `
                           : nothing
                       }
@@ -8686,42 +11012,46 @@ ${argsString}</pre
           automaticallyCollapsed
             ? nothing
             : html`
-              <button
-                type="button"
-                class="inspector-sidebar-toggle"
-                data-inspector-sidebar-toggle
-                aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
-                aria-expanded=${iconRail ? "false" : "true"}
-                data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
-                title=${iconRail ? nothing : "Collapse sidebar"}
-                style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                @pointerenter=${
-                  iconRail ? this.handleSidebarRailTooltipShow : nothing
-                }
-                @pointerleave=${
-                  iconRail ? this.handleSidebarRailTooltipHide : nothing
-                }
-                @focus=${iconRail ? this.handleSidebarRailTooltipShow : nothing}
-                @blur=${iconRail ? this.handleSidebarRailTooltipHide : nothing}
-                @click=${this.handleSidebarToggle}
-              >
-                <span class="inspector-nav-icon" aria-hidden="true">
-                  ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
-                </span>
-                <span class="inspector-nav-label"
-                  >${iconRail ? "Expand" : "Collapse"}</span
-                >
-              </button>
-            `
-        }
-        ${
-          iconRail
-            ? nothing
-            : html`
               <div class="inspector-sidebar-footer">
-                <div class="inspector-sidebar-status-list">
-                  ${this.renderSidebarIntelligenceStatus(homeModel)}
-                </div>
+                ${
+                  iconRail
+                    ? nothing
+                    : html`
+                      <div class="inspector-sidebar-status-list">
+                        ${this.renderSidebarIntelligenceStatus(homeModel)}
+                      </div>
+                    `
+                }
+                <button
+                  type="button"
+                  class="inspector-sidebar-toggle"
+                  data-inspector-sidebar-toggle
+                  aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
+                  aria-expanded=${iconRail ? "false" : "true"}
+                  data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                  title=${iconRail ? nothing : "Collapse sidebar"}
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @pointerenter=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @pointerleave=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @focus=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @blur=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @click=${this.handleSidebarToggle}
+                >
+                  <span class="inspector-nav-icon" aria-hidden="true">
+                    ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                  </span>
+                  <span class="inspector-nav-label"
+                    >${iconRail ? "Expand" : "Collapse"}</span
+                  >
+                </button>
               </div>
             `
         }
@@ -9334,6 +11664,55 @@ ${argsString}</pre
     `;
   }
 
+  private renderEventErrorBanner(key: InspectorEventErrorSource) {
+    const error = this.eventErrorDetails[key];
+    if (!error) return nothing;
+    const guide = EVENT_ERROR_GUIDANCE[key];
+    return html`
+      <div
+        class="mx-3 mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
+        role="alert"
+        tabindex="0"
+        data-cpk-event-error=${key}
+        @click=${this.refocusEventErrorLanding}
+        @keydown=${this.handleEventErrorBannerKeydown}
+      >
+        <span class="mt-0.5 shrink-0">${this.renderIcon("TriangleAlert")}</span>
+        <div class="min-w-0 flex-1 space-y-1">
+          <p class="font-semibold">${guide.title}</p>
+          ${error.agentId ? html`<p>Agent: ${error.agentId}</p>` : nothing}
+          ${error.toolName ? html`<p>Tool: ${error.toolName}</p>` : nothing}
+          <p class="break-words leading-relaxed">${error.message}</p>
+          ${
+            guide.advice
+              ? html`<p class="leading-relaxed">${guide.advice}</p>`
+              : nothing
+          }
+          ${
+            guide.highlight && this.hasEventErrorHighlight(key)
+              ? html`<p class="leading-relaxed">${guide.highlight}</p>`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private handleEventErrorBannerKeydown = (event: KeyboardEvent): void => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    this.refocusEventErrorLanding(event);
+  };
+
+  /** Scroll the landing view to the failed tool call or RUN_ERROR again. */
+  private refocusEventErrorLanding = (event: Event): void => {
+    const key = (event.currentTarget as HTMLElement | null)?.dataset
+      .cpkEventError;
+    if (!key || !isEventErrorKey(key)) return;
+    this.applyEventErrorLanding(key);
+    this.requestUpdate();
+  };
+
   private handleHomeLastEventSelect(eventId: string, agentId?: string): void {
     this.eventFilterText = "";
     this.eventTypeFilter = "all";
@@ -9709,16 +12088,6 @@ ${argsString}</pre
                     <div
                       class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
                       data-resize-edge="s"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="resize-handle pointer-events-auto absolute bottom-0 left-0 flex h-7 w-7 cursor-nesw-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
-                      data-resize-edge="sw"
                       role="presentation"
                       aria-hidden="true"
                       @pointerdown=${this.handleResizePointerDown}
@@ -10811,21 +13180,50 @@ ${argsString}</pre
     }
 
     const hadUnseenAnnouncement = this.newsSignalArmed;
+    // Captured from the pre-open state, exactly as the unread-announcement
+    // property is: after `isOpen` flips there is no launcher, so the question
+    // "was a signal on the launcher when this open happened" has no answer.
+    const activeSignalAtOpen = this.getActiveLauncherSignal();
     const firstOpen = !this.hasOpenedInspector;
     this.hasOpenedInspector = true;
     this.homeViewedThisOpen = false;
+    this.closeLauncherHud();
 
-    if (this.newsSignalArmed && source === "floating_button") {
-      this.selectedMenu = "home";
-      this.lastSelectedMenuByGroup.home = "home";
+    // A press on the launcher is a gesture towards whatever the dot is about,
+    // so it lands where that subject is explained. Restoring a persisted-open
+    // panel is not a gesture and deliberately does not route through here.
+    // A HUD row sets `hudLandingMenu` and wins, so a red dot cannot steal
+    // "Turn on Threads".
+    const hudMenu = this.hudLandingMenu;
+    this.hudLandingMenu = null;
+    if (hudMenu) {
+      this.selectedMenu = hudMenu;
+      this.lastSelectedMenuByGroup[getGroupForMenu(hudMenu)] = hudMenu;
+    } else if (activeSignalAtOpen !== null && source === "floating_button") {
+      const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
+      this.selectedMenu = landing;
+      this.lastSelectedMenuByGroup[getGroupForMenu(landing)] = landing;
+      if (landing === "agents" || landing === "ag-ui-events") {
+        if (isEventErrorKey(activeSignalAtOpen)) {
+          this.applyEventErrorLanding(activeSignalAtOpen);
+        }
+      }
     }
 
     this.ensureAnnouncementLoading();
 
     this.isOpen = true;
+    // The launcher is gone, so its gesture is gone with it — and the slot it
+    // was holding is free again for whatever beats after the panel closes.
+    this.cancelGestureTail();
     this.persistState(); // Save the open state
 
-    this.trackOpened(source, hadUnseenAnnouncement, firstOpen);
+    this.trackOpened(
+      source,
+      hadUnseenAnnouncement,
+      firstOpen,
+      activeSignalAtOpen,
+    );
 
     // Apply docking styles if in docked mode
     if (this.dockMode !== "floating") {
@@ -10859,8 +13257,6 @@ ${argsString}</pre
 
     this.isOpen = false;
 
-    if (this.newsSignalPulsePending) this.startNewsSignalPulse();
-
     // Remove docking styles when closing
     if (this.dockMode !== "floating") {
       this.removeDockStyles();
@@ -10872,6 +13268,12 @@ ${argsString}</pre
     void this.updateComplete.then(() => {
       this.measureContext("button");
       this.applyAnchorPosition("button");
+      // Flush point for defer reason 1: there is a launcher again — and only
+      // now is it where it belongs. The anchor is applied after the render that
+      // would mount the pill, so flushing any earlier makes the pill measure
+      // the room around a launcher that has not moved into place yet, and a
+      // stale measurement can suppress a pill that had room all along.
+      this.flushPendingSignalPulse();
     });
   }
 
@@ -11103,20 +13505,8 @@ ${argsString}</pre
   }
 
   private normalizeMessageContent(content: unknown): string {
-    if (typeof content === "string") {
-      return content;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in (content as Record<string, unknown>)
-    ) {
-      const maybeText = (content as Record<string, unknown>).text;
-      if (typeof maybeText === "string") {
-        return maybeText;
-      }
-    }
+    const extracted = textFromUnknownContent(content);
+    if (extracted) return extracted;
 
     if (content === null || content === undefined) {
       return "";
@@ -11194,6 +13584,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      toolCallId:
+        typeof raw.toolCallId === "string" ? raw.toolCallId : undefined,
       activityType:
         typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
@@ -11647,22 +14039,22 @@ ${argsString}</pre
 
     return html`
       <form
-        class=${centered ? "mt-5 w-full" : "bg-white px-3 pb-3 pt-1.5"}
+        class=${centered ? "cpk-playground-form mt-5 w-full" : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"}
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-800"
+                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
                 role="alert"
                 data-playground-error
               >
-                <span class="mt-0.5 shrink-0 text-rose-600"
+                <span class="mt-0.5 shrink-0"
                   >${this.renderIcon("TriangleAlert")}</span
                 >
                 <div class="min-w-0 flex-1">
                   <p class="font-semibold">Agent run failed</p>
-                  <p class="mt-0.5 break-words leading-relaxed text-rose-700">
+                  <p class="mt-0.5 break-words leading-relaxed">
                     ${this.playgroundError}
                   </p>
                 </div>
@@ -11684,10 +14076,10 @@ ${argsString}</pre
             : nothing
         }
         <div
-          class="mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+          class="cpk-playground-composer mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
         >
           <textarea
-            class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            class="cpk-playground-input min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
             rows="1"
             placeholder=${placeholder}
             aria-label="Playground message"
@@ -11698,7 +14090,7 @@ ${argsString}</pre
           ></textarea>
           <button
             type=${this.playgroundIsRunning ? "button" : "submit"}
-            class=${`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
+            class=${`cpk-playground-send mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
               sendDisabled
                 ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
                 : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
@@ -11739,7 +14131,14 @@ ${argsString}</pre
     }
 
     if (this.selectedMenu === "ag-ui-events") {
-      return this.renderEventsTable();
+      return html`
+        <div class="flex h-full min-h-0 flex-col">
+          ${this.renderEventErrorBanner("run")}
+          <div class="min-h-0 flex-1 overflow-hidden">
+            ${this.renderEventsTable()}
+          </div>
+        </div>
+      `;
     }
 
     if (this.selectedMenu === "playground") {
@@ -11935,9 +14334,9 @@ ${argsString}</pre
               : visibleMessages.length === 0
                 ? html`
                     <div
-                      class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
+                      class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
                     >
-                      <p class="text-base font-medium tracking-tight text-gray-900">
+                      <p class="cpk-playground-welcome-title">
                         How can I help you today?
                       </p>
                       ${this.renderPlaygroundComposer(
@@ -12319,8 +14718,16 @@ ${argsString}</pre
     source: InspectorOpenSource,
     hadUnseenAnnouncement: boolean,
     firstOpen = false,
+    activeSignal: LauncherSignalKey | null = null,
   ): void {
     if (this.core?.telemetryDisabled) return;
+    // Two properties rather than one, so an open can be attributed to a red
+    // signal *and* to which failure class raised it. The failure message is
+    // never included — `error_signal_source` is a closed two-value enum.
+    const errorSignal =
+      activeSignal !== null && isErrorSignalKey(activeSignal)
+        ? activeSignal
+        : null;
     // `license_status` and `runtime_mode` come from /info. Before the handshake
     // `licenseStatus` is undefined and `runtimeMode` reads its `sse` default, so
     // recording them would permanently attribute an early open against an
@@ -12338,6 +14745,8 @@ ${argsString}</pre
         : {}),
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       has_unseen_announcement: hadUnseenAnnouncement,
+      has_error_signal: errorSignal !== null,
+      ...(errorSignal === null ? {} : { error_signal_source: errorSignal }),
       first_open: firstOpen,
     });
   }
@@ -12666,6 +15075,112 @@ ${argsString}</pre
       ...this.getThreadsTelemetryProps(),
       example_kind: exampleKind,
     });
+  }
+
+  private subscribeToInspectorThreadBridge(): void {
+    this.unsubscribeFromInspectorThreadBridge();
+    if (!isInspectorThreadBridgeEnabled()) return;
+    this.inspectorBridgeUnsubscribers.push(
+      onInspectorActiveThread((payload) => {
+        if (payload.requestId !== this.activeViewInAppRequestId) return;
+        this.inAppThreadId = payload.threadId;
+        this.inAppAgentId = payload.agentId;
+        this.inAppSource = payload.source;
+        if (payload.source === "app") {
+          this.activeViewInAppRequestId = null;
+          this.viewInAppError = null;
+        }
+        this.requestUpdate();
+      }),
+      onInspectorViewThreadResult((payload) => {
+        if (payload.requestId !== this.activeViewInAppRequestId) return;
+        if (payload.ok) {
+          this.viewInAppError = null;
+          this.inAppThreadId = payload.threadId;
+          this.inAppAgentId = payload.agentId;
+          this.inAppSource = "override";
+        } else {
+          this.activeViewInAppRequestId = null;
+          this.inAppThreadId = null;
+          this.inAppAgentId = null;
+          this.inAppSource = null;
+          this.viewInAppError =
+            "The app could not load that thread. The previous chat is back.";
+        }
+        this.requestUpdate();
+      }),
+    );
+  }
+
+  private unsubscribeFromInspectorThreadBridge(): void {
+    for (const unsubscribe of this.inspectorBridgeUnsubscribers) {
+      unsubscribe();
+    }
+    this.inspectorBridgeUnsubscribers = [];
+  }
+
+  private getViewInAppMode(
+    thread: ɵThread | null,
+    isExample: boolean,
+  ): "hidden" | "view" | "stop" {
+    if (!isInspectorThreadBridgeEnabled()) return "hidden";
+    if (!thread || isExample) return "hidden";
+    if (
+      this.activeViewInAppRequestId &&
+      this.inAppSource === "override" &&
+      this.inAppThreadId === thread.id
+    ) {
+      return "stop";
+    }
+    return "view";
+  }
+
+  private handleViewInApp = (): void => {
+    const thread = this.getSelectedRealThread();
+    if (!thread) return;
+    if (this.activeViewInAppRequestId && this.inAppAgentId) {
+      emitInspectorStopViewing({
+        requestId: this.activeViewInAppRequestId,
+        agentId: this.inAppAgentId,
+      });
+    }
+    this.viewInAppError = null;
+    const requestId = createInspectorThreadRequestId();
+    this.activeViewInAppRequestId = requestId;
+    const handled = emitInspectorViewThread({
+      requestId,
+      threadId: thread.id,
+      agentId: thread.agentId,
+    });
+    if (!handled) {
+      this.activeViewInAppRequestId = null;
+      this.inAppThreadId = null;
+      this.inAppAgentId = null;
+      this.inAppSource = null;
+      this.viewInAppError = "No official chat for this agent is on the page.";
+    }
+    this.requestUpdate();
+  };
+
+  private handleStopViewing = (): void => {
+    const requestId = this.activeViewInAppRequestId;
+    const agentId = this.inAppAgentId;
+    if (!requestId || !agentId) return;
+    this.viewInAppError = null;
+    emitInspectorStopViewing({ requestId, agentId });
+    this.requestUpdate();
+  };
+
+  private getSelectedRealThread(): ɵThread | null {
+    if (!this.selectedThreadId) return null;
+    if (this.selectedThreadId === this.selectedLocalExampleThreadId) {
+      return null;
+    }
+    return (
+      this.getActiveThreadsState().displayThreads.find(
+        (thread) => thread.id === this.selectedThreadId,
+      ) ?? null
+    );
   }
 
   private getCurrentExampleTourProps():
@@ -13689,7 +16204,7 @@ ${argsString}</pre
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           <span style="font-size: 13px; color: #c0333a;">
-            Failed to load learning data
+            ${MEMORY_LOAD_ERROR_LABEL}
           </span>
           <span
             style="
@@ -13701,6 +16216,17 @@ ${argsString}</pre
             "
           >
             ${this._memoriesError.message}
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${EVENT_ERROR_GUIDANCE.memory.advice}
           </span>
         </div>
       `;
@@ -13975,6 +16501,7 @@ ${argsString}</pre
               data-color-scheme=${this.colorScheme}
               .threads=${visibleThreads}
               .selectedThreadId=${this.selectedThreadId}
+              .inAppThreadId=${this.inAppThreadId}
               .errorMessage=${threadsErrorMessage}
               .suppressEmptyState=${loadingWithoutRows}
               @threadSelected=${(e: CustomEvent<string>) => {
@@ -14064,6 +16591,13 @@ ${argsString}</pre
                         .liveMessageVersion=${
                           this.liveMessageVersion.get(selectedThread.id) ?? 0
                         }
+                        .viewInAppMode=${this.getViewInAppMode(
+                          selectedThread,
+                          selectedThreadIsLocalExample,
+                        )}
+                        .viewInAppError=${this.viewInAppError}
+                        @viewInApp=${this.handleViewInApp}
+                        @stopViewing=${this.handleStopViewing}
                         .focusMessageId=${this.focusedThreadMessageId}
                         .focusRequestId=${this.threadFocusRequestId}
                         .agentStateInput=${this.getLatestStateForAgent(
@@ -14071,6 +16605,11 @@ ${argsString}</pre
                         )}
                         .agentEventsInput=${
                           this.agentEvents.get(selectedThread.agentId) ?? []
+                        }
+                        .agentMessagesInput=${
+                          selectedThreadIsLocalExample
+                            ? EMPTY_INSPECTOR_MESSAGES
+                            : this.getLiveAgentMessagesForThread(selectedThread)
                         }
                       ></cpk-thread-details>
                       ${
@@ -14276,6 +16815,10 @@ ${argsString}</pre
         </div>
       `;
     } else {
+      const runError = this.eventErrorDetails.run;
+      const failedRunEventId = runError
+        ? this.findLatestRunErrorEvent(runError.agentId)?.id
+        : undefined;
       body = html`
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
@@ -14314,7 +16857,14 @@ ${argsString}</pre
             </thead>
             <tbody>
               ${filteredEvents.map((event, index) => {
-                const rowBg = index % 2 === 0 ? "bg-white" : "bg-gray-50/50";
+                const isFailedRunEvent =
+                  failedRunEventId !== undefined &&
+                  event.id === failedRunEventId;
+                const rowBg = isFailedRunEvent
+                  ? "bg-rose-50"
+                  : index % 2 === 0
+                    ? "bg-white"
+                    : "bg-gray-50/50";
                 const badgeClasses = this.getEventBadgeClasses(event.type);
                 const extractedEvent = this.extractEventFromPayload(
                   event.payload,
@@ -14329,6 +16879,9 @@ ${argsString}</pre
                   <tr
                     class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
                     data-inspector-event-id=${event.id}
+                    data-cpk-failed-run-event=${
+                      isFailedRunEvent ? event.id : undefined
+                    }
                     @click=${(clickEvent: Event) =>
                       this.toggleRowExpansion(event.id, clickEvent)}
                   >
@@ -14358,11 +16911,7 @@ ${argsString}</pre
                         isExpanded
                           ? html`
                             <div class="group relative">
-                              <pre
-                                class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
-                              >
-${prettyEvent}</pre
-                              >
+                              ${renderHighlightedJsonBlock(extractedEvent)}
                               <button
                                 class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
                                   this.copiedEvents.has(event.id)
@@ -14508,6 +17057,7 @@ ${prettyEvent}</pre
     // Show message if "all-agents" is selected or no agents available
     if (this.selectedContext === "all-agents") {
       return html`
+        ${this.renderEventErrorBanner("tool")}
         <div
           class="flex h-full items-center justify-center px-4 py-8 text-center"
         >
@@ -14540,6 +17090,7 @@ ${prettyEvent}</pre
 
     return html`
       <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
+        ${this.renderEventErrorBanner("tool")}
         <!-- Agent Overview Card -->
         <div
           class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
@@ -14662,7 +17213,7 @@ ${prettyEvent}</pre
               messages && messages.length > 0
                 ? html`
                   <div class="w-full text-xs">
-                    <div class="flex bg-gray-50">
+                    <div class="cpk-agent-messages-head flex bg-gray-50">
                       <div
                         class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
                       >
@@ -14672,7 +17223,7 @@ ${prettyEvent}</pre
                         Content
                       </div>
                     </div>
-                    <div class="divide-y divide-gray-200">
+                    <div class="cpk-agent-messages-rows">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -14689,8 +17240,23 @@ ${prettyEvent}</pre
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
+                        const toolError = this.eventErrorDetails.tool;
+                        const isFailedResult =
+                          role === "tool" &&
+                          toolError?.toolCallId !== undefined &&
+                          toolError.toolCallId === msg.toolCallId;
+
                         return html`
-                          <div class="flex items-start">
+                          <div
+                            class=${
+                              isFailedResult
+                                ? "cpk-agent-message-row flex items-start bg-rose-50"
+                                : "cpk-agent-message-row flex items-start"
+                            }
+                            data-cpk-failed-tool-result=${
+                              isFailedResult ? msg.toolCallId : nothing
+                            }
+                          >
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
                                 class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
@@ -14800,11 +17366,15 @@ ${prettyEvent}</pre
           >
         </button>
         ${
-          this.contextMenuOpen
+          iconRail || this.contextMenuOpen
             ? html`
               <div
-                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
+                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5${
+                  iconRail ? " inspector-icon-rail-menu" : ""
+                }"
                 data-context-dropdown-root="true"
+                data-open=${this.contextMenuOpen ? "true" : "false"}
+                aria-hidden=${this.contextMenuOpen ? "false" : "true"}
               >
                 ${filteredOptions.map(
                   (option) => html`
@@ -14840,6 +17410,126 @@ ${prettyEvent}</pre
     `;
   }
 
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private applyEventErrorLanding(key: InspectorEventErrorSource): void {
+    const error = this.eventErrorDetails[key];
+    if (!error) {
+      if (this.selectedMenu === "agents") {
+        this.focusAgentForView();
+      }
+      return;
+    }
+
+    if (
+      error.agentId &&
+      this.contextOptions.some((option) => option.key === error.agentId)
+    ) {
+      this.selectedContext = error.agentId;
+    } else if (this.selectedMenu === "agents") {
+      this.focusAgentForView(error);
+    }
+
+    if (key === "tool" && error.toolCallId) {
+      this.pendingScrollToToolCallId = error.toolCallId;
+      return;
+    }
+
+    if (key === "run") {
+      this.eventFilterText = "";
+      this.eventTypeFilter = "all";
+      const event = this.findLatestRunErrorEvent(error.agentId);
+      if (!event) return;
+      this.expandedRows.clear();
+      this.expandedRows.add(event.id);
+      this.pendingScrollToEventId = event.id;
+    }
+  }
+
+  /**
+   * Whether the landing view really carries the item the card points at.
+   * Mirrors the two branches of `applyEventErrorLanding` that can bail out.
+   */
+  private hasEventErrorHighlight(key: InspectorEventErrorSource): boolean {
+    const error = this.eventErrorDetails[key];
+    if (!error) return false;
+    if (key === "tool") return error.toolCallId !== undefined;
+    if (key === "run") {
+      return this.findLatestRunErrorEvent(error.agentId) !== undefined;
+    }
+    return false;
+  }
+
+  private findLatestRunErrorEvent(
+    agentId?: string,
+  ): InspectorEvent | undefined {
+    const events =
+      agentId && agentId !== "all-agents"
+        ? (this.agentEvents.get(agentId) ?? [])
+        : this.flattenedEvents;
+    return events.find((event) => event.type === "RUN_ERROR");
+  }
+
+  private flushErrorLandingScroll(): void {
+    const eventId = this.pendingScrollToEventId;
+    if (eventId) {
+      this.pendingScrollToEventId = null;
+      const row = Array.from(
+        this.activeRoot.querySelectorAll<HTMLElement>(
+          "[data-inspector-event-id]",
+        ),
+      ).find((candidate) => candidate.dataset.inspectorEventId === eventId);
+      row?.scrollIntoView?.({ block: "center" });
+    }
+
+    const toolCallId = this.pendingScrollToToolCallId;
+    if (toolCallId) {
+      this.pendingScrollToToolCallId = null;
+      const escaped = escapeSelectorValue(toolCallId);
+      const card =
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-call="${escaped}"]`,
+        ) ??
+        this.activeRoot.querySelector<HTMLElement>(
+          `[data-cpk-failed-tool-result="${escaped}"]`,
+        );
+      card?.scrollIntoView?.({ block: "center" });
+    }
+  }
+
+  /**
+   * The Agent view is empty on "All Agents". Pick the agent that just failed
+   * a tool, or the one with the most recent activity.
+   */
+  private focusAgentForView(error?: InspectorEventErrorDetails): void {
+    const agentOptions = this.contextOptions.filter(
+      (opt) => opt.key !== "all-agents",
+    );
+    if (agentOptions.length === 0) return;
+
+    const errorAgentId = error?.agentId;
+    if (
+      errorAgentId &&
+      agentOptions.some((option) => option.key === errorAgentId)
+    ) {
+      this.selectedContext = errorAgentId;
+      return;
+    }
+
+    if (this.selectedContext !== "all-agents") return;
+
+    const mostRecent = agentOptions.reduce<{
+      key: string;
+      ts: number;
+    } | null>((best, opt) => {
+      const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+      return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+    }, null);
+    this.selectedContext = mostRecent ? mostRecent.key : agentOptions[0]!.key;
+  }
+
   private handleMenuSelect(key: MenuKey): void {
     if (!this.menuItems.some((item) => item.key === key)) {
       return;
@@ -14852,26 +17542,6 @@ ${prettyEvent}</pre
     this.settingsOpen = false;
     this.lastSelectedMenuByGroup[getGroupForMenu(key)] = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
-    if (key === "agents" && this.selectedContext === "all-agents") {
-      const agentOptions = this.contextOptions.filter(
-        (opt) => opt.key !== "all-agents",
-      );
-      if (agentOptions.length > 0) {
-        // Pick the agent with the most recent activity; fall back to first
-        const mostRecent = agentOptions.reduce<{
-          key: string;
-          ts: number;
-        } | null>((best, opt) => {
-          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
-          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
-        }, null);
-        this.selectedContext = mostRecent
-          ? mostRecent.key
-          : agentOptions[0]!.key;
-      }
-    }
-
     // If leaving the agents view with multiple agents registered, restore
     // "all-agents" so the Events tab isn't silently filtered to one agent.
     if (previousMenu === "agents" && key !== "agents") {
@@ -14882,6 +17552,18 @@ ${prettyEvent}</pre
         this.selectedContext = "all-agents";
       }
     }
+
+    // Deliberately NOT applying an event error's landing here. A landing is an
+    // arrival, not a passing-through: it selects the failed agent, clears the
+    // event filters and re-expands the failed row, which is help when the
+    // reader came *because* of that error and vandalism when they did not.
+    // Event-error details outlive being read on purpose, so the how-to-fix
+    // card survives while it is being read — which means running this on every
+    // visit resets the reader's own filters and agent scope for the rest of
+    // the session, and silently undoes the `all-agents` restore eight lines
+    // above. The three arrivals that *are* landings keep it: pressing the
+    // launcher (`openInspector`), pressing the card (`refocusEventErrorLanding`)
+    // and an error arriving while its view is already open (`armEventError`).
 
     if (key === "threads") {
       if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
@@ -14909,10 +17591,15 @@ ${prettyEvent}</pre
     }
 
     if (key === "ag-ui-events" || key === "agents") {
-      requestAnimationFrame(() => {
-        const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
-        if (scroller) scroller.scrollTop = 0;
-      });
+      const keepErrorLanding =
+        this.pendingScrollToEventId !== null ||
+        this.pendingScrollToToolCallId !== null;
+      if (!keepErrorLanding) {
+        requestAnimationFrame(() => {
+          const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
+          if (scroller) scroller.scrollTop = 0;
+        });
+      }
     }
 
     this.contextMenuOpen = false;
@@ -14929,9 +17616,21 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  private clearIconRailContextCloseTimer(): void {
+    if (this.iconRailContextCloseTimer === null) {
+      return;
+    }
+    clearTimeout(this.iconRailContextCloseTimer);
+    this.iconRailContextCloseTimer = null;
+  }
+
   /** Expand the icon-rail agent scope on hover while preserving keyboard access. */
   private handleIconRailContextPointerEnter = (event: PointerEvent): void => {
-    if (event.pointerType === "touch" || this.contextMenuOpen) {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    this.clearIconRailContextCloseTimer();
+    if (this.contextMenuOpen) {
       return;
     }
     this.layoutMenuOpen = false;
@@ -14943,8 +17642,12 @@ ${prettyEvent}</pre
     if (!this.contextMenuOpen) {
       return;
     }
-    this.contextMenuOpen = false;
-    this.requestUpdate();
+    this.clearIconRailContextCloseTimer();
+    this.iconRailContextCloseTimer = setTimeout(() => {
+      this.iconRailContextCloseTimer = null;
+      this.contextMenuOpen = false;
+      this.requestUpdate();
+    }, 180);
   };
 
   private handleIconRailContextPointerDown = (event: PointerEvent): void => {
@@ -14958,6 +17661,7 @@ ${prettyEvent}</pre
   };
 
   private handleIconRailContextFocusIn = (): void => {
+    this.clearIconRailContextCloseTimer();
     if (this.contextMenuOpen) {
       return;
     }
@@ -14982,6 +17686,7 @@ ${prettyEvent}</pre
       return;
     }
 
+    this.clearIconRailContextCloseTimer();
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
@@ -15762,23 +18467,25 @@ ${prettyEvent}</pre
         ${
           isExpanded
             ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+              <div class="border-t border-gray-200 px-4 py-3">
                 <div class="mb-3">
-                  <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <h5 class="text-xs font-semibold text-gray-700">ID</h5>
+                    <button
+                      type="button"
+                      class="cpk-copy-btn"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        void this.copyContextValue(id, `${id}:id`, e);
+                      }}
+                    >
+                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                   <code
-                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
+                    class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
                     >${id}</code
                   >
-                  <button
-                    type="button"
-                    class="cpk-copy-btn"
-                    @click=${(e: Event) => {
-                      e.stopPropagation();
-                      void this.copyContextValue(id, `${id}:id`, e);
-                    }}
-                  >
-                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
-                  </button>
                 </div>
                 ${
                   hasValue
@@ -16000,16 +18707,149 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  // ── Launcher signals ────────────────────────────────────────────────────
+
+  /** Whether a given subject currently has something to say. */
+  private isSignalArmed(key: LauncherSignalKey): boolean {
+    if (isWiringErrorKey(key)) return this.errorSignalArmed[key];
+    if (isEventErrorKey(key)) return this.eventErrorArmed[key];
+    return this.newsSignalArmed;
+  }
+
+  /**
+   * The signal that owns the single launcher dot, or null when the launcher is
+   * quiet. Precedence rather than replacement: a suppressed signal stays armed
+   * and takes the dot as soon as the higher-priority one clears, and its own
+   * navigation marker is visible the whole time.
+   */
+  private getActiveLauncherSignal(): LauncherSignalKey | null {
+    for (const key of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
+      if (this.isSignalArmed(key)) return key;
+    }
+    return null;
+  }
+
+  /**
+   * The marker a navigation entry carries, or null for an unmarked entry.
+   *
+   * Markers are independent of the launcher's single dot, so a suppressed
+   * signal is never actually hidden once the panel is open. They also render
+   * on the entry that is *currently selected*: for the news signal that never
+   * mattered, because its marker clears as soon as the view renders, but a
+   * state mirror stays true while it is being read and suppressing it on the
+   * active entry would make it reappear on navigating away.
+   */
+  private getNavigationSignalFor(
+    key: MenuKey,
+  ): LauncherSignalDefinition | null {
+    for (const signalKey of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
+      const signal = LAUNCHER_SIGNALS[signalKey];
+      if (signal.markerTarget !== key) continue;
+      if (!this.isSignalArmed(signalKey)) continue;
+      // The announcement's marker waits for the feed, so a still-loading feed
+      // cannot mark an entry that has nothing to show yet.
+      if (signalKey === NEWS_SIGNAL_ID && !this.announcementLoaded) continue;
+      return signal;
+    }
+    return null;
+  }
+
+  /** Whether a wiring error source is currently red. */
+  private hasArmedErrorSignal(): boolean {
+    return WIRING_ERROR_KEYS.some((source) => this.errorSignalArmed[source]);
+  }
+
+  private armEventErrorFromCode(
+    code: CopilotKitCoreErrorCode,
+    message: string,
+    context?: Record<string, unknown>,
+  ): void {
+    const key = eventErrorKeyForCode(code);
+    if (key === null) return;
+    const agentId =
+      typeof context?.agentId === "string" && context.agentId.length > 0
+        ? context.agentId
+        : undefined;
+    const toolName =
+      typeof context?.toolName === "string" && context.toolName.length > 0
+        ? context.toolName
+        : undefined;
+    const toolCallId =
+      typeof context?.toolCallId === "string" && context.toolCallId.length > 0
+        ? context.toolCallId
+        : undefined;
+    this.armEventError(key, message, { agentId, toolName, toolCallId });
+  }
+
+  private armEventError(
+    key: InspectorEventErrorSource,
+    message: string,
+    extras: {
+      agentId?: string;
+      toolName?: string;
+      toolCallId?: string;
+    } = {},
+  ): void {
+    this.eventErrorDetails[key] = { message, ...extras };
+    const wasArmed = this.eventErrorArmed[key];
+    this.eventErrorArmed[key] = true;
+    if (!wasArmed) {
+      this.startSignalPulse(key);
+    }
+    if (
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget
+    ) {
+      this.applyEventErrorLanding(key);
+    }
+    this.requestUpdate();
+  }
+
+  private clearEventError(key: InspectorEventErrorSource): void {
+    if (!this.eventErrorArmed[key]) return;
+    this.eventErrorArmed[key] = false;
+    this.errorSignalViewedSources.delete(key);
+    this.retireSignal(key);
+    this.requestUpdate();
+  }
+
+  private clearAllEventErrors(): void {
+    for (const key of EVENT_ERROR_KEYS) {
+      this.eventErrorDetails[key] = null;
+      if (!this.eventErrorArmed[key]) continue;
+      this.eventErrorArmed[key] = false;
+      this.retireSignal(key);
+    }
+  }
+
+  /**
+   * An event error is unread until its landing view is actually on screen.
+   * Opening the Inspector for a different leaf must not burn it.
+   */
+  private maybeCompleteEventErrorView(): void {
+    if (!this.isOpen || this.settingsOpen) return;
+    for (const key of EVENT_ERROR_KEYS) {
+      if (!this.eventErrorArmed[key]) continue;
+      if (this.selectedMenu !== LAUNCHER_SIGNALS[key].landingTarget) continue;
+      this.clearEventError(key);
+    }
+  }
+
+  private isReducedMotionPreferred(): boolean {
+    return (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+    );
+  }
+
   // ── What's new launcher signal ──────────────────────────────────────────
 
   private armNewsSignal(options: { pulse: boolean }): void {
     const wasArmed = this.newsSignalArmed;
     this.newsSignalArmed = true;
-    if (options.pulse && this.isOpen) {
-      this.newsSignalPulsePending = true;
-      if (!wasArmed) this.requestUpdate();
-    } else if (options.pulse) {
-      this.startNewsSignalPulse();
+    if (options.pulse) {
+      this.startSignalPulse(NEWS_SIGNAL_ID);
     } else if (!wasArmed) {
       this.requestUpdate();
     }
@@ -16018,50 +18858,482 @@ ${prettyEvent}</pre
   private clearNewsSignal(): void {
     if (!this.newsSignalArmed) return;
     this.newsSignalArmed = false;
-    this.newsSignalPulsePending = false;
     if (this.announcementTimestamp) {
       saveAnnouncementReadTimestamp(this.announcementTimestamp);
     }
-    if (this.newsSignalPulsing) this.stopNewsSignalPulse();
+    this.retireSignal(NEWS_SIGNAL_ID);
     this.requestUpdate();
   }
 
-  private startNewsSignalPulse(): void {
-    this.stopNewsSignalPulse();
-    if (
-      typeof document !== "undefined" &&
-      document.visibilityState !== "visible"
-    ) {
-      this.newsSignalPulsePending = true;
+  // ── The beat ────────────────────────────────────────────────────────────
+
+  /**
+   * Requests one beat for a signal, running it now or deferring it.
+   *
+   * There is a single pending slot and four reasons a beat cannot land. All
+   * four are the same situation — "cannot land now, run later" — and treating
+   * them alike is the point: three separate behaviours for one situation would
+   * not survive a third signal.
+   *
+   * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
+   * the animation, because the attribute it binds to does not change value and
+   * the pseudo-element selectors match on attribute *presence*; the running
+   * beat would merely change colour mid-flight. A failure that arms during an
+   * announcement beat must wait for that beat to end, or it would run only as
+   * its final fraction.
+   *
+   * A failure's beat is followed by a pill, and the whole 3.4-second gesture
+   * holds this one slot for its full duration. That is not a second scheduling
+   * concept: reason 3 already says "another beat is running", and a gesture is
+   * simply a longer beat.
+   */
+  private startSignalPulse(key: LauncherSignalKey): void {
+    const deferred =
+      // 1. The panel is open, so there is no visible launcher. Pop-out is the
+      //    same case: the host page renders only a portal anchor.
+      this.isOpen ||
+      // 2. Nobody is looking.
+      (typeof document !== "undefined" &&
+        document.visibilityState !== "visible") ||
+      // 3. Another beat — or the pill that follows it — is already running.
+      (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
+      // 4. Another signal currently owns the dot.
+      this.getActiveLauncherSignal() !== key;
+
+    if (deferred) {
+      // One slot, and the more urgent beat keeps it. A lower-priority beat must
+      // not evict a nudge about something worse — and it would fail the
+      // re-check on the way out anyway, because it is not the active signal.
+      // The evicted beat is not lost for good: its once-per-subject token is
+      // still unspent, so it is offered again the next time it arms.
+      const pending = this.pendingPulseSignal;
+      if (
+        pending === null ||
+        LAUNCHER_SIGNALS[key].priority >= LAUNCHER_SIGNALS[pending].priority
+      ) {
+        this.pendingPulseSignal = key;
+      }
       this.requestUpdate();
       return;
     }
-    this.newsSignalPulsePending = false;
-    this.newsSignalPulsing = true;
-    if (this.announcementTimestamp) {
+
+    this.stopSignalPulse();
+    this.pendingPulseSignal = null;
+    this.pulsingSignal = key;
+    // The once-per-subject token is written HERE, where the beat actually
+    // runs — never when a signal arms. Spending it on arming would burn a
+    // deferred beat unfired.
+    if (isWiringErrorKey(key)) {
+      this.errorBeatSpent = true;
+    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
       saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
     }
+    this.beginGestureTail(key);
     this.requestUpdate();
     if (typeof window === "undefined") return;
     this.pulseTimeoutId = setTimeout(() => {
       this.pulseTimeoutId = null;
-      this.newsSignalPulsing = false;
+      this.pulsingSignal = null;
       this.requestUpdate();
-    }, NEWS_SIGNAL_CADENCE_MS);
+      // The beat says *here*; now the pill says *this*.
+      if (this.gestureSignal === key && this.pillPhase === "closed") {
+        this.openPill();
+        return;
+      }
+      // Nothing follows the beat: either this signal opens no pill, or there
+      // was no room for one, so the gesture ends with it.
+      if (this.gestureSignal === key) {
+        this.endGesture();
+        return;
+      }
+      // Reason 3 has just cleared.
+      this.flushPendingSignalPulse();
+    }, LAUNCHER_SIGNALS[key].cadence);
   }
 
-  private stopNewsSignalPulse(): void {
+  private stopSignalPulse(): void {
     if (this.pulseTimeoutId !== null) {
       clearTimeout(this.pulseTimeoutId);
       this.pulseTimeoutId = null;
     }
-    this.newsSignalPulsing = false;
+    this.pulsingSignal = null;
+  }
+
+  /**
+   * Runs a deferred beat if it can land now, and drops it if its reason to
+   * exist has gone: a nudge about a problem that no longer exists is worse
+   * than no nudge at all.
+   */
+  private flushPendingSignalPulse(): void {
+    const key = this.pendingPulseSignal;
+    if (key === null) return;
+    if (!this.isSignalArmed(key)) {
+      this.pendingPulseSignal = null;
+      this.requestUpdate();
+      return;
+    }
+    this.startSignalPulse(key);
+  }
+
+  /**
+   * Drops a signal's gesture, pending or running, when the signal goes quiet.
+   *
+   * The pill closes early: it states a condition, and the condition has
+   * stopped being true. The beat is left to finish, because a beat asserts
+   * nothing — it says *here*, and "here" is still true.
+   */
+  private retireSignal(key: LauncherSignalKey): void {
+    if (this.pendingPulseSignal === key) this.pendingPulseSignal = null;
+    if (this.gestureSignal === key) this.closePillEarly();
+    // A suppressed signal may now own the dot.
+    this.flushPendingSignalPulse();
+  }
+
+  // ── The pill ────────────────────────────────────────────────────────────
+
+  /**
+   * The signal holding the single gesture slot: a beat in flight, or the pill
+   * and spoken sentence that follow it. One slot, not two — see reason 3 in
+   * `startSignalPulse`.
+   */
+  private get gestureSlotSignal(): LauncherSignalKey | null {
+    return this.pulsingSignal ?? this.gestureSignal;
+  }
+
+  /**
+   * Opens the gesture's tail alongside the beat, for a signal that carries a
+   * pill. The pill is rendered immediately — clipped to nothing, so it shows
+   * nothing — because its full width has to be on the page before the room
+   * either side of the launcher can be measured.
+   *
+   * A signal with no pill label gets no tail at all, so the announcement's
+   * gesture is exactly the beat it has always been.
+   */
+  private beginGestureTail(key: LauncherSignalKey): void {
+    this.cancelPillTimeout();
+    if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
+      this.gestureSignal = null;
+      this.pillPhase = null;
+      this.pillDirection = null;
+      return;
+    }
+    this.gestureSignal = key;
+    this.pillPhase = "closed";
+    this.pillDirection = null;
+    this.closeLauncherHud();
+  }
+
+  /**
+   * Chooses the side, or suppresses the pill, from the room actually available
+   * at gesture start. Measured once, from the DOM, because the launcher is
+   * draggable and its position persists: a reader who parked it near the left
+   * edge would otherwise get a permanently truncated pill.
+   *
+   * Where neither side has room there is no pill at all rather than a cut-off
+   * one — the dot and the beat still fire, so the signal is intact and only
+   * the label is lost. Constraining where the reader may drag the control to
+   * protect this animation was considered and rejected: the page is theirs.
+   */
+  private resolvePillDirection(): void {
+    if (this.pillDirection !== null || this.pillPhase === null) return;
+    const wrapper = this.activeRoot.querySelector<HTMLElement>(
+      ".console-button-wrapper",
+    );
+    const button = wrapper?.querySelector<HTMLElement>(".console-button");
+    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-pill");
+    if (!button || !pill || typeof window === "undefined") return;
+
+    const mark = button.getBoundingClientRect();
+    // A clip changes what is painted, never the layout box, so this is the
+    // pill's full width whichever phase it is in.
+    const overhang = Math.max(
+      0,
+      pill.getBoundingClientRect().width - mark.width,
+    );
+    const viewportWidth = window.innerWidth;
+
+    if (overhang === 0) {
+      // Nothing extends past the mark, so there is nothing to fit.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.left - overhang >= EDGE_MARGIN) {
+      // Leftwards is the natural direction: away from the launcher's own edge.
+      this.setPillOutcome("left");
+      return;
+    }
+    if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) {
+      this.setPillOutcome("right");
+      return;
+    }
+    this.setPillOutcome(null);
+  }
+
+  /** Records the measurement's verdict, and drops the pill when it is null. */
+  private setPillOutcome(direction: LauncherPillDirection | null): void {
+    if (direction === null) {
+      this.pillPhase = null;
+      this.pillDirection = null;
+      this.pillOutcome = "suppressed";
+      this.requestUpdate();
+      return;
+    }
+    this.pillDirection = direction;
+    this.pillOutcome = "shown";
+    this.requestUpdate();
+  }
+
+  /** Runs the pill's three phases in series once the beat has finished. */
+  private openPill(): void {
+    // Normally already measured during the beat; measured here too so the
+    // gesture cannot depend on a render having happened in between.
+    this.resolvePillDirection();
+    if (this.pillPhase === null) {
+      // The measurement found no room after all.
+      this.endGesture();
+      return;
+    }
+    this.advancePill("opening", ERROR_GESTURE_MS.open, () => {
+      this.advancePill("holding", ERROR_GESTURE_MS.hold, () => {
+        this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+          this.endGesture();
+        });
+      });
+    });
+  }
+
+  private advancePill(
+    phase: LauncherPillPhase,
+    duration: number,
+    next: () => void,
+  ): void {
+    this.cancelPillTimeout();
+    this.pillPhase = phase;
+    this.requestUpdate();
+    if (typeof window === "undefined") return;
+    this.pillTimeoutId = setTimeout(() => {
+      this.pillTimeoutId = null;
+      next();
+    }, duration);
+  }
+
+  /**
+   * Closes the pill before its hold is out, because the failure it names has
+   * been fixed. A pill that has not opened yet is simply dropped; the beat is
+   * never cut short.
+   */
+  private closePillEarly(): void {
+    // No pill in this gesture — there was no room for one — so the tail is
+    // only the spoken sentence, and it ends here.
+    if (this.pillPhase === null) {
+      this.endGesture();
+      return;
+    }
+    // Already on its way out.
+    if (this.pillPhase === "closing") return;
+    // Still inside the beat, so nothing has been asserted on screen yet: the
+    // pill is dropped rather than closed, and the beat runs on to its end.
+    if (this.pillPhase === "closed") {
+      this.pillPhase = null;
+      this.requestUpdate();
+      return;
+    }
+    this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
+      this.endGesture();
+    });
+  }
+
+  /** Releases the slot and leaves the plain mark with its dot behind. */
+  private endGesture(): void {
+    this.cancelGestureTail();
+    this.requestUpdate();
+    this.flushPendingSignalPulse();
+  }
+
+  /**
+   * Drops the gesture's tail outright, with no closing animation, for the
+   * cases where the launcher itself has gone: the panel opened over it, or the
+   * element was removed from the page.
+   */
+  private cancelGestureTail(): void {
+    this.cancelPillTimeout();
+    this.gestureSignal = null;
+    this.pillPhase = null;
+    this.pillDirection = null;
+  }
+
+  private cancelPillTimeout(): void {
+    if (this.pillTimeoutId !== null) {
+      clearTimeout(this.pillTimeoutId);
+      this.pillTimeoutId = null;
+    }
+  }
+
+  // ── Error signal ────────────────────────────────────────────────────────
+
+  /**
+   * Whether each error source is currently broken.
+   *
+   * Only two *wiring* conditions qualify. App errors (runs, tools, memory)
+   * are unread events on a different latch — they name themselves on the pill
+   * and clear when their landing view is read. Notably absent from *this*
+   * latch:
+   *
+   * - **A failed agent run.** A run is an event. It arms `run`, not this
+   *   state. The resting wiring dot must not stay red for the rest of a debug
+   *   hour.
+   * - **The core error channel as a wiring source.** Handshake failure already
+   *   sets the connection state. Other codes arm `run` or `tool`.
+   * - **Memory failures before Learning is live.** The memory store is lazy
+   *   because creating it opens a realtime connection. Once it exists, a load
+   *   failure arms `memory`.
+   * - **Product states.** An unconfigured Intelligence and an unentitled
+   *   Memory plan are not defects. The signal fires only where wiring is
+   *   present and the call still fails — which for threads is guaranteed by
+   *   `_threadsErrorByAgent` only ever being written while the thread
+   *   endpoints are available.
+   *
+   * Known limitation: the runtime handshake runs once, on connect. A server
+   * that dies *after* the page loaded leaves the connection state at connected
+   * and raises nothing; the next page load re-runs the handshake and the
+   * signal appears then. The signal reports the wiring state as last
+   * established. Closing that gap means a re-probe in the core, which is a
+   * runtime concern.
+   */
+  private isErrorSourceBroken(source: InspectorWiringErrorSource): boolean {
+    if (source === "connection") {
+      const state = this.getCoreStatusSummary().state;
+      // The same derivation System Health reads, so the launcher dot is red
+      // exactly when System Health says the runtime needs attention.
+      if (runtimeConnectionNeedsAttention(state)) return true;
+      // A reconnect is not a heal. Stay red through `connecting` so the
+      // cards do not flash off between retries.
+      return this.errorSignalArmed.connection && state === "connecting";
+    }
+    return this._threadsErrorByAgent.size > 0;
+  }
+
+  /**
+   * Mirrors both error latches onto the live state. Called from `willUpdate`,
+   * because every mutation of the underlying state already requests an update,
+   * so the resting dot follows the state within the same render.
+   */
+  private evaluateErrorSignals(): void {
+    const wasArmed = this.hasArmedErrorSignal();
+
+    for (const source of WIRING_ERROR_KEYS) {
+      const broken = this.isErrorSourceBroken(source);
+      if (broken) {
+        if (this.errorSignalArmed[source]) continue;
+        // Arming is immediate, with no window a short failure has to outlive
+        // first. That is a decision, not an omission, so here is what it costs
+        // and what would change it.
+        //
+        // `threads` can genuinely flap: the list is refetched on events, at up
+        // to one request per `THREAD_LIST_DEBOUNCE_MS`, so a failure followed
+        // by a success plays a whole gesture for a blip that is already over.
+        // The damage is bounded by machinery that is already here — one
+        // pending-beat slot, and a running gesture defers the next — so the
+        // ceiling is one gesture per gesture length, never a strobe. And the
+        // dot is not lying while it is up: the fetch really did fail.
+        //
+        // `connection` cannot flap on its own today, because nothing retries
+        // the handshake: it goes connecting → connected | error and then waits
+        // for something to call connect() again. If a fix for the mid-session
+        // gap above adds polling, re-read this: the `connecting` branch in
+        // `isErrorSourceBroken` already holds the dot steady across retries,
+        // so only genuinely intermittent connectivity would flap, which is
+        // exactly what the dot is for.
+        //
+        // So: revisit if someone reports the launcher going red without a
+        // lasting cause, and start with `threads`.
+        this.errorSignalArmed[source] = true;
+        continue;
+      }
+      if (!this.errorSignalArmed[source]) continue;
+      this.errorSignalArmed[source] = false;
+      this.errorSignalViewedSources.delete(source);
+      this.retireSignal(source);
+    }
+
+    this.onErrorSignalsChanged(wasArmed);
+  }
+
+  /**
+   * Applies the rising-edge rule after a latch changed.
+   *
+   * The beat fires on the transition from "no failure" to "at least one
+   * failure", evaluated globally across the sources and never again while
+   * anything is red — one root cause, one nudge.
+   */
+  private onErrorSignalsChanged(wasArmed: boolean): void {
+    const isArmed = this.hasArmedErrorSignal();
+    if (!isArmed) {
+      // Nothing is red, so the next outage is a new outage — and gets its own
+      // beat, its own pill and its own answer about whether there was room.
+      this.errorBeatSpent = false;
+      this.pillOutcome = null;
+      return;
+    }
+    if (wasArmed || this.errorBeatSpent) return;
+    const active = this.getActiveLauncherSignal();
+    if (active !== null && isErrorSignalKey(active)) {
+      this.startSignalPulse(active);
+    }
+  }
+
+  /**
+   * Records `oss.inspector.error_signal_viewed` once per source per outage,
+   * when the dot is actually on screen.
+   *
+   * Unlike the announcement's launcher event this fires immediately rather
+   * than waiting for the runtime handshake to report `telemetryDisabled`.
+   * The held-queue would never drain for the connection source — a connection
+   * failure means the handshake did not complete — so queuing would guarantee
+   * zero data for the case this event exists to measure. `trackOpened` already
+   * sends on the same terms. Both opt-out layers still gate it: the local
+   * opt-out inside `track`, and the runtime's flag once it is known.
+   */
+  private maybeTrackErrorSignalViewed(): void {
+    if (
+      this.isOpen ||
+      typeof document === "undefined" ||
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    const active = this.getActiveLauncherSignal();
+    if (active === null || !isErrorSignalKey(active)) return;
+    if (this.errorSignalViewedSources.has(active)) return;
+    // Held until this outage's pill has either opened or been suppressed,
+    // because `label` IS that answer and the launcher can be on screen a frame
+    // before the room around it has been measured. A signal that declares no
+    // pill has no answer to wait for.
+    if (
+      this.pillOutcome === null &&
+      LAUNCHER_SIGNALS[active].pillLabel !== undefined
+    ) {
+      return;
+    }
+    if (this.core?.telemetryDisabled) return;
+    this.errorSignalViewedSources.add(active);
+    trackErrorSignalViewed({
+      source: active,
+      presentation: this.isReducedMotionPreferred()
+        ? "reduced_motion"
+        : "animated",
+      // Whether this outage's pill actually opened. The design deliberately
+      // leaves the no-room case silent, and a degradation whose frequency is
+      // unknown is a degradation that gets argued about later. Two fixed
+      // values, never free text.
+      label: this.pillOutcome ?? "suppressed",
+    });
   }
 
   private maybeTrackNewsSignalViewed(): void {
     if (
       !this.newsSignalArmed ||
-      !this.newsSignalPulsing ||
+      this.pulsingSignal !== NEWS_SIGNAL_ID ||
       this.isOpen ||
       typeof document === "undefined" ||
       document.visibilityState !== "visible"

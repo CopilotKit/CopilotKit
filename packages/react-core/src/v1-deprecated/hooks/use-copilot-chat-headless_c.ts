@@ -20,8 +20,8 @@
 /**
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
- * <Callout title="This is an Enterprise Intelligence Platform feature">
- * Read more about <a href="/premium/overview">the Enterprise Intelligence Platform</a>.
+ * <Callout title="This is a CopilotKit Intelligence feature">
+ * Read more about <a href="/premium/overview">CopilotKit Intelligence</a>.
  *
  * Usage is generous and **free** to get started.
  * </Callout>
@@ -221,11 +221,11 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
   interrupt: null,
 });
 /**
- * Enterprise Intelligence Platform React hook that provides complete chat functionality for fully custom UI implementations.
+ * CopilotKit Intelligence React hook that provides complete chat functionality for fully custom UI implementations.
  * Includes all advanced features like direct message access, suggestions array, interrupt handling, and MCP support.
  *
  * @param options - Configuration options for the chat
- * @returns Complete chat interface with all Enterprise Intelligence Platform features
+ * @returns Complete chat interface with all CopilotKit Intelligence features
  *
  * @example
  * ```tsx
@@ -250,7 +250,7 @@ function useCopilotChatHeadless_c(
         new CopilotKitError({
           message:
             // add link to documentation here
-            "You're using useCopilotChatHeadless_c, an Enterprise Intelligence Platform feature that offers extensive headless chat capabilities. To continue, you'll need to provide a free public license key.",
+            "You're using useCopilotChatHeadless_c, a CopilotKit Intelligence feature that offers extensive headless chat capabilities. To continue, you'll need to provide a free public license key.",
           code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
           severity: Severity.WARNING,
           visibility: ErrorVisibility.BANNER,
