@@ -121,8 +121,8 @@ interface RuntimeConnectionOptions {
   /**
    * This attempt IS the recovery re-sync. Two things follow:
    *
-   * - it never drops an agent its `/info` does not report (add and update, but
-   *   do not remove);
+   * - it reconciles the agent set rather than replacing it, dropping only what
+   *   it is safe to drop (see `reconcileRecoveredAgents`);
    * - a success that landed after it started overtakes its failure verdict
    *   rather than being painted over.
    *
@@ -179,6 +179,23 @@ export class AgentRegistry {
   private _agents: Record<string, AbstractAgent> = {};
   private localAgents: Record<string, AbstractAgent> = {};
   private remoteAgents: Record<string, AbstractAgent> = {};
+
+  /**
+   * The `threadId` each remote agent was MINTED with, so that "a thread is
+   * bound to this agent" is answerable later — see
+   * `carriesConversationState`.
+   *
+   * `AbstractAgent`'s constructor always assigns a `threadId`, generating a
+   * random one when none is supplied, and nothing in the run pipeline ever
+   * writes it. So the field is never empty and its mere presence says nothing;
+   * a value DIFFERENT from the one minted here is what says a binding resolved
+   * a thread onto the agent (`use-agent`, `CopilotChat`).
+   *
+   * Keyed by instance rather than by id: an id can be re-minted onto a fresh
+   * instance, whose own minted value is the one that matters. `WeakMap` so a
+   * dropped agent takes its entry with it.
+   */
+  private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
 
   private _runtimeUrl?: string;
   // Tracks an in-flight `/info` connection so concurrent calls targeting the
@@ -470,6 +487,98 @@ export class AgentRegistry {
       this._runtimeConnectionStatus !==
       CopilotKitCoreRuntimeConnectionStatus.Connected
     );
+  }
+
+  /**
+   * The agent set a RECOVERY re-sync should install: everything the recovered
+   * runtime reported, plus the agents it did not report that it is not safe to
+   * drop (OSS-904).
+   *
+   * A recovery re-sync cannot trust the whole of its answer the way a
+   * deliberate configuration change can. It runs in the window where a runtime
+   * is often only part-way back — a container mid-rollout, a tunnel
+   * re-establishing — and such a runtime answers truthfully that it is alive
+   * while listing few or none of its agents. Believing that report empties the
+   * conversation and closes the submission gate with the status reading
+   * `connected` and no error emitted: the exact damage this design exists to
+   * prevent, reached through the success branch instead of the failure branch.
+   *
+   * This was once "never remove", which bought that safety with a permanent
+   * wart — an agent the developer genuinely deleted stayed visible until a page
+   * reload, so the application kept offering something that no longer existed.
+   * But the harm was never removal; it was removing the agent a live
+   * conversation hangs on. So the rule is stated against THAT, with two
+   * conditions that must BOTH hold before anything is dropped:
+   *
+   * - The runtime reported at least one agent. An empty list is the signature
+   *   of a runtime that has not finished registering, and nothing an empty list
+   *   says is worth acting on. A non-empty list that omits an agent is credible
+   *   evidence that agent is gone.
+   * - The agent carries no conversation state (`carriesConversationState`). One
+   *   that does is backing something the user can see, and it stays whatever
+   *   the runtime reports.
+   *
+   * Both are decidable here — the second from the agent instance — so this
+   * needs nothing from the UI layer and adds no coupling to it.
+   *
+   * The residue is small and self-correcting: against a runtime reporting some
+   * but not all of its agents, an unused agent can briefly disappear and come
+   * back on the next re-sync. That is visible only in an agent picker, and it
+   * costs far less than an app offering a deleted agent until someone reloads.
+   *
+   * SAFE ONLY BECAUSE OF THE SUBSCRIPTION FIX. Pruning changes the set, so
+   * recovery announces a change, so core re-subscribes the state manager per
+   * agent — and `state-manager.ts` now leaves a live subscription alone when it
+   * is handed the same instance. Before that, this rule would have cut the
+   * state off the very run whose response proved the runtime was back, since
+   * that run is typically still streaming when recovery fires.
+   */
+  private reconcileRecoveredAgents(
+    reported: Record<string, AbstractAgent>,
+  ): Record<string, AbstractAgent> {
+    const merged = { ...this.remoteAgents, ...reported };
+    if (Object.keys(reported).length === 0) {
+      return merged;
+    }
+    for (const [id, agent] of Object.entries(merged)) {
+      if (Object.prototype.hasOwnProperty.call(reported, id)) {
+        continue;
+      }
+      if (this.carriesConversationState(agent)) {
+        continue;
+      }
+      delete merged[id];
+    }
+    return merged;
+  }
+
+  /**
+   * Whether this agent is backing something the user can see, and so must
+   * survive a recovery re-sync that stopped reporting it.
+   *
+   * Two signals, both read off the instance:
+   *
+   * - Messages. A conversation on screen.
+   * - A thread bound to it. An empty conversation the user is looking at and
+   *   can submit into. Note that the mere PRESENCE of `threadId` says nothing:
+   *   `AbstractAgent`'s constructor always assigns one, generating a random
+   *   value when none is supplied. What says a binding resolved a thread onto
+   *   this agent is the value having MOVED off the one it was minted with —
+   *   see `mintedThreadIds`.
+   *
+   * An agent this registry did not mint has no recorded value to compare
+   * against, and is kept. Nothing reaches here by that route today
+   * (`remoteAgents` is written only by the connection routine, and
+   * `registerProxiedAgent` registers into `localAgents`), so this is a
+   * deliberate fail-safe: an unrecognised agent is not evidence that dropping
+   * it is safe.
+   */
+  private carriesConversationState(agent: AbstractAgent): boolean {
+    if (agent.messages.length > 0) {
+      return true;
+    }
+    const mintedThreadId = this.mintedThreadIds.get(agent);
+    return mintedThreadId === undefined || agent.threadId !== mintedThreadId;
   }
 
   /**
@@ -1302,7 +1411,9 @@ export class AgentRegistry {
    * is least reliable (a container mid-rollout, a tunnel re-establishing), and
    * `recovery` is what stops a runtime that is only PART-WAY
    * back — alive, and listing few or no agents — from destroying the
-   * conversation through the success branch.
+   * conversation through the success branch: its report is reconciled against
+   * what is in use rather than believed wholesale (see
+   * `reconcileRecoveredAgents`).
    *
    * The loop is not a retry loop. It turns exactly once per successful runtime
    * request that arrived while an earlier re-sync was still running, so it is
@@ -1483,6 +1594,7 @@ export class AgentRegistry {
             });
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
+            this.mintedThreadIds.set(agent, agent.threadId);
             return [id, agent];
           },
         ),
@@ -1492,16 +1604,11 @@ export class AgentRegistry {
       // minted above); ids no longer advertised are dropped because they are
       // absent from this rebuilt map.
       //
-      // EXCEPT on recovery. A runtime that is only part-way back answers
-      // truthfully that it is alive while listing few or no agents, and
-      // believing that report drops the agents, empties the conversation and
-      // closes the submission gate — with the status reading `connected` and no
-      // error emitted, i.e. the exact damage this design exists to prevent,
-      // reached through the success branch instead of the failure branch.
-      // Removal stays correct on a deliberate configuration change and on a
-      // fresh page load, where the report can be trusted.
+      // A deliberate configuration change and a fresh page load both ask the
+      // question on purpose and can trust the whole answer, so they replace the
+      // set outright. Recovery cannot — see `reconcileRecoveredAgents`.
       this.remoteAgents = options?.recovery
-        ? { ...this.remoteAgents, ...agents }
+        ? this.reconcileRecoveredAgents(agents)
         : agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
       this.setRuntimeConnectionStatus(

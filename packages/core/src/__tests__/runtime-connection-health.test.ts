@@ -488,16 +488,11 @@ describe("runtime connection health (OSS-904)", () => {
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
 
-    // Added and updated, but nothing dropped: a runtime that is only part-way
-    // back answers truthfully while listing few or no agents, and this branch
-    // cannot tell that apart from a genuine removal. See "recovery must never
-    // remove agents" — removal stays correct on a deliberate configuration
-    // change and on a fresh page load, where the report can be trusted.
-    expect(Object.keys(core.agents).sort()).toEqual([
-      "added",
-      "default",
-      "retired",
-    ]);
+    // Added, updated — and `retired` pruned. A non-empty list that omits an
+    // agent is credible evidence that agent is gone, and `retired` is backing
+    // nothing: no messages, no thread bound to it. See the two conditions in
+    // `reconcileRecoveredAgents`.
+    expect(Object.keys(core.agents).sort()).toEqual(["added", "default"]);
     expect(core.runtimeVersion).toBe("2.0.0");
     // The open conversation survived the re-sync.
     expect(core.getAgent("default")).toBe(agent);
@@ -1718,9 +1713,9 @@ describe("runtime connection health (OSS-904)", () => {
     expect(infoCalls).toBe(1);
   });
 
-  // --- recovery must never remove agents -----------------------------------
+  // --- recovery prunes, under two conditions -------------------------------
 
-  it("never drops an agent a part-way-back runtime does not report", async () => {
+  it("removes nothing when a recovering runtime reports an empty agent list", async () => {
     infoHandler = async () =>
       jsonResponse({
         version: "1.0.0",
@@ -1736,17 +1731,129 @@ describe("runtime connection health (OSS-904)", () => {
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
 
-    // A runtime that is only part-way back answers truthfully that it is alive
-    // while listing few or no agents. Believing that report destroys the
-    // conversation and closes the submission gate through the SUCCESS branch.
+    // An empty list is the signature of a runtime that has not finished
+    // registering: it answers truthfully that it is alive while listing
+    // nothing. Believing it destroys the conversation and closes the
+    // submission gate through the SUCCESS branch. `helper` carries no
+    // conversation state, so ONLY condition 1 is holding it here.
     bringRuntimePartWayBack({}, "2.0.0");
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    await settle();
 
     expect(Object.keys(core.agents).sort()).toEqual(["default", "helper"]);
     expect(core.getAgent("helper")).toBe(helper);
     // What the runtime DID report is still taken.
     expect(core.runtimeVersion).toBe("2.0.0");
+  });
+
+  it("prunes an agent a recovering runtime stops reporting when it backs nothing", async () => {
+    infoHandler = async () =>
+      jsonResponse({
+        version: "1.0.0",
+        agents: {
+          default: { description: "assistant", capabilities: {} },
+          retired: { description: "going away", capabilities: {} },
+        },
+      });
+    const core = await bootConnectedCore();
+    expect(Object.keys(core.agents).sort()).toEqual(["default", "retired"]);
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    const announced: string[][] = [];
+    core.subscribe({
+      onAgentsChanged: ({ agents }) => {
+        announced.push(Object.keys(agents).sort());
+      },
+    });
+
+    // The developer deleted `retired` and restarted. The runtime is back and
+    // reports a NON-EMPTY list that omits it — credible evidence it is gone —
+    // and `retired` holds no messages and has no thread bound to it, so
+    // nothing the user can see is standing on it.
+    bringRuntimePartWayBack(
+      { default: { description: "assistant", capabilities: {} } },
+      "2.0.0",
+    );
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    await settle();
+
+    expect(Object.keys(core.agents)).toEqual(["default"]);
+    expect(core.getAgent("retired")).toBeUndefined();
+    // Subscribers are told, rather than left holding the pre-outage set.
+    expect(announced).toContainEqual(["default"]);
+  });
+
+  it("keeps an agent carrying messages that a recovering runtime no longer reports", async () => {
+    infoHandler = async () =>
+      jsonResponse({
+        version: "1.0.0",
+        agents: {
+          default: { description: "assistant", capabilities: {} },
+          helper: { description: "helper", capabilities: {} },
+        },
+      });
+    const core = await bootConnectedCore();
+    const helper = core.getAgent("helper")!;
+    helper.setMessages([
+      { id: "assistant-1", role: "assistant", content: "still on screen" },
+    ]);
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    // The list is non-empty, so condition 1 is satisfied and only condition 2
+    // is holding `helper`: it is backing a conversation the user can see.
+    bringRuntimePartWayBack(
+      { default: { description: "assistant", capabilities: {} } },
+      "2.0.0",
+    );
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    await settle();
+
+    expect(Object.keys(core.agents).sort()).toEqual(["default", "helper"]);
+    expect(core.getAgent("helper")).toBe(helper);
+    expect(helper.messages).toHaveLength(1);
+  });
+
+  it("keeps an agent carrying a bound thread and no messages", async () => {
+    infoHandler = async () =>
+      jsonResponse({
+        version: "1.0.0",
+        agents: {
+          default: { description: "assistant", capabilities: {} },
+          helper: { description: "helper", capabilities: {} },
+        },
+      });
+    const core = await bootConnectedCore();
+    const helper = core.getAgent("helper")!;
+    // What a binding does when it resolves a thread onto an agent
+    // (`use-agent`, `CopilotChat`): an empty conversation the user is looking
+    // at, and can submit into.
+    helper.threadId = "thread-the-user-is-looking-at";
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    bringRuntimePartWayBack(
+      { default: { description: "assistant", capabilities: {} } },
+      "2.0.0",
+    );
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+    await settle();
+
+    expect(Object.keys(core.agents).sort()).toEqual(["default", "helper"]);
+    expect(core.getAgent("helper")).toBe(helper);
+    expect(helper.threadId).toBe("thread-the-user-is-looking-at");
+    expect(helper.messages).toHaveLength(0);
   });
 
   it("adds an agent a recovering runtime reports for the first time", async () => {
@@ -1768,7 +1875,7 @@ describe("runtime connection health (OSS-904)", () => {
     expect(Object.keys(core.agents).sort()).toEqual(["added", "default"]);
   });
 
-  it("still removes an agent on a deliberate configuration change", async () => {
+  it("still replaces the set outright on a deliberate configuration change, conversation state and all", async () => {
     infoHandler = async () =>
       jsonResponse({
         version: "1.0.0",
@@ -1780,6 +1887,17 @@ describe("runtime connection health (OSS-904)", () => {
     const core = await bootConnectedCore();
     expect(Object.keys(core.agents).sort()).toEqual(["default", "retired"]);
 
+    // Conversation state is what holds an agent through RECOVERY. It must not
+    // hold one through a configuration change: the developer pointed the
+    // application at a different runtime, so the previous runtime's agents are
+    // gone whatever they were carrying. This is the boundary the recovery
+    // prune must not blur.
+    const retired = core.getAgent("retired")!;
+    retired.setMessages([
+      { id: "assistant-1", role: "assistant", content: "on the old runtime" },
+    ]);
+    retired.threadId = "thread-on-the-old-runtime";
+
     // A configuration change re-asks the question deliberately, and the answer
     // can be trusted: this is where removal stays correct.
     altInfoHandler = async () => jsonResponse(DEFAULT_INFO);
@@ -1788,6 +1906,7 @@ describe("runtime connection health (OSS-904)", () => {
     await settle();
 
     expect(Object.keys(core.agents)).toEqual(["default"]);
+    expect(core.getAgent("retired")).toBeUndefined();
   });
 
   it("does not revoke an in-flight run's state subscription when recovery changes nothing", async () => {
@@ -1901,6 +2020,68 @@ describe("runtime connection health (OSS-904)", () => {
     expect(Object.keys(core.agents).sort()).toEqual(["added", "default"]);
     expect(announced).toContainEqual(["added", "default"]);
     // And the run that proved the runtime was back kept reporting its state.
+    expect(core.getStateByRun("default", "thread-mid-run", "r1")).toEqual({
+      step: "after-recovery",
+    });
+  });
+
+  it("does not revoke an in-flight run's state subscription when recovery prunes an agent", async () => {
+    infoHandler = async () =>
+      jsonResponse({
+        version: "1.0.0",
+        agents: {
+          default: { description: "assistant", capabilities: {} },
+          retired: { description: "going away", capabilities: {} },
+        },
+      });
+    const core = await bootConnectedCore();
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    // The sharpest version of the hazard the subscription fix closed. Pruning
+    // CHANGES the agent set, so recovery announces it, so core re-subscribes
+    // the state manager for every agent — and the run whose response triggered
+    // the recovery is still streaming at that moment. If re-subscribing
+    // revoked the live subscription, the run that proved the runtime was back
+    // would lose its state for the rest of the stream.
+    bringRuntimeUp({
+      version: "1.0.0",
+      agents: { default: { description: "assistant", capabilities: {} } },
+    });
+    const stream = controllableSseStream();
+    runHandler = async () => stream.response;
+
+    const agent = core.getAgent("default") as AbstractAgent;
+    agent.threadId = "thread-mid-run";
+    const run = core.runAgent({ agent }).catch(() => undefined);
+
+    stream.push({
+      type: "RUN_STARTED",
+      threadId: "thread-mid-run",
+      runId: "r1",
+    });
+    stream.push({ type: "STATE_SNAPSHOT", snapshot: { step: "before" } });
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    stream.push({
+      type: "STATE_SNAPSHOT",
+      snapshot: { step: "after-recovery" },
+    });
+    stream.push({
+      type: "RUN_FINISHED",
+      threadId: "thread-mid-run",
+      runId: "r1",
+      result: { newMessages: [] },
+    });
+    stream.close();
+    await run;
+    await settle();
+
+    // The prune really happened — this is the prune path, not the
+    // unchanged-set path wearing its clothes.
+    expect(Object.keys(core.agents)).toEqual(["default"]);
+    // And the run kept reporting its state across it.
     expect(core.getStateByRun("default", "thread-mid-run", "r1")).toEqual({
       step: "after-recovery",
     });
