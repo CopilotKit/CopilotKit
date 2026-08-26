@@ -13,6 +13,7 @@ import {
 } from "../handlers/handle-threads";
 import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+import { PlatformRequestError } from "../intelligence-platform/client";
 
 describe("thread handlers", () => {
   const createIdentifyUser = () =>
@@ -766,6 +767,60 @@ describe("thread handlers", () => {
 
         expect(response.status).toBe(500);
         expect(intelligence.getThreadEvents).toHaveBeenCalledTimes(1);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("answers a thread the platform has never seen with an empty list", async () => {
+      // Clients mint a thread id and ask for its history before the first run
+      // has persisted anything, so the platform 404s on every fresh
+      // conversation. Reporting that as a 500 put a red error in the browser
+      // console on ordinary use; an unseen thread is empty, not broken.
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(
+            new PlatformRequestError("Thread not found.", 404),
+          ),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/thread-1/events"),
+          threadId: "thread-1",
+        });
+
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({ events: [] });
+        // Quiet as well as successful: the whole point is that an ordinary
+        // fresh thread stops writing an error into the log.
+        expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("still returns 500 for a platform failure that is not a 404", async () => {
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("boom", 503)),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/thread-1/events"),
+          threadId: "thread-1",
+        });
+
+        expect(response.status).toBe(500);
       } finally {
         errorSpy.mockRestore();
       }

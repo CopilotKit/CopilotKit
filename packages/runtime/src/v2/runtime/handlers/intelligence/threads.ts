@@ -8,6 +8,7 @@ import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
+import { PlatformRequestError } from "../../intelligence-platform/client";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -357,6 +358,22 @@ export async function handleGetThreadEvents({
       // `{ events }`, matching the in-memory branch below.
       return Response.json({ events: data.events });
     } catch (error) {
+      // A thread the platform has never heard of is EMPTY, not broken.
+      //
+      // Clients mint a thread id up front and ask for its history before the
+      // first run has persisted anything — so the platform answers 404 on every
+      // fresh conversation. Reporting that as a 500 put a red error in the
+      // browser console (and Next's dev overlay issue badge) on ordinary use,
+      // and buried a "Error fetching thread events" in the server log next to
+      // it, which is exactly where someone hunting a real defect will waste
+      // their time.
+      //
+      // The in-memory branch below already answers an unknown thread with an
+      // empty list. This makes the platform path agree with it, and leaves
+      // every other failure loud.
+      if (error instanceof PlatformRequestError && error.status === 404) {
+        return Response.json({ events: [] });
+      }
       logger.error({ err: error, threadId }, "Error fetching thread events");
       return errorResponse("Failed to fetch thread events", 500);
     }
