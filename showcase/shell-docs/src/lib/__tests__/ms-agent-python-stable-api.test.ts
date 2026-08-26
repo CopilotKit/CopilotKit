@@ -9,6 +9,9 @@ const routes = [
   "frontend-tools",
   "auth",
   "human-in-the-loop",
+  "quickstart",
+  "shared-state/in-app-agent-read",
+  "shared-state/in-app-agent-write",
 ];
 
 test.each(routes)(
@@ -35,9 +38,18 @@ test.each(routes)(
     expect(output).toContain(
       "from agent_framework.openai import OpenAIChatClient",
     );
+    expect(output).toContain(
+      "from azure.identity import DefaultAzureCredential",
+    );
     expect(output).toContain("model=");
     expect(output).toContain("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME");
-    expect(output).toContain('api_key=os.getenv("AZURE_OPENAI_API_KEY")');
+    expect(output).toContain(
+      'azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")',
+    );
+    expect(output).toContain("api_key=azure_api_key");
+    expect(output).toContain(
+      "credential=None if azure_api_key else DefaultAzureCredential()",
+    );
     expect(output).toContain(
       'azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")',
     );

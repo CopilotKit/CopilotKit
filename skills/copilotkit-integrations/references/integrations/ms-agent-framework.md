@@ -119,10 +119,14 @@ For Azure OpenAI:
 
 ```python
 from agent_framework.openai import OpenAIChatClient
+from azure.identity import DefaultAzureCredential
+
+azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
 
 chat_client = OpenAIChatClient(
     model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+    api_key=azure_api_key,
+    credential=None if azure_api_key else DefaultAzureCredential(),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
 )
 ```
@@ -141,7 +145,8 @@ Azure OpenAI:
 ```
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
 AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
-AZURE_OPENAI_API_KEY=your-api-key
+# Optional when az login is unavailable:
+# AZURE_OPENAI_API_KEY=your-api-key
 ```
 
 ---

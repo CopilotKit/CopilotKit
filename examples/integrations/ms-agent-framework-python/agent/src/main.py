@@ -6,6 +6,7 @@ import uvicorn
 from agent_framework import SupportsChatGetResponse
 from agent_framework.openai import OpenAIChatClient
 from agent_framework_ag_ui import add_agent_framework_fastapi_endpoint
+from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,22 +17,26 @@ load_dotenv()
 
 
 def _build_chat_client() -> SupportsChatGetResponse:
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    if not azure_endpoint and not openai_api_key:
+        raise ValueError(
+            "Set AZURE_OPENAI_ENDPOINT (uses az login unless AZURE_OPENAI_API_KEY is set) or OPENAI_API_KEY."
+        )
+
     try:
-        if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
+        if azure_endpoint:
+            azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
             return OpenAIChatClient(
                 model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                api_key=azure_api_key,
+                credential=None if azure_api_key else DefaultAzureCredential(),
+                azure_endpoint=azure_endpoint,
             )
 
-        if bool(os.getenv("OPENAI_API_KEY")):
-            return OpenAIChatClient(
-                model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
-                api_key=os.getenv("OPENAI_API_KEY"),
-            )
-
-        raise ValueError(
-            "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
+        return OpenAIChatClient(
+            model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+            api_key=openai_api_key,
         )
 
     except Exception as exc:  # pragma: no cover

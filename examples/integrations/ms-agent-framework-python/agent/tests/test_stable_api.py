@@ -61,6 +61,42 @@ class StableApiTests(unittest.TestCase):
         self.assertIsInstance(openai_client, OpenAIChatClient)
         self.assertIsInstance(azure_client, OpenAIChatClient)
 
+    def test_builds_keyless_azure_client_with_default_credential(self) -> None:
+        credential = object()
+        with (
+            patch(
+                "main.DefaultAzureCredential", return_value=credential
+            ) as credential_cls,
+            patch("main.OpenAIChatClient") as client_cls,
+            patch.dict(
+                os.environ,
+                {
+                    "AZURE_OPENAI_ENDPOINT": "https://example.openai.azure.com",
+                    "AZURE_OPENAI_CHAT_DEPLOYMENT_NAME": "gpt-4o-mini",
+                },
+                clear=True,
+            ),
+        ):
+            self.build_chat_client()
+
+        credential_cls.assert_called_once_with()
+        client_cls.assert_called_once_with(
+            model="gpt-4o-mini",
+            api_key=None,
+            credential=credential,
+            azure_endpoint="https://example.openai.azure.com",
+        )
+
+    def test_missing_credentials_has_actionable_error(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            self.assertRaisesRegex(
+                ValueError,
+                "Set AZURE_OPENAI_ENDPOINT .* or OPENAI_API_KEY",
+            ),
+        ):
+            self.build_chat_client()
+
 
 if __name__ == "__main__":
     unittest.main()

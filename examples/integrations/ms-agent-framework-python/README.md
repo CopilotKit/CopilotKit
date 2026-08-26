@@ -54,7 +54,8 @@ This is a starter template for building CopilotKit experiences using the [Micros
    ```
    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
    AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-4o-mini
-   AZURE_OPENAI_API_KEY=...
+   # Optional when az login is unavailable:
+   # AZURE_OPENAI_API_KEY=...
    ```
 
 3. Start the development server:

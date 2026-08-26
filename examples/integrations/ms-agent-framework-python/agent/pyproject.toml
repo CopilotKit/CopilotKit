@@ -7,5 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "agent-framework-ag-ui>=1.2.0,<2",
     "agent-framework-openai>=1.14.0,<2",
+    "azure-identity>=1.25.1,<2",
     "python-dotenv",
 ]
