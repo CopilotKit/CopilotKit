@@ -37,5 +37,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # The rules are unit-tested here rather than by a general runner: nothing
+      # else executes scripts/__tests__, so a rule that silently stopped
+      # matching would leave the check below passing on an empty result.
+      - name: Test the validator's rules
+        run: pnpm exec vitest run scripts/__tests__/validate-intelligence-env-names.test.ts
+
       - name: Check Intelligence env var names are canonical
         run: pnpm check:intelligence-env-names
