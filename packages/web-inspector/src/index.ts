@@ -8501,6 +8501,256 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
+      .cpk-agent-view {
+        container-type: inline-size;
+        display: flex;
+        min-height: 0;
+        height: 100%;
+        flex-direction: column;
+        gap: 14px;
+        overflow: auto;
+        background: #fbfbfd;
+        padding: 16px 18px 20px;
+      }
+
+      .cpk-agent-summary {
+        border-bottom: 1px solid #dbdbe5;
+        padding-bottom: 14px;
+      }
+
+      .cpk-agent-summary__identity-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .cpk-agent-summary__aux {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 4px 10px;
+        color: #77777d;
+        font-size: 10px;
+        line-height: 1.4;
+        text-align: right;
+      }
+
+      .cpk-agent-icon {
+        flex: none;
+        border: 1px solid #d8d2f2;
+        border-radius: 8px;
+        background: #eeeafd;
+        color: #56359b;
+      }
+
+      .cpk-agent-icon svg {
+        width: 17px;
+        height: 17px;
+      }
+
+      .cpk-agent-summary__title {
+        overflow: hidden;
+        margin: 0;
+        color: #24242b;
+        font-size: 13px;
+        font-weight: 650;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-agent-status {
+        margin-top: 3px;
+        font-size: 10px;
+      }
+
+      .cpk-agent-metrics {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        overflow: hidden;
+        border: 1px solid #e1e1e9;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .cpk-agent-metric {
+        min-width: 0;
+        border: 0;
+        border-left: 1px solid #e8e8ef;
+        background: transparent;
+        padding: 9px 11px;
+      }
+
+      .cpk-agent-metric:first-child {
+        border-left: 0;
+      }
+
+      .cpk-agent-metric--action {
+        cursor: pointer;
+        text-align: left;
+      }
+
+      .cpk-agent-metric--action:hover {
+        background: #f7f6fd;
+      }
+
+      .cpk-agent-metric--action:focus-visible {
+        outline: 2px solid #6430ab;
+        outline-offset: -2px;
+      }
+
+      .cpk-agent-metric > div:first-child {
+        color: #68686e;
+        font-size: 10px;
+      }
+
+      .cpk-agent-metric > div:last-child {
+        margin-top: 2px;
+        color: #24242b;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .cpk-agent-workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        gap: 12px;
+      }
+
+      .cpk-agent-panel {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid #e1e1e9;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .cpk-agent-panel__header {
+        display: flex;
+        min-height: 38px;
+        align-items: center;
+        border-bottom: 1px solid #e8e8ef;
+        background: #f7f6fd;
+        padding: 0 12px;
+      }
+
+      .cpk-agent-panel__header h4 {
+        margin: 0;
+        color: #3c3c44;
+        font-size: 11px;
+        font-weight: 650;
+      }
+
+      .cpk-agent-panel__body {
+        padding: 12px;
+      }
+
+      .cpk-agent-panel__body--messages {
+        padding: 0;
+      }
+
+      .cpk-agent-panel__body--tools {
+        padding: 10px 12px;
+      }
+
+      .cpk-agent-empty-state {
+        display: flex;
+        min-height: 72px;
+        align-items: center;
+        justify-content: center;
+        color: #68686e;
+        font-size: 11px;
+        text-align: center;
+      }
+
+      .cpk-agent-empty-state--compact {
+        min-height: 34px;
+        justify-content: flex-start;
+      }
+
+      .cpk-agent-events-panel {
+        flex: none;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-view {
+        background: #111319 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-summary {
+        border-color: #343742;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-icon {
+        border-color: #666a9e;
+        background: #292b43;
+        color: #d8d9ff;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-summary__title,
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-metric
+        > div:last-child {
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-summary__aux {
+        color: #a5a8b4;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-metrics,
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-panel {
+        border-color: #343742;
+        background: #191c24 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric {
+        border-color: #343742;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric--action:hover {
+        background: #20232d;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-panel__header {
+        border-color: #343742;
+        background: #20232d !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-panel__header h4 {
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric:nth-child(3),
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric:nth-child(4) {
+        border-color: #343742;
+      }
+
+      @container (max-width: 560px) {
+        .cpk-agent-view {
+          padding: 12px;
+        }
+
+        .cpk-agent-metrics {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .cpk-agent-metric:nth-child(3) {
+          border-left: 0;
+          border-top: 1px solid #e8e8ef;
+        }
+
+        .cpk-agent-metric:nth-child(4) {
+          border-top: 1px solid #e8e8ef;
+        }
+
+        .cpk-agent-workspace {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
       .rounded-sm {
         border-radius: 3px;
       }
@@ -17249,6 +17499,7 @@ export class WebInspectorElement extends LitElement {
     const stats = this.getAgentStats(agentId);
     const state = this.getLatestStateForAgent(agentId);
     const messages = this.getLatestMessagesForAgent(agentId);
+    const tools = this.getToolsForAgent(agentId);
 
     const statusColors = {
       running: "bg-emerald-50 text-emerald-700",
@@ -17257,25 +17508,22 @@ export class WebInspectorElement extends LitElement {
     };
 
     return html`
-      <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
+      <div class="cpk-agent-view">
         ${this.renderEventErrorBanner("tool")}
-        <!-- Agent Overview Card -->
-        <div
-          class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
-        >
-          <div class="flex items-start justify-between mb-4">
+        <section class="cpk-agent-summary" aria-label="Agent summary">
+          <div class="cpk-agent-summary__identity-row">
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 cpk-agent-icon"
+                class="cpk-agent-icon flex h-9 w-9 items-center justify-center"
               >
                 ${this.renderIcon("Bot")}
               </div>
               <div>
-                <h3 class="font-semibold text-sm text-gray-900">${agentId}</h3>
+                <h3 class="cpk-agent-summary__title">${agentId}</h3>
                 <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                  class="cpk-agent-status inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
                     statusColors[status]
-                  } relative -translate-y-[2px]"
+                  }"
                 >
                   <span
                     class="h-1.5 w-1.5 rounded-full ${
@@ -17290,19 +17538,28 @@ export class WebInspectorElement extends LitElement {
                 </span>
               </div>
             </div>
-            ${
-              stats.lastActivity
-                ? html`<span class="text-xs text-gray-500"
-                  >Last activity:
-                  ${new Date(stats.lastActivity).toLocaleTimeString()}</span
-                >`
-                : nothing
-            }
+            <div class="cpk-agent-summary__aux">
+              <span
+                >${
+                  tools.length === 1
+                    ? "1 tool registered"
+                    : `${tools.length} tools registered`
+                }</span
+              >
+              ${
+                stats.lastActivity
+                  ? html`<span
+                    >Last activity:
+                    ${new Date(stats.lastActivity).toLocaleTimeString()}</span
+                  >`
+                  : nothing
+              }
+            </div>
           </div>
-          <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div class="cpk-agent-metrics">
             <button
               type="button"
-              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden cpk-stat-card"
+              class="cpk-agent-metric cpk-agent-metric--action"
               @click=${() => this.handleMenuSelect("ag-ui-events")}
               title="View all events in AG-UI Events"
             >
@@ -17313,9 +17570,7 @@ export class WebInspectorElement extends LitElement {
                 ${stats.totalEvents}
               </div>
             </button>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
+            <div class="cpk-agent-metric">
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Messages
               </div>
@@ -17323,9 +17578,7 @@ export class WebInspectorElement extends LitElement {
                 ${stats.messages}
               </div>
             </div>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
+            <div class="cpk-agent-metric">
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Tool Calls
               </div>
@@ -17333,9 +17586,7 @@ export class WebInspectorElement extends LitElement {
                 ${stats.toolCalls}
               </div>
             </div>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
+            <div class="cpk-agent-metric">
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Errors
               </div>
@@ -17344,21 +17595,19 @@ export class WebInspectorElement extends LitElement {
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- Current State Section -->
-        <div class="cpk-section-card">
-          <div class="cpk-section-header">
+        <div class="cpk-agent-workspace">
+          <section class="cpk-agent-panel">
+            <div class="cpk-agent-panel__header">
             <h4>Current State</h4>
-          </div>
-          <div class="overflow-auto p-4">
+            </div>
+            <div class="cpk-agent-panel__body overflow-auto">
             ${
               this.hasRenderableState(state)
                 ? renderHighlightedJsonBlock(state, { maxHeight: "16rem" })
                 : html`
-                  <div
-                    class="flex h-12 items-center justify-center text-xs text-gray-500"
-                  >
+                  <div class="cpk-agent-empty-state">
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
                         >${this.renderIcon("Database")}</span
@@ -17368,15 +17617,14 @@ export class WebInspectorElement extends LitElement {
                   </div>
                 `
             }
-          </div>
-        </div>
+            </div>
+          </section>
 
-        <!-- Current Messages Section -->
-        <div class="cpk-section-card">
-          <div class="cpk-section-header">
+          <section class="cpk-agent-panel">
+            <div class="cpk-agent-panel__header">
             <h4>Current Messages</h4>
-          </div>
-          <div class="overflow-auto">
+            </div>
+            <div class="cpk-agent-panel__body cpk-agent-panel__body--messages overflow-auto">
             ${
               messages && messages.length > 0
                 ? html`
@@ -17457,9 +17705,7 @@ export class WebInspectorElement extends LitElement {
                   </div>
                 `
                 : html`
-                  <div
-                    class="flex h-12 items-center justify-center text-xs text-gray-500"
-                  >
+                  <div class="cpk-agent-empty-state">
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
                         >${this.renderIcon("MessageSquare")}</span
@@ -17469,17 +17715,18 @@ export class WebInspectorElement extends LitElement {
                   </div>
                 `
             }
-          </div>
+            </div>
+          </section>
         </div>
 
-        ${this.renderAgentToolsSection(agentId)}
+        ${this.renderAgentToolsSection(tools)}
 
-        <div class="cpk-section-card overflow-hidden">
-          <div class="cpk-section-header">
+        <section class="cpk-agent-panel cpk-agent-events-panel overflow-hidden">
+          <div class="cpk-agent-panel__header">
             <h4>AG-UI Events</h4>
           </div>
           ${this.renderEventsTable({ embedded: true })}
-        </div>
+        </section>
       </div>
     `;
   }
@@ -17766,6 +18013,11 @@ export class WebInspectorElement extends LitElement {
         requestAnimationFrame(() => {
           const scroller = this.activeRoot.querySelector("#cpk-main-scroll");
           if (scroller) scroller.scrollTop = 0;
+
+          if (key === "agents") {
+            const agentView = this.activeRoot.querySelector(".cpk-agent-view");
+            if (agentView) agentView.scrollTop = 0;
+          }
         });
       }
     }
@@ -18733,35 +18985,22 @@ export class WebInspectorElement extends LitElement {
     );
   }
 
-  private renderAgentToolsSection(agentId: string) {
-    const tools = this.getToolsForAgent(agentId);
+  private renderAgentToolsSection(tools: InspectorToolDefinition[]) {
+    if (tools.length === 0) {
+      return nothing;
+    }
 
     return html`
-      <div class="cpk-section-card">
-        <div class="cpk-section-header">
+      <section class="cpk-agent-panel cpk-agent-tools-panel">
+        <div class="cpk-agent-panel__header">
           <h4>Registered Tools</h4>
         </div>
-        <div class="overflow-auto p-4">
-          ${
-            tools.length > 0
-              ? html`<div class="space-y-3">
-                ${tools.map((tool) => this.renderToolCard(tool))}
-              </div>`
-              : html`
-                <div
-                  class="flex h-12 items-center justify-center text-xs text-gray-500"
-                >
-                  <div class="flex items-center gap-2 text-gray-500">
-                    <span class="text-lg text-gray-400"
-                      >${this.renderIcon("Hammer")}</span
-                    >
-                    <span>No tools registered</span>
-                  </div>
-                </div>
-              `
-          }
+        <div class="cpk-agent-panel__body cpk-agent-panel__body--tools overflow-auto">
+          <div class="space-y-3">
+            ${tools.map((tool) => this.renderToolCard(tool))}
+          </div>
         </div>
-      </div>
+      </section>
     `;
   }
 
