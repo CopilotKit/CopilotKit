@@ -540,7 +540,7 @@ test("enable Intelligence stays on its existing event without a generic double c
     ).toHaveLength(2);
 
     await context.selectTab("Agent");
-    await context.selectTab("AG-UI Events");
+    await context.selectTab("Events");
     await context.selectTab("Threads");
     expect(
       metadataBodies(context).filter(

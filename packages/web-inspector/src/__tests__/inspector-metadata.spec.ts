@@ -413,7 +413,7 @@ test("an old Core without metadata members attaches and renders without error", 
     expect(
       inspector.shadowRoot?.querySelector("[data-inspector-metadata]"),
     ).toBeNull();
-    expect(inspector.shadowRoot?.textContent).toContain("AG-UI Events");
+    expect(inspector.shadowRoot?.textContent).toContain("Events");
   } finally {
     inspector.remove();
     vi.unstubAllGlobals();
@@ -537,7 +537,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
       expect(findControl(root, label), label).toBeDefined();
     }
     await context.selectTab("Agent");
-    for (const label of ["AG-UI Events", "Agent", "Context"]) {
+    for (const label of ["Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
   } finally {

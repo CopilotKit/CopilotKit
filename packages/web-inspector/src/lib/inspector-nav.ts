@@ -4,7 +4,7 @@ export type ShellGroupKey = "home" | "workbench" | "inspect";
 
 export const INSPECTOR_GROUPS = {
   home: ["home", "whats-new"],
-  workbench: ["playground", "threads", "event-snippets", "memories"],
+  workbench: ["playground", "threads", "memories"],
   inspect: [
     "agents",
     "ag-ui-events",

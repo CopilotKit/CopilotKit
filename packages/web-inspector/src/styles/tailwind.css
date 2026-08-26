@@ -534,7 +534,7 @@
 .inspector-account-strip {
   width: 100%;
   min-width: 0;
-  border-bottom: 1px solid #d8d8e8;
+  border-bottom: 0;
   background: #f7f6fd !important;
   color: #010507 !important;
 }
@@ -3219,7 +3219,7 @@ small.inspector-system-health-detail {
 
 .inspector-window[data-color-scheme="dark"] .drag-handle,
 .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
-  border-color: #3a3d49 !important;
+  border-color: transparent !important;
   background: #15171e !important;
   color: #f3f4f8 !important;
 }

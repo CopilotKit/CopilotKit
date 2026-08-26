@@ -12,7 +12,8 @@ describe("inspector-nav", () => {
     expect(isInspectorMenuKey("whats-new")).toBe(true);
     expect(isInspectorMenuKey("playground")).toBe(true);
     expect(isInspectorMenuKey("threads")).toBe(true);
-    expect(isInspectorMenuKey("event-snippets")).toBe(true);
+    expect(isInspectorMenuKey("event-snippets")).toBe(false);
+    expect(isInspectorMenuKey("ag-ui-events")).toBe(true);
     expect(isInspectorMenuKey("learning")).toBe(false);
     expect(isInspectorMenuKey("settings")).toBe(false);
   });
@@ -22,7 +23,7 @@ describe("inspector-nav", () => {
     expect(getGroupForMenu("whats-new")).toBe("home");
     expect(getGroupForMenu("playground")).toBe("workbench");
     expect(getGroupForMenu("threads")).toBe("workbench");
-    expect(getGroupForMenu("event-snippets")).toBe("workbench");
+    expect(getGroupForMenu("ag-ui-events")).toBe("inspect");
     expect(getGroupForMenu("memories")).toBe("workbench");
     expect(getGroupForMenu("agents")).toBe("inspect");
   });

@@ -404,7 +404,6 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
       "whats-new",
       "playground",
       "threads",
-      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",
@@ -444,7 +443,7 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
   }
 });
 
-test("Threads saves an event sequence directly to the local snippets library", async () => {
+test("Threads saves an event sequence to the saved Events replay", async () => {
   const context = await setup({
     agent: true,
     threads: [
@@ -494,9 +493,18 @@ test("Threads saves an event sequence directly to the local snippets library", a
     );
     saveButton.click();
     await context.inspector.updateComplete;
-    await context.selectLeaf("event-snippets");
+    await context.selectLeaf("ag-ui-events");
+    const savedTab = requireElement(
+      Array.from(root.querySelectorAll<HTMLButtonElement>("[role=tab]")).find(
+        (tab) => tab.textContent?.trim().startsWith("Saved"),
+      ),
+      "Saved Events tab was not rendered",
+    );
+    savedTab.click();
+    await context.inspector.updateComplete;
     expect(root.textContent).toContain("Billing escalation events");
-    expect(root.textContent).toContain("2 events · saved locally");
+    expect(root.textContent).toContain("2 recorded events");
+    expect(root.textContent).toContain("Captured from Billing escalation");
     expect(root.querySelector("textarea")).toBeNull();
   } finally {
     context.teardown();
@@ -1163,7 +1171,6 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "whats-new",
       "playground",
       "threads",
-      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",
@@ -1194,7 +1201,6 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "whats-new",
       "playground",
       "threads",
-      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",

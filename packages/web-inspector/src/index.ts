@@ -6169,6 +6169,8 @@ export class WebInspectorElement extends LitElement {
   private snippetError: string | null = null;
   private snippetNotice: string | null = null;
   private hasLoadedThreadEventSnippets = false;
+  private eventsViewMode: "live" | "saved" = "live";
+  private selectedEventReplayId: string | null = null;
   private selectedThreadId: string | null = null;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
@@ -6488,7 +6490,7 @@ export class WebInspectorElement extends LitElement {
       },
       {
         key: "ag-ui-events",
-        label: "AG-UI Events",
+        label: "Events",
         icon: "Zap" as LucideIconName,
       },
       { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
@@ -6519,11 +6521,6 @@ export class WebInspectorElement extends LitElement {
         key: "threads",
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
-      },
-      {
-        key: "event-snippets",
-        label: "Event Snippets",
-        icon: "Bookmark" as LucideIconName,
       },
       {
         key: "memories",
@@ -8728,6 +8725,391 @@ export class WebInspectorElement extends LitElement {
         border-color: #343742;
       }
 
+      .cpk-events-view {
+        display: flex;
+        min-height: 0;
+        height: 100%;
+        flex-direction: column;
+        container-type: inline-size;
+        background: #fbfbfd;
+        color: #24242b;
+      }
+
+      .cpk-events-view__header {
+        display: flex;
+        flex: none;
+        min-height: 54px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid #e1e1e9;
+        background: #f7f6fd;
+        padding: 8px 14px;
+      }
+
+      .cpk-events-view__heading h2,
+      .cpk-events-view__heading p {
+        margin: 0;
+      }
+
+      .cpk-events-view__heading h2 {
+        color: #292731;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .cpk-events-view__heading p {
+        margin-top: 2px;
+        color: #68686e;
+        font-size: 11px;
+      }
+
+      .cpk-events-view__tabs {
+        display: inline-flex;
+        flex: none;
+        gap: 2px;
+        border: 1px solid #d8d8e8;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 2px;
+      }
+
+      .cpk-events-view__tabs button {
+        min-height: 27px;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        padding: 4px 8px;
+        color: #57575b;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .cpk-events-view__tabs button:hover {
+        background: #f0eef8;
+        color: #3f2875;
+      }
+
+      .cpk-events-view__tabs button.is-active {
+        background: #56359b;
+        color: #ffffff;
+      }
+
+      .cpk-events-view__tabs span {
+        display: inline-block;
+        min-width: 15px;
+        margin-left: 3px;
+        border-radius: 99px;
+        background: rgba(255, 255, 255, 0.2);
+        color: inherit;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 9px;
+        line-height: 15px;
+      }
+
+      .cpk-events-view__notice,
+      .cpk-events-view__error {
+        flex: none;
+        margin: 0;
+        border-bottom: 1px solid #d9ece2;
+        background: #f1fbf5;
+        padding: 6px 14px;
+        color: #267245;
+        font-size: 11px;
+      }
+
+      .cpk-events-view__error {
+        border-color: #f0d5d6;
+        background: #fff5f5;
+        color: #9d3037;
+      }
+
+      .cpk-events-view__content {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
+      }
+
+      .cpk-events-empty-state {
+        display: grid;
+        max-width: 340px;
+        margin: auto;
+        gap: 7px;
+        color: #3f3f46;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      .cpk-events-empty-state__icon {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        justify-self: center;
+        border: 1px solid #d8d1ef;
+        border-radius: 7px;
+        background: #eeebf8;
+        color: #56359b;
+      }
+
+      .cpk-events-empty-state p {
+        margin: 0;
+        color: #68686e;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      .cpk-event-replay {
+        min-height: 0;
+        overflow: auto;
+        padding: 12px 14px 20px;
+      }
+
+      .cpk-event-replay__controls {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+
+      .cpk-event-replay__controls label {
+        flex: none;
+        color: #57575b;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.045em;
+        text-transform: uppercase;
+      }
+
+      .cpk-event-replay__controls select {
+        min-width: 0;
+        flex: 1;
+        min-height: 30px;
+        border: 1px solid #d7d7e1;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 4px 8px;
+        color: #303039;
+        font: inherit;
+        font-size: 11px;
+      }
+
+      .cpk-event-replay__controls button {
+        min-height: 30px;
+        flex: none;
+        border: 1px solid #d7d7e1;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 4px 8px;
+        color: #3f2875;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .cpk-event-replay__controls button:hover {
+        border-color: #c7bddf;
+        background: #f7f4ff;
+      }
+
+      .cpk-event-replay__controls .cpk-event-replay__delete {
+        border-color: #edd4d4;
+        color: #a83d42;
+      }
+
+      .cpk-event-replay__summary {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+        max-width: 900px;
+        margin: 12px auto 0;
+        border-bottom: 1px solid #e4e4eb;
+        padding: 0 2px 10px;
+        color: #68686e;
+        font-size: 11px;
+      }
+
+      .cpk-event-replay__summary > div {
+        display: grid;
+        gap: 2px;
+      }
+
+      .cpk-event-replay__summary strong {
+        color: #303039;
+        font-size: 12px;
+      }
+
+      .cpk-event-replay__sequence {
+        display: grid;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0;
+        list-style: none;
+      }
+
+      .cpk-event-replay__sequence li {
+        border-bottom: 1px solid #e8e8ef;
+      }
+
+      .cpk-event-replay__sequence details {
+        padding: 0;
+      }
+
+      .cpk-event-replay__sequence summary {
+        display: grid;
+        grid-template-columns: 28px minmax(112px, 0.28fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        cursor: pointer;
+      }
+
+      .cpk-event-replay__sequence summary:hover {
+        background: #f8f7fb;
+      }
+
+      .cpk-event-replay__sequence summary span:first-child,
+      .cpk-event-replay__sequence summary strong {
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 10px;
+      }
+
+      .cpk-event-replay__sequence summary span:first-child {
+        color: #868690;
+        text-align: right;
+      }
+
+      .cpk-event-replay__sequence summary strong {
+        overflow: hidden;
+        color: #4c3f76;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-event-replay__sequence summary span:last-child {
+        overflow: hidden;
+        color: #68686e;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-event-replay__sequence pre {
+        max-height: 320px;
+        overflow: auto;
+        margin: 0 0 9px 36px;
+        border: 1px solid #e1e1e9;
+        border-radius: 6px;
+        background: #f7f6fd;
+        padding: 9px;
+        color: #3c3c44;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 10px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .drag-handle::after {
+        background: #3a3d49;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view {
+        background: #111319 !important;
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__header {
+        border-color: #343742;
+        background: #15171e !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__heading h2,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__summary strong {
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__heading p,
+      .inspector-window[data-color-scheme="dark"] .cpk-events-empty-state p,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__summary,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__sequence summary span:last-child {
+        color: #aeb1bd;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__tabs,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__controls select,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__controls button {
+        border-color: #343742;
+        background: #20232d;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__tabs button,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__controls label,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__controls select {
+        color: #d4d6df;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-events-view__tabs button.is-active {
+        background: #6b4aa8;
+        color: #ffffff;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__summary,
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__sequence li {
+        border-color: #343742;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__sequence summary:hover {
+        background: #1b1e27;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__sequence summary strong {
+        color: #cfc0f6;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-event-replay__sequence pre {
+        border-color: #343742;
+        background: #191c24;
+        color: #d4d6df;
+      }
+
+      @container (max-width: 560px) {
+        .cpk-events-view__header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .cpk-event-replay__controls {
+          flex-wrap: wrap;
+        }
+
+        .cpk-event-replay__controls select {
+          min-width: 150px;
+        }
+
+        .cpk-event-replay__summary {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .cpk-event-replay__sequence summary {
+          grid-template-columns: 25px minmax(0, 1fr);
+          gap: 6px;
+          padding: 5px 0;
+        }
+
+        .cpk-event-replay__sequence summary span:last-child {
+          grid-column: 2;
+        }
+      }
+
       @container (max-width: 560px) {
         .cpk-agent-view {
           padding: 12px;
@@ -10018,17 +10400,29 @@ export class WebInspectorElement extends LitElement {
 
       /* ── Header drag area ────────────────────────────────────────── */
       .drag-handle {
-        border-bottom-color: #d8d8e8 !important;
+        border-bottom: 0 !important;
         background-color: #f7f6fd !important;
       }
 
+      .drag-handle::after {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 224px;
+        z-index: 1;
+        height: 1px;
+        background: #d8d8e8;
+        content: "";
+        pointer-events: none;
+      }
+
+      .inspector-window:has(.inspector-sidebar[data-icon-rail="true"])
+        .drag-handle::after {
+        left: 56px;
+      }
+
       .inspector-account-strip {
-        background: linear-gradient(
-          90deg,
-          #ffffff 0%,
-          #f3f1ff 58%,
-          #eefbf7 100%
-        ) !important;
+        background-color: #f7f6fd !important;
         color: #010507 !important;
       }
 
@@ -12202,7 +12596,7 @@ export class WebInspectorElement extends LitElement {
           class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800"
         >
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 ${
               disableDrag
                 ? ""
                 : this.isDragging && this.pointerContext === "window"
@@ -12566,7 +12960,10 @@ export class WebInspectorElement extends LitElement {
     this.pendingPersistedMenu = null;
     this.briefingRestoreMenu = null;
 
-    const storedMenu = isInspectorMenuKey(value) ? value : null;
+    // Event Snippets was consolidated into Events. Preserve existing local
+    // navigation state so the redesign feels like a move, not a dead end.
+    const migratedValue = value === "event-snippets" ? "ag-ui-events" : value;
+    const storedMenu = isInspectorMenuKey(migratedValue) ? migratedValue : null;
     const visibleMenu =
       storedMenu && this.menuItems.some((item) => item.key === storedMenu)
         ? storedMenu
@@ -14412,14 +14809,7 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (this.selectedMenu === "ag-ui-events") {
-      return html`
-        <div class="flex h-full min-h-0 flex-col">
-          ${this.renderEventErrorBanner("run")}
-          <div class="min-h-0 flex-1 overflow-hidden">
-            ${this.renderEventsTable()}
-          </div>
-        </div>
-      `;
+      return this.renderEventsView();
     }
 
     if (this.selectedMenu === "playground") {
@@ -14444,10 +14834,6 @@ export class WebInspectorElement extends LitElement {
 
     if (this.selectedMenu === "threads") {
       return this.renderThreadsView();
-    }
-
-    if (this.selectedMenu === "event-snippets") {
-      return this.renderEventSnippetsView();
     }
 
     if (this.selectedMenu === "memories") {
@@ -16978,6 +17364,7 @@ export class WebInspectorElement extends LitElement {
         updatedAt: now,
       };
       this.threadEventSnippets = upsertThreadEventSnippet(snippet);
+      this.selectedEventReplayId = snippet.id;
       this.snippetNotice = `${events.length} events saved from ${threadName}.`;
       this.snippetError = null;
     } catch (error) {
@@ -16991,6 +17378,9 @@ export class WebInspectorElement extends LitElement {
     const snippet = this.threadEventSnippets.find((item) => item.id === id);
     if (!snippet || !window.confirm(`Delete ${snippet.name}?`)) return;
     this.threadEventSnippets = deleteThreadEventSnippet(id);
+    if (this.selectedEventReplayId === id) {
+      this.selectedEventReplayId = this.threadEventSnippets[0]?.id ?? null;
+    }
     this.snippetNotice = "Snippet deleted.";
     this.requestUpdate();
   };
@@ -17011,71 +17401,150 @@ export class WebInspectorElement extends LitElement {
     URL.revokeObjectURL(url);
   };
 
-  private renderEventSnippetsView() {
+  private renderEventsView() {
     this.ensureThreadEventSnippetsLoaded();
 
     return html`
-      <div class="inspector-event-snippets">
-        <header class="inspector-event-snippets__header">
-          <h2>Event Snippets</h2>
-          <div class="inspector-event-snippets__header-actions">
+      <div class="cpk-events-view">
+        <header class="cpk-events-view__header">
+          <div class="cpk-events-view__heading">
+            <h2>Events</h2>
+            <p>Inspect live activity or review a saved event sequence.</p>
+          </div>
+          <div class="cpk-events-view__tabs" role="tablist" aria-label="Events view">
             <button
               type="button"
-              ?disabled=${this.threadEventSnippets.length === 0}
-              @click=${this.exportThreadEventSnippetLibrary}
-            >Export library</button>
+              role="tab"
+              aria-selected=${this.eventsViewMode === "live" ? "true" : "false"}
+              class=${this.eventsViewMode === "live" ? "is-active" : ""}
+              @click=${() => this.setEventsViewMode("live")}
+            >Live</button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected=${this.eventsViewMode === "saved" ? "true" : "false"}
+              class=${this.eventsViewMode === "saved" ? "is-active" : ""}
+              @click=${() => this.setEventsViewMode("saved")}
+            >Saved <span>${this.threadEventSnippets.length}</span></button>
           </div>
         </header>
 
         ${
           this.snippetNotice
-            ? html`<p class="inspector-event-snippets__notice" role="status">${this.snippetNotice}</p>`
+            ? html`<p class="cpk-events-view__notice" role="status">${this.snippetNotice}</p>`
             : nothing
         }
         ${
           this.snippetError
-            ? html`<p class="inspector-event-snippets__error" role="alert">${this.snippetError}</p>`
+            ? html`<p class="cpk-events-view__error" role="alert">${this.snippetError}</p>`
             : nothing
         }
-
-        <main class="inspector-event-snippets__library" aria-label="Saved event snippets">
+        <main class="cpk-events-view__content">
           ${
-            this.threadEventSnippets.length === 0
+            this.eventsViewMode === "live"
               ? html`
-                  <div class="inspector-event-snippets__empty-state">
-                    <strong>No saved event snippets</strong>
-                    <p>
-                      Open a thread, choose <b>AG-UI Events</b>, then save its event sequence.
-                      Snippets stay in this browser.
-                    </p>
+                  ${this.renderEventErrorBanner("run")}
+                  <div class="min-h-0 flex-1 overflow-hidden">
+                    ${this.renderEventsTable()}
                   </div>
                 `
-              : html`
-                  <div class="inspector-event-snippets__library-title">
-                    <span>Saved snippets</span><span>${this.threadEventSnippets.length}</span>
-                  </div>
-                  <div class="inspector-event-snippets__library-list">
-                    ${this.threadEventSnippets.map(
-                      (snippet) => html`
-                        <article class="inspector-event-snippets__library-item">
-                          <div>
-                            <strong>${snippet.name}</strong>
-                            <span>${snippet.events.length} events · saved locally</span>
-                          </div>
-                          <button
-                            type="button"
-                            class="inspector-event-snippets__delete"
-                            aria-label=${`Delete ${snippet.name}`}
-                            @click=${() => this.deleteThreadEventSnippetFromLibrary(snippet.id)}
-                          >Delete</button>
-                        </article>
-                      `,
-                    )}
-                  </div>
-                `
+              : this.renderSavedEventReplays()
           }
         </main>
       </div>
+    `;
+  }
+
+  private setEventsViewMode(mode: "live" | "saved"): void {
+    this.eventsViewMode = mode;
+    this.requestUpdate();
+  }
+
+  private selectEventReplay(id: string): void {
+    this.selectedEventReplayId = id;
+    this.requestUpdate();
+  }
+
+  private renderSavedEventReplays() {
+    const selectedReplay =
+      this.threadEventSnippets.find(
+        (snippet) => snippet.id === this.selectedEventReplayId,
+      ) ?? this.threadEventSnippets[0];
+
+    if (!selectedReplay) {
+      return html`
+        <div class="cpk-events-empty-state">
+          <span class="cpk-events-empty-state__icon">${this.renderIcon("Bookmark")}</span>
+          <strong>No saved replays</strong>
+          <p>
+            Open a thread, choose its AG-UI Events tab, then save the event
+            sequence.
+            Saved replays stay in this browser.
+          </p>
+        </div>
+      `;
+    }
+
+    return html`
+      <section class="cpk-event-replay" aria-label="Saved event replay">
+        <header class="cpk-event-replay__controls">
+          <label for="cpk-event-replay-select">Saved replay</label>
+          <select
+            id="cpk-event-replay-select"
+            .value=${selectedReplay.id}
+            @change=${(event: Event) =>
+              this.selectEventReplay((event.target as HTMLSelectElement).value)}
+          >
+            ${this.threadEventSnippets.map(
+              (snippet) => html`
+                <option value=${snippet.id}>
+                  ${snippet.name} (${snippet.events.length} events)
+                </option>
+              `,
+            )}
+          </select>
+          <button
+            type="button"
+            class="cpk-event-replay__export"
+            @click=${this.exportThreadEventSnippetLibrary}
+          >Export saved events</button>
+          <button
+            type="button"
+            class="cpk-event-replay__delete"
+            aria-label=${`Delete ${selectedReplay.name}`}
+            @click=${() => this.deleteThreadEventSnippetFromLibrary(selectedReplay.id)}
+          >Delete</button>
+        </header>
+        <div class="cpk-event-replay__summary">
+          <div>
+            <strong>${selectedReplay.name}</strong>
+            <span>${selectedReplay.events.length} recorded events</span>
+          </div>
+          <span>Captured from ${selectedReplay.sourceThreadName}</span>
+        </div>
+        <ol class="cpk-event-replay__sequence">
+          ${selectedReplay.events.map((event, index) => {
+            const payload =
+              this.stringifyPayload(event.payload ?? event, true) ??
+              "No event payload recorded.";
+            const preview =
+              this.stringifyPayload(event.payload ?? event, false) ??
+              "No event payload recorded.";
+            return html`
+              <li>
+                <details>
+                  <summary>
+                    <span>${String(index + 1).padStart(2, "0")}</span>
+                    <strong>${event.type}</strong>
+                    <span>${preview}</span>
+                  </summary>
+                  <pre>${payload}</pre>
+                </details>
+              </li>
+            `;
+          })}
+        </ol>
+      </section>
     `;
   }
 
