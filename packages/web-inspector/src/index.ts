@@ -1625,7 +1625,6 @@ class CpkThreadList extends PortableLitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 3px;
     }
 
     .cpk-tl__name {
@@ -1822,23 +1821,29 @@ class CpkThreadList extends PortableLitElement {
                     >${this.relativeTime(thread.updatedAt)}</span
                   >
                 </span>
-                <span class="cpk-tl__meta">
-                  <span class="cpk-tl__pill">${thread.agentId}</span>
-                  ${
-                    (thread as Partial<ExampleThread>).isExample
-                      ? html`
-                          <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
-                        `
-                      : nothing
-                  }
-                  ${
-                    this.inAppThreadId === thread.id
-                      ? html`
-                          <span class="cpk-tl__pill cpk-tl__pill--in-app">In app</span>
-                        `
-                      : nothing
-                  }
-                </span>
+                ${
+                  (thread as Partial<ExampleThread>).isExample ||
+                  this.inAppThreadId === thread.id
+                    ? html`
+                        <span class="cpk-tl__meta">
+                          ${
+                            (thread as Partial<ExampleThread>).isExample
+                              ? html`
+                                  <span class="cpk-tl__pill cpk-tl__pill--example">Example</span>
+                                `
+                              : nothing
+                          }
+                          ${
+                            this.inAppThreadId === thread.id
+                              ? html`
+                                  <span class="cpk-tl__pill cpk-tl__pill--in-app">In app</span>
+                                `
+                              : nothing
+                          }
+                        </span>
+                      `
+                    : nothing
+                }
               </button>
             `,
           )}
@@ -1940,7 +1945,6 @@ export class CpkThreadInspector extends PortableLitElement {
     _expandedTimelineDetails: { state: true },
     _expandedRawEvents: { state: true },
     _showDetailPanel: { state: true },
-    _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
     _stateNotAvailable: { state: true },
     _panelInitializing: { state: true },
@@ -1988,7 +1992,6 @@ export class CpkThreadInspector extends PortableLitElement {
   private _expandedTimelineDetails = new Set<string>();
   private _expandedRawEvents = new Set<string>();
   private _showDetailPanel = false;
-  private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
   private _eventsNotAvailable = false;
   /** True when the /state endpoint returned 501 — don't fall back to live data. */
@@ -2058,10 +2061,6 @@ export class CpkThreadInspector extends PortableLitElement {
   private _snippetSaveNotice: string | null = null;
   private _snippetSaveNoticeTimeout: number | null = null;
   private _hasConnectedOnce = false;
-  private _dividerResizing = false;
-  private _dividerPointerId = -1;
-  private _dividerStartX = 0;
-  private _dividerStartWidth = 0;
   private static nextDomId = 1;
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
@@ -2224,6 +2223,7 @@ export class CpkThreadInspector extends PortableLitElement {
       width: 100%;
       height: 100%;
       overflow: hidden;
+      position: relative;
       background: #ffffff;
     }
 
@@ -3077,46 +3077,71 @@ export class CpkThreadInspector extends PortableLitElement {
       color: var(--cpk-json-nil);
     }
 
-    /* ── Resize divider ──────────────────────────────────────────────── */
-    /* Floats over the drawer's left edge so the toggle and the drawer
-       touch directly without a 4px flex-gap between them. The hit zone
-       is wider than its visual hint to make it easy to grab. */
-    .cpk-td__detail-divider {
+    /* ── Thread details sheet ───────────────────────────────────────── */
+    .cpk-td__detail-scrim {
       position: absolute;
-      top: 0;
-      bottom: 0;
-      left: -3px;
-      width: 7px;
-      cursor: col-resize;
-      background: transparent;
-      z-index: 5;
+      inset: 0;
+      z-index: 4;
+      border: 0;
+      background: rgba(1, 5, 7, 0.08);
+      cursor: default;
     }
 
-    .cpk-td__detail-divider:hover {
-      background: rgba(190, 194, 255, 0.3);
-    }
-
-    /* ── Right detail panel ──────────────────────────────────────────── */
     .cpk-td__detail {
-      flex-shrink: 0;
-      overflow: hidden;
+      position: absolute;
+      z-index: 5;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(340px, calc(100% - 32px));
+      overflow-y: auto;
       background: #f7f7f9;
       display: flex;
       flex-direction: column;
       gap: 0;
-      padding: 0;
+      padding: 0 16px 16px;
       box-sizing: border-box;
-      position: relative;
-      /* Slide open/closed via width + padding transition. When closed,
-         width and padding are 0 so the drawer fully collapses. */
-      transition:
-        width 220ms cubic-bezier(0.4, 0, 0.2, 1),
-        padding 220ms cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: -16px 0 32px rgba(1, 5, 7, 0.14);
+      transform: translateX(calc(100% + 16px));
+      transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .cpk-td__detail[data-open="true"] {
-      overflow-y: auto;
-      padding: 16px;
+      transform: translateX(0);
+    }
+
+    .cpk-td__detail-header {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 52px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #dbdbe5;
+      background: #f7f7f9;
+    }
+
+    .cpk-td__detail-heading {
+      color: #010507;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .cpk-td__detail-close {
+      border: 0;
+      background: transparent;
+      color: #57575b;
+      cursor: pointer;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 0 6px 10px;
+    }
+
+    .cpk-td__detail-close:hover {
+      color: #010507;
     }
 
     .cpk-tdp__section-title {
@@ -3200,8 +3225,13 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__thread-header,
-    :host([data-color-scheme="dark"]) .cpk-td__detail {
+    :host([data-color-scheme="dark"]) .cpk-td__detail,
+    :host([data-color-scheme="dark"]) .cpk-td__detail-header {
       background: #15171e;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__detail-scrim {
+      background: rgba(0, 0, 0, 0.28);
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
@@ -3357,6 +3387,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__tab:hover,
     :host([data-color-scheme="dark"]) .cpk-td__tab--active,
     :host([data-color-scheme="dark"]) .cpk-td__thread-title,
+    :host([data-color-scheme="dark"]) .cpk-td__detail-heading,
     :host([data-color-scheme="dark"]) .cpk-td__tool-name,
     :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
@@ -3364,6 +3395,10 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__detail-close {
+      color: #aeb1bd;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
@@ -4374,34 +4409,6 @@ export class CpkThreadInspector extends PortableLitElement {
     });
   }
 
-  private onDetailDividerDown = (event: PointerEvent): void => {
-    this._dividerResizing = true;
-    this._dividerPointerId = event.pointerId;
-    this._dividerStartX = event.clientX;
-    this._dividerStartWidth = this._detailPanelWidth;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  };
-
-  private onDetailDividerMove = (event: PointerEvent): void => {
-    if (!this._dividerResizing || this._dividerPointerId !== event.pointerId)
-      return;
-    const delta = this._dividerStartX - event.clientX;
-    this._detailPanelWidth = Math.max(
-      160,
-      Math.min(400, this._dividerStartWidth + delta),
-    );
-  };
-
-  private onDetailDividerUp = (event: PointerEvent): void => {
-    if (this._dividerPointerId !== event.pointerId) return;
-    const target = event.currentTarget as HTMLElement;
-    if (target.hasPointerCapture(this._dividerPointerId)) {
-      target.releasePointerCapture(this._dividerPointerId);
-    }
-    this._dividerResizing = false;
-  };
-
   render() {
     return html`
       <div class="cpk-td">
@@ -4479,26 +4486,38 @@ export class CpkThreadInspector extends PortableLitElement {
           </div>
         </div>
 
-        <!-- Drawer stays mounted so its width can animate between 0 and its target. -->
+        ${
+          this._showDetailPanel
+            ? html`
+                <button
+                  type="button"
+                  class="cpk-td__detail-scrim"
+                  aria-label="Close thread details"
+                  @click=${() => {
+                    this._showDetailPanel = false;
+                  }}
+                ></button>
+              `
+            : nothing
+        }
+        <!-- The sheet overlays the reading surface instead of narrowing it. -->
         <div
           class="cpk-td__detail"
           data-open=${this._showDetailPanel ? "true" : "false"}
-          style="width:${this._showDetailPanel ? this._detailPanelWidth : 0}px"
           aria-hidden=${this._showDetailPanel ? "false" : "true"}
+          role="complementary"
+          aria-label="Thread details"
         >
-          ${
-            this._showDetailPanel
-              ? html`
-                <div
-                  class="cpk-td__detail-divider"
-                  @pointerdown=${this.onDetailDividerDown}
-                  @pointermove=${this.onDetailDividerMove}
-                  @pointerup=${this.onDetailDividerUp}
-                  @pointercancel=${this.onDetailDividerUp}
-                ></div>
-              `
-              : nothing
-          }
+          <div class="cpk-td__detail-header">
+            <span class="cpk-td__detail-heading">Thread details</span>
+            <button
+              type="button"
+              class="cpk-td__detail-close"
+              @click=${() => {
+                this._showDetailPanel = false;
+              }}
+            >Close</button>
+          </div>
           ${this.renderDetailPanel()}
         </div>
       </div>
@@ -6162,7 +6181,7 @@ export class WebInspectorElement extends LitElement {
   private requestedThreadId: string | null = null;
   private focusedThreadMessageId: string | null = null;
   private threadFocusRequestId = 0;
-  private threadListWidth = 290;
+  private threadListWidth = 244;
   private threadDividerResizing = false;
   private threadDividerPointerId = -1;
   private threadDividerStartX = 0;
@@ -14985,8 +15004,8 @@ export class WebInspectorElement extends LitElement {
       return;
     const delta = event.clientX - this.threadDividerStartX;
     this.threadListWidth = Math.max(
-      180,
-      Math.min(480, this.threadDividerStartWidth + delta),
+      220,
+      Math.min(360, this.threadDividerStartWidth + delta),
     );
     this.requestUpdate();
   };
