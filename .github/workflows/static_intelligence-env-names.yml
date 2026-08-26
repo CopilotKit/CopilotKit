@@ -1,4 +1,4 @@
-name: static / intelligence env names
+name: static / intelligence contracts
 
 # Deliberately unfiltered. A non-canonical Intelligence key name can appear in
 # any README, example, skill, or doc page, and the two workflows that would
@@ -6,6 +6,10 @@ name: static / intelligence env names
 # static/quality by `paths-ignore: examples/**`, which is precisely where the
 # deprecated alias still lives. Scoping this job would re-open the hole it
 # exists to close.
+#
+# The wiring-block check needs the same reach for the same reason. The starters'
+# Intelligence block lives under `examples/**`, which static/quality ignores,
+# and the parity drift check exempts the route it sits in (OSS-982).
 on:
   push:
     branches: [main]
@@ -45,3 +49,12 @@ jobs:
 
       - name: Check Intelligence env var names are canonical
         run: pnpm check:intelligence-env-names
+
+      # Same reasoning as above: the rules are unit-tested here because nothing
+      # else executes scripts/__tests__, and a discovery grep that stopped
+      # matching would leave the check below passing on an empty file list.
+      - name: Test the wiring-block validator's rules
+        run: pnpm exec vitest run scripts/__tests__/validate-intelligence-wiring-block.test.ts
+
+      - name: Check the starters' Intelligence wiring block is one shape
+        run: pnpm check:intelligence-wiring-block

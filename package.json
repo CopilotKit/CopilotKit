@@ -38,6 +38,7 @@
     "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
     "validate:retired-anthropic-models": "nx run repo-scripts:validate-retired-anthropic-models",
     "check:intelligence-env-names": "tsx scripts/validate-intelligence-env-names.ts",
+    "check:intelligence-wiring-block": "tsx scripts/validate-intelligence-wiring-block.ts",
     "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
     "generate:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs generate",
     "check:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs check",
