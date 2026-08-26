@@ -562,6 +562,47 @@ test("Playground omits the durability CTA when Intelligence is active", async ()
   }
 });
 
+test("Playground composer stays readable in dark mode", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+
+    expect(
+      root
+        .querySelector('textarea[aria-label="Playground message"]')
+        ?.classList.contains("cpk-playground-input"),
+    ).toBe(true);
+    expect(root.querySelector(".cpk-playground-composer")).not.toBeNull();
+    expect(
+      root
+        .querySelector('button[aria-label="Send playground message"]')
+        ?.classList.contains("cpk-playground-send"),
+    ).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
   const context = await setup({ metadata: trustedMetadata() });
   try {
@@ -1350,6 +1391,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     expect(visibleOption()).not.toBeNull();
     scopeRoot.dispatchEvent(new Event("pointerleave"));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await context.inspector.updateComplete;
     expect(visibleOption()).toBeNull();
     expect(sidebar.querySelector(".inspector-sidebar-footer")).toBeNull();
