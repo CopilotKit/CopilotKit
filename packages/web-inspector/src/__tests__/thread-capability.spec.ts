@@ -700,7 +700,7 @@ test("inspect true loads events, empty-events messages fallback, and state witho
     await harness.openThreads();
     await vi.waitFor(() => {
       expect(harness.requests().events).toBe(1);
-      expect(harness.requests().messages).toBe(2);
+      expect(harness.requests().messages).toBe(1);
     });
 
     await harness.activateDetailTab("State");
@@ -710,7 +710,7 @@ test("inspect true loads events, empty-events messages fallback, and state witho
       list: 1,
       subscribe: 0,
       inspect: 0,
-      messages: 2,
+      messages: 1,
       events: 1,
       state: 1,
     });

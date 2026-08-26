@@ -167,7 +167,7 @@ function appendDetail(options: {
   return detail;
 }
 
-async function expectUserMessageBeforeRun(
+async function expectConversationMessages(
   detail: CpkThreadInspector,
   userText: string,
   assistantText: string,
@@ -176,30 +176,16 @@ async function expectUserMessageBeforeRun(
     const text = detail.shadowRoot?.textContent ?? "";
     expect(text).toContain(userText);
     expect(text).toContain(assistantText);
-    expect(text).toContain("User message");
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__bubble--user"),
+    ).not.toBeNull();
+    expect(
+      detail.shadowRoot?.querySelector(".cpk-td__bubble--assistant"),
+    ).not.toBeNull();
   });
-  const titles = Array.from(
-    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-title") ?? [],
-  ).map((node) => node.textContent?.trim());
-  expect(titles[0]).toBe("User message");
-  expect(titles).toContain("Run started");
-  expect(titles).toContain("Assistant message");
-  const items = Array.from(
-    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-item") ?? [],
-  );
   expect(
-    items.some((node) =>
-      node.classList.contains("cpk-td__timeline-item--user"),
-    ),
-  ).toBe(true);
-  expect(
-    items.some((node) =>
-      node.classList.contains("cpk-td__timeline-item--assistant"),
-    ),
-  ).toBe(true);
-  expect(
-    items.some((node) => node.classList.contains("cpk-td__timeline-item--run")),
-  ).toBe(true);
+    detail.shadowRoot?.querySelector(".cpk-td__timeline-item--run"),
+  ).toBeNull();
 }
 
 function detailTabs(detail: CpkThreadInspector): HTMLButtonElement[] {
@@ -905,7 +891,7 @@ test("AG-UI Events exposes the indexed raw event without mixing it into Messages
     expect(event?.closest<HTMLElement>('[role="tabpanel"]')?.hidden).toBe(
       false,
     );
-    expect(event?.textContent).toContain("Run started");
+    expect(event?.textContent).toContain("RUN_STARTED");
     expect(event?.classList.contains("cpk-td__event--run")).toBe(true);
     expect(
       event?.querySelector(".cpk-td__event-type")?.getAttribute("style"),
@@ -930,7 +916,7 @@ test("Messages timeline shows user messages that events omit", async () => {
     },
   });
   try {
-    await expectUserMessageBeforeRun(
+    await expectConversationMessages(
       detail,
       "Hello from the user",
       "Hello back",
@@ -959,7 +945,7 @@ test("Messages timeline shows live agent user messages when the runtime omits th
     ],
   });
   try {
-    await expectUserMessageBeforeRun(
+    await expectConversationMessages(
       detail,
       "Hello from the live agent",
       "Hello back",
@@ -977,21 +963,21 @@ test("all three local examples use the shared labels, created fact, local panels
     {
       id: "example-realtime-sync",
       name: "Realtime thread sync",
-      event: "Run started",
+      event: "RUN_STARTED",
       state: "cart_demo_42",
       message: "Resume the checkout support thread from yesterday.",
     },
     {
       id: "example-manage-history",
       name: "Manage saved conversations",
-      event: "Custom event",
+      event: "CUSTOM_EVENT",
       state: "Billing escalation handoff",
       message: "Rename this saved support conversation for the handoff.",
     },
     {
       id: "example-inspect-runs",
       name: "Inspect durable run history",
-      event: "Tool call start",
+      event: "TOOL_CALL_START",
       state: "auditLogsRequired",
       message: "Why did the assistant recommend the enterprise plan?",
     },

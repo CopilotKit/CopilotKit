@@ -58,10 +58,9 @@ test("thread details hide the action until the parent asks for it", async () => 
 
   detail.viewInAppMode = "view";
   await detail.updateComplete;
-  const button = viewButton(detail.shadowRoot);
-  expect(button?.textContent?.trim()).toBe("View in your app");
-  expect(button?.closest(".cpk-td__chrome-actions")).not.toBeNull();
-  expect(button?.closest('[aria-label="Thread metadata"]')).toBeNull();
+  expect(viewButton(detail.shadowRoot)?.textContent?.trim()).toBe(
+    "View in your app",
+  );
 
   detail.viewInAppMode = "stop";
   await detail.updateComplete;

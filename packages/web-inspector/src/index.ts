@@ -4600,7 +4600,7 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderTimelineBulkControls() {
+  private renderActiveBulkControls() {
     if (this._eventsNotAvailable) return nothing;
     if (this._tab === "raw-events") return this.renderRawEventBulkControls();
     return nothing;
@@ -5173,7 +5173,7 @@ export class CpkThreadInspector extends PortableLitElement {
             >
               <div class="cpk-td__event-header">
                 <span class="cpk-td__event-type" title=${event.type}
-                  >${humanizeEventType(event.type)}</span
+                  >${event.type}</span
                 >
                 <span class="cpk-td__event-time"
                   >${formatTimestamp(event.timestamp)}</span
