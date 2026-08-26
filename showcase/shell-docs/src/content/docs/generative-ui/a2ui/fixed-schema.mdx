@@ -269,7 +269,14 @@ Mastra and Strands take a different route: the agent tool runs a
 operations container per-request. The frontend catalog is still fixed
 (same `Title`/`Airport`/`Arrow`/`AirlineBadge`/`PriceTag` primitives),
 but the schema is built on the fly. Schema construction and render
-emission happen in the same tool call:
+emission happen in the same tool call.
+
+Neither SDK ships an `a2ui.render(...)` equivalent here, so the tool
+assembles the `a2ui_operations` envelope itself — the operation builder
+below is part of what you copy. Note the operations are *nested*
+(`{ createSurface: {...} }`): a consumer dispatches on the operation
+key, so a flat `{ type: "create_surface" }` shape is ignored and the
+surface never paints.
 
 <Snippet region="backend-render-operations" />
 </Step>

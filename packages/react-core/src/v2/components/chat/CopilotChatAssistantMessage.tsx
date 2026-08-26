@@ -191,7 +191,9 @@ export function CopilotChatAssistantMessage({
     message.role === "assistant" &&
     messages?.[messages.length - 1]?.id === message.id;
   const shouldShowToolbar =
-    toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
+    toolbarVisible &&
+    (hasContent || isLocalInspectorEnabled) &&
+    !(isRunning && isLatestAssistantMessage);
 
   if (children) {
     return (
@@ -382,9 +384,10 @@ export namespace CopilotChatAssistantMessage {
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       title: string;
       tooltip?: React.ReactNode;
+      tooltipClassName?: string;
       children: React.ReactNode;
     }
-  > = ({ title, tooltip, children, ...props }) => {
+  > = ({ title, tooltip, tooltipClassName, children, ...props }) => {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -397,7 +400,7 @@ export namespace CopilotChatAssistantMessage {
             {children}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
+        <TooltipContent side="bottom" className={tooltipClassName}>
           {tooltip ?? <p>{title}</p>}
         </TooltipContent>
       </Tooltip>
@@ -459,28 +462,25 @@ export namespace CopilotChatAssistantMessage {
 
   export const InspectorButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ title, ...props }) => {
+  > = ({ title, className, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     const primaryLabel = title || labels.assistantMessageToolbarInspectorLabel;
-    const localOnlyLabel =
-      labels.assistantMessageToolbarInspectorLocalOnlyLabel;
-    const accessibleLabel = `${primaryLabel} (${localOnlyLabel})`;
+    const accessibleLabel = `${primaryLabel} (local only)`;
     return (
       <ToolbarButton
         data-testid="copilot-inspector-button"
         title={accessibleLabel}
-        tooltip={
-          <div className="cpk:flex cpk:flex-col cpk:gap-0.5">
-            <span>{primaryLabel}</span>
-            <span className="cpk:text-[10px] cpk:opacity-65">
-              {localOnlyLabel}
-            </span>
-          </div>
-        }
+        className={twMerge("cpk:w-auto cpk:gap-1.5 cpk:px-2", className)}
+        tooltipClassName="cpk:max-w-64 cpk:text-left cpk:leading-4"
+        tooltip="View this message in the Inspector to get more information. This button and the inspector only display during local development (localhost, dev env)."
         {...props}
       >
         <CopilotKitColoredIcon />
+        <span className="cpk:font-medium">{primaryLabel}</span>
+        <span className="cpk:text-xs cpk:text-muted-foreground">
+          (local only)
+        </span>
       </ToolbarButton>
     );
   };

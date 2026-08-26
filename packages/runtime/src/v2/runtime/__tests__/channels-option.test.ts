@@ -3,6 +3,7 @@ import { CopilotRuntime } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { createChannel } from "@copilotkit/channels";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 
 const intelligence = () =>
   new CopilotKitIntelligence({
@@ -142,6 +143,29 @@ describe("CopilotRuntime — channels option", () => {
         realtimeMetadata: false,
       },
     });
+  });
+
+  it("intelligence runtime rejects a caller-supplied runner", () => {
+    expect(
+      () =>
+        new CopilotRuntime({
+          agents: {},
+          intelligence: intelligence(),
+          identifyUser,
+          runner: new InMemoryAgentRunner(),
+        } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]),
+    ).toThrow(/runner/);
+  });
+
+  it("intelligence runtime tolerates an explicitly undefined runner", () => {
+    const rt = new CopilotRuntime({
+      agents: {},
+      intelligence: intelligence(),
+      identifyUser,
+      runner: undefined,
+    } as unknown as ConstructorParameters<typeof CopilotRuntime>[0]);
+
+    expect(rt.runner).toBeDefined();
   });
 
   it("sse runtime rejects channels", () => {

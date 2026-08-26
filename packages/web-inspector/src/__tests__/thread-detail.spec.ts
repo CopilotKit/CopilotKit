@@ -127,17 +127,79 @@ async function flushInspector(inspector: WebInspectorElement): Promise<void> {
   }
 }
 
+const RUN_EVENTS_WITHOUT_USER = [
+  {
+    type: "RUN_STARTED",
+    timestamp: "2026-06-25T10:00:00.000Z",
+    payload: { runId: "run-1" },
+  },
+  {
+    type: "TEXT_MESSAGE_START",
+    timestamp: "2026-06-25T10:00:01.000Z",
+    payload: { messageId: "assistant-1", role: "assistant" },
+  },
+  {
+    type: "TEXT_MESSAGE_CONTENT",
+    timestamp: "2026-06-25T10:00:02.000Z",
+    payload: { messageId: "assistant-1", delta: "Hello back" },
+  },
+  {
+    type: "RUN_FINISHED",
+    timestamp: "2026-06-25T10:00:03.000Z",
+    payload: { runId: "run-1" },
+  },
+] as const;
+
 function appendDetail(options: {
   threadId: string;
   provider?: ThreadDebuggerProvider;
   thread?: ThreadDebuggerMetadata;
+  agentMessagesInput?: CpkThreadInspector["agentMessagesInput"];
 }): CpkThreadInspector {
   const detail = new CpkThreadInspector();
   detail.threadId = options.threadId;
   detail.provider = options.provider ?? null;
   detail.thread = options.thread ?? null;
+  if (options.agentMessagesInput) {
+    detail.agentMessagesInput = options.agentMessagesInput;
+  }
   document.body.append(detail);
   return detail;
+}
+
+async function expectUserMessageBeforeRun(
+  detail: CpkThreadInspector,
+  userText: string,
+  assistantText: string,
+): Promise<void> {
+  await vi.waitFor(() => {
+    const text = detail.shadowRoot?.textContent ?? "";
+    expect(text).toContain(userText);
+    expect(text).toContain(assistantText);
+    expect(text).toContain("User message");
+  });
+  const titles = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-title") ?? [],
+  ).map((node) => node.textContent?.trim());
+  expect(titles[0]).toBe("User message");
+  expect(titles).toContain("Run started");
+  expect(titles).toContain("Assistant message");
+  const items = Array.from(
+    detail.shadowRoot?.querySelectorAll(".cpk-td__timeline-item") ?? [],
+  );
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--user"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) =>
+      node.classList.contains("cpk-td__timeline-item--assistant"),
+    ),
+  ).toBe(true);
+  expect(
+    items.some((node) => node.classList.contains("cpk-td__timeline-item--run")),
+  ).toBe(true);
 }
 
 function detailTabs(detail: CpkThreadInspector): HTMLButtonElement[] {
@@ -327,13 +389,13 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
   await flushInspector(inspector);
 
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();
   await flushInspector(inspector);
   const threads = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[data-inspector-group="threads"]',
+    'button[data-inspector-menu-key="threads"]',
   );
   if (!threads) throw new Error("Threads group was not rendered");
   threads.click();
@@ -461,6 +523,12 @@ test("real metadata renders the exact labels, full identity, and supplied option
     );
     expect(header?.getAttribute("role")).toBe("group");
     expect(header?.getAttribute("aria-label")).toBe("Thread metadata");
+    const headerChildren = Array.from(header?.children ?? []);
+    expect(headerChildren).toHaveLength(1);
+    expect(
+      headerChildren[0]?.classList.contains("cpk-td__metadata-pills"),
+    ).toBe(true);
+    expect(header?.querySelector(".cpk-td__metadata-actions")).toBeNull();
     expect(header?.textContent).not.toContain("End user");
     expect(header?.textContent).not.toContain("Created by");
     expect(header?.textContent).not.toContain("Status");
@@ -787,7 +855,7 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
   }
 });
 
-test("real provider navigation shares events, lazily loads state once, and adds no request", async () => {
+test("real provider navigation shares events, loads messages with events, lazily loads state once, and adds no request", async () => {
   prepareDom();
   const currentFetch = globalThis.fetch;
   const fetchMock = Object.assign(
@@ -813,9 +881,11 @@ test("real provider navigation shares events, lazily loads state once, and adds 
     provider: { getThreadMetadata, getMessages, getEvents, getState },
   });
   try {
-    await vi.waitFor(() => expect(getEvents).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => {
+      expect(getEvents).toHaveBeenCalledTimes(1);
+      expect(getMessages).toHaveBeenCalledTimes(1);
+    });
     expect(getThreadMetadata).toHaveBeenCalledTimes(1);
-    expect(getMessages).not.toHaveBeenCalled();
     expect(getState).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
 
@@ -823,7 +893,7 @@ test("real provider navigation shares events, lazily loads state once, and adds 
     await selectTab(detail, "Messages");
     await selectTab(detail, "AG-UI Events");
     expect(getEvents).toHaveBeenCalledTimes(1);
-    expect(getMessages).not.toHaveBeenCalled();
+    expect(getMessages).toHaveBeenCalledTimes(1);
 
     await selectTab(detail, "State");
     await vi.waitFor(() => expect(getState).toHaveBeenCalledTimes(1));
@@ -876,13 +946,65 @@ test("a source-event link selects AG-UI Events and reveals the indexed event", a
     expect(event?.closest<HTMLElement>('[role="tabpanel"]')?.hidden).toBe(
       false,
     );
-    expect(event?.textContent).toContain("RUN_STARTED");
+    expect(event?.textContent).toContain("Run started");
+    expect(event?.classList.contains("cpk-td__event--run")).toBe(true);
     expect(
-      getComputedStyle(
-        event?.querySelector<HTMLElement>(".cpk-td__event-type") ??
-          document.body,
-      ).color,
-    ).toBe("rgb(138, 89, 0)");
+      event?.querySelector(".cpk-td__event-type")?.getAttribute("style"),
+    ).toBeNull();
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows user messages that events omit", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([
+        { id: "user-1", role: "user", content: "Hello from the user" },
+        { id: "assistant-1", role: "assistant", content: "Hello back" },
+      ]),
+    },
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the user",
+      "Hello back",
+    );
+  } finally {
+    detail.remove();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});
+
+test("Messages timeline shows live agent user messages when the runtime omits them", async () => {
+  prepareDom();
+  const detail = appendDetail({
+    threadId: "thread-live-user-message",
+    provider: {
+      getEvents: vi.fn().mockResolvedValue([...RUN_EVENTS_WITHOUT_USER]),
+      getMessages: vi.fn().mockResolvedValue([]),
+    },
+    agentMessagesInput: [
+      {
+        id: "user-live-1",
+        role: "user",
+        contentText: "Hello from the live agent",
+      },
+    ],
+  });
+  try {
+    await expectUserMessageBeforeRun(
+      detail,
+      "Hello from the live agent",
+      "Hello back",
+    );
   } finally {
     detail.remove();
     vi.restoreAllMocks();
@@ -896,19 +1018,19 @@ test("all three local examples use the shared labels, created fact, local panels
     {
       id: "example-realtime-sync",
       name: "Realtime thread sync",
-      event: "RUN_STARTED",
+      event: "Run started",
       state: "cart_demo_42",
     },
     {
       id: "example-manage-history",
       name: "Manage saved conversations",
-      event: "CUSTOM_EVENT",
+      event: "Custom event",
       state: "Billing escalation handoff",
     },
     {
       id: "example-inspect-runs",
       name: "Inspect durable run history",
-      event: "TOOL_CALL_START",
+      event: "Tool call start",
       state: "auditLogsRequired",
     },
   ] as const;

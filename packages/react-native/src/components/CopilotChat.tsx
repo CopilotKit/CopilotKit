@@ -180,8 +180,8 @@ function objectContentKey(content: object): string {
  * before inserting the tool message. Non-string content is only reachable from a
  * producer that skipped that validation — restored thread history, a non-SSE
  * transport, or app code casting on `addMessage`. Core hedges against exactly
- * that case too (`normalizeToolResultContent` in run-handler accepts `unknown`
- * and handles arrays of text parts), so this must not answer it with `""`:
+ * that case too (core accepts `unknown` content and handles arrays of text
+ * parts), so this must not answer it with `""`:
  * an empty string is a LEGITIMATE tool result, which makes a dropped result
  * indistinguishable from an empty one. Serialise faithfully — the same
  * representation core uses for non-string results — and warn in dev.

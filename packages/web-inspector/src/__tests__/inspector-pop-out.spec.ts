@@ -45,7 +45,10 @@ type InspectorPopOutContext = {
   windowOpen: ReturnType<typeof vi.fn<OpenWindow>>;
   open: () => Promise<void>;
   selectGroup: (key: string) => Promise<void>;
+  selectLeaf: (key: string) => Promise<void>;
   clickDetach: () => Promise<void>;
+  /** Make the runtime handshake fail, driving the connection into error. */
+  breakRuntime: () => Promise<void>;
   firePageHide: () => void;
   firePopOutPointerDown: (path?: EventTarget[]) => void;
   teardown: () => void;
@@ -58,6 +61,7 @@ type SetupOptions = {
 
 const DETACH_LABEL = "Detach Inspector into its own window";
 const DETACH_TEST_ID = "cpk-inspector-pop-out";
+const WINDOW_LAYOUT_LABEL = "Window layout";
 const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const POP_OUT_REOPEN_KEYS = [
   "isPoppedOut",
@@ -191,7 +195,43 @@ function requireShadow(inspector: WebInspectorElement): ShadowRoot {
   );
 }
 
-function requireDetach(root: ParentNode): HTMLButtonElement {
+async function openWindowLayoutMenu(
+  inspector: WebInspectorElement,
+): Promise<ShadowRoot> {
+  let root = requireShadow(inspector);
+  if (root.querySelector('[role="menu"][aria-label="Window layout"]')) {
+    return root;
+  }
+  const trigger = requireElement(
+    root.querySelector<HTMLButtonElement>(
+      `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
+    ),
+    "Window layout control was not rendered",
+  );
+  trigger.click();
+  await inspector.updateComplete;
+  root = requireShadow(inspector);
+  expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+  return root;
+}
+
+async function requireWindowLayoutAction(
+  inspector: WebInspectorElement,
+  label: string,
+): Promise<HTMLButtonElement> {
+  const root = await openWindowLayoutMenu(inspector);
+  return requireElement(
+    root.querySelector<HTMLButtonElement>(
+      `[role="menuitem"][aria-label="${label}"]`,
+    ),
+    `Window layout action was not rendered: ${label}`,
+  );
+}
+
+async function requireDetach(
+  inspector: WebInspectorElement,
+): Promise<HTMLButtonElement> {
+  const root = await openWindowLayoutMenu(inspector);
   const control =
     root.querySelector<HTMLButtonElement>(
       `button[aria-label="${DETACH_LABEL}"]`,
@@ -299,6 +339,7 @@ async function setup(
 
   const stub = installPopOutStub(options.blockPopOut === true);
 
+  let runtimeInfoFails = false;
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL): Promise<Response> => {
       const url = input instanceof Request ? input.url : String(input);
@@ -306,6 +347,9 @@ async function setup(
         return new Response(null, { status: 404 });
       }
       if (url.endsWith("/info")) {
+        if (runtimeInfoFails) {
+          return new Response(null, { status: 500 });
+        }
         return jsonResponse({
           version: "1.0.0",
           agents: {},
@@ -375,7 +419,7 @@ async function setup(
         return;
       }
       const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!opener) {
         throw new Error("Web Inspector opener was not rendered");
@@ -388,8 +432,26 @@ async function setup(
         `button[data-inspector-group="${key}"]`,
         `Inspector group was not rendered: ${key}`,
       ),
+    selectLeaf: (key) =>
+      clickInShadow(
+        `button[data-inspector-menu-key="${key}"]`,
+        `Inspector leaf was not rendered: ${key}`,
+      ),
     clickDetach: async () => {
-      requireDetach(requireShadow(inspector)).click();
+      (await requireDetach(inspector)).click();
+      await inspector.updateComplete;
+    },
+    breakRuntime: async () => {
+      runtimeInfoFails = true;
+      // A change of runtime URL is what re-runs the handshake — the same
+      // ordinary mistake the signal exists for ("I mistyped the URL").
+      core.setRuntimeUrl("http://localhost:4001/api/copilotkit");
+      await waitFor(
+        () =>
+          core.runtimeConnectionStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        "the Core handshake to fail",
+      );
       await inspector.updateComplete;
     },
     firePageHide: stub.firePageHide,
@@ -450,14 +512,14 @@ describe("Inspector pop-out", () => {
         const root = context.inspector.shadowRoot;
         return (
           root?.querySelector(".inspector-window") === null &&
-          root?.querySelector('button[aria-label="Web Inspector"]') === null
+          root?.querySelector('button[aria-label^="Web Inspector"]') === null
         );
       }, "in-page Inspector chrome to hide");
 
       const root = requireShadow(context.inspector);
       expect(root.querySelector(".inspector-window")).toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
     } finally {
       context.teardown();
@@ -480,11 +542,57 @@ describe("Inspector pop-out", () => {
     }
   });
 
+  // The purpose of the launcher signal is to get the panel opened, and in
+  // pop-out the panel is permanently open beside the application. So the
+  // launcher signal is intentionally absent here — but the navigation marker
+  // has to carry the failure, or the mode without a launcher becomes the mode
+  // without information. Real timers: the beat still needs a real clock.
+  it("carries a broken connection on the pop-out navigation, not on the host page", async () => {
+    const context = await setup();
+    try {
+      await context.open();
+      await context.clickDetach();
+      await waitFor(
+        () => context.popDoc.querySelector(".inspector-window") !== null,
+        "the Inspector window in the pop-out document",
+      );
+
+      await context.breakRuntime();
+      const findMarker = (): Element | null =>
+        context.popDoc.querySelector(
+          'button[data-inspector-menu-key="home"] .inspector-nav-signal-dot',
+        );
+      // The shared helper waits half a second. Wiring now arms on the
+      // same turn as the failure, so this loop is only a render budget.
+      for (let attempt = 0; attempt < 600 && !findMarker(); attempt += 1) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 10));
+      }
+
+      const marker = findMarker();
+      expect(marker).not.toBeNull();
+      expect(marker?.getAttribute("data-cpk-signal-tone")).toBe("error");
+      expect(
+        context.popDoc
+          .querySelector('button[data-inspector-menu-key="home"]')
+          ?.getAttribute("aria-label"),
+      ).toBe("Home, runtime error");
+
+      // Nothing on the host page: no launcher, so no dot and no beat.
+      const root = requireShadow(context.inspector);
+      expect(
+        root.querySelector('button[aria-label^="Web Inspector"]'),
+      ).toBeNull();
+      expect(root.querySelector("[data-cpk-signal-dot]")).toBeNull();
+    } finally {
+      context.teardown();
+    }
+  }, 15_000);
+
   it("renders the threads list in the pop-out document", async () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("threads");
+      await context.selectLeaf("threads");
       await context.clickDetach();
 
       await waitFor(
@@ -501,7 +609,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("threads");
+      await context.selectLeaf("threads");
 
       const inPageThreadList = requireElement(
         requireShadow(context.inspector).querySelector("cpk-thread-list"),
@@ -588,10 +696,10 @@ describe("Inspector pop-out", () => {
         queryControl(context.popDoc, `[data-testid="${DETACH_TEST_ID}"]`),
       ).toBeNull();
       expect(
-        queryControl(context.popDoc, 'button[aria-label="Dock to left"]'),
-      ).toBeNull();
-      expect(
-        queryControl(context.popDoc, 'button[aria-label="Float window"]'),
+        queryControl(
+          context.popDoc,
+          `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
+        ),
       ).toBeNull();
       const settings = requireElement(
         queryControl(context.popDoc, 'button[aria-label="Settings"]'),
@@ -645,7 +753,7 @@ describe("Inspector pop-out", () => {
     try {
       await context.open();
       const root = requireShadow(context.inspector);
-      const detach = requireDetach(root);
+      const detach = await requireDetach(context.inspector);
 
       expect(() => detach.click()).toThrow(POP_OUT_BLOCKED_MESSAGE);
       await context.inspector.updateComplete;
@@ -671,14 +779,14 @@ describe("Inspector pop-out", () => {
         },
       } as unknown as CustomElementRegistry;
 
-      const detach = requireDetach(root);
+      const detach = await requireDetach(context.inspector);
       expect(() => detach.click()).toThrow("define failed");
       await context.inspector.updateComplete;
 
       expect(context.fakeWindow.close).toHaveBeenCalled();
       expect(root.querySelector(".inspector-window")).not.toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
       expect(context.popDoc.querySelector(".inspector-window")).toBeNull();
     } finally {
@@ -690,7 +798,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("agents");
+      await context.selectLeaf("ag-ui-events");
 
       const mock = createMockAgent("alpha");
       context.core.addAgent__unsafe_dev_only({
@@ -733,7 +841,7 @@ describe("Inspector pop-out", () => {
       expect(
         queryControl(
           requireShadow(context.inspector),
-          'button[aria-label="Dock to left"]',
+          `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`,
         ),
       ).not.toBeNull();
 
@@ -753,14 +861,14 @@ describe("Inspector pop-out", () => {
       const root = requireShadow(context.inspector);
       expect(root.querySelector(".inspector-window")).not.toBeNull();
       expect(
-        root.querySelector('button[aria-label="Web Inspector"]'),
+        root.querySelector('button[aria-label^="Web Inspector"]'),
       ).toBeNull();
       expect(
-        queryControl(root, 'button[aria-label="Dock to left"]'),
+        queryControl(root, `button[aria-label="${WINDOW_LAYOUT_LABEL}"]`),
       ).not.toBeNull();
       expect(
-        queryControl(root, 'button[aria-label="Float window"]'),
-      ).toBeNull();
+        await requireWindowLayoutAction(context.inspector, "Dock to left"),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -779,10 +887,7 @@ describe("Inspector pop-out", () => {
       );
       const dockMargin = document.body.style.marginLeft;
       expect(
-        queryControl(
-          requireShadow(context.inspector),
-          'button[aria-label="Float window"]',
-        ),
+        await requireWindowLayoutAction(context.inspector, "Float window"),
       ).not.toBeNull();
 
       await context.clickDetach();
@@ -799,12 +904,9 @@ describe("Inspector pop-out", () => {
         "the dock-left page margin to return",
       );
       expect(document.body.style.marginLeft).toBe(dockMargin);
-      const float = requireElement(
-        queryControl(
-          requireShadow(context.inspector),
-          'button[aria-label="Float window"]',
-        ),
-        "the Float window control",
+      const float = await requireWindowLayoutAction(
+        context.inspector,
+        "Float window",
       );
       float.click();
       await context.inspector.updateComplete;
@@ -912,7 +1014,7 @@ describe("Inspector pop-out", () => {
       expect(context.popDoc.querySelector(".inspector-window")).not.toBeNull();
       expect(
         requireShadow(context.inspector).querySelector(
-          'button[aria-label="Web Inspector"]',
+          'button[aria-label^="Web Inspector"]',
         ),
       ).toBeNull();
       expect(storedInspectorState().isOpen).toBe(true);
@@ -1025,7 +1127,7 @@ describe("Inspector pop-out", () => {
     const context = await setup();
     try {
       await context.open();
-      await context.selectGroup("agents");
+      await context.selectLeaf("ag-ui-events");
       const mock = createMockAgent("alpha");
       context.core.addAgent__unsafe_dev_only({
         id: "alpha",

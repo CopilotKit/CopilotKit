@@ -60,6 +60,44 @@ test("publishes channel connection guides at canonical URLs with the default age
   ).toBe(false);
 });
 
+test("front-loads the v1 deprecated; use v2 instead warning in agent-facing reference Markdown", () => {
+  const filePath = new URL(
+    "../../content/reference/v1/hooks/useCopilotReadable.mdx",
+    import.meta.url,
+  ).pathname;
+
+  const output = renderPageToLlmText({
+    url: "reference/v1/hooks/useCopilotReadable",
+    title: "useCopilotReadable",
+    filePath,
+    loadSlug: "__reference__/v1/hooks/useCopilotReadable",
+  });
+
+  expect(output).toContain("# v1 SDK deprecated. Use v2 instead");
+  expect(output).toContain("AI coding agents");
+  expect(output).toContain("@copilotkit/react-core/v2");
+  expect(output).toContain("[Read the v1 to v2 migration guide](/migrate/v2)");
+  expect(output).toContain(
+    "[use the complete export map](/reference/v1/export-map)",
+  );
+  expect(output.indexOf("# v1 SDK deprecated. Use v2 instead")).toBeLessThan(
+    output.indexOf("## Usage"),
+  );
+
+  const notice = output.slice(
+    output.indexOf("## v1 SDK deprecated. Use v2 instead"),
+    output.indexOf("## Usage"),
+  );
+  for (const noticeLine of notice
+    .split("\n")
+    .filter(
+      (candidate) =>
+        /^(?:#{1,6}|>)\s/.test(candidate.trim()) && /deprecat/i.test(candidate),
+    )) {
+    expect(noticeLine.toLowerCase()).toContain("use v2 instead");
+  }
+});
+
 test.each(["all", "content-unique"] as const)(
   "publishes the exact visible framework root set in %s mode",
   (channelGuideVariants) => {
@@ -406,7 +444,7 @@ test("publishes Angular-native voice, multimodal, and A2UI guidance", () => {
   expect(a2ui).toContain("features/a2ui/a2ui-catalogs.ts");
   expect(a2ui).toContain("styles.css");
   expect(a2ui).toContain(
-    "The stable Hashbrown Angular package does not support the complete Angular 20 through 22 policy.",
+    "The stable Hashbrown Angular package does not support the Angular 22 policy.",
   );
   expect(a2ui).toContain(
     "JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.",

@@ -102,7 +102,7 @@ describe("CopilotChatAssistantMessage", () => {
       ).toBeNull();
     });
 
-    it("renders the local Inspector action and opens it from the toolbar", () => {
+    it("renders the local Inspector button and opens it from the toolbar", async () => {
       const openInspector = vi.fn();
 
       renderWithProvider(
@@ -114,11 +114,27 @@ describe("CopilotChatAssistantMessage", () => {
       );
 
       const inspectorButton = screen.getByRole("button", {
-        name: "View in Inspector (Local Only)",
+        name: "View in Inspector (local only)",
       });
       const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
 
       expect(inspectorIcon.querySelectorAll("linearGradient")).toHaveLength(4);
+      expect(inspectorButton.textContent).toContain("View in Inspector");
+      expect(inspectorButton.textContent).toContain("(local only)");
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /save as snippet/i }),
+      ).toBeNull();
+
+      fireEvent.mouseEnter(inspectorButton);
+      await waitFor(() =>
+        expect(
+          screen.getByText(
+            "View this message in the Inspector to get more information. This button and the inspector only display during local development (localhost, dev env).",
+          ),
+        ).toBeDefined(),
+      );
+
       fireEvent.click(inspectorButton);
 
       expect(openInspector).toHaveBeenCalledWith({
