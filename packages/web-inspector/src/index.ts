@@ -18459,63 +18459,102 @@ export class WebInspectorElement extends LitElement {
       error: "bg-rose-50 text-rose-700",
     };
 
+    const agentHeader = html`
+      <header class="cpk-page-header">
+        <div class="flex min-w-0 items-center gap-2.5">
+          <div class="cpk-agent-icon flex h-9 w-9 items-center justify-center">
+            ${this.renderIcon("Bot")}
+          </div>
+          <div class="cpk-page-heading">
+            <div class="flex min-w-0 items-center gap-2">
+              <h2>${agentId}</h2>
+              <span
+                class="cpk-agent-status inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
+                  statusColors[status]
+                }"
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full ${
+                    status === "running"
+                      ? "bg-emerald-500 animate-pulse"
+                      : status === "error"
+                        ? "bg-rose-500"
+                        : "bg-gray-400"
+                  }"
+                ></span>
+                ${status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+            </div>
+            <p>
+              ${
+                tools.length === 1
+                  ? "1 registered tool"
+                  : `${tools.length} registered tools`
+              }
+              ${
+                stats.lastActivity
+                  ? ` · Last activity ${new Date(stats.lastActivity).toLocaleTimeString()}`
+                  : " · No run activity yet"
+              }
+            </p>
+          </div>
+        </div>
+        <div class="cpk-page-actions">
+          <button
+            type="button"
+            class="cpk-page-button"
+            @click=${() => this.handleMenuSelect("ag-ui-events")}
+          >
+            View events
+          </button>
+          <button
+            type="button"
+            class="cpk-page-button cpk-page-button--primary"
+            @click=${() => this.handleMenuSelect("playground")}
+          >
+            Open Playground
+          </button>
+        </div>
+      </header>
+    `;
+
+    const hasRunData =
+      stats.totalEvents > 0 ||
+      (messages?.length ?? 0) > 0 ||
+      this.hasRenderableState(state);
+
+    if (!hasRunData) {
+      return html`
+        <div class="cpk-page-view">
+          ${agentHeader} ${this.renderEventErrorBanner("tool")}
+          <main class="cpk-page-content">
+            <div class="cpk-page-empty">
+              <span class="cpk-page-empty__icon"
+                >${this.renderIcon("MessageSquare")}</span
+              >
+              <h3>No run to inspect yet</h3>
+              <p>
+                Start this agent in Playground to see its conversation, current
+                state, tool calls, and events here.
+              </p>
+              <div class="cpk-page-empty__actions">
+                <button
+                  type="button"
+                  class="cpk-page-button cpk-page-button--primary"
+                  @click=${() => this.handleMenuSelect("playground")}
+                >
+                  Open Playground
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      `;
+    }
+
     return html`
       <div class="cpk-page-view">
-        <header class="cpk-page-header">
-          <div class="flex min-w-0 items-center gap-2.5">
-            <div
-              class="cpk-agent-icon flex h-9 w-9 items-center justify-center"
-            >
-              ${this.renderIcon("Bot")}
-            </div>
-            <div class="cpk-page-heading">
-              <div class="flex min-w-0 items-center gap-2">
-                <h2>${agentId}</h2>
-                <span
-                  class="cpk-agent-status inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    statusColors[status]
-                  }"
-                >
-                  <span
-                    class="h-1.5 w-1.5 rounded-full ${
-                      status === "running"
-                        ? "bg-emerald-500 animate-pulse"
-                        : status === "error"
-                          ? "bg-rose-500"
-                          : "bg-gray-400"
-                    }"
-                  ></span>
-                  ${status.charAt(0).toUpperCase() + status.slice(1)}
-                </span>
-              </div>
-              <p>
-                ${tools.length === 1 ? "1 tool" : `${tools.length} tools`}
-                ${
-                  stats.lastActivity
-                    ? ` · Last activity ${new Date(stats.lastActivity).toLocaleTimeString()}`
-                    : " · No run activity yet"
-                }
-              </p>
-            </div>
-          </div>
-          <div class="cpk-page-actions">
-            <button
-              type="button"
-              class="cpk-page-button"
-              @click=${() => this.handleMenuSelect("ag-ui-events")}
-            >
-              View events
-            </button>
-            <button
-              type="button"
-              class="cpk-page-button cpk-page-button--primary"
-              @click=${() => this.handleMenuSelect("playground")}
-            >
-              Open Playground
-            </button>
-          </div>
-        </header>
-        ${this.renderEventErrorBanner("tool")}
+        ${agentHeader} ${this.renderEventErrorBanner("tool")}
         <main class="cpk-agent-view">
           <section class="cpk-agent-summary" aria-label="Run summary">
             <div class="cpk-agent-metrics">
