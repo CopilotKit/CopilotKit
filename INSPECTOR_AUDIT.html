@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CopilotKit Inspector — Intelligence Awareness Audit</title>
+    <style>
+      :root {
+        --paper: #f6f3ec;
+        --ink: #171713;
+        --muted: #6f6c62;
+        --line: #d9d3c5;
+        --panel: rgba(255, 255, 255, 0.72);
+        --purple: #6c43e0;
+        --purple-soft: #eee8ff;
+        --cyan: #0b8793;
+        --cyan-soft: #dff5f4;
+        --orange: #c5621e;
+        --orange-soft: #fff0df;
+        --green: #287a54;
+        --green-soft: #e4f4ea;
+        --red: #a83b3b;
+        --red-soft: #fbe9e7;
+        --shadow: 0 18px 45px rgba(55, 42, 20, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 8% 0%, rgba(108, 67, 224, 0.12), transparent 28rem),
+          radial-gradient(circle at 92% 12%, rgba(11, 135, 147, 0.10), transparent 26rem),
+          var(--paper);
+        font: 15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      a { color: inherit; text-underline-offset: 3px; }
+      code, .mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+      code { font-size: 0.9em; background: rgba(23, 23, 19, 0.06); padding: 0.12em 0.32em; border-radius: 4px; }
+
+      .page { width: min(1440px, calc(100% - 32px)); margin: 0 auto; }
+      .hero { padding: 72px 0 44px; border-bottom: 1px solid var(--line); }
+      .eyebrow { display: flex; gap: 9px; align-items: center; color: var(--purple); font-size: 12px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; }
+      .eyebrow::before { content: ""; width: 28px; height: 3px; background: var(--purple); border-radius: 10px; }
+      h1 { max-width: 950px; margin: 18px 0 20px; font: 700 clamp(40px, 6vw, 82px)/0.98 Georgia, "Times New Roman", serif; letter-spacing: -0.045em; }
+      .lede { max-width: 900px; margin: 0; color: #47453f; font-size: clamp(18px, 2vw, 24px); line-height: 1.42; }
+      .stamp { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px; }
+      .chip { padding: 7px 11px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.55); color: var(--muted); font-size: 12px; }
+      .chip strong { color: var(--ink); }
+
+      .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 42px; padding: 34px 0 80px; }
+      nav { position: sticky; top: 18px; align-self: start; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(246,243,236,.85); backdrop-filter: blur(18px); }
+      nav .label { color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+      nav a { display: block; margin-top: 8px; padding: 7px 9px; border-radius: 8px; text-decoration: none; font-weight: 650; }
+      nav a:hover { background: white; color: var(--purple); }
+      main { min-width: 0; }
+      section { scroll-margin-top: 20px; margin-bottom: 58px; }
+      h2 { margin: 0 0 16px; font: 700 clamp(28px, 3vw, 43px)/1.08 Georgia, "Times New Roman", serif; letter-spacing: -.025em; }
+      h3 { margin: 0 0 8px; font-size: 17px; line-height: 1.25; }
+      p { margin: 0 0 12px; }
+      .section-intro { max-width: 880px; color: var(--muted); font-size: 17px; }
+      .rule { width: 48px; height: 4px; margin: 0 0 22px; border-radius: 9px; background: var(--purple); }
+
+      .verdict { display: grid; grid-template-columns: 1.4fr .6fr; gap: 18px; padding: 27px; border: 1px solid #cfc7f2; border-radius: 22px; background: linear-gradient(135deg, rgba(255,255,255,.85), var(--purple-soft)); box-shadow: var(--shadow); }
+      .verdict .big { margin: 0; font: 700 25px/1.3 Georgia, serif; }
+      .verdict aside { padding: 16px; border-radius: 14px; background: rgba(255,255,255,.7); }
+      .verdict aside strong { display: block; color: var(--purple); font-size: 35px; line-height: 1; }
+      .verdict aside span { color: var(--muted); font-size: 12px; }
+
+      .grid-2, .grid-3, .grid-4 { display: grid; gap: 14px; }
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .card { padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: var(--panel); box-shadow: 0 8px 25px rgba(55,42,20,.035); }
+      .card p:last-child { margin-bottom: 0; }
+      .number { display: inline-grid; place-items: center; width: 29px; height: 29px; margin-bottom: 15px; border-radius: 8px; color: white; background: var(--purple); font-weight: 800; }
+      .tone-purple { border-top: 4px solid var(--purple); }
+      .tone-cyan { border-top: 4px solid var(--cyan); }
+      .tone-orange { border-top: 4px solid var(--orange); }
+      .tone-green { border-top: 4px solid var(--green); }
+      .muted { color: var(--muted); }
+      .small { font-size: 12px; }
+
+      .flow { overflow-x: auto; padding: 22px; border: 1px solid var(--line); border-radius: 19px; background: rgba(255,255,255,.68); box-shadow: var(--shadow); }
+      .flow svg { display: block; width: 1180px; max-width: none; height: auto; }
+      .node rect { stroke-width: 1.5; }
+      .node text { fill: var(--ink); font: 650 13px Inter, system-ui, sans-serif; }
+      .node .sub { fill: var(--muted); font: 11px Inter, system-ui, sans-serif; }
+      .arrow { stroke: #777268; stroke-width: 1.7; fill: none; marker-end: url(#arrow); }
+      .arrow.dashed { stroke-dasharray: 7 5; }
+      .lane-label { fill: #8d887d; font: 800 10px Inter, system-ui, sans-serif; letter-spacing: .13em; }
+
+      .callout { margin-top: 14px; padding: 16px 18px; border-left: 4px solid var(--orange); border-radius: 0 11px 11px 0; background: var(--orange-soft); }
+      .callout.green { border-left-color: var(--green); background: var(--green-soft); }
+      .callout.red { border-left-color: var(--red); background: var(--red-soft); }
+      .callout strong { display: block; margin-bottom: 4px; }
+
+      .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 15px; background: rgba(255,255,255,.65); }
+      table { width: 100%; border-collapse: collapse; min-width: 820px; }
+      th, td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+      th { background: rgba(23,23,19,.035); color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+      tr:last-child td { border-bottom: 0; }
+      .pill { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+      .yes { color: #175d3c; background: var(--green-soft); }
+      .no { color: #8d321f; background: var(--red-soft); }
+      .partial { color: #81500b; background: var(--orange-soft); }
+
+      .sequence { display: grid; grid-template-columns: 150px 26px minmax(0,1fr); gap: 0 10px; align-items: stretch; }
+      .seq-time { padding: 15px 0; color: var(--muted); font: 700 11px/1.3 "SFMono-Regular", monospace; text-transform: uppercase; }
+      .seq-line { position: relative; display: grid; place-items: start center; padding-top: 15px; }
+      .seq-line::before { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--line); }
+      .seq-line i { position: relative; width: 12px; height: 12px; border: 3px solid var(--paper); border-radius: 50%; background: var(--purple); box-shadow: 0 0 0 1px var(--purple); }
+      .seq-body { padding: 12px 15px; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+      .seq-body p { margin: 4px 0 0; color: var(--muted); }
+
+      .path { margin: 12px 0 0; padding: 13px 15px; border: 1px dashed #c8c1b4; border-radius: 10px; background: rgba(255,255,255,.5); font: 12px/1.7 "SFMono-Regular", Consolas, monospace; overflow-wrap: anywhere; }
+      .path b { color: var(--purple); }
+      details { margin-top: 11px; border-top: 1px solid var(--line); }
+      summary { padding: 11px 0 0; color: var(--purple); cursor: pointer; font-weight: 700; }
+
+      .sources { columns: 2; column-gap: 28px; }
+      .source { break-inside: avoid; margin: 0 0 12px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.55); }
+      .source a { font-weight: 700; }
+      .source span { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; }
+      footer { padding: 26px 0 44px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+      @media (max-width: 980px) {
+        .layout { grid-template-columns: 1fr; }
+        nav { position: static; display: flex; flex-wrap: wrap; gap: 4px; }
+        nav .label { width: 100%; }
+        nav a { margin-top: 0; }
+        .verdict { grid-template-columns: 1fr; }
+        .grid-3, .grid-4 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      }
+      @media (max-width: 640px) {
+        .page { width: min(100% - 22px, 1440px); }
+        .hero { padding-top: 42px; }
+        .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        .sequence { grid-template-columns: 88px 20px minmax(0,1fr); gap: 0 5px; }
+        .sources { columns: 1; }
+      }
+      @media print {
+        body { background: white; }
+        nav { display: none; }
+        .page { width: 100%; }
+        .layout { display: block; }
+        section { break-inside: avoid; }
+        .flow { overflow: visible; box-shadow: none; }
+        .flow svg { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hero">
+      <div class="page">
+        <div class="eyebrow">Implementation audit · 26 August 2026</div>
+        <h1>How Inspector knows what Intelligence knows</h1>
+        <p class="lede">A current-code trace of every path that makes CopilotKit Inspector aware of Intelligence, Learning, Threads, entitlements, and live application state.</p>
+        <div class="stamp">
+          <span class="chip"><strong>CopilotKit</strong> <span class="mono">e1d31696f774</span></span>
+          <span class="chip"><strong>Intelligence</strong> <span class="mono">f9a6ae0addd6</span></span>
+          <span class="chip"><strong>Scope</strong> browser → Runtime → Intelligence services</span>
+          <span class="chip"><strong>Method</strong> source trace from fresh <span class="mono">origin/main</span></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="page layout">
+      <nav aria-label="Audit sections">
+        <div class="label">On this page</div>
+        <a href="#answer">Answer</a>
+        <a href="#map">System map</a>
+        <a href="#startup">Startup sequence</a>
+        <a href="#entitlements">Entitlement truth</a>
+        <a href="#threads">Threads</a>
+        <a href="#learning">Learning &amp; Memory</a>
+        <a href="#live-state">Live state</a>
+        <a href="#surface-map">Pane map</a>
+        <a href="#failure">Failure behavior</a>
+        <a href="#findings">Findings</a>
+        <a href="#sources">Source index</a>
+      </nav>
+
+      <main>
+        <section id="answer">
+          <div class="rule"></div>
+          <h2>The short answer</h2>
+          <div class="verdict">
+            <div>
+              <p class="big">Inspector has no direct Intelligence client. It receives a live <code>CopilotKitCore</code>, then uses four separate ingress paths.</p>
+              <p class="muted" style="margin-top:14px">Runtime discovery supplies capabilities and connection facts. Inspector metadata supplies trusted commercial display data. Thread and Memory stores call real Runtime endpoints. Agent subscriptions supply the live event, message, and state stream.</p>
+            </div>
+            <aside>
+              <strong>4</strong>
+              <span>independent data planes meet in the Inspector UI</span>
+            </aside>
+          </div>
+
+          <div class="grid-4" style="margin-top:16px">
+            <article class="card tone-purple"><span class="number">1</span><h3>Core snapshot</h3><p class="muted">Agents, tools, context, catalog components, Runtime status, Runtime URL, and current capability flags.</p></article>
+            <article class="card tone-cyan"><span class="number" style="background:var(--cyan)">2</span><h3>Discovery + metadata</h3><p class="muted"><code>/info</code> describes the Runtime. A separate optional request retrieves trusted Inspector metadata.</p></article>
+            <article class="card tone-orange"><span class="number" style="background:var(--orange)">3</span><h3>Service stores</h3><p class="muted">Thread and Memory stores use REST for snapshots and Phoenix channels for managed realtime updates.</p></article>
+            <article class="card tone-green"><span class="number" style="background:var(--green)">4</span><h3>Agent events</h3><p class="muted">AG-UI subscriptions feed events, messages, tool calls, state, errors, reasoning, and activity into Inspector.</p></article>
+          </div>
+
+          <div class="callout">
+            <strong>Most important boundary</strong>
+            Inspector metadata is display-only. It can change the Home hero, plan label, usage, and action links. It does not grant Threads or Memory access. Real endpoint capability and server authorization remain authoritative.
+          </div>
+        </section>
+
+        <section id="map">
+          <div class="rule"></div>
+          <h2>End-to-end system map</h2>
+          <p class="section-intro">Solid arrows carry operational state or data. Dashed arrows carry descriptive metadata. The browser never calls Ops directly.</p>
+          <div class="flow" role="img" aria-label="Inspector data flow from application through Core and Runtime to Intelligence services">
+            <svg viewBox="0 0 1180 700" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#777268"/></marker>
+              </defs>
+              <text class="lane-label" x="26" y="28">APPLICATION / BROWSER</text>
+              <text class="lane-label" x="465" y="28">COPILOTKIT RUNTIME</text>
+              <text class="lane-label" x="825" y="28">INTELLIGENCE CONTROL &amp; DATA</text>
+
+              <g class="node"><rect x="24" y="54" width="190" height="84" rx="14" fill="#eee8ff" stroke="#6c43e0"/><text x="41" y="83">React Provider</text><text class="sub" x="41" y="105">runtimeUrl · headers</text><text class="sub" x="41" y="122">agents · tools · context</text></g>
+              <g class="node"><rect x="260" y="54" width="190" height="84" rx="14" fill="#fff" stroke="#6c43e0"/><text x="278" y="83">CopilotKitCore</text><text class="sub" x="278" y="105">central registry + stores</text><text class="sub" x="278" y="122">observable snapshots</text></g>
+              <path class="arrow" d="M214 96 H260"/>
+
+              <g class="node"><rect x="24" y="178" width="190" height="98" rx="14" fill="#fff" stroke="#6c43e0"/><text x="41" y="207">Web Inspector</text><text class="sub" x="41" y="229">Lit custom element</text><text class="sub" x="41" y="246">receives live Core</text><text class="sub" x="41" y="263">subscribes + renders</text></g>
+              <path class="arrow" d="M260 112 C230 135 230 190 214 207"/>
+              <path class="arrow" d="M214 250 C238 265 240 267 260 267"/>
+
+              <g class="node"><rect x="260" y="178" width="190" height="98" rx="14" fill="#dff5f4" stroke="#0b8793"/><text x="278" y="207">Core data planes</text><text class="sub" x="278" y="229">agent subscriptions</text><text class="sub" x="278" y="246">ThreadStore · MemoryStore</text><text class="sub" x="278" y="263">metadata projection</text></g>
+
+              <g class="node"><rect x="500" y="54" width="205" height="84" rx="14" fill="#dff5f4" stroke="#0b8793"/><text x="518" y="82">GET /info</text><text class="sub" x="518" y="104">agents · capabilities · wsUrl</text><text class="sub" x="518" y="121">threadEndpoints · licenseStatus</text></g>
+              <path class="arrow" d="M450 84 H500"/>
+              <path class="arrow" d="M500 121 C474 144 465 162 440 186"/>
+
+              <g class="node"><rect x="500" y="178" width="205" height="98" rx="14" fill="#eee8ff" stroke="#6c43e0"/><text x="518" y="207">Runtime endpoints</text><text class="sub" x="518" y="229">/threads · /messages</text><text class="sub" x="518" y="246">/events · /state</text><text class="sub" x="518" y="263">/memories · /subscribe</text></g>
+              <path class="arrow" d="M450 227 H500"/>
+
+              <g class="node"><rect x="500" y="316" width="205" height="102" rx="14" fill="#fff0df" stroke="#c5621e"/><text x="518" y="345">/inspector-metadata</text><text class="sub" x="518" y="367">optional · 5s browser timeout</text><text class="sub" x="518" y="384">failure becomes “absent”</text><text class="sub" x="518" y="401">never changes connection state</text></g>
+              <path class="arrow dashed" d="M450 250 C482 269 470 347 500 357"/>
+
+              <g class="node"><rect x="810" y="54" width="225" height="84" rx="14" fill="#e4f4ea" stroke="#287a54"/><text x="828" y="82">App API: runtime scope</text><text class="sub" x="828" y="104">validated API key + app user</text><text class="sub" x="828" y="121">organization/project identity</text></g>
+              <path class="arrow" d="M705 218 C750 188 760 113 810 104"/>
+
+              <g class="node"><rect x="810" y="178" width="225" height="98" rx="14" fill="#e4f4ea" stroke="#287a54"/><text x="828" y="207">Threads + Memory APIs</text><text class="sub" x="828" y="229">Postgres snapshots</text><text class="sub" x="828" y="246">Redis join credentials</text><text class="sub" x="828" y="263">Memory entitlement guard</text></g>
+              <path class="arrow" d="M705 230 H810"/>
+
+              <g class="node"><rect x="810" y="316" width="225" height="102" rx="14" fill="#fff0df" stroke="#c5621e"/><text x="828" y="345">Metadata composer</text><text class="sub" x="828" y="367">identity + usage from App API</text><text class="sub" x="828" y="384">managed entitlement from Ops</text><text class="sub" x="828" y="401">self-hosted signed license</text></g>
+              <path class="arrow dashed" d="M705 365 H810"/>
+
+              <g class="node"><rect x="1065" y="316" width="92" height="102" rx="14" fill="#fbe9e7" stroke="#a83b3b"/><text x="1082" y="345">Ops API</text><text class="sub" x="1082" y="367">durable</text><text class="sub" x="1082" y="384">commercial</text><text class="sub" x="1082" y="401">truth</text></g>
+              <path class="arrow dashed" d="M1035 367 H1065"/>
+
+              <g class="node"><rect x="810" y="474" width="225" height="92" rx="14" fill="#fff" stroke="#287a54"/><text x="828" y="503">Phoenix realtime</text><text class="sub" x="828" y="525">user_meta threads/memories</text><text class="sub" x="828" y="542">optional project memory scope</text></g>
+              <path class="arrow" d="M810 518 C745 518 739 264 705 264"/>
+
+              <g class="node"><rect x="260" y="474" width="190" height="92" rx="14" fill="#fff" stroke="#6c43e0"/><text x="278" y="503">Browser-local state</text><text class="sub" x="278" y="525">localStorage presentation</text><text class="sub" x="278" y="542">window thread bridge</text></g>
+              <path class="arrow" d="M260 518 C206 486 178 300 177 276"/>
+
+              <g class="node"><rect x="500" y="606" width="535" height="60" rx="14" fill="#f4f1ea" stroke="#aaa398"/><text x="518" y="632">Separate learning pipeline gate</text><text class="sub" x="518" y="650">LEARNING_RUNTIME_ENABLED + rollout + self_learning — not the Inspector Memory pane gate</text></g>
+              <path class="arrow dashed" d="M922 474 V418"/>
+            </svg>
+          </div>
+        </section>
+
+        <section id="startup">
+          <div class="rule"></div>
+          <h2>What happens from mount to live data</h2>
+          <div class="sequence">
+            <div class="seq-time">Provider render</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Construct one stable Core</h3><p>The React provider supplies Runtime URL, transport, headers, credentials, agents, tools, and component catalog. It calls <code>connect()</code> after commit.</p></div>
+            <div class="seq-time">Client only</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Load the Inspector custom element</h3><p><code>@copilotkit/web-inspector</code> is imported after mount to keep SSR stable. The exact Core object is assigned to the element.</p></div>
+            <div class="seq-time">Handshake</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Fetch <code>/info</code></h3><p>Core learns agent descriptions, per-agent capabilities, Intelligence websocket URL, thread endpoint capabilities, Runtime license status, and whether Inspector metadata exists.</p></div>
+            <div class="seq-time">Background</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Fetch metadata independently</h3><p>Only after connection and capability advertisement, Core makes the optional metadata request. Headers, credentials, transport, or URL changes invalidate stale requests. The browser and Runtime each enforce a five-second timeout.</p></div>
+            <div class="seq-time">Attach</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Subscribe to Core and every agent</h3><p>Inspector snapshots existing agents, context, tools, thread stores, and metadata, then subscribes for changes and per-thread run clones.</p></div>
+            <div class="seq-time">On demand</div><div class="seq-line"><i></i></div><div class="seq-body"><h3>Create service stores only when needed</h3><p>Inspector owns Thread stores when the app has not registered them. The Memory store is intentionally lazy and starts only when the user opens Learning, including a persisted Learning selection.</p></div>
+          </div>
+        </section>
+
+        <section id="entitlements">
+          <div class="rule"></div>
+          <h2>Five signals that look like entitlements</h2>
+          <p class="section-intro">They are not interchangeable. The UI combines them, but each one answers a different question.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Signal</th><th>Producer</th><th>Inspector use</th><th>Authorization?</th></tr></thead>
+              <tbody>
+                <tr><td><code>licenseStatus</code> in <code>/info</code></td><td>Runtime license checker</td><td>Cross-checks metadata. Runtime wins if the two license states conflict; action links are hidden.</td><td><span class="pill no">No service grant</span></td></tr>
+                <tr><td>Metadata <code>license</code>, plan, action, usage</td><td>App API, with managed entitlement projected by Ops or a self-hosted signed license</td><td>Home hero, project identity, plan label, usage, locked copy, and plan CTA.</td><td><span class="pill no">Display only</span></td></tr>
+                <tr><td><code>threadEndpoints</code></td><td>Runtime mode and runner capability</td><td>Enables list/inspect UI. Managed Intelligence additionally enables mutations and realtime metadata.</td><td><span class="pill partial">UI capability</span></td></tr>
+                <tr><td><code>memory</code> feature</td><td>Intelligence App API entitlement guard, backed by Ops or the deployment license</td><td>Observed through actual <code>/memories</code> responses. A denied or absent route locks the pane.</td><td><span class="pill yes">Yes, server-side</span></td></tr>
+                <tr><td><code>self_learning</code> + rollout</td><td>Intelligence learning availability</td><td>Not a direct Inspector navigation signal. It controls learning-container assignment and the learning runtime pipeline.</td><td><span class="pill yes">Yes, pipeline</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid-2" style="margin-top:16px">
+            <article class="card tone-orange"><h3>Managed deployment</h3><p>App API derives scope from validated Runtime authentication, obtains durable commercial truth from an internal Ops projection, and combines it with App API identity and usage. The SDK receives only a safe display contract.</p></article>
+            <article class="card tone-cyan"><h3>Self-hosted deployment</h3><p>App API reads the local signed license checker for the metadata license state. There is no managed billing action because Ops is not the source of truth.</p></article>
+          </div>
+          <div class="callout red"><strong>The Home status is a summary, not a probe.</strong>Home considers Intelligence connected when metadata says the license is valid. If metadata is unknown, it falls back to the <code>/info</code> Intelligence marker. Each service tile then adds its own capability flag.</div>
+        </section>
+
+        <section id="threads">
+          <div class="rule"></div>
+          <h2>Threads: capability first, identity at the server</h2>
+          <p class="section-intro">The Threads pane is always in navigation. It becomes operational only when Runtime discovery says listing is available.</p>
+          <div class="grid-3">
+            <article class="card tone-purple"><h3>1 · Capability</h3><p>Runtime advertises <code>list</code> and <code>inspect</code> for Intelligence or a local runner that supports thread endpoints. Only managed Intelligence advertises mutations and realtime metadata.</p></article>
+            <article class="card tone-cyan"><h3>2 · Snapshot</h3><p>A registered app Thread store is reused. Otherwise Inspector creates one per agent and calls Runtime-relative <code>GET /threads?agentId=…</code>.</p></article>
+            <article class="card tone-green"><h3>3 · Realtime</h3><p>The list response includes a join code. <code>POST /threads/subscribe</code> returns credentials for the <code>user_meta</code> Phoenix topic, which upserts or removes rows.</p></article>
+          </div>
+          <div class="path"><b>list</b> Inspector → Core ThreadStore → Runtime <span>/threads</span> → Intelligence App API → scoped database query<br><b>live</b> ThreadStore → Runtime <span>/threads/subscribe</span> → Redis token → Phoenix <span>thread_metadata</span><br><b>detail</b> Inspector → Runtime <span>/threads/:id/{messages,events,state}</span> → App API or local runner</div>
+          <div class="callout green"><strong>User scope is not accepted from the browser.</strong>The Runtime calls <code>identifyUser</code>. Intelligence validates the Runtime API key, organization, project, app user, and thread ownership before reading data.</div>
+          <div class="grid-2" style="margin-top:16px">
+            <article class="card"><h3>Timeline detail</h3><p>Selecting a real thread eagerly fetches metadata, events, and messages. State is available through its own endpoint. A <code>501</code> response means that an inspect surface is unsupported.</p></article>
+            <article class="card"><h3>View in app</h3><p>A development-only <code>window</code> CustomEvent bridge asks an official chat component to load the selected thread. Request IDs pair the request and result, and failure restores the previous chat.</p></article>
+          </div>
+        </section>
+
+        <section id="learning">
+          <div class="rule"></div>
+          <h2>“Learning” is currently a Memory browser</h2>
+          <p class="section-intro">The visible pane label is <strong>Learning</strong>, but its internal menu key is <code>memories</code> and its data comes from the Core Memory store.</p>
+          <div class="grid-2">
+            <article class="card tone-purple">
+              <h3>What opens the data path</h3>
+              <p>Attaching Inspector does not touch <code>core.getMemoryStore()</code>. The first Learning-tab activation creates the singleton store, starts it, lists memories, requests realtime credentials, and subscribes to store selectors.</p>
+              <p class="muted small">A persisted <code>selectedMenu: "memories"</code> counts as activation when Core attaches.</p>
+            </article>
+            <article class="card tone-green">
+              <h3>What the pane can do</h3>
+              <p>It displays user and project memories, loading and error states, source-thread links, invalidation state, realtime health, and semantic recall results.</p>
+              <p class="muted small"><code>POST /memories/recall</code> returns ranked results through the same Memory store.</p>
+            </article>
+          </div>
+          <div class="path"><b>snapshot</b> Learning pane → lazy Core MemoryStore → Runtime <span>/memories</span> → App API <span>requireMemoryEntitlement</span> → memory service<br><b>realtime</b> MemoryStore → Runtime <span>/memories/subscribe</span> → user and optional project Phoenix topics<br><b>recall</b> MemoryStore → Runtime <span>/memories/recall</span> → entitled memory recall</div>
+          <div class="callout"><strong>There are two different product gates.</strong>The Memory API uses the <code>memory</code> entitlement. The learning runtime uses <code>LEARNING_RUNTIME_ENABLED</code>, organization rollout, and <code>self_learning</code>. The latter controls learning-container assignment and harvest behavior; it does not hide or unlock the Inspector pane.</div>
+          <div class="callout red"><strong>Current optimistic-state edge.</strong><code>_memoriesAvailable</code> starts as <code>true</code>. Until the user activates Learning and the real route answers, Home can show Memory as enabled whenever Intelligence is considered connected. Responses <code>404</code>, <code>422</code>, or <code>501</code> then degrade to “unavailable”; an entitlement denial is a real error.</div>
+        </section>
+
+        <section id="live-state">
+          <div class="rule"></div>
+          <h2>How application data and state enter</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Data</th><th>Ingress</th><th>Inspector behavior</th><th>Persistence</th></tr></thead>
+              <tbody>
+                <tr><td>Agents + capabilities</td><td><code>/info</code> → Core AgentRegistry</td><td>Builds agent picker, details, and per-agent feature information.</td><td>Core memory only</td></tr>
+                <tr><td>AG-UI events</td><td><code>agent.subscribe()</code></td><td>Maps run, step, text, tool, state snapshot/delta, message, raw/custom, reasoning, and activity events into the timeline.</td><td>Inspector event store</td></tr>
+                <tr><td>Messages + agent state</td><td>Live agent fields after each event</td><td>Synchronizes messages and state for the active agent/thread; snapshots and deltas also appear as events.</td><td>Agent-owned</td></tr>
+                <tr><td>Context</td><td>Provider/hooks → Core context store</td><td>Normalizes the current context and refreshes when <code>onContextChanged</code> fires.</td><td>Core-owned</td></tr>
+                <tr><td>Frontend tools</td><td>Provider tools + agents</td><td>Extracts a current tool snapshot; the pane appears only when tools exist.</td><td>Core/agent-owned</td></tr>
+                <tr><td>Render capabilities</td><td>Provider component catalog</td><td>Displays registered A2UI and generative UI component definitions.</td><td>Core-owned</td></tr>
+                <tr><td>Runtime errors</td><td>Core subscriber</td><td>Stores the last error and arms error markers for relevant panes.</td><td>Inspector session</td></tr>
+                <tr><td>Layout + selected pane</td><td>Browser interaction</td><td>Restores open state, dock mode, position, size, menu, context, sidebar, and color preference.</td><td><code>localStorage</code> key <code>cpk:inspector:state</code></td></tr>
+                <tr><td>Announcements</td><td>Inspector feed + interaction</td><td>Tracks read and pulse state separately.</td><td>Host cookie, localStorage mirror, sessionStorage</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="surface-map">
+          <div class="rule"></div>
+          <h2>Pane-by-pane source map</h2>
+          <div class="grid-3">
+            <article class="card"><h3>Home</h3><p class="muted">Metadata projection + Core Runtime state + capability flags + news.</p></article>
+            <article class="card"><h3>Agent</h3><p class="muted">Core agent registry, descriptions, capabilities, and active agent snapshots.</p></article>
+            <article class="card"><h3>AG-UI Events</h3><p class="muted">Mapped <code>agent.subscribe()</code> events and Core errors.</p></article>
+            <article class="card"><h3>Threads</h3><p class="muted">Core Thread stores, Runtime snapshot/detail endpoints, Phoenix metadata.</p></article>
+            <article class="card"><h3>Frontend Tools</h3><p class="muted">Tool definitions extracted from current agents; conditionally visible.</p></article>
+            <article class="card"><h3>State</h3><p class="muted">Live agent state plus state snapshot/delta events; historical thread state on selection.</p></article>
+            <article class="card"><h3>Context</h3><p class="muted">Core context snapshot and <code>onContextChanged</code>.</p></article>
+            <article class="card"><h3>Learning</h3><p class="muted">Lazy Core Memory store; Runtime Memory endpoints; user/project realtime.</p></article>
+            <article class="card"><h3>Capabilities</h3><p class="muted">Core render catalog and Runtime agent capabilities; conditionally visible.</p></article>
+            <article class="card"><h3>Messages</h3><p class="muted">Current agent messages or historical thread message endpoint.</p></article>
+            <article class="card"><h3>Playground</h3><p class="muted">Uses current agents, threads, messages, state, and tool behavior to run interactive tests.</p></article>
+            <article class="card"><h3>What’s New</h3><p class="muted">Inspector announcement feed with browser-local read state.</p></article>
+          </div>
+        </section>
+
+        <section id="failure">
+          <div class="rule"></div>
+          <h2>Failure isolation and stale-state rules</h2>
+          <div class="grid-2">
+            <article class="card tone-cyan"><h3>Metadata fails soft</h3><p>A timeout, non-OK response, <code>204</code>, malformed payload, or upstream Ops failure becomes absent or partial metadata. Runtime connection and thread work continue.</p></article>
+            <article class="card tone-purple"><h3>Metadata requests are generation-safe</h3><p>A URL, header, credential, or transport change aborts the old request. Late responses cannot overwrite data for a newer Core configuration.</p></article>
+            <article class="card tone-orange"><h3>Threads clear on disconnect</h3><p>Inspector immediately clears cached thread rows and scheduled usage refresh when Runtime leaves the connected state.</p></article>
+            <article class="card tone-green"><h3>Memory distinguishes absence from error</h3><p><code>404</code>, <code>422</code>, and <code>501</code> mean the optional route is unavailable. Authorization failures and network failures remain visible errors.</p></article>
+            <article class="card"><h3>Per-agent discovery is isolated</h3><p>One agent failing to report capabilities does not fail the entire <code>/info</code> response.</p></article>
+            <article class="card"><h3>Realtime does not replace snapshots</h3><p>REST establishes canonical rows. Realtime updates them. Thread message-version signals trigger a canonical message refetch rather than trusting a partial payload.</p></article>
+          </div>
+        </section>
+
+        <section id="findings">
+          <div class="rule"></div>
+          <h2>Audit findings</h2>
+          <div class="grid-2">
+            <article class="card tone-green"><h3>Boundary is sound</h3><p>Commercial projection stays server-side. Browser code receives a validated, safe subset and cannot use it as authority. Ops is behind App API and never exposed to the SDK.</p></article>
+            <article class="card tone-green"><h3>Service authority is sound</h3><p>Thread identity and ownership are enforced downstream. Memory is guarded by its actual feature entitlement. Metadata loss cannot accidentally grant access.</p></article>
+            <article class="card tone-orange"><h3>Naming conceals the split</h3><p>The “Learning” label suggests the <code>self_learning</code> product gate, but the pane is technically a Memory client governed by <code>memory</code>. This is the largest conceptual trap in the implementation.</p></article>
+            <article class="card tone-orange"><h3>Home Memory status can be optimistic</h3><p>Availability defaults to true until first pane activation. This preserves laziness, but means Home is not definitive before a Memory route probe.</p></article>
+            <article class="card tone-cyan"><h3>Navigation is discoverability-first</h3><p>Threads and Learning remain visible when locked. Frontend Tools and Capabilities are data-driven and hidden when empty.</p></article>
+            <article class="card tone-purple"><h3>Core is the integration seam</h3><p>Inspector stays framework-neutral because React only mounts the custom element. The Inspector’s operational contract is the live Core object, not React context or Intelligence APIs.</p></article>
+          </div>
+          <div class="callout"><strong>Recommended mental model</strong>Treat Inspector as a projection over Core. Treat <code>/info</code> as discovery, Inspector metadata as trusted description, and the Thread/Memory routes as authority. “Learning” is presentation vocabulary over Memory today.</div>
+        </section>
+
+        <section id="sources">
+          <div class="rule"></div>
+          <h2>Primary source index</h2>
+          <p class="section-intro">All links are pinned to the audited commits. Line anchors identify the behavior summarized above.</p>
+          <div class="sources" style="margin-top:18px">
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/react-core/src/v2/components/CopilotKitInspector.tsx#L20-L63">React Inspector mount</a><span>Client-only custom-element import and live Core assignment.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/runtime/src/v2/runtime/handlers/get-runtime-info.ts#L18-L158">Runtime discovery</a><span>License status, Intelligence marker, websocket URL, metadata support, and thread capability.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/core/src/core/agent-registry.ts#L461-L577">Core metadata refresh</a><span>Independent request, timeout, invalidation, parsing, and soft failure.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/runtime/src/v2/runtime/handlers/handle-inspector-metadata.ts#L1-L48">Runtime metadata proxy</a><span>Intelligence-only server hop with private failures.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/web-inspector/src/lib/inspector-metadata.ts#L36-L140">Metadata UI projection</a><span>Runtime conflict policy and state-matched actions.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/web-inspector/src/lib/home-briefing.ts#L390-L488">Home briefing model</a><span>Connection summary and service tile composition.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/web-inspector/src/index.ts#L7177-L7397">Inspector subscriptions</a><span>Core attach behavior and lazy Memory activation.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/core/src/threads.ts#L815-L1227">Core Thread store</a><span>REST list, subscribe credentials, websocket connection, and row updates.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/core/src/memory.ts#L51-L73">Core Memory endpoints</a><span>Runtime-relative paths and unavailable status contract.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/core/src/inspector-thread-bridge.ts#L1-L190">Thread view bridge</a><span>Development-only browser events between Inspector and official chat.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/CopilotKit/blob/e1d31696f7747d009bbd5c519743d19f4ca9c5ff/packages/web-inspector/src/lib/persistence.ts#L1-L109">Browser persistence</a><span>Presentation state and news read state.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/app-api/src/routes/inspector-metadata-routes.ts#L58-L129">App API metadata route</a><span>Validated Runtime scope and no-store response behavior.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/app-api/src/services/inspector-metadata.ts#L170-L520">Metadata composer</a><span>Identity, plan, usage, managed Ops projection, and self-hosted license.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/ops-api/src/services/inspector-entitlement-projection.ts#L147-L180">Ops projection rules</a><span>Inactive, free, manageable, non-manageable, and unknown tuples.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/app-api/src/routes/threads-routes.ts#L369-L483">Managed Thread routes</a><span>Scoped listing and realtime subscription credentials.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/app-api/src/memory-entitlement.ts#L98-L158">Memory entitlement</a><span>Managed/self-hosted resolution and fail-closed feature check.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/apps/app-api/src/learning/learning-availability.ts#L44-L129">Learning availability</a><span>Process rollout, organization rollout, and <code>self_learning</code> gate.</span></div>
+            <div class="source"><a href="https://github.com/CopilotKit/Intelligence/blob/f9a6ae0addd6a403eaca9bb074ab2522db052536/docs/contracts/inspector-metadata.md#L1-L165">Inspector metadata contract</a><span>Ownership, trust, field sources, and failure isolation.</span></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <footer><div class="page">Static audit artifact. No JavaScript, external assets, or live service calls are required to read it.</div></footer>
+  </body>
+</html>
