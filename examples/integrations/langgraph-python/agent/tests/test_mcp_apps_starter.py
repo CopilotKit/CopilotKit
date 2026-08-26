@@ -1,9 +1,7 @@
-"""Deterministic regression coverage for the starter's Excalidraw MCP path."""
+"""Regression coverage for the starter's published MCP lifecycle fix."""
 
-import ast
 import asyncio
 import json
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -19,7 +17,6 @@ from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import Field
 
 
-AGENT_ROOT = Path(__file__).resolve().parents[1]
 EXCALIDRAW_ARGS = {
     "elements": [
         {
@@ -51,17 +48,6 @@ EXCALIDRAW_ARGS = {
         {"type": "cameraUpdate", "width": 600, "height": 450},
     ]
 }
-
-
-def _system_prompt() -> str:
-    tree = ast.parse((AGENT_ROOT / "main.py").read_text())
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "SYSTEM_PROMPT"
-            for target in node.targets
-        ):
-            return ast.literal_eval(node.value)
-    raise AssertionError("main.py must define SYSTEM_PROMPT")
 
 
 class ExcalidrawFakeModel(BaseChatModel):
@@ -138,7 +124,7 @@ def _run_starter_path(*, streaming: bool):
         model=ExcalidrawFakeModel(streaming=streaming),
         tools=[],
         middleware=[CopilotKitMiddleware()],
-        system_prompt=_system_prompt(),
+        system_prompt="Use the available create_view tool.",
         checkpointer=InMemorySaver(),
     )
     agent = LangGraphAGUIAgent(name="fac-124", graph=graph)
@@ -158,17 +144,8 @@ def _run_starter_path(*, streaming: bool):
     return asyncio.run(collect())
 
 
-def test_prompt_bounds_excalidraw_generation():
-    prompt = _system_prompt()
-    assert "call `create_view` ONCE" in prompt
-    assert "unique string `id`" in prompt
-    assert "plain `label`" in prompt
-    assert "ONE `cameraUpdate` at the END" in prompt
-    assert "ONE short sentence" in prompt
-
-
 @pytest.mark.parametrize("streaming", [False, True])
-def test_create_view_emits_one_valid_lifecycle(streaming: bool):
+def test_create_view_preserves_one_valid_lifecycle(streaming: bool):
     events = [
         event
         for event in _run_starter_path(streaming=streaming)

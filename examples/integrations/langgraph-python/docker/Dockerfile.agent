@@ -8,13 +8,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
-# Copy agent source and install deps the same way users do (uv sync)
+# Install deps before source so code and test changes reuse this layer.
 COPY pyproject.toml uv.lock langgraph.json ./
+RUN uv sync --group test
+
 COPY src/ ./src/
 COPY main.py ./
 COPY tests/ ./tests/
 
-RUN uv sync --group test && uv run --group test pytest -q tests/test_mcp_apps_starter.py
+RUN uv run --group test pytest -q tests/test_mcp_apps_starter.py
 
 EXPOSE 8123
 
