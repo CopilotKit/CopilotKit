@@ -19,6 +19,18 @@ export type PredictStateTool = {
   tool_argument?: string;
 };
 
+function isPredictStateTool(value: unknown): value is PredictStateTool {
+  if (value === null || typeof value !== "object") return false;
+
+  const config = value as Partial<PredictStateTool>;
+  return (
+    typeof config.tool === "string" &&
+    typeof config.state_key === "string" &&
+    (config.tool_argument === undefined ||
+      typeof config.tool_argument === "string")
+  );
+}
+
 export function getPredictStateUpdate(
   config: PredictStateTool,
   toolCallName: string,
@@ -26,10 +38,16 @@ export function getPredictStateUpdate(
 ): Record<string, unknown> | undefined {
   if (config.tool !== toolCallName) return undefined;
 
+  // @ag-ui/client declares an object here, but older/runtime paths can still
+  // deliver the accumulated tool arguments as a partial JSON string.
   const emittedState =
     typeof partialToolCallArgs === "string"
       ? partialJSONParse(partialToolCallArgs)
       : partialToolCallArgs;
+
+  if (emittedState === null || typeof emittedState !== "object") {
+    return undefined;
+  }
 
   if (config.tool_argument) {
     if (!(config.tool_argument in emittedState)) return undefined;
@@ -51,18 +69,26 @@ export function createPredictStateSubscriber(
   return {
     onCustomEvent: ({ event }) => {
       if (event.name === "PredictState") {
-        predictStateToolsRef.current = event.value;
+        predictStateToolsRef.current = Array.isArray(event.value)
+          ? event.value.filter(isPredictStateTool)
+          : [];
       }
     },
     onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
+      const updates: Record<string, unknown> = {};
+
       predictStateToolsRef.current.forEach((config) => {
         const update = getPredictStateUpdate(
           config,
           toolCallName,
           partialToolCallArgs,
         );
-        if (update) agent.setState(update);
+        if (update) Object.assign(updates, update);
       });
+
+      if (Object.keys(updates).length > 0) {
+        agent.setState({ ...agent.state, ...updates });
+      }
     },
   };
 }
