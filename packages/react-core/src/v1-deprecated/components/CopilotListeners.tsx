@@ -3,7 +3,7 @@ import { useAgent, useCopilotChatConfiguration, useCopilotKit } from "../../v2";
 import {
   CopilotKitError,
   DEFAULT_AGENT_ID,
-  parseJson,
+  partialJSONParse,
 } from "@copilotkit/shared";
 import { useCopilotContext } from "../context";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
@@ -13,40 +13,92 @@ import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import { useToast } from "./toast/toast-provider";
 import { CopilotKitLowLevelError } from "@copilotkit/shared";
 
+export type PredictStateTool = {
+  tool: string;
+  state_key: string;
+  tool_argument?: string;
+};
+
+function isPredictStateTool(value: unknown): value is PredictStateTool {
+  if (value === null || typeof value !== "object") return false;
+
+  const config = value as Partial<PredictStateTool>;
+  return (
+    typeof config.tool === "string" &&
+    typeof config.state_key === "string" &&
+    (config.tool_argument === undefined ||
+      typeof config.tool_argument === "string")
+  );
+}
+
+export function getPredictStateUpdate(
+  config: PredictStateTool,
+  toolCallName: string,
+  partialToolCallArgs: Record<string, unknown> | string,
+): Record<string, unknown> | undefined {
+  if (config.tool !== toolCallName) return undefined;
+
+  // @ag-ui/client declares an object here, but older/runtime paths can still
+  // deliver the accumulated tool arguments as a partial JSON string.
+  const emittedState =
+    typeof partialToolCallArgs === "string"
+      ? partialJSONParse(partialToolCallArgs)
+      : partialToolCallArgs;
+
+  if (emittedState === null || typeof emittedState !== "object") {
+    return undefined;
+  }
+
+  if (config.tool_argument) {
+    if (!(config.tool_argument in emittedState)) return undefined;
+
+    return {
+      [config.state_key]: emittedState[config.tool_argument],
+    };
+  }
+
+  return {
+    [config.state_key]: emittedState,
+  };
+}
+
+export function createPredictStateSubscriber(
+  agent: AbstractAgent,
+  predictStateToolsRef: { current: PredictStateTool[] },
+): AgentSubscriber {
+  return {
+    onCustomEvent: ({ event }) => {
+      if (event.name === "PredictState") {
+        predictStateToolsRef.current = Array.isArray(event.value)
+          ? event.value.filter(isPredictStateTool)
+          : [];
+      }
+    },
+    onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
+      const updates: Record<string, unknown> = {};
+
+      predictStateToolsRef.current.forEach((config) => {
+        const update = getPredictStateUpdate(
+          config,
+          toolCallName,
+          partialToolCallArgs,
+        );
+        if (update) Object.assign(updates, update);
+      });
+
+      if (Object.keys(updates).length > 0) {
+        agent.setState({ ...agent.state, ...updates });
+      }
+    },
+  };
+}
+
 const usePredictStateSubscription = (agent?: AbstractAgent) => {
-  const predictStateToolsRef = useRef<
-    {
-      tool: string;
-      state_key: string;
-      tool_argument: string;
-    }[]
-  >([]);
+  const predictStateToolsRef = useRef<PredictStateTool[]>([]);
 
   const getSubscriber = useCallback(
-    (agent: AbstractAgent): AgentSubscriber => ({
-      onCustomEvent: ({ event }) => {
-        if (event.name === "PredictState") {
-          predictStateToolsRef.current = event.value;
-        }
-      },
-      onToolCallArgsEvent: ({ partialToolCallArgs, toolCallName }) => {
-        predictStateToolsRef.current.forEach((t) => {
-          if (t?.tool !== toolCallName) return;
-
-          const emittedState =
-            typeof partialToolCallArgs === "string"
-              ? parseJson(
-                  partialToolCallArgs as unknown as string,
-                  partialToolCallArgs,
-                )
-              : partialToolCallArgs;
-
-          agent.setState({
-            [t.state_key]: emittedState[t.state_key],
-          });
-        });
-      },
-    }),
+    (subscriptionAgent: AbstractAgent): AgentSubscriber =>
+      createPredictStateSubscriber(subscriptionAgent, predictStateToolsRef),
     [],
   );
 

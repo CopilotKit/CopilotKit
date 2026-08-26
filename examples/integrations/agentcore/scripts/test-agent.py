@@ -8,15 +8,18 @@ Interactive agent chat tester for local and remote agents
 
 Tests agent invocation with conversation continuity:
 - Remote mode (default): Chat with deployed agent via Cognito authentication
-- Local mode (--local): Chat with agent running on localhost:8080
+- Local mode (--local): Start the agent on localhost:8080 and chat with it
 - Automatically detects pattern from config.yaml
 
-Usage:
+Usage (run from examples/integrations/agentcore/):
     # Remote agent testing (prompts for credentials)
     uv run scripts/test-agent.py
 
-    # Local agent testing (agent must be running on localhost:8080)
+    # Local agent testing (starts the agent on localhost:8080)
     uv run scripts/test-agent.py --local
+
+    # Chat with an agent you started yourself on localhost:8080
+    uv run scripts/test-agent.py --local --use-running-agent
 
     # Override pattern from config
     uv run scripts/test-agent.py --pattern strands-single-agent
@@ -134,13 +137,34 @@ def start_local_agent(
         )
         sys.exit(1)
 
+    # Establish who owns port 8080 BEFORE announcing or spawning anything. This
+    # is the only port check on the start path - main() deliberately does not
+    # duplicate it - so this branch is always executed when the port is taken.
+    # Note the real semantics of check_port_available(): it returns True when
+    # the port ACCEPTS a connection, i.e. when the port is already OCCUPIED,
+    # despite its name.
+    #
+    # Spawning anyway would produce a child that cannot bind, and a port
+    # observed open afterwards would prove nothing about that child. Refusing is
+    # the only outcome this script can report truthfully: short of a readiness
+    # handshake it cannot tell its own agent from a stranger on the same port.
+    if check_port_available(8080):
+        print_msg("Port 8080 is already accepting connections", "error")
+        print(
+            "Something else is listening there, and this script cannot tell "
+            "whether it is an agent."
+        )
+        print(
+            "Stop that process, or re-run with --use-running-agent to send "
+            "prompts to it as-is."
+        )
+        sys.exit(1)
+
     print(f"Starting local agent at {agent_path}...")
     print(f"  Pattern: {pattern}")
     print(f"  Memory ID: {memory_id}")
     print(f"  Region: {region}")
     print(f"  Stack Name: {stack_name}\n")
-
-    requirements_path = agent_path.parent / "requirements.txt"
 
     # Set up environment variables
     env = {
@@ -153,41 +177,66 @@ def start_local_agent(
         "PYTHONPATH": f"{agent_path.parent}{os.pathsep}{agent_path.parent.parent}",
     }
 
-    # Build command: uv run with requirements if available, else plain python3
-    if requirements_path.exists():
-        cmd = [
-            "uv",
-            "run",
-            "--with-requirements",
-            str(requirements_path),
-            str(agent_path),
-        ]
-    else:
-        cmd = ["python3", str(agent_path)]
+    # Run inside the agent's own uv project so the local agent gets exactly the
+    # dependency set its container image ships. --locked fails fast if uv.lock
+    # has fallen out of step with pyproject.toml rather than quietly resolving
+    # something else.
+    cmd = [
+        "uv",
+        "run",
+        "--locked",
+        "--project",
+        str(agent_path.parent),
+        str(agent_path),
+    ]
 
-    # Start agent process
+    # Start agent process.
+    #
+    # The child's stdout/stderr are deliberately left inherited rather than
+    # piped. Piping them without anyone draining the pipes deadlocks the child
+    # as soon as it writes ~64KB (uv alone prints its resolution and install
+    # progress to stderr before the agent starts), and reading such a pipe to
+    # EOF while the child is still alive hangs the tester instead of reporting
+    # the failure. Inheriting sends the agent's logs -- including the error
+    # `uv run --locked` prints when uv.lock has drifted from pyproject.toml --
+    # straight to the developer's terminal, live, which is what an interactive
+    # tool wants anyway.
     try:
         _agent_process = subprocess.Popen(  # nosec B607 B603 - command constructed from validated path, shell=False
             cmd,
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
             shell=False,  # Explicitly disable shell
         )
 
         # Wait for agent to start (check port becomes available)
         print("Waiting for agent to start on port 8080...")
         for i in range(30):  # Wait up to 30 seconds
+            # Liveness is checked FIRST. A child that has already exited (e.g.
+            # `uv run --locked` aborting on a stale uv.lock) is reported as the
+            # failure it is, rather than burning the full timeout - and, more
+            # importantly, rather than being masked by a port check that some
+            # other process happens to satisfy.
+            exit_code = _agent_process.poll()
+            if exit_code is not None:
+                print_msg(
+                    f"Agent exited with code {exit_code} before port 8080 opened",
+                    "error",
+                )
+                print("See the agent/uv output above for the failure reason.")
+                _agent_process = None
+                sys.exit(1)
+
+            # An open port is only evidence of THIS child because the refusal
+            # above established the port was free immediately before the spawn.
             if check_port_available(8080):
                 print_msg("Agent started successfully", "success")
                 return _agent_process
+
             time.sleep(1)
 
         print_msg("Agent failed to start (timeout)", "error")
-        if _agent_process.stderr:
-            print(_agent_process.stderr.read())
-        _agent_process.terminate()
+        print("See the agent/uv output above for the failure reason.")
+        stop_local_agent()
         sys.exit(1)
 
     except Exception as e:
@@ -198,14 +247,22 @@ def start_local_agent(
 def stop_local_agent() -> None:
     """Stop the local agent process if running."""
     global _agent_process
-    if _agent_process:
-        print("\nStopping local agent...")
-        _agent_process.terminate()
-        try:
-            _agent_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            _agent_process.kill()
-        print_msg("Agent stopped", "success")
+    if _agent_process is None:
+        return
+
+    # Clear the global first so this stays idempotent: the timeout path, the
+    # SIGINT handler and the atexit hook can all reach here for the same
+    # process, and only the first one should do (and announce) the work.
+    process, _agent_process = _agent_process, None
+
+    print("\nStopping local agent...")
+    process.terminate()
+    try:
+        process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+    print_msg("Agent stopped", "success")
 
 
 # Register cleanup handler
@@ -228,9 +285,14 @@ def invoke_agent(
     session_id: str,
     user_id: str = "local-test-user",
     headers: Optional[Dict[str, str]] = None,
-) -> None:
+) -> bool:
     """
     Invoke agent and print raw streaming events in real-time.
+
+    Returns:
+        bool: True when the endpoint answered 200 and its stream was consumed
+            without error, False when the exchange failed. This says the HTTP
+            exchange succeeded, not that the reply was a useful agent answer.
 
     Args:
         url (str): Agent endpoint URL
@@ -260,7 +322,7 @@ def invoke_agent(
 
         if response.status_code != 200:
             print(f"Error: HTTP {response.status_code}: {response.text}")
-            return
+            return False
 
         # Parse streaming events and display clean text output
         print(f"{Fore.GREEN}Agent:{Style.RESET_ALL} ", end="", flush=True)
@@ -325,12 +387,14 @@ def invoke_agent(
             except (json.JSONDecodeError, KeyError):
                 continue
         print()  # Final newline
+        return True
 
     except requests.exceptions.ConnectionError:
         print_msg(f"Could not connect to {url}", "error")
         sys.exit(1)
     except Exception as e:
         print(f"Error: {e}")
+        return False
 
 
 def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
@@ -368,7 +432,7 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
 
             if local_mode:
                 # Local mode
-                invoke_agent(
+                succeeded = invoke_agent(
                     url="http://localhost:8080/invocations",
                     prompt=prompt,
                     session_id=session_id,
@@ -386,15 +450,20 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
                     "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
                 }
 
-                invoke_agent(
+                succeeded = invoke_agent(
                     url=url,
                     prompt=prompt,
                     session_id=session_id,
                     headers=headers,
                 )
 
+            # invoke_agent returning is not by itself evidence the exchange
+            # worked - it returns on HTTP errors too - so report what actually
+            # happened rather than always announcing completion.
             elapsed = time.time() - start_time
-            print(f"\n{Fore.CYAN}[Completed in {elapsed:.2f}s]{Style.RESET_ALL}\n")
+            outcome = "Completed" if succeeded else "Failed"
+            colour = Fore.CYAN if succeeded else Fore.RED
+            print(f"\n{colour}[{outcome} in {elapsed:.2f}s]{Style.RESET_ALL}\n")
 
         except KeyboardInterrupt:
             print(f"\n\n{Fore.GREEN}Goodbye!{Style.RESET_ALL}")
@@ -425,9 +494,14 @@ Examples:
   # Override pattern for local testing
   uv run scripts/test-agent.py --local --pattern strands-single-agent
 
+  # Chat with an agent you started yourself on localhost:8080
+  uv run scripts/test-agent.py --local --use-running-agent
+
 Notes:
+  - Run from examples/integrations/agentcore/
   - Remote mode: Tests deployed agent
-  - Local mode: Pattern read from infra-cdk/config.yaml to start correct agent
+  - Local mode: Pattern read from config.yaml at the example root (next to
+    config.yaml.example) to start the correct agent
   - Use --pattern to override the config value for local testing
   - Always runs in interactive conversation mode
         """,
@@ -445,7 +519,24 @@ Notes:
         help="Override agent pattern from config (e.g., 'strands-single-agent', 'langgraph-single-agent')",
     )
 
-    return parser.parse_args()
+    parser.add_argument(
+        "--use-running-agent",
+        action="store_true",
+        help=(
+            "With --local, send prompts to whatever is already listening on "
+            "localhost:8080 instead of starting an agent. This script cannot "
+            "verify that process is an agent, so it is opt-in."
+        ),
+    )
+
+    args = parser.parse_args()
+
+    # Reject rather than silently ignore: remote mode never touches port 8080,
+    # so honouring the flag there would be a no-op the user could not see.
+    if args.use_running_agent and not args.local:
+        parser.error("--use-running-agent only applies to --local")
+
+    return args
 
 
 def main():
@@ -468,8 +559,13 @@ def main():
             if args.pattern
             else stack_cfg.get("pattern", "langgraph-single-agent")
         )
-        print(f"Using pattern: {pattern}\n")
-        print_section("LOCAL MODE - Auto-starting agent")
+        if args.use_running_agent:
+            # No agent is started here, so neither the banner nor the pattern
+            # should claim otherwise.
+            print_section("LOCAL MODE - using the process already on port 8080")
+        else:
+            print(f"Using pattern: {pattern}\n")
+            print_section("LOCAL MODE - Auto-starting agent")
 
         # Get memory configuration
         memory_arn = stack_cfg["outputs"]["MemoryArn"]
@@ -477,10 +573,33 @@ def main():
         region = stack_cfg["region"]
         stack_name = stack_cfg["stack_name"]
 
-        # Check if agent is already running
-        if check_port_available(8080):
-            print_msg("Agent already running on localhost:8080", "info")
-            print("Using existing agent instance...\n")
+        # A TCP connect to 8080 succeeding only establishes that SOME process
+        # is listening there - not that it is this example's agent. Adopting a
+        # listener this script did not start is therefore opt-in and labelled
+        # as unverified, never announced as "the agent". Without the flag the
+        # port is not probed here at all: start_local_agent() owns that check
+        # and refuses on an occupied port.
+        if args.use_running_agent:
+            if not check_port_available(8080):
+                print_msg(
+                    "--use-running-agent was passed, but nothing is accepting "
+                    "connections on localhost:8080",
+                    "error",
+                )
+                print(
+                    "Start an agent there yourself, or drop the flag to have "
+                    "this script start one."
+                )
+                sys.exit(1)
+            print_msg(
+                "Sending prompts to the process already listening on "
+                "localhost:8080",
+                "info",
+            )
+            print(
+                "This script did not start it and cannot verify it is an "
+                "agent - replies below come from that process, whatever it is.\n"
+            )
         else:
             # Start the agent
             start_local_agent(memory_id, region, stack_name, pattern)

@@ -571,6 +571,21 @@ type InspectorColorScheme = "light" | "dark";
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
 const LAUNCHER_HUD_WIDTH = 248;
+/**
+ * One page-load preview of the launcher's feature HUD.
+ *
+ * The card arrives after the host page has had a beat to settle. Its four rows
+ * then come online in order, stay readable, and leave together. Nothing is
+ * persisted: a new Inspector element means a new preview.
+ */
+const LAUNCHER_HUD_INTRO_MS = {
+  delay: 500,
+  duration: 3400,
+  rowStart: 180,
+  rowStagger: 170,
+  rowDuration: 300,
+  blockedRetry: 250,
+} as const;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -778,6 +793,31 @@ type InspectorMessage = {
   /** Populated for role="activity" messages (Generative UI). */
   activityType?: string;
 };
+
+const EMPTY_INSPECTOR_MESSAGES: InspectorMessage[] = [];
+
+function textFromUnknownContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const part of content) {
+      if (typeof part === "string") {
+        parts.push(part);
+        continue;
+      }
+      if (typeof part === "object" && part !== null && "text" in part) {
+        const text = part.text;
+        if (typeof text === "string") parts.push(text);
+      }
+    }
+    return parts.join("");
+  }
+  if (typeof content === "object" && content !== null && "text" in content) {
+    const text = content.text;
+    if (typeof text === "string") return text;
+  }
+  return "";
+}
 
 type InspectorToolDefinition = {
   agentId: string;
@@ -1301,13 +1341,6 @@ function highlightedJson(obj: unknown): string {
     const cached = highlightedJsonCache.get(obj);
     if (cached !== undefined) return cached;
   }
-  const colors = {
-    key: "#5558B2",
-    str: "#087653",
-    num: "#8a5900",
-    bool: "#c0333a",
-    nil: "#68686e",
-  };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
   const parts: string[] = [];
@@ -1318,15 +1351,17 @@ function highlightedJson(obj: unknown): string {
   while ((match = re.exec(json)) !== null) {
     parts.push(escapeHtml(json.slice(lastIndex, match.index)));
     const m = match[0];
-    let color = colors.num;
+    let token = "num";
     if (m.startsWith('"')) {
-      color = m.trimEnd().endsWith(":") ? colors.key : colors.str;
+      token = m.trimEnd().endsWith(":") ? "key" : "str";
     } else if (m === "true" || m === "false") {
-      color = colors.bool;
+      token = "bool";
     } else if (m === "null") {
-      color = colors.nil;
+      token = "nil";
     }
-    parts.push(`<span style="color:${color}">${escapeHtml(m)}</span>`);
+    parts.push(
+      `<span class="cpk-json-token cpk-json-token--${token}">${escapeHtml(m)}</span>`,
+    );
     lastIndex = match.index + m.length;
   }
   parts.push(escapeHtml(json.slice(lastIndex)));
@@ -1374,17 +1409,34 @@ ${unsafeHTML(highlightedJson(parsed))}</pre
   >`;
 }
 
-function eventColors(type: string): { bg: string; fg: string } {
-  if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
-  if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
-  if (type.startsWith("STATE"))
-    return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
-  if (type === "RUN_ERROR" || type === "ERROR")
-    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
-  if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
-  return { bg: "#F7F7F9", fg: "#68686e" };
+function humanizeEventType(type: string): string {
+  const words = type
+    .trim()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.toLowerCase());
+  if (words.length === 0) return "Event";
+  const [first = "event", ...rest] = words;
+  return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...rest].join(
+    " ",
+  );
+}
+
+function messageTitle(role: string): string {
+  const normalized = role.trim() || "message";
+  const label = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1).toLowerCase()}`;
+  return `${label} message`;
+}
+
+function eventCategory(
+  type: string,
+): "message" | "tool" | "state" | "run" | "error" | "event" {
+  if (type === "RUN_ERROR" || type === "ERROR") return "error";
+  if (type.startsWith("TEXT_MESSAGE")) return "message";
+  if (type.startsWith("TOOL_CALL")) return "tool";
+  if (type.startsWith("STATE") || type.startsWith("MESSAGES")) return "state";
+  if (type.startsWith("RUN_") || type.startsWith("STEP_")) return "run";
+  return "event";
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -1857,6 +1909,7 @@ export class CpkThreadInspector extends PortableLitElement {
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
+    agentMessagesInput: { attribute: false },
     liveMessageVersion: { attribute: false },
     viewInAppMode: { attribute: false },
     viewInAppError: { attribute: false },
@@ -1893,6 +1946,11 @@ export class CpkThreadInspector extends PortableLitElement {
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
+  agentMessagesInput: ReadonlyArray<{
+    id?: string;
+    role: string;
+    contentText: string;
+  }> = EMPTY_INSPECTOR_MESSAGES;
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
@@ -1962,6 +2020,8 @@ export class CpkThreadInspector extends PortableLitElement {
   > = new Map();
   private _timelineItemsCache: {
     events: ApiAgentEvent[];
+    conversation: ConversationItem[];
+    agentMessages: CpkThreadInspector["agentMessagesInput"];
     items: TimelineItem[];
   } | null = null;
   private _liveEventsWithSourceIndexCache: {
@@ -2138,6 +2198,11 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       flex-direction: row;
       overflow: hidden;
+      --cpk-json-key: #3d408f;
+      --cpk-json-str: #0b6b4c;
+      --cpk-json-num: #8a5900;
+      --cpk-json-bool: #c0333a;
+      --cpk-json-nil: #57575b;
     }
 
     .cpk-td {
@@ -2262,11 +2327,25 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__chrome-actions {
+      margin-inline-start: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      padding-inline: 8px;
+      min-width: 0;
+    }
+
+    .cpk-td__chrome-actions + .cpk-td__panel-toggle {
+      margin-inline-start: 0;
+    }
+
     .cpk-td__metadata-strip {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 8px;
       padding: 10px 16px;
       border-bottom: 1px solid #e9e9ef;
       background: #fbfbfd;
@@ -2275,19 +2354,22 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__metadata-pills {
       display: flex;
+      align-items: center;
       gap: 6px;
-      flex: 1;
-      flex-wrap: wrap;
+      width: 100%;
       min-width: 0;
+      flex-wrap: nowrap;
     }
 
     .cpk-td__metadata-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      max-width: 220px;
-      padding: 3px 7px;
-      border: 1px solid #e9e9ef;
+      gap: 6px;
+      flex: 1 1 0;
+      min-width: 0;
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid #dbdbe5;
       border-radius: 6px;
       background: #ffffff;
       color: #57575b;
@@ -2303,20 +2385,17 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__metadata-value {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
+    .cpk-td__metadata-value--wrap,
     .cpk-td__metadata-pill--wrap {
-      max-width: 100%;
-      white-space: normal;
-    }
-
-    .cpk-td__metadata-value--wrap {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .cpk-td__view-in-app {
@@ -2327,16 +2406,27 @@ export class CpkThreadInspector extends PortableLitElement {
       border-radius: 6px;
       background: #5558b2;
       color: #ffffff;
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: 11px;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
       font-weight: 600;
-      padding: 5px 10px;
+      line-height: 1.2;
+      min-height: 24px;
+      padding: 3px 8px;
       cursor: pointer;
+      transition:
+        transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+        background 120ms ease,
+        color 120ms ease,
+        border-color 120ms ease;
     }
 
     .cpk-td__view-in-app:focus-visible {
       outline: 2px solid #010507;
       outline-offset: 2px;
+    }
+
+    .cpk-td__view-in-app:active {
+      transform: scale(0.96);
     }
 
     .cpk-td__view-in-app--stop {
@@ -2348,6 +2438,16 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-basis: 100%;
       color: #c0333a;
       font-size: 11px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__view-in-app {
+        transition: none;
+      }
+
+      .cpk-td__view-in-app:active {
+        transform: none;
+      }
     }
 
     /*
@@ -2546,15 +2646,16 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__tool-pre {
       margin: 0;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
+      font-size: 12px;
       background: #f7f7f9;
-      padding: 6px 8px;
-      border-radius: 5px;
+      padding: 10px 12px;
+      border-radius: 6px;
       overflow-x: auto;
       white-space: pre-wrap;
-      word-break: break-all;
+      overflow-wrap: anywhere;
+      word-break: normal;
       color: #010507;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* ── Tool call group ─────────────────────────────────────────────── */
@@ -2607,10 +2708,29 @@ export class CpkThreadInspector extends PortableLitElement {
 
     /* ── Interaction timeline ───────────────────────────────────────── */
     .cpk-td__timeline-item {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      background: #ffffff;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
       overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--run,
+    .cpk-td__timeline-item--state,
+    .cpk-td__timeline-item--event,
+    .cpk-td__timeline-item--tool,
+    .cpk-td__event--run,
+    .cpk-td__event--event,
+    .cpk-td__event--state,
+    .cpk-td__event--message,
+    .cpk-td__event--tool {
+      border-color: #dbdbe5;
+      background: #ffffff;
+    }
+
+    .cpk-td__timeline-item--message {
+      border-color: #dbdbe5;
+      background: #ffffff;
+      box-shadow: 0 1px 2px #0105070d;
     }
 
     .cpk-td__timeline-item--warning {
@@ -2622,27 +2742,70 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 10px;
+      padding: 6px 10px;
+      background: transparent;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-header {
+      padding: 10px 12px;
       background: #f7f7f9;
     }
 
+    .cpk-td__timeline-item--user .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
     .cpk-td__timeline-kind {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #57575b;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
       text-transform: uppercase;
-      color: #5558b2;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-kind {
+      background: #bec2ff33;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-kind {
+      background: #85ecce4d;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--warning .cpk-td__timeline-kind {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__timeline-title {
       flex: 1;
       min-width: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       font-weight: 500;
-      color: #010507;
+      color: #57575b;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #010507;
     }
 
     .cpk-td__timeline-time {
@@ -2655,6 +2818,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__timeline-body {
       margin: 0;
       padding: 0 10px 9px;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       line-height: 1.55;
       color: #57575b;
@@ -2662,21 +2826,26 @@ export class CpkThreadInspector extends PortableLitElement {
       word-break: break-word;
     }
 
+    .cpk-td__timeline-item--message .cpk-td__timeline-body {
+      padding: 0 12px 12px;
+      font-size: 13px;
+      color: #010507;
+    }
+
     .cpk-td__timeline-toolbar {
       display: flex;
       gap: 6px;
-      margin-left: auto;
     }
 
     .cpk-td__timeline-bulk-toggle {
       margin: 0;
-      padding: 4px 8px;
-      border: 1px solid #dcdce8;
-      border-radius: 7px;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
       background: #ffffff;
       color: #36363a;
       cursor: pointer;
-      font-family: "Inter", sans-serif;
+      font-family: "Spline Sans Mono", monospace;
       font-size: 11px;
       font-weight: 600;
       line-height: 1.2;
@@ -2751,84 +2920,6 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     }
 
-    @keyframes cpk-playground-message-enter {
-      from {
-        opacity: 0;
-        filter: blur(2px);
-        transform: translateY(4px);
-      }
-      to {
-        opacity: 1;
-        filter: blur(0);
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes cpk-playground-thinking {
-      0%,
-      60%,
-      100% {
-        opacity: 0.28;
-        transform: translateY(0);
-      }
-      30% {
-        opacity: 1;
-        transform: translateY(-2px);
-      }
-    }
-
-    .cpk-playground-root {
-      container-type: inline-size;
-    }
-
-    .cpk-playground-message-enter {
-      animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-        both;
-    }
-
-    .cpk-playground-thinking-dot {
-      animation: cpk-playground-thinking 1.2s ease-in-out infinite;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(2) {
-      animation-delay: 0.12s;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(3) {
-      animation-delay: 0.24s;
-    }
-
-    .cpk-playground-reasoning summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
-      transform: rotate(90deg);
-    }
-
-    @container (max-width: 560px) {
-      .cpk-playground-header {
-        align-items: stretch;
-      }
-
-      .cpk-playground-actions {
-        width: 100%;
-      }
-
-      .cpk-playground-thread-select {
-        min-width: 0;
-        max-width: none;
-        flex: 1;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .cpk-playground-message-enter,
-      .cpk-playground-thinking-dot {
-        animation: none;
-      }
-    }
-
     .cpk-td__genui {
       display: flex;
       flex-direction: column;
@@ -2870,8 +2961,9 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── AG-UI Events ────────────────────────────────────────────────── */
     .cpk-td__event {
       flex-shrink: 0;
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
+      border: 1px solid #dbdbe5;
+      border-radius: 10px;
+      background: #ffffff;
       overflow: hidden;
       /*
        * content-visibility: auto lets the browser skip layout + paint for
@@ -2887,48 +2979,89 @@ export class CpkThreadInspector extends PortableLitElement {
       contain-intrinsic-size: 0 80px;
     }
 
+    .cpk-td__event--error {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
     .cpk-td__event-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 5px 10px;
+      gap: 8px;
+      padding: 6px 10px;
+      background: transparent;
     }
 
     .cpk-td__event-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #010507;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
-      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .cpk-td__event--message .cpk-td__event-type {
+      background: #bec2ff33;
+    }
+
+    .cpk-td__event--tool .cpk-td__event-type {
+      background: #85ecce4d;
+    }
+
+    .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__event-time {
+      margin-inline-start: auto;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       color: #68686e;
+      flex-shrink: 0;
     }
 
-    .cpk-td__event-payload {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
-      padding: 8px 10px;
-      border-top: 1px solid #e9e9ef;
-    }
-
-    /* ── JSON block (agent state) ────────────────────────────────────── */
+    .cpk-td__event-payload,
     .cpk-td__json-block,
     .cpk-json-block {
       margin: 0;
+      padding: 10px 12px;
+      border-top: 1px solid #dbdbe5;
+      background: #f7f7f9;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 11px;
-      line-height: 1.8;
+      font-size: 12px;
+      line-height: 1.65;
       white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      color: #010507;
+      overflow: auto;
+    }
+
+    .cpk-json-token--key {
+      color: var(--cpk-json-key);
+    }
+
+    .cpk-json-token--str {
+      color: var(--cpk-json-str);
+    }
+
+    .cpk-json-token--num {
+      color: var(--cpk-json-num);
+    }
+
+    .cpk-json-token--bool {
+      color: var(--cpk-json-bool);
+    }
+
+    .cpk-json-token--nil {
+      color: var(--cpk-json-nil);
     }
 
     /* ── Resize divider ──────────────────────────────────────────────── */
@@ -3027,6 +3160,11 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) {
       color-scheme: dark;
+      --cpk-json-key: #bec2ff;
+      --cpk-json-str: #85ecce;
+      --cpk-json-num: #ffac4d;
+      --cpk-json-bool: #fa5f67;
+      --cpk-json-nil: #afafb7;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td {
@@ -3067,9 +3205,13 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
       background: #171a22;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+      background: #111319;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -3081,10 +3223,113 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle--active,
     :host([data-color-scheme="dark"]) .cpk-td__inline-chip,
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind,
     :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
       background: #302b43;
       color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--message {
+      background: #191c24;
+      border-color: #343742;
+      box-shadow: none;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--user
+      .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-kind {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-kind {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--run,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--event,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--state,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--tool,
+    :host([data-color-scheme="dark"]) .cpk-td__event--run,
+    :host([data-color-scheme="dark"]) .cpk-td__event--event,
+    :host([data-color-scheme="dark"]) .cpk-td__event--state,
+    :host([data-color-scheme="dark"]) .cpk-td__event--message,
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool {
+      background: #191c24;
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind {
+      background: #20232d;
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-title {
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-type {
+      background: #20232d;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--message .cpk-td__event-type {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool .cpk-td__event-type {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.2);
+      color: #fa5f67;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-body {
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__tab,
@@ -3113,7 +3358,9 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__json-block,
     :host([data-color-scheme="dark"]) .cpk-json-block {
-      color: #c7c9d2;
+      background: #111319;
+      border-top-color: #343742;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-tdp__divider {
@@ -3132,14 +3379,14 @@ export class CpkThreadInspector extends PortableLitElement {
       if (this.threadId) {
         // Timeline is the default tab and should be event-derived. Fetch
         // events eagerly; the raw tab reuses the same response when opened.
+        // User messages often never appear as TEXT_MESSAGE events (they are
+        // added locally before RUN_STARTED), so also load the conversation.
         void this.fetchMetadata(this.threadId);
         if (this.canFetchEvents()) {
           this._eventsFetched = true;
           void this.fetchEvents(this.threadId);
-        } else {
-          // Last-resort compatibility path for consumers that only implement
-          // messages. New integrations should provide events so Timeline can
-          // expose source references and decode warnings.
+        }
+        if (this.canFetchMessages()) {
           void this.fetchMessages(this.threadId);
         }
       } else {
@@ -3166,6 +3413,7 @@ export class CpkThreadInspector extends PortableLitElement {
     const focusedContentChanged =
       _changed.has("_fetchedEvents") ||
       _changed.has("agentEventsInput") ||
+      _changed.has("agentMessagesInput") ||
       _changed.has("_conversation");
     if (
       this.focusMessageId &&
@@ -3381,25 +3629,16 @@ export class CpkThreadInspector extends PortableLitElement {
       if (result.status === "not-available") {
         this._eventsNotAvailable = true;
         this._fetchedEvents = [];
-        if (this.canFetchMessages()) {
-          void this.fetchMessages(threadId);
-        }
         return;
       }
       const mappedEvents = this.mapApiEvents(result.events);
       this._fetchedEvents = mappedEvents;
-      if (mappedEvents.length === 0 && this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
-      if (this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -3506,13 +3745,16 @@ export class CpkThreadInspector extends PortableLitElement {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
-      if (msg.role === "user" && msg.content) {
-        items.push({
-          id: msg.id,
-          type: "user",
-          content: msg.content,
-          createdAt: "",
-        });
+      if (msg.role === "user") {
+        const content = textFromUnknownContent(msg.content);
+        if (content) {
+          items.push({
+            id: msg.id,
+            type: "user",
+            content,
+            createdAt: "",
+          });
+        }
       } else if (msg.role === "assistant") {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
@@ -3545,11 +3787,12 @@ export class CpkThreadInspector extends PortableLitElement {
             items.push(item);
           }
         }
-        if (msg.content) {
+        const assistantContent = textFromUnknownContent(msg.content);
+        if (assistantContent) {
           items.push({
             id: msg.id,
             type: "assistant",
-            content: msg.content,
+            content: assistantContent,
             createdAt: "",
           });
         }
@@ -3613,12 +3856,105 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
-    if (this._timelineItemsCache?.events === events) {
+    const conversation = this._conversation;
+    const agentMessages = this.agentMessagesInput;
+    if (
+      this._timelineItemsCache?.events === events &&
+      this._timelineItemsCache.conversation === conversation &&
+      this._timelineItemsCache.agentMessages === agentMessages
+    ) {
       return this._timelineItemsCache.items;
     }
-    const items = this.timelineItemsFromEvents(events);
-    this._timelineItemsCache = { events, items };
+    const items = this.mergeUserMessagesIntoTimeline(
+      this.timelineItemsFromEvents(events),
+    );
+    this._timelineItemsCache = { events, conversation, agentMessages, items };
     return items;
+  }
+
+  private conversationUsers(): ConversationUser[] {
+    const users: ConversationUser[] = [];
+    const seenIds = new Set<string>();
+    const seenBodies = new Set<string>();
+    const push = (user: ConversationUser) => {
+      const body = user.content.trim();
+      if (!body) return;
+      if (seenIds.has(user.id) || seenBodies.has(body)) return;
+      seenIds.add(user.id);
+      seenBodies.add(body);
+      users.push(user);
+    };
+    for (const item of this._conversation) {
+      if (item.type === "user") push(item);
+    }
+    this.agentMessagesInput.forEach((message, index) => {
+      if (message.role !== "user") return;
+      push({
+        id: message.id ?? `live-user-${index}`,
+        type: "user",
+        content: message.contentText,
+        createdAt: "",
+      });
+    });
+    return users;
+  }
+
+  private mergeUserMessagesIntoTimeline(items: TimelineItem[]): TimelineItem[] {
+    if (items.length === 0) return items;
+    const users = this.conversationUsers();
+    if (users.length === 0) return items;
+
+    const shownIds = new Set<string>();
+    const shownBodies = new Set<string>();
+    for (const item of items) {
+      if (item.kind !== "message") continue;
+      if (!item.title.toLowerCase().startsWith("user")) continue;
+      if (item.messageId) shownIds.add(item.messageId);
+      const body = item.body?.trim();
+      if (body) shownBodies.add(body);
+    }
+
+    const missing = users.filter((user) => {
+      if (shownIds.has(user.id)) return false;
+      if (shownBodies.has(user.content.trim())) return false;
+      return true;
+    });
+    if (missing.length === 0) return items;
+
+    const insertAt: number[] = [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      if (item.kind === "run" && item.title === "Run started") {
+        insertAt.push(index);
+      }
+    }
+    if (insertAt.length === 0) {
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index]!;
+        if (
+          item.kind === "message" &&
+          item.title.toLowerCase().includes("assistant")
+        ) {
+          insertAt.push(index);
+        }
+      }
+    }
+
+    const merged = [...items];
+    for (let index = missing.length - 1; index >= 0; index--) {
+      const user = missing[index]!;
+      const row: TimelineItem = {
+        id: `conversation-user-${user.id}`,
+        messageId: user.id,
+        kind: "message",
+        title: "User message",
+        body: user.content,
+        timestamp: user.createdAt || 0,
+        sourceIndex: 0,
+      };
+      merged.splice(insertAt[index] ?? 0, 0, row);
+    }
+    return merged;
   }
 
   private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
@@ -3674,7 +4010,7 @@ export class CpkThreadInspector extends PortableLitElement {
           id: `message-${key}`,
           messageId: key,
           kind: "message",
-          title: `${role || "message"} message`,
+          title: messageTitle(role || "message"),
           body: "",
           timestamp: event.timestamp,
           sourceIndex,
@@ -3847,10 +4183,7 @@ export class CpkThreadInspector extends PortableLitElement {
         items.push({
           id: `${type}-${sourceIndex}`,
           kind: "state",
-          title:
-            type === "STATE_SNAPSHOT"
-              ? "State snapshot captured"
-              : "State delta captured",
+          title: type === "STATE_SNAPSHOT" ? "State snapshot" : "State delta",
           timestamp: event.timestamp,
           sourceIndex,
           details: payload,
@@ -3861,7 +4194,7 @@ export class CpkThreadInspector extends PortableLitElement {
       items.push({
         id: `event-${sourceIndex}`,
         kind: "event",
-        title: type,
+        title: humanizeEventType(type),
         timestamp: event.timestamp,
         sourceIndex,
         details: payload,
@@ -4059,6 +4392,7 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   render() {
+    const viewInApp = this.renderViewInAppAction();
     return html`
       <div class="cpk-td">
         <!-- ── Left area: tabs + content ─────────────────────────────────── -->
@@ -4091,6 +4425,11 @@ export class CpkThreadInspector extends PortableLitElement {
                 `,
               )}
             </div>
+            ${
+              viewInApp !== nothing
+                ? html`<div class="cpk-td__chrome-actions">${viewInApp}</div>`
+                : nothing
+            }
             ${this.renderPanelToggle()}
           </div>
           ${this.renderMetadataStrip()}
@@ -4158,7 +4497,7 @@ export class CpkThreadInspector extends PortableLitElement {
         label: "Name",
         value: metadata?.name ?? this.thread?.name ?? "Untitled",
       },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
     ];
     for (const fact of [
       { label: "Agent", value: metadata?.agentId },
@@ -4174,8 +4513,6 @@ export class CpkThreadInspector extends PortableLitElement {
             : fact.value,
       });
     }
-    const bulkControls = this.renderActiveBulkControls();
-
     return html`
       <div
         class="cpk-td__metadata-strip"
@@ -4204,8 +4541,6 @@ export class CpkThreadInspector extends PortableLitElement {
             `,
           )}
         </div>
-        ${this.renderViewInAppAction()}
-        ${bulkControls}
       </div>
     `;
   }
@@ -4244,10 +4579,8 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderActiveBulkControls() {
+  private renderTimelineBulkControls() {
     if (this._eventsNotAvailable) return nothing;
-    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
-    if (this._tab !== "timeline") return nothing;
 
     const detailIds = this.timelineItemsForEvents(this.activeEvents)
       .filter((item) => item.details)
@@ -4350,6 +4683,8 @@ export class CpkThreadInspector extends PortableLitElement {
     const events = this.activeEvents;
     const cachedTimeline = this.getCachedPanelTpl("timeline", [
       events,
+      this._conversation,
+      this.agentMessagesInput,
       this._expandedTimelineDetails,
     ]);
     if (cachedTimeline) return cachedTimeline;
@@ -4371,19 +4706,43 @@ export class CpkThreadInspector extends PortableLitElement {
 
     return this.cachedPanelTpl(
       "timeline",
-      [events, this._expandedTimelineDetails],
-      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+      [
+        events,
+        this._conversation,
+        this.agentMessagesInput,
+        this._expandedTimelineDetails,
+      ],
+      () =>
+        html`${this.renderTimelineBulkControls()}${timelineItems.map((item) =>
+          this.renderTimelineItem(item),
+        )}`,
     );
   }
 
+  private timelineItemClass(item: TimelineItem): string {
+    const classes = [
+      "cpk-td__timeline-item",
+      `cpk-td__timeline-item--${item.kind}`,
+    ];
+    if (item.kind === "warning" || item.severity === "error") {
+      classes.push("cpk-td__timeline-item--warning");
+    }
+    if (item.kind === "message") {
+      const title = item.title.toLowerCase();
+      if (title.startsWith("user")) {
+        classes.push("cpk-td__timeline-item--user");
+      } else if (title.includes("assistant")) {
+        classes.push("cpk-td__timeline-item--assistant");
+      }
+    }
+    return classes.join(" ");
+  }
+
   private renderTimelineItem(item: TimelineItem) {
-    const isWarning = item.kind === "warning";
     const detailsExpanded = this._expandedTimelineDetails.has(item.id);
     return html`
       <div
-        class="cpk-td__timeline-item ${
-          isWarning ? "cpk-td__timeline-item--warning" : ""
-        }"
+        class=${this.timelineItemClass(item)}
         data-message-id=${item.messageId ?? nothing}
       >
         <div class="cpk-td__timeline-header">
@@ -4391,13 +4750,19 @@ export class CpkThreadInspector extends PortableLitElement {
             >${item.severity === "error" ? "error" : item.kind}</span
           >
           <span class="cpk-td__timeline-title">${item.title}</span>
-          <button
-            type="button"
-            class="cpk-td__source-link"
-            @click=${() => this.revealSourceEvent(item.sourceIndex)}
-          >
-            Source event #${item.sourceIndex}
-          </button>
+          ${
+            item.sourceIndex
+              ? html`
+                  <button
+                    type="button"
+                    class="cpk-td__source-link"
+                    @click=${() => this.revealSourceEvent(item.sourceIndex)}
+                  >
+                    Source event #${item.sourceIndex}
+                  </button>
+                `
+              : nothing
+          }
           <span class="cpk-td__timeline-time"
             >${formatTimestamp(item.timestamp)}</span
           >
@@ -4448,9 +4813,7 @@ export class CpkThreadInspector extends PortableLitElement {
         }
         ${
           item.details && detailsExpanded
-            ? html`<pre class="cpk-td__timeline-body">
-${unsafeHTML(highlightedJson(item.details))}</pre
-            >`
+            ? renderHighlightedJsonBlock(item.details)
             : nothing
         }
       </div>
@@ -4636,9 +4999,7 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
             ? html`
               <div class="cpk-td__tool-body">
                 <div class="cpk-td__tool-section-label">Arguments</div>
-                <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.arguments))}</pre
-                >
+                ${renderHighlightedJsonBlock(item.arguments)}
                 ${
                   item.result
                     ? html`
@@ -4648,9 +5009,7 @@ ${unsafeHTML(highlightedJson(item.arguments))}</pre
                       >
                         Result
                       </div>
-                      <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.result))}</pre
-                      >
+                      ${renderHighlightedJsonBlock(item.result)}
                     `
                     : nothing
                 }
@@ -4792,15 +5151,18 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       "raw-events",
       [events, this._expandedRawEvents],
       () => {
-        return html`${events.map((event) => {
-          const { bg, fg } = eventColors(event.type);
-          const eventId = this.rawEventId(event);
-          const detailsExpanded = this._expandedRawEvents.has(eventId);
-          return html`
-            <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
-              <div class="cpk-td__event-header" style="background:${bg}">
-                <span class="cpk-td__event-type" style="color:${fg}"
-                  >${event.type}</span
+        return html`${this.renderRawEventBulkControls()}${events.map(
+          (event) => {
+            const eventId = this.rawEventId(event);
+            const detailsExpanded = this._expandedRawEvents.has(eventId);
+            return html`
+            <div
+              class="cpk-td__event cpk-td__event--${eventCategory(event.type)}"
+              data-source-index=${event.sourceIndex}
+            >
+              <div class="cpk-td__event-header">
+                <span class="cpk-td__event-type" title=${event.type}
+                  >${humanizeEventType(event.type)}</span
                 >
                 <span class="cpk-td__event-time"
                   >${formatTimestamp(event.timestamp)}</span
@@ -4845,14 +5207,13 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
               </button>
               ${
                 detailsExpanded
-                  ? html`<pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
-                  >`
+                  ? renderHighlightedJsonBlock(event.rawEvent ?? event)
                   : nothing
               }
             </div>
           `;
-        })}`;
+          },
+        )}`;
       },
     );
   }
@@ -5837,6 +6198,8 @@ export class WebInspectorElement extends LitElement {
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
+  private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
+    null;
   private layoutMenuOpen = false;
   private dockMode: DockMode = "floating";
   private popOut: PopOutHandle | null = null;
@@ -5949,6 +6312,10 @@ export class WebInspectorElement extends LitElement {
   private launcherHudSide: "left" | "right" = "left";
   private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private launcherHudIntro = false;
+  private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
    * the circle cannot steal "Turn on Threads". Not a public open option.
@@ -7380,7 +7747,7 @@ export class WebInspectorElement extends LitElement {
       // selected thread and re-fetches `/threads/:id/messages` when it ticks,
       // so the conversation view stays in sync with the streaming agent
       // without the parent re-implementing AG-UI → ConversationItem mapping.
-      const runThreadId = (agent as { threadId?: string }).threadId;
+      const runThreadId = this.readAgentThreadId(agent);
       if (runThreadId) {
         this.liveMessageVersion.set(
           runThreadId,
@@ -7581,6 +7948,25 @@ export class WebInspectorElement extends LitElement {
     return messages ?? null;
   }
 
+  private readAgentThreadId(agent: AbstractAgent): string | undefined {
+    if (!("threadId" in agent)) return undefined;
+    const threadId = agent.threadId;
+    return typeof threadId === "string" ? threadId : undefined;
+  }
+
+  private getLiveAgentMessagesForThread(thread: ɵThread): InspectorMessage[] {
+    const messages =
+      this.agentMessages.get(thread.agentId) ?? EMPTY_INSPECTOR_MESSAGES;
+    const core = this._core;
+    if (!core || typeof core.getAgent !== "function") return messages;
+    const agent = core.getAgent(thread.agentId);
+    if (!agent) return EMPTY_INSPECTOR_MESSAGES;
+    if (this.readAgentThreadId(agent) !== thread.id) {
+      return EMPTY_INSPECTOR_MESSAGES;
+    }
+    return messages;
+  }
+
   private getAgentStatus(agentId: string): "running" | "idle" | "error" {
     const events = this.agentEvents.get(agentId) ?? [];
     if (events.length === 0) {
@@ -7687,11 +8073,11 @@ export class WebInspectorElement extends LitElement {
               }
               ${
                 argsString
-                  ? html`<pre
-                    class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
-                  >
-${argsString}</pre
-                  >`
+                  ? html`<div class="mt-2">
+                    ${renderHighlightedJsonBlock(
+                      coerceJsonValue(call.function?.arguments),
+                    )}
+                  </div>`
                   : nothing
               }
             </div>
@@ -7778,37 +8164,33 @@ ${argsString}</pre
 
   private getEventBadgeClasses(type: string): string {
     const base =
-      "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
+      "font-mono text-[10px] font-semibold inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
     if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
-    }
-
-    if (type.startsWith("RUN_")) {
-      return `${base} bg-blue-50 text-blue-700 border-blue-200`;
+      return `${base} bg-rose-50 text-rose-800 border-rose-200`;
     }
 
     if (type.startsWith("TEXT_MESSAGE")) {
-      return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
     if (type.startsWith("TOOL_CALL")) {
-      return `${base} bg-amber-50 text-amber-700 border-amber-200`;
+      return `${base} bg-emerald-50 text-gray-900 border-emerald-200`;
+    }
+
+    if (type.startsWith("RUN_") || type.startsWith("STEP_")) {
+      return `${base} bg-gray-100 text-gray-900 border-gray-200`;
     }
 
     if (type.startsWith("REASONING")) {
-      return `${base} bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("STATE")) {
-      return `${base} bg-violet-50 text-violet-700 border-violet-200`;
+    if (type.startsWith("STATE") || type.startsWith("MESSAGES")) {
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("MESSAGES")) {
-      return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    return `${base} bg-gray-100 text-gray-600 border-gray-200`;
+    return `${base} bg-gray-100 text-gray-900 border-gray-200`;
   }
 
   private stringifyPayload(payload: unknown, pretty: boolean): string {
@@ -7889,6 +8271,11 @@ ${argsString}</pre
       :host {
         --cpk-inspector-shell-radius: 5px;
         --cpk-inspector-surface-dark: #111319;
+        --cpk-json-key: #3d408f;
+        --cpk-json-str: #0b6b4c;
+        --cpk-json-num: #8a5900;
+        --cpk-json-bool: #c0333a;
+        --cpk-json-nil: #57575b;
         position: fixed;
         top: 0;
         left: 0;
@@ -7896,6 +8283,191 @@ ${argsString}</pre
         display: block;
         will-change: transform;
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+
+      :host([data-color-scheme="dark"]),
+      .inspector-window[data-color-scheme="dark"] {
+        --cpk-json-key: #bec2ff;
+        --cpk-json-str: #85ecce;
+        --cpk-json-num: #ffac4d;
+        --cpk-json-bool: #fa5f67;
+        --cpk-json-nil: #afafb7;
+      }
+
+      .cpk-json-token--key {
+        color: var(--cpk-json-key);
+      }
+
+      .cpk-json-token--str {
+        color: var(--cpk-json-str);
+      }
+
+      .cpk-json-token--num {
+        color: var(--cpk-json-num);
+      }
+
+      .cpk-json-token--bool {
+        color: var(--cpk-json-bool);
+      }
+
+      .cpk-json-token--nil {
+        color: var(--cpk-json-nil);
+      }
+
+      .cpk-json-block {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background: #f7f7f9;
+        font-family: "Spline Sans Mono", monospace;
+        font-size: 12px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        color: #010507;
+        overflow: auto;
+      }
+
+      :host([data-color-scheme="dark"]) .cpk-json-block,
+      .inspector-window[data-color-scheme="dark"] .cpk-json-block {
+        background: #111319;
+        border-color: #343742;
+        color: #f3f4f8;
+      }
+
+      @keyframes cpk-playground-message-enter {
+        from {
+          opacity: 0;
+          filter: blur(2px);
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cpk-playground-thinking {
+        0%,
+        60%,
+        100% {
+          opacity: 0.28;
+          transform: translateY(0);
+        }
+        30% {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+      }
+
+      .cpk-playground-root {
+        container-type: inline-size;
+        background: #fbfbfd !important;
+      }
+
+      .cpk-playground-header {
+        min-height: 58px;
+        background: #f7f6fd !important;
+      }
+
+      .cpk-playground-welcome {
+        max-width: 560px;
+        padding: 24px;
+      }
+
+      .cpk-playground-welcome-title {
+        color: #24242b;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .cpk-playground-composer {
+        border: 1px solid #dcdce8;
+        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+          0 1px 2px rgba(31, 23, 57, 0.1);
+      }
+
+      .cpk-playground-composer:focus-within {
+        border-color: #aaa4d4;
+        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+          0 0 0 3px rgba(190, 194, 255, 0.3);
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-root,
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-header {
+        background: #15171e !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-welcome-title {
+        color: #f3f4f8 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
+        border-color: #464957;
+        background: #15171e !important;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+          0 1px 2px rgba(0, 0, 0, 0.36);
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-composer:focus-within {
+        border-color: #777aae;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+          0 0 0 3px rgba(102, 106, 158, 0.3);
+      }
+
+      .cpk-playground-message-enter {
+        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
+          both;
+      }
+
+      .cpk-playground-thinking-dot {
+        animation: cpk-playground-thinking 1.2s ease-in-out infinite;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(2) {
+        animation-delay: 0.12s;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(3) {
+        animation-delay: 0.24s;
+      }
+
+      .cpk-playground-reasoning summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .cpk-playground-reasoning[open]
+        .cpk-playground-reasoning-chevron {
+        transform: rotate(90deg);
+      }
+
+      @container (max-width: 560px) {
+        .cpk-playground-header {
+          align-items: stretch;
+        }
+
+        .cpk-playground-actions {
+          width: 100%;
+        }
+
+        .cpk-playground-thread-select {
+          min-width: 0;
+          max-width: none;
+          flex: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-playground-message-enter,
+        .cpk-playground-thinking-dot {
+          animation: none;
+        }
       }
 
       .rounded-sm {
@@ -7957,6 +8529,10 @@ ${argsString}</pre
         box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          background-color 200ms ease,
+          border-color 200ms ease,
+          box-shadow 200ms ease,
           opacity 160ms ease;
       }
 
@@ -8119,17 +8695,76 @@ ${argsString}</pre
         flex-shrink: 0;
         transition:
           background-color 0.15s,
-          border-color 0.15s;
+          border-color 0.15s,
+          color 0.15s;
       }
       .cpk-copy-btn:hover {
         background-color: #f0f0f4;
         border-color: #afafb7;
       }
 
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn {
+        background: #191c24;
+        border-color: #3a3d49;
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn:hover {
+        background: #20232d;
+        border-color: #57575b;
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div {
+        left: 100%;
+        margin-inline-start: 8px;
+      }
+
+      .inspector-icon-rail-menu {
+        transform-origin: left center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-8px) scale(0.96);
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease,
+          visibility 180ms ease;
+      }
+
+      .inspector-icon-rail-menu[data-open="true"] {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0) scale(1);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .inspector-icon-rail-menu {
+          transition: none;
+        }
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        inset-inline-end: 100%;
+        width: 12px;
+      }
+
       .cpk-section-header {
         background: #e8edf5;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px 16px;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-section-header {
+        border-bottom-color: #3a3d49;
       }
       .cpk-section-header h4 {
         font-size: 11px;
@@ -8377,6 +9012,7 @@ ${argsString}</pre
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
+        transform: scale(1.05);
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
@@ -8725,6 +9361,12 @@ ${argsString}</pre
           .cpk-launcher-signal-wash {
           animation: none !important;
         }
+        .console-button {
+          transition: opacity 160ms ease;
+        }
+        .console-button:hover {
+          transform: none;
+        }
       }
 
       /* ── Launcher HUD: hover menu, quieter than the error island ── */
@@ -8967,6 +9609,103 @@ ${argsString}</pre
       }
 
       /*
+       * On mount, borrow the hover HUD for one short introduction. The card
+       * establishes the destination first; its rows then resolve in order so
+       * the eye can count the available features instead of receiving one
+       * undifferentiated block. Only opacity and transform move.
+       */
+      @keyframes cpk-launcher-hud-intro {
+        0% {
+          opacity: 0;
+          transform: translateX(8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-intro-right {
+        0% {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-row-online {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes cpk-launcher-hud-check-online {
+        from {
+          opacity: 0;
+          transform: scale(0.65);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
+        animation: cpk-launcher-hud-intro
+          var(--cpk-launcher-hud-intro-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+        animation-name: cpk-launcher-hud-intro-right;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__row {
+        animation: cpk-launcher-hud-row-online
+          var(--cpk-launcher-hud-row-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--cpk-hud-row-delay);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__check {
+        animation: cpk-launcher-hud-check-online 220ms
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"],
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row,
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__check {
+          animation: none !important;
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /*
        * Marker on the navigation entry, which is what keeps a signal alive
        * once the panel is open and the launcher is hidden. Static by design:
        * the beat belongs to the launcher, and movement here would compete with
@@ -9108,10 +9847,69 @@ ${argsString}</pre
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle {
+        box-sizing: border-box !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         justify-content: center !important;
         align-items: center !important;
         gap: 0 !important;
-        padding-inline: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon svg,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon
+        svg,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder svg {
+        width: 18px !important;
+        height: 18px !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"] {
+        display: flex !important;
+        flex: none !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder {
+        display: flex !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        max-width: 36px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        padding: 0 !important;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-label,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-chevron {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: none !important;
+        overflow: hidden !important;
       }
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-label,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-label {
@@ -9382,6 +10180,7 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
@@ -9391,6 +10190,7 @@ ${argsString}</pre
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
     this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -9451,6 +10251,7 @@ ${argsString}</pre
     this.ensureAnnouncementLoading();
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
+    this.scheduleLauncherHudIntro();
   }
 
   render() {
@@ -9550,8 +10351,6 @@ ${argsString}</pre
       "text-xs",
       "font-medium",
       "text-white",
-      "transition",
-      "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
@@ -9753,6 +10552,50 @@ ${argsString}</pre
     return this.gestureSignal !== null;
   }
 
+  private scheduleLauncherHudIntro(
+    delay: number = LAUNCHER_HUD_INTRO_MS.delay,
+  ): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+    }
+    this.launcherHudIntroStartTimer = setTimeout(() => {
+      this.launcherHudIntroStartTimer = null;
+      if (!this.isConnected || this.isOpen) return;
+      if (this.isLauncherHudBlocked()) {
+        this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
+        return;
+      }
+
+      this.resolveLauncherHudSide();
+      this.launcherHudIntro = true;
+      this.launcherHudOpen = true;
+      this.requestUpdate();
+      this.launcherHudIntroEndTimer = setTimeout(() => {
+        this.launcherHudIntroEndTimer = null;
+        this.launcherHudIntro = false;
+        this.launcherHudOpen = false;
+        this.launcherHudHelp = null;
+        this.requestUpdate();
+      }, LAUNCHER_HUD_INTRO_MS.duration);
+    }, delay);
+  }
+
+  private cancelLauncherHudIntro(): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+      this.launcherHudIntroStartTimer = null;
+    }
+    if (this.launcherHudIntroEndTimer !== null) {
+      clearTimeout(this.launcherHudIntroEndTimer);
+      this.launcherHudIntroEndTimer = null;
+    }
+    if (!this.launcherHudIntro) return;
+    this.launcherHudIntro = false;
+    if (this.isConnected) {
+      this.requestUpdate();
+    }
+  }
+
   private resolveLauncherHudSide(): void {
     if (typeof window === "undefined") {
       this.launcherHudSide = "left";
@@ -9785,6 +10628,7 @@ ${argsString}</pre
   }
 
   private closeLauncherHud(): void {
+    this.cancelLauncherHudIntro();
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -9796,6 +10640,7 @@ ${argsString}</pre
   }
 
   private handleLauncherHudEnter = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9810,6 +10655,7 @@ ${argsString}</pre
   };
 
   private handleLauncherHudFocusIn = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9899,6 +10745,7 @@ ${argsString}</pre
     label: string;
     detail: string;
     connected?: boolean;
+    introIndex: number;
   }): TemplateResult {
     const helpOpen = this.launcherHudHelp === args.id;
     const detailId = `cpk-hud-detail-${args.id}`;
@@ -9907,6 +10754,13 @@ ${argsString}</pre
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
         data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        style=${styleMap({
+          "--cpk-hud-row-index": `${args.introIndex}`,
+          "--cpk-hud-row-delay": `${
+            LAUNCHER_HUD_INTRO_MS.rowStart +
+            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
+          }ms`,
+        })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
         <button
@@ -9954,7 +10808,12 @@ ${argsString}</pre
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
+        style=${styleMap({
+          "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
+          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+        })}
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
@@ -9963,6 +10822,7 @@ ${argsString}</pre
               id: "inspector",
               label: HUD_OPEN_INSPECTOR_LABEL,
               detail: HUD_OPEN_INSPECTOR_DETAIL,
+              introIndex: 0,
             })}
           </ul>
           <ul class="cpk-launcher-hud__list" role="list">
@@ -9973,6 +10833,7 @@ ${argsString}</pre
                 ? HUD_THREADS_ON_DETAIL
                 : HUD_THREADS_OFF_DETAIL,
               connected: threadsOn,
+              introIndex: 1,
             })}
             ${this.renderHudRow({
               id: "intelligence",
@@ -9983,6 +10844,7 @@ ${argsString}</pre
                 ? HUD_INTELLIGENCE_ON_DETAIL
                 : HUD_INTELLIGENCE_OFF_DETAIL,
               connected: intelligenceOn,
+              introIndex: 2,
             })}
             ${this.renderHudRow({
               id: "learning",
@@ -9993,6 +10855,7 @@ ${argsString}</pre
                 ? HUD_LEARNING_ON_DETAIL
                 : HUD_LEARNING_OFF_DETAIL,
               connected: learningOn,
+              introIndex: 3,
             })}
           </ul>
         </div>
@@ -10149,42 +11012,46 @@ ${argsString}</pre
           automaticallyCollapsed
             ? nothing
             : html`
-              <button
-                type="button"
-                class="inspector-sidebar-toggle"
-                data-inspector-sidebar-toggle
-                aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
-                aria-expanded=${iconRail ? "false" : "true"}
-                data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
-                title=${iconRail ? nothing : "Collapse sidebar"}
-                style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                @pointerenter=${
-                  iconRail ? this.handleSidebarRailTooltipShow : nothing
-                }
-                @pointerleave=${
-                  iconRail ? this.handleSidebarRailTooltipHide : nothing
-                }
-                @focus=${iconRail ? this.handleSidebarRailTooltipShow : nothing}
-                @blur=${iconRail ? this.handleSidebarRailTooltipHide : nothing}
-                @click=${this.handleSidebarToggle}
-              >
-                <span class="inspector-nav-icon" aria-hidden="true">
-                  ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
-                </span>
-                <span class="inspector-nav-label"
-                  >${iconRail ? "Expand" : "Collapse"}</span
-                >
-              </button>
-            `
-        }
-        ${
-          iconRail
-            ? nothing
-            : html`
               <div class="inspector-sidebar-footer">
-                <div class="inspector-sidebar-status-list">
-                  ${this.renderSidebarIntelligenceStatus(homeModel)}
-                </div>
+                ${
+                  iconRail
+                    ? nothing
+                    : html`
+                      <div class="inspector-sidebar-status-list">
+                        ${this.renderSidebarIntelligenceStatus(homeModel)}
+                      </div>
+                    `
+                }
+                <button
+                  type="button"
+                  class="inspector-sidebar-toggle"
+                  data-inspector-sidebar-toggle
+                  aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
+                  aria-expanded=${iconRail ? "false" : "true"}
+                  data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                  title=${iconRail ? nothing : "Collapse sidebar"}
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @pointerenter=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @pointerleave=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @focus=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @blur=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @click=${this.handleSidebarToggle}
+                >
+                  <span class="inspector-nav-icon" aria-hidden="true">
+                    ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                  </span>
+                  <span class="inspector-nav-label"
+                    >${iconRail ? "Expand" : "Collapse"}</span
+                  >
+                </button>
               </div>
             `
         }
@@ -12638,20 +13505,8 @@ ${argsString}</pre
   }
 
   private normalizeMessageContent(content: unknown): string {
-    if (typeof content === "string") {
-      return content;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in (content as Record<string, unknown>)
-    ) {
-      const maybeText = (content as Record<string, unknown>).text;
-      if (typeof maybeText === "string") {
-        return maybeText;
-      }
-    }
+    const extracted = textFromUnknownContent(content);
+    if (extracted) return extracted;
 
     if (content === null || content === undefined) {
       return "";
@@ -13184,7 +14039,7 @@ ${argsString}</pre
 
     return html`
       <form
-        class=${centered ? "mt-5 w-full" : "bg-white px-3 pb-3 pt-1.5"}
+        class=${centered ? "cpk-playground-form mt-5 w-full" : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"}
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
@@ -13221,10 +14076,10 @@ ${argsString}</pre
             : nothing
         }
         <div
-          class="mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+          class="cpk-playground-composer mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
         >
           <textarea
-            class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            class="cpk-playground-input min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
             rows="1"
             placeholder=${placeholder}
             aria-label="Playground message"
@@ -13235,7 +14090,7 @@ ${argsString}</pre
           ></textarea>
           <button
             type=${this.playgroundIsRunning ? "button" : "submit"}
-            class=${`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
+            class=${`cpk-playground-send mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
               sendDisabled
                 ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
                 : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
@@ -13479,9 +14334,9 @@ ${argsString}</pre
               : visibleMessages.length === 0
                 ? html`
                     <div
-                      class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
+                      class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
                     >
-                      <p class="text-base font-medium tracking-tight text-gray-900">
+                      <p class="cpk-playground-welcome-title">
                         How can I help you today?
                       </p>
                       ${this.renderPlaygroundComposer(
@@ -15751,6 +16606,11 @@ ${argsString}</pre
                         .agentEventsInput=${
                           this.agentEvents.get(selectedThread.agentId) ?? []
                         }
+                        .agentMessagesInput=${
+                          selectedThreadIsLocalExample
+                            ? EMPTY_INSPECTOR_MESSAGES
+                            : this.getLiveAgentMessagesForThread(selectedThread)
+                        }
                       ></cpk-thread-details>
                       ${
                         selectedThreadIsLocalExample
@@ -16051,11 +16911,7 @@ ${argsString}</pre
                         isExpanded
                           ? html`
                             <div class="group relative">
-                              <pre
-                                class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
-                              >
-${prettyEvent}</pre
-                              >
+                              ${renderHighlightedJsonBlock(extractedEvent)}
                               <button
                                 class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
                                   this.copiedEvents.has(event.id)
@@ -16357,7 +17213,7 @@ ${prettyEvent}</pre
               messages && messages.length > 0
                 ? html`
                   <div class="w-full text-xs">
-                    <div class="flex bg-gray-50">
+                    <div class="cpk-agent-messages-head flex bg-gray-50">
                       <div
                         class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
                       >
@@ -16367,7 +17223,7 @@ ${prettyEvent}</pre
                         Content
                       </div>
                     </div>
-                    <div class="divide-y divide-gray-200">
+                    <div class="cpk-agent-messages-rows">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -16394,8 +17250,8 @@ ${prettyEvent}</pre
                           <div
                             class=${
                               isFailedResult
-                                ? "flex items-start bg-rose-50"
-                                : "flex items-start"
+                                ? "cpk-agent-message-row flex items-start bg-rose-50"
+                                : "cpk-agent-message-row flex items-start"
                             }
                             data-cpk-failed-tool-result=${
                               isFailedResult ? msg.toolCallId : nothing
@@ -16510,11 +17366,15 @@ ${prettyEvent}</pre
           >
         </button>
         ${
-          this.contextMenuOpen
+          iconRail || this.contextMenuOpen
             ? html`
               <div
-                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
+                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5${
+                  iconRail ? " inspector-icon-rail-menu" : ""
+                }"
                 data-context-dropdown-root="true"
+                data-open=${this.contextMenuOpen ? "true" : "false"}
+                aria-hidden=${this.contextMenuOpen ? "false" : "true"}
               >
                 ${filteredOptions.map(
                   (option) => html`
@@ -16756,9 +17616,21 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  private clearIconRailContextCloseTimer(): void {
+    if (this.iconRailContextCloseTimer === null) {
+      return;
+    }
+    clearTimeout(this.iconRailContextCloseTimer);
+    this.iconRailContextCloseTimer = null;
+  }
+
   /** Expand the icon-rail agent scope on hover while preserving keyboard access. */
   private handleIconRailContextPointerEnter = (event: PointerEvent): void => {
-    if (event.pointerType === "touch" || this.contextMenuOpen) {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    this.clearIconRailContextCloseTimer();
+    if (this.contextMenuOpen) {
       return;
     }
     this.layoutMenuOpen = false;
@@ -16770,8 +17642,12 @@ ${prettyEvent}</pre
     if (!this.contextMenuOpen) {
       return;
     }
-    this.contextMenuOpen = false;
-    this.requestUpdate();
+    this.clearIconRailContextCloseTimer();
+    this.iconRailContextCloseTimer = setTimeout(() => {
+      this.iconRailContextCloseTimer = null;
+      this.contextMenuOpen = false;
+      this.requestUpdate();
+    }, 180);
   };
 
   private handleIconRailContextPointerDown = (event: PointerEvent): void => {
@@ -16785,6 +17661,7 @@ ${prettyEvent}</pre
   };
 
   private handleIconRailContextFocusIn = (): void => {
+    this.clearIconRailContextCloseTimer();
     if (this.contextMenuOpen) {
       return;
     }
@@ -16809,6 +17686,7 @@ ${prettyEvent}</pre
       return;
     }
 
+    this.clearIconRailContextCloseTimer();
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
@@ -17589,23 +18467,25 @@ ${prettyEvent}</pre
         ${
           isExpanded
             ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+              <div class="border-t border-gray-200 px-4 py-3">
                 <div class="mb-3">
-                  <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <h5 class="text-xs font-semibold text-gray-700">ID</h5>
+                    <button
+                      type="button"
+                      class="cpk-copy-btn"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        void this.copyContextValue(id, `${id}:id`, e);
+                      }}
+                    >
+                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                   <code
-                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
+                    class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
                     >${id}</code
                   >
-                  <button
-                    type="button"
-                    class="cpk-copy-btn"
-                    @click=${(e: Event) => {
-                      e.stopPropagation();
-                      void this.copyContextValue(id, `${id}:id`, e);
-                    }}
-                  >
-                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
-                  </button>
                 </div>
                 ${
                   hasValue

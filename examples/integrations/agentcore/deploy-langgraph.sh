@@ -26,17 +26,16 @@ check_command() {
 }
 check_command aws
 check_command node
-check_command python3
+check_command uv
 check_command docker
 
-python3 -c "import sys; assert sys.version_info >= (3,8), 'Python 3.8+ required'" || exit 1
 aws sts get-caller-identity --query "Account" --output text >/dev/null 2>&1 || \
   { echo "ERROR: AWS credentials not configured. Run: aws configure"; exit 1; }
 
 echo "✓ Preflight checks passed"
 
 # ── Patch config.yaml (pattern + stack name suffix) ──────────────────────────
-python3 - "$CONFIG" "$PATTERN" "$SUFFIX" <<'PYEOF'
+uv run --project "$SCRIPT_DIR" python - "$CONFIG" "$PATTERN" "$SUFFIX" <<'PYEOF'
 import re, sys
 config_path, pattern, suffix = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(config_path) as f:
@@ -71,9 +70,9 @@ fi
 if [ "$SKIP_FRONTEND" = true ]; then
   echo "⚡ Skipping frontend deploy (--skip-frontend)"
 else
-  STACK_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
+  STACK_NAME=$(uv run --project "$SCRIPT_DIR" python -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
   echo "Deploying frontend for stack: $STACK_NAME"
-  python3 scripts/deploy-frontend.py "$STACK_NAME"
+  uv run --project "$SCRIPT_DIR" "$SCRIPT_DIR/scripts/deploy-frontend.py" "$STACK_NAME"
 fi
 echo ""
 echo "✓ Done!"

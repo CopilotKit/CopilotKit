@@ -1743,7 +1743,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
                   list: 1,
                   subscribe: 1,
                   inspect: 0,
-                  messages: 0,
+                  messages: 1,
                   events: 1,
                   state: 1,
                 });
