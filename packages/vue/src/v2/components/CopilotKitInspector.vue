@@ -3,13 +3,11 @@ defineOptions({
   inheritAttrs: false,
 });
 
-import { onMounted, onUnmounted, shallowRef, useAttrs, watch } from "vue";
+import { onMounted, onUnmounted, shallowRef, useAttrs } from "vue";
 import type { CopilotKitCoreVue } from "../lib/vue-core";
-import type { VueInspectorOpenRequest } from "../providers/keys";
 
 const props = defineProps<{
   core?: CopilotKitCoreVue | null;
-  openRequest?: VueInspectorOpenRequest | null;
 }>();
 
 const attrs = useAttrs();
@@ -32,22 +30,6 @@ onMounted(() => {
 onUnmounted(() => {
   isMounted = false;
 });
-
-watch(
-  () => [inspectorTag.value, props.openRequest] as const,
-  ([tag, request]) => {
-    if (!tag || !request) {
-      return;
-    }
-    const element = document.querySelector(tag) as {
-      openInspector?: (
-        source: string,
-        options: VueInspectorOpenRequest,
-      ) => void;
-    } | null;
-    element?.openInspector?.("message_toolbar", request);
-  },
-);
 </script>
 
 <template>

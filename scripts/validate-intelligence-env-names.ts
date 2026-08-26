@@ -2,7 +2,8 @@ import { execFileSync } from "node:child_process";
 import * as path from "node:path";
 
 /**
- * Guards the single canonical name for the Intelligence project API key.
+ * Guards the canonical Intelligence config surface: the project API key's name,
+ * and the hostnames that actually serve the managed platform.
  *
  * `INTELLIGENCE_API_KEY` is what `copilotkit project select` provisions into
  * `.env`. Two other names were live in CopilotKit's own documentation and each
@@ -15,9 +16,23 @@ import * as path from "node:path";
  *   Still read as a deprecated alias by those two examples, so it is allowed
  *   only at the small set of sites that implement or document that fallback.
  *
+ * It also guards the two hostnames that shipped material must never name. Both
+ * were prescribed by the packaged runtime skill up to v1.62.2 and produced a
+ * dead-end for anyone who followed it (OSS-621, then again OSS-961):
+ *
+ * - `api.copilotkit.ai` — a CNAME onto the legacy Copilot Cloud load balancer.
+ *   No listener rule matches that host, so every request gets the ALB's default
+ *   action: a 404 with an empty body, which reads like an application error.
+ * - `realtime.copilotkit.ai` — no DNS record at all. A wrong `wsUrl` does not
+ *   fail fast; the socket layer treats an unreachable host as a retryable
+ *   reconnect, so it hangs in `connecting` with no stated cause.
+ *
+ * The managed pair is `api.intelligence.copilotkit.ai` /
+ * `realtime.intelligence.copilotkit.ai`.
+ *
  * This is a documentation-drift guard, not a runtime check. It fails on a
- * retired name reappearing anywhere, and on the alias appearing outside its
- * allowlist.
+ * retired name reappearing anywhere, on the alias appearing outside its
+ * allowlist, and on a dead host appearing outside its allowlist.
  */
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -59,6 +74,34 @@ const ALIAS_ALLOWLIST = [
   "showcase/shell-docs/src/content/snippets/shared/threads/threads-import.mdx",
 ];
 
+/**
+ * Hostnames that serve no Intelligence traffic. Neither should appear in any
+ * shipped page, README, example, or packaged skill.
+ */
+const DEAD_HOSTS = [
+  {
+    host: "api.copilotkit.ai",
+    reason:
+      "routes nothing (empty-body 404); use api.intelligence.copilotkit.ai",
+  },
+  {
+    host: "realtime.copilotkit.ai",
+    reason: "does not resolve; use realtime.intelligence.copilotkit.ai",
+  },
+];
+
+/**
+ * Paths allowed to name a {@link DEAD_HOSTS} entry.
+ *
+ * The channels-intelligence test needs a hostname that genuinely does not
+ * resolve — that is the condition under test (`getaddrinfo ENOTFOUND`), so
+ * substituting a live host would silently void the assertion.
+ */
+const DEAD_HOST_ALLOWLIST = [
+  "packages/channels-intelligence/src/realtime-gateway.test.ts",
+  "scripts/validate-intelligence-env-names.ts",
+];
+
 interface Violation {
   file: string;
   line: number;
@@ -66,16 +109,24 @@ interface Violation {
   reason: string;
 }
 
-/** Returns `git grep -n` hits for one literal, or `[]` when there are none. */
+/**
+ * Returns `git grep -n` hits for one literal, or `[]` when there are none.
+ *
+ * `ignoreCase` is for hostnames, which are case-insensitive in DNS and so can
+ * appear capitalized in prose. Env var names are case-SENSITIVE, so their rules
+ * leave it off.
+ */
 function grepRepo(
   literal: string,
+  ignoreCase = false,
 ): { file: string; line: number; text: string }[] {
   let out: string;
   try {
-    out = execFileSync("git", ["grep", "-n", "--fixed-strings", literal], {
-      cwd: REPO_ROOT,
-      encoding: "utf-8",
-    });
+    out = execFileSync(
+      "git",
+      ["grep", "-n", "--fixed-strings", ...(ignoreCase ? ["-i"] : []), literal],
+      { cwd: REPO_ROOT, encoding: "utf-8" },
+    );
   } catch {
     // git grep exits 1 when there are no matches.
     return [];
@@ -117,6 +168,13 @@ export function findViolations(): Violation[] {
     });
   }
 
+  for (const { host, reason } of DEAD_HOSTS) {
+    for (const hit of grepRepo(host, true)) {
+      if (DEAD_HOST_ALLOWLIST.includes(hit.file)) continue;
+      violations.push({ file: hit.file, line: hit.line, name: host, reason });
+    }
+  }
+
   return violations;
 }
 
@@ -124,12 +182,12 @@ function main(): void {
   const violations = findViolations();
 
   if (violations.length === 0) {
-    console.log("Intelligence env var names are canonical.");
+    console.log("Intelligence env var names and hosts are canonical.");
     process.exit(0);
   }
 
   console.log(
-    `Found ${violations.length} non-canonical Intelligence env var reference${
+    `Found ${violations.length} non-canonical Intelligence reference${
       violations.length === 1 ? "" : "s"
     }:\n`,
   );
@@ -137,9 +195,11 @@ function main(): void {
     console.log(`  ${v.file}:${v.line}  ${v.name} — ${v.reason}`);
   }
   console.log(
-    "\nThe canonical name is INTELLIGENCE_API_KEY — the name `copilotkit project select`\n" +
-      "provisions. If a site legitimately implements the deprecated alias fallback, add it\n" +
-      "to ALIAS_ALLOWLIST in scripts/validate-intelligence-env-names.ts.",
+    "\nThe canonical key name is INTELLIGENCE_API_KEY — the name `copilotkit project select`\n" +
+      "provisions. The canonical hosts are api.intelligence.copilotkit.ai and\n" +
+      "realtime.intelligence.copilotkit.ai. If a site legitimately implements the deprecated\n" +
+      "alias fallback, or genuinely needs a non-resolving host, add it to ALIAS_ALLOWLIST or\n" +
+      "DEAD_HOST_ALLOWLIST in scripts/validate-intelligence-env-names.ts.",
   );
   process.exit(1);
 }

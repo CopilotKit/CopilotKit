@@ -29,8 +29,6 @@ Import these symbols from `@copilotkit/angular`.
 - `AgentStore`
 - `AngularActivityContentParseResult`
 - `AngularActivityContentSchema`
-- `AngularInspectorOpenRequest`
-- `AngularInspectorSaveRequest`
 - `AngularToolCall`
 - `AssistantMessage`
 - `AssistantMessageCopyButtonContext`
@@ -125,7 +123,6 @@ Import these symbols from `@copilotkit/angular`.
 - `CopilotChatViewScrollToBottomButton`
 - `CopilotChatViewScrollView`
 - `CopilotDefaultToolRenderer`
-- `CopilotInspector`
 - `CopilotKit`
 - `CopilotKitAgentContext`
 - `CopilotKitConfig`

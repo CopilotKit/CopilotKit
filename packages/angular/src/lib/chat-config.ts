@@ -11,9 +11,6 @@ export interface CopilotChatLabels {
   assistantMessageToolbarCopyCodeLabel: string;
   assistantMessageToolbarCopyCodeCopiedLabel: string;
   assistantMessageToolbarCopyMessageLabel: string;
-  assistantMessageToolbarInspectorLabel: string;
-  assistantMessageToolbarInspectorLocalOnlyLabel: string;
-  assistantMessageToolbarSaveSnippetLabel: string;
   assistantMessageToolbarThumbsUpLabel: string;
   assistantMessageToolbarThumbsDownLabel: string;
   assistantMessageToolbarReadAloudLabel: string;
@@ -35,9 +32,6 @@ export const COPILOT_CHAT_DEFAULT_LABELS: CopilotChatLabels = {
   assistantMessageToolbarCopyCodeLabel: "Copy",
   assistantMessageToolbarCopyCodeCopiedLabel: "Copied",
   assistantMessageToolbarCopyMessageLabel: "Copy",
-  assistantMessageToolbarInspectorLabel: "View in Inspector",
-  assistantMessageToolbarInspectorLocalOnlyLabel: "Local Only",
-  assistantMessageToolbarSaveSnippetLabel: "Save as snippet",
   assistantMessageToolbarThumbsUpLabel: "Good response",
   assistantMessageToolbarThumbsDownLabel: "Bad response",
   assistantMessageToolbarReadAloudLabel: "Read aloud",
