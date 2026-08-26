@@ -4461,6 +4461,19 @@ function runAgentCoreDeployHarness(
     }
     writeAgentCoreCommandStub(
       fakeBin,
+      "uv",
+      [
+        "#!/usr/bin/env bash\n",
+        "set -eu\n",
+        '[[ "${1-}" == "run" ]] && shift\n',
+        'if [[ "${1-}" == "--project" ]]; then shift 2; fi\n',
+        'if [[ "${1-}" == "python" ]]; then shift; exec python3 "$@"; fi\n',
+        'if [[ "${1-}" == *.py ]]; then exec python3 "$@"; fi\n',
+        'exec "$@"\n',
+      ].join(""),
+    );
+    writeAgentCoreCommandStub(
+      fakeBin,
       "npm",
       [
         "#!/usr/bin/env bash\n",
