@@ -30,9 +30,19 @@ import * as path from "node:path";
  * The managed pair is `api.intelligence.copilotkit.ai` /
  * `realtime.intelligence.copilotkit.ai`.
  *
+ * Finally it guards the two env vars that feed `CopilotKitIntelligence`'s
+ * `apiUrl` and `wsUrl`. Those options resolve to the managed hosts when they are
+ * omitted, so supplying a code fallback for either variable silently overrides
+ * the one setting that is always correct against the managed service. Every
+ * starter route did exactly that, defaulting a managed reader onto a local
+ * stack that is not running (OSS-981) — the failure its own `.env.example`
+ * warns about. The rule is the pattern rather than the literal: a staging host
+ * substituted for localhost would be just as wrong.
+ *
  * This is a documentation-drift guard, not a runtime check. It fails on a
  * retired name reappearing anywhere, on the alias appearing outside its
- * allowlist, and on a dead host appearing outside its allowlist.
+ * allowlist, on a dead host appearing outside its allowlist, and on a managed
+ * URL fallback appearing outside its allowlist.
  */
 
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -101,6 +111,99 @@ const DEAD_HOST_ALLOWLIST = [
   "packages/channels-intelligence/src/realtime-gateway.test.ts",
   "scripts/validate-intelligence-env-names.ts",
 ];
+
+/**
+ * Env vars that feed `CopilotKitIntelligence`'s `apiUrl` and `wsUrl`. Both
+ * options default to the managed hosts when omitted, so a fallback here is
+ * never load-bearing — it can only replace a correct default with a worse one.
+ */
+const MANAGED_URL_ENV_VARS = [
+  "INTELLIGENCE_API_URL",
+  "INTELLIGENCE_GATEWAY_WS_URL",
+] as const;
+
+/** Reported for a code fallback on a {@link MANAGED_URL_ENV_VARS} entry. */
+const MANAGED_URL_FALLBACK_REASON =
+  "overrides the managed Intelligence default; omit the fallback";
+
+/**
+ * Paths allowed to write a managed URL fallback.
+ *
+ * Both carry the pattern as text — the rule's own definition and its fixtures —
+ * so matching them would make the check fail on itself.
+ */
+const MANAGED_URL_FALLBACK_ALLOWLIST = [
+  "scripts/validate-intelligence-env-names.ts",
+  "scripts/__tests__/validate-intelligence-env-names.test.ts",
+  // Playwright harnesses that stand up a local Intelligence on dedicated ports
+  // and drive it with a seed key. Here the fallback is the point: resolving to
+  // the managed hosts would aim an offline test suite at production.
+  "examples/showcases/banking/playwright.config.ts",
+  "examples/showcases/reskinnable-demo/playwright.config.ts",
+];
+
+/**
+ * Returns the managed URL env var this line supplies a default for, or `null`.
+ *
+ * Only a `process.env` read can carry a code default. A bare `NAME=value` line
+ * in an `.env.example` is a value a reader opts into, not a default that
+ * overrides one, so it is left alone; and the conditional-spread form
+ * (`...(process.env.X ? { apiUrl: process.env.X } : {})`) is the correct
+ * pattern, which passes because it never names a fallback.
+ *
+ * @param text - One line of source.
+ * @returns The offending variable name, or `null` when the line is fine.
+ */
+export function managedUrlFallback(text: string): string | null {
+  for (const name of MANAGED_URL_ENV_VARS) {
+    if (
+      new RegExp(String.raw`process\.env\.${name}\s*(\?\?|\|\|)`).test(text)
+    ) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/** Reported for an env example that assigns a {@link MANAGED_URL_ENV_VARS} entry. */
+const MANAGED_URL_ENV_FILE_REASON =
+  "env example sets a managed Intelligence URL; comment it out";
+
+/**
+ * Paths allowed to assign a managed URL in an env example.
+ *
+ * `agentcore/docker` is the local development stack documented in
+ * `agentcore/docs/LOCAL_DEVELOPMENT.md`; its whole purpose is a local
+ * deployment, so naming one is correct there.
+ */
+const MANAGED_URL_ENV_FILE_ALLOWLIST = [
+  "examples/integrations/agentcore/docker/.env.example",
+  // Local demo stacks, each pinned to its own vendored docker-compose ports and
+  // seeded org key so the two can run side by side. Both name a local
+  // deployment on purpose; neither is a managed-service starting point.
+  "examples/showcases/banking/.env.example",
+  "examples/showcases/reskinnable-demo/.env.example",
+];
+
+/**
+ * Returns the managed URL env var this env-file line assigns, or `null`.
+ *
+ * An `.env.example` is copied to `.env`, so an uncommented assignment hands the
+ * reader a value rather than leaving the managed default in place. A commented
+ * line documents the self-hosted override without setting it, and an empty
+ * assignment is the documented managed setting; both pass.
+ *
+ * @param text - One line of an env file.
+ * @returns The offending variable name, or `null` when the line is fine.
+ */
+export function managedUrlEnvFileAssignment(text: string): string | null {
+  for (const name of MANAGED_URL_ENV_VARS) {
+    if (new RegExp(String.raw`^\s*${name}=\S`).test(text)) {
+      return name;
+    }
+  }
+  return null;
+}
 
 interface Violation {
   file: string;
@@ -175,6 +278,33 @@ export function findViolations(): Violation[] {
     }
   }
 
+  for (const envVar of MANAGED_URL_ENV_VARS) {
+    for (const hit of grepRepo(envVar)) {
+      if (MANAGED_URL_FALLBACK_ALLOWLIST.includes(hit.file)) continue;
+      if (!managedUrlFallback(hit.text)) continue;
+      violations.push({
+        file: hit.file,
+        line: hit.line,
+        name: envVar,
+        reason: MANAGED_URL_FALLBACK_REASON,
+      });
+    }
+  }
+
+  for (const envVar of MANAGED_URL_ENV_VARS) {
+    for (const hit of grepRepo(envVar)) {
+      if (!path.basename(hit.file).startsWith(".env")) continue;
+      if (MANAGED_URL_ENV_FILE_ALLOWLIST.includes(hit.file)) continue;
+      if (!managedUrlEnvFileAssignment(hit.text)) continue;
+      violations.push({
+        file: hit.file,
+        line: hit.line,
+        name: envVar,
+        reason: MANAGED_URL_ENV_FILE_REASON,
+      });
+    }
+  }
+
   return violations;
 }
 
@@ -199,7 +329,11 @@ function main(): void {
       "provisions. The canonical hosts are api.intelligence.copilotkit.ai and\n" +
       "realtime.intelligence.copilotkit.ai. If a site legitimately implements the deprecated\n" +
       "alias fallback, or genuinely needs a non-resolving host, add it to ALIAS_ALLOWLIST or\n" +
-      "DEAD_HOST_ALLOWLIST in scripts/validate-intelligence-env-names.ts.",
+      "DEAD_HOST_ALLOWLIST in scripts/validate-intelligence-env-names.ts.\n\n" +
+      "For a managed URL fallback, delete the fallback rather than changing it: apiUrl and\n" +
+      "wsUrl already default to the managed hosts when omitted. To keep a self-hosted override\n" +
+      "working, spread it conditionally:\n" +
+      "  ...(process.env.INTELLIGENCE_API_URL ? { apiUrl: process.env.INTELLIGENCE_API_URL } : {}),",
   );
   process.exit(1);
 }
