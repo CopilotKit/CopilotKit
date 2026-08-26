@@ -248,6 +248,8 @@ def _create_session_db():
     # Keep this import outside the public weather-tool region above.
     from agno.db.sqlite import SqliteDb
 
+    # The production container runs as an unprivileged user with a read-only
+    # application directory, so its SQLite file belongs in writable /tmp.
     return SqliteDb(db_file="/tmp/agno.db")
 
 

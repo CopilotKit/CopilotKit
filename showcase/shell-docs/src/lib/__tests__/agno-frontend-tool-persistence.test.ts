@@ -43,6 +43,8 @@ test.each(agnoRoutes)("documents Agno session persistence on %s", (route) => {
     expect(content).toContain("from agno.db.sqlite import SqliteDb");
     expect(content).toContain('SqliteDb(db_file="tmp/agno.db")');
     expect(content).toContain("db=db");
+    expect(content).toContain("/tmp/agno.db");
+    expect(content).toContain("read-only to the runtime user");
     expect(content).toContain("PgDb");
   }
 });

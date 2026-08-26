@@ -8,7 +8,7 @@
   pip install sqlalchemy
   ```
 
-  Use SQLite for local development:
+  Use a project-relative SQLite file for local development:
 
   ```python
   from agno.agent import Agent
@@ -21,6 +21,9 @@
       db=db,
   )
   ```
+
+  The deployed showcase uses `/tmp/agno.db` because its application directory
+  is read-only to the runtime user.
 
   For production, use durable shared storage such as `PgDb`. An ephemeral
   container file cannot resume a run on another instance.
