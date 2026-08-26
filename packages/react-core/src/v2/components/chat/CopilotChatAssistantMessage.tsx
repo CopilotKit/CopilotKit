@@ -26,7 +26,6 @@ import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
-import { SaveSnippetIconButton } from "./SaveSnippetIconButton";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -113,18 +112,16 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  const hasContent = !!(message.content && message.content.trim().length > 0);
-  const openInspectorForMessage = () =>
-    openInspector({
-      messageId: message.id,
-      threadId: chatConfiguration?.threadId,
-      agentId: chatConfiguration?.agentId,
-    });
   const boundInspectorButton = renderSlot(
     inspectorButton,
     CopilotChatAssistantMessage.InspectorButton,
     {
-      onClick: openInspectorForMessage,
+      onClick: () =>
+        openInspector({
+          messageId: message.id,
+          threadId: chatConfiguration?.threadId,
+          agentId: chatConfiguration?.agentId,
+        }),
     },
   );
 
@@ -179,6 +176,8 @@ export function CopilotChatAssistantMessage({
     },
   );
 
+  // Don't show toolbar if message has no content (only tool calls)
+  const hasContent = !!(message.content && message.content.trim().length > 0);
   const isLatestAssistantMessage =
     message.role === "assistant" &&
     messages?.[messages.length - 1]?.id === message.id;
@@ -477,15 +476,6 @@ export namespace CopilotChatAssistantMessage {
     );
   };
 
-  export const SaveSnippetButton: React.FC<
-    React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = (props) => (
-    <SaveSnippetIconButton
-      data-testid="copilot-save-snippet-button"
-      {...props}
-    />
-  );
-
   export const ThumbsUpButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
   > = ({ title, ...props }) => {
@@ -559,8 +549,6 @@ CopilotChatAssistantMessage.CopyButton.displayName =
   "CopilotChatAssistantMessage.CopyButton";
 CopilotChatAssistantMessage.InspectorButton.displayName =
   "CopilotChatAssistantMessage.InspectorButton";
-CopilotChatAssistantMessage.SaveSnippetButton.displayName =
-  "CopilotChatAssistantMessage.SaveSnippetButton";
 CopilotChatAssistantMessage.ThumbsUpButton.displayName =
   "CopilotChatAssistantMessage.ThumbsUpButton";
 CopilotChatAssistantMessage.ThumbsDownButton.displayName =

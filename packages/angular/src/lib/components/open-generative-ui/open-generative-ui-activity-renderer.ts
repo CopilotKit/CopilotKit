@@ -183,7 +183,6 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
   private sandbox: WebsandboxInstance | undefined;
   private previewSandbox: WebsandboxInstance | undefined;
   private sandboxReady = false;
-  private readonly sandboxIsReady = signal(false);
   private previewReady = false;
   private executedExpressionIndex = 0;
   private pendingQueue: string[] = [];
@@ -294,7 +293,6 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
         this.containerRef();
         this.reconcileSandboxState(state);
 
-        this.sandboxIsReady();
         if (!state.generatingDone || this.heightMeasured || !this.sandbox) {
           return;
         }
@@ -486,7 +484,6 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
       sandbox.promise.then(() => {
         if (isCancelled() || this.sandbox !== sandbox) return;
         this.sandboxReady = true;
-        this.sandboxIsReady.set(true);
         void sandbox.run(`
           var s = document.createElement('style');
           s.textContent = 'html, body { overflow: hidden !important; }';
@@ -507,7 +504,6 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
     this.heightMeasured = false;
     this.pendingQueue = [];
     this.sandboxReady = false;
-    this.sandboxIsReady.set(false);
   }
 
   private injectJsFunctions(jsFunctions: string | undefined): void {
@@ -601,7 +597,6 @@ export class CopilotOpenGenerativeUIRenderer implements OnChanges {
       this.sandbox = undefined;
     }
     this.sandboxReady = false;
-    this.sandboxIsReady.set(false);
     this.heightMeasured = false;
   }
 }

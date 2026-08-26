@@ -7,7 +7,6 @@ Update this file in the same change that adds or removes a pane.
 | ----------------- | --------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
 | Agent             | Default web quickstart step                   | `snippets/shared/inspector/open-inspector-step.mdx`          | First check in the quickstart step                                    |
 | AG-UI Events      | Default web quickstart step                   | `snippets/shared/inspector/open-inspector-step.mdx`          | Second check, after a chat message                                    |
-| Event Snippets    | Frontend tools, A2UI, Open Generative UI      | `open-inspector-pane-event-snippets.mdx`                     | Inspect leaf for emit, save, and replay                               |
 | Threads           | Default web quickstart step, Threads overview | `open-inspector-step.mdx`, `open-inspector-pane-threads.mdx` | Unlocked or Enable Intelligence both count                            |
 | Frontend Tools    | Frontend tools, human-in-the-loop overview    | `open-inspector-pane-frontend-tools.mdx`                     | HITL tools appear here when registered                                |
 | State             | Shared state                                  | `open-inspector-pane-state.mdx`                              | Thread detail tab                                                     |
@@ -21,7 +20,7 @@ Update this file in the same change that adds or removes a pane.
 ## Unshipped (no Callout)
 
 - Fork from here
-- Emit events (shipped as Event Snippets)
+- Emit events
 - Pop-out window
 
 ## Surfaces that do not get the Open Inspector step
