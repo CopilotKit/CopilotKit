@@ -65,7 +65,7 @@ before exposing thread lists or lifecycle actions.
           // Without `intelligence` the runtime runs in SSE mode and the thread
           // UI has nothing to list — chat still works, so this fails quietly.
           intelligence: new CopilotKitIntelligence({
-            apiKey: process.env.INTELLIGENCE_API_KEY!,
+            apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
           }),
           // Required alongside `intelligence`: threads are scoped per user, so
           // without this every visitor shares one history. Resolve the real
