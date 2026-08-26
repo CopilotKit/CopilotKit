@@ -5,6 +5,8 @@ icon: "lucide/Component"
 hideTOC: true
 ---
 
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
 `@copilotkit/vue` provides Vue 3 components and composables for CopilotKit. This guide gets you to a working Vue app with a chat UI backed by a local [Copilot Runtime](/backend/copilot-runtime) and `BuiltInAgent`.
 
 The runtime runs on your server, keeps model credentials out of the browser, and exposes the `default` agent that `CopilotChat` uses automatically.
@@ -113,8 +115,11 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         </script>
 
         <template>
-          <!-- [!code highlight:5] -->
-          <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+          <!-- [!code highlight:8] -->
+          <CopilotKitProvider
+            runtime-url="http://localhost:8200/api/copilotkit"
+            show-dev-console="auto"
+          >
             <div style="height: 100vh">
               <CopilotChat />
             </div>
@@ -152,6 +157,9 @@ The runtime runs on your server, keeps model credentials out of the browser, and
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>
+    </Step>
+    <Step>
+        <OpenInspectorStep components={props.components} />
     </Step>
 </Steps>
 

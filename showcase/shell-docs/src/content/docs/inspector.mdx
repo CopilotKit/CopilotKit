@@ -5,8 +5,8 @@ description: Inspector for debugging actions, readables, agent status, messages,
 ---
 
 The CopilotKit Inspector is a built-in debugging overlay for the live connection
-between your frontend and agents. It opens on **Threads** and keeps agent data,
-learning tools, project context, and settings in one window.
+between your frontend and agents. The first open lands on **Home**. Later opens
+return to the last pane you used.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
@@ -20,15 +20,48 @@ learning tools, project context, and settings in one window.
 
 ## Navigation and Threads
 
-The primary navigation groups the Inspector into **Threads**, **Agents**, and
-**Learning**. Threads is the default. Agents contains the existing AG-UI events,
-available agents, frontend tools, capabilities, and context views. Closing
-Settings returns to the exact group and child view you had open.
+The sidebar has three groups:
+
+- **Home**: project, runtime, services, and CopilotKit news.
+- **Workbench**: **Threads** and **Memory**.
+- **Inspect**: **Agent**, **AG-UI Events**, **Frontend Tools**, and **Context**.
+  **Capabilities** appears only when an A2UI catalog is present.
+
+The sidebar is live-only. Leaves that have no data stay hidden. On a narrow
+window, or when the Inspector is docked left, the sidebar collapses to icons.
+**Talk to an Engineer** stays in the sidebar footer.
+
+When Intelligence is connected, Home shows a small **Intelligence connected**
+chip on the right of **What's going on**. When it is not connected, Home shows
+a Connect card and a **CONNECT TO INTELLIGENCE** action when the Runtime
+supplies one.
 
 The Threads list initially selects the most recently updated visible real
 thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
 The current row, tabs, links, actions, and window controls all support keyboard
 focus.
+
+## Errors
+
+When a CopilotKit error fires, the Inspector launcher turns red. Where there is
+room beside it, a pill names the failure for a few seconds. Click the launcher —
+or the pill while it is open — and Inspector opens the pane that explains that
+error:
+
+- **Runtime / connection**: Home.
+- **Threads list**: Threads.
+- **Agent run / `RUN_ERROR`**: AG-UI Events. The banner names the agent and the
+  error. If the run's `RUN_ERROR` is still in the event buffer, it is
+  highlighted and expanded.
+- **Tool handler / missing tool**: Agent. The banner names the agent, the tool,
+  and the error. When the error carries a tool call id, that call is
+  highlighted — a missing tool has no call to point at, so nothing is.
+- **Learning / memory**: Learning. Only once the Learning view has been opened:
+  the memory store is created on first visit, so before that there is nothing
+  to report.
+
+Use `onError` on `CopilotKit` or `CopilotChat` if you also want the app UI to
+show the same error. The Inspector still records it.
 
 ## Empty Threads demo
 
@@ -44,11 +77,11 @@ details, and tour stay usable.
 ## Project context and usage
 
 An Intelligence-backed Runtime can supply optional trusted project metadata.
-Valid organization and project names and the plan label appear in the account
-strip. Each module is independent, so invalid or missing identity data does not
-hide valid usage or action data.
+Valid organization and project names, the plan label, and Thread usage appear
+on the Home project card. Each module is independent, so invalid or missing
+identity data does not hide valid usage or action data.
 
-Trusted Thread usage appears only in the Threads footer:
+Trusted Thread usage also appears in the Threads footer:
 
 | Usage state | Inspector behavior |
 | --- | --- |
@@ -111,6 +144,35 @@ without hiding valid usage. Metadata updates do not change the selected thread.
   Want to preview A2UI catalog components directly in your editor? See the [VS Code Extension](/vs-code-extension)
   for live preview with hot-reload.
 </Callout>
+
+## View a thread in your app
+
+The Inspector can open a saved thread, but that does not change the live chat.
+Use **View in your app** in the thread detail header to load that thread into
+the official chat (`CopilotChat`, sidebar, or popup).
+
+The chat shows the saved messages. You can send new messages on that same
+thread. The list marks the thread that is open in the app.
+
+Click **Stop viewing** to put the chat back on the previous thread. If you
+pick another thread in the app, the Inspector override ends.
+
+This action is for real saved threads only. Example threads do not have it.
+A production build hides the action even if the Inspector is forced on.
+
+If no official chat for that agent is on the page, the Inspector shows an
+error. This behavior is agent-framework agnostic: the Inspector addresses the
+CopilotKit chat by `agentId`, regardless of which backend framework serves the
+agent.
+
+A custom chat can use the bridge exported by `@copilotkit/core`. Return `true`
+from `onInspectorViewThread` only when that chat claims the request, and include
+the same `requestId` in every lifecycle event:
+
+- `onInspectorViewThread` receives `{ requestId, threadId, agentId }`
+- `onInspectorStopViewing` receives `{ requestId, agentId }`
+- `emitInspectorActiveThread` sends `{ requestId, threadId, agentId, source }`
+- `emitInspectorViewThreadResult` sends `{ requestId, threadId, agentId, ok }`
 
 ## Pop out
 

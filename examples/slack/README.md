@@ -118,7 +118,7 @@ bot.onMention(async ({ thread, message }) => {
 // A Channel runs only through the Intelligence runtime, which OWNS its
 // lifecycle — it starts the direct Slack adapter for us.
 const intelligence = new CopilotKitIntelligence({
-  // apiUrl/wsUrl default to the managed Intelligence platform.
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence.
   apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
@@ -345,7 +345,7 @@ cp .env.example .env
 A Channel runs only through the Intelligence runtime, so `INTELLIGENCE_API_KEY` is
 **required** (free tier; `COPILOTKIT_API_KEY` is a deprecated alias, still read as a
 fallback). There are no URLs to set — the SDK defaults to the
-managed Intelligence platform. The platform adapters stay direct — the runtime that owns the Channel starts each
+cloud-hosted CopilotKit Intelligence. The platform adapters stay direct — the runtime that owns the Channel starts each
 of them for you. Linear and Notion are independent — set only the ones you want;
 the agent wires up whichever credentials are present.
 

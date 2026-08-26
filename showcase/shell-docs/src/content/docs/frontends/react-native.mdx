@@ -14,6 +14,7 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
 - React Native 0.70+ (bare CLI or Expo)
 - Node.js 20+
+- `@react-native-community/cli` in your `devDependencies` **if you are on React Native 0.87 or later**, which no longer bundles it. A freshly `init`ed app already has it; an app you have upgraded may not, and without it `react-native bundle` and `react-native start` stop with a message naming the missing package instead of running.
 
 ## Getting started
 
@@ -339,6 +340,12 @@ Two React-Native-specific differences are worth knowing:
 - **`useRenderTool` is React Native's own hook**, not react-core's. It registers the tool *and* its renderer, requires both `description` and `parameters`, accepts a `handler`, and must return `ReactElement | null` (React Native's `FlatList` cannot render bare strings). It writes into react-core's canonical renderer registry, so a named renderer draws in the chat exactly as it does on the web — but **do not register a `"*"` entry here.** react-core's hook is renderer-only and special-cases `"*"` into a fallback renderer with no arguments schema; React Native's routes through `useFrontendTool`, which also calls `addTool`. So on React Native a `"*"` entry registers a real frontend tool *literally named* `*`, which is advertised to the model in the run's tool list and collides with core's separate wildcard-**executable**-tool feature — whose handler is invoked for every otherwise-unmatched tool call with arguments wrapped as `{ toolName, args }` rather than in your schema's shape. Register one named renderer per tool instead. See [Known limitations](#known-limitations).
 - **Most of the web rendering hooks are deliberately not exported**: `useDefaultRenderTool` (its built-in card renders `<div>` / `<svg>`), `useRenderCustomMessages`, and `useRenderActivityMessage` (both link the web chat-message stack). `useRenderToolCall` **is** exported, though — it is platform-agnostic, pulls no DOM, and returns `ReactElement | null`, which is exactly what `FlatList`'s `renderItem` needs, so you can draw a registered tool call on any surface rather than only inside the chat.
 
+<Callout type="warn" title="Rendering data on screen does not give the agent access to it">
+  `useAgentContext` is in the shared list above, and it is the one whose absence fails *silently*. A screen that renders a list has put that list in the view tree, not in the agent's context — those are separate steps. An agent wired without the second one still answers: the prose is coherent, the tool UI paints, the values look plausible, and nothing errors. On the web you would at least have a console to inspect. Here you do not.
+
+  Register the data with `useAgentContext`, and write the agent's instructions to refuse to answer about records that context does not carry. Then check one answer against the records your app actually holds — if it names anything else, the context never arrived, however right the screen looks.
+</Callout>
+
 ## Metro configuration for release bundles
 
 With package exports enabled, a release bundle can fail with `Unable to resolve module node:crypto` (or another `node:` specifier) pointing at `jose`. This surfaces **only at bundle time**, never at typecheck.
@@ -634,6 +641,42 @@ A client-executed frontend tool renders its UI **mid-run**: the tool fires, your
 <Callout type="warn" title="Don't assume a platform speech recognizer exists">
   Recognizers that wrap the OS speech service (iOS `SFSpeechRecognizer` / Android `SpeechRecognizer`) can be **absent** on de-Googled or automotive hardware, where the call throws rather than degrading. If you target that kind of device, guard the unavailable case and fall back to text input, or embed an on-device recognizer (e.g. Vosk) as a guaranteed floor. Always give voice a deterministic **Send** control rather than relying on silence detection to end a turn.
 </Callout>
+
+## Proving it works
+
+On the web you prove an integration by opening a browser and watching the tool UI paint. There is no browser here, so that step does not translate — and the substitutes each prove less than they appear to. Three checks together cover it; none of them is sufficient alone.
+
+### 1. The runtime is reachable and its agent answers
+
+```bash
+npx copilotkit verify --round-trip
+```
+
+This sends one request through the runtime and reads the answer back off the thread, so it separates an agent that is *configured* from an agent that *works* — with no browser and no device involved. Run it from the machine hosting the runtime, not from the device. Add `--runtime-url` if the runtime is not at `http://localhost:8200/api/copilotkit`, and `--agent <id>` if the runtime declares more than one.
+
+<Callout type="warn" title="What --round-trip does not prove">
+  It sends a **fixed** prompt and records the answer's length and any tool-call names — never the answer's text. It proves an answer came back; it can never tell you what the answer said. It also proves an agent answered under the declared id, not *which* deployment answered: a runtime pointed at another project's agent responds identically. So this is step one of three, not a green light.
+</Callout>
+
+### 2. The tool UI actually renders on the device
+
+Boot an emulator, drive the app, and capture the screen. On Android:
+
+```bash
+adb devices                                   # confirm one booted target
+adb exec-out screencap -p > proof.png         # capture the rendered screen
+adb logcat -d -s ReactNativeJS:E              # no unresolved redbox
+```
+
+`adb reverse tcp:8200 tcp:8200` first if you are on a USB device, so `localhost` on the device reaches your runtime — see [Connecting from a device or bench](#connecting-from-a-device-or-bench).
+
+There is no iOS equivalent of `adb` for this. `xcrun simctl io booted screenshot proof.png` is the closest, and it needs full Xcode — the Command Line Tools alone do not ship `simctl`. If your environment has no emulator at all, say so rather than substituting a browser: a web screenshot proves a different application.
+
+### 3. The answer is about your data
+
+The check that catches what the first two cannot. A tool-rendered card over records your app does not hold looks *identical* to a correct one — in a screenshot, in a video, and to anyone unfamiliar with your data.
+
+So read the records your app actually holds, and confirm the answer names those and no others. If it names something else, the failure is upstream of the UI: the context was never registered (see the callout under [Which hooks are shared, and which aren't](#which-hooks-are-shared-and-which-arent)), the agent's instructions ignore it, or the screen loaded its data after the context was registered.
 
 ## Known limitations
 

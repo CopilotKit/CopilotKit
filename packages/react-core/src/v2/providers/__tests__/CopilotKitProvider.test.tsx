@@ -6,7 +6,7 @@ import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { HttpAgent } from "@ag-ui/client";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
-import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
+import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -53,7 +53,7 @@ describe("CopilotKitProvider", () => {
   });
 
   describe("selfManagedAgents license signal", () => {
-    const ENTERPRISE_WARNING = "Enterprise Intelligence";
+    const ENTERPRISE_WARNING = "Enterprise Intelligence tier";
 
     it("warns when selfManagedAgents is provided without a license key", () => {
       const agent = new HttpAgent({ url: "http://localhost:8000" });

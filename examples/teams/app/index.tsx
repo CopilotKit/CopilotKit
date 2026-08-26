@@ -80,7 +80,7 @@ const requiredIntelligenceKey = (): string => {
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
         "  Run `copilotkit project select` to provision one, or set it manually.\n" +
-        "No URLs to set: the SDK defaults to the managed Intelligence platform.",
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
     );
     process.exit(1);
   }
@@ -248,7 +248,7 @@ bot.onMessage(async ({ thread, message }) => {
 // Teams adapter stays DIRECT (it keeps its own credentials/transport), but a
 // Channel runs only through the Intelligence runtime, so the runtime is what
 // starts and stops it.
-// apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+// apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
 // overrides target a self-hosted or dev deployment. Set both or neither: the API
 // and realtime planes are separate hosts, so there is no derive that produces one
 // from the other.

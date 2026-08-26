@@ -210,7 +210,7 @@ describe("CopilotChatMessageView feedback raw event", () => {
     view.unmount();
   });
 
-  it("keeps assistant slot props stable across unrelated configuration changes", () => {
+  it("keeps assistant slot props stable across unrelated message-view rerenders", () => {
     thumbsUpButtonRenderCount = 0;
     const agent = new FeedbackAgent();
     const onThumbsUp = vi.fn();
@@ -223,9 +223,9 @@ describe("CopilotChatMessageView feedback raw event", () => {
         <CopilotChatConfigurationProvider
           agentId="feedback-agent"
           threadId="feedback-thread"
-          labels={{ chatInputPlaceholder: "first" }}
         >
           <CopilotChatMessageView
+            className="first"
             messages={[
               { id: "assistant-1", role: "assistant", content: "Answer" },
             ]}
@@ -243,9 +243,9 @@ describe("CopilotChatMessageView feedback raw event", () => {
         <CopilotChatConfigurationProvider
           agentId="feedback-agent"
           threadId="feedback-thread"
-          labels={{ chatInputPlaceholder: "second" }}
         >
           <CopilotChatMessageView
+            className="second"
             messages={[
               { id: "assistant-1", role: "assistant", content: "Answer" },
             ]}

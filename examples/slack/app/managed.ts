@@ -66,7 +66,7 @@ const requiredIntelligenceKey = (): string => {
         "Channels run only through the Intelligence runtime, which needs an " +
         "Intelligence key (free tier).\n" +
         "  Run `copilotkit project select` to provision one, or set it manually.\n" +
-        "No URLs to set: the SDK defaults to the managed Intelligence platform.",
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
     );
     process.exit(1);
   }
@@ -153,7 +153,7 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
   // overrides target a self-hosted or dev deployment. Set both or neither: the
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.

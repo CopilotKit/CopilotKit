@@ -600,7 +600,7 @@ describe("framework nav", () => {
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
       expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
       expect(source).toContain(
-        "does not need an Enterprise Intelligence URL or API key",
+        "does not need a CopilotKit Intelligence URL or API key",
       );
     }
 
@@ -635,7 +635,7 @@ describe("framework nav", () => {
     );
     expect(headless).toContain("adding a custom thread UI to an existing app");
     expect(headless).toContain(
-      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+      "Your `CopilotRuntime` must be connected to CopilotKit Intelligence",
     );
     expect(headless).not.toContain("npx copilotkit@latest init");
   });
@@ -669,7 +669,7 @@ describe("framework nav", () => {
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+  it("uses the generated Intelligence section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
@@ -677,11 +677,12 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "Enterprise Intelligence Platform",
-      "Cloud-Hosted Enterprise Intelligence",
-      "Self-Hosting Enterprise Intelligence",
-      "Enterprise Intelligence Architecture",
+    expect(sectionPages(navTree, "Intelligence")).toEqual([
+      "CopilotKit Intelligence",
+      "Cloud-hosted CopilotKit Intelligence",
+      "Connect your runtime to Intelligence",
+      "Self-host CopilotKit Intelligence",
+      "CopilotKit Intelligence architecture",
     ]);
   });
 });

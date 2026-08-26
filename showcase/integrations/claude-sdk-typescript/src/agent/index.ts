@@ -22,7 +22,8 @@ app.use(express.json({ limit: "2mb" }));
 
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8123", 10);
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
+const CLAUDE_MODEL =
+  process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || "claude-opus-4-8";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("[agent_server] FATAL: ANTHROPIC_API_KEY is not set");
