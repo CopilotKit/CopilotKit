@@ -603,6 +603,22 @@ test("Playground composer stays readable in dark mode", async () => {
   }
 });
 
+test("Playground surface styles live in the Web Inspector shadow root", () => {
+  const styles = WebInspectorElement.styles as Array<{ cssText?: string }>;
+  const cssText = styles.map((style) => style.cssText ?? "").join("\n");
+
+  expect(cssText).toMatch(
+    /\.cpk-playground-root\s*\{[^}]*background:\s*#fbfbfd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-header\s*\{[^}]*min-height:\s*58px[^}]*background:\s*#f7f6fd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
+  );
+  expect(cssText).toContain("@keyframes cpk-playground-message-enter");
+});
+
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
   const context = await setup({ metadata: trustedMetadata() });
   try {
