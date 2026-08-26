@@ -60,7 +60,7 @@ describe("setup content bundle", () => {
     }
   });
 
-  it("bundles the Google ADK state-streaming termination callback", () => {
+  it("bundles the Google ADK state-streaming termination setup", () => {
     const setupContent = setupContentData as SetupContentBundle;
     const source = resolveBundledSetupConcept(
       "google-adk",
@@ -68,8 +68,9 @@ describe("setup content bundle", () => {
       setupContent,
     );
 
-    expect(source).toContain("def stop_on_terminal_text(");
     expect(source).toContain("after_model_callback=stop_on_terminal_text");
+    expect(source).toContain("shared_chat.py");
+    expect(source).not.toContain("def stop_on_terminal_text(");
     expect(source).not.toContain("<DemoCode");
     expect(source).not.toContain("@region[");
   });

@@ -42,7 +42,7 @@ test("the visual FrameworkSetup path stays empty for other frameworks", async ()
   expect(mocks.mdxRemote).not.toHaveBeenCalled();
 });
 
-test("the visual FrameworkSetup path renders the Google ADK termination callback", async () => {
+test("the visual FrameworkSetup path links the Google ADK termination callback", async () => {
   const result = await FrameworkSetup({
     concept: "state-streaming-setup",
     currentFramework: "google-adk",
@@ -53,8 +53,9 @@ test("the visual FrameworkSetup path renders the Google ADK termination callback
   }
   const source = (result.props as { children?: unknown }).children;
 
-  expect(source).toContain("def stop_on_terminal_text(");
   expect(source).toContain("after_model_callback=stop_on_terminal_text");
+  expect(source).toContain("shared_chat.py");
+  expect(source).not.toContain("def stop_on_terminal_text(");
   expect(source).not.toContain("@region[");
   expect(mocks.mdxRemote).toHaveBeenCalledOnce();
 });

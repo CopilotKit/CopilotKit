@@ -862,7 +862,7 @@ test("renders executable Deep Agents state streaming in both languages", () => {
 });
 
 test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
-  "renders the Google ADK termination callback on %s without leaking it",
+  "renders the Google ADK termination setup on %s without leaking internals",
   (loadSlug) => {
     const doc = loadDoc(loadSlug);
     expect(doc).not.toBeNull();
@@ -881,8 +881,15 @@ test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
       );
 
     const googleAdk = render("google-adk");
-    expect(googleAdk).toContain("def stop_on_terminal_text(");
     expect(googleAdk).toContain("after_model_callback=stop_on_terminal_text");
+    expect(googleAdk).toContain(
+      "showcase/integrations/google-adk/src/agents/shared_chat.py",
+    );
+    expect(googleAdk).not.toContain("def stop_on_terminal_text(");
+    expect(googleAdk).not.toContain("simple_after_model_modifier");
+    expect(googleAdk).not.toContain("AAPL");
+    expect(googleAdk).not.toContain("ADK_DISABLE_PROGRESSIVE_SSE_STREAMING");
+    expect(googleAdk).not.toContain("_invocation_context");
     expect(googleAdk).not.toContain("<FrameworkSetup");
     expect(googleAdk).not.toContain("@region[");
 
@@ -892,7 +899,9 @@ test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
       .filter((framework) => framework !== "google-adk");
     for (const framework of otherPublicFrameworks) {
       const output = render(framework);
-      expect(output, framework).not.toContain("def stop_on_terminal_text(");
+      expect(output, framework).not.toContain(
+        "showcase/integrations/google-adk/src/agents/shared_chat.py",
+      );
       expect(output, framework).not.toContain("<FrameworkSetup");
     }
   },
