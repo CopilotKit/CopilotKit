@@ -8474,6 +8474,10 @@ export class WebInspectorElement extends LitElement {
         box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          background-color 200ms ease,
+          border-color 200ms ease,
+          box-shadow 200ms ease,
           opacity 160ms ease;
       }
 
@@ -8661,6 +8665,31 @@ export class WebInspectorElement extends LitElement {
         > div {
         left: 100%;
         margin-inline-start: 8px;
+      }
+
+      .inspector-icon-rail-menu {
+        transform-origin: left center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-8px) scale(0.96);
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease,
+          visibility 180ms ease;
+      }
+
+      .inspector-icon-rail-menu[data-open="true"] {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0) scale(1);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .inspector-icon-rail-menu {
+          transition: none;
+        }
       }
 
       .inspector-sidebar[data-icon-rail="true"]
@@ -8928,6 +8957,7 @@ export class WebInspectorElement extends LitElement {
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
+        transform: scale(1.05);
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
@@ -9275,6 +9305,12 @@ export class WebInspectorElement extends LitElement {
         .console-button[data-cpk-signal-pulsing="true"]
           .cpk-launcher-signal-wash {
           animation: none !important;
+        }
+        .console-button {
+          transition: opacity 160ms ease;
+        }
+        .console-button:hover {
+          transform: none;
         }
       }
 
@@ -9805,6 +9841,10 @@ export class WebInspectorElement extends LitElement {
         justify-content: center !important;
         gap: 0 !important;
         padding: 0 !important;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease !important;
       }
       .inspector-sidebar[data-icon-rail="true"]
         .inspector-context-dropdown-label,
@@ -10256,8 +10296,6 @@ export class WebInspectorElement extends LitElement {
       "text-xs",
       "font-medium",
       "text-white",
-      "transition",
-      "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
@@ -17273,11 +17311,15 @@ export class WebInspectorElement extends LitElement {
           >
         </button>
         ${
-          this.contextMenuOpen
+          iconRail || this.contextMenuOpen
             ? html`
               <div
-                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
+                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5${
+                  iconRail ? " inspector-icon-rail-menu" : ""
+                }"
                 data-context-dropdown-root="true"
+                data-open=${this.contextMenuOpen ? "true" : "false"}
+                aria-hidden=${this.contextMenuOpen ? "false" : "true"}
               >
                 ${filteredOptions.map(
                   (option) => html`

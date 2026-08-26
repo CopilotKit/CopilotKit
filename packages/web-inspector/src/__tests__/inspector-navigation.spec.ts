@@ -1377,7 +1377,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     const visibleOption = () =>
       scope.querySelector(
-        '[data-context-dropdown-root="true"] > button[data-context-dropdown-root="true"]',
+        '.inspector-icon-rail-menu[data-open="true"] button[data-context-dropdown-root="true"]',
       );
     expect(visibleOption()).not.toBeNull();
     scopeTrigger.dispatchEvent(

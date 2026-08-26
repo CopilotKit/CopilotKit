@@ -298,6 +298,11 @@
   gap: 0;
   padding: 0;
   overflow: visible;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .inspector-sidebar[data-icon-rail="true"] .inspector-context-dropdown-label,
@@ -315,6 +320,25 @@
   top: 0;
   left: calc(100% + 8px);
   margin-top: 0;
+}
+
+.inspector-icon-rail-menu {
+  transform-origin: left center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-8px) scale(0.96);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms ease;
+}
+
+.inspector-icon-rail-menu[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
 }
 
 .inspector-sidebar[data-icon-rail="true"]
@@ -2270,7 +2294,16 @@ small.inspector-system-health-detail {
 
 @media (prefers-reduced-motion: reduce) {
   .inspector-sidebar,
-  .inspector-nav-label {
+  .inspector-nav-label,
+  .inspector-sidebar[data-icon-rail="true"]
+    .inspector-agent-selector
+    > [data-context-dropdown-root="true"]
+    > button {
+    transition: none;
+  }
+
+  .inspector-icon-rail-menu {
+    animation: none;
     transition: none;
   }
 }
