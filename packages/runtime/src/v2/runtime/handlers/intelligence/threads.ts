@@ -296,7 +296,11 @@ function isThreadNotFound(error: unknown): boolean {
  * else throws, so a platform failure never reads as a denial.
  */
 async function callerMaySeeThread(
-  runtime: { intelligence: { getThread: (p: { threadId: string; userId: string }) => Promise<unknown> } },
+  runtime: {
+    intelligence: {
+      getThread: (p: { threadId: string; userId: string }) => Promise<unknown>;
+    };
+  },
   threadId: string,
   userId: string,
 ): Promise<boolean> {

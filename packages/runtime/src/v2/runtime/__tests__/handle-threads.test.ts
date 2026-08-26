@@ -630,8 +630,8 @@ describe("thread handlers", () => {
 
   it("forwards includeArchived, limit, and cursor query params to listThreads", async () => {
     const intelligence = {
-        // Ownership gate: this caller owns the thread.
-        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
+      // Ownership gate: this caller owns the thread.
+      getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
       listThreads: vi.fn().mockResolvedValue({
         threads: [{ id: "thread-1", name: "Hello" }],
         joinCode: "jc-1",
