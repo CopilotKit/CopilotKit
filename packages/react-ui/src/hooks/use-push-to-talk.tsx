@@ -3,8 +3,9 @@ import {
   useCopilotMessagesContext,
 } from "@copilotkit/react-core";
 import { gqlToAGUI } from "@copilotkit/runtime-client-gql";
-import { Message } from "@copilotkit/shared";
-import { MutableRefObject, useEffect, useRef, useState } from "react";
+import type { Message } from "@copilotkit/shared";
+import type { MutableRefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export const checkMicrophonePermission = async () => {
   try {
@@ -158,18 +159,24 @@ export const usePushToTalk = ({
     } else {
       stopRecording(mediaRecorderRef, mediaStreamRef);
       if (pushToTalkState === "transcribing") {
-        transcribeAudio(
+        void transcribeAudio(
           recordedChunks.current,
           context.copilotApiConfig.transcribeAudioUrl!,
           mediaType,
-        ).then(async (transcription) => {
-          recordedChunks.current = [];
-          setPushToTalkState("idle");
-          const message = await sendFunction(transcription);
-          if (message) {
-            setStartReadingFromMessageId(message.id);
-          }
-        });
+        )
+          .then(async (transcription) => {
+            recordedChunks.current = [];
+            setPushToTalkState("idle");
+            const message = await sendFunction(transcription);
+            if (message) {
+              setStartReadingFromMessageId(message.id);
+            }
+          })
+          .catch((error) => {
+            recordedChunks.current = [];
+            setPushToTalkState("idle");
+            console.error("Error transcribing or sending audio:", error);
+          });
       }
     }
 

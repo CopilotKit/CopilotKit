@@ -789,7 +789,9 @@ export function CopilotChat({
     // Trigger message regenerated event
     triggerObservabilityHook("onMessageRegenerated", messageId);
 
-    reloadMessages(messageId);
+    // The async callback has already surfaced failures through CopilotKit's
+    // error UI. Avoid leaving its rethrown rejection unhandled here.
+    void reloadMessages(messageId).catch(() => {});
   };
 
   const handleCopy = (message: string) => {
@@ -1017,7 +1019,11 @@ export function CopilotChat({
         >
           {currentSuggestions.length > 0 && (
             <RenderSuggestionsList
-              onSuggestionClick={handleSendMessage}
+              onSuggestionClick={(message) => {
+                // Suggestions are event-handler entry points just like the
+                // text input, so their send promise needs a terminal catch.
+                void handleSendMessage(message).catch(() => {});
+              }}
               suggestions={currentSuggestions}
               isLoading={isLoadingSuggestions}
             />

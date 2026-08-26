@@ -1,4 +1,29 @@
-import { describe, it, expect, vi } from "vitest";
+// @vitest-environment jsdom
+
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { usePushToTalk } from "../use-push-to-talk";
+
+vi.mock("@copilotkit/react-core", () => ({
+  useCopilotContext: () => ({
+    copilotApiConfig: {
+      transcribeAudioUrl: "/transcribe",
+    },
+  }),
+  useCopilotMessagesContext: () => ({
+    messages: [],
+  }),
+}));
+
+vi.mock("@copilotkit/runtime-client-gql", () => ({
+  gqlToAGUI: (messages: unknown[]) => messages,
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 /**
  * Tests for the sendFunction handling in usePushToTalk.
@@ -45,5 +70,35 @@ describe("usePushToTalk sendFunction handling", () => {
     }
 
     expect(startReadingFromMessageId).toBe("msg-123");
+  });
+
+  it("handles a rejected send after transcription", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ text: "Hello" }),
+      }),
+    );
+    const sendFunction = vi.fn().mockRejectedValue(new Error("send failed"));
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      usePushToTalk({ sendFunction, inProgress: false }),
+    );
+
+    act(() => {
+      result.current.setPushToTalkState("transcribing");
+    });
+
+    await waitFor(() => {
+      expect(sendFunction).toHaveBeenCalledWith("Hello");
+      expect(result.current.pushToTalkState).toBe("idle");
+    });
+    expect(consoleError).toHaveBeenCalledWith(
+      "Error transcribing or sending audio:",
+      expect.objectContaining({ message: "send failed" }),
+    );
   });
 });

@@ -47,7 +47,10 @@ export const Input = ({
   const [text, setText] = useState("");
   const send = () => {
     if (inProgress) return;
-    onSend(text);
+    // useCopilotChatInternal reports rejected sends through its error UI before
+    // rethrowing. This component is the final consumer of the promise, so mark
+    // the rejection as handled instead of leaking it from the event handler.
+    void onSend(text).catch(() => {});
     setText("");
 
     textareaRef.current?.focus();
