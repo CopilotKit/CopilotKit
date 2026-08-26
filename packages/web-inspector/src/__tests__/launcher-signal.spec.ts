@@ -742,11 +742,13 @@ test("the launcher animates opacity, transform and a clip — nothing that force
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
-  const keyframes = Array.from(
+  const keyframeMatches = Array.from(
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
-  ).map((match) => match[1] ?? "");
-  // Two for the halo, and one per direction for the pill's reveal.
-  expect(keyframes).toHaveLength(4);
+  );
+  const keyframes = keyframeMatches.map((match) => match[1] ?? "");
+  // Two for the halo, one per direction for both launcher reveals, and one
+  // each for the HUD row and connected check stagger.
+  expect(keyframes).toHaveLength(8);
 
   const animated = new Set(
     keyframes
