@@ -571,6 +571,21 @@ type InspectorColorScheme = "light" | "dark";
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
 const LAUNCHER_HUD_WIDTH = 248;
+/**
+ * One page-load preview of the launcher's feature HUD.
+ *
+ * The card arrives after the host page has had a beat to settle. Its four rows
+ * then come online in order, stay readable, and leave together. Nothing is
+ * persisted: a new Inspector element means a new preview.
+ */
+const LAUNCHER_HUD_INTRO_MS = {
+  delay: 500,
+  duration: 3400,
+  rowStart: 180,
+  rowStagger: 170,
+  rowDuration: 300,
+  blockedRetry: 250,
+} as const;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -5949,6 +5964,10 @@ export class WebInspectorElement extends LitElement {
   private launcherHudSide: "left" | "right" = "left";
   private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private launcherHudIntro = false;
+  private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
    * the circle cannot steal "Turn on Threads". Not a public open option.
@@ -8967,6 +8986,103 @@ ${argsString}</pre
       }
 
       /*
+       * On mount, borrow the hover HUD for one short introduction. The card
+       * establishes the destination first; its rows then resolve in order so
+       * the eye can count the available features instead of receiving one
+       * undifferentiated block. Only opacity and transform move.
+       */
+      @keyframes cpk-launcher-hud-intro {
+        0% {
+          opacity: 0;
+          transform: translateX(8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-intro-right {
+        0% {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-row-online {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes cpk-launcher-hud-check-online {
+        from {
+          opacity: 0;
+          transform: scale(0.65);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
+        animation: cpk-launcher-hud-intro
+          var(--cpk-launcher-hud-intro-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+        animation-name: cpk-launcher-hud-intro-right;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__row {
+        animation: cpk-launcher-hud-row-online
+          var(--cpk-launcher-hud-row-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--cpk-hud-row-delay);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__check {
+        animation: cpk-launcher-hud-check-online 220ms
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"],
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row,
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__check {
+          animation: none !important;
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      /*
        * Marker on the navigation entry, which is what keeps a signal alive
        * once the panel is open and the launcher is hidden. Static by design:
        * the beat belongs to the launcher, and movement here would compete with
@@ -9391,6 +9507,7 @@ ${argsString}</pre
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
     this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -9451,6 +9568,7 @@ ${argsString}</pre
     this.ensureAnnouncementLoading();
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
+    this.scheduleLauncherHudIntro();
   }
 
   render() {
@@ -9753,6 +9871,50 @@ ${argsString}</pre
     return this.gestureSignal !== null;
   }
 
+  private scheduleLauncherHudIntro(
+    delay: number = LAUNCHER_HUD_INTRO_MS.delay,
+  ): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+    }
+    this.launcherHudIntroStartTimer = setTimeout(() => {
+      this.launcherHudIntroStartTimer = null;
+      if (!this.isConnected || this.isOpen) return;
+      if (this.isLauncherHudBlocked()) {
+        this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
+        return;
+      }
+
+      this.resolveLauncherHudSide();
+      this.launcherHudIntro = true;
+      this.launcherHudOpen = true;
+      this.requestUpdate();
+      this.launcherHudIntroEndTimer = setTimeout(() => {
+        this.launcherHudIntroEndTimer = null;
+        this.launcherHudIntro = false;
+        this.launcherHudOpen = false;
+        this.launcherHudHelp = null;
+        this.requestUpdate();
+      }, LAUNCHER_HUD_INTRO_MS.duration);
+    }, delay);
+  }
+
+  private cancelLauncherHudIntro(): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+      this.launcherHudIntroStartTimer = null;
+    }
+    if (this.launcherHudIntroEndTimer !== null) {
+      clearTimeout(this.launcherHudIntroEndTimer);
+      this.launcherHudIntroEndTimer = null;
+    }
+    if (!this.launcherHudIntro) return;
+    this.launcherHudIntro = false;
+    if (this.isConnected) {
+      this.requestUpdate();
+    }
+  }
+
   private resolveLauncherHudSide(): void {
     if (typeof window === "undefined") {
       this.launcherHudSide = "left";
@@ -9785,6 +9947,7 @@ ${argsString}</pre
   }
 
   private closeLauncherHud(): void {
+    this.cancelLauncherHudIntro();
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -9796,6 +9959,7 @@ ${argsString}</pre
   }
 
   private handleLauncherHudEnter = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9810,6 +9974,7 @@ ${argsString}</pre
   };
 
   private handleLauncherHudFocusIn = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9899,6 +10064,7 @@ ${argsString}</pre
     label: string;
     detail: string;
     connected?: boolean;
+    introIndex: number;
   }): TemplateResult {
     const helpOpen = this.launcherHudHelp === args.id;
     const detailId = `cpk-hud-detail-${args.id}`;
@@ -9907,6 +10073,13 @@ ${argsString}</pre
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
         data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        style=${styleMap({
+          "--cpk-hud-row-index": `${args.introIndex}`,
+          "--cpk-hud-row-delay": `${
+            LAUNCHER_HUD_INTRO_MS.rowStart +
+            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
+          }ms`,
+        })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
         <button
@@ -9954,7 +10127,12 @@ ${argsString}</pre
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
+        style=${styleMap({
+          "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
+          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+        })}
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
@@ -9963,6 +10141,7 @@ ${argsString}</pre
               id: "inspector",
               label: HUD_OPEN_INSPECTOR_LABEL,
               detail: HUD_OPEN_INSPECTOR_DETAIL,
+              introIndex: 0,
             })}
           </ul>
           <ul class="cpk-launcher-hud__list" role="list">
@@ -9973,6 +10152,7 @@ ${argsString}</pre
                 ? HUD_THREADS_ON_DETAIL
                 : HUD_THREADS_OFF_DETAIL,
               connected: threadsOn,
+              introIndex: 1,
             })}
             ${this.renderHudRow({
               id: "intelligence",
@@ -9983,6 +10163,7 @@ ${argsString}</pre
                 ? HUD_INTELLIGENCE_ON_DETAIL
                 : HUD_INTELLIGENCE_OFF_DETAIL,
               connected: intelligenceOn,
+              introIndex: 2,
             })}
             ${this.renderHudRow({
               id: "learning",
@@ -9993,6 +10174,7 @@ ${argsString}</pre
                 ? HUD_LEARNING_ON_DETAIL
                 : HUD_LEARNING_OFF_DETAIL,
               connected: learningOn,
+              introIndex: 3,
             })}
           </ul>
         </div>
