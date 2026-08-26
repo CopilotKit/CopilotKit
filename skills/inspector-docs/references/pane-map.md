@@ -25,5 +25,12 @@ Update this file in the same change that adds or removes a pane.
 
 ## Surfaces that do not get the Open Inspector step
 
-- React Native
-- Channels
+Neither has a browser, so neither can mount the overlay. Skipping the step is not
+enough on its own: a reader who meets Inspector as the debugging story everywhere
+else and then finds nothing reads that as broken wiring. Each surface states the
+absence and names what to use instead.
+
+| Surface      | Where the absence is stated                                                                                      |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- |
+| React Native | `docs/inspector.mdx` "Where Inspector runs", and the Known limitations list on `docs/frontends/react-native.mdx` |
+| Channels     | `docs/inspector.mdx` "Where Inspector runs"                                                                      |
