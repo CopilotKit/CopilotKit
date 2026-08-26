@@ -19,28 +19,7 @@ Always use a git worktree for non-trivial work. This keeps the main working tree
 1. **Start a worktree** at the beginning of a task. This creates a new branch and a separate working directory.
 2. **Do all work** inside the worktree — commits, builds, tests.
 3. **Push the worktree branch** to the remote with `-u` to set up tracking.
-4. **Open a PR immediately** — see "Open a PR Up Front" below.
-5. **Clean up** the worktree after the PR is merged.
-
-## Open a PR Up Front
-
-The moment a new branch has at least one commit, open a PR against `main`. Don't wait until the work is "ready." Reasons:
-
-- The work becomes visible to teammates the second it exists. Unmerged-and-unpushed branches are invisible work.
-- Reviewers can leave comments early; CI starts running; conflicts surface fast.
-
-**The flow:**
-
-1. After the first meaningful commit on a branch:
-   ```bash
-   git push -u origin <branch-name>
-   gh pr create --base main \
-     --title "<short title>" \
-     --body "<short summary of what's being built + current status>"
-   ```
-2. Keep committing + pushing as you go. The PR auto-updates.
-
-The rule: **PR exists before work continues.**
+4. **Clean up** the worktree after the PR is merged.
 
 ## Commit Early and Often, in Logical Chunks
 
