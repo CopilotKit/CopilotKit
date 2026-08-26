@@ -61,7 +61,7 @@ We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protoc
 
 ## Quick Start
 
-Up and running in under five minutes. All you need is an LLM key (OpenAI, Anthropic, Gemini, etc.).
+Up and running in under 5 minutes. All you need is an LLM API key (OpenAI, Anthropic, Gemini, etc.).
 
 ```bash
 npx copilotkit@latest create
