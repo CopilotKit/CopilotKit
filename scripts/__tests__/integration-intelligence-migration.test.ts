@@ -299,7 +299,7 @@ describe("batch-2 Intelligence integration migration", () => {
       expect(route).toContain(
         "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
       );
-      expect(route).toContain('id: "demo-user"');
+      expect(route).toContain('request.headers.get("x-user-id")');
       expect(route).toContain("new InMemoryAgentRunner()");
       expect(route).toContain("export const GET = handle(app)");
       expect(route).toContain("export const POST = handle(app)");
@@ -394,7 +394,7 @@ test("a2a-middleware runtime route is gated for Intelligence threads", () => {
   expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
   expect(route).toContain("process.env.INTELLIGENCE_API_URL");
   expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
+  expect(route).toContain('request.headers.get("x-user-id")');
   expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
   expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
   expect(route).toContain("export const GET = handle(app);");
@@ -489,7 +489,7 @@ test("a2a-a2ui runtime route is gated for Intelligence threads", () => {
   expect(route).toContain("process.env.INTELLIGENCE_API_KEY");
   expect(route).toContain("process.env.INTELLIGENCE_API_URL");
   expect(route).toContain("process.env.INTELLIGENCE_GATEWAY_WS_URL");
-  expect(route).toContain('id: "demo-user"');
+  expect(route).toContain('request.headers.get("x-user-id")');
   expect(route).toContain("licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN");
   expect(route).toContain(": { runner: new InMemoryAgentRunner() }");
   expect(route).toContain("a2ui: {}");
@@ -575,7 +575,7 @@ describe("agentcore Intelligence integration migration", () => {
     expect(runtime).toContain(
       "licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN",
     );
-    expect(runtime).toContain('id: "demo-user"');
+    expect(runtime).toContain('request.headers.get("x-user-id")');
     expect(runtime).toContain(": { runner: new AgentCoreRunner() }");
     expect(runtime).toContain('basePath: "/copilotkit"');
   });

@@ -92,7 +92,7 @@ Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN`
 > **Notes for the Intelligence path:**
 >
 > - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
-> - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. CopilotKit Intelligence requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
+> - `server.ts` derives the user from the `x-user-id` and `x-user-name` request headers, falling back to `anonymous`. Threads are per-user, so until your app sets those headers every visitor shares one history — wire them to your auth-derived identity before any multi-user deployment. The id is an opaque string scoped to your project; nothing needs to pre-register it.
 > - Set `INTELLIGENCE_API_KEY` whenever you set `COPILOTKIT_LICENSE_TOKEN`. The runtime builds `CopilotKitIntelligence` off the license token alone; if the API key is missing, threads/memory fail with an opaque auth error at request time rather than a clear startup error.
 
 ## 📚 Documentation

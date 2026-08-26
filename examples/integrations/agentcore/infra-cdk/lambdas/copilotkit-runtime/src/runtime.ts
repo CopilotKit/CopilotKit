@@ -140,11 +140,11 @@ export function buildApp() {
               ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
               : {}),
           }),
-          // Demo stub — replace with your real auth-derived user identity before any
-          // multi-user deployment, or all users share one thread history. The id
-          // must correspond to a user that exists in CopilotKit Intelligence;
-          // an unknown id (like this literal) can make thread operations fail.
-          identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
+          // Threads are per-user. Without this every visitor shares one history.
+          identifyUser: (request) => ({
+            id: request.headers.get("x-user-id") ?? "anonymous",
+            name: request.headers.get("x-user-name") ?? "Anonymous",
+          }),
           licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
         }
       : { runner: new AgentCoreRunner() }),
