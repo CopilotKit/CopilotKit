@@ -35,6 +35,7 @@ export const EDGE_SCENARIO_KEYS = [
   "action-only",
   "license-none",
   "license-expired",
+  "agent-run-error",
   "thread-list-error",
   "video-error",
   "reduced-motion",
@@ -97,11 +98,24 @@ export interface ThreadsStateScenario {
   readonly joinCode: string;
   readonly joinToken: string;
   readonly listError?: Readonly<{ status: number; message: string }>;
+  readonly initialMenu?: "home" | "threads";
+  readonly initialAgentEvents?: readonly Readonly<{
+    type: "RUN_ERROR";
+    runId: string;
+    message: string;
+    code: string;
+  }>[];
   readonly media: "normal" | "video_error" | "reduced_motion";
 }
 
+const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
+const ANNOUNCEMENT_READ_STORAGE_KEY = "cpk:inspector:announcement_read";
+const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
+const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
+const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
+
 export const LAB_RESET_STORAGE_KEYS = [
-  "cpk:inspector:state",
+  INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
 ] as const;
 
@@ -111,10 +125,10 @@ const AGENT_ID = "threads-lab-agent";
 const ORGANIZATION_ID = "threads-lab-organization";
 const USER_ID = "threads-lab-user";
 const MANAGE_PLAN_URL =
-  "https://dashboard.operations.copilotkit.ai/account/organization/org_demo_inspector/organization-billing";
+  "https://intelligence.copilotkit.ai/account/organization/org_demo_inspector/organization-billing";
 const ENABLE_INTELLIGENCE_URL =
-  "https://cloud.copilotkit.ai/intelligence/enable";
-const RENEW_URL = "https://cloud.copilotkit.ai/settings/license";
+  "https://intelligence.copilotkit.ai/intelligence/enable";
+const RENEW_URL = "https://intelligence.copilotkit.ai/settings/license";
 
 const ZERO_COUNTERS: ThreadRequestCounters = {
   list: 0,
@@ -731,6 +745,22 @@ function edgeScenario(
         inspectorMetadataBody: value,
       });
     }
+    case "agent-run-error":
+      return buildScenario({
+        ...base,
+        label: "Agent run error",
+        description:
+          "A CopilotKit agent emits RunError so System Health shows an actionable failure.",
+        initialMenu: "home",
+        initialAgentEvents: [
+          {
+            type: "RUN_ERROR",
+            runId: "threads-lab-run-error",
+            message: "The agent could not complete this run.",
+            code: "AGENT_RUN_ERROR",
+          },
+        ],
+      });
     case "thread-list-error":
       return buildScenario({
         ...base,
@@ -802,6 +832,34 @@ export function getThreadsStateScenario(
   return THREADS_STATE_SCENARIOS[key];
 }
 
+/**
+ * Seeds the Inspector with deterministic agent events for a test-bench route.
+ * This is intentionally scoped to the local lab: production events continue to
+ * arrive through the agent subscription in the Inspector itself.
+ */
+export function seedThreadsStateLabAgentEvents(
+  inspector: WebInspectorElement,
+  scenario: ThreadsStateScenario,
+): void {
+  const recordAgentEvent = Reflect.get(inspector, "recordAgentEvent");
+  if (typeof recordAgentEvent !== "function") {
+    throw new Error("Inspector event recorder was unavailable in the lab.");
+  }
+
+  for (const event of scenario.initialAgentEvents ?? []) {
+    Reflect.apply(recordAgentEvent, inspector, [
+      scenario.agentId,
+      event.type,
+      {
+        type: event.type,
+        runId: event.runId,
+        message: event.message,
+        code: event.code,
+      },
+    ]);
+  }
+}
+
 /** Parses an untrusted route key and reports an explicit fallback. */
 export function parseScenarioKey(
   value: string | null,
@@ -871,6 +929,50 @@ export function clearThreadsStateLabStorage(
   storage: Pick<Storage, "removeItem">,
 ): void {
   for (const key of LAB_RESET_STORAGE_KEYS) storage.removeItem(key);
+}
+
+/** Re-arms the notification while preserving the developer's Inspector setup. */
+export function clearThreadsStateLabNotificationState(
+  localStorage: Pick<Storage, "getItem" | "setItem" | "removeItem">,
+  sessionStorage: Pick<Storage, "removeItem">,
+  cookieTarget: { cookie: string },
+): void {
+  const rawInspectorState = localStorage.getItem(INSPECTOR_STATE_STORAGE_KEY);
+  if (rawInspectorState) {
+    try {
+      const inspectorState = JSON.parse(rawInspectorState) as unknown;
+      if (
+        inspectorState &&
+        typeof inspectorState === "object" &&
+        !Array.isArray(inspectorState)
+      ) {
+        localStorage.setItem(
+          INSPECTOR_STATE_STORAGE_KEY,
+          JSON.stringify({ ...inspectorState, isOpen: false }),
+        );
+      }
+    } catch {
+      // Invalid persisted state already falls back to a closed Inspector.
+    }
+  }
+  localStorage.removeItem(ANNOUNCEMENT_READ_STORAGE_KEY);
+  sessionStorage.removeItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
+  cookieTarget.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
+/** Reload URL for a clean, closed launcher with the notification re-armed. */
+export function notificationReplayUrl(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete("reset");
+  url.searchParams.set(REPLAY_NOTIFICATION_QUERY_KEY, "1");
+  return url.toString();
+}
+
+/** Removes the one-shot replay flag after it has been consumed. */
+export function consumedNotificationReplayUrl(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete(REPLAY_NOTIFICATION_QUERY_KEY);
+  return url.toString();
 }
 
 /** Copies and returns one canonical scenario URL without changing page state. */

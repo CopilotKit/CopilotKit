@@ -221,7 +221,7 @@ const app = createCopilotHonoHandler({
 export const POST = handle(app);
 ```
 
-When using single-route, the frontend must set `useSingleEndpoint` on the provider (see Step 3).
+The frontend provider negotiates this automatically; set `useSingleEndpoint` on it only to pin single-route transport explicitly (see Step 3).
 
 #### Standalone Express Server
 
@@ -316,10 +316,10 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    // useSingleEndpoint={false} matches the multi-route backend above.
-    // The v1-compat CopilotKit bridge defaults useSingleEndpoint to true,
-    // which would 404 against multi-route endpoints.
-    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+    // No useSingleEndpoint: the provider negotiates the transport, so it
+    // matches the multi-route backend above (the default) or a single-route
+    // one. Pass the prop only to pin one mode deliberately.
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
@@ -338,14 +338,14 @@ When the runtime runs on a separate server (e.g., Express on port 4000):
 </CopilotKit>
 ```
 
-Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`).
+Omitting `useSingleEndpoint` lets the provider negotiate the transport, which works against either handler mode. Set it to `true` only to pin single-route transport (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`), or to `false` to pin the multi-route REST routes.
 
 #### CopilotKit key props
 
 | Prop                | Type                                                       | Description                                                                                                          |
 | ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `runtimeUrl`        | `string`                                                   | URL of the CopilotKit runtime endpoint                                                                               |
-| `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
+| `useSingleEndpoint` | `boolean`                                                  | Omit to negotiate the transport (works with either handler mode); `true` pins single-route, `false` pins multi-route |
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
 | `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
@@ -507,10 +507,10 @@ Channels require the Intelligence runtime and a long-running host. See the
 
 ### Agent runners
 
-| Runner                    | Description                                                                                                       |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `InMemoryAgentRunner`     | Default. Stores thread state in process memory. Suitable for development and single-instance deployments.         |
-| `IntelligenceAgentRunner` | Used automatically with `CopilotIntelligenceRuntime`. Connects to CopilotKit Intelligence Platform via WebSocket. |
+| Runner                    | Description                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `InMemoryAgentRunner`     | Default. Stores thread state in process memory. Suitable for development and single-instance deployments. |
+| `IntelligenceAgentRunner` | Used automatically with `CopilotIntelligenceRuntime`. Connects to CopilotKit Intelligence via WebSocket.  |
 
 ### Supported models (BuiltInAgent)
 
@@ -518,7 +518,7 @@ Format: `"provider/model-name"` string or a Vercel AI SDK `LanguageModel` instan
 
 **OpenAI:** `openai/gpt-5`, `openai/gpt-5-mini`, `openai/gpt-4.1`, `openai/gpt-4.1-mini`, `openai/gpt-4.1-nano`, `openai/gpt-4o`, `openai/gpt-4o-mini`, `openai/o3`, `openai/o3-mini`, `openai/o4-mini`
 
-**Anthropic:** `anthropic/claude-sonnet-4.5`, `anthropic/claude-sonnet-4`, `anthropic/claude-3.7-sonnet`, `anthropic/claude-opus-4.1`, `anthropic/claude-opus-4`, `anthropic/claude-3.5-haiku`
+**Anthropic:** `anthropic/claude-sonnet-4-6`, `anthropic/claude-sonnet-4-5`, `anthropic/claude-opus-4-8`, `anthropic/claude-haiku-4-5`
 
 **Google:** `google/gemini-2.5-pro`, `google/gemini-2.5-flash`, `google/gemini-2.5-flash-lite`
 

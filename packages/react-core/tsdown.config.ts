@@ -80,7 +80,10 @@ const externalizeContext = {
 
 export default defineConfig([
   {
-    entry: ["src/index.tsx", "src/v2/index.ts"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+      "v2/index": "src/v2/index.ts",
+    },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -164,7 +167,9 @@ export default defineConfig([
     ],
   },
   {
-    entry: ["src/index.tsx"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+    },
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,

@@ -128,9 +128,9 @@ const SINGLE_ROUTE_ENVELOPE_CODE =
 const SINGLE_ROUTE_ENVELOPE_MESSAGE =
   'Received a single-route request envelope ({ method: "..." }) but this ' +
   "runtime is mounted in multi-route mode, so the request matched no route. " +
-  "If the frontend uses <CopilotKit> from @copilotkit/react-core/v2, pass " +
-  "useSingleEndpoint={false} — that provider defaults it to true. Otherwise " +
-  'mount the runtime with mode: "single-route" to serve this envelope.';
+  "Either drop useSingleEndpoint from the frontend provider so it negotiates " +
+  'the transport, or mount the runtime with mode: "single-route" to serve ' +
+  "this envelope.";
 
 /* ------------------------------------------------------------------------------------------------
  * Public types

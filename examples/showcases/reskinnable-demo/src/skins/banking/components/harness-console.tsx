@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSubagentActivity } from "@/shell/subagents/subagent-activity";
 
 /**
  * The live console for the offsite-expenses run — a CLI window in the
- * transcript showing everything the coding harness does, as it does it.
+ * transcript showing what the coding harness is doing, as it does it.
  *
  * ## It reads EVENTS, not messages
  *
@@ -18,19 +18,33 @@ import { useSubagentActivity } from "@/shell/subagents/subagent-activity";
  * `src/shell/subagents/subagent-activity.tsx` owns that subscription and the
  * measurements behind it.
  *
- * ## Everything the harness does lands HERE
+ * ## Closed by default, and a WINDOW when open
  *
- * Deliberately including the prose. The analyst narrates as it works ("The
- * download has a valid CSV header, not an HTML error page — I'll now parse it
- * programmatically…"), and that narration is the most readable thing in the
- * whole run. It used to render as separate chat messages ABOVE a console that
- * was still empty, which read as two disconnected things happening. The chat now
- * declines to render subagent-tagged messages inline (see `chat-panel.tsx`) so
- * this pane is the single place the run is visible.
+ * The pane starts collapsed to its status strip. A run takes tens of seconds and
+ * the transcript around it — the report card it produces, the cards above it —
+ * is the point of the beat; an always-open terminal streaming for the whole run
+ * pushed that off the screen. The strip still carries the live state ("3 agents
+ * working"), so the run reads as alive while closed, and one click opens it.
+ *
+ * Open, it is the FULL log of the run, and deliberately so. The rolling
+ * "last two steps" window lives on the transcript's activity lines instead
+ * (`src/shell/chat/tool-activity.tsx`) — that is the surface that was growing
+ * unboundedly next to the report card. Windowing both left the detail view with
+ * two lines in it and nowhere to read the rest, so this pane is the place the
+ * whole run stays available, one click away.
  *
  * Nested activity is indented: the analyst's own commands sit at one level and
- * its researchers' work one deeper, which is what makes ten concurrent merchant
+ * its researchers' work one deeper, which is what makes concurrent merchant
  * lookups legible as a fan-out rather than a jumble.
+ *
+ * ## Colours come from the SKIN's tokens
+ *
+ * Every colour here is semantic (`bg-surface-muted`, `text-ink`,
+ * `text-ink-muted`, `border-hairline`). It used to be a hardcoded `bg-ink` with
+ * `text-white/45`-style overlays — an authentic terminal, and a black slab in
+ * the middle of a light-mode transcript. The tokens re-value under
+ * `.dark .theme-banking` (see `../theme.css`), so the console now follows the
+ * app into either mode with no `dark:` variants of its own.
  */
 
 /** How close to the tail still counts as "following the run". */
@@ -43,10 +57,15 @@ const isNearBottom = (el: HTMLDivElement | null): boolean =>
 export const HarnessConsole = () => {
   const { lines: allLines, subagents, isRunning } = useSubagentActivity();
 
+  const [open, setOpen] = useState(false);
+
   // The report tool renders as the REPORT CARD in the transcript, so drawing it
   // here as well would show the same result twice — once as a terminal line,
   // once as the component it produced.
-  const lines = allLines.filter((l) => l.toolName !== "submit_expense_report");
+  const lines = useMemo(
+    () => allLines.filter((l) => l.toolName !== "submit_expense_report"),
+    [allLines],
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -65,86 +84,105 @@ export const HarnessConsole = () => {
 
   // Follow BOTH a new line and a growing one: text and tool arguments stream as
   // deltas, so the last line keeps getting longer without the count changing.
-  // Watching only `lines.length` leaves the view frozen mid-command.
+  // Watching only the line count leaves the view frozen mid-command.
+  //
+  // `open` is a dependency because the scroll container does not exist while
+  // closed: without it, opening mid-run shows the pane scrolled to the top of
+  // the window until the next delta happens to arrive.
   const tailText = lines.length > 0 ? lines[lines.length - 1].text : "";
   useEffect(() => {
     if (stick.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [lines.length, tailText]);
+  }, [lines.length, tailText, open]);
 
   const running = Array.from(subagents.values()).filter(
     (s) => s.status === "running",
   ).length;
 
   return (
-    <div className="overflow-hidden rounded-[--radius] border border-hairline bg-ink shadow-soft">
-      <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1.5">
-        <span className="text-[11px] font-medium tracking-wide text-white/50">
+    <div className="overflow-hidden rounded-[--radius] border border-hairline bg-surface-muted shadow-soft">
+      <button
+        type="button"
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors hover:bg-hairline/40"
+      >
+        <span
+          aria-hidden
+          className={`text-[9px] text-ink-muted transition-transform ${
+            open ? "rotate-90" : ""
+          }`}
+        >
+          ▶
+        </span>
+        <span className="text-[11px] font-medium tracking-wide text-ink-muted">
           expense analysis
         </span>
         {isRunning ? (
-          <span className="ml-auto flex items-center gap-1.5 text-[11px] text-white/50">
+          <span className="ml-auto flex items-center gap-1.5 text-[11px] text-ink-muted">
             <span className="size-1.5 animate-pulse rounded-full bg-positive" />
             {running > 1 ? `${running} agents working` : "running"}
           </span>
         ) : (
-          <span className="ml-auto text-[11px] text-white/40">done</span>
+          <span className="ml-auto text-[11px] text-ink-muted">done</span>
         )}
-      </div>
+      </button>
 
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        // Bounded height on purpose: a window onto a long run, not a transcript
-        // that pushes the report card off the screen.
-        className="max-h-80 overflow-y-auto px-3 py-2 font-mono text-[11.5px] leading-relaxed"
-      >
-        {lines.length === 0 ? (
-          <div className="text-white/40">starting…</div>
-        ) : (
-          lines.map((line) => {
-            const pad = line.depth > 0 ? `pl-${line.depth * 3}` : "";
-            if (line.kind === "started") {
+      {open ? (
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          // Bounded height on purpose: a window onto a long run, not a
+          // transcript that pushes the report card off the screen.
+          className="max-h-80 overflow-y-auto border-t border-hairline px-3 py-2 font-mono text-[11.5px] leading-relaxed"
+        >
+          {lines.length === 0 ? (
+            <div className="text-ink-muted">starting…</div>
+          ) : (
+            lines.map((line) => {
+              const pad = line.depth > 0 ? `pl-${line.depth * 3}` : "";
+              if (line.kind === "started") {
+                return (
+                  <div key={line.key} className={`py-0.5 text-brand ${pad}`}>
+                    ┌ {line.text}
+                  </div>
+                );
+              }
+              if (line.kind === "text") {
+                return (
+                  <div
+                    key={line.key}
+                    className={`py-0.5 italic text-ink-muted ${pad}`}
+                  >
+                    {line.text}
+                  </div>
+                );
+              }
+              if (line.kind === "tool") {
+                return (
+                  <div key={line.key} className={`py-0.5 text-ink ${pad}`}>
+                    {line.text}
+                  </div>
+                );
+              }
               return (
-                <div key={line.key} className={`py-0.5 text-brand ${pad}`}>
-                  ┌ {line.text}
-                </div>
-              );
-            }
-            if (line.kind === "text") {
-              return (
-                <div
+                <pre
                   key={line.key}
-                  className={`py-0.5 italic text-white/45 ${pad}`}
+                  className={`whitespace-pre-wrap break-all pb-1 ${pad} ${
+                    line.failed ? "text-negative" : "text-ink-muted"
+                  }`}
                 >
                   {line.text}
-                </div>
+                </pre>
               );
-            }
-            if (line.kind === "tool") {
-              return (
-                <div key={line.key} className={`py-0.5 text-white/90 ${pad}`}>
-                  {line.text}
-                </div>
-              );
-            }
-            return (
-              <pre
-                key={line.key}
-                className={`whitespace-pre-wrap break-all pb-1 ${pad} ${
-                  line.failed ? "text-negative" : "text-white/50"
-                }`}
-              >
-                {line.text}
-              </pre>
-            );
-          })
-        )}
-        {isRunning ? (
-          <span className="inline-block h-3 w-1.5 animate-pulse bg-white/70 align-middle" />
-        ) : null}
-      </div>
+            })
+          )}
+          {isRunning ? (
+            <span className="inline-block h-3 w-1.5 animate-pulse bg-ink align-middle" />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 };

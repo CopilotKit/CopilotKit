@@ -6,9 +6,13 @@ import type {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  TextMessageStartEvent,
+  ToolCallResultEvent,
+  ToolMessage,
 } from "@ag-ui/client";
-import { randomUUID } from "@ag-ui/client";
+import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 const isContinuation = (input: RunAgentInput): boolean =>
   input.resume !== undefined ||
@@ -44,6 +48,10 @@ export class StateManager {
 
   // Message tracking: agentId -> threadId -> messageId -> runId
   private messageToRun: Map<string, Map<string, Map<string, string>>> =
+    new Map();
+
+  // Direct text-start metadata: agentId -> threadId -> messageId -> rawEvent
+  private rawEventByMessage: Map<string, Map<string, Map<string, unknown>>> =
     new Map();
 
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
@@ -132,6 +140,107 @@ export class StateManager {
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
+    const pendingResults = new WeakMap<
+      RunAgentInput,
+      Map<string, ToolCallResultEvent>
+    >();
+
+    const reconcilePendingResults = (
+      historyMessages: readonly Message[],
+      input: RunAgentInput,
+    ): { messages: Message[] } | undefined => {
+      const events = pendingResults.get(input);
+      if (!events) return undefined;
+
+      const messages = [...historyMessages];
+      let changed = false;
+
+      for (const event of events.values()) {
+        const ownerIndex = messages.findIndex(
+          (message) =>
+            message.role === "assistant" &&
+            message.toolCalls?.some(
+              (toolCall) => toolCall.id === event.toolCallId,
+            ),
+        );
+        if (ownerIndex < 0) continue;
+
+        const matchingIndexes = messages.reduce<number[]>(
+          (indexes, message, index) => {
+            if (
+              message.role === "tool" &&
+              message.toolCallId === event.toolCallId
+            ) {
+              indexes.push(index);
+            }
+            return indexes;
+          },
+          [],
+        );
+        const realIndex = matchingIndexes.find(
+          (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
+        );
+        if (realIndex !== undefined) {
+          for (const duplicateIndex of matchingIndexes
+            .filter((candidateIndex) => candidateIndex !== realIndex)
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+            changed = true;
+          }
+          continue;
+        }
+
+        const placeholderIndex = matchingIndexes.find((index) =>
+          isForwardedToClientPlaceholder(messages[index]?.content),
+        );
+        if (placeholderIndex !== undefined) {
+          if (isForwardedToClientPlaceholder(event.content)) {
+            for (const duplicateIndex of matchingIndexes
+              .slice(1)
+              .sort((a, b) => b - a)) {
+              messages.splice(duplicateIndex, 1);
+              changed = true;
+            }
+            continue;
+          }
+          messages[placeholderIndex] = {
+            ...messages[placeholderIndex],
+            id: event.messageId,
+            content: event.content,
+          } as ToolMessage;
+          changed = true;
+          for (const duplicateIndex of matchingIndexes
+            .filter(
+              (candidateIndex) =>
+                candidateIndex !== placeholderIndex &&
+                isForwardedToClientPlaceholder(
+                  messages[candidateIndex]?.content,
+                ),
+            )
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+          }
+          continue;
+        }
+
+        const result: ToolMessage = {
+          id: event.messageId,
+          role: "tool",
+          toolCallId: event.toolCallId,
+          content: event.content,
+        };
+        let insertIndex = ownerIndex + 1;
+        while (messages[insertIndex]?.role === "tool") insertIndex++;
+        messages.splice(insertIndex, 0, result);
+        changed = true;
+      }
+
+      return changed ? { messages } : undefined;
+    };
+
+    const clearPendingResults = (input: RunAgentInput): void => {
+      pendingResults.delete(input);
+    };
 
     const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
       ...input,
@@ -172,16 +281,40 @@ export class StateManager {
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
       },
-      onRunFinishedEvent: ({ input, state }) => {
+      onRunFinishedEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        clearPendingResults(input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
       },
       // A run error terminates the run — treat identically to finished for cleanup
-      onRunErrorEvent: ({ input, state }) => {
+      onRunErrorEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
+      },
+      onRunFailed: ({ input, messages }) => {
+        if (revoked) return;
+        return reconcilePendingResults(messages, input);
+      },
+      onRunFinalized: ({ input }) => {
+        if (revoked) return;
+        clearPendingResults(input);
+      },
+      onToolCallResultEvent: ({ event, input }) => {
+        if (revoked) return;
+        let events = pendingResults.get(input);
+        if (!events) {
+          events = new Map();
+          pendingResults.set(input, events);
+        }
+        events.set(event.toolCallId, event);
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
         if (revoked) return;
@@ -191,6 +324,10 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
+      onTextMessageStartEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.handleTextMessageStart(agent, event, effectiveInput(input));
+      },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
         this.handleMessagesSnapshot(
@@ -198,6 +335,12 @@ export class StateManager {
           event,
           effectiveInput(input),
           messages,
+        );
+        this.pruneRawEvents(
+          agent.agentId!,
+          input.threadId,
+          event.messages,
+          effectiveInput(input),
         );
       },
       onNewMessage: ({ message, input }) => {
@@ -207,6 +350,12 @@ export class StateManager {
           message,
           input ? effectiveInput(input) : undefined,
         );
+      },
+      onMessagesChanged: ({ messages, input }) => {
+        if (revoked) return;
+        if (!input) {
+          this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
+        }
       },
     });
 
@@ -226,6 +375,7 @@ export class StateManager {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -252,6 +402,21 @@ export class StateManager {
     messageId: string,
   ): string | undefined {
     return this.messageToRun.get(agentId)?.get(threadId)?.get(messageId);
+  }
+
+  /**
+   * Get direct text-start metadata associated with a message.
+   */
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    const rawEvent = this.rawEventByMessage
+      .get(agentId)
+      ?.get(threadId)
+      ?.get(messageId);
+    return rawEvent === undefined ? undefined : structuredClone_(rawEvent);
   }
 
   /**
@@ -341,13 +506,48 @@ export class StateManager {
   }
 
   /**
+   * Capture only defined metadata from a normalized direct text-start event.
+   */
+  private handleTextMessageStart(
+    agent: AbstractAgent,
+    event: TextMessageStartEvent,
+    input: RunAgentInput,
+  ): void {
+    if (!agent.agentId) return;
+
+    const { threadId } = input;
+    if (event.rawEvent === undefined) {
+      const threadEvents = this.rawEventByMessage
+        .get(agent.agentId)
+        ?.get(threadId);
+      threadEvents?.delete(event.messageId);
+      if (threadEvents?.size === 0) {
+        this.rawEventByMessage.get(agent.agentId)?.delete(threadId);
+      }
+      if (this.rawEventByMessage.get(agent.agentId)?.size === 0) {
+        this.rawEventByMessage.delete(agent.agentId);
+      }
+      return;
+    }
+
+    if (!this.rawEventByMessage.has(agent.agentId)) {
+      this.rawEventByMessage.set(agent.agentId, new Map());
+    }
+    const agentEvents = this.rawEventByMessage.get(agent.agentId)!;
+    if (!agentEvents.has(threadId)) {
+      agentEvents.set(threadId, new Map());
+    }
+    agentEvents.get(threadId)!.set(event.messageId, event.rawEvent);
+  }
+
+  /**
    * Handle messages snapshot event
    */
   private handleMessagesSnapshot(
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: readonly Message[],
+    _messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 
@@ -447,12 +647,37 @@ export class StateManager {
     threadMessages.set(messageId, runId);
   }
 
+  private pruneRawEvents(
+    agentId: string,
+    fallbackThreadId: string | undefined,
+    messages: ReadonlyArray<Readonly<Message>>,
+    input?: RunAgentInput,
+  ): void {
+    const threadId = input?.threadId ?? fallbackThreadId;
+    if (!threadId) return;
+
+    const threadEvents = this.rawEventByMessage.get(agentId)?.get(threadId);
+    if (!threadEvents) return;
+
+    const messageIds = new Set(messages.map((message) => message.id));
+    for (const messageId of threadEvents.keys()) {
+      if (!messageIds.has(messageId)) threadEvents.delete(messageId);
+    }
+    if (threadEvents.size === 0) {
+      this.rawEventByMessage.get(agentId)?.delete(threadId);
+    }
+    if (this.rawEventByMessage.get(agentId)?.size === 0) {
+      this.rawEventByMessage.delete(agentId);
+    }
+  }
+
   /**
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -461,5 +686,6 @@ export class StateManager {
   clearThreadState(agentId: string, threadId: string): void {
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
+    this.rawEventByMessage.get(agentId)?.delete(threadId);
   }
 }

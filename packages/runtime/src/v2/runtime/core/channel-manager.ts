@@ -22,14 +22,18 @@ import {
   INTELLIGENCE_MEMORY_GRANT_HEADER,
   INTELLIGENCE_USER_ID_HEADER,
 } from "../intelligence-platform/client";
-// Type-only: @copilotkit/channels is pure-ESM, so a value import would break this
-// package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
-// for the same constraint).
+// Type-only: @copilotkit/channels-core is pure-ESM, so a value import would break
+// this package's CJS output (see `core/runtime.ts` and `channel-activation-config.ts`
+// for the same constraint). Imported from channels-core rather than the
+// @copilotkit/channels shim that re-exports it: channels is a devDependency, so
+// tsdown inlines its prebuilt declarations here along with a rolldown helper
+// chunk that ships no types (TS7016 for consumers, OSS-899). channels-core is a
+// real dependency and stays external.
 import type {
   Channel,
   ReplyContinuationOptions,
   ResolvedChannelMemory,
-} from "@copilotkit/channels";
+} from "@copilotkit/channels-core";
 import type { CopilotRuntimeLearningConfig } from "./learning";
 import { resolveLearningContainerId } from "./learning";
 

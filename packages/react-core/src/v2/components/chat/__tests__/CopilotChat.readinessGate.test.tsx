@@ -10,8 +10,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 // Real public customer-surface wrapper (the same one exercised by
 // CopilotListeners.defaultAgentAbsent.test.tsx / v1-explicit-threadid-bridge.test.tsx
-// and used by Showcase). Its normal default is `useSingleEndpoint=true`.
-import { CopilotKit } from "../../../../components/copilot-provider/copilotkit";
+// and used by Showcase). It defaults to negotiated (`"auto"`) transport, so the
+// single-endpoint suite below pins `useSingleEndpoint` explicitly.
+import { CopilotKit } from "../../../../v1-deprecated/components/copilot-provider/copilotkit";
 import { useCopilotKit } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 import {
@@ -311,8 +312,9 @@ describe("CopilotChat readiness gate — suggestion submission", () => {
  * that `CopilotListeners.defaultAgentAbsent.test.tsx` /
  * `v1-explicit-threadid-bridge.test.tsx` exercise — so it drives the same
  * provider chain, agent selection, and single-endpoint POST `info` / `agent/run`
- * path used in production. The wrapper's normal default is
- * `useSingleEndpoint=true`, so the runtime info handshake is a POST
+ * path used in production. Single-endpoint transport is a precondition of this
+ * fixture rather than the behaviour under test, so it is pinned explicitly with
+ * `useSingleEndpoint` below: the runtime info handshake is then a POST
  * `{ method: "info" }` (no REST GET `/info` probe — hence no synthetic 404
  * fallback), and `agent/run` streams a real `text/event-stream` body of AG-UI
  * frames (RUN_STARTED → TEXT_MESSAGE_START → TEXT_MESSAGE_CONTENT →
@@ -377,9 +379,9 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
     global.fetch = vi.fn((url: RequestInfo | URL, init?: RequestInit) => {
       const u = String(url);
       const method = init?.method;
-      // The wrapper defaults to single-endpoint transport, so the runtime `info`
-      // handshake and the run both arrive as POSTs to the runtime URL — there is
-      // NO REST GET `/info` probe to fall back from.
+      // `useSingleEndpoint` is pinned on the provider below, so the runtime
+      // `info` handshake and the run both arrive as POSTs to the runtime URL —
+      // there is NO REST GET `/info` probe to fall back from.
       if (u === RUNTIME_URL && method === "POST") {
         const body = JSON.parse(String(init?.body ?? "{}")) as {
           method?: string;
@@ -410,6 +412,7 @@ describe("CopilotChat readiness gate — production-shaped SSE transport", () =>
         runtimeUrl={RUNTIME_URL}
         agent={AGENT_ID}
         showDevConsole={false}
+        useSingleEndpoint
       >
         <div style={{ height: 400 }}>
           <CopilotChat welcomeScreen={false} />

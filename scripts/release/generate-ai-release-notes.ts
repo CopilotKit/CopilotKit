@@ -34,7 +34,7 @@ function getRecentCommits(count = 50): string {
 function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-8",
       max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });

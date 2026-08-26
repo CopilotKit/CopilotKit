@@ -5,7 +5,7 @@ import { recordAnnotation } from "../lib/record-annotation";
 /**
  * Input to {@link UseLearnFromUserActionRecorder}, the function returned
  * by {@link useLearnFromUserAction}. Captures a single UI interaction that
- * the Intelligence platform's auto-curated knowledge base loop will distill
+ * CopilotKit Intelligence's auto-curated knowledge base loop will distill
  * into the team's `/project` notes.
  */
 export interface LearnFromUserActionInput {
@@ -42,7 +42,7 @@ export type UseLearnFromUserActionRecorder = (
 ) => Promise<LearnFromUserActionResult>;
 
 /**
- * Record a user UI interaction in the Intelligence platform's user-actions
+ * Record a user UI interaction in CopilotKit Intelligence's user-actions
  * stream. The platform's auto-curated knowledge base agent reads these
  * (alongside finished agent runs) and writes free-form Obsidian-flavored
  * markdown to `/project`, where any agent in the same project can later

@@ -284,6 +284,23 @@ function optionalString(value: unknown): string | undefined {
 }
 
 /**
+ * REST `/threads` is agent-scoped. The Phoenix `user_meta` channel is not.
+ * Drop live upserts that belong to a different agent, or one Inspector
+ * `all-agents` flatten shows the same thread twice until a hard refresh.
+ */
+function threadMetadataTargetsAgent(
+  payload: ThreadMetadataEvent,
+  agentId: string | undefined,
+): boolean {
+  if (!agentId || payload.operation === "deleted") {
+    return true;
+  }
+
+  const threadAgentId = optionalString(payload.thread.agentId);
+  return !threadAgentId || threadAgentId === agentId;
+}
+
+/**
  * Converts gateway run-activity payloads into the internal TypeScript shape.
  */
 function normalizeThreadRunActivityNotification(
@@ -1177,7 +1194,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       actions$.pipe(
         ofType(threadSocketEvents.metadataReceived),
         withLatestFrom(state$),
-        filter(([action, state]) => action.sessionId === state.sessionId),
+        filter(
+          ([action, state]) =>
+            action.sessionId === state.sessionId &&
+            threadMetadataTargetsAgent(action.payload, state.context?.agentId),
+        ),
         map(([action, state]) => {
           if (action.payload.operation === "deleted") {
             return threadDomainEvents.threadDeleted({

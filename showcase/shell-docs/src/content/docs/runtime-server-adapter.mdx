@@ -37,10 +37,10 @@ Single-route mode is useful when your platform only allows a single route handle
 
 <FrontendOnly frontend="react">
 <Callout type="warn" title="The mode you pick here binds the frontend">
-  The v1 `<CopilotKit>` wrapper defaults to single-route transport, so it needs
-  `useSingleEndpoint={false}` against a multi-route handler — and no prop at all
-  once you pass `mode: "single-route"`. `<CopilotKitProvider>` detects the mode
-  either way. The full mapping is in
+  Both `<CopilotKit>` and `<CopilotKitProvider>` detect the mode when you pass
+  no transport prop, so either one follows whichever mode you pick here. Pin it
+  with `useSingleEndpoint` only if you want to skip that detection — and then it
+  has to match. The full mapping is in
   [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
 </Callout>
 </FrontendOnly>
@@ -359,7 +359,7 @@ export { handler as GET, handler as POST };
 ```
 </Tab>
 <Tab value="Single-route">
-```ts title="app/api/copilotkit/route.ts"
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
 import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const runtime = new CopilotRuntime({
@@ -741,7 +741,7 @@ The Express adapter is compatible with `express.json()` body parsing. If you hav
 The Hono adapter returns a Hono app that you mount with `app.route()`.
 
 ```
-npm install hono
+npm install
 ```
 
 <Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
