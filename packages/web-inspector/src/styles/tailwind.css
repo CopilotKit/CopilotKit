@@ -408,6 +408,129 @@
   }
 }
 
+/* Event snippets is a compact library. Capture happens in the selected
+ * thread's AG-UI Events tab, so this surface never needs a creator canvas. */
+.inspector-event-snippets__header {
+  min-height: 46px;
+  padding: 8px 14px;
+}
+
+.inspector-event-snippets__header h2 {
+  font-size: 12px;
+}
+
+.inspector-event-snippets__header-actions button {
+  min-height: 28px;
+  padding: 5px 8px;
+}
+
+.inspector-event-snippets__library {
+  min-width: 0;
+  overflow: auto;
+  border: 0;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.inspector-event-snippets__library-title {
+  max-width: 760px;
+  margin: 0 auto 8px;
+  padding: 0 2px;
+}
+
+.inspector-event-snippets__library-list {
+  display: grid;
+  max-width: 760px;
+  margin: 0 auto;
+  gap: 6px;
+}
+
+.inspector-event-snippets__library-item {
+  display: flex;
+  width: auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e5e5ec;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 9px 10px;
+  color: #303039;
+}
+
+.inspector-event-snippets__library-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.inspector-event-snippets__library-item strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-event-snippets__library-item span {
+  color: #777781;
+  font-size: 10px;
+}
+
+.inspector-event-snippets__library-item:hover {
+  background: #fbfaff;
+}
+
+.inspector-event-snippets__delete {
+  flex: none;
+}
+
+.inspector-event-snippets__empty-state {
+  display: grid;
+  max-width: 340px;
+  margin: 76px auto 0;
+  gap: 5px;
+  color: #34343a;
+  text-align: center;
+}
+
+.inspector-event-snippets__empty-state strong {
+  font-size: 12px;
+}
+
+.inspector-event-snippets__empty-state p {
+  margin: 0;
+  color: #68686e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+:host([data-color-scheme="dark"]) .inspector-event-snippets__library {
+  border: 0;
+  background: #15171e;
+}
+
+:host([data-color-scheme="dark"]) .inspector-event-snippets__library-item {
+  border-color: #343742;
+  background: #20232d;
+  color: #f3f4f8;
+}
+
+:host([data-color-scheme="dark"])
+  .inspector-event-snippets__library-item:hover {
+  background: #292c38;
+}
+
+:host([data-color-scheme="dark"]) .inspector-event-snippets__library-item span,
+:host([data-color-scheme="dark"]) .inspector-event-snippets__empty-state p {
+  color: #aeb1bd;
+}
+
+:host([data-color-scheme="dark"]) .inspector-event-snippets__empty-state {
+  color: #f3f4f8;
+}
+
 .inspector-account-strip {
   width: 100%;
   min-width: 0;

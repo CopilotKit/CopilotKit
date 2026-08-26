@@ -444,7 +444,7 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
   }
 });
 
-test("Event Snippets imports the current thread into the local library", async () => {
+test("Threads saves an event sequence directly to the local snippets library", async () => {
   const context = await setup({
     agent: true,
     threads: [
@@ -462,52 +462,42 @@ test("Event Snippets imports the current thread into the local library", async (
   });
   try {
     await context.open();
-    await context.selectLeaf("event-snippets");
+    await context.selectLeaf("threads");
     const root = requireElement(
       context.inspector.shadowRoot,
       "Web Inspector shadow root was not rendered",
     );
-    const source = requireElement(
-      root.querySelector<HTMLSelectElement>(
-        ".inspector-event-snippets__import-controls select",
+    const detail = requireElement(
+      root.querySelector<HTMLElement>("cpk-thread-details"),
+      "Thread detail was not rendered",
+    );
+    const rawEventsTab = requireElement(
+      detail.shadowRoot?.querySelector<HTMLButtonElement>(
+        '[role="tab"]:nth-of-type(2)',
       ),
-      "Event Snippets source picker was not rendered",
+      "AG-UI Events tab was not rendered",
     );
-    await waitFor(
-      () => source.options.length > 1,
-      "the current thread source to be available",
-    );
-    source.value = "thread-1";
-    source.dispatchEvent(new Event("change"));
+    rawEventsTab.click();
     await context.inspector.updateComplete;
-
-    const importButton = Array.from(root.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Import events",
-    );
-    if (!importButton)
-      throw new Error("Import events control was not rendered");
-    importButton.click();
-    const events = requireElement(
-      root.querySelector<HTMLTextAreaElement>(
-        ".inspector-event-snippets__field textarea",
-      ),
-      "Event Snippets editor was not rendered",
-    );
     await waitFor(
-      () => events.value.includes("RUN_STARTED"),
-      "thread events to import",
+      () =>
+        detail.shadowRoot?.querySelector<HTMLButtonElement>(
+          '[data-testid="cpk-save-thread-events"]',
+        ) !== null,
+      "the save event sequence action to be available",
     );
-
-    const saveButton = Array.from(root.querySelectorAll("button")).find(
-      (button) => button.textContent?.trim() === "Save snippet",
+    const saveButton = requireElement(
+      detail.shadowRoot?.querySelector<HTMLButtonElement>(
+        '[data-testid="cpk-save-thread-events"]',
+      ),
+      "Save event sequence action was not rendered",
     );
-    if (!saveButton) throw new Error("Save snippet control was not rendered");
     saveButton.click();
     await context.inspector.updateComplete;
+    await context.selectLeaf("event-snippets");
     expect(root.textContent).toContain("Billing escalation events");
-    expect(root.textContent).toContain(
-      "Snippet saved locally in this browser.",
-    );
+    expect(root.textContent).toContain("2 events · saved locally");
+    expect(root.querySelector("textarea")).toBeNull();
   } finally {
     context.teardown();
   }
