@@ -19,7 +19,7 @@ import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.m
 
 Before you begin, you'll need the following:
 
-- A GitHub Personal Access Token (for GitHub Models API - free AI access)
+- An [OpenAI API key](https://platform.openai.com/api-keys) for the .NET starter
 - .NET 9.0 SDK or later
 - Node.js 20+
 - Your favorite package manager (npm, pnpm, yarn, or bun)
@@ -94,27 +94,17 @@ Before you begin, you'll need the following:
 
                 <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
                     <Tab value=".NET">
-                        The starter template uses GitHub Models API for free access to AI models. Set up your GitHub token:
+                        The .NET starter uses OpenAI. Save your API key as a .NET user secret:
 
-                        First, get your GitHub token (requires [GitHub CLI](https://github.com/cli/cli)):
-                        ```bash
-                        gh auth token
-                        ```
-
-                        Then navigate to the agent directory and set it as a user secret:
                         ```bash
                         cd agent
-                        dotnet user-secrets set GitHubToken "$(gh auth token)"
+                        dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
                         cd ..
                         ```
 
                         <Callout type="info" title="Want to use a different model provider?">
-                          The starter template is configured to use GitHub Models (free), but you can modify it to use:
-                          - OpenAI directly
-                          - Azure OpenAI
-                          - Any other model supported by Microsoft Agent Framework
-
-                          Check the `agent/Program.cs` file to customize the model configuration.
+                          Edit `agent/Program.cs` to use Azure OpenAI or another
+                          [Microsoft Agent Framework model provider](https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/model-providers/).
                         </Callout>
                     </Tab>
                     <Tab value="Python">
@@ -179,9 +169,8 @@ Before you begin, you'll need the following:
                         ```bash
                         dotnet new web -n AGUIServer
                         cd AGUIServer
-                        dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --version 1.0.0-preview.251110.1
-                        dotnet add package Microsoft.Extensions.AI.OpenAI --version 9.10.2-preview.1.25552.1
-                        dotnet add package OpenAI --version 2.6.0
+                        dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --prerelease
+                        dotnet add package Microsoft.Agents.AI.OpenAI
                         dotnet user-secrets init
                         ```
 
@@ -191,38 +180,31 @@ Before you begin, you'll need the following:
                         using Microsoft.Agents.AI;
                         // [!code highlight:1]
                         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-                        using Microsoft.Extensions.AI;
                         using OpenAI;
+                        using OpenAI.Chat;
 
                         var builder = WebApplication.CreateBuilder(args);
                         // [!code highlight:1]
-                        builder.Services.AddAGUI();
+                        builder.Services.AddAGUIServer();
                         var app = builder.Build();
 
-                        // Get your GitHub token for GitHub Models (free)
-                        var githubToken = builder.Configuration["GitHubToken"]!;
-                        var openAI = new OpenAIClient(
-                            new System.ClientModel.ApiKeyCredential(githubToken),
-                            new OpenAIClientOptions {
-                                Endpoint = new Uri("https://models.inference.ai.azure.com")
-                            });
+                        var openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+                            ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
+                        var openAI = new OpenAIClient(openAiApiKey);
 
-                        var chatClient = openAI.GetChatClient("gpt-5.4-mini").AsIChatClient();
-                        var agent = new ChatClientAgent(
-                            chatClient,
+                        var agent = openAI.GetChatClient("gpt-5.4-mini").AsAIAgent(
                             name: "MyAgent",
-                            description: "You are a helpful assistant.");
+                            instructions: "You are a helpful assistant.");
 
                         // [!code highlight:1]
-                        app.MapAGUI("/", agent);
+                        app.MapAGUIServer("/", agent);
                         app.Run("http://localhost:8000");
                         ```
 
-                        Then just setup the environment and run your agent:
+                        Set the key, then run the agent:
 
                         ```bash
-                        # Set your GitHub token and run
-                        dotnet user-secrets set GitHubToken "$(gh auth token)"
+                        dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
                         dotnet run
                         ```
                     </Tab>
@@ -495,14 +477,14 @@ Before you begin, you'll need the following:
                 **Agent Connection Issues**
                 - If you see "I'm having trouble connecting to my tools", make sure:
                   - The C# agent is running on port 8000
-                  - Your GitHub token is set correctly via user secrets
+                  - Your OpenAI API key is set via .NET user secrets
                   - Both servers started successfully (check terminal output)
 
-                **GitHub Token Issues**
-                - If the agent fails with "GitHubToken not found":
+                **OpenAI API Key Issues**
+                - If the agent fails with "OPENAI_API_KEY not found":
                   ```bash
                   cd agent
-                  dotnet user-secrets set GitHubToken "$(gh auth token)"
+                  dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
                   ```
 
                 **.NET SDK Issues**
