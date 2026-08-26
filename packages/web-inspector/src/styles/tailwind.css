@@ -221,15 +221,6 @@
     padding 220ms ease;
 }
 
-.inspector-snippet-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow: auto;
-  background-color: #f7f6fd;
-  padding: 12px 10px;
-}
-
 .inspector-sidebar[data-icon-rail="true"] {
   width: 56px;
   min-width: 56px;
@@ -2637,7 +2628,7 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"] {
   color-scheme: dark;
   border-color: #7b7d89 !important;
-  background-color: #111319 !important;
+  background-color: var(--cpk-inspector-surface-dark) !important;
   color: #f3f4f8 !important;
 }
 
@@ -2758,8 +2749,7 @@ small.inspector-system-health-detail {
   color: #f3f4f8 !important;
 }
 
-.inspector-window[data-color-scheme="dark"] .inspector-sidebar,
-.inspector-window[data-color-scheme="dark"] .inspector-snippet-sidebar {
+.inspector-window[data-color-scheme="dark"] .inspector-sidebar {
   border-color: #3a3d49;
   background-color: #15171e;
   color: #f3f4f8;

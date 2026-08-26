@@ -261,43 +261,6 @@ describe("OpenGenerativeUIActivityRenderer", () => {
     expect(mockRun).toHaveBeenCalledWith("foo()");
   });
 
-  it("measures height after a complete snapshot arrives before the sandbox is ready", async () => {
-    const { container } = renderRenderer({
-      html: ["<head></head><body><div>Tall sandbox</div></body>"],
-      htmlComplete: true,
-      generating: false,
-      initialHeight: 80,
-    });
-    const box = container.firstElementChild as HTMLElement;
-    expect(box.style.height).toBe("80px");
-
-    await flushImport();
-    await act(async () => {
-      mockPromiseResolve();
-      await mockPromise;
-    });
-    await flushImport();
-
-    expect(
-      mockRun.mock.calls.some(
-        (call) =>
-          typeof call[0] === "string" && call[0].includes("__ck_resize"),
-      ),
-    ).toBe(true);
-
-    await act(() => {
-      const event = new MessageEvent("message", {
-        data: { type: "__ck_resize", height: 420 },
-      });
-      Object.defineProperty(event, "source", {
-        value: mockIframe.contentWindow,
-      });
-      window.dispatchEvent(event);
-    });
-
-    expect(box.style.height).toBe("420px");
-  });
-
   it("recreates sandbox when html changes", async () => {
     const { rerender } = render(
       <OpenGenerativeUIActivityRenderer

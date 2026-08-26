@@ -26,8 +26,6 @@ import {
   ɵselectMemoriesError,
   ɵselectMemoriesAvailable,
   ɵselectMemoriesRealtimeStatus,
-  ɵinjectInspectorEvents,
-  ɵresetInspectorInject,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
@@ -99,33 +97,6 @@ import {
 import type { InspectorNavGroupKey, MenuKey } from "./lib/inspector-nav.js";
 import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
-  ACTIVITY_STARTERS,
-  compileActivityRecipe,
-  compileReasoningRecipe,
-  compileTextRecipe,
-  compileToolCallRecipe,
-  createSnippetId,
-  deleteEventSnippet,
-  expandSnippetEventsForRun,
-  exportEventSnippetsJson,
-  groupEventSnippets,
-  importEventSnippets,
-  loadEventSnippets,
-  parseSnippetEvents,
-  editorStateFromSnippet,
-  recipeIconName,
-  recipeIconWrapClass,
-  recipeLabel,
-  snippetContainsToolCall,
-  snippetJsonIsRunnable,
-  upsertEventSnippet,
-} from "./lib/event-snippets.js";
-import type {
-  EventSnippet,
-  LastInject,
-  SnippetRecipe,
-} from "./lib/event-snippets.js";
-import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getRuntimeUrlType,
@@ -155,8 +126,6 @@ import {
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
-  trackEventSnippetsRun,
-  trackEventSnippetsSaved,
 } from "./lib/telemetry.js";
 import type {
   ExampleKind,
@@ -182,16 +151,6 @@ import type {
 export type { Anchor } from "./lib/types.js";
 export { buildCapabilityRows as ɵbuildCapabilityRows };
 export type { CapabilityToolRow as ɵCapabilityToolRow };
-export {
-  compileChatSnippet,
-  compileFromActivityMessage,
-  upsertEventSnippet,
-} from "./lib/event-snippets.js";
-export type {
-  ActivitySnippetMessage,
-  ChatSnippetCapture,
-  EventSnippet,
-} from "./lib/event-snippets.js";
 
 export type InspectorOpenOptions = {
   /** Select the thread that contains the message. */
@@ -200,10 +159,6 @@ export type InspectorOpenOptions = {
   agentId?: string;
   /** Scroll the selected thread timeline to this message when available. */
   messageId?: string;
-  /** Open this Inspect leaf instead of Threads. */
-  menu?: MenuKey;
-  /** Select this Event Snippet after open. */
-  snippetId?: string;
 };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
@@ -5837,26 +5792,6 @@ export class WebInspectorElement extends LitElement {
     inspect: "ag-ui-events",
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
-  private eventSnippets: EventSnippet[] = [];
-  private selectedSnippetId: string | null = null;
-  private snippetRecipe: SnippetRecipe = "tool-call";
-  private snippetName = "";
-  private snippetJson = "[]";
-  private snippetToolName = "";
-  private snippetToolArgs = "{}";
-  private snippetReasoningText = "";
-  private snippetTextContent = "";
-  private snippetActivityType = "a2ui-surface";
-  private snippetActivityContent = "{}";
-  private snippetError: string | null = null;
-  private snippetBanner: string | null = null;
-  private snippetConfirmOpen = false;
-  private lastInject: LastInject | null = null;
-  private snippetListWidth = 200;
-  private snippetDividerResizing = false;
-  private snippetDividerPointerId = -1;
-  private snippetDividerStartX = 0;
-  private snippetDividerStartWidth = 0;
   private selectedThreadId: string | null = null;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
@@ -6172,11 +6107,6 @@ export class WebInspectorElement extends LitElement {
         key: "ag-ui-events",
         label: "AG-UI Events",
         icon: "Zap" as LucideIconName,
-      },
-      {
-        key: "event-snippets",
-        label: "Event Snippets",
-        icon: "Code" as LucideIconName,
       },
       { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
       ...(hasFrontendTools
@@ -7603,27 +7533,6 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private focusEventSnippets(options: InspectorOpenOptions): void {
-    this.pendingPersistedMenu = null;
-    this.selectedMenu = "event-snippets";
-    this.settingsOpen = false;
-    this.lastSelectedMenuByGroup.inspect = "event-snippets";
-    this.contextMenuOpen = false;
-    this.layoutMenuOpen = false;
-    this.reloadEventSnippets();
-    if (options.snippetId) {
-      this.selectEventSnippet(options.snippetId);
-    }
-    if (
-      options.agentId &&
-      this.contextOptions.some((option) => option.key === options.agentId)
-    ) {
-      this.selectedContext = options.agentId;
-    }
-    this.persistState();
-    this.requestUpdate();
-  }
-
   private filterEvents(events: InspectorEvent[]): InspectorEvent[] {
     const query = this.eventFilterText.trim().toLowerCase();
 
@@ -7978,6 +7887,8 @@ ${argsString}</pre
     unsafeCSS(tailwindStyles),
     css`
       :host {
+        --cpk-inspector-shell-radius: 5px;
+        --cpk-inspector-surface-dark: #111319;
         position: fixed;
         top: 0;
         left: 0;
@@ -8022,8 +7933,8 @@ ${argsString}</pre
            the two cannot drift apart. A dark grey rather than near-black: the
            launcher sits on a customer's page, and 1,5,7 against white is a
            harder edge than this surface needs. */
-        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
-        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-face: rgba(24, 28, 31, 0.95);
+        --cpk-launcher-face-solid: rgb(24, 28, 31);
         --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
@@ -8444,9 +8355,24 @@ ${argsString}</pre
       .console-button {
         background-color: var(--cpk-launcher-face) !important;
         border-color: var(--cpk-launcher-edge) !important;
+        /* One hairline, not two. The border above is it; a second ring used to
+           sit 1px outside as a box-shadow and hardcoded the lilac instead of
+           reading the --cpk-launcher-edge token, so it could not follow it.
+           What replaces it is a one-pixel light edge along the top, which is
+           what keeps the face from reading flat without drawing a frame.
+
+           The border is not decoration: the face is #181C1F, which against a
+           dark host page (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) is
+           indistinguishable from the page. It is the only thing that gives the
+           launcher an outline there, so it stays. */
         box-shadow:
-          0 0 0 1px rgba(190, 194, 255, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
+        /* Promotes the launcher to its own compositing layer, which the
+           backdrop-filter this replaces used to do as a side effect. Without
+           a layer the hover scale re-rasterises the mark every frame and it
+           visibly jitters; with one, the compositor scales it as a texture. */
+        will-change: transform;
       }
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
@@ -8572,8 +8498,23 @@ ${argsString}</pre
         width: 19%;
         height: 19%;
         border-radius: 50%;
-        background: var(--cpk-launcher-signal);
-        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+        /* Lit from the upper left and shaded at the lower right, so the dot
+           reads as a lens rather than a flat disc. Both stops are derived from
+           the signal colour, so a new tone needs no new values. */
+        background: radial-gradient(
+          circle at 32% 28%,
+          color-mix(in srgb, var(--cpk-launcher-signal), white 40%) 0%,
+          var(--cpk-launcher-signal) 60%,
+          color-mix(in srgb, var(--cpk-launcher-signal), black 20%) 100%
+        );
+        /* Replaces an opaque 1.5px collar in the launcher's own face. That
+           collar was 21% of the dot's footprint, and because the dot's centre
+           sits *on* the rim, its outer half painted a hard dark crescent onto
+           the host page rather than onto the launcher. A hairline plus a soft
+           drop does the same separating job without the hard edge. */
+        box-shadow:
+          0 0 0 0.5px rgba(1, 5, 7, 0.4),
+          0 1px 2.5px rgba(1, 5, 7, 0.5);
       }
 
       /* ── Launcher pill: the launcher opens sideways and says what ─── */
@@ -8795,7 +8736,7 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud {
-        --hud-fill: rgb(28 31 36 / 0.88);
+        --hud-fill: var(--cpk-inspector-surface-dark);
         --hud-line: rgb(190 194 255 / 0.5);
         --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
@@ -8835,12 +8776,21 @@ ${argsString}</pre
         width: 228px;
         padding: 4px;
         border: 1px dotted var(--hud-line);
-        border-radius: 10px;
+        border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #fff;
         backdrop-filter: var(--hud-blur);
         -webkit-backdrop-filter: var(--hud-blur);
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] {
+        --hud-fill: #fff;
+        --hud-line: #d8d8e8;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+        color: #010507;
       }
 
       .cpk-launcher-hud__arrow {
@@ -8896,6 +8846,12 @@ ${argsString}</pre
         background: rgb(255 255 255 / 0.06);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: #f0f0f4;
+      }
+
       .cpk-launcher-hud__action {
         display: flex;
         gap: 8px;
@@ -8911,6 +8867,10 @@ ${argsString}</pre
         font-weight: 600;
         text-align: start;
         cursor: pointer;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
+        color: #010507;
       }
 
       /* Stretch the row action over the whole tab, including the detail
@@ -8956,6 +8916,10 @@ ${argsString}</pre
         line-height: 1;
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
+        color: #68686e;
+      }
+
       .cpk-launcher-hud__help:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
@@ -8980,6 +8944,10 @@ ${argsString}</pre
           opacity 150ms ease-out,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
           padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
+        color: #68686e;
       }
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
@@ -9024,7 +8992,7 @@ ${argsString}</pre
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
         border: 1px solid #d8d8e8 !important;
-        border-radius: 5px !important;
+        border-radius: var(--cpk-inspector-shell-radius) !important;
         box-shadow: none !important;
       }
 
@@ -9579,17 +9547,10 @@ ${argsString}</pre
       "justify-center",
       "rounded-full",
       "border",
-      "border-white/20",
-      "bg-slate-950/95",
       "text-xs",
       "font-medium",
       "text-white",
-      "ring-1",
-      "ring-white/10",
-      "backdrop-blur-md",
       "transition",
-      "hover:border-white/30",
-      "hover:bg-slate-900/95",
       "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
@@ -9976,15 +9937,24 @@ ${argsString}</pre
 
   private renderLauncherHud(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
-    const threadsOn = this.areThreadEndpointsAvailable();
-    const intelligenceOn = Boolean(this._core?.intelligence);
-    const learningOn = intelligenceOn && this._memoriesAvailable;
+    // The launcher must agree with Home about feature availability. Raw
+    // transport flags can be present for a runtime that is not entitled to use
+    // Intelligence, which previously made the HUD show every service as on.
+    const homeModel = this.getHomeModel();
+    const threadsOn = homeModel.services.some(
+      (service) => service.id === "threads" && service.enabled,
+    );
+    const learningOn = homeModel.services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-color-scheme=${this.colorScheme}
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
@@ -12331,9 +12301,7 @@ ${argsString}</pre
     source: InspectorOpenSource,
     options: InspectorOpenOptions = {},
   ): void {
-    if (options.snippetId || options.menu === "event-snippets") {
-      this.focusEventSnippets(options);
-    } else if (options.threadId) {
+    if (options.threadId) {
       this.focusThread(options);
     }
 
@@ -13294,709 +13262,6 @@ ${argsString}</pre
     `;
   }
 
-  private reloadEventSnippets(): void {
-    this.eventSnippets = loadEventSnippets();
-  }
-
-  private handleSnippetImportChange = async (event: Event): Promise<void> => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) {
-      return;
-    }
-    try {
-      this.eventSnippets = importEventSnippets(await file.text());
-      this.snippetError = null;
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Import failed.";
-    }
-    this.requestUpdate();
-  };
-
-  private renderSnippetImportControl() {
-    return html`
-      <label
-        class="inline-flex shrink-0 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] text-gray-700"
-        data-testid="cpk-snippet-import"
-      >
-        Import
-        <input
-          type="file"
-          accept="application/json"
-          class="hidden"
-          @change=${this.handleSnippetImportChange}
-        />
-      </label>
-    `;
-  }
-
-  private selectEventSnippet(id: string): void {
-    const snippet = this.eventSnippets.find((item) => item.id === id);
-    this.selectedSnippetId = id;
-    if (!snippet) {
-      this.requestUpdate();
-      return;
-    }
-    const editor = editorStateFromSnippet(snippet);
-    this.snippetRecipe = editor.recipe;
-    this.snippetName = editor.name;
-    this.snippetJson = editor.json;
-    this.snippetToolName = editor.draft.toolName;
-    this.snippetToolArgs = editor.draft.toolArgs;
-    this.snippetReasoningText = editor.draft.reasoningText;
-    this.snippetTextContent = editor.draft.textContent;
-    this.snippetActivityType = editor.draft.activityType;
-    this.snippetActivityContent = editor.draft.activityContent;
-    this.snippetError = null;
-    this.requestUpdate();
-  }
-
-  private compileSnippetDraft(): ReturnType<typeof parseSnippetEvents> {
-    switch (this.snippetRecipe) {
-      case "tool-call":
-        return compileToolCallRecipe({
-          toolName: this.snippetToolName,
-          argsJson: this.snippetToolArgs,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "reasoning":
-        return compileReasoningRecipe({
-          text: this.snippetReasoningText,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "text":
-        return compileTextRecipe({
-          text: this.snippetTextContent,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "activity":
-        return compileActivityRecipe({
-          activityType: this.snippetActivityType,
-          contentJson: this.snippetActivityContent,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "raw":
-        return parseSnippetEvents(this.snippetJson);
-    }
-  }
-
-  private getSnippetThreadId(): string {
-    return this.selectedThreadId ?? "inspector-snippet";
-  }
-
-  private getSnippetRunId(): string {
-    return `inspector-snippet-${Date.now()}`;
-  }
-
-  private getSnippetTargetAgent(): AbstractAgent | null {
-    const core = this._core;
-    if (!core) {
-      return null;
-    }
-    const selected =
-      this.selectedContext !== "all-agents" ? this.selectedContext : null;
-    if (selected) {
-      return core.getAgent(selected) ?? null;
-    }
-    const first = this.contextOptions.find(
-      (option) => option.key !== "all-agents",
-    );
-    return first ? (core.getAgent(first.key) ?? null) : null;
-  }
-
-  private applyRecipeToEditor(): void {
-    try {
-      const events = this.compileSnippetDraft();
-      this.snippetJson = JSON.stringify(events, null, 2);
-      this.snippetError = null;
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not compile recipe.";
-    }
-    this.requestUpdate();
-  }
-
-  private handleSnippetRecipeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (
-      value === "tool-call" ||
-      value === "reasoning" ||
-      value === "text" ||
-      value === "activity" ||
-      value === "raw"
-    ) {
-      this.snippetRecipe = value;
-      if (value !== "raw") {
-        this.applyRecipeToEditor();
-      } else {
-        this.requestUpdate();
-      }
-    }
-  }
-
-  private saveCurrentSnippet(source: "chat" | "pane"): void {
-    try {
-      const events = parseSnippetEvents(this.snippetJson);
-      const now = new Date().toISOString();
-      const snippet: EventSnippet = {
-        id: this.selectedSnippetId ?? createSnippetId(),
-        name: this.snippetName.trim() || recipeLabel(this.snippetRecipe),
-        recipe: this.snippetRecipe,
-        events,
-        createdAt:
-          this.eventSnippets.find((item) => item.id === this.selectedSnippetId)
-            ?.createdAt ?? now,
-        updatedAt: now,
-      };
-      this.eventSnippets = upsertEventSnippet(snippet);
-      this.selectedSnippetId = snippet.id;
-      this.snippetBanner = "Snippet saved.";
-      this.snippetError = null;
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsSaved({
-          recipe: this.snippetRecipe,
-          source,
-          success: true,
-        });
-      }
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not save snippet.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsSaved({
-          recipe: this.snippetRecipe,
-          source,
-          success: false,
-        });
-      }
-    }
-    this.requestUpdate();
-  }
-
-  private async runCurrentSnippet(): Promise<void> {
-    this.snippetError = null;
-    this.snippetBanner = null;
-    let events;
-    try {
-      events = expandSnippetEventsForRun(parseSnippetEvents(this.snippetJson));
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Snippet JSON is invalid.";
-      this.requestUpdate();
-      return;
-    }
-    if (snippetContainsToolCall(events) && !this.snippetConfirmOpen) {
-      this.snippetConfirmOpen = true;
-      this.requestUpdate();
-      return;
-    }
-    this.snippetConfirmOpen = false;
-    const core = this._core;
-    const agent = this.getSnippetTargetAgent();
-    if (!core || !agent) {
-      this.snippetError = "No agent is available to inject into.";
-      this.requestUpdate();
-      return;
-    }
-    if (agent.isRunning) {
-      this.snippetError =
-        "The agent is running. Wait for the current run to end.";
-      this.requestUpdate();
-      return;
-    }
-    try {
-      const result = await ɵinjectInspectorEvents({
-        core,
-        agent,
-        events,
-      });
-      this.lastInject = {
-        snippetId: this.selectedSnippetId ?? "unsaved",
-        agentId: agent.agentId ?? "default",
-        runId: this.getSnippetRunId(),
-        messageIds: result.messageIds,
-      };
-      this.snippetBanner =
-        "Inspector injected these events into the live thread.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsRun({
-          recipe: this.snippetRecipe,
-          source: "pane",
-          success: true,
-        });
-      }
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not run snippet.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsRun({
-          recipe: this.snippetRecipe,
-          source: "pane",
-          success: false,
-        });
-      }
-    }
-    this.requestUpdate();
-  }
-
-  private resetLastSnippetRun(): void {
-    const last = this.lastInject;
-    const core = this._core;
-    if (!last || !core) {
-      return;
-    }
-    const agent = core.getAgent(last.agentId);
-    if (!agent) {
-      this.snippetError = "The injected agent is no longer available.";
-      this.requestUpdate();
-      return;
-    }
-    ɵresetInspectorInject({ agent, messageIds: last.messageIds });
-    this.lastInject = null;
-    this.snippetBanner =
-      "Last inject was removed from the thread. App state from a tool handler was not undone.";
-    this.requestUpdate();
-  }
-
-  private renderEventSnippetsView() {
-    if (this.eventSnippets.length === 0 && this.selectedSnippetId === null) {
-      this.reloadEventSnippets();
-    }
-    const agent = this.getSnippetTargetAgent();
-    const runBlocked = agent?.isRunning === true;
-    const canRunJson = snippetJsonIsRunnable(this.snippetJson);
-    const canRun = canRunJson && !!agent && !runBlocked;
-    const canSave = canRunJson;
-    const canDelete = this.selectedSnippetId !== null;
-    const canExport = this.eventSnippets.length > 0;
-    const canReset = this.lastInject !== null;
-    const snippetGroups = groupEventSnippets(this.eventSnippets);
-    const tools = this._core?.tools ?? [];
-    return html`
-      <div class="flex h-full min-h-0 flex-col bg-white">
-        <div
-          class="flex items-center justify-between gap-4 border-b border-gray-200 px-4 py-3"
-        >
-          <div class="min-w-0">
-            <h2 class="text-sm font-semibold text-gray-900">Event Snippets</h2>
-            <p class="mt-1 text-[11px] text-gray-500">
-              Compile AG-UI events, run them on the live agent, and save them
-              for later. Tool-call runs use the real frontend-tool handler.
-            </p>
-          </div>
-          ${this.renderSnippetImportControl()}
-        </div>
-        ${
-          this.snippetBanner
-            ? html`<div
-                class="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-[11px] text-emerald-800"
-                role="status"
-              >
-                ${this.snippetBanner}
-              </div>`
-            : nothing
-        }
-        ${
-          this.snippetError
-            ? html`<div
-                class="border-b border-rose-200 bg-rose-50 px-4 py-2 text-[11px] text-rose-800"
-                role="alert"
-              >
-                ${this.snippetError}
-              </div>`
-            : nothing
-        }
-        ${
-          this.snippetConfirmOpen
-            ? html`<div
-                class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900"
-                role="alertdialog"
-                aria-label="Confirm tool-call run"
-              >
-                <p>
-                  This snippet contains a tool call. Run will execute the real
-                  handler on the live thread.
-                </p>
-                <div class="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    class="rounded-md bg-gray-900 px-2 py-1 text-[11px] text-white"
-                    data-testid="cpk-snippet-run-handler"
-                    @click=${() => {
-                      this.snippetConfirmOpen = true;
-                      void this.runCurrentSnippet();
-                    }}
-                  >
-                    Run handler
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px]"
-                    @click=${() => {
-                      this.snippetConfirmOpen = false;
-                      this.requestUpdate();
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>`
-            : nothing
-        }
-        <div class="flex min-h-0 flex-1">
-          <div
-            class="inspector-snippet-sidebar shrink-0"
-            style="width:${this.snippetListWidth}px"
-            data-testid="cpk-snippet-list"
-          >
-            ${
-              snippetGroups.length === 0
-                ? html`
-                    <p class="px-2 py-2 text-[11px] text-gray-500">No saved snippets yet.</p>
-                  `
-                : html`
-                    <nav class="inspector-sidebar-nav" aria-label="Saved snippets">
-                      ${snippetGroups.map(
-                        (group) => html`
-                          <div class="inspector-sidebar-section">
-                            <div
-                              class="inspector-sidebar-label"
-                              data-testid="cpk-snippet-category"
-                              data-recipe=${group.recipe}
-                            >
-                              ${group.label}
-                            </div>
-                            ${group.snippets.map((snippet) => {
-                              const isSelected =
-                                snippet.id === this.selectedSnippetId;
-                              return html`
-                                <button
-                                  type="button"
-                                  class="inspector-nav-control inspector-sidebar-control ${
-                                    isSelected
-                                      ? "inspector-nav-control-active"
-                                      : ""
-                                  }"
-                                  data-testid="cpk-snippet-item"
-                                  data-recipe=${snippet.recipe}
-                                  aria-current=${isSelected ? "page" : nothing}
-                                  aria-label="${recipeLabel(snippet.recipe)}: ${snippet.name}"
-                                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                                  @click=${() =>
-                                    this.selectEventSnippet(snippet.id)}
-                                >
-                                  <span
-                                    class="inspector-nav-icon"
-                                    aria-hidden="true"
-                                  >
-                                    <span
-                                      class="flex h-6 w-6 items-center justify-center rounded-md ${recipeIconWrapClass(
-                                        snippet.recipe,
-                                      )}"
-                                    >
-                                      ${this.renderIcon(
-                                        recipeIconName(
-                                          snippet.recipe,
-                                        ) as LucideIconName,
-                                      )}
-                                    </span>
-                                  </span>
-                                  <span class="inspector-nav-label"
-                                    >${snippet.name}</span
-                                  >
-                                </button>
-                              `;
-                            })}
-                          </div>
-                        `,
-                      )}
-                    </nav>
-                  `
-            }
-          </div>
-          <div
-            class="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-gray-400"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize snippet list"
-            title="Drag to resize"
-            data-testid="cpk-snippet-list-resize"
-            style="touch-action:none"
-            @pointerdown=${this.handleSnippetListDividerPointerDown}
-            @pointermove=${this.handleSnippetListDividerPointerMove}
-            @pointerup=${this.handleSnippetListDividerPointerUp}
-            @pointercancel=${this.handleSnippetListDividerPointerUp}
-          ></div>
-          <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto p-4">
-            <label class="text-[11px] text-gray-600">
-              Name
-              <input
-                class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                data-testid="cpk-snippet-name"
-                .value=${this.snippetName}
-                @input=${(event: Event) => {
-                  this.snippetName = (event.target as HTMLInputElement).value;
-                }}
-              />
-            </label>
-            <label class="text-[11px] text-gray-600">
-              Recipe
-              <select
-                class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                data-testid="cpk-snippet-recipe"
-                .value=${this.snippetRecipe}
-                @change=${this.handleSnippetRecipeChange}
-              >
-                ${["tool-call", "reasoning", "text", "activity", "raw"].map(
-                  (recipe) => html`<option
-                    value=${recipe}
-                    ?selected=${recipe === this.snippetRecipe}
-                  >
-                    ${recipeLabel(recipe as SnippetRecipe)}
-                  </option>`,
-                )}
-              </select>
-            </label>
-            ${
-              this.snippetRecipe === "tool-call"
-                ? html`
-                    <label class="text-[11px] text-gray-600">
-                      Tool
-                      <input
-                        list="cpk-snippet-tools"
-                        class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                        data-testid="cpk-snippet-tool-name"
-                        .value=${this.snippetToolName}
-                        @input=${(event: Event) => {
-                          this.snippetToolName = (
-                            event.target as HTMLInputElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      />
-                      <datalist id="cpk-snippet-tools">
-                        ${tools.map(
-                          (tool) => html`<option value=${tool.name}></option>`,
-                        )}
-                      </datalist>
-                    </label>
-                    <label class="text-[11px] text-gray-600">
-                      Args JSON
-                      <textarea
-                        class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                        data-testid="cpk-snippet-tool-args"
-                        .value=${this.snippetToolArgs}
-                        @input=${(event: Event) => {
-                          this.snippetToolArgs = (
-                            event.target as HTMLTextAreaElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      ></textarea>
-                    </label>
-                  `
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "reasoning"
-                ? html`<label class="text-[11px] text-gray-600">
-                    Reasoning
-                    <textarea
-                      class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                      data-testid="cpk-snippet-reasoning"
-                      .value=${this.snippetReasoningText}
-                      @input=${(event: Event) => {
-                        this.snippetReasoningText = (
-                          event.target as HTMLTextAreaElement
-                        ).value;
-                        this.applyRecipeToEditor();
-                      }}
-                    ></textarea>
-                  </label>`
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "text"
-                ? html`<label class="text-[11px] text-gray-600">
-                    Assistant text
-                    <textarea
-                      class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                      data-testid="cpk-snippet-text"
-                      .value=${this.snippetTextContent}
-                      @input=${(event: Event) => {
-                        this.snippetTextContent = (
-                          event.target as HTMLTextAreaElement
-                        ).value;
-                        this.applyRecipeToEditor();
-                      }}
-                    ></textarea>
-                  </label>`
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "activity"
-                ? html`
-                    <label class="text-[11px] text-gray-600">
-                      Activity type
-                      <input
-                        list="cpk-snippet-activity"
-                        class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                        data-testid="cpk-snippet-activity-type"
-                        .value=${this.snippetActivityType}
-                        @input=${(event: Event) => {
-                          this.snippetActivityType = (
-                            event.target as HTMLInputElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      />
-                      <datalist id="cpk-snippet-activity">
-                        ${ACTIVITY_STARTERS.map(
-                          (type) => html`<option value=${type}></option>`,
-                        )}
-                      </datalist>
-                    </label>
-                    <label class="text-[11px] text-gray-600">
-                      Content JSON
-                      <textarea
-                        class="mt-1 h-24 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                        data-testid="cpk-snippet-activity-content"
-                        .value=${this.snippetActivityContent}
-                        @input=${(event: Event) => {
-                          this.snippetActivityContent = (
-                            event.target as HTMLTextAreaElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      ></textarea>
-                    </label>
-                  `
-                : nothing
-            }
-            <label class="text-[11px] text-gray-600">
-              Events JSON
-              <textarea
-                class="mt-1 h-40 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                data-testid="cpk-snippet-json"
-                .value=${this.snippetJson}
-                @input=${(event: Event) => {
-                  this.snippetJson = (
-                    event.target as HTMLTextAreaElement
-                  ).value;
-                  this.requestUpdate();
-                }}
-              ></textarea>
-            </label>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="rounded-md bg-gray-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-50"
-                data-testid="cpk-snippet-run"
-                ?disabled=${!canRun}
-                title=${
-                  runBlocked
-                    ? "The agent is running. Wait for the current run to end."
-                    : !agent
-                      ? "No agent is available to inject into."
-                      : !canRunJson
-                        ? "Events JSON must be a non-empty event array."
-                        : "Run snippet"
-                }
-                @click=${() => void this.runCurrentSnippet()}
-              >
-                ${runBlocked ? "Agent running" : "Run"}
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-save"
-                ?disabled=${!canSave}
-                title=${
-                  canSave
-                    ? "Save snippet"
-                    : "Events JSON must be a non-empty event array."
-                }
-                @click=${() => this.saveCurrentSnippet("pane")}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-reset"
-                ?disabled=${!canReset}
-                title=${
-                  canReset
-                    ? "Remove the last inject from the thread"
-                    : "No Inspector inject to reset."
-                }
-                @click=${() => this.resetLastSnippetRun()}
-              >
-                Reset last run
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-delete"
-                ?disabled=${!canDelete}
-                title=${
-                  canDelete
-                    ? "Delete this snippet"
-                    : "Select a snippet to delete."
-                }
-                @click=${() => {
-                  if (!this.selectedSnippetId) return;
-                  if (!window.confirm("Delete this snippet?")) {
-                    return;
-                  }
-                  this.eventSnippets = deleteEventSnippet(
-                    this.selectedSnippetId,
-                  );
-                  this.selectedSnippetId = null;
-                  this.requestUpdate();
-                }}
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-export"
-                ?disabled=${!canExport}
-                title=${
-                  canExport
-                    ? "Export snippets"
-                    : "Save a snippet before you export."
-                }
-                @click=${() => {
-                  if (!canExport) return;
-                  const blob = new Blob(
-                    [exportEventSnippetsJson(this.eventSnippets)],
-                    { type: "application/json" },
-                  );
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.download = "event-snippets.json";
-                  link.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                Export
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   private renderMainContent() {
     if (this.settingsOpen) {
       return this.renderSettingsPanel();
@@ -14023,10 +13288,6 @@ ${argsString}</pre
 
     if (this.selectedMenu === "playground") {
       return this.renderPlaygroundView();
-    }
-
-    if (this.selectedMenu === "event-snippets") {
-      return this.renderEventSnippetsView();
     }
 
     if (this.selectedMenu === "agents") {
@@ -14844,39 +14105,6 @@ ${argsString}</pre
     trackThreadsTalkToEngineerClicked(
       this.getThreadsCtaTelemetryProps("talk_to_engineer", "threads_locked"),
     );
-  };
-
-  private handleSnippetListDividerPointerDown = (event: PointerEvent) => {
-    this.snippetDividerResizing = true;
-    this.snippetDividerPointerId = event.pointerId;
-    this.snippetDividerStartX = event.clientX;
-    this.snippetDividerStartWidth = this.snippetListWidth;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  };
-
-  private handleSnippetListDividerPointerMove = (event: PointerEvent) => {
-    if (
-      !this.snippetDividerResizing ||
-      this.snippetDividerPointerId !== event.pointerId
-    ) {
-      return;
-    }
-    const delta = event.clientX - this.snippetDividerStartX;
-    this.snippetListWidth = Math.max(
-      160,
-      Math.min(360, this.snippetDividerStartWidth + delta),
-    );
-    this.requestUpdate();
-  };
-
-  private handleSnippetListDividerPointerUp = (event: PointerEvent) => {
-    if (this.snippetDividerPointerId !== event.pointerId) return;
-    const target = event.currentTarget as HTMLElement;
-    if (target.hasPointerCapture(this.snippetDividerPointerId)) {
-      target.releasePointerCapture(this.snippetDividerPointerId);
-    }
-    this.snippetDividerResizing = false;
   };
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
@@ -17500,10 +16728,6 @@ ${prettyEvent}</pre
 
     if (key === "home" && previousMenu !== "home") {
       this.homeViewedThisOpen = false;
-    }
-
-    if (key === "event-snippets") {
-      this.reloadEventSnippets();
     }
 
     if (key === "ag-ui-events" || key === "agents") {

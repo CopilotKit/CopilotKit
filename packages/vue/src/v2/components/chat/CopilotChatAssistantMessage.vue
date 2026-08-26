@@ -4,7 +4,6 @@ import {
   defineComponent,
   getCurrentInstance,
   h,
-  inject,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -14,7 +13,6 @@ import { StreamMarkdown } from "streamdown-vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import {
-  IconBookmark,
   IconCheck,
   IconCopy,
   IconDownload,
@@ -36,7 +34,6 @@ import type {
   CopilotChatAssistantMessageToolbarSlotProps,
 } from "./types";
 import { useKatexStyles } from "../../hooks/use-katex-styles";
-import { InspectorKey } from "../../providers/keys";
 
 useKatexStyles();
 
@@ -91,10 +88,6 @@ const emit = defineEmits<{
 
 const config = useCopilotChatConfiguration();
 const labels = computed(() => config.value?.labels ?? CopilotChatDefaultLabels);
-const inspector = inject(InspectorKey, null);
-const isLocalInspectorEnabled = computed(
-  () => inspector?.isLocalInspectorEnabled.value === true,
-);
 const instance = getCurrentInstance();
 const copied = ref(false);
 let copiedResetTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -668,30 +661,9 @@ const isLatestAssistantMessage = computed(
 const shouldShowToolbar = computed(
   () =>
     props.toolbarVisible &&
-    (hasContent.value || isLocalInspectorEnabled.value) &&
+    hasContent.value &&
     !(props.isRunning && isLatestAssistantMessage.value),
 );
-
-function handleViewInspector() {
-  inspector?.openInspector({
-    messageId: props.message.id,
-    threadId: config.value?.threadId,
-    agentId: config.value?.agentId,
-  });
-}
-
-function handleSaveSnippet() {
-  if (!hasContent.value) {
-    return;
-  }
-  void inspector?.saveEventSnippet({
-    kind: "text",
-    messageId: props.message.id,
-    content: props.message.content ?? "",
-    threadId: config.value?.threadId,
-    agentId: config.value?.agentId,
-  });
-}
 
 function resetCopiedStateWithDelay() {
   if (copiedResetTimeout) {
@@ -841,29 +813,6 @@ onBeforeUnmount(() => {
                 <IconCopy v-else class="cpk:size-[18px]" />
               </button>
             </slot>
-
-            <button
-              v-if="isLocalInspectorEnabled"
-              data-testid="copilot-inspector-button"
-              type="button"
-              :class="toolbarButtonClass"
-              :aria-label="`${labels.assistantMessageToolbarInspectorLabel} (${labels.assistantMessageToolbarInspectorLocalOnlyLabel})`"
-              :title="`${labels.assistantMessageToolbarInspectorLabel} (${labels.assistantMessageToolbarInspectorLocalOnlyLabel})`"
-              @click="handleViewInspector"
-            >
-              I
-            </button>
-            <button
-              v-if="isLocalInspectorEnabled && hasContent"
-              data-testid="copilot-save-snippet-button"
-              type="button"
-              :class="toolbarButtonClass"
-              :aria-label="`${labels.assistantMessageToolbarSaveSnippetLabel} (${labels.assistantMessageToolbarInspectorLocalOnlyLabel})`"
-              :title="`${labels.assistantMessageToolbarSaveSnippetLabel} (${labels.assistantMessageToolbarInspectorLocalOnlyLabel})`"
-              @click="handleSaveSnippet"
-            >
-              <IconBookmark class="cpk:size-[18px]" />
-            </button>
 
             <slot
               v-if="hasThumbsUp"

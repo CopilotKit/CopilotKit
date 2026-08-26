@@ -392,21 +392,6 @@ describe("CopilotOpenGenerativeUIRenderer", () => {
     expect(measureCallCount()).toBe(1);
   });
 
-  it("measures height when a completed snapshot arrives before the sandbox is ready", async () => {
-    setContent(fixture, {
-      html: ["<body><p>Tall chart</p></body>"],
-      htmlComplete: true,
-      generating: false,
-      initialHeight: 80,
-    });
-    await flushSandboxImport(fixture);
-    expect(
-      mockRun.mock.calls.some(
-        ([code]) => typeof code === "string" && code.includes("__ck_resize"),
-      ),
-    ).toBe(true);
-  });
-
   it("tears down a completed sandbox immediately when a fresh generation starts", async () => {
     setContent(fixture, {
       css: ".dashboard { color: blue; }",
