@@ -33,22 +33,19 @@ function renderRoute(framework: string, route: string) {
   };
 }
 
-test.each(agnoRoutes)(
-  "documents Agno session persistence on %s",
-  (route) => {
-    const output = renderRoute("agno", route);
+test.each(agnoRoutes)("documents Agno session persistence on %s", (route) => {
+  const output = renderRoute("agno", route);
 
-    for (const content of [output.visual, output.llm]) {
-      expect(content).toContain("Agno must store the paused run");
-      expect(content).toContain("pip install sqlalchemy");
-      expect(content).toContain("from agno.agent import Agent");
-      expect(content).toContain("from agno.db.sqlite import SqliteDb");
-      expect(content).toContain('SqliteDb(db_file="tmp/agno.db")');
-      expect(content).toContain("db=db");
-      expect(content).toContain("PgDb");
-    }
-  },
-);
+  for (const content of [output.visual, output.llm]) {
+    expect(content).toContain("Agno must store the paused run");
+    expect(content).toContain("pip install sqlalchemy");
+    expect(content).toContain("from agno.agent import Agent");
+    expect(content).toContain("from agno.db.sqlite import SqliteDb");
+    expect(content).toContain('SqliteDb(db_file="tmp/agno.db")');
+    expect(content).toContain("db=db");
+    expect(content).toContain("PgDb");
+  }
+});
 
 test("keeps the Agno database requirement out of other frameworks", () => {
   const output = renderRoute(
