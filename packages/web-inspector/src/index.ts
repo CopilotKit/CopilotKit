@@ -7887,6 +7887,8 @@ ${argsString}</pre
     unsafeCSS(tailwindStyles),
     css`
       :host {
+        --cpk-inspector-shell-radius: 5px;
+        --cpk-inspector-surface-dark: #111319;
         position: fixed;
         top: 0;
         left: 0;
@@ -8766,13 +8768,13 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__card {
-        --hud-fill: rgb(28 31 36 / 0.88);
+        --hud-fill: var(--cpk-inspector-surface-dark);
         --hud-line: rgb(190 194 255 / 0.5);
         position: relative;
         width: 228px;
         padding: 4px;
         border: 1px dotted var(--hud-line);
-        border-radius: 10px;
+        border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #fff;
         backdrop-filter: blur(12px) saturate(1.2);
@@ -8959,7 +8961,7 @@ ${argsString}</pre
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
         border: 1px solid #d8d8e8 !important;
-        border-radius: 5px !important;
+        border-radius: var(--cpk-inspector-shell-radius) !important;
         box-shadow: none !important;
       }
 
