@@ -7887,6 +7887,8 @@ ${argsString}</pre
     unsafeCSS(tailwindStyles),
     css`
       :host {
+        --cpk-inspector-shell-radius: 5px;
+        --cpk-inspector-surface-dark: #111319;
         position: fixed;
         top: 0;
         left: 0;
@@ -8766,17 +8768,23 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__card {
-        --hud-fill: rgb(28 31 36 / 0.88);
+        --hud-fill: var(--cpk-inspector-surface-dark);
         --hud-line: rgb(190 194 255 / 0.5);
         position: relative;
         width: 228px;
         padding: 4px;
         border: 1px dotted var(--hud-line);
-        border-radius: 10px;
+        border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #fff;
         backdrop-filter: blur(12px) saturate(1.2);
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+        --hud-fill: #fff;
+        --hud-line: #d8d8e8;
+        color: #010507;
       }
 
       .cpk-launcher-hud__arrow {
@@ -8831,6 +8839,12 @@ ${argsString}</pre
         background: rgb(255 255 255 / 0.06);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: #f0f0f4;
+      }
+
       .cpk-launcher-hud__action {
         display: flex;
         gap: 8px;
@@ -8846,6 +8860,10 @@ ${argsString}</pre
         font-weight: 600;
         text-align: start;
         cursor: pointer;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
+        color: #010507;
       }
 
       /* Stretch the row action over the whole tab, including the detail
@@ -8891,6 +8909,10 @@ ${argsString}</pre
         line-height: 1;
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
+        color: #68686e;
+      }
+
       .cpk-launcher-hud__help:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
@@ -8915,6 +8937,10 @@ ${argsString}</pre
           opacity 150ms ease-out,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
           padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
+        color: #68686e;
       }
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
@@ -8959,7 +8985,7 @@ ${argsString}</pre
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
         border: 1px solid #d8d8e8 !important;
-        border-radius: 5px !important;
+        border-radius: var(--cpk-inspector-shell-radius) !important;
         box-shadow: none !important;
       }
 
@@ -9904,15 +9930,24 @@ ${argsString}</pre
 
   private renderLauncherHud(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
-    const threadsOn = this.areThreadEndpointsAvailable();
-    const intelligenceOn = Boolean(this._core?.intelligence);
-    const learningOn = intelligenceOn && this._memoriesAvailable;
+    // The launcher must agree with Home about feature availability. Raw
+    // transport flags can be present for a runtime that is not entitled to use
+    // Intelligence, which previously made the HUD show every service as on.
+    const homeModel = this.getHomeModel();
+    const threadsOn = homeModel.services.some(
+      (service) => service.id === "threads" && service.enabled,
+    );
+    const learningOn = homeModel.services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-color-scheme=${this.colorScheme}
       >
         <div class="cpk-launcher-hud__card">
           <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
