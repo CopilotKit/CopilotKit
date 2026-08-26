@@ -8441,6 +8441,17 @@ export class WebInspectorElement extends LitElement {
           0 0 0 3px rgba(102, 106, 158, 0.3);
       }
 
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-send {
+        background: #292b43 !important;
+        color: #d8d9ff !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-send:not(:disabled) {
+        background: #666a9e !important;
+        color: #ffffff !important;
+      }
+
       .cpk-playground-message-enter {
         animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
           both;

@@ -586,54 +586,9 @@
     transform 160ms ease;
 }
 
-.inspector-account-cta::after {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 68%;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    rgb(255 255 255 / 0.08) 32%,
-    rgb(255 255 255 / 0.68) 50%,
-    rgb(255 255 255 / 0.08) 68%,
-    transparent 100%
-  );
-  content: "";
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-180%) skewX(-14deg);
-  animation: inspector-account-cta-shimmer 3.8s cubic-bezier(0.16, 1, 0.3, 1)
-    infinite;
-}
-
 .inspector-account-cta > * {
   position: relative;
   z-index: 1;
-}
-
-.inspector-account-cta[data-motion-paused="true"]::after {
-  animation-play-state: paused;
-}
-
-@keyframes inspector-account-cta-shimmer {
-  0% {
-    opacity: 0;
-    transform: translateX(-180%) skewX(-14deg);
-  }
-
-  12% {
-    opacity: 1;
-  }
-
-  82% {
-    opacity: 0.8;
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(280%) skewX(-14deg);
-  }
 }
 
 .inspector-account-cta:hover {
@@ -653,12 +608,6 @@
 .inspector-account-cta svg {
   width: 14px;
   height: 14px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .inspector-account-cta::after {
-    animation: none;
-  }
 }
 
 .inspector-window-layout {
