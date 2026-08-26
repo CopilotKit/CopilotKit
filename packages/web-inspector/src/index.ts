@@ -1416,7 +1416,7 @@ function humanizeEventType(type: string): string {
     .filter(Boolean)
     .map((word) => word.toLowerCase());
   if (words.length === 0) return "Event";
-  const [first, ...rest] = words;
+  const [first = "event", ...rest] = words;
   return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...rest].join(
     " ",
   );
@@ -3923,14 +3923,14 @@ export class CpkThreadInspector extends PortableLitElement {
 
     const insertAt: number[] = [];
     for (let index = 0; index < items.length; index++) {
-      const item = items[index];
+      const item = items[index]!;
       if (item.kind === "run" && item.title === "Run started") {
         insertAt.push(index);
       }
     }
     if (insertAt.length === 0) {
       for (let index = 0; index < items.length; index++) {
-        const item = items[index];
+        const item = items[index]!;
         if (
           item.kind === "message" &&
           item.title.toLowerCase().includes("assistant")
@@ -3942,7 +3942,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     const merged = [...items];
     for (let index = missing.length - 1; index >= 0; index--) {
-      const user = missing[index];
+      const user = missing[index]!;
       const row: TimelineItem = {
         id: `conversation-user-${user.id}`,
         messageId: user.id,
