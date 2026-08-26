@@ -537,12 +537,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
       expect(findControl(root, label), label).toBeDefined();
     }
     await context.selectTab("Agent");
-    for (const label of [
-      "AG-UI Events",
-      "Event Snippets",
-      "Agent",
-      "Context",
-    ]) {
+    for (const label of ["AG-UI Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
   } finally {

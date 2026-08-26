@@ -26,7 +26,6 @@ import { Streamdown } from "streamdown";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
-import { SaveSnippetIconButton } from "./SaveSnippetIconButton";
 
 export type CopilotChatFeedbackMessage = AssistantMessage & {
   rawEvent?: unknown;
@@ -38,7 +37,6 @@ export type CopilotChatAssistantMessageProps = WithSlots<
     toolbar: typeof CopilotChatAssistantMessage.Toolbar;
     copyButton: typeof CopilotChatAssistantMessage.CopyButton;
     inspectorButton: typeof CopilotChatAssistantMessage.InspectorButton;
-    saveSnippetButton: typeof CopilotChatAssistantMessage.SaveSnippetButton;
     thumbsUpButton: typeof CopilotChatAssistantMessage.ThumbsUpButton;
     thumbsDownButton: typeof CopilotChatAssistantMessage.ThumbsDownButton;
     readAloudButton: typeof CopilotChatAssistantMessage.ReadAloudButton;
@@ -72,7 +70,6 @@ export function CopilotChatAssistantMessage({
   toolbar,
   copyButton,
   inspectorButton,
-  saveSnippetButton,
   thumbsUpButton,
   thumbsDownButton,
   readAloudButton,
@@ -83,8 +80,7 @@ export function CopilotChatAssistantMessage({
   ...props
 }: CopilotChatAssistantMessageProps) {
   useKatexStyles();
-  const { isLocalInspectorEnabled, openInspector, saveEventSnippet } =
-    useCopilotKitInspector();
+  const { isLocalInspectorEnabled, openInspector } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
 
   const boundMarkdownRenderer = renderSlot(
@@ -129,27 +125,6 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  const hasContent = !!(message.content && message.content.trim().length > 0);
-
-  const boundSaveSnippetButton = renderSlot(
-    saveSnippetButton,
-    CopilotChatAssistantMessage.SaveSnippetButton,
-    {
-      onClick: () => {
-        if (!hasContent) {
-          return;
-        }
-        void saveEventSnippet({
-          kind: "text",
-          messageId: message.id,
-          content: message.content ?? "",
-          threadId: chatConfiguration?.threadId,
-          agentId: chatConfiguration?.agentId,
-        });
-      },
-    },
-  );
-
   const boundThumbsDownButton = renderSlot(
     thumbsDownButton,
     CopilotChatAssistantMessage.ThumbsDownButton,
@@ -182,7 +157,6 @@ export function CopilotChatAssistantMessage({
         <div className="cpk:flex cpk:items-center cpk:gap-1">
           {boundCopyButton}
           {isLocalInspectorEnabled && boundInspectorButton}
-          {isLocalInspectorEnabled && hasContent && boundSaveSnippetButton}
           {(onThumbsUp || thumbsUpButton) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton) && boundThumbsDownButton}
           {(onReadAloud || readAloudButton) && boundReadAloudButton}
@@ -202,6 +176,8 @@ export function CopilotChatAssistantMessage({
     },
   );
 
+  // Don't show toolbar if message has no content (only tool calls)
+  const hasContent = !!(message.content && message.content.trim().length > 0);
   const isLatestAssistantMessage =
     message.role === "assistant" &&
     messages?.[messages.length - 1]?.id === message.id;
@@ -219,7 +195,6 @@ export function CopilotChatAssistantMessage({
           toolCallsView: boundToolCallsView,
           copyButton: boundCopyButton,
           inspectorButton: boundInspectorButton,
-          saveSnippetButton: boundSaveSnippetButton,
           thumbsUpButton: boundThumbsUpButton,
           thumbsDownButton: boundThumbsDownButton,
           readAloudButton: boundReadAloudButton,
@@ -400,9 +375,10 @@ export namespace CopilotChatAssistantMessage {
     React.ButtonHTMLAttributes<HTMLButtonElement> & {
       title: string;
       tooltip?: React.ReactNode;
+      tooltipClassName?: string;
       children: React.ReactNode;
     }
-  > = ({ title, tooltip, children, ...props }) => {
+  > = ({ title, tooltip, tooltipClassName, children, ...props }) => {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -415,7 +391,7 @@ export namespace CopilotChatAssistantMessage {
             {children}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">
+        <TooltipContent side="bottom" className={tooltipClassName}>
           {tooltip ?? <p>{title}</p>}
         </TooltipContent>
       </Tooltip>
@@ -477,40 +453,28 @@ export namespace CopilotChatAssistantMessage {
 
   export const InspectorButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = ({ title, ...props }) => {
+  > = ({ title, className, ...props }) => {
     const config = useCopilotChatConfiguration();
     const labels = config?.labels ?? CopilotChatDefaultLabels;
     const primaryLabel = title || labels.assistantMessageToolbarInspectorLabel;
-    const localOnlyLabel =
-      labels.assistantMessageToolbarInspectorLocalOnlyLabel;
-    const accessibleLabel = `${primaryLabel} (${localOnlyLabel})`;
+    const accessibleLabel = `${primaryLabel} (local only)`;
     return (
       <ToolbarButton
         data-testid="copilot-inspector-button"
         title={accessibleLabel}
-        tooltip={
-          <div className="cpk:flex cpk:flex-col cpk:gap-0.5">
-            <span>{primaryLabel}</span>
-            <span className="cpk:text-[10px] cpk:opacity-65">
-              {localOnlyLabel}
-            </span>
-          </div>
-        }
+        className={twMerge("cpk:w-auto cpk:gap-1.5 cpk:px-2", className)}
+        tooltipClassName="cpk:max-w-64 cpk:text-left cpk:leading-4"
+        tooltip="View this message in the Inspector to get more information. This button and the inspector only display during local development (localhost, dev env)."
         {...props}
       >
         <CopilotKitColoredIcon />
+        <span className="cpk:font-medium">{primaryLabel}</span>
+        <span className="cpk:text-xs cpk:text-muted-foreground">
+          (local only)
+        </span>
       </ToolbarButton>
     );
   };
-
-  export const SaveSnippetButton: React.FC<
-    React.ButtonHTMLAttributes<HTMLButtonElement>
-  > = (props) => (
-    <SaveSnippetIconButton
-      data-testid="copilot-save-snippet-button"
-      {...props}
-    />
-  );
 
   export const ThumbsUpButton: React.FC<
     React.ButtonHTMLAttributes<HTMLButtonElement>
@@ -585,8 +549,6 @@ CopilotChatAssistantMessage.CopyButton.displayName =
   "CopilotChatAssistantMessage.CopyButton";
 CopilotChatAssistantMessage.InspectorButton.displayName =
   "CopilotChatAssistantMessage.InspectorButton";
-CopilotChatAssistantMessage.SaveSnippetButton.displayName =
-  "CopilotChatAssistantMessage.SaveSnippetButton";
 CopilotChatAssistantMessage.ThumbsUpButton.displayName =
   "CopilotChatAssistantMessage.ThumbsUpButton";
 CopilotChatAssistantMessage.ThumbsDownButton.displayName =
