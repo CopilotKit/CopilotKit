@@ -444,10 +444,15 @@ export class BackendStack extends cdk.NestedStack {
             },
           ).unsafeUnwrap(),
           CPK_TELEMETRY_ID: process.env.CPK_TELEMETRY_ID ?? "",
-          INTELLIGENCE_API_URL:
-            process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          INTELLIGENCE_GATEWAY_WS_URL:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+          ...(process.env.INTELLIGENCE_API_URL
+            ? { INTELLIGENCE_API_URL: process.env.INTELLIGENCE_API_URL }
+            : {}),
+          ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
+            ? {
+                INTELLIGENCE_GATEWAY_WS_URL:
+                  process.env.INTELLIGENCE_GATEWAY_WS_URL,
+              }
+            : {}),
         },
         timeout: cdk.Duration.seconds(30),
         memorySize: 1024,
