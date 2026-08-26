@@ -12,6 +12,11 @@ const MANAGED_CTA_SOURCES = [
   ...MANAGED_ONBOARDING_GUIDES,
   "docs/premium/intelligence-platform.mdx",
 ];
+const MANAGED_RUNTIME_GUIDES = [
+  "docs/backend/runtime-endpoints.mdx",
+  "docs/premium/connect-your-runtime.mdx",
+  "snippets/shared/threads/headless-threads.mdx",
+];
 const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
 
 /** Reads managed-onboarding docs as whitespace-normalized contract fixtures. */
@@ -147,4 +152,17 @@ test("uses the managed API key prefix in thread import examples", () => {
     expect(source).toContain('INTELLIGENCE_API_KEY="cpk_..."');
     expect(source).not.toContain('INTELLIGENCE_API_KEY="cpk-..."');
   }
+});
+
+test("reads the CLI-managed key name in Runtime wiring guides", () => {
+  const sources = readSources(MANAGED_RUNTIME_GUIDES);
+
+  for (const source of sources) {
+    expect(source).toContain("process.env.CPK_INTELLIGENCE_API_KEY");
+    expect(source).not.toContain("process.env.INTELLIGENCE_API_KEY");
+  }
+
+  const connectRuntime = sources[1];
+  expect(connectRuntime).toContain("CPK_INTELLIGENCE_API_KEY=cpk_...");
+  expect(connectRuntime).not.toContain("INTELLIGENCE_API_KEY=cpk-...");
 });
