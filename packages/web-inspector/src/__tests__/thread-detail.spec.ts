@@ -540,14 +540,7 @@ test("thread overview foregrounds the name and agent while details retain techni
     } finally {
       parserStyle.remove();
     }
-    expect(
-      header?.parentElement
-        ?.querySelector(".cpk-td__empty-hint")
-        ?.textContent?.replace(/\s+/g, " ")
-        .trim(),
-    ).toBe(
-      "Timeline rows are normalized from AG-UI events. Open AG-UI Events or State to inspect the available thread data.",
-    );
+    expect(detail.shadowRoot?.textContent).toContain("No messages yet");
 
     detail.shadowRoot
       ?.querySelector<HTMLButtonElement>(".cpk-td__panel-toggle")
@@ -830,7 +823,7 @@ test("Arrow keys wrap and Home and End select and focus their exact tabs", async
   }
 });
 
-test("real provider navigation shares events, loads messages with events, lazily loads state once, and adds no request", async () => {
+test("real provider navigation loads the conversation and event trace once, then lazily loads state", async () => {
   prepareDom();
   const currentFetch = globalThis.fetch;
   const fetchMock = Object.assign(
@@ -884,7 +877,7 @@ test("real provider navigation shares events, loads messages with events, lazily
   }
 });
 
-test("a source-event link selects AG-UI Events and reveals the indexed event", async () => {
+test("AG-UI Events exposes the indexed raw event without mixing it into Messages", async () => {
   prepareDom();
   const detail = appendDetail({
     threadId: "thread-source-link",
@@ -899,17 +892,8 @@ test("a source-event link selects AG-UI Events and reveals the indexed event", a
     },
   });
   try {
-    await vi.waitFor(() => {
-      expect(
-        detail.shadowRoot?.querySelector<HTMLButtonElement>(
-          ".cpk-td__source-link",
-        ),
-      ).not.toBeNull();
-    });
-    detail.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".cpk-td__source-link")
-      ?.click();
     await flushDetail(detail);
+    await selectTab(detail, "AG-UI Events");
 
     const selected = selectedTab(detail);
     expect(selected.textContent?.trim()).toBe("AG-UI Events");
@@ -995,18 +979,21 @@ test("all three local examples use the shared labels, created fact, local panels
       name: "Realtime thread sync",
       event: "Run started",
       state: "cart_demo_42",
+      message: "Resume the checkout support thread from yesterday.",
     },
     {
       id: "example-manage-history",
       name: "Manage saved conversations",
       event: "Custom event",
       state: "Billing escalation handoff",
+      message: "Rename this saved support conversation for the handoff.",
     },
     {
       id: "example-inspect-runs",
       name: "Inspect durable run history",
       event: "Tool call start",
       state: "auditLogsRequired",
+      message: "Why did the assistant recommend the enterprise plan?",
     },
   ] as const;
   try {
@@ -1033,7 +1020,7 @@ test("all three local examples use the shared labels, created fact, local panels
       await harness.flush();
 
       await selectTab(detail, "Messages");
-      expect(detail.shadowRoot?.textContent).toContain("Run started");
+      expect(detail.shadowRoot?.textContent).toContain(example.message);
       await selectTab(detail, "AG-UI Events");
       expect(detail.shadowRoot?.textContent).toContain(example.event);
       await selectTab(detail, "State");
@@ -1056,7 +1043,7 @@ test("Sam's tour uses the new labels while preserving step bodies, storage, navi
       {
         label: "Messages",
         tabSuffix: "-tab-timeline",
-        body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+        body: "Messages keeps the thread in its natural back-and-forth form. Use AG-UI Events when you need the protocol trace behind it.",
       },
       {
         label: "AG-UI Events",

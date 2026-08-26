@@ -558,6 +558,22 @@ async function flushProviderWork(el: CpkThreadInspector): Promise<void> {
   await el.updateComplete;
 }
 
+async function showRawEvents(
+  el: CpkThreadInspector,
+  internals: ThreadDetailsInternals,
+): Promise<void> {
+  const panel = internals as unknown as {
+    _activatedTabs: Set<string>;
+    _panelInitializing: boolean;
+    _tab: string;
+  };
+  panel._activatedTabs = new Set([...panel._activatedTabs, "raw-events"]);
+  panel._panelInitializing = false;
+  panel._tab = "raw-events";
+  el.requestUpdate();
+  await flushProviderWork(el);
+}
+
 function createDeferred<T>(): {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -757,50 +773,45 @@ describe("ɵCpkThreadDetails caching", () => {
     expect(internals.renderConversation()).not.toBe(expanded);
   });
 
-  it("keeps timeline and message fallback template caches separate", async () => {
+  it("prioritizes canonical conversation data over an event-message fallback", async () => {
     const { el, internals } = createThreadDetails();
     await settleThread(el, internals, "t1");
 
     const events = [
       {
-        type: "RUN_STARTED",
+        type: "TEXT_MESSAGE_START",
         timestamp: "2026-06-25T10:00:00.000Z",
-        payload: {},
+        payload: { messageId: "event-message", role: "assistant" },
         sourceIndex: 1,
+      },
+      {
+        type: "TEXT_MESSAGE_CONTENT",
+        timestamp: "2026-06-25T10:00:00.001Z",
+        payload: { messageId: "event-message", delta: "from events" },
+        sourceIndex: 2,
       },
     ];
     internals._fetchedEvents = events;
-    const originalConversation = internals._conversation;
-
-    const timelineTpl = internals.renderTimeline();
-    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
-
-    internals._fetchedEvents = [];
     internals._conversation = [
-      { id: "m1", type: "user", content: "fallback", createdAt: "" },
+      { id: "m1", type: "user", content: "canonical", createdAt: "" },
     ];
 
-    const fallbackTpl = internals.renderTimeline();
-    expect(fallbackTpl).not.toBe(timelineTpl);
-    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
+    const conversationTpl = internals.renderTimeline();
     expect(internals._panelTplCache.get("timeline-fallback")?.tpl).toBe(
-      fallbackTpl,
+      conversationTpl,
     );
-
-    internals._conversation = originalConversation;
-    internals._fetchedEvents = events;
-    expect(internals.renderTimeline()).toBe(timelineTpl);
+    expect(internals.renderTimeline()).toBe(conversationTpl);
   });
 
-  it("does not recompute timeline items when renderTimeline returns a cached template", async () => {
+  it("does not recompute event-message fallbacks when their template is cached", async () => {
     const { el, internals } = createThreadDetails();
     await settleThread(el, internals, "t1");
 
     internals._fetchedEvents = [
       {
-        type: "RUN_STARTED",
+        type: "TEXT_MESSAGE_CONTENT",
         timestamp: "2026-06-25T10:00:00.000Z",
-        payload: {},
+        payload: { messageId: "event-message", delta: "from events" },
         sourceIndex: 1,
       },
     ];
@@ -819,9 +830,9 @@ describe("ɵCpkThreadDetails caching", () => {
 
     internals.agentEventsInput = [
       {
-        type: "RUN_STARTED",
+        type: "TEXT_MESSAGE_CONTENT",
         timestamp: "2026-06-25T10:00:00.000Z",
-        payload: {},
+        payload: { messageId: "event-message", delta: "from events" },
       },
     ];
 
@@ -990,7 +1001,10 @@ describe("CpkThreadInspector provider contract", () => {
       "thread-1234567890",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(provider.getMessages).toHaveBeenCalledTimes(1);
+    expect(provider.getMessages).toHaveBeenCalledWith(
+      "thread-1234567890",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
     expect(internals._fetchedMetadata?.agentId).toBe("agent-a");
     expect(internals._fetchedEvents).toHaveLength(6);
 
@@ -998,21 +1012,30 @@ describe("CpkThreadInspector provider contract", () => {
     expect(text).toContain("Messages");
     expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
-    expect(text).toContain("Run started");
-    expect(text).toContain("Assistant message");
+    expect(text).not.toContain("Run started");
     expect(text).toContain("hello from events");
-    expect(text).toContain("lookup_docs");
-    expect(text).toContain("Could not decode tool call arguments");
-    expect(text).toContain("Source event #1");
-    expect(text).toContain("Source event #6");
-    expect(text).toContain("agent-a");
-    expect(text).toContain("user-a");
-    expect(text).not.toContain("Rename");
-    expect(text).not.toContain("Archive");
-    expect(text).not.toContain("Delete");
+    expect(
+      el.shadowRoot?.querySelector(".cpk-td__bubble--assistant"),
+    ).not.toBeNull();
+    expect(text).not.toContain("lookup_docs");
+    expect(text).not.toContain("Could not decode tool call arguments");
+    expect(text).not.toContain("Source event #1");
+    expect(text).not.toContain("Source event #6");
+
+    await showRawEvents(el, internals);
+
+    const traceText = el.shadowRoot?.textContent ?? "";
+    expect(traceText).toContain("RUN_STARTED");
+    expect(traceText).toContain("TEXT_MESSAGE_START");
+    expect(traceText).toContain("hello from events");
+    expect(traceText).toContain("agent-a");
+    expect(traceText).toContain("user-a");
+    expect(traceText).not.toContain("Rename");
+    expect(traceText).not.toContain("Archive");
+    expect(traceText).not.toContain("Delete");
   });
 
-  it("source-event references reveal raw events and state stays lazy-loaded", async () => {
+  it("raw events and state stay available without re-fetching the trace", async () => {
     const provider: ThreadDebuggerProvider = {
       getMessages: vi.fn().mockResolvedValue([]),
       getEvents: vi.fn().mockResolvedValue([
@@ -1037,10 +1060,7 @@ describe("CpkThreadInspector provider contract", () => {
       payload: { runId: "run-1" },
     });
 
-    el.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".cpk-td__source-link")
-      ?.click();
-    await flushProviderWork(el);
+    await showRawEvents(el, internals);
 
     expect(
       el.shadowRoot?.querySelector<HTMLElement>(
@@ -1154,10 +1174,7 @@ describe("CpkThreadInspector provider contract", () => {
       payload: { messageId: "m1", delta: "hello" },
     });
 
-    el.shadowRoot
-      ?.querySelector<HTMLButtonElement>(".cpk-td__source-link")
-      ?.click();
-    await flushProviderWork(el);
+    await showRawEvents(el, internals);
 
     const rawEvent = el.shadowRoot?.querySelector<HTMLElement>(
       '.cpk-td__event[data-source-index="1"]',
@@ -1353,7 +1370,7 @@ describe("CpkThreadInspector provider contract", () => {
     expect(el.shadowRoot?.textContent ?? "").toContain("2");
   });
 
-  it("renders unsupported raw events as timeline rows instead of leaving the first tab empty", async () => {
+  it("keeps unsupported events in the AG-UI trace instead of treating them as messages", async () => {
     const provider: ThreadDebuggerProvider = {
       getEvents: vi.fn().mockResolvedValue([
         {
@@ -1370,10 +1387,12 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     expect(internals.activeTimelineItems).toHaveLength(1);
-    expect(el.shadowRoot?.textContent ?? "").toContain("Thread state written");
+    expect(el.shadowRoot?.textContent ?? "").toContain("No messages yet");
+    await showRawEvents(el, internals);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
     expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain("checkpointId");
-    expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
     expect(el.shadowRoot?.textContent ?? "").not.toContain(
       "No timeline events captured",
     );
@@ -1410,7 +1429,9 @@ describe("CpkThreadInspector provider contract", () => {
     internals.threadId = "thread-chonky-run-started";
     await flushProviderWork(el);
 
-    expect(el.shadowRoot?.textContent ?? "").toContain("Run started");
+    await showRawEvents(el, internals);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("RUN_STARTED");
     expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain(
       "very chonky run-started payload",
@@ -1445,7 +1466,9 @@ describe("CpkThreadInspector provider contract", () => {
     internals.threadId = "thread-error-details";
     await flushProviderWork(el);
 
-    expect(el.shadowRoot?.textContent ?? "").toContain("Tool failed");
+    await showRawEvents(el, internals);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("RUN_ERROR");
     expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain("ERR_TOOL_TIMEOUT");
     el.shadowRoot
@@ -1454,6 +1477,7 @@ describe("CpkThreadInspector provider contract", () => {
     await el.updateComplete;
 
     expect(el.shadowRoot?.textContent ?? "").toContain("Hide details");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Tool failed");
     expect(el.shadowRoot?.textContent ?? "").toContain("ERR_TOOL_TIMEOUT");
   });
 
@@ -2567,7 +2591,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
         inspector.shadowRoot?.querySelector("cpk-thread-details"),
       ).not.toBe(null);
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Read the run as a story",
+        "Read the conversation",
       );
     });
 
@@ -2638,7 +2662,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     await vi.waitFor(() => {
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Read the run as a story",
+        "Read the conversation",
       );
     });
 
@@ -2682,7 +2706,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       ).not.toBeNull();
     });
     expect(secondInspector.shadowRoot?.textContent ?? "").not.toContain(
-      "Read the run as a story",
+      "Read the conversation",
     );
     expect(secondInspector.shadowRoot?.textContent ?? "").toContain(
       "Show tour",
@@ -2699,7 +2723,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     await vi.waitFor(() => {
       expect(secondInspector.shadowRoot?.textContent ?? "").toContain(
-        "Read the run as a story",
+        "Read the conversation",
       );
     });
   });
@@ -2736,7 +2760,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     await vi.waitFor(() => {
       expect(inspector.shadowRoot?.textContent ?? "").toContain(
-        "Read the run as a story",
+        "Read the conversation",
       );
     });
 

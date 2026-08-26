@@ -1285,8 +1285,8 @@ const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
   {
     tab: "timeline",
     label: "Messages",
-    title: "Read the run as a story",
-    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
+    title: "Read the conversation",
+    body: "Messages keeps the thread in its natural back-and-forth form. Use AG-UI Events when you need the protocol trace behind it.",
   },
   {
     tab: "raw-events",
@@ -2040,12 +2040,7 @@ export class CpkThreadInspector extends PortableLitElement {
     events: ApiAgentEvent[];
     indexedEvents: ApiAgentEvent[];
   } | null = null;
-  /**
-   * Tracks whether we've fetched events for the current thread yet. Events
-   * fetch lazily on first sub-tab click so a large response's JSON.parse
-   * doesn't block the main thread when the user only ever cares about the
-   * conversation.
-   */
+  /** Tracks whether the thread's protocol trace has loaded. */
   private _eventsFetched = false;
   /**
    * Tracks whether we've fetched state for the current thread yet. Same
@@ -2184,12 +2179,10 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private maybeFetchTabData(id: ThreadDetailsTab): void {
-    // Lazy-trigger the events / state fetches so their (potentially huge)
-    // JSON.parse only blocks the main thread after the user has shown
-    // intent to view that sub-tab. Without lazy-load, the eager fetch runs
-    // as soon as the thread opens and a single large response can stall
-    // the entire panel for seconds — including making the tab buttons
-    // themselves feel unresponsive.
+    // Events normally load with the default conversation so the trace is
+    // ready when the user switches tabs. Keep this guard for runtimes that
+    // become available after the thread has already opened; state remains
+    // intentionally lazy because it can be substantially larger.
     if (!this.threadId) return;
     if ((id === "timeline" || id === "raw-events") && !this._eventsFetched) {
       this._eventsFetched = true;
@@ -2224,6 +2217,7 @@ export class CpkThreadInspector extends PortableLitElement {
       height: 100%;
       overflow: hidden;
       position: relative;
+      container-type: inline-size;
       background: #ffffff;
     }
 
@@ -2822,6 +2816,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__timeline-toolbar {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
     }
 
@@ -3245,6 +3240,19 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #191c24;
     }
 
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--user {
+      background: #302b43;
+      color: #e1d9f6;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant {
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__show-more {
+      color: #caccff;
+    }
+
     :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-body {
       background: #171a22;
@@ -3412,6 +3420,41 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-tdp__divider {
       background: #343742;
     }
+
+    @container (max-width: 660px) {
+      .cpk-td__tabs-header {
+        flex-wrap: wrap;
+        padding: 0 10px;
+      }
+
+      .cpk-td__tab-group {
+        width: 100%;
+        flex: none;
+        overflow: visible;
+      }
+
+      .cpk-td__tab {
+        flex: 1;
+        padding: 9px 5px;
+        text-align: center;
+      }
+
+      .cpk-td__timeline-toolbar {
+        width: 100%;
+        justify-content: flex-end;
+        margin: 0;
+        border-top: 1px solid #e9e9ef;
+        padding: 6px 0;
+      }
+
+      .cpk-td__save-snippet {
+        margin-left: auto;
+      }
+
+      :host([data-color-scheme="dark"]) .cpk-td__timeline-toolbar {
+        border-color: #343742;
+      }
+    }
   `;
 
   updated(_changed: Map<string, unknown>): void {
@@ -3423,17 +3466,16 @@ export class CpkThreadInspector extends PortableLitElement {
       this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Timeline is the default tab and should be event-derived. Fetch
-        // events eagerly; the raw tab reuses the same response when opened.
-        // User messages often never appear as TEXT_MESSAGE events (they are
-        // added locally before RUN_STARTED), so also load the conversation.
+        // Messages is the default reading surface, while AG-UI Events keeps
+        // the protocol trace. Load both once so either tab is ready without
+        // making the conversation look like a stream of technical events.
         void this.fetchMetadata(this.threadId);
+        if (this.canFetchMessages()) {
+          void this.fetchMessages(this.threadId);
+        }
         if (this.canFetchEvents()) {
           this._eventsFetched = true;
           void this.fetchEvents(this.threadId);
-        }
-        if (this.canFetchMessages()) {
-          void this.fetchMessages(this.threadId);
         }
       } else {
         this._fetchedMetadata = null;
@@ -4560,37 +4602,8 @@ export class CpkThreadInspector extends PortableLitElement {
 
   private renderTimelineBulkControls() {
     if (this._eventsNotAvailable) return nothing;
-
-    const detailIds = this.timelineItemsForEvents(this.activeEvents)
-      .filter((item) => item.details)
-      .map((item) => item.id);
-    if (detailIds.length <= 1) return nothing;
-
-    const allExpanded = detailIds.every((id) =>
-      this._expandedTimelineDetails.has(id),
-    );
-    const allCollapsed = detailIds.every(
-      (id) => !this._expandedTimelineDetails.has(id),
-    );
-
-    return html`<div class="cpk-td__timeline-toolbar">
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allExpanded}
-        @click=${() => this.expandTimelineDetails(detailIds)}
-      >
-        Expand all
-      </button>
-      <button
-        type="button"
-        class="cpk-td__timeline-bulk-toggle"
-        ?disabled=${allCollapsed}
-        @click=${() => this.collapseTimelineDetails(detailIds)}
-      >
-        Collapse all
-      </button>
-    </div>`;
+    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
+    return nothing;
   }
 
   private renderRawEventBulkControls() {
@@ -4680,66 +4693,40 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderTimeline() {
-    if (this._loadingEvents) {
-      return html`
-        <div class="cpk-td__status">Loading timeline…</div>
-      `;
-    }
-    if (this._eventsError) {
-      return html`<div class="cpk-td__status cpk-td__status--error">
-        ${this._eventsError}
-      </div>`;
-    }
-    if (this._eventsNotAvailable) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
-      return html`
-        <div class="cpk-td__empty-state">
-          <span>Timeline event history not available</span>
-          <span class="cpk-td__empty-hint"
-            >This runtime doesn't yet expose per-thread AG-UI events. Check State for
-            the latest snapshot when available.</span
-          >
-        </div>
-      `;
+    if (
+      this._conversation.length > 0 ||
+      this._loadingMessages ||
+      this._messagesError
+    ) {
+      return this.renderConversation();
     }
 
+    return this.renderEventConversation() ?? this.renderConversation();
+  }
+
+  /** Fall back to message-shaped AG-UI events for older runtimes. */
+  private renderEventConversation(): TemplateResult | null {
     const events = this.activeEvents;
-    const cachedTimeline = this.getCachedPanelTpl("timeline", [
-      events,
-      this._conversation,
-      this.agentMessagesInput,
-      this._expandedTimelineDetails,
-    ]);
-    if (cachedTimeline) return cachedTimeline;
-
-    const timelineItems = this.timelineItemsForEvents(events);
-    if (timelineItems.length === 0) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
-      return html`
-        <div class="cpk-td__empty-state">
-          <span>No timeline events captured</span>
-          <span class="cpk-td__empty-hint"
-            >Timeline rows are normalized from AG-UI events. Open AG-UI Events or State
-            to inspect the available thread data.</span
-          >
-        </div>
-      `;
-    }
+    const messages = this.timelineItemsForEvents(events).filter(
+      (item) => item.kind === "message" && item.body?.trim(),
+    );
+    if (messages.length === 0) return null;
 
     return this.cachedPanelTpl(
       "timeline",
-      [
-        events,
-        this._conversation,
-        this.agentMessagesInput,
-        this._expandedTimelineDetails,
-      ],
-      () =>
-        html`${this.renderTimelineBulkControls()}${timelineItems.map((item) =>
-          this.renderTimelineItem(item),
-        )}`,
+      [events],
+      () => html`
+      ${messages.map((item) =>
+        this.renderBubble({
+          id: item.messageId ?? item.id,
+          type: item.title.toLowerCase().startsWith("user")
+            ? "user"
+            : "assistant",
+          content: item.body ?? "",
+          createdAt: "",
+        }),
+      )}
+    `,
     );
   }
 

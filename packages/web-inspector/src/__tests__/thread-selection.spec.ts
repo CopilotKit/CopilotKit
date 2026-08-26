@@ -602,7 +602,7 @@ test("keeps enabled-zero examples local until one is clicked", async () => {
     await vi.waitFor(() => {
       expect(harness.details()?.threadId).toBe("example-realtime-sync");
       expect(harness.details()?.shadowRoot?.textContent).toContain(
-        "Run started",
+        "Resume the checkout support thread from yesterday.",
       );
     });
     expect(harness.activeRowNames()).toEqual(["Realtime thread sync"]);
