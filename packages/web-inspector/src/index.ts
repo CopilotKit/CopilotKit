@@ -8391,13 +8391,15 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-playground-composer {
         border: 1px solid #dcdce8;
-        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+        box-shadow:
+          0 8px 22px rgba(31, 23, 57, 0.08),
           0 1px 2px rgba(31, 23, 57, 0.1);
       }
 
       .cpk-playground-composer:focus-within {
         border-color: #aaa4d4;
-        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+        box-shadow:
+          0 10px 26px rgba(86, 53, 155, 0.13),
           0 0 0 3px rgba(190, 194, 255, 0.3);
       }
 
@@ -8414,14 +8416,16 @@ export class WebInspectorElement extends LitElement {
       .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
         border-color: #464957;
         background: #15171e !important;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+        box-shadow:
+          0 8px 22px rgba(0, 0, 0, 0.26),
           0 1px 2px rgba(0, 0, 0, 0.36);
       }
 
       .inspector-window[data-color-scheme="dark"]
         .cpk-playground-composer:focus-within {
         border-color: #777aae;
-        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+        box-shadow:
+          0 10px 26px rgba(0, 0, 0, 0.34),
           0 0 0 3px rgba(102, 106, 158, 0.3);
       }
 
@@ -8437,8 +8441,8 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-playground-message-enter {
-        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-          both;
+        animation: cpk-playground-message-enter 0.24s
+          cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
       .cpk-playground-thinking-dot {
@@ -8457,8 +8461,7 @@ export class WebInspectorElement extends LitElement {
         display: none;
       }
 
-      .cpk-playground-reasoning[open]
-        .cpk-playground-reasoning-chevron {
+      .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
         transform: rotate(90deg);
       }
 
@@ -8485,15 +8488,280 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      .cpk-agent-view {
+      .cpk-page-view {
         container-type: inline-size;
         display: flex;
         min-height: 0;
         height: 100%;
         flex-direction: column;
+        background: #fbfbfd;
+        color: #24242b;
+      }
+
+      .cpk-page-header {
+        display: flex;
+        min-height: 62px;
+        flex: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        border-bottom: 1px solid #e1e1e9;
+        background: #f7f6fd;
+        padding: 10px 18px;
+      }
+
+      .cpk-page-heading {
+        min-width: 0;
+      }
+
+      .cpk-page-heading h2,
+      .cpk-page-heading p {
+        margin: 0;
+      }
+
+      .cpk-page-heading h2 {
+        overflow: hidden;
+        color: #292731;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-page-heading p {
+        max-width: 65ch;
+        margin-top: 3px;
+        color: #68686e;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      .cpk-page-actions {
+        display: flex;
+        flex: none;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .cpk-page-button {
+        display: inline-flex;
+        min-height: 30px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid #d5d3e4;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 5px 10px;
+        color: #3f2875;
+        font: inherit;
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1.2;
+        cursor: pointer;
+      }
+
+      .cpk-page-button:hover {
+        border-color: #bdb5d7;
+        background: #f4f1fb;
+      }
+
+      .cpk-page-button:focus-visible {
+        outline: 2px solid #6430ab;
+        outline-offset: 2px;
+      }
+
+      .cpk-page-button--primary {
+        border-color: #56359b;
+        background: #56359b;
+        color: #ffffff;
+      }
+
+      .cpk-page-button--primary:hover {
+        border-color: #45277f;
+        background: #45277f;
+      }
+
+      .cpk-page-select {
+        min-height: 30px;
+        min-width: 0;
+        border: 1px solid #d5d3e4;
+        border-radius: 6px;
+        background: #ffffff;
+        padding: 5px 28px 5px 9px;
+        color: #3c3c44;
+        font: inherit;
+        font-size: 11px;
+        outline: none;
+      }
+
+      .cpk-page-select:hover {
+        border-color: #bdb5d7;
+      }
+
+      .cpk-page-select:focus-visible {
+        border-color: #6430ab;
+        box-shadow: 0 0 0 2px rgba(100, 48, 171, 0.16);
+      }
+
+      .cpk-page-content {
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
+        padding: 16px 18px 20px;
+      }
+
+      .cpk-page-empty {
+        display: flex;
+        width: min(100%, 430px);
+        min-height: 100%;
+        margin: auto;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 28px;
+        text-align: left;
+      }
+
+      .cpk-page-empty__icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 1px solid #d8d1ef;
+        border-radius: 8px;
+        background: #eeebf8;
+        color: #56359b;
+      }
+
+      .cpk-page-empty__icon svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .cpk-page-empty h3 {
+        margin: 14px 0 0;
+        color: #292731;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .cpk-page-empty p {
+        max-width: 54ch;
+        margin: 6px 0 0;
+        color: #68686e;
+        font-size: 11px;
+        line-height: 1.55;
+      }
+
+      .cpk-page-empty__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 16px;
+      }
+
+      .cpk-context-summary {
+        color: #77777d;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      .cpk-context-list {
+        display: grid;
+        width: min(100%, 900px);
+        gap: 8px;
+        margin: 0 auto;
+      }
+
+      .cpk-context-card {
+        overflow: hidden;
+        border: 1px solid #e1e1e9;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .cpk-context-card__trigger {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        padding: 12px 14px;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .cpk-context-card__trigger:hover {
+        background: #f8f7fb;
+      }
+
+      .cpk-context-card__trigger:focus-visible {
+        outline: 2px solid #6430ab;
+        outline-offset: -2px;
+      }
+
+      .cpk-context-card__title {
+        margin: 0;
+        color: #292731;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.35;
+      }
+
+      .cpk-context-card__meta {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 7px;
+        margin-top: 4px;
+        color: #77777d;
+        font-size: 10px;
+      }
+
+      .cpk-context-card__meta code {
+        overflow: hidden;
+        max-width: 220px;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-context-card__detail {
+        border-top: 1px solid #e8e8ef;
+        background: #f7f6fd;
+        padding: 12px 14px;
+      }
+
+      .cpk-context-card__id-row {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .cpk-context-card__id-row code {
+        overflow: hidden;
+        color: #3c3c44;
+        font-family: "Spline Sans Mono", ui-monospace, monospace;
+        font-size: 10px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .cpk-agent-view {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+        flex-direction: column;
         gap: 14px;
         overflow: auto;
-        background: #fbfbfd;
         padding: 16px 18px 20px;
       }
 
@@ -8600,7 +8868,7 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-agent-workspace {
         display: grid;
-        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        grid-template-columns: minmax(0, 1.35fr) minmax(230px, 0.65fr);
         gap: 12px;
       }
 
@@ -8633,7 +8901,80 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-agent-panel__body--messages {
-        padding: 0;
+        padding: 14px;
+      }
+
+      .cpk-agent-conversation {
+        display: grid;
+        gap: 10px;
+      }
+
+      .cpk-agent-message {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+      }
+
+      .cpk-agent-message--user {
+        justify-content: flex-end;
+      }
+
+      .cpk-agent-message__identity {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        flex: none;
+        place-items: center;
+        border: 1px solid #d8d1ef;
+        border-radius: 7px;
+        background: #eeebf8;
+        color: #56359b;
+      }
+
+      .cpk-agent-message__identity svg {
+        width: 13px;
+        height: 13px;
+      }
+
+      .cpk-agent-message__bubble {
+        max-width: min(78%, 580px);
+        border: 1px solid #e1e1e9;
+        border-radius: 12px 12px 12px 4px;
+        background: #ffffff;
+        padding: 9px 11px;
+        color: #3c3c44;
+        font-size: 11px;
+        line-height: 1.55;
+        white-space: normal;
+        word-break: break-word;
+      }
+
+      .cpk-agent-message--user .cpk-agent-message__bubble {
+        border-color: #56359b;
+        border-radius: 12px 12px 4px 12px;
+        background: #56359b;
+        color: #ffffff;
+      }
+
+      .cpk-agent-message--tool .cpk-agent-message__bubble,
+      .cpk-agent-message--system .cpk-agent-message__bubble {
+        border-color: #dedbea;
+        background: #f7f6fd;
+        color: #57575b;
+      }
+
+      .cpk-agent-message__role {
+        display: block;
+        margin-bottom: 3px;
+        color: #77777d;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .cpk-agent-message--user .cpk-agent-message__role {
+        color: #e6ddff;
       }
 
       .cpk-agent-panel__body--tools {
@@ -8659,8 +9000,81 @@ export class WebInspectorElement extends LitElement {
         flex: none;
       }
 
-      .inspector-window[data-color-scheme="dark"] .cpk-agent-view {
+      .inspector-window[data-color-scheme="dark"] .cpk-page-view {
         background: #111319 !important;
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-header {
+        border-color: #343742;
+        background: #15171e;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-heading h2,
+      .inspector-window[data-color-scheme="dark"] .cpk-page-empty h3 {
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-heading p,
+      .inspector-window[data-color-scheme="dark"] .cpk-page-empty p {
+        color: #aeb1bd;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-button {
+        border-color: #464957;
+        background: #20232d;
+        color: #d8d9ff;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-select {
+        border-color: #464957;
+        background: #20232d;
+        color: #e3e5ec;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-button:hover {
+        border-color: #666a9e;
+        background: #292b43;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-button--primary {
+        border-color: #7252ad;
+        background: #7252ad;
+        color: #ffffff;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-page-empty__icon,
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-message__identity {
+        border-color: #666a9e;
+        background: #292b43;
+        color: #d8d9ff;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-context-summary,
+      .inspector-window[data-color-scheme="dark"] .cpk-context-card__meta {
+        color: #aeb1bd;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-context-card {
+        border-color: #343742;
+        background: #191c24;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-context-card__trigger:hover,
+      .inspector-window[data-color-scheme="dark"] .cpk-context-card__detail {
+        background: #20232d;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-context-card__detail {
+        border-color: #343742;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-context-card__title,
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-context-card__id-row
+        code {
+        color: #f3f4f8;
       }
 
       .inspector-window[data-color-scheme="dark"] .cpk-agent-summary {
@@ -8694,7 +9108,8 @@ export class WebInspectorElement extends LitElement {
         border-color: #343742;
       }
 
-      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric--action:hover {
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-metric--action:hover {
         background: #20232d;
       }
 
@@ -8707,8 +9122,35 @@ export class WebInspectorElement extends LitElement {
         color: #f3f4f8;
       }
 
-      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric:nth-child(3),
-      .inspector-window[data-color-scheme="dark"] .cpk-agent-metric:nth-child(4) {
+      .inspector-window[data-color-scheme="dark"] .cpk-agent-message__bubble {
+        border-color: #3a3d49;
+        background: #20232d;
+        color: #e3e5ec;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-message--user
+        .cpk-agent-message__bubble {
+        border-color: #7252ad;
+        background: #7252ad;
+        color: #ffffff;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-message--tool
+        .cpk-agent-message__bubble,
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-message--system
+        .cpk-agent-message__bubble {
+        border-color: #3a3d49;
+        background: #191c24;
+        color: #c9ccd6;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-metric:nth-child(3),
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-agent-metric:nth-child(4) {
         border-color: #343742;
       }
 
@@ -8725,13 +9167,13 @@ export class WebInspectorElement extends LitElement {
       .cpk-events-view__header {
         display: flex;
         flex: none;
-        min-height: 54px;
+        min-height: 62px;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
         border-bottom: 1px solid #e1e1e9;
         background: #f7f6fd;
-        padding: 8px 14px;
+        padding: 10px 18px;
       }
 
       .cpk-events-view__heading h2,
@@ -8741,7 +9183,7 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-events-view__heading h2 {
         color: #292731;
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 700;
         letter-spacing: -0.01em;
       }
@@ -14868,64 +15310,53 @@ export class WebInspectorElement extends LitElement {
 
     return html`
       <div
-        class="cpk-playground-root flex h-full min-h-[420px] flex-col bg-white"
+        class="cpk-playground-root cpk-page-view flex h-full min-h-[420px] flex-col"
       >
-        <header
-          class="cpk-playground-header flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2"
-        >
-          <div class="min-w-0 flex-1">
+        <header class="cpk-playground-header cpk-page-header flex-wrap">
+          <div class="cpk-page-heading min-w-0 flex-1">
             <div class="flex items-center gap-1.5">
-              <h2 class="text-xs font-semibold text-gray-900">Playground</h2>
+              <h2>Playground</h2>
               <span
                 class="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-medium text-gray-600"
                 >${runtimeMode.toUpperCase()}</span
               >
             </div>
-            <div
-              class="mt-0.5 flex min-w-0 items-center gap-1.5 text-[9px] text-gray-600"
-            >
-              <span class="truncate">Agent: ${agentId ?? "waiting..."}</span>
-              <span
-                class="h-3 w-px shrink-0 bg-gray-200"
-                aria-hidden="true"
-              ></span>
-              <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
-            </div>
+            <p class="truncate" title=${runtimeLabel}>
+              ${agentId ?? "Waiting for an agent"} · ${runtimeLabel}
+            </p>
           </div>
-          <div
-            class="cpk-playground-actions ml-auto flex min-w-0 items-center gap-2"
-          >
+          <div class="cpk-playground-actions cpk-page-actions ml-auto min-w-0">
             ${
               sourceThreads.length > 0
                 ? html`
-                    <label class="sr-only" for="cpk-playground-thread-source"
-                      >Start from a thread</label
-                    >
-                    <select
-                      id="cpk-playground-thread-source"
-                      class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      .value=${this.playgroundSourceThreadId ?? ""}
-                      ?disabled=${busy}
-                      @change=${this.handlePlaygroundThreadSourceChange}
-                    >
-                      <option value="">Load a thread...</option>
-                      ${sourceThreads.map(
-                        (thread) => html`
-                          <option value=${thread.id}>
-                            ${
-                              thread.name?.trim() ||
-                              `Thread ${thread.id.slice(0, 8)}`
-                            }
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  `
+                  <label class="sr-only" for="cpk-playground-thread-source"
+                    >Start from a thread</label
+                  >
+                  <select
+                    id="cpk-playground-thread-source"
+                    class="cpk-playground-thread-select cpk-page-select max-w-[220px] disabled:cursor-not-allowed disabled:opacity-50"
+                    .value=${this.playgroundSourceThreadId ?? ""}
+                    ?disabled=${busy}
+                    @change=${this.handlePlaygroundThreadSourceChange}
+                  >
+                    <option value="">Load a thread...</option>
+                    ${sourceThreads.map(
+                      (thread) => html`
+                        <option value=${thread.id}>
+                          ${
+                            thread.name?.trim() ||
+                            `Thread ${thread.id.slice(0, 8)}`
+                          }
+                        </option>
+                      `,
+                    )}
+                  </select>
+                `
                 : nothing
             }
             <button
               type="button"
-              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-3.5 [&>svg]:w-3.5"
+              class="cpk-page-button shrink-0 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-3.5 [&>svg]:w-3.5"
               ?disabled=${busy || !agentId}
               @click=${() => this.startPlaygroundSession(true)}
             >
@@ -14937,18 +15368,17 @@ export class WebInspectorElement extends LitElement {
         ${
           this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
             ? html`
-                <div
-                  role="alert"
-                  class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
-                  data-playground-ephemeral-notice
+              <div
+                role="alert"
+                class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
+                data-playground-ephemeral-notice
+              >
+                <span class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                  >${this.renderIcon("Clock3")}</span
                 >
-                  <span
-                    class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                    >${this.renderIcon("Clock3")}</span
-                  >
-                  <p class="min-w-0 flex-1 leading-relaxed">
-                    Scratch threads are ephemeral and will be deleted when your
-                    local session ends. Need durable history?
+                <p class="min-w-0 flex-1 leading-relaxed">
+                  Scratch threads are ephemeral and will be deleted when your
+                  local session ends. Need durable history?
                     <a
                       class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
                       href=${this.getThreadsIntelligenceSignupUrl()}
@@ -14965,11 +15395,11 @@ export class WebInspectorElement extends LitElement {
                       this.playgroundShowEphemeralNotice = false;
                       this.requestUpdate();
                     }}
-                  >
-                    ${this.renderIcon("X")}
-                  </button>
-                </div>
-              `
+                >
+                  ${this.renderIcon("X")}
+                </button>
+              </div>
+            `
             : nothing
         }
 
@@ -14980,10 +15410,10 @@ export class WebInspectorElement extends LitElement {
           ${
             this.playgroundIsLoadingThread
               ? html`
-                  <div
-                    class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
-                  >
-                    <span
+                <div
+                  class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                >
+                  <span
                       class="text-gray-500 [&>svg]:animate-spin"
                       aria-hidden="true"
                       >${this.renderIcon("LoaderCircle")}</span
@@ -17394,49 +17824,65 @@ export class WebInspectorElement extends LitElement {
     this.ensureThreadEventSnippetsLoaded();
 
     return html`
-      <div class="cpk-events-view">
-        <header class="cpk-events-view__header">
-          <div class="cpk-events-view__heading">
+      <div class="cpk-events-view cpk-page-view">
+        <header class="cpk-events-view__header cpk-page-header">
+          <div class="cpk-events-view__heading cpk-page-heading">
             <h2>Events</h2>
-            <p>Inspect live activity or review a saved event sequence.</p>
+            <p>
+              Follow the live AG-UI stream or reopen an exact saved sequence.
+            </p>
           </div>
-          <div class="cpk-events-view__tabs" role="tablist" aria-label="Events view">
+          <div
+            class="cpk-events-view__tabs"
+            role="tablist"
+            aria-label="Events view"
+          >
             <button
               type="button"
               role="tab"
               aria-selected=${this.eventsViewMode === "live" ? "true" : "false"}
               class=${this.eventsViewMode === "live" ? "is-active" : ""}
               @click=${() => this.setEventsViewMode("live")}
-            >Live</button>
+            >
+              Live
+            </button>
             <button
               type="button"
               role="tab"
-              aria-selected=${this.eventsViewMode === "saved" ? "true" : "false"}
+              aria-selected=${
+                this.eventsViewMode === "saved" ? "true" : "false"
+              }
               class=${this.eventsViewMode === "saved" ? "is-active" : ""}
               @click=${() => this.setEventsViewMode("saved")}
-            >Saved <span>${this.threadEventSnippets.length}</span></button>
+            >
+              Saved <span>${this.threadEventSnippets.length}</span>
+            </button>
           </div>
         </header>
 
         ${
           this.snippetNotice
-            ? html`<p class="cpk-events-view__notice" role="status">${this.snippetNotice}</p>`
+            ? html`<p class="cpk-events-view__notice" role="status">
+              ${this.snippetNotice}
+            </p>`
             : nothing
         }
         ${
           this.snippetError
-            ? html`<p class="cpk-events-view__error" role="alert">${this.snippetError}</p>`
+            ? html`<p class="cpk-events-view__error" role="alert">
+              ${this.snippetError}
+            </p>`
             : nothing
         }
         <main class="cpk-events-view__content">
           ${
             this.eventsViewMode === "live"
               ? html`
-                  ${this.renderEventErrorBanner("run")}
-                  <div class="min-h-0 flex-1 overflow-hidden">
-                    ${this.renderEventsTable()}
-                  </div>
-                `
+                ${this.renderEventErrorBanner("run")}
+                <div class="min-h-0 flex-1 overflow-hidden">
+                  ${this.renderEventsTable()}
+                </div>
+              `
               : this.renderSavedEventReplays()
           }
         </main>
@@ -17462,14 +17908,31 @@ export class WebInspectorElement extends LitElement {
 
     if (!selectedReplay) {
       return html`
-        <div class="cpk-events-empty-state">
-          <span class="cpk-events-empty-state__icon">${this.renderIcon("Bookmark")}</span>
-          <strong>No saved replays</strong>
+        <div class="cpk-page-empty">
+          <span class="cpk-page-empty__icon"
+            >${this.renderIcon("Bookmark")}</span
+          >
+          <h3>No saved sequences</h3>
           <p>
-            Open a thread, choose its AG-UI Events tab, then save the event
-            sequence.
-            Saved replays stay in this browser.
+            Open a thread, switch to AG-UI Events, and save the sequence you
+            want to reproduce. Saved sequences stay in this browser.
           </p>
+          <div class="cpk-page-empty__actions">
+            <button
+              type="button"
+              class="cpk-page-button cpk-page-button--primary"
+              @click=${() => this.handleMenuSelect("threads")}
+            >
+              Browse threads
+            </button>
+            <button
+              type="button"
+              class="cpk-page-button"
+              @click=${() => this.setEventsViewMode("live")}
+            >
+              View live events
+            </button>
+          </div>
         </div>
       `;
     }
@@ -17496,13 +17959,18 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-event-replay__export"
             @click=${this.exportThreadEventSnippetLibrary}
-          >Export saved events</button>
+          >
+            Export saved events
+          </button>
           <button
             type="button"
             class="cpk-event-replay__delete"
             aria-label=${`Delete ${selectedReplay.name}`}
-            @click=${() => this.deleteThreadEventSnippetFromLibrary(selectedReplay.id)}
-          >Delete</button>
+            @click=${() =>
+              this.deleteThreadEventSnippetFromLibrary(selectedReplay.id)}
+          >
+            Delete
+          </button>
         </header>
         <div class="cpk-event-replay__summary">
           <div>
@@ -17651,16 +18119,29 @@ export class WebInspectorElement extends LitElement {
     let body;
     if (events.length === 0) {
       body = html`
-        <div
-          class="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center"
-        >
-          <div class="text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
-            ${this.renderIcon("Zap")}
+        <div class="cpk-page-empty">
+          <span class="cpk-page-empty__icon">${this.renderIcon("Zap")}</span>
+          <h3>Waiting for a run</h3>
+          <p>
+            Start an agent in Playground. Every AG-UI event will appear here as
+            it arrives, with the full payload available for inspection.
+          </p>
+          <div class="cpk-page-empty__actions">
+            <button
+              type="button"
+              class="cpk-page-button cpk-page-button--primary"
+              @click=${() => this.handleMenuSelect("playground")}
+            >
+              Open Playground
+            </button>
+            <button
+              type="button"
+              class="cpk-page-button"
+              @click=${() => this.setEventsViewMode("saved")}
+            >
+              View saved sequences
+            </button>
           </div>
-          <span class="text-sm text-gray-600">No events yet</span>
-          <span class="max-w-[240px] text-xs leading-snug text-gray-400"
-            >Events are recorded live. Run the agent to see them here.</span
-          >
         </div>
       `;
     } else if (filteredEvents.length === 0) {
@@ -17930,24 +18411,37 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderAgentsView() {
-    // Show message if "all-agents" is selected or no agents available
     if (this.selectedContext === "all-agents") {
       return html`
-        ${this.renderEventErrorBanner("tool")}
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Bot")}
+        <div class="cpk-page-view">
+          <header class="cpk-page-header">
+            <div class="cpk-page-heading">
+              <h2>Agent</h2>
+              <p>Inspect the active run, conversation, state, and tools.</p>
             </div>
-            <p class="text-sm text-gray-600">No agent selected</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Select an agent from the dropdown above to view details.
-            </p>
-          </div>
+          </header>
+          ${this.renderEventErrorBanner("tool")}
+          <main class="cpk-page-content">
+            <div class="cpk-page-empty">
+              <span class="cpk-page-empty__icon"
+                >${this.renderIcon("Bot")}</span
+              >
+              <h3>Choose an agent to inspect</h3>
+              <p>
+                Select an agent from the sidebar scope control, or start a run
+                in Playground to see its conversation and current state here.
+              </p>
+              <div class="cpk-page-empty__actions">
+                <button
+                  type="button"
+                  class="cpk-page-button cpk-page-button--primary"
+                  @click=${() => this.handleMenuSelect("playground")}
+                >
+                  Open Playground
+                </button>
+              </div>
+            </div>
+          </main>
         </div>
       `;
     }
@@ -17966,18 +18460,17 @@ export class WebInspectorElement extends LitElement {
     };
 
     return html`
-      <div class="cpk-agent-view">
-        ${this.renderEventErrorBanner("tool")}
-        <section class="cpk-agent-summary" aria-label="Agent summary">
-          <div class="cpk-agent-summary__identity-row">
-            <div class="flex items-center gap-3">
-              <div
-                class="cpk-agent-icon flex h-9 w-9 items-center justify-center"
-              >
-                ${this.renderIcon("Bot")}
-              </div>
-              <div>
-                <h3 class="cpk-agent-summary__title">${agentId}</h3>
+      <div class="cpk-page-view">
+        <header class="cpk-page-header">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <div
+              class="cpk-agent-icon flex h-9 w-9 items-center justify-center"
+            >
+              ${this.renderIcon("Bot")}
+            </div>
+            <div class="cpk-page-heading">
+              <div class="flex min-w-0 items-center gap-2">
+                <h2>${agentId}</h2>
                 <span
                   class="cpk-agent-status inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
                     statusColors[status]
@@ -17995,30 +18488,41 @@ export class WebInspectorElement extends LitElement {
                   ${status.charAt(0).toUpperCase() + status.slice(1)}
                 </span>
               </div>
-            </div>
-            <div class="cpk-agent-summary__aux">
-              <span
-                >${
-                  tools.length === 1
-                    ? "1 tool registered"
-                    : `${tools.length} tools registered`
-                }</span
-              >
-              ${
-                stats.lastActivity
-                  ? html`<span
-                    >Last activity:
-                    ${new Date(stats.lastActivity).toLocaleTimeString()}</span
-                  >`
-                  : nothing
-              }
+              <p>
+                ${tools.length === 1 ? "1 tool" : `${tools.length} tools`}
+                ${
+                  stats.lastActivity
+                    ? ` · Last activity ${new Date(stats.lastActivity).toLocaleTimeString()}`
+                    : " · No run activity yet"
+                }
+              </p>
             </div>
           </div>
-          <div class="cpk-agent-metrics">
+          <div class="cpk-page-actions">
             <button
               type="button"
-              class="cpk-agent-metric cpk-agent-metric--action"
+              class="cpk-page-button"
               @click=${() => this.handleMenuSelect("ag-ui-events")}
+            >
+              View events
+            </button>
+            <button
+              type="button"
+              class="cpk-page-button cpk-page-button--primary"
+              @click=${() => this.handleMenuSelect("playground")}
+            >
+              Open Playground
+            </button>
+          </div>
+        </header>
+        ${this.renderEventErrorBanner("tool")}
+        <main class="cpk-agent-view">
+          <section class="cpk-agent-summary" aria-label="Run summary">
+            <div class="cpk-agent-metrics">
+              <button
+                type="button"
+                class="cpk-agent-metric cpk-agent-metric--action"
+                @click=${() => this.handleMenuSelect("ag-ui-events")}
               title="View all events in AG-UI Events"
             >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
@@ -18053,138 +18557,125 @@ export class WebInspectorElement extends LitElement {
               </div>
             </div>
           </div>
-        </section>
-
-        <div class="cpk-agent-workspace">
-          <section class="cpk-agent-panel">
-            <div class="cpk-agent-panel__header">
-            <h4>Current State</h4>
-            </div>
-            <div class="cpk-agent-panel__body overflow-auto">
-            ${
-              this.hasRenderableState(state)
-                ? renderHighlightedJsonBlock(state, { maxHeight: "16rem" })
-                : html`
-                  <div class="cpk-agent-empty-state">
-                    <div class="flex items-center gap-2 text-gray-500">
-                      <span class="text-lg text-gray-400"
-                        >${this.renderIcon("Database")}</span
-                      >
-                      <span>State is empty</span>
-                    </div>
-                  </div>
-                `
-            }
-            </div>
           </section>
 
-          <section class="cpk-agent-panel">
-            <div class="cpk-agent-panel__header">
-            <h4>Current Messages</h4>
-            </div>
-            <div class="cpk-agent-panel__body cpk-agent-panel__body--messages overflow-auto">
-            ${
-              messages && messages.length > 0
-                ? html`
-                  <div class="w-full text-xs">
-                    <div class="cpk-agent-messages-head flex bg-gray-50">
-                      <div
-                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
-                      >
-                        Role
+          <div class="cpk-agent-workspace">
+            <section class="cpk-agent-panel">
+              <div class="cpk-agent-panel__header">
+                <h4>Conversation</h4>
+              </div>
+              <div
+                class="cpk-agent-panel__body cpk-agent-panel__body--messages overflow-auto"
+              >
+                ${
+                  messages && messages.length > 0
+                    ? html`
+                      <div class="cpk-agent-conversation">
+                        ${messages.map((msg) => {
+                          const role = msg.role || "unknown";
+                          const rawContent = msg.contentText ?? "";
+                          const toolCalls = msg.toolCalls ?? [];
+                          const hasContent = rawContent.trim().length > 0;
+                          const contentFallback =
+                            toolCalls.length > 0
+                              ? "Invoked a tool"
+                              : role === "tool"
+                                ? "Tool completed without a text result"
+                                : "No text content";
+                          const toolError = this.eventErrorDetails.tool;
+                          const isFailedResult =
+                            role === "tool" &&
+                            toolError?.toolCallId !== undefined &&
+                            toolError.toolCallId === msg.toolCallId;
+                          const visibleRole =
+                            role === "assistant"
+                              ? "Agent"
+                              : role === "user"
+                                ? "You"
+                                : role;
+
+                          return html`
+                            <div
+                              class="cpk-agent-message cpk-agent-message--${role}"
+                              data-cpk-failed-tool-result=${
+                                isFailedResult ? msg.toolCallId : nothing
+                              }
+                            >
+                              ${
+                                role === "user"
+                                  ? nothing
+                                  : html`<span
+                                    class="cpk-agent-message__identity"
+                                  >
+                                    ${this.renderIcon(
+                                      role === "assistant"
+                                        ? "Bot"
+                                        : role === "tool"
+                                          ? "Hammer"
+                                          : "FileText",
+                                    )}
+                                  </span>`
+                              }
+                              <div class="cpk-agent-message__bubble">
+                                <span class="cpk-agent-message__role"
+                                  >${visibleRole}</span
+                                >
+                                <span
+                                  class="cpk-agent-message__content whitespace-pre-wrap"
+                                  >${
+                                    hasContent ? rawContent : contentFallback
+                                  }</span
+                                >
+                                ${
+                                  role === "assistant" && toolCalls.length > 0
+                                    ? this.renderToolCallDetails(toolCalls)
+                                    : nothing
+                                }
+                              </div>
+                            </div>
+                          `;
+                        })}
                       </div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
-                        Content
-                      </div>
-                    </div>
-                    <div class="cpk-agent-messages-rows">
-                      ${messages.map((msg) => {
-                        const role = msg.role || "unknown";
-                        const roleColors: Record<string, string> = {
-                          user: "bg-blue-100 text-blue-800",
-                          assistant: "bg-green-100 text-green-800",
-                          system: "bg-gray-100 text-gray-800",
-                          tool: "bg-amber-100 text-amber-800",
-                          unknown: "bg-gray-100 text-gray-600",
-                        };
-
-                        const rawContent = msg.contentText ?? "";
-                        const toolCalls = msg.toolCalls ?? [];
-                        const hasContent = rawContent.trim().length > 0;
-                        const contentFallback =
-                          toolCalls.length > 0 ? "Invoked tool call" : "—";
-
-                        const toolError = this.eventErrorDetails.tool;
-                        const isFailedResult =
-                          role === "tool" &&
-                          toolError?.toolCallId !== undefined &&
-                          toolError.toolCallId === msg.toolCallId;
-
-                        return html`
-                          <div
-                            class=${
-                              isFailedResult
-                                ? "cpk-agent-message-row flex items-start bg-rose-50"
-                                : "cpk-agent-message-row flex items-start"
-                            }
-                            data-cpk-failed-tool-result=${
-                              isFailedResult ? msg.toolCallId : nothing
-                            }
+                    `
+                    : html`
+                      <div class="cpk-agent-empty-state">
+                        <div class="flex items-center gap-2 text-gray-500">
+                          <span class="text-lg text-gray-400"
+                              >${this.renderIcon("MessageSquare")}</span
                           >
-                            <div class="w-40 shrink-0 px-4 py-2">
-                              <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
-                                  roleColors[role] || roleColors.unknown
-                                }"
-                              >
-                                ${role}
-                              </span>
-                            </div>
-                            <div class="flex-1 px-4 py-2">
-                              ${
-                                hasContent
-                                  ? html`<div
-                                    class="whitespace-pre-wrap break-words text-gray-700"
-                                  >${rawContent}</div>`
-                                  : html`<div class="italic text-gray-400">
-                                    ${contentFallback}
-                                  </div>`
-                              }
-                              ${
-                                role === "assistant" && toolCalls.length > 0
-                                  ? this.renderToolCallDetails(toolCalls)
-                                  : nothing
-                              }
-                            </div>
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  </div>
-                `
-                : html`
-                  <div class="cpk-agent-empty-state">
-                    <div class="flex items-center gap-2 text-gray-500">
-                      <span class="text-lg text-gray-400"
-                        >${this.renderIcon("MessageSquare")}</span
-                      >
-                      <span>No messages available</span>
-                    </div>
-                  </div>
-                `
-            }
-            </div>
-          </section>
-        </div>
+                          <span>No conversation yet</span>
+                        </div>
+                      </div>
+                    `
+                }
+              </div>
+            </section>
 
-        ${this.renderAgentToolsSection(tools)}
-
-        <section class="cpk-agent-panel cpk-agent-events-panel overflow-hidden">
-          <div class="cpk-agent-panel__header">
-            <h4>AG-UI Events</h4>
+            <section class="cpk-agent-panel">
+              <div class="cpk-agent-panel__header">
+                <h4>Current state</h4>
+              </div>
+              <div class="cpk-agent-panel__body overflow-auto">
+                ${
+                  this.hasRenderableState(state)
+                    ? renderHighlightedJsonBlock(state, { maxHeight: "20rem" })
+                    : html`
+                      <div class="cpk-agent-empty-state">
+                        <div class="flex items-center gap-2 text-gray-500">
+                          <span class="text-lg text-gray-400"
+                            >${this.renderIcon("Database")}</span
+                          >
+                          <span>No state has been reported</span>
+                        </div>
+                      </div>
+                    `
+                }
+              </div>
+            </section>
           </div>
-          ${this.renderEventsTable({ embedded: true })}
-        </section>
+
+          ${this.renderAgentToolsSection(tools)}
+        </main>
       </div>
     `;
   }
@@ -18447,6 +18938,10 @@ export class WebInspectorElement extends LitElement {
 
     if (key === "playground" && !this.playgroundAgent) {
       this.startPlaygroundSession(false);
+    }
+
+    if (key === "agents") {
+      this.focusAgentForView();
     }
 
     if (key === "memories") {
@@ -19264,35 +19759,52 @@ export class WebInspectorElement extends LitElement {
   private renderContextView() {
     const contextEntries = Object.entries(this.contextStore);
 
-    if (contextEntries.length === 0) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("FileText")}
-            </div>
-            <p class="text-sm text-gray-600">No context available</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Context will appear here once added to CopilotKit.
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
     return html`
-      <div class="flex h-full flex-col overflow-hidden">
-        <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            ${contextEntries.map(([id, context]) =>
-              this.renderContextCard(id, context),
-            )}
+      <div class="cpk-page-view">
+        <header class="cpk-page-header">
+          <div class="cpk-page-heading">
+            <h2>Context</h2>
+            <p>Inspect the application data available to the selected agent.</p>
           </div>
-        </div>
+          <span class="cpk-context-summary">
+            ${contextEntries.length}
+            ${contextEntries.length === 1 ? "item" : "items"}
+          </span>
+        </header>
+        <main class="cpk-page-content">
+          ${
+            contextEntries.length === 0
+              ? html`
+                <div class="cpk-page-empty">
+                  <span class="cpk-page-empty__icon"
+                    >${this.renderIcon("FileText")}</span
+                  >
+                  <h3>No context has been provided</h3>
+                  <p>
+                    Context added by the application will appear here with its
+                    identifier and current value. Start a run to inspect the
+                    data the agent can actually use.
+                  </p>
+                  <div class="cpk-page-empty__actions">
+                    <button
+                      type="button"
+                      class="cpk-page-button cpk-page-button--primary"
+                      @click=${() => this.handleMenuSelect("playground")}
+                    >
+                      Open Playground
+                    </button>
+                  </div>
+                </div>
+              `
+              : html`
+                <div class="cpk-context-list">
+                  ${contextEntries.map(([id, context]) =>
+                    this.renderContextCard(id, context),
+                  )}
+                </div>
+              `
+          }
+        </main>
       </div>
     `;
   }
@@ -19307,25 +19819,22 @@ export class WebInspectorElement extends LitElement {
     const title = context.description?.trim() || id;
 
     return html`
-      <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <article class="cpk-context-card">
         <button
           type="button"
-          class="w-full px-4 py-3 text-left transition hover:bg-gray-50"
+          class="cpk-context-card__trigger"
+          aria-expanded=${isExpanded ? "true" : "false"}
           @click=${() => this.toggleContextExpansion(id)}
         >
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 mb-1">${title}</p>
-              <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span
-                  class="font-mono truncate inline-block align-middle"
-                  style="max-width: 180px;"
-                  >${id}</span
-                >
+              <h3 class="cpk-context-card__title">${title}</h3>
+              <div class="cpk-context-card__meta">
+                <code>${id}</code>
                 ${
                   hasValue
                     ? html`
-                      <span class="text-gray-300">•</span>
+                      <span aria-hidden="true">·</span>
                       <span class="truncate">${valuePreview}</span>
                     `
                     : nothing
@@ -19345,33 +19854,31 @@ export class WebInspectorElement extends LitElement {
         ${
           isExpanded
             ? html`
-              <div class="border-t border-gray-200 px-4 py-3">
-                <div class="mb-3">
-                  <div class="mb-1 flex items-center justify-between gap-2">
-                    <h5 class="text-xs font-semibold text-gray-700">ID</h5>
-                    <button
-                      type="button"
-                      class="cpk-copy-btn"
-                      @click=${(e: Event) => {
-                        e.stopPropagation();
-                        void this.copyContextValue(id, `${id}:id`, e);
-                      }}
-                    >
-                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-                  <code
-                    class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
-                    >${id}</code
+              <div class="cpk-context-card__detail">
+                <div class="cpk-context-card__id-row">
+                  <code>${id}</code>
+                  <button
+                    type="button"
+                    class="cpk-copy-btn"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      void this.copyContextValue(id, `${id}:id`, e);
+                    }}
                   >
+                    ${
+                      this.copiedContextItems.has(`${id}:id`)
+                        ? "Copied"
+                        : "Copy ID"
+                    }
+                  </button>
                 </div>
                 ${
                   hasValue
                     ? html`
                       <div class="mb-2 flex items-center justify-between gap-2">
-                        <h5 class="text-xs font-semibold text-gray-700">
+                        <h4 class="m-0 text-xs font-semibold text-gray-700">
                           Value
-                        </h5>
+                        </h4>
                         <button
                           type="button"
                           class="cpk-copy-btn"
@@ -19401,7 +19908,7 @@ export class WebInspectorElement extends LitElement {
             `
             : nothing
         }
-      </div>
+      </article>
     `;
   }
 
@@ -19453,7 +19960,9 @@ export class WebInspectorElement extends LitElement {
         <div class="cpk-agent-panel__header">
           <h4>Registered Tools</h4>
         </div>
-        <div class="cpk-agent-panel__body cpk-agent-panel__body--tools overflow-auto">
+        <div
+          class="cpk-agent-panel__body cpk-agent-panel__body--tools overflow-auto"
+        >
           <div class="space-y-3">
             ${tools.map((tool) => this.renderToolCard(tool))}
           </div>

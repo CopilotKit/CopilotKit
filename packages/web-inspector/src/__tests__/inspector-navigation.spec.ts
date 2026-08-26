@@ -523,7 +523,7 @@ test("Playground creates an isolated local thread and explains ephemeral durabil
     );
     expectCurrentNavigation(root, "workbench", "playground");
     expect(root.querySelector("#cpk-main-scroll")?.textContent).toContain(
-      "Agent: default",
+      "default · http://localhost:4000/api/copilotkit",
     );
     const input = requireElement(
       root.querySelector<HTMLTextAreaElement>(
@@ -1215,8 +1215,8 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
 
 test("persisted leaves restore after Inspector has been opened, and first upgrade open is Home", async () => {
   const validLeaves = [
-    { leaf: "ag-ui-events", group: "inspect", marker: "No events yet" },
-    { leaf: "agents", group: "inspect", marker: "No agent selected" },
+    { leaf: "ag-ui-events", group: "inspect", marker: "Waiting for a run" },
+    { leaf: "agents", group: "inspect", marker: "Choose an agent to inspect" },
     {
       leaf: "frontend-tools",
       group: "inspect",
@@ -1230,7 +1230,7 @@ test("persisted leaves restore after Inspector has been opened, and first upgrad
     {
       leaf: "agent-context",
       group: "inspect",
-      marker: "No context available",
+      marker: "No context has been provided",
     },
     {
       leaf: "playground",

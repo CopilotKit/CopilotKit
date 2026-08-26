@@ -2480,15 +2480,15 @@ small.inspector-system-health-detail {
   }
 
   .inspector-whats-new-header {
-    width: calc(100% - 24px);
+    width: 100%;
     align-items: center;
-    gap: 16px;
-    padding: 24px 22px;
+    gap: 12px;
+    padding: 0 0 16px;
   }
 
   .inspector-whats-new-document,
   .inspector-whats-new-empty {
-    padding: 20px 22px 36px;
+    padding: 20px 0 36px;
   }
 
   .inspector-whats-new-document .announcement-content h1 + p {
@@ -2498,22 +2498,19 @@ small.inspector-system-health-detail {
 
 .inspector-whats-new-header {
   display: flex;
-  width: calc(100% - 44px);
-  max-width: calc(70ch - 44px);
+  width: 100%;
+  max-width: 70ch;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  padding: 30px 32px 28px;
-  border: 1px solid #d8d8e8;
-  border-radius: 5px;
-  background: #f8f7ff;
-  box-shadow: 0 12px 28px rgba(38, 34, 78, 0.06);
+  gap: 18px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid #d8d8e8;
 }
 
 .inspector-whats-new-header .inspector-home-title {
   margin: 0;
-  font-size: clamp(27px, 3.6vw, 36px);
-  letter-spacing: -0.035em;
+  font-size: 24px;
+  letter-spacing: -0.025em;
 }
 
 .inspector-whats-new-updated {
@@ -2535,7 +2532,7 @@ small.inspector-system-health-detail {
 .inspector-whats-new-document,
 .inspector-whats-new-empty {
   max-width: 70ch;
-  padding: 22px 32px 52px;
+  padding: 22px 0 52px;
 }
 
 .inspector-whats-new-document .announcement-content {
@@ -3901,8 +3898,6 @@ small.inspector-system-health-detail {
 
 .inspector-window[data-color-scheme="dark"] .inspector-whats-new-header {
   border-color: #3a3d49;
-  background-color: #1d1e2b;
-  box-shadow: none;
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-whats-new-updated,
