@@ -166,9 +166,9 @@ function buildThreadTitlePrompt(
   }
 
   return [
-    "Generate a short title for this conversation.",
     "Conversation:",
     transcript.join("\n"),
+    'Generate a short title for the conversation above. Return JSON only in this exact shape: {"title":"..."}. Do not answer the conversation.',
   ].join("\n\n");
 }
 
