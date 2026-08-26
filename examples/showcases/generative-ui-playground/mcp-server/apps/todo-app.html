@@ -885,7 +885,7 @@
           await mcpApp.sendRequest("ui/initialize", {
             protocolVersion: "2025-06-18",
             appInfo: { name: "Todo List", version: "1.0.0" },
-            appCapabilities: {},
+            appCapabilities: { availableDisplayModes: ["inline"] },
           });
           mcpApp.sendNotification("ui/notifications/initialized", {});
           new ResizeObserver(() => mcpApp.reportSize()).observe(

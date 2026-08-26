@@ -270,6 +270,49 @@ describe("MCP Apps ui/request-display-mode", () => {
     expect(responseFor(spy, absentId)?.result).toEqual({ mode: "inline" });
   });
 
+  it("returns the CURRENT mode (not inline) when an unavailable mode is requested", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-current";
+    const iframe = await setupMCPActivity(agent, "rdm-current");
+    const spy = spyOnHostMessages(iframe);
+
+    // Enter fullscreen first, then request the unsupported "pip".
+    await sendRequest(iframe, "ui/request-display-mode", { mode: "fullscreen" });
+    const pipId = await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "pip",
+    });
+
+    // Spec: an unavailable request must not switch and returns the current mode.
+    expect(responseFor(spy, pipId)?.result).toEqual({ mode: "fullscreen" });
+  });
+
+  it("does not switch to a mode the View did not declare in appCapabilities", async () => {
+    const agent = new MockMCPProxyAgent();
+    agent.agentId = "rdm-appcaps";
+    const iframe = await setupMCPActivity(agent, "rdm-appcaps");
+    const spy = spyOnHostMessages(iframe);
+
+    // The View declares it only supports inline.
+    await sendRequest(iframe, "ui/initialize", {
+      appCapabilities: { availableDisplayModes: ["inline"] },
+    });
+
+    // Requesting fullscreen must be declined (Host MUST NOT switch to a mode
+    // outside the View's declared availableDisplayModes): returns current mode
+    // and emits no host-context-changed.
+    const fsId = await sendRequest(iframe, "ui/request-display-mode", {
+      mode: "fullscreen",
+    });
+
+    expect(responseFor(spy, fsId)?.result).toEqual({ mode: "inline" });
+    expect(
+      screen.queryByRole("button", { name: "Exit fullscreen" }),
+    ).toBeNull();
+    expect(
+      notificationsFor(spy, "ui/notifications/host-context-changed"),
+    ).toHaveLength(0);
+  });
+
   it("emits host-context-changed for widget-initiated changes (fullscreen then inline)", async () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "rdm-roundtrip";

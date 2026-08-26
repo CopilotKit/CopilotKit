@@ -1725,7 +1725,7 @@
           await mcpApp.sendRequest("ui/initialize", {
             protocolVersion: "2025-06-18",
             appInfo: { name: "Airline Booking", version: "1.0.0" },
-            appCapabilities: {},
+            appCapabilities: { availableDisplayModes: ["inline"] },
           });
 
           mcpApp.sendNotification("ui/notifications/initialized", {});

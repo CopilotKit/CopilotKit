@@ -340,6 +340,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const [displayMode, setDisplayMode] = useState<
       "inline" | "fullscreen" | "pip"
     >("inline");
+    // Latest displayMode for the postMessage handler (its effect deliberately
+    // omits displayMode from deps to avoid rebuilding the iframe on every toggle).
+    const displayModeRef = useRef(displayMode);
+    displayModeRef.current = displayMode;
+    // Display modes the View declared it supports in ui/initialize
+    // (appCapabilities.availableDisplayModes). null = not declared.
+    const appAvailableDisplayModesRef = useRef<string[] | null>(null);
 
     // Use refs for values that shouldn't trigger re-renders but need latest values
     const contentRef = useRef(content);
@@ -650,6 +657,21 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             if (isRequest(msg)) {
               switch (msg.method) {
                 case "ui/initialize": {
+                  // Record the display modes the View declares it supports, so
+                  // request-display-mode never switches to a mode the View can't
+                  // render (ext-apps: "Host MUST NOT switch the View to a display
+                  // mode that does not appear in its appCapabilities.
+                  // availableDisplayModes, if set"). null = not declared.
+                  const declaredModes = (
+                    msg.params as {
+                      appCapabilities?: { availableDisplayModes?: string[] };
+                    }
+                  )?.appCapabilities?.availableDisplayModes;
+                  appAvailableDisplayModesRef.current = Array.isArray(
+                    declaredModes,
+                  )
+                    ? declaredModes
+                    : null;
                   // Respond with host capabilities
                   sendResponse(msg.id, {
                     protocolVersion: PROTOCOL_VERSION,
@@ -771,29 +793,45 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
                 }
 
                 case "ui/request-display-mode": {
-                  // ext-apps: the widget requests a display mode. The host
-                  // supports "inline" and "fullscreen"; "pip" (and any unknown
-                  // value) falls back to "inline". The result reports the mode
-                  // actually applied, which may differ from the requested one.
+                  // ext-apps host behavior:
+                  // - A mode is available only if the host supports it AND, when
+                  //   the View declared appCapabilities.availableDisplayModes, it
+                  //   also appears there (Host MUST NOT switch to a mode outside
+                  //   that list).
+                  // - If the requested mode is not available, the host does NOT
+                  //   switch and returns the CURRENT display mode in the response
+                  //   (not a hardcoded fallback).
+                  // The host supports "inline" and "fullscreen"; "pip" is not
+                  // supported and thus never available here.
                   const requested = (
                     msg.params as {
                       mode?: "inline" | "fullscreen" | "pip";
                     }
                   )?.mode;
-                  const supported = ["inline", "fullscreen"] as const;
-                  const granted =
-                    requested &&
-                    supported.includes(
-                      requested as (typeof supported)[number],
-                    )
-                      ? requested
-                      : "inline";
-                  // Apply AND emit host-context-changed: the app SDK caches
-                  // hostContext only from the notification, not from this
-                  // response, so a widget-driven toggle needs the notification to
-                  // observe the new mode on its next getHostContext().
-                  applyDisplayMode(granted);
-                  sendResponse(msg.id, { mode: granted });
+                  const hostSupported = ["inline", "fullscreen"] as const;
+                  const declaredByApp = appAvailableDisplayModesRef.current;
+                  const isAvailable =
+                    !!requested &&
+                    hostSupported.includes(
+                      requested as (typeof hostSupported)[number],
+                    ) &&
+                    (declaredByApp === null ||
+                      declaredByApp.includes(requested));
+
+                  if (isAvailable) {
+                    // Apply AND emit host-context-changed: the app SDK caches
+                    // hostContext only from the notification, not from this
+                    // response, so a widget-driven toggle needs the notification
+                    // to observe the new mode on its next getHostContext().
+                    applyDisplayMode(
+                      requested as "inline" | "fullscreen" | "pip",
+                    );
+                    sendResponse(msg.id, { mode: requested });
+                  } else {
+                    // Not available: leave the mode unchanged and report the
+                    // current mode (no switch, no notification).
+                    sendResponse(msg.id, { mode: displayModeRef.current });
+                  }
                   break;
                 }
 
