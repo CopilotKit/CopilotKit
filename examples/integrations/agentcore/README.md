@@ -41,25 +41,33 @@ identity and can stay blank. The pinned SDK token setup is below.
    configured AWS Secrets Manager secrets. CDK resolves both only for the
    CopilotKit runtime Lambda.
 
-   Before deploying, provide managed or self-hosted Intelligence endpoints that are reachable from AWS. AWS deployments must not use `localhost` or `127.0.0.1`; they also must not use the Docker-only `host.docker.internal` name from `.env.example`.
+   Managed Intelligence uses its default endpoints. For self-hosted
+   Intelligence, set endpoint overrides that AWS can reach. Do not use
+   `localhost`, `127.0.0.1`, or the Docker-only `host.docker.internal`
+   name from `.env.example`.
 
 2. **Deploy:**
 
    ```bash
-   INTELLIGENCE_API_URL=https://intelligence.example.com \
-   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
    ./deploy-langgraph.sh                    # LangGraph agent (infra + frontend)
    ./deploy-langgraph.sh --skip-frontend    # infra/agent only
    ./deploy-langgraph.sh --skip-backend     # frontend only
    # or
-   INTELLIGENCE_API_URL=https://intelligence.example.com \
-   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
    ./deploy-strands.sh                      # AWS Strands agent
    ./deploy-strands.sh --skip-frontend
    ./deploy-strands.sh --skip-backend
+
+   # Self-hosted Intelligence only:
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
+   ./deploy-langgraph.sh
+   INTELLIGENCE_API_URL=https://intelligence.example.com \
+   INTELLIGENCE_GATEWAY_WS_URL=wss://gateway.example.com \
+   ./deploy-strands.sh
    ```
 
-   The command-prefixed endpoint values override the local defaults sourced from `.env`. Use the same prefix with `--skip-frontend` or `--skip-backend` when needed.
+   The command-prefixed endpoint values override the managed defaults. Use the
+   same prefix with `--skip-frontend` or `--skip-backend` when needed.
 
 3. **Open** the Amplify URL printed at the end. Sign in with your email.
 
@@ -70,6 +78,7 @@ cp .env.example .env
 cp docker/.env.example docker/.env
 cd docker
 # Fill in docker/.env AWS creds — STACK_NAME, MEMORY_ID, and aws-exports.json are auto-resolved
+# For local Intelligence, uncomment the host.docker.internal URLs in ../.env.
 ./up.sh --build
 ```
 
