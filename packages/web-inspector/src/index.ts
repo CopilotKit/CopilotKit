@@ -8781,6 +8781,12 @@ ${argsString}</pre
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+        --hud-fill: #fff;
+        --hud-line: #d8d8e8;
+        color: #010507;
+      }
+
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
@@ -8833,6 +8839,12 @@ ${argsString}</pre
         background: rgb(255 255 255 / 0.06);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: #f0f0f4;
+      }
+
       .cpk-launcher-hud__action {
         display: flex;
         gap: 8px;
@@ -8848,6 +8860,10 @@ ${argsString}</pre
         font-weight: 600;
         text-align: start;
         cursor: pointer;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
+        color: #010507;
       }
 
       /* Stretch the row action over the whole tab, including the detail
@@ -8893,6 +8909,10 @@ ${argsString}</pre
         line-height: 1;
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
+        color: #68686e;
+      }
+
       .cpk-launcher-hud__help:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
@@ -8917,6 +8937,10 @@ ${argsString}</pre
           opacity 150ms ease-out,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
           padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
+        color: #68686e;
       }
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
@@ -9923,6 +9947,7 @@ ${argsString}</pre
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-color-scheme=${this.colorScheme}
       >
         <div class="cpk-launcher-hud__card">
           <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
