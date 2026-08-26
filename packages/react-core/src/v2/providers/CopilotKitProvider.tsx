@@ -175,6 +175,15 @@ export interface CopilotKitProviderProps {
   };
   showDevConsole?: boolean | "auto";
   /**
+   * Whether to automatically mount the IntelligenceIndicator for
+   * Intelligence-using chat turns.
+   *
+   * Set to false when rendering your own Intelligence status UI.
+   *
+   * @default true
+   */
+  autoMountIntelligenceIndicator?: boolean;
+  /**
    * Error handler called when CopilotKit encounters an error.
    * Fires for all error types (runtime connection failures, agent errors, tool errors).
    */
@@ -289,6 +298,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   humanInTheLoop,
   openGenerativeUI,
   showDevConsole = false,
+  autoMountIntelligenceIndicator = true,
   useSingleEndpoint,
   onError,
   a2ui,
@@ -927,8 +937,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [copilotkit, sandboxFunctionsDescriptors, openGenUIActive]);
 
   const contextValue = useMemo<CopilotKitContextValue>(
-    () => ({ copilotkit, executingToolCallIds }),
-    [copilotkit, executingToolCallIds],
+    () => ({
+      copilotkit,
+      executingToolCallIds,
+      autoMountIntelligenceIndicator,
+    }),
+    [copilotkit, executingToolCallIds, autoMountIntelligenceIndicator],
   );
 
   // License context — driven by server-reported status via /info endpoint

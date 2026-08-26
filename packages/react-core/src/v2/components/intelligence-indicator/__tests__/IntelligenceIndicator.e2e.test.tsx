@@ -195,18 +195,26 @@ const RunAgentHarness: React.FC<{ withIntelligence: boolean }> = ({
 interface RenderOptions {
   withIntelligence?: boolean;
   intelligenceIndicator?: IndicatorSlot;
+  autoMountIntelligenceIndicator?: boolean;
 }
 
 const renderForIndicator = (
   agent: MockStepwiseAgent,
   options: RenderOptions = {},
 ): void => {
-  const { withIntelligence = true, intelligenceIndicator } = options;
+  const {
+    withIntelligence = true,
+    intelligenceIndicator,
+    autoMountIntelligenceIndicator,
+  } = options;
 
   // No `renderCustomMessages` prop is passed — the indicator
   // auto-mounts when intelligence is configured.
   render(
-    <CopilotKitProvider agents__unsafe_dev_only={{ default: agent }}>
+    <CopilotKitProvider
+      agents__unsafe_dev_only={{ default: agent }}
+      autoMountIntelligenceIndicator={autoMountIntelligenceIndicator}
+    >
       <CopilotChatConfigurationProvider agentId="default" threadId="t">
         <RunAgentHarness withIntelligence={withIntelligence} />
         <div style={{ height: 400 }}>
@@ -437,6 +445,32 @@ describe('IntelligenceIndicator — "CopilotKit Intelligence" (auto-mounted)', (
 
     await waitFor(() => expectIndicatorOn("m1"));
     expectIndicatorCount(1);
+  });
+
+  it("provider opt-out: does not auto-mount the indicator when disabled", async () => {
+    const agent = makeAgent();
+    renderForIndicator(agent, { autoMountIntelligenceIndicator: false });
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_opt_out", [
+      { id: "tc_opt_out", arg: "{}" },
+    ]);
+
+    await waitFor(() =>
+      expect(agent.messages.some((message) => message.id === "m_opt_out")).toBe(
+        true,
+      ),
+    );
+
+    // The normal indicator leaves its hidden phase after a 100ms grace window.
+    // Waiting past that threshold makes this regression assertion meaningful:
+    // a mistakenly auto-mounted indicator would be visible by now.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
+    expectNoIndicatorAnywhere();
   });
 
   // NOTE: replay-flash suppression (a tool call + result that resolve before

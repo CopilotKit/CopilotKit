@@ -127,6 +127,23 @@ Defaults to `false` for production safety.
 
 </PropertyReference>
 
+<PropertyReference name="autoMountIntelligenceIndicator" type="boolean">
+Controls whether CopilotKit automatically mounts the CopilotKit Intelligence
+indicator for Intelligence-using chat turns. Defaults to `true`.
+
+Set this to `false` when you render your own Intelligence status UI.
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  autoMountIntelligenceIndicator={false}
+>
+  {children}
+</CopilotKit>
+```
+
+</PropertyReference>
+
 <PropertyReference name="a2ui" type="{ theme?: Theme }">
 Configuration for the A2UI (Agent-to-UI) renderer.
 

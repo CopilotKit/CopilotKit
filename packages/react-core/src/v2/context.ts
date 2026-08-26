@@ -17,6 +17,13 @@ export interface CopilotKitContextValue {
    * are captured even before child components mount.
    */
   executingToolCallIds: ReadonlySet<string>;
+  /**
+   * Whether chat views should automatically mount the IntelligenceIndicator
+   * for Intelligence-using turns. Defaults to true when omitted.
+   *
+   * Providers that do not render this indicator may omit the value.
+   */
+  autoMountIntelligenceIndicator?: boolean;
 }
 
 export const EMPTY_SET: ReadonlySet<string> = new Set();
