@@ -21,6 +21,13 @@ export const CORE_SCENARIO_KEYS = [
   "self-hosted-disabled-existing",
 ] as const;
 
+export const RUN_SCENARIO_KEYS = [
+  "run-conversation-complete",
+  "run-tool-in-progress",
+  "run-failed",
+  "run-context-populated",
+] as const;
+
 export const EDGE_SCENARIO_KEYS = [
   "free-figma-148-of-200",
   "free-overage-241-of-200",
@@ -44,6 +51,7 @@ export const EDGE_SCENARIO_KEYS = [
 
 export const ALL_SCENARIO_KEYS = [
   ...CORE_SCENARIO_KEYS,
+  ...RUN_SCENARIO_KEYS,
   ...EDGE_SCENARIO_KEYS,
 ] as const;
 
@@ -98,12 +106,27 @@ export interface ThreadsStateScenario {
   readonly joinCode: string;
   readonly joinToken: string;
   readonly listError?: Readonly<{ status: number; message: string }>;
-  readonly initialMenu?: "home" | "threads";
+  readonly initialMenu?:
+    | "home"
+    | "playground"
+    | "threads"
+    | "agents"
+    | "ag-ui-events"
+    | "agent-context";
+  readonly initialAgentMessages?: readonly Readonly<{
+    id: string;
+    role: string;
+    contentText: string;
+    toolCalls: readonly Readonly<Record<string, unknown>>[];
+    toolCallId?: string;
+  }>[];
+  readonly initialAgentState?: Readonly<Record<string, unknown>>;
+  readonly initialContext?: Readonly<
+    Record<string, Readonly<{ description?: string; value: unknown }>>
+  >;
   readonly initialAgentEvents?: readonly Readonly<{
-    type: "RUN_ERROR";
-    runId: string;
-    message: string;
-    code: string;
+    type: string;
+    payload: Readonly<Record<string, unknown>>;
   }>[];
   readonly media: "normal" | "video_error" | "reduced_motion";
 }
@@ -509,6 +532,211 @@ function buildCoreScenario(key: (typeof CORE_SCENARIO_KEYS)[number]) {
   });
 }
 
+function runScenario(
+  key: (typeof RUN_SCENARIO_KEYS)[number],
+): ThreadsStateScenario {
+  const inspectorMetadata = metadata("free", {
+    used: 0,
+    limit: { kind: "finite", value: 200 },
+    expiringSoonCount: 0,
+    action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+  });
+  const base = {
+    key,
+    deployment: "managed" as const,
+    plan: "free" as const,
+    capability: "enabled" as const,
+    data: "zero" as const,
+    runtimeInfo: runtimeInfo(key, { capability: "enabled" }),
+    inspectorMetadata,
+    inspectorMetadataBody: inspectorMetadata,
+    threads: [],
+    media: "normal" as const,
+  };
+
+  switch (key) {
+    case "run-conversation-complete":
+      return buildScenario({
+        ...base,
+        label: "Run · completed conversation",
+        description:
+          "A completed support run with a user/agent transcript and final state.",
+        initialMenu: "agents",
+        initialAgentMessages: [
+          {
+            id: "run-complete-user",
+            role: "user",
+            contentText: "Can you confirm whether my subscription renewed?",
+            toolCalls: [],
+          },
+          {
+            id: "run-complete-assistant",
+            role: "assistant",
+            contentText:
+              "Yes. Your Pro subscription renewed today and the next renewal is September 26.",
+            toolCalls: [],
+          },
+        ],
+        initialAgentState: {
+          phase: "complete",
+          accountId: "acct_northstar_42",
+          renewalStatus: "confirmed",
+          nextRenewalAt: "2026-09-26T09:00:00.000Z",
+        },
+        initialAgentEvents: [
+          {
+            type: "RUN_STARTED",
+            payload: { runId: "run-complete" },
+          },
+          {
+            type: "MESSAGES_SNAPSHOT",
+            payload: { messageCount: 2 },
+          },
+          {
+            type: "STATE_SNAPSHOT",
+            payload: { phase: "complete" },
+          },
+          {
+            type: "RUN_FINISHED",
+            payload: { runId: "run-complete" },
+          },
+        ],
+      });
+    case "run-tool-in-progress":
+      return buildScenario({
+        ...base,
+        label: "Run · tool in progress",
+        description:
+          "An active run with a visible tool call and working state.",
+        initialMenu: "agents",
+        initialAgentMessages: [
+          {
+            id: "run-tool-user",
+            role: "user",
+            contentText: "What is the status of invoice 1048?",
+            toolCalls: [],
+          },
+          {
+            id: "run-tool-assistant",
+            role: "assistant",
+            contentText: "I’m checking that invoice now.",
+            toolCalls: [
+              {
+                id: "tool-invoice-1048",
+                function: {
+                  name: "lookupInvoice",
+                  arguments: { invoiceId: "1048" },
+                },
+                status: "executing",
+              },
+            ],
+          },
+        ],
+        initialAgentState: {
+          phase: "calling_tool",
+          activeTool: "lookupInvoice",
+          invoiceId: "1048",
+        },
+        initialAgentEvents: [
+          {
+            type: "RUN_STARTED",
+            payload: { runId: "run-tool" },
+          },
+          {
+            type: "TEXT_MESSAGE_CONTENT",
+            payload: { messageId: "run-tool-assistant" },
+          },
+          {
+            type: "TOOL_CALL_START",
+            payload: {
+              toolCallId: "tool-invoice-1048",
+              toolName: "lookupInvoice",
+            },
+          },
+          {
+            type: "TOOL_CALL_ARGS",
+            payload: { toolCallId: "tool-invoice-1048", invoiceId: "1048" },
+          },
+        ],
+      });
+    case "run-failed":
+      return buildScenario({
+        ...base,
+        label: "Run · failed",
+        description:
+          "A failed tool-backed run, opened directly on its AG-UI trace.",
+        initialMenu: "ag-ui-events",
+        initialAgentMessages: [
+          {
+            id: "run-failed-user",
+            role: "user",
+            contentText: "Please update the shipping address on order 7712.",
+            toolCalls: [],
+          },
+          {
+            id: "run-failed-assistant",
+            role: "assistant",
+            contentText:
+              "I couldn’t update that order because the order service timed out.",
+            toolCalls: [],
+          },
+        ],
+        initialAgentState: {
+          phase: "error",
+          orderId: "7712",
+          recoverable: true,
+        },
+        initialAgentEvents: [
+          {
+            type: "RUN_STARTED",
+            payload: { runId: "run-failed" },
+          },
+          {
+            type: "TOOL_CALL_START",
+            payload: { toolCallId: "tool-order-7712", toolName: "updateOrder" },
+          },
+          {
+            type: "RUN_ERROR",
+            payload: {
+              runId: "run-failed",
+              message: "The order service timed out.",
+              code: "AGENT_RUN_ERROR",
+            },
+          },
+        ],
+      });
+    case "run-context-populated":
+      return buildScenario({
+        ...base,
+        label: "Run · populated context",
+        description:
+          "Application context with multiple value shapes, opened in Context.",
+        initialMenu: "agent-context",
+        initialContext: {
+          "account.profile": {
+            description: "Signed-in account",
+            value: {
+              id: "acct_northstar_42",
+              plan: "pro",
+              region: "eu-central",
+            },
+          },
+          "workspace.selection": {
+            description: "Current workspace selection",
+            value: {
+              resourceType: "invoice",
+              resourceId: "1048",
+            },
+          },
+          "ui.locale": {
+            description: "Interface locale",
+            value: "en-GB",
+          },
+        },
+      });
+  }
+}
+
 function edgeScenario(
   key: (typeof EDGE_SCENARIO_KEYS)[number],
 ): ThreadsStateScenario {
@@ -761,9 +989,11 @@ function edgeScenario(
         initialAgentEvents: [
           {
             type: "RUN_ERROR",
-            runId: "threads-lab-run-error",
-            message: "The agent could not complete this run.",
-            code: "AGENT_RUN_ERROR",
+            payload: {
+              runId: "threads-lab-run-error",
+              message: "The agent could not complete this run.",
+              code: "AGENT_RUN_ERROR",
+            },
           },
         ],
       });
@@ -816,6 +1046,7 @@ function edgeScenario(
 
 const scenarios = [
   ...CORE_SCENARIO_KEYS.map(buildCoreScenario),
+  ...RUN_SCENARIO_KEYS.map(runScenario),
   ...EDGE_SCENARIO_KEYS.map(edgeScenario),
 ];
 
@@ -826,6 +1057,7 @@ export const THREADS_STATE_SCENARIOS = deepFreeze(
 );
 
 deepFreeze(CORE_SCENARIO_KEYS);
+deepFreeze(RUN_SCENARIO_KEYS);
 deepFreeze(EDGE_SCENARIO_KEYS);
 deepFreeze(ALL_SCENARIO_KEYS);
 deepFreeze(THREAD_REQUEST_KINDS);
@@ -856,14 +1088,31 @@ export function seedThreadsStateLabAgentEvents(
     Reflect.apply(recordAgentEvent, inspector, [
       scenario.agentId,
       event.type,
-      {
-        type: event.type,
-        runId: event.runId,
-        message: event.message,
-        code: event.code,
-      },
+      { type: event.type, ...event.payload },
     ]);
   }
+
+  const agentMessages = Reflect.get(inspector, "agentMessages");
+  if (scenario.initialAgentMessages && agentMessages instanceof Map) {
+    agentMessages.set(
+      scenario.agentId,
+      scenario.initialAgentMessages.map((message) => ({
+        ...message,
+        toolCalls: [...message.toolCalls],
+      })),
+    );
+  }
+
+  const agentStates = Reflect.get(inspector, "agentStates");
+  if (scenario.initialAgentState && agentStates instanceof Map) {
+    agentStates.set(scenario.agentId, scenario.initialAgentState);
+  }
+
+  if (scenario.initialContext) {
+    Reflect.set(inspector, "contextStore", { ...scenario.initialContext });
+  }
+
+  inspector.requestUpdate();
 }
 
 /** Parses an untrusted route key and reports an explicit fallback. */

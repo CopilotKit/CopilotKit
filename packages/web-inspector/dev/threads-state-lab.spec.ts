@@ -13,6 +13,7 @@ import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
   EDGE_SCENARIO_KEYS,
+  RUN_SCENARIO_KEYS,
   LAB_RESET_STORAGE_KEYS,
   THREAD_REQUEST_KINDS,
   THREADS_STATE_SCENARIOS,
@@ -85,6 +86,13 @@ const EXPECTED_EDGE_KEYS = [
   "video-error",
   "reduced-motion",
   "telemetry-disabled",
+] as const;
+
+const EXPECTED_RUN_KEYS = [
+  "run-conversation-complete",
+  "run-tool-in-progress",
+  "run-failed",
+  "run-context-populated",
 ] as const;
 
 const EXPECTED_RECORDING_THREADS = [
@@ -479,14 +487,16 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 34-scenario route catalog", () => {
+test("exports the exact ordered 38-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
+  expect(RUN_SCENARIO_KEYS).toEqual(EXPECTED_RUN_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
   expect(ALL_SCENARIO_KEYS).toEqual([
     ...EXPECTED_CORE_KEYS,
+    ...EXPECTED_RUN_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(34);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(38);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -496,15 +506,40 @@ test("models a deterministic CopilotKit agent RunError on Home", () => {
   expect(scenario.initialAgentEvents).toEqual([
     {
       type: "RUN_ERROR",
-      runId: "threads-lab-run-error",
-      message: "The agent could not complete this run.",
-      code: "AGENT_RUN_ERROR",
+      payload: {
+        runId: "threads-lab-run-error",
+        message: "The agent could not complete this run.",
+        code: "AGENT_RUN_ERROR",
+      },
     },
   ]);
 });
 
+test("models focused run-state fixtures for Agent, Events, and Context", () => {
+  const complete = getThreadsStateScenario("run-conversation-complete");
+  expect(complete.initialMenu).toBe("agents");
+  expect(complete.initialAgentMessages).toHaveLength(2);
+  expect(complete.initialAgentState).toMatchObject({ phase: "complete" });
+  expect(complete.initialAgentEvents?.at(-1)?.type).toBe("RUN_FINISHED");
+
+  const running = getThreadsStateScenario("run-tool-in-progress");
+  expect(
+    running.initialAgentEvents?.some((event) => event.type === "RUN_FINISHED"),
+  ).toBe(false);
+  expect(running.initialAgentMessages?.[1]?.toolCalls).toHaveLength(1);
+
+  const failed = getThreadsStateScenario("run-failed");
+  expect(failed.initialMenu).toBe("ag-ui-events");
+  expect(failed.initialAgentEvents?.at(-1)?.type).toBe("RUN_ERROR");
+
+  const context = getThreadsStateScenario("run-context-populated");
+  expect(context.initialMenu).toBe("agent-context");
+  expect(Object.keys(context.initialContext ?? {})).toHaveLength(3);
+});
+
 test("deep-freezes every fixture and produces deterministic JSON", () => {
   assertDeeplyFrozen(CORE_SCENARIO_KEYS);
+  assertDeeplyFrozen(RUN_SCENARIO_KEYS);
   assertDeeplyFrozen(EDGE_SCENARIO_KEYS);
   assertDeeplyFrozen(ALL_SCENARIO_KEYS);
   assertDeeplyFrozen(THREADS_STATE_SCENARIOS);
@@ -1258,7 +1293,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 38 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1386,7 +1421,11 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
               `${key}: account presence`,
             ).toHaveLength(0);
           }
-          if (scenario.initialAgentEvents?.length) {
+          if (
+            scenario.initialAgentEvents?.some(
+              (event) => event.type === "RUN_ERROR",
+            )
+          ) {
             seedThreadsStateLabAgentEvents(inspector, scenario);
             await flushInspector(inspector);
             expect(

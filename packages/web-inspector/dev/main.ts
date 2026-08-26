@@ -8,6 +8,7 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
+  RUN_SCENARIO_KEYS,
   THREAD_REQUEST_KINDS,
   clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
@@ -129,6 +130,8 @@ function populateScenarioSelect(): void {
   coreGroup.label = "Plan and capability matrix";
   const edgeGroup = document.createElement("optgroup");
   edgeGroup.label = "Edge cases";
+  const runGroup = document.createElement("optgroup");
+  runGroup.label = "Agent run states";
   for (const key of ALL_SCENARIO_KEYS) {
     const option = document.createElement("option");
     option.value = key;
@@ -136,11 +139,13 @@ function populateScenarioSelect(): void {
     option.selected = key === scenario.key;
     if (CORE_SCENARIO_KEYS.some((coreKey) => coreKey === key)) {
       coreGroup.append(option);
+    } else if (RUN_SCENARIO_KEYS.some((runKey) => runKey === key)) {
+      runGroup.append(option);
     } else {
       edgeGroup.append(option);
     }
   }
-  scenarioSelect.replaceChildren(coreGroup, edgeGroup);
+  scenarioSelect.replaceChildren(coreGroup, runGroup, edgeGroup);
 }
 
 function renderFixture(): void {
@@ -157,6 +162,11 @@ function renderFixture(): void {
     threads: scenario.threads,
     expectedNewestThreadId: scenario.expectedNewestThreadId ?? null,
     expectedInitialRequests: scenario.expectedRequests,
+    initialMenu: scenario.initialMenu ?? "threads",
+    initialAgentMessages: scenario.initialAgentMessages ?? [],
+    initialAgentState: scenario.initialAgentState ?? null,
+    initialContext: scenario.initialContext ?? null,
+    initialAgentEvents: scenario.initialAgentEvents ?? [],
     media: scenario.media,
   };
   fixtureOutput.textContent = JSON.stringify(visibleFixture, null, 2);
@@ -317,18 +327,36 @@ async function waitForButton(
 async function openInspectorSurface(
   initialMenu: ThreadsStateScenario["initialMenu"] = "threads",
 ): Promise<void> {
-  const launcher = await waitForButton(
-    (button) => button.getAttribute("aria-label") === "Web Inspector",
-    "the Web Inspector launcher",
-  );
-  launcher.click();
-  if (initialMenu === "threads") {
-    const threads = await waitForButton(
-      (button) => button.textContent?.trim() === "Threads",
-      "the Threads navigation button",
+  const labels: Record<
+    NonNullable<ThreadsStateScenario["initialMenu"]>,
+    string
+  > = {
+    home: "Home",
+    playground: "Playground",
+    threads: "Threads",
+    agents: "Agent",
+    "ag-ui-events": "Events",
+    "agent-context": "Context",
+  };
+  const label = labels[initialMenu];
+  let navigationButton = inspector?.shadowRoot
+    ? findButtonsDeep(inspector.shadowRoot).find(
+        (button) => button.textContent?.trim() === label,
+      )
+    : undefined;
+
+  if (!navigationButton) {
+    const launcher = await waitForButton(
+      (button) => button.getAttribute("aria-label") === "Web Inspector",
+      "the Web Inspector launcher",
     );
-    threads.click();
+    launcher.click();
+    navigationButton = await waitForButton(
+      (button) => button.textContent?.trim() === label,
+      `the ${label} navigation button`,
+    );
   }
+  navigationButton.click();
 }
 
 async function resetServerLedger(): Promise<void> {
@@ -394,6 +422,19 @@ function reportFatalError(error: unknown): void {
   console.error("[Inspector Threads lab]", error);
 }
 
+async function waitForRuntimeConnection(): Promise<void> {
+  const started = performance.now();
+  while (
+    core?.runtimeConnectionStatus !==
+    CopilotKitCoreRuntimeConnectionStatus.Connected
+  ) {
+    if (performance.now() - started > 8_000) {
+      throw new Error("Timed out waiting for the local Runtime connection.");
+    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 20));
+  }
+}
+
 async function boot(): Promise<void> {
   populateScenarioSelect();
   renderFixture();
@@ -456,6 +497,8 @@ async function boot(): Promise<void> {
   refreshLedger().catch(reportFatalError);
   mediaTimer = window.setInterval(updateMediaStatus, 400);
   updateMediaStatus();
+  await waitForRuntimeConnection();
+  await inspector.updateComplete;
   seedThreadsStateLabAgentEvents(inspector, scenario);
   await inspector.updateComplete;
   if (replayingNotification) {
@@ -463,8 +506,16 @@ async function boot(): Promise<void> {
       "Notification re-armed. Watch the closed launcher for the halo and dot.";
   } else {
     await openInspectorSurface(scenario.initialMenu);
+    const initialLabels = {
+      home: "Home",
+      playground: "Playground",
+      threads: "Threads",
+      agents: "Agent",
+      "ag-ui-events": "Events",
+      "agent-context": "Context",
+    } as const;
     actionStatus.textContent = `Inspector open on ${
-      scenario.initialMenu === "home" ? "Home" : "Threads"
+      initialLabels[scenario.initialMenu ?? "threads"]
     }.`;
   }
 }
