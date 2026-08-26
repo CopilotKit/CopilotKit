@@ -24,12 +24,12 @@ npx copilotkit login
 npx copilotkit project select
 ```
 
-`project select` writes a project-scoped key to `.env` as `INTELLIGENCE_API_KEY`.
+`project select` writes a project-scoped key to `.env` as `CPK_INTELLIGENCE_API_KEY`.
 You can also copy a key from the
 [cloud-hosted dashboard](/premium/managed-intelligence-platform).
 
 ```bash title=".env"
-INTELLIGENCE_API_KEY=cpk-...
+CPK_INTELLIGENCE_API_KEY=cpk_...
 ```
 
 <Callout type="warn">
@@ -50,7 +50,7 @@ import {
 
 const intelligence = new CopilotKitIntelligence({
   // apiUrl and wsUrl default to the managed platform — leave them unset.
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotRuntime({
@@ -91,7 +91,7 @@ leaves the other plane pointed at the managed host.
 const intelligence = new CopilotKitIntelligence({
   apiUrl: "https://api.intelligence.internal",
   wsUrl: "wss://realtime.intelligence.internal",
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 ```
 
@@ -107,6 +107,6 @@ deployment path.
 | Symptom | Cause |
 | --- | --- |
 | Chat works, no threads in the dashboard | `intelligence` was never passed to `CopilotRuntime`; the runtime is in SSE mode. |
-| Opaque auth error on the first request | `INTELLIGENCE_API_KEY` is empty or belongs to a different project. |
+| Opaque auth error on the first request | `CPK_INTELLIGENCE_API_KEY` is empty or belongs to a different project. |
 | Socket sits in `connecting`, then "did not settle in time" | `wsUrl` overridden alone, or pointed at the API host. |
 | `/api/api/...` in request logs | `apiUrl` included a `/api` suffix. |
