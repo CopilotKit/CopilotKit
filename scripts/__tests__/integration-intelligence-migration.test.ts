@@ -1503,7 +1503,7 @@ interface ManagedEnvSections {
 /** Returns the exact ordered managed dotenv sections from the public contract. */
 function managedEnvSections(contents: string): ManagedEnvSections | null {
   const lines = contents.replaceAll("\r\n", "\n").split("\n");
-  const apiHeader = "# Your CopilotKit Enterprise Intelligence API Key";
+  const apiHeader = "# Your CopilotKit Intelligence API Key";
   const telemetryHeader = "# CopilotKit Telemetry ID";
   if (
     lines.filter((line) => line === apiHeader).length !== 1 ||
@@ -3462,7 +3462,7 @@ function managedEnvExample(
   telemetryDescription = "Optional, non-secret analytics identity.",
 ): string {
   return [
-    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Your CopilotKit Intelligence API Key",
     "# Project Name: xxxxxxxxxx",
     "CPK_INTELLIGENCE_API_KEY=xxxxx",
     "",
@@ -3645,7 +3645,7 @@ test("managed documentation helpers reject reordered managed dotenv sections", (
     "# Optional, non-secret analytics identity.",
     "CPK_TELEMETRY_ID=xxxxx",
     "",
-    "# Your CopilotKit Enterprise Intelligence API Key",
+    "# Your CopilotKit Intelligence API Key",
     "# Project Name: xxxxxxxxxx",
     "CPK_INTELLIGENCE_API_KEY=xxxxx",
   ].join("\n");
