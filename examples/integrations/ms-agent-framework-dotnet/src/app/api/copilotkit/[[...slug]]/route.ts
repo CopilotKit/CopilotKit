@@ -16,9 +16,12 @@ const runtime = new CopilotRuntime({
     ? {
         intelligence: new CopilotKitIntelligence({
           apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
-          apiUrl: process.env.INTELLIGENCE_API_URL ?? "http://localhost:4201",
-          wsUrl:
-            process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:4401",
+          ...(process.env.INTELLIGENCE_API_URL
+            ? { apiUrl: process.env.INTELLIGENCE_API_URL }
+            : {}),
+          ...(process.env.INTELLIGENCE_GATEWAY_WS_URL
+            ? { wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL }
+            : {}),
         }),
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
