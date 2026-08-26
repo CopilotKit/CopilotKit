@@ -781,7 +781,11 @@ describe("thread handlers", () => {
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(
-            new PlatformRequestError("Thread not found.", 404),
+            new PlatformRequestError(
+              "Thread not found.",
+              404,
+              "THREAD_NOT_FOUND",
+            ),
           ),
       };
       const runtime = createIntelligenceRuntime({ intelligence });
@@ -799,6 +803,57 @@ describe("thread handlers", () => {
         // Quiet as well as successful: the whole point is that an ordinary
         // fresh thread stops writing an error into the log.
         expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("does NOT swallow a different 404 — a misconfigured org still fails loudly", async () => {
+      // The platform maps at least sixteen conditions onto 404, several of them
+      // misconfiguration. Branching on the status alone would turn a runtime
+      // pointed at the wrong organization into threads that merely look empty.
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(
+            new PlatformRequestError("nope", 404, "ORG_NOT_FOUND"),
+          ),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/thread-1/events"),
+          threadId: "thread-1",
+        });
+
+        expect(response.status).toBe(500);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("does NOT swallow a 404 whose body carried no code", async () => {
+      // An HTML error page from a proxy parses to no code. Unknown must stay
+      // loud rather than being read as absence.
+      const intelligence = {
+        getThreadEvents: vi
+          .fn()
+          .mockRejectedValue(new PlatformRequestError("gateway", 404)),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const response = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/thread-1/events"),
+          threadId: "thread-1",
+        });
+
+        expect(response.status).toBe(500);
       } finally {
         errorSpy.mockRestore();
       }

@@ -361,17 +361,35 @@ export async function handleGetThreadEvents({
       // A thread the platform has never heard of is EMPTY, not broken.
       //
       // Clients mint a thread id up front and ask for its history before the
-      // first run has persisted anything — so the platform answers 404 on every
-      // fresh conversation. Reporting that as a 500 put a red error in the
-      // browser console (and Next's dev overlay issue badge) on ordinary use,
-      // and buried a "Error fetching thread events" in the server log next to
-      // it, which is exactly where someone hunting a real defect will waste
-      // their time.
+      // first run has persisted anything — so the platform answers
+      // THREAD_NOT_FOUND on every fresh conversation. Reporting that as a 500
+      // put a red error in the browser console (and Next's dev overlay issue
+      // badge) on ordinary use, and buried a "Error fetching thread events" in
+      // the server log next to it, which is exactly where someone hunting a
+      // real defect will waste their time.
+      //
+      // Matched on the platform's CODE, never on the 404 status. The platform
+      // maps at least sixteen conditions onto 404, and several of them are
+      // misconfiguration rather than absence — API_KEY_NOT_FOUND,
+      // ORG_NOT_FOUND, PROJECT_NOT_FOUND, ROUTE_NOT_FOUND (a path this platform
+      // version does not serve), MCP_NOT_ENABLED. Swallowing those as "no
+      // events" would turn a deployment pointed at the wrong org, or one whose
+      // platform is too old to have this route, into a thread that merely looks
+      // empty — silent, and indistinguishable from working.
+      //
+      // THREAD_NOT_FOUND itself still covers missing, soft-deleted and
+      // wrong-scope threads alike (see the platform's own thread-handler note),
+      // so a thread belonging to another organization also reads as empty here.
+      // That is the pre-existing shape of the platform's answer, not something
+      // this branch introduces.
       //
       // The in-memory branch below already answers an unknown thread with an
-      // empty list. This makes the platform path agree with it, and leaves
-      // every other failure loud.
-      if (error instanceof PlatformRequestError && error.status === 404) {
+      // empty list. This makes the platform path agree with it for that one
+      // case, and leaves every other failure loud.
+      if (
+        error instanceof PlatformRequestError &&
+        error.code === "THREAD_NOT_FOUND"
+      ) {
         return Response.json({ events: [] });
       }
       logger.error({ err: error, threadId }, "Error fetching thread events");

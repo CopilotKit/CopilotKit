@@ -51,16 +51,29 @@ const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
- * status. Carries the HTTP {@link status} code so callers can branch on
- * specific failures (e.g. 404 for "not found", 409 for "conflict") without
- * parsing the error message string.
+ * status. Carries the HTTP {@link status} and, when the body supplied one, the
+ * platform's own {@link code}.
+ *
+ * BRANCH ON THE CODE, NOT THE STATUS. This example used to show
+ * `status === 404` meaning "does not exist yet", and that advice was wrong in a
+ * way that fails silently: the platform maps at least sixteen conditions onto
+ * 404, including `API_KEY_NOT_FOUND`, `ORG_NOT_FOUND`, `PROJECT_NOT_FOUND`,
+ * `ROUTE_NOT_FOUND` (a path this platform version does not serve) and
+ * `MCP_NOT_ENABLED`. A caller that reads any of those as "absent" turns a
+ * misconfigured or out-of-date deployment into one that looks merely empty.
+ *
+ * Treat an absent or unrecognised {@link code} as unknown, and let it stay
+ * loud.
  *
  * @example
  * ```ts
  * try {
  *   await intelligence.getThread({ threadId, userId });
  * } catch (error) {
- *   if (error instanceof PlatformRequestError && error.status === 404) {
+ *   if (
+ *     error instanceof PlatformRequestError &&
+ *     error.code === "THREAD_NOT_FOUND"
+ *   ) {
  *     // thread does not exist yet
  *   }
  * }
@@ -71,9 +84,40 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /**
+     * The platform's own error code (e.g. `THREAD_NOT_FOUND`), when the body
+     * carried one.
+     *
+     * The STATUS is not specific enough to branch on. The platform maps at
+     * least sixteen distinct conditions onto 404 — a missing thread, but also
+     * `API_KEY_NOT_FOUND`, `ORG_NOT_FOUND`, `PROJECT_NOT_FOUND`,
+     * `ROUTE_NOT_FOUND` and `MCP_NOT_ENABLED`. Several of those are
+     * misconfiguration, so a caller that treats "404" as "this thing is empty"
+     * turns a broken deployment into a convincingly empty one. Branch on the
+     * code instead, and let anything unrecognised stay loud.
+     */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "PlatformRequestError";
+  }
+}
+
+/**
+ * Pull the platform's error code out of a response body.
+ *
+ * The envelope is `{ error: { code, message, ... } }`. Anything else — an HTML
+ * error page from a proxy, an empty body, a truncated read — yields undefined,
+ * which callers must treat as "unknown", never as a match.
+ */
+export function parsePlatformErrorCode(body: string): string | undefined {
+  if (!body) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    const code = (parsed as { error?: { code?: unknown } })?.error?.code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -715,6 +759,7 @@ export class CopilotKitIntelligence {
       throw new PlatformRequestError(
         `Intelligence platform error ${response.status}: ${text || response.statusText}`,
         response.status,
+        parsePlatformErrorCode(text),
       );
     }
 
