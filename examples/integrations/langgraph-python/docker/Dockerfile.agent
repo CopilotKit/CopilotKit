@@ -12,8 +12,9 @@ WORKDIR /app
 COPY pyproject.toml uv.lock langgraph.json ./
 COPY src/ ./src/
 COPY main.py ./
+COPY tests/ ./tests/
 
-RUN uv sync
+RUN uv sync --group test && uv run --group test pytest -q tests/test_mcp_apps_starter.py
 
 EXPOSE 8123
 
