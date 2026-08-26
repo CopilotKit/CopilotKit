@@ -418,7 +418,7 @@
   flex: none;
   flex-direction: column;
   gap: 6px;
-  padding: 2px 0 18px;
+  padding: 2px 0 0;
 }
 
 .inspector-sidebar-status-list {
