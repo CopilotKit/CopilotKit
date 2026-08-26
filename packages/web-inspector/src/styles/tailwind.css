@@ -535,12 +535,7 @@
   width: 100%;
   min-width: 0;
   border-bottom: 1px solid #d8d8e8;
-  background: linear-gradient(
-    90deg,
-    #ffffff 0%,
-    #f3f1ff 58%,
-    #eefbf7 100%
-  ) !important;
+  background: #f7f6fd !important;
   color: #010507 !important;
 }
 
@@ -570,17 +565,25 @@
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border: 0;
+  border: 1px solid #56359b;
   border-radius: 5px;
-  background-color: #eee6fe;
+  background-color: #56359b;
   padding: 7px 10px;
-  color: #3f176f;
+  color: #ffffff;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow:
+    0 4px 10px rgba(86, 53, 155, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .inspector-account-cta::after {
@@ -634,8 +637,17 @@
 }
 
 .inspector-account-cta:hover {
-  background-color: #e4d8fc;
-  color: #32105d;
+  border-color: #45247f;
+  background-color: #4d2c8e;
+  color: #ffffff;
+  box-shadow:
+    0 7px 16px rgba(86, 53, 155, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.inspector-account-cta:active {
+  transform: translateY(0);
 }
 
 .inspector-account-cta svg {
@@ -3234,7 +3246,7 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"] .drag-handle,
 .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
   border-color: #3a3d49 !important;
-  background: #171a22 !important;
+  background: #15171e !important;
   color: #f3f4f8 !important;
 }
 
@@ -3265,12 +3277,17 @@ small.inspector-system-health-detail {
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-account-cta {
-  background-color: #292b43;
-  color: #d8d9ff;
+  border-color: #777aae;
+  background-color: #666a9e;
+  color: #ffffff;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-account-cta:hover {
-  background-color: #353854;
+  border-color: #8f93df;
+  background-color: #777aae;
   color: #ffffff;
 }
 

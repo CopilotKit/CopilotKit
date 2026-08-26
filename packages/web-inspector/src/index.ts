@@ -8357,7 +8357,6 @@ export class WebInspectorElement extends LitElement {
         border-color: #343742;
         color: #f3f4f8;
       }
-
       @keyframes cpk-playground-message-enter {
         from {
           opacity: 0;
