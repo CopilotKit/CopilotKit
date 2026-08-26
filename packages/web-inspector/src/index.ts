@@ -10402,6 +10402,7 @@ export class WebInspectorElement extends LitElement {
       .drag-handle {
         border-bottom: 0 !important;
         background-color: #f7f6fd !important;
+        background-image: none !important;
       }
 
       .drag-handle::after {
@@ -10423,6 +10424,7 @@ export class WebInspectorElement extends LitElement {
 
       .inspector-account-strip {
         background-color: #f7f6fd !important;
+        background-image: none !important;
         color: #010507 !important;
       }
 
