@@ -9904,9 +9904,17 @@ ${argsString}</pre
 
   private renderLauncherHud(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
-    const threadsOn = this.areThreadEndpointsAvailable();
-    const intelligenceOn = Boolean(this._core?.intelligence);
-    const learningOn = intelligenceOn && this._memoriesAvailable;
+    // The launcher must agree with Home about feature availability. Raw
+    // transport flags can be present for a runtime that is not entitled to use
+    // Intelligence, which previously made the HUD show every service as on.
+    const homeModel = this.getHomeModel();
+    const threadsOn = homeModel.services.some(
+      (service) => service.id === "threads" && service.enabled,
+    );
+    const learningOn = homeModel.services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-hud"
