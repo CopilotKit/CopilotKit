@@ -264,6 +264,51 @@ export async function handleDeleteThread({
   }
 }
 
+/**
+ * True when the platform said the thread is not there FOR THIS CALLER.
+ *
+ * Matched on the platform's code, never on the 404 status: at least sixteen
+ * conditions map to 404, several of them misconfiguration (`ORG_NOT_FOUND`,
+ * `API_KEY_NOT_FOUND`, `ROUTE_NOT_FOUND` for a platform too old to serve the
+ * path). Reading those as "absent" turns a broken deployment into an
+ * convincingly empty one. Unknown stays unknown, and unknown stays loud.
+ */
+function isThreadNotFound(error: unknown): boolean {
+  return (
+    error instanceof PlatformRequestError && error.code === "THREAD_NOT_FOUND"
+  );
+}
+
+/**
+ * Resolve a thread through the USER-scoped route, to answer "may this caller
+ * see this thread at all?".
+ *
+ * The `_inspect` routes behind events and state are scoped by organization and
+ * project, NOT by app user — so on their own they will hand any caller who
+ * knows a thread id the raw event stream of a DIFFERENT app user in the same
+ * project, message text and tool payloads included. The user-scoped route does
+ * enforce ownership (`assertThreadUserOwnership`) and reports a thread that is
+ * missing and one that belongs to someone else with the same
+ * `THREAD_NOT_FOUND`, which is the pair we want: both mean "nothing here for
+ * you".
+ *
+ * Returns false when the caller may not see it, true when they may. Anything
+ * else throws, so a platform failure never reads as a denial.
+ */
+async function callerMaySeeThread(
+  runtime: { intelligence: { getThread: (p: { threadId: string; userId: string }) => Promise<unknown> } },
+  threadId: string,
+  userId: string,
+): Promise<boolean> {
+  try {
+    await runtime.intelligence.getThread({ threadId, userId });
+    return true;
+  } catch (error) {
+    if (isThreadNotFound(error)) return false;
+    throw error;
+  }
+}
+
 export async function handleGetThreadMessages({
   runtime,
   request,
@@ -281,6 +326,10 @@ export async function handleGetThreadMessages({
       });
       return Response.json(data);
     } catch (error) {
+      // Same reasoning as events: the inspector follows an empty event list
+      // with a messages fetch for the SAME unseen thread, so leaving this one
+      // at 500 just moves the red request one call down the same page load.
+      if (isThreadNotFound(error)) return Response.json({ messages: [] });
       logger.error({ err: error, threadId }, "Error fetching thread messages");
       return errorResponse("Failed to fetch thread messages", 500);
     }
@@ -351,6 +400,14 @@ export async function handleGetThreadEvents({
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
+      // OWNERSHIP GATE. `_inspect` is org/project scoped, not app-user scoped,
+      // so it must not be reached until the user-scoped route has confirmed
+      // this caller owns the thread. A thread that is missing and one that
+      // belongs to another app user both answer empty here.
+      if (!(await callerMaySeeThread(runtime, threadId, user.id))) {
+        return Response.json({ events: [] });
+      }
+
       const data = await runtime.intelligence.getThreadEvents({ threadId });
       // Strip platform-internal fields (`decodeErrorRowIds`, `truncated`)
       // before returning to the inspector — those describe persistence-side
@@ -358,40 +415,10 @@ export async function handleGetThreadEvents({
       // `{ events }`, matching the in-memory branch below.
       return Response.json({ events: data.events });
     } catch (error) {
-      // A thread the platform has never heard of is EMPTY, not broken.
-      //
-      // Clients mint a thread id up front and ask for its history before the
-      // first run has persisted anything — so the platform answers
-      // THREAD_NOT_FOUND on every fresh conversation. Reporting that as a 500
-      // put a red error in the browser console (and Next's dev overlay issue
-      // badge) on ordinary use, and buried a "Error fetching thread events" in
-      // the server log next to it, which is exactly where someone hunting a
-      // real defect will waste their time.
-      //
-      // Matched on the platform's CODE, never on the 404 status. The platform
-      // maps at least sixteen conditions onto 404, and several of them are
-      // misconfiguration rather than absence — API_KEY_NOT_FOUND,
-      // ORG_NOT_FOUND, PROJECT_NOT_FOUND, ROUTE_NOT_FOUND (a path this platform
-      // version does not serve), MCP_NOT_ENABLED. Swallowing those as "no
-      // events" would turn a deployment pointed at the wrong org, or one whose
-      // platform is too old to have this route, into a thread that merely looks
-      // empty — silent, and indistinguishable from working.
-      //
-      // THREAD_NOT_FOUND itself still covers missing, soft-deleted and
-      // wrong-scope threads alike (see the platform's own thread-handler note),
-      // so a thread belonging to another organization also reads as empty here.
-      // That is the pre-existing shape of the platform's answer, not something
-      // this branch introduces.
-      //
-      // The in-memory branch below already answers an unknown thread with an
-      // empty list. This makes the platform path agree with it for that one
-      // case, and leaves every other failure loud.
-      if (
-        error instanceof PlatformRequestError &&
-        error.code === "THREAD_NOT_FOUND"
-      ) {
-        return Response.json({ events: [] });
-      }
+      // Belt and braces behind the ownership gate above: if the platform
+      // reports the thread away between the two calls, that is still "nothing
+      // here", not a server fault.
+      if (isThreadNotFound(error)) return Response.json({ events: [] });
       logger.error({ err: error, threadId }, "Error fetching thread events");
       return errorResponse("Failed to fetch thread events", 500);
     }
@@ -427,6 +454,13 @@ export async function handleGetThreadState({
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
+      // Same ownership gate as events, and for the same reason: the state
+      // route is `_inspect` too, so it is org/project scoped rather than
+      // app-user scoped.
+      if (!(await callerMaySeeThread(runtime, threadId, user.id))) {
+        return Response.json({ state: null });
+      }
+
       const data = await runtime.intelligence.getThreadState({ threadId });
       // Flatten the discriminated `ThreadStateResult` to the wire shape the
       // inspector consumes (`{ state: <value> | null }`). Missing snapshot
@@ -436,6 +470,7 @@ export async function handleGetThreadState({
       const state = data.kind === "snapshot" ? data.state : null;
       return Response.json({ state });
     } catch (error) {
+      if (isThreadNotFound(error)) return Response.json({ state: null });
       logger.error({ err: error, threadId }, "Error fetching thread state");
       return errorResponse("Failed to fetch thread state", 500);
     }

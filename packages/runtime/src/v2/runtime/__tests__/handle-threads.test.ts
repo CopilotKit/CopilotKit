@@ -630,6 +630,8 @@ describe("thread handlers", () => {
 
   it("forwards includeArchived, limit, and cursor query params to listThreads", async () => {
     const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
       listThreads: vi.fn().mockResolvedValue({
         threads: [{ id: "thread-1", name: "Hello" }],
         joinCode: "jc-1",
@@ -725,6 +727,8 @@ describe("thread handlers", () => {
         { type: "TEXT_MESSAGE_CONTENT", messageId: "m1", delta: "hello" },
       ];
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi.fn().mockResolvedValue({
           events: platformEvents,
           decodeErrorRowIds: [],
@@ -751,6 +755,8 @@ describe("thread handlers", () => {
 
     it("returns 500 when intelligence.getThreadEvents throws", async () => {
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new Error("platform unavailable")),
@@ -778,7 +784,7 @@ describe("thread handlers", () => {
       // conversation. Reporting that as a 500 put a red error in the browser
       // console on ordinary use; an unseen thread is empty, not broken.
       const intelligence = {
-        getThreadEvents: vi
+        getThread: vi
           .fn()
           .mockRejectedValue(
             new PlatformRequestError(
@@ -787,6 +793,7 @@ describe("thread handlers", () => {
               "THREAD_NOT_FOUND",
             ),
           ),
+        getThreadEvents: vi.fn(),
       };
       const runtime = createIntelligenceRuntime({ intelligence });
 
@@ -813,6 +820,8 @@ describe("thread handlers", () => {
       // misconfiguration. Branching on the status alone would turn a runtime
       // pointed at the wrong organization into threads that merely look empty.
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(
@@ -839,6 +848,8 @@ describe("thread handlers", () => {
       // An HTML error page from a proxy parses to no code. Unknown must stay
       // loud rather than being read as absence.
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new PlatformRequestError("gateway", 404)),
@@ -861,6 +872,8 @@ describe("thread handlers", () => {
 
     it("still returns 500 for a platform failure that is not a 404", async () => {
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadEvents: vi
           .fn()
           .mockRejectedValue(new PlatformRequestError("boom", 503)),
@@ -876,6 +889,97 @@ describe("thread handlers", () => {
         });
 
         expect(response.status).toBe(500);
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+
+    it("denies another app user's thread without touching the _inspect route", async () => {
+      // The `_inspect` route is org/project scoped, not app-user scoped. The
+      // user-scoped lookup reports someone else's thread as THREAD_NOT_FOUND,
+      // and that must stop the call before any events are read — otherwise a
+      // caller who knows a thread id in the same project gets another user's
+      // raw event stream.
+      const intelligence = {
+        getThread: vi
+          .fn()
+          .mockRejectedValue(
+            new PlatformRequestError(
+              "Thread not found.",
+              404,
+              "THREAD_NOT_FOUND",
+            ),
+          ),
+        getThreadEvents: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/someone-else/events"),
+        threadId: "someone-else",
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({ events: [] });
+      expect(intelligence.getThreadEvents).not.toHaveBeenCalled();
+    });
+
+    it("reads events once the caller is confirmed to own the thread", async () => {
+      const intelligence = {
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
+        getThreadEvents: vi.fn().mockResolvedValue({ events: [{ type: "X" }] }),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/events"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        events: [{ type: "X" }],
+      });
+    });
+
+    it("stays quiet across the Web Inspector's events-then-messages sequence", async () => {
+      // The inspector follows an EMPTY event list with a messages fetch for the
+      // same thread (`web-inspector/src/index.ts`: `mappedEvents.length === 0 &&
+      // canFetchMessages()`). Fixing only the events call therefore moved the
+      // red request one call down the same page load instead of removing it, so
+      // the regression has to cover BOTH calls together for one unseen thread.
+      const notFound = () =>
+        new PlatformRequestError("Thread not found.", 404, "THREAD_NOT_FOUND");
+      const intelligence = {
+        getThread: vi.fn().mockRejectedValue(notFound()),
+        getThreadEvents: vi.fn(),
+        getThreadMessages: vi.fn().mockRejectedValue(notFound()),
+      };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const events = await handleGetThreadEvents({
+          runtime,
+          request: new Request("https://example.com/threads/fresh/events"),
+          threadId: "fresh",
+        });
+        expect(events.status).toBe(200);
+        await expect(events.json()).resolves.toEqual({ events: [] });
+
+        // ...which is exactly what makes the inspector ask for messages next.
+        const messages = await handleGetThreadMessages({
+          runtime,
+          request: new Request("https://example.com/threads/fresh/messages"),
+          threadId: "fresh",
+        });
+        expect(messages.status).toBe(200);
+        await expect(messages.json()).resolves.toEqual({ messages: [] });
+
+        // Neither call may write an error. The whole point is a silent load.
+        expect(errorSpy).not.toHaveBeenCalled();
       } finally {
         errorSpy.mockRestore();
       }
@@ -937,6 +1041,8 @@ describe("thread handlers", () => {
       // same shape as the in-memory branch.
       const snapshot = { counter: 7, label: "intel" };
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi.fn().mockResolvedValue({
           kind: "snapshot",
           state: snapshot,
@@ -963,6 +1069,8 @@ describe("thread handlers", () => {
 
     it("returns state:null for the no-snapshot kind from intelligence", async () => {
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi.fn().mockResolvedValue({ kind: "no-snapshot" }),
       };
       const runtime = createIntelligenceRuntime({ intelligence });
@@ -983,6 +1091,8 @@ describe("thread handlers", () => {
       // the inspector's perspective, "no readable state" is the same UX as
       // "no snapshot yet."
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi
           .fn()
           .mockResolvedValue({ kind: "snapshot-decode-error" }),
@@ -1002,6 +1112,8 @@ describe("thread handlers", () => {
 
     it("returns 500 when intelligence.getThreadState throws", async () => {
       const intelligence = {
+        // Ownership gate: this caller owns the thread.
+        getThread: vi.fn().mockResolvedValue({ id: "thread-1" }),
         getThreadState: vi
           .fn()
           .mockRejectedValue(new Error("platform unavailable")),
