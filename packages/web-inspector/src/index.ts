@@ -7984,6 +7984,7 @@ ${argsString}</pre
         touch-action: none;
         user-select: none;
         z-index: 60;
+        background: transparent;
       }
 
       .edge-resize-handle {
@@ -8735,6 +8736,9 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud {
+        --hud-fill: var(--cpk-inspector-surface-dark);
+        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
         top: 0;
         z-index: 4;
@@ -8768,8 +8772,6 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__card {
-        --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.5);
         position: relative;
         width: 228px;
         padding: 4px;
@@ -8777,35 +8779,40 @@ ${argsString}</pre
         border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #fff;
-        backdrop-filter: blur(12px) saturate(1.2);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+      .cpk-launcher-hud[data-color-scheme="light"] {
         --hud-fill: #fff;
         --hud-line: #d8d8e8;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
         color: #010507;
       }
 
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
+        z-index: 1;
         width: 10px;
         height: 10px;
-        background: var(--hud-fill);
+        border: 0;
+        /* The card frosts the page behind it, so it reads lighter than the
+           raw fill. Mix a little white so the arrow matches the glass card
+           without going lighter than the HUD. */
+        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
         transform: translateY(-50%) rotate(45deg);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
-        right: -5px;
-        border-top: 1px solid var(--hud-line);
-        border-right: 1px solid var(--hud-line);
+        right: 9px;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
-        left: -5px;
-        border-bottom: 1px solid var(--hud-line);
-        border-left: 1px solid var(--hud-line);
+        left: 9px;
       }
 
       .cpk-launcher-hud__list {
@@ -9949,8 +9956,8 @@ ${argsString}</pre
         data-cpk-hud-side=${this.launcherHudSide}
         data-color-scheme=${this.colorScheme}
       >
+        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
-          <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
           <ul class="cpk-launcher-hud__list" role="list">
             ${this.renderHudRow({
               id: "inspector",
@@ -11214,16 +11221,6 @@ ${argsString}</pre
                     <div
                       class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
                       data-resize-edge="s"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="resize-handle pointer-events-auto absolute bottom-0 left-0 flex h-7 w-7 cursor-nesw-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
-                      data-resize-edge="sw"
                       role="presentation"
                       aria-hidden="true"
                       @pointerdown=${this.handleResizePointerDown}
