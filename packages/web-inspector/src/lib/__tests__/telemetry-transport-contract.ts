@@ -3,10 +3,10 @@ import { expect, vi } from "vitest";
 import webInspectorPackage from "../../../package.json" with { type: "json" };
 import {
   getTelemetryDistinctIdForUrl,
-  trackBannerClicked,
-  trackBannerViewed,
   trackTalkToEngineerClicked,
   trackThreadsIntelligenceSignupClicked,
+  trackWhatsNewClicked,
+  trackWhatsNewViewed,
 } from "../telemetry.js";
 import {
   _resetTelemetryPersistenceForTesting,
@@ -30,13 +30,19 @@ export const CANONICAL_INSPECTOR_TELEMETRY_REQUESTS = [
       "x-copilotkit-telemetry-id": PERSISTED_BROWSER_ID,
     },
     body: {
-      event: "oss.inspector.banner_viewed",
+      event: "oss.inspector.whats_new_viewed",
       properties: {
         banner_id: "release-banner",
-        surface: "collapsed_preview",
+        surface: "whats_new",
+        package_name: "@copilotkit/web-inspector",
+        package_version: webInspectorPackage.version,
+        inspector_distinct_id: PERSISTED_BROWSER_ID,
         distinct_id: PERSISTED_BROWSER_ID,
       },
-      package: { name: "@copilotkit/web-inspector" },
+      package: {
+        name: "@copilotkit/web-inspector",
+        version: webInspectorPackage.version,
+      },
       ts: FIXED_TELEMETRY_TIME_SECONDS,
     },
   },
@@ -145,9 +151,9 @@ export async function captureInspectorTelemetryTransportContract() {
     .mockResolvedValue(new Response(null, { status: 204 }));
 
   try {
-    trackBannerViewed({
+    trackWhatsNewViewed({
       banner_id: "release-banner",
-      surface: "collapsed_preview",
+      surface: "whats_new",
     });
     trackThreadsIntelligenceSignupClicked({
       cta: "signup",
@@ -169,7 +175,7 @@ export async function captureInspectorTelemetryTransportContract() {
 
     fetchMock.mockClear();
     setTelemetryOptOut(true);
-    trackBannerClicked({ banner_id: "release-banner", cta: "body" });
+    trackWhatsNewClicked({ banner_id: "release-banner", cta: "body" });
     await Promise.resolve();
 
     expect(fetchMock).not.toHaveBeenCalled();
