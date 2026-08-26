@@ -232,31 +232,22 @@ async function selectTab(
 
 function headerFacts(detail: CpkThreadInspector): HeaderFact[] {
   const header = detail.shadowRoot?.querySelector<HTMLElement>(
-    '[aria-label="Thread metadata"]',
+    '[aria-label="Thread overview"]',
   );
-  expect(header, "thread metadata header").not.toBeNull();
-  if (!header) throw new Error("Thread metadata header was not rendered");
-  return Array.from(
-    header.querySelectorAll<HTMLElement>(".cpk-td__metadata-pill"),
-  ).map((pill) => ({
-    label:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-label")
-        ?.textContent?.trim() ?? "",
-    value:
-      pill
-        .querySelector<HTMLElement>(".cpk-td__metadata-value")
-        ?.textContent?.trim() ?? "",
-  }));
-}
-
-function expectedTime(value: string): string {
-  return new Date(value).toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  expect(header, "thread overview header").not.toBeNull();
+  if (!header) throw new Error("Thread overview header was not rendered");
+  const name =
+    header
+      .querySelector<HTMLElement>(".cpk-td__thread-title")
+      ?.textContent?.trim() ?? "";
+  const agent =
+    header
+      .querySelector<HTMLElement>(".cpk-td__thread-meta")
+      ?.textContent?.trim() ?? "";
+  return [
+    { label: "Name", value: name },
+    ...(agent ? [{ label: "Agent", value: agent }] : []),
+  ];
 }
 
 function selectedTab(detail: CpkThreadInspector): HTMLButtonElement {
@@ -436,9 +427,7 @@ async function setupExampleHarness(): Promise<ExampleHarness> {
       await flushInspector(inspector);
       const detail = details();
       await vi.waitFor(() => {
-        expect(headerFacts(detail).map((fact) => fact.label)).toContain(
-          "Created",
-        );
+        expect(headerFacts(detail).map((fact) => fact.label)).toContain("Name");
       });
       return detail;
     },
@@ -484,7 +473,7 @@ function expectNoMutationControls(
   }
 }
 
-test("real metadata renders the exact labels, full identity, and supplied optional facts", async () => {
+test("thread overview foregrounds the name and agent while details retain technical metadata", async () => {
   prepareDom();
   const threadId = "thread-real-1234567890-abcdefghijklmnopqrstuvwxyz";
   const createdAt = "2026-06-25T10:00:00.000Z";
@@ -511,28 +500,19 @@ test("real metadata renders the exact labels, full identity, and supplied option
     await vi.waitFor(() => {
       expect(headerFacts(detail)).toEqual([
         { label: "Name", value: "Provider name" },
-        { label: "ID", value: threadId },
         { label: "Agent", value: "agent-real" },
-        { label: "Created", value: expectedTime(createdAt) },
-        { label: "Updated", value: expectedTime(updatedAt) },
       ]);
     });
 
     const header = detail.shadowRoot?.querySelector<HTMLElement>(
-      '[aria-label="Thread metadata"]',
+      '[aria-label="Thread overview"]',
     );
     expect(header?.getAttribute("role")).toBe("group");
-    expect(header?.getAttribute("aria-label")).toBe("Thread metadata");
-    const headerChildren = Array.from(header?.children ?? []);
-    expect(headerChildren).toHaveLength(1);
-    expect(
-      headerChildren[0]?.classList.contains("cpk-td__metadata-pills"),
-    ).toBe(true);
-    expect(header?.querySelector(".cpk-td__metadata-actions")).toBeNull();
+    expect(header?.getAttribute("aria-label")).toBe("Thread overview");
     expect(header?.textContent).not.toContain("End user");
     expect(header?.textContent).not.toContain("Created by");
     expect(header?.textContent).not.toContain("Status");
-    expect(header?.textContent).toContain(threadId);
+    expect(header?.textContent).not.toContain(threadId);
     const renderedStyle =
       detail.shadowRoot?.querySelector("style")?.textContent;
     if (!renderedStyle)
@@ -546,7 +526,7 @@ test("real metadata renders the exact labels, full identity, and supplied option
       );
       for (const selector of [
         ".cpk-td__tab",
-        ".cpk-td__metadata-label",
+        ".cpk-td__thread-meta",
         ".cpk-td__timeline-time",
         ".cpk-td__event-time",
         ".cpk-tdp__section-title",
@@ -560,11 +540,6 @@ test("real metadata renders the exact labels, full identity, and supplied option
     } finally {
       parserStyle.remove();
     }
-    const namedIdFact = detail.shadowRoot?.querySelector<HTMLElement>(
-      `[role="group"][aria-label="ID: ${threadId}"]`,
-    );
-    expect(namedIdFact).not.toBeNull();
-    expect(namedIdFact?.textContent).toContain(threadId);
     expect(
       header?.parentElement
         ?.querySelector(".cpk-td__empty-hint")
@@ -578,6 +553,10 @@ test("real metadata renders the exact labels, full identity, and supplied option
       ?.querySelector<HTMLButtonElement>(".cpk-td__panel-toggle")
       ?.click();
     await flushDetail(detail);
+    const detailText = detail.shadowRoot?.textContent ?? "";
+    expect(detailText).toContain("End user");
+    expect(detailText).toContain("Created by");
+    expect(detailText).toContain("Status");
     const idRow = Array.from(
       detail.shadowRoot?.querySelectorAll<HTMLElement>(".cpk-tdp__row") ?? [],
     ).find(
@@ -693,17 +672,13 @@ test("missing metadata falls back to Untitled and the full thread ID without opt
   const detail = appendDetail({ threadId, provider });
   try {
     await flushDetail(detail);
-    expect(headerFacts(detail)).toEqual([
-      { label: "Name", value: "Untitled" },
-      { label: "ID", value: threadId },
-    ]);
+    expect(headerFacts(detail)).toEqual([{ label: "Name", value: "Untitled" }]);
     const headerText =
-      detail.shadowRoot?.querySelector('[aria-label="Thread metadata"]')
+      detail.shadowRoot?.querySelector('[aria-label="Thread overview"]')
         ?.textContent ?? "";
     for (const absent of [
       "Agent",
-      "Created",
-      "Updated",
+      threadId,
       "End user",
       "Created by",
       "Status",
@@ -1039,19 +1014,9 @@ test("all three local examples use the shared labels, created fact, local panels
     for (const example of examples) {
       const detail = await harness.selectExample(example.name);
       const facts = headerFacts(detail);
-      expect(facts.map((fact) => fact.label)).toEqual([
-        "Name",
-        "ID",
-        "Agent",
-        "Created",
-        "Updated",
-      ]);
+      expect(facts.map((fact) => fact.label)).toEqual(["Name", "Agent"]);
       expect(facts.find((fact) => fact.label === "Name")?.value).toBe(
         example.name,
-      );
-      expect(facts.find((fact) => fact.label === "ID")?.value).toBe(example.id);
-      expect(facts.find((fact) => fact.label === "Created")?.value).not.toBe(
-        "—",
       );
       expect(detailTabs(detail).map((tab) => tab.textContent?.trim())).toEqual([
         "Messages",

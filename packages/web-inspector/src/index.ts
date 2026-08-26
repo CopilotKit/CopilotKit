@@ -2290,23 +2290,70 @@ export class CpkThreadInspector extends PortableLitElement {
       border-bottom-color: #bec2ff;
     }
 
-    /* Toggle is a separate control, not a tab — so it does NOT use the
-       tabs' bottom-border active indicator. Instead, a subtle filled
-       state communicates "the drawer is open," and a vertical separator
-       on the left visually divorces it from the tab group. */
-    .cpk-td__panel-toggle {
-      margin-left: auto;
-      align-self: stretch;
+    .cpk-td__thread-header {
       display: flex;
+      min-height: 58px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid #e9e9ef;
+      background: #fbfbfd;
+      padding: 8px 16px;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__thread-identity {
+      display: grid;
+      min-width: 0;
+      gap: 2px;
+    }
+
+    .cpk-td__thread-title {
+      overflow: hidden;
+      margin: 0;
+      color: #010507;
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-td__thread-meta {
+      overflow: hidden;
+      color: #68686e;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-td__thread-actions {
+      display: flex;
+      flex: none;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Details is a separate control, not a tab. Its label makes the
+       technical drawer discoverable without putting that metadata in the
+       main reading path. */
+    .cpk-td__panel-toggle {
+      display: inline-flex;
+      min-height: 28px;
       align-items: center;
       justify-content: center;
-      padding: 0 12px;
-      border: none;
-      border-left: 1px solid #dbdbe5;
-      background: transparent;
-      color: #68686e;
+      border: 1px solid #dcdce8;
+      border-radius: 6px;
+      background: #ffffff;
+      padding: 5px 8px;
+      color: #4f4f57;
       cursor: pointer;
       flex-shrink: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
       transition:
         color 0.12s,
         background 0.12s;
@@ -2316,8 +2363,9 @@ export class CpkThreadInspector extends PortableLitElement {
       background: #f4f4f9;
     }
     .cpk-td__panel-toggle--active {
-      color: #5558b2;
-      background: #eee6fe;
+      border-color: #d6cff4;
+      background: #f1edff;
+      color: #4f348f;
     }
     .cpk-td__panel-toggle--active:hover {
       background: #e4d8fc;
@@ -2336,77 +2384,6 @@ export class CpkThreadInspector extends PortableLitElement {
     /* Pin direct children so expanded tool bodies don't get flex-shrunk. */
     .cpk-td__content > * {
       flex-shrink: 0;
-    }
-
-    .cpk-td__chrome-actions {
-      margin-inline-start: auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 6px;
-      padding-inline: 8px;
-      min-width: 0;
-    }
-
-    .cpk-td__chrome-actions + .cpk-td__panel-toggle {
-      margin-inline-start: 0;
-    }
-
-    .cpk-td__metadata-strip {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px 16px;
-      border-bottom: 1px solid #e9e9ef;
-      background: #fbfbfd;
-      flex-shrink: 0;
-    }
-
-    .cpk-td__metadata-pills {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      min-width: 0;
-      flex-wrap: nowrap;
-    }
-
-    .cpk-td__metadata-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      flex: 1 1 0;
-      min-width: 0;
-      height: 24px;
-      padding: 0 8px;
-      border: 1px solid #dbdbe5;
-      border-radius: 6px;
-      background: #ffffff;
-      color: #57575b;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      white-space: nowrap;
-    }
-
-    .cpk-td__metadata-label {
-      color: #68686e;
-      text-transform: uppercase;
-      font-size: 9px;
-    }
-
-    .cpk-td__metadata-value {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .cpk-td__metadata-value--wrap,
-    .cpk-td__metadata-pill--wrap {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
 
     .cpk-td__view-in-app {
@@ -3210,8 +3187,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__tabs-header,
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__thread-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__tool-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-body,
@@ -3223,12 +3199,11 @@ export class CpkThreadInspector extends PortableLitElement {
       border-color: #343742;
     }
 
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
+    :host([data-color-scheme="dark"]) .cpk-td__thread-header,
     :host([data-color-scheme="dark"]) .cpk-td__detail {
       background: #15171e;
     }
 
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
     :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
@@ -3370,7 +3345,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__tab,
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-label,
+    :host([data-color-scheme="dark"]) .cpk-td__thread-meta,
     :host([data-color-scheme="dark"]) .cpk-td__event-time,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-time,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-body,
@@ -3381,7 +3356,7 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__tab:hover,
     :host([data-color-scheme="dark"]) .cpk-td__tab--active,
-    :host([data-color-scheme="dark"]) .cpk-td__metadata-value,
+    :host([data-color-scheme="dark"]) .cpk-td__thread-title,
     :host([data-color-scheme="dark"]) .cpk-td__tool-name,
     :host([data-color-scheme="dark"]) .cpk-td__tool-pre,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
@@ -4428,11 +4403,26 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   render() {
-    const viewInApp = this.renderViewInAppAction();
     return html`
       <div class="cpk-td">
         <!-- ── Left area: tabs + content ─────────────────────────────────── -->
         <div class="cpk-td__left">
+          <header class="cpk-td__thread-header" role="group" aria-label="Thread overview">
+            <div class="cpk-td__thread-identity">
+              <h2 class="cpk-td__thread-title">
+                ${this.metadata?.name ?? this.thread?.name ?? "Untitled"}
+              </h2>
+              ${
+                this.metadata?.agentId
+                  ? html`<span class="cpk-td__thread-meta">${this.metadata.agentId}</span>`
+                  : nothing
+              }
+            </div>
+            <div class="cpk-td__thread-actions">
+              ${this.renderViewInAppAction()}
+              ${this.renderPanelToggle()}
+            </div>
+          </header>
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
             <div
@@ -4461,14 +4451,8 @@ export class CpkThreadInspector extends PortableLitElement {
                 `,
               )}
             </div>
-            ${
-              viewInApp !== nothing
-                ? html`<div class="cpk-td__chrome-actions">${viewInApp}</div>`
-                : nothing
-            }
-            ${this.renderPanelToggle()}
+            ${this.renderActiveBulkControls()}
           </div>
-          ${this.renderMetadataStrip()}
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -4495,12 +4479,7 @@ export class CpkThreadInspector extends PortableLitElement {
           </div>
         </div>
 
-        <!--
-          Drawer always rendered so width animates between 0 and its
-          target. Divider lives INSIDE the drawer and is absolutely
-          positioned over its left edge so the toggle (rightmost of the
-          tab row) and the drawer touch with no flex-gap between them.
-        -->
+        <!-- Drawer stays mounted so its width can animate between 0 and its target. -->
         <div
           class="cpk-td__detail"
           data-open=${this._showDetailPanel ? "true" : "false"}
@@ -4521,61 +4500,6 @@ export class CpkThreadInspector extends PortableLitElement {
               : nothing
           }
           ${this.renderDetailPanel()}
-        </div>
-      </div>
-    `;
-  }
-
-  private renderMetadataStrip() {
-    const metadata = this.metadata;
-    const pills: Array<{ label: string; value: string; wrap?: boolean }> = [
-      {
-        label: "Name",
-        value: metadata?.name ?? this.thread?.name ?? "Untitled",
-      },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
-    ];
-    for (const fact of [
-      { label: "Agent", value: metadata?.agentId },
-      { label: "Created", value: metadata?.createdAt },
-      { label: "Updated", value: metadata?.updatedAt },
-    ]) {
-      if (fact.value == null || fact.value === "") continue;
-      pills.push({
-        label: fact.label,
-        value:
-          fact.label === "Created" || fact.label === "Updated"
-            ? this.fmtTime(fact.value)
-            : fact.value,
-      });
-    }
-    return html`
-      <div
-        class="cpk-td__metadata-strip"
-        role="group"
-        aria-label="Thread metadata"
-      >
-        <div class="cpk-td__metadata-pills">
-          ${pills.map(
-            (pill) => html`
-              <span
-                class="cpk-td__metadata-pill ${
-                  pill.wrap ? "cpk-td__metadata-pill--wrap" : ""
-                }"
-                role="group"
-                title=${pill.value}
-                aria-label=${`${pill.label}: ${pill.value}`}
-              >
-                <span class="cpk-td__metadata-label">${pill.label}</span>
-                <span
-                  class="cpk-td__metadata-value ${
-                    pill.wrap ? "cpk-td__metadata-value--wrap" : ""
-                  }"
-                  >${pill.value}</span
-                >
-              </span>
-            `,
-          )}
         </div>
       </div>
     `;
@@ -5300,30 +5224,18 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderPanelToggle() {
+    const isOpen = this._showDetailPanel;
     return html`
       <button
-        class="cpk-td__panel-toggle ${
-          this._showDetailPanel ? "cpk-td__panel-toggle--active" : ""
-        }"
+        class="cpk-td__panel-toggle ${isOpen ? "cpk-td__panel-toggle--active" : ""}"
         @click=${() => {
           this._showDetailPanel = !this._showDetailPanel;
         }}
-        title="Toggle thread details"
+        aria-expanded=${isOpen ? "true" : "false"}
+        title=${isOpen ? "Hide thread details" : "Show thread details"}
         type="button"
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="15" y1="3" x2="15" y2="21" />
-        </svg>
+        ${isOpen ? "Hide details" : "Details"}
       </button>
     `;
   }
