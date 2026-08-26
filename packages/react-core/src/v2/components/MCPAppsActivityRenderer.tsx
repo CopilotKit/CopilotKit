@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import {
+  AppBridge,
+  PostMessageTransport,
+} from "@modelcontextprotocol/ext-apps/app-bridge";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 
 /**
@@ -54,9 +59,6 @@ export async function ɵrunMcpFollowUp({
   );
   return { result: undefined, newMessages: [] };
 }
-
-// Protocol version supported
-const PROTOCOL_VERSION = "2025-06-18";
 
 // Build sandbox proxy HTML with optional extra CSP domains from resource metadata
 function buildSandboxHTML(extraCspDomains?: string[]): string {
@@ -277,14 +279,6 @@ interface JSONRPCNotification {
 
 type JSONRPCMessage = JSONRPCRequest | JSONRPCResponse | JSONRPCNotification;
 
-function isRequest(msg: JSONRPCMessage): msg is JSONRPCRequest {
-  return "id" in msg && "method" in msg;
-}
-
-function isNotification(msg: JSONRPCMessage): msg is JSONRPCNotification {
-  return !("id" in msg) && "method" in msg;
-}
-
 /**
  * Props for the activity renderer component
  */
@@ -301,6 +295,29 @@ interface MCPAppsActivityRendererProps {
  * Renders MCP Apps UI in a sandboxed iframe with full protocol support.
  * Fetches resource content on-demand via proxied MCP requests.
  */
+/**
+ * Permissive `ui/message` schema. ext-apps restricts the request to
+ * `role: "user"` with no `followUp`, but CopilotKit intentionally extends
+ * `ui/message` with `role` ("user" | "assistant") and `followUp` (documented
+ * behavior with dedicated tests). We register our own handler (instead of the
+ * bridge's strict `onmessage`) so those extensions survive the migration.
+ *
+ * Going forward, widgets SHOULD pass the extensions under
+ * `params._meta.copilotkit`; the top-level `role`/`followUp` fields are the
+ * legacy channel, kept for backward compatibility and slated for deprecation.
+ */
+const CopilotKitUiMessageSchema = z.object({
+  method: z.literal("ui/message"),
+  params: z
+    .object({
+      role: z.string().optional(),
+      content: z.array(z.any()).optional(),
+      followUp: z.boolean().optional(),
+      _meta: z.record(z.any()).optional(),
+    })
+    .passthrough(),
+});
+
 export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
   function MCPAppsActivityRenderer({ content, agent }) {
     const { copilotkit } = useCopilotKit();
@@ -324,56 +341,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     const agentRef = useRef(agent);
     agentRef.current = agent;
 
+    // ext-apps host bridge for this widget instance (owns the app<->host protocol).
+    const bridgeRef = useRef<AppBridge | null>(null);
+
     // Ref to track fetch state - survives StrictMode remounts
     const fetchStateRef = useRef<{
       inProgress: boolean;
       promise: Promise<FetchedResource | null> | null;
       resourceUri: string | null;
     }>({ inProgress: false, promise: null, resourceUri: null });
-
-    // Callback to send a message to the iframe
-    const sendToIframe = useCallback((msg: JSONRPCMessage) => {
-      if (iframeRef.current?.contentWindow) {
-        console.log("[MCPAppsRenderer] Sending to iframe:", msg);
-        iframeRef.current.contentWindow.postMessage(msg, "*");
-      }
-    }, []);
-
-    // Callback to send a JSON-RPC response
-    const sendResponse = useCallback(
-      (id: string | number, result: unknown) => {
-        sendToIframe({
-          jsonrpc: "2.0",
-          id,
-          result,
-        });
-      },
-      [sendToIframe],
-    );
-
-    // Callback to send a JSON-RPC error response
-    const sendErrorResponse = useCallback(
-      (id: string | number, code: number, message: string) => {
-        sendToIframe({
-          jsonrpc: "2.0",
-          id,
-          error: { code, message },
-        });
-      },
-      [sendToIframe],
-    );
-
-    // Callback to send a notification
-    const sendNotification = useCallback(
-      (method: string, params?: Record<string, unknown>) => {
-        sendToIframe({
-          jsonrpc: "2.0",
-          method,
-          params: params || {},
-        });
-      },
-      [sendToIframe],
-    );
 
     // Effect 0: Fetch the resource content on mount
     // Uses ref-based deduplication to handle React StrictMode double-mounting
@@ -468,31 +444,30 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
       // No cleanup needed - we want the fetch to complete even if StrictMode unmounts
     }, [agent, content]);
 
-    // Effect 1: Setup sandbox proxy iframe and communication (after resource is fetched)
+    // Effect 1: connect the ext-apps AppBridge to the sandboxed iframe.
+    // The bridge owns the app<->host protocol (initialize/capabilities/context,
+    // requests, notifications, tool input/result) over a PostMessage transport.
     useEffect(() => {
-      // Wait for resource to be fetched
       if (isLoading || !fetchedResource) {
         return;
       }
-
-      // Capture container reference at effect start (refs are cleared during unmount)
       const container = containerRef.current;
       if (!container) {
         return;
       }
 
       let mounted = true;
-      let messageHandler: ((event: MessageEvent) => void) | null = null;
-      let initialListener: ((event: MessageEvent) => void) | null = null;
+      let bridge: AppBridge | null = null;
       let createdIframe: HTMLIFrameElement | null = null;
 
       const setup = async () => {
         try {
-          // Create sandbox proxy iframe
+          // Create the sandbox proxy iframe (the proxy relays postMessage between
+          // the host and the inner sandboxed widget).
           const iframe = document.createElement("iframe");
-          createdIframe = iframe; // Track for cleanup
+          createdIframe = iframe;
           iframe.style.width = "100%";
-          iframe.style.height = "100px"; // Start small, will be resized by size-changed notification
+          iframe.style.height = "100px";
           iframe.style.border = "none";
           iframe.style.backgroundColor = "transparent";
           iframe.style.display = "block";
@@ -500,276 +475,23 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             "sandbox",
             "allow-scripts allow-same-origin allow-forms",
           );
-          // Cross-frontend MCP-apps surface contract: the host-created sandbox
-          // iframe is the addressable render surface for the MCP app, and every
-          // frontend must expose it under the SAME testid so one shared probe
-          // (harness `d5-mcp-apps`) and one shared e2e spec can assert the
-          // surface mounted without per-frontend selectors. Angular declares
-          // the same pair on its `copilot-mcp-apps-widget` template iframe;
-          // Vue's renderer mirrors this block.
+          // Cross-frontend surface contract: same testid across frontends.
           iframe.setAttribute("data-testid", "mcp-app-iframe");
           iframe.setAttribute("title", "Interactive MCP application");
 
-          // Wait for sandbox proxy to be ready
-          const sandboxReady = new Promise<void>((resolve) => {
-            initialListener = (event: MessageEvent) => {
-              if (event.source === iframe.contentWindow) {
-                if (
-                  event.data?.method === "ui/notifications/sandbox-proxy-ready"
-                ) {
-                  if (initialListener) {
-                    window.removeEventListener("message", initialListener);
-                    initialListener = null;
-                  }
-                  resolve();
-                }
-              }
-            };
-            window.addEventListener("message", initialListener);
-          });
-
-          // Check mounted before adding to DOM (handles StrictMode double-mount)
-          if (!mounted) {
-            if (initialListener) {
-              window.removeEventListener("message", initialListener);
-              initialListener = null;
-            }
-            return;
-          }
-
-          // Build sandbox HTML with CSP domains from resource metadata
           const cspDomains = fetchedResource._meta?.ui?.csp?.resourceDomains;
           iframe.srcdoc = buildSandboxHTML(cspDomains);
           iframeRef.current = iframe;
           container.appendChild(iframe);
 
-          // Wait for sandbox proxy to signal ready
-          await sandboxReady;
-          if (!mounted) return;
+          const win = iframe.contentWindow;
+          if (!win) {
+            throw new Error("Sandbox iframe has no contentWindow");
+          }
 
-          console.log("[MCPAppsRenderer] Sandbox proxy ready");
-
-          // Setup message handler for JSON-RPC messages from the inner iframe
-          messageHandler = async (event: MessageEvent) => {
-            if (event.source !== iframe.contentWindow) return;
-
-            const msg = event.data as JSONRPCMessage;
-            if (!msg || typeof msg !== "object" || msg.jsonrpc !== "2.0")
-              return;
-
-            console.log("[MCPAppsRenderer] Received from iframe:", msg);
-
-            // Handle requests (need response)
-            if (isRequest(msg)) {
-              switch (msg.method) {
-                case "ui/initialize": {
-                  // Respond with host capabilities
-                  sendResponse(msg.id, {
-                    protocolVersion: PROTOCOL_VERSION,
-                    hostInfo: {
-                      name: "CopilotKit MCP Apps Host",
-                      version: "1.0.0",
-                    },
-                    hostCapabilities: {
-                      openLinks: {},
-                      logging: {},
-                    },
-                    hostContext: {
-                      theme: "light",
-                      platform: "web",
-                    },
-                  });
-                  break;
-                }
-
-                case "ui/message": {
-                  // Add message to CopilotKit chat and optionally invoke agent
-                  const currentAgent = agentRef.current;
-
-                  if (!currentAgent) {
-                    console.warn(
-                      "[MCPAppsRenderer] ui/message: No agent available",
-                    );
-                    sendResponse(msg.id, { isError: false });
-                    break;
-                  }
-
-                  try {
-                    const params = msg.params as {
-                      role?: string;
-                      content?: Array<{ type: string; text?: string }>;
-                      followUp?: boolean;
-                    };
-
-                    const role =
-                      (params.role as "user" | "assistant") || "user";
-
-                    // Extract text content from the message
-                    const textContent =
-                      params.content
-                        ?.filter((c) => c.type === "text" && c.text)
-                        .map((c) => c.text)
-                        .join("\n") || "";
-
-                    if (textContent) {
-                      currentAgent.addMessage({
-                        id: crypto.randomUUID(),
-                        role,
-                        content: textContent,
-                      });
-                    }
-
-                    // Acknowledge the message immediately — don't block on agent run
-                    sendResponse(msg.id, { isError: false });
-
-                    // Determine whether to invoke the agent after adding message.
-                    // followUp: true  → always invoke agent
-                    // followUp: false → display-only, skip agent
-                    // not specified   → invoke for user messages, skip for assistant
-                    const shouldFollowUp = params.followUp ?? role === "user";
-
-                    if (shouldFollowUp && textContent) {
-                      // Capture the thread this work is enqueued for NOW. The
-                      // queue delays it until the agent is idle; if the host
-                      // switches threads meanwhile, the shared agent's threadId
-                      // is overwritten. ɵrunMcpFollowUp compares against the
-                      // capture so a stale follow-up is dropped rather than run
-                      // against the now-foreground thread (issue #5819).
-                      const capturedThreadId =
-                        currentAgent.threadId || "default";
-                      // Use copilotkit.runAgent to go through RunHandler — provides
-                      // frontend tools, context, tool execution, and abort support.
-                      // Fire-and-forget: errors are handled by RunHandler's error emission.
-                      mcpAppsRequestQueue
-                        .enqueue(currentAgent, () =>
-                          ɵrunMcpFollowUp({
-                            host: copilotkit,
-                            agent: currentAgent,
-                            capturedThreadId,
-                          }),
-                        )
-                        .catch((err) =>
-                          console.error(
-                            "[MCPAppsRenderer] ui/message agent run failed:",
-                            err,
-                          ),
-                        );
-                    }
-                  } catch (err) {
-                    console.error("[MCPAppsRenderer] ui/message error:", err);
-                    sendResponse(msg.id, { isError: true });
-                  }
-                  break;
-                }
-
-                case "ui/open-link": {
-                  // Open URL in new tab
-                  const url = msg.params?.url as string | undefined;
-                  if (url) {
-                    window.open(url, "_blank", "noopener,noreferrer");
-                    sendResponse(msg.id, { isError: false });
-                  } else {
-                    sendErrorResponse(msg.id, -32602, "Missing url parameter");
-                  }
-                  break;
-                }
-
-                case "tools/call": {
-                  // Proxy tool call to MCP server via agent.runAgent()
-                  const { serverHash, serverId } = contentRef.current;
-                  const currentAgent = agentRef.current;
-
-                  if (!serverHash) {
-                    sendErrorResponse(
-                      msg.id,
-                      -32603,
-                      "No server hash available for proxying",
-                    );
-                    break;
-                  }
-
-                  if (!currentAgent) {
-                    sendErrorResponse(
-                      msg.id,
-                      -32603,
-                      "No agent available for proxying",
-                    );
-                    break;
-                  }
-
-                  try {
-                    // Use queue to wait for agent to be idle and serialize requests
-                    const runResult = await mcpAppsRequestQueue.enqueue(
-                      currentAgent,
-                      () =>
-                        currentAgent.runAgent({
-                          forwardedProps: {
-                            __proxiedMCPRequest: {
-                              serverHash,
-                              serverId, // optional, takes precedence if provided
-                              method: "tools/call",
-                              params: msg.params,
-                            },
-                          },
-                        }),
-                    );
-
-                    // The result from runAgent contains the MCP response
-                    sendResponse(msg.id, runResult.result || {});
-                  } catch (err) {
-                    console.error("[MCPAppsRenderer] tools/call error:", err);
-                    sendErrorResponse(msg.id, -32603, String(err));
-                  }
-                  break;
-                }
-
-                default:
-                  sendErrorResponse(
-                    msg.id,
-                    -32601,
-                    `Method not found: ${msg.method}`,
-                  );
-              }
-            }
-
-            // Handle notifications (no response needed)
-            if (isNotification(msg)) {
-              switch (msg.method) {
-                case "ui/notifications/initialized": {
-                  console.log("[MCPAppsRenderer] Inner iframe initialized");
-                  if (mounted) {
-                    setIframeReady(true);
-                  }
-                  break;
-                }
-
-                case "ui/notifications/size-changed": {
-                  const { width, height } = msg.params || {};
-                  console.log("[MCPAppsRenderer] Size change:", {
-                    width,
-                    height,
-                  });
-                  if (mounted) {
-                    setIframeSize({
-                      width: typeof width === "number" ? width : undefined,
-                      height: typeof height === "number" ? height : undefined,
-                    });
-                  }
-                  break;
-                }
-
-                case "notifications/message": {
-                  // Logging notification from the app
-                  console.log("[MCPAppsRenderer] App log:", msg.params);
-                  break;
-                }
-              }
-            }
-          };
-
-          window.addEventListener("message", messageHandler);
-
-          // Extract HTML content from fetched resource
+          // Extract the widget HTML from the fetched resource. Done after the
+          // iframe is mounted so a resource missing text/blob still leaves the
+          // sandbox surface present (it just never receives content).
           let html: string;
           if (fetchedResource.text) {
             html = fetchedResource.text;
@@ -779,8 +501,132 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             throw new Error("Resource has no text or blob content");
           }
 
-          // Send the resource content to the sandbox proxy
-          sendNotification("ui/notifications/sandbox-resource-ready", { html });
+          bridge = new AppBridge(
+            null,
+            { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
+            { openLinks: {}, logging: {}, message: { text: {} } },
+          );
+
+          // Sandbox handshake: when the proxy is ready, load the widget HTML into
+          // the inner sandboxed iframe.
+          bridge.onsandboxready = () => {
+            void bridge?.sendSandboxResourceReady({ html });
+          };
+
+          // --- App -> host requests ---
+          // ui/message uses a custom handler (not the bridge's strict onmessage)
+          // to preserve CopilotKit's role/followUp extensions. Extensions are read
+          // from params._meta.copilotkit first (preferred), then from the legacy
+          // top-level params.role / params.followUp (deprecated).
+          bridge.setRequestHandler(CopilotKitUiMessageSchema, async (req) => {
+            const currentAgent = agentRef.current;
+            if (!currentAgent) return { isError: false };
+            try {
+              const params = req.params;
+              const ck = (params._meta?.copilotkit ?? {}) as {
+                role?: string;
+                followUp?: boolean;
+              };
+              const role =
+                (ck.role as "user" | "assistant") ||
+                (params.role as "user" | "assistant") ||
+                "user";
+              const textContent =
+                (
+                  params.content as
+                    | Array<{ type: string; text?: string }>
+                    | undefined
+                )
+                  ?.filter((c) => c.type === "text" && c.text)
+                  .map((c) => c.text)
+                  .join("\n") || "";
+              if (textContent) {
+                currentAgent.addMessage({
+                  id: crypto.randomUUID(),
+                  role,
+                  content: textContent,
+                });
+              }
+              const followUp = ck.followUp ?? params.followUp;
+              const shouldFollowUp = followUp ?? role === "user";
+              if (shouldFollowUp && textContent) {
+                const capturedThreadId = currentAgent.threadId || "default";
+                mcpAppsRequestQueue
+                  .enqueue(currentAgent, () =>
+                    ɵrunMcpFollowUp({
+                      host: copilotkit,
+                      agent: currentAgent,
+                      capturedThreadId,
+                    }),
+                  )
+                  .catch((err) =>
+                    console.error(
+                      "[MCPAppsRenderer] ui/message agent run failed:",
+                      err,
+                    ),
+                  );
+              }
+              return { isError: false };
+            } catch (err) {
+              console.error("[MCPAppsRenderer] ui/message error:", err);
+              return { isError: true };
+            }
+          });
+
+          bridge.onopenlink = async ({ url }) => {
+            // `url` is guaranteed by the bridge's ui/open-link schema; a request
+            // without it is rejected by schema validation before this runs.
+            window.open(url, "_blank", "noopener,noreferrer");
+            return { isError: false };
+          };
+
+          bridge.oncalltool = async (params) => {
+            const { serverHash, serverId } = contentRef.current;
+            const currentAgent = agentRef.current;
+            if (!serverHash || !currentAgent) {
+              throw new Error("No server hash or agent available for proxying");
+            }
+            const runResult = await mcpAppsRequestQueue.enqueue(
+              currentAgent,
+              () =>
+                currentAgent.runAgent({
+                  forwardedProps: {
+                    __proxiedMCPRequest: {
+                      serverHash,
+                      serverId,
+                      method: "tools/call",
+                      params,
+                    },
+                  },
+                }),
+            );
+            return (runResult.result as CallToolResult) || { content: [] };
+          };
+
+          // --- App -> host notifications ---
+          bridge.onsizechange = (p) => {
+            if (!mounted) return;
+            const { width, height } = p || {};
+            setIframeSize({
+              width: typeof width === "number" ? width : undefined,
+              height: typeof height === "number" ? height : undefined,
+            });
+          };
+          bridge.oninitialized = () => {
+            if (mounted) setIframeReady(true);
+          };
+          bridge.onloggingmessage = (p) => {
+            console.log("[MCPAppsRenderer] App log:", p);
+          };
+
+          const transport = new PostMessageTransport(win, win);
+          await bridge.connect(transport);
+          if (!mounted) {
+            await bridge.close();
+            return;
+          }
+          bridge.setHostContext({ theme: "light", platform: "web" });
+          bridgeRef.current = bridge;
         } catch (err) {
           console.error("[MCPAppsRenderer] Setup error:", err);
           if (mounted) {
@@ -793,29 +639,15 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
       return () => {
         mounted = false;
-        // Clean up initial listener if still active
-        if (initialListener) {
-          window.removeEventListener("message", initialListener);
-          initialListener = null;
-        }
-        if (messageHandler) {
-          window.removeEventListener("message", messageHandler);
-        }
-        // Remove the iframe we created (using tracked reference, not DOM query)
-        // This works even if containerRef.current is null during unmount
+        bridgeRef.current = null;
+        void bridge?.close();
         if (createdIframe) {
           createdIframe.remove();
           createdIframe = null;
         }
         iframeRef.current = null;
       };
-    }, [
-      isLoading,
-      fetchedResource,
-      sendNotification,
-      sendResponse,
-      sendErrorResponse,
-    ]);
+    }, [isLoading, fetchedResource, copilotkit]);
 
     // Effect 2: Update iframe size when it changes
     useEffect(() => {
@@ -834,20 +666,20 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
     // Effect 3: Send tool input when iframe ready
     useEffect(() => {
       if (iframeReady && content.toolInput) {
-        console.log("[MCPAppsRenderer] Sending tool input:", content.toolInput);
-        sendNotification("ui/notifications/tool-input", {
-          arguments: content.toolInput,
+        void bridgeRef.current?.sendToolInput({
+          arguments: content.toolInput as Record<string, unknown>,
         });
       }
-    }, [iframeReady, content.toolInput, sendNotification]);
+    }, [iframeReady, content.toolInput]);
 
     // Effect 4: Send tool result when iframe ready
     useEffect(() => {
       if (iframeReady && content.result) {
-        console.log("[MCPAppsRenderer] Sending tool result:", content.result);
-        sendNotification("ui/notifications/tool-result", content.result);
+        void bridgeRef.current?.sendToolResult(
+          content.result as CallToolResult,
+        );
       }
-    }, [iframeReady, content.result, sendNotification]);
+    }, [iframeReady, content.result]);
 
     // Determine border styling based on prefersBorder metadata from fetched resource
     // true = show border/background, false = none, undefined = host decides (we default to none)

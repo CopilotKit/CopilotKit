@@ -455,13 +455,17 @@ describe("MCP Apps Proxy E2E", () => {
       const reqId = testId("req");
       await sendJsonRpc(iframe, reqId, "ui/open-link", {});
 
-      // Verify an error response for missing url
+      // A ui/open-link without `url` is an invalid request. Since the migration
+      // to the ext-apps AppBridge, the bridge validates the request against its
+      // schema and rejects the missing required `url` with a JSON-RPC error
+      // (InternalError -32603) before any host handler runs.
       const errorResponse = captured.find(
         (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.error,
       ) as any;
       expect(errorResponse).toBeDefined();
-      expect(errorResponse.error.code).toBe(-32602);
-      expect(errorResponse.error.message).toContain("Missing url");
+      expect(errorResponse.error.code).toBe(-32603);
+      expect(typeof errorResponse.error.message).toBe("string");
+      expect(errorResponse.error.message.length).toBeGreaterThan(0);
     });
   });
 
