@@ -322,6 +322,7 @@ export type InspectorLeafKey =
   | "whats-new"
   | "playground"
   | "threads"
+  | "event-snippets"
   | "ag-ui-events"
   | "agents"
   | "frontend-tools"

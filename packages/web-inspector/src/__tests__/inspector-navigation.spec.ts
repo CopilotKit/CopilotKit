@@ -151,6 +151,14 @@ async function setup(
       if (url.endsWith("/threads/thread-1/state")) {
         return jsonResponse({ state: { topic: "billing" } });
       }
+      if (url.endsWith("/threads/thread-1/events")) {
+        return jsonResponse({
+          events: [
+            { type: "RUN_STARTED", timestamp: "2026-08-26T10:00:00.000Z" },
+            { type: "RUN_FINISHED", timestamp: "2026-08-26T10:00:01.000Z" },
+          ],
+        });
+      }
       throw new Error(`Unexpected inspector request: ${url}`);
     },
   );
@@ -396,6 +404,7 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
       "whats-new",
       "playground",
       "threads",
+      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",
@@ -430,6 +439,75 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
     expect(root.querySelector('nav[aria-label="Agent navigation"]')).toBeNull();
     expect(storedSelectedMenu()).toBe("home");
     expect(storedHasOpenedInspector()).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Event Snippets imports the current thread into the local library", async () => {
+  const context = await setup({
+    agent: true,
+    threads: [
+      {
+        id: "thread-1",
+        name: "Billing escalation",
+        agentId: "default",
+        organizationId: "organization-1",
+        createdById: "user-1",
+        archived: false,
+        createdAt: "2026-08-26T09:55:00.000Z",
+        updatedAt: "2026-08-26T10:00:00.000Z",
+      },
+    ],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("event-snippets");
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const source = requireElement(
+      root.querySelector<HTMLSelectElement>(
+        ".inspector-event-snippets__import-controls select",
+      ),
+      "Event Snippets source picker was not rendered",
+    );
+    await waitFor(
+      () => source.options.length > 1,
+      "the current thread source to be available",
+    );
+    source.value = "thread-1";
+    source.dispatchEvent(new Event("change"));
+    await context.inspector.updateComplete;
+
+    const importButton = Array.from(root.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Import events",
+    );
+    if (!importButton)
+      throw new Error("Import events control was not rendered");
+    importButton.click();
+    const events = requireElement(
+      root.querySelector<HTMLTextAreaElement>(
+        ".inspector-event-snippets__field textarea",
+      ),
+      "Event Snippets editor was not rendered",
+    );
+    await waitFor(
+      () => events.value.includes("RUN_STARTED"),
+      "thread events to import",
+    );
+
+    const saveButton = Array.from(root.querySelectorAll("button")).find(
+      (button) => button.textContent?.trim() === "Save snippet",
+    );
+    if (!saveButton) throw new Error("Save snippet control was not rendered");
+    saveButton.click();
+    await context.inspector.updateComplete;
+    expect(root.textContent).toContain("Billing escalation events");
+    expect(root.textContent).toContain(
+      "Snippet saved locally in this browser.",
+    );
   } finally {
     context.teardown();
   }
@@ -1095,6 +1173,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "whats-new",
       "playground",
       "threads",
+      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",
@@ -1125,6 +1204,7 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "whats-new",
       "playground",
       "threads",
+      "event-snippets",
       "memories",
       "agents",
       "ag-ui-events",

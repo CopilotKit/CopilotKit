@@ -97,6 +97,15 @@ import {
 import type { InspectorNavGroupKey, MenuKey } from "./lib/inspector-nav.js";
 import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
+  createThreadEventSnippetId,
+  deleteThreadEventSnippet,
+  exportThreadEventSnippets,
+  loadThreadEventSnippets,
+  parseThreadSnippetEvents,
+  upsertThreadEventSnippet,
+} from "./lib/thread-event-snippets.js";
+import type { ThreadEventSnippet } from "./lib/thread-event-snippets.js";
+import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getRuntimeUrlType,
@@ -6153,6 +6162,16 @@ export class WebInspectorElement extends LitElement {
     inspect: "ag-ui-events",
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
+  private threadEventSnippets: ThreadEventSnippet[] = [];
+  private selectedThreadEventSnippetId: string | null = null;
+  private snippetSourceThreadId: string | null = null;
+  private snippetDraftName = "";
+  private snippetDraftEvents = "[]";
+  private snippetImportState: "idle" | "loading" = "idle";
+  private snippetError: string | null = null;
+  private snippetNotice: string | null = null;
+  private hasLoadedThreadEventSnippets = false;
+  private snippetImportAbort: AbortController | null = null;
   private selectedThreadId: string | null = null;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
@@ -6503,6 +6522,11 @@ export class WebInspectorElement extends LitElement {
         key: "threads",
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
+      },
+      {
+        key: "event-snippets",
+        label: "Event Snippets",
+        icon: "Bookmark" as LucideIconName,
       },
       {
         key: "memories",
@@ -14165,6 +14189,10 @@ export class WebInspectorElement extends LitElement {
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "event-snippets") {
+      return this.renderEventSnippetsView();
+    }
+
     if (this.selectedMenu === "memories") {
       return this.renderMemoriesView();
     }
@@ -16656,6 +16684,383 @@ export class WebInspectorElement extends LitElement {
                       `
             }
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private getThreadSnippetSources(): Array<{
+    id: string;
+    name: string;
+    current: boolean;
+  }> {
+    const currentThreadId = this.inAppThreadId ?? this.selectedThreadId;
+    const sources = new Map<
+      string,
+      { id: string; name: string; current: boolean }
+    >();
+
+    if (currentThreadId) {
+      const currentThread = this._threads.find(
+        (thread) => thread.id === currentThreadId,
+      );
+      sources.set(currentThreadId, {
+        id: currentThreadId,
+        name: currentThread?.name?.trim() || "Current thread",
+        current: true,
+      });
+    }
+
+    const selectedSnippet = this.threadEventSnippets.find(
+      (snippet) => snippet.id === this.selectedThreadEventSnippetId,
+    );
+    if (selectedSnippet && !sources.has(selectedSnippet.sourceThreadId)) {
+      sources.set(selectedSnippet.sourceThreadId, {
+        id: selectedSnippet.sourceThreadId,
+        name: selectedSnippet.sourceThreadName,
+        current: false,
+      });
+    }
+
+    for (const thread of this._threads) {
+      const existing = sources.get(thread.id);
+      sources.set(thread.id, {
+        id: thread.id,
+        name: thread.name?.trim() || `Thread ${thread.id.slice(0, 8)}`,
+        current: existing?.current ?? false,
+      });
+    }
+
+    return [...sources.values()].sort((left, right) => {
+      if (left.current !== right.current) return left.current ? -1 : 1;
+      return left.name.localeCompare(right.name);
+    });
+  }
+
+  private ensureThreadEventSnippetsLoaded(): void {
+    if (this.hasLoadedThreadEventSnippets) return;
+    this.threadEventSnippets = loadThreadEventSnippets();
+    this.hasLoadedThreadEventSnippets = true;
+    const currentThreadId = this.inAppThreadId ?? this.selectedThreadId;
+    this.snippetSourceThreadId = currentThreadId;
+  }
+
+  private handleThreadSnippetSourceChange = (event: Event): void => {
+    this.snippetSourceThreadId =
+      (event.target as HTMLSelectElement).value || null;
+    this.snippetError = null;
+    this.snippetNotice = null;
+    this.requestUpdate();
+  };
+
+  private async importThreadEventsIntoSnippet(): Promise<void> {
+    const threadId = this.snippetSourceThreadId;
+    const source = this.getThreadSnippetSources().find(
+      (candidate) => candidate.id === threadId,
+    );
+    if (!threadId || !source) {
+      this.snippetError = "Choose a thread to import.";
+      this.requestUpdate();
+      return;
+    }
+
+    this.snippetImportAbort?.abort();
+    const controller = new AbortController();
+    this.snippetImportAbort = controller;
+    this.snippetImportState = "loading";
+    this.snippetError = null;
+    this.snippetNotice = null;
+    this.requestUpdate();
+
+    try {
+      let events: ThreadDebuggerEvent[];
+      if (this.isExampleThreadId(threadId)) {
+        events =
+          (await this.getExampleThreadProvider(threadId).getEvents?.(threadId, {
+            signal: controller.signal,
+          })) ?? [];
+      } else {
+        if (
+          !this.areThreadEndpointsAvailable() ||
+          this._core?.threadEndpoints?.inspect === false ||
+          !this._core?.runtimeUrl
+        ) {
+          throw new Error(
+            "Thread event inspection is not available for this runtime.",
+          );
+        }
+        const response = await fetch(
+          `${this._core.runtimeUrl.replace(/\/+$/, "")}/threads/${encodeURIComponent(threadId)}/events`,
+          { headers: { ...this._core.headers }, signal: controller.signal },
+        );
+        if (response.status === 501) {
+          throw new Error("This runtime does not provide thread events.");
+        }
+        if (!response.ok)
+          throw new Error(`Could not load events (HTTP ${response.status}).`);
+        const payload = (await response.json()) as { events?: unknown };
+        if (!Array.isArray(payload.events)) {
+          throw new Error("The runtime returned an invalid events response.");
+        }
+        events = payload.events as ThreadDebuggerEvent[];
+      }
+
+      const importedEvents = parseThreadSnippetEvents(JSON.stringify(events));
+      if (controller.signal.aborted) return;
+      this.selectedThreadEventSnippetId = null;
+      this.snippetDraftName = `${source.name} events`;
+      this.snippetDraftEvents = JSON.stringify(importedEvents, null, 2);
+      this.snippetNotice = `${importedEvents.length} events imported from ${source.name}.`;
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      this.snippetError =
+        error instanceof Error
+          ? error.message
+          : "Could not import thread events.";
+    } finally {
+      if (this.snippetImportAbort === controller) {
+        this.snippetImportAbort = null;
+        this.snippetImportState = "idle";
+        this.requestUpdate();
+      }
+    }
+  }
+
+  private selectThreadEventSnippet(id: string): void {
+    const snippet = this.threadEventSnippets.find((item) => item.id === id);
+    if (!snippet) return;
+    this.selectedThreadEventSnippetId = snippet.id;
+    this.snippetSourceThreadId = snippet.sourceThreadId;
+    this.snippetDraftName = snippet.name;
+    this.snippetDraftEvents = JSON.stringify(snippet.events, null, 2);
+    this.snippetError = null;
+    this.snippetNotice = null;
+    this.requestUpdate();
+  }
+
+  private startNewThreadEventSnippet = (): void => {
+    this.selectedThreadEventSnippetId = null;
+    this.snippetDraftName = "";
+    this.snippetDraftEvents = "[]";
+    this.snippetError = null;
+    this.snippetNotice = null;
+    this.requestUpdate();
+  };
+
+  private saveThreadEventSnippet = (): void => {
+    const source = this.getThreadSnippetSources().find(
+      (candidate) => candidate.id === this.snippetSourceThreadId,
+    );
+    if (!source) {
+      this.snippetError = "Choose the source thread before saving.";
+      this.requestUpdate();
+      return;
+    }
+    try {
+      const events = parseThreadSnippetEvents(this.snippetDraftEvents);
+      const now = new Date().toISOString();
+      const existing = this.threadEventSnippets.find(
+        (snippet) => snippet.id === this.selectedThreadEventSnippetId,
+      );
+      const snippet: ThreadEventSnippet = {
+        id: existing?.id ?? createThreadEventSnippetId(),
+        name: this.snippetDraftName.trim() || `${source.name} events`,
+        sourceThreadId: source.id,
+        sourceThreadName: source.name,
+        events,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+      this.threadEventSnippets = upsertThreadEventSnippet(snippet);
+      this.selectedThreadEventSnippetId = snippet.id;
+      this.snippetDraftName = snippet.name;
+      this.snippetNotice = "Snippet saved locally in this browser.";
+      this.snippetError = null;
+    } catch (error) {
+      this.snippetError =
+        error instanceof Error ? error.message : "Could not save this snippet.";
+    }
+    this.requestUpdate();
+  };
+
+  private deleteSelectedThreadEventSnippet = (): void => {
+    const id = this.selectedThreadEventSnippetId;
+    if (!id) return;
+    const snippet = this.threadEventSnippets.find((item) => item.id === id);
+    if (!snippet || !window.confirm(`Delete ${snippet.name}?`)) return;
+    this.threadEventSnippets = deleteThreadEventSnippet(id);
+    this.startNewThreadEventSnippet();
+    this.snippetNotice = "Snippet deleted.";
+    this.requestUpdate();
+  };
+
+  private exportThreadEventSnippetLibrary = (): void => {
+    if (this.threadEventSnippets.length === 0) return;
+    const blob = new Blob(
+      [exportThreadEventSnippets(this.threadEventSnippets)],
+      {
+        type: "application/json",
+      },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "copilotkit-thread-event-snippets.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  private renderEventSnippetsView() {
+    this.ensureThreadEventSnippetsLoaded();
+    const sources = this.getThreadSnippetSources();
+    const isImporting = this.snippetImportState === "loading";
+    const selectedSnippet = this.selectedThreadEventSnippetId !== null;
+
+    return html`
+      <div class="inspector-event-snippets">
+        <header class="inspector-event-snippets__header">
+          <div>
+            <h2>Event Snippets</h2>
+            <p>Import an exact event sequence from a thread, refine it, and keep it as a local debugging fixture.</p>
+          </div>
+          <div class="inspector-event-snippets__header-actions">
+            <button type="button" @click=${this.startNewThreadEventSnippet}>New snippet</button>
+            <button
+              type="button"
+              ?disabled=${this.threadEventSnippets.length === 0}
+              @click=${this.exportThreadEventSnippetLibrary}
+            >Export library</button>
+          </div>
+        </header>
+
+        ${
+          this.snippetNotice
+            ? html`<p class="inspector-event-snippets__notice" role="status">${this.snippetNotice}</p>`
+            : nothing
+        }
+        ${
+          this.snippetError
+            ? html`<p class="inspector-event-snippets__error" role="alert">${this.snippetError}</p>`
+            : nothing
+        }
+
+        <div class="inspector-event-snippets__workspace">
+          <aside class="inspector-event-snippets__library" aria-label="Saved event snippets">
+            <div class="inspector-event-snippets__library-title">
+              <span>Library</span><span>${this.threadEventSnippets.length}</span>
+            </div>
+            ${
+              this.threadEventSnippets.length === 0
+                ? html`
+                    <p class="inspector-event-snippets__library-empty">
+                      Your saved thread fixtures will appear here.
+                    </p>
+                  `
+                : this.threadEventSnippets.map(
+                    (snippet) => html`
+                      <button
+                        type="button"
+                        class=${`inspector-event-snippets__library-item ${
+                          snippet.id === this.selectedThreadEventSnippetId
+                            ? "inspector-event-snippets__library-item--selected"
+                            : ""
+                        }`}
+                        aria-current=${
+                          snippet.id === this.selectedThreadEventSnippetId
+                            ? "page"
+                            : nothing
+                        }
+                        @click=${() => this.selectThreadEventSnippet(snippet.id)}
+                      >
+                        <span>${snippet.name}</span>
+                        <small>${snippet.events.length} events</small>
+                      </button>
+                    `,
+                  )
+            }
+          </aside>
+
+          <main class="inspector-event-snippets__editor">
+            <section class="inspector-event-snippets__import">
+              <div>
+                <h3>Import from a thread</h3>
+                <p>Current thread is prioritized so you can capture the run you are already inspecting.</p>
+              </div>
+              <div class="inspector-event-snippets__import-controls">
+                <label>
+                  <span>Source thread</span>
+                  <select
+                    .value=${this.snippetSourceThreadId ?? ""}
+                    ?disabled=${isImporting || sources.length === 0}
+                    @change=${this.handleThreadSnippetSourceChange}
+                  >
+                    <option value="">Choose a thread</option>
+                    ${sources.map(
+                      (source) => html`<option value=${source.id}>
+                        ${source.current ? `Current thread: ${source.name}` : source.name}
+                      </option>`,
+                    )}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="inspector-event-snippets__import-button"
+                  ?disabled=${isImporting || !this.snippetSourceThreadId}
+                  @click=${() => void this.importThreadEventsIntoSnippet()}
+                >${isImporting ? "Importing…" : "Import events"}</button>
+              </div>
+              ${
+                sources.length === 0
+                  ? html`
+                      <p class="inspector-event-snippets__hint">
+                        Open the Inspector on a thread, then return here to import its events.
+                      </p>
+                    `
+                  : nothing
+              }
+            </section>
+
+            <section class="inspector-event-snippets__draft" aria-labelledby="snippet-draft-title">
+              <div class="inspector-event-snippets__draft-heading">
+                <div>
+                  <h3 id="snippet-draft-title">${selectedSnippet ? "Edit snippet" : "Draft snippet"}</h3>
+                  <p>Saved snippets stay in this browser. Event data is never sent to CopilotKit.</p>
+                </div>
+                ${
+                  selectedSnippet
+                    ? html`<button type="button" class="inspector-event-snippets__delete" @click=${this.deleteSelectedThreadEventSnippet}>Delete</button>`
+                    : nothing
+                }
+              </div>
+              <label class="inspector-event-snippets__field">
+                <span>Name</span>
+                <input
+                  .value=${this.snippetDraftName}
+                  placeholder="Give this event sequence a useful name"
+                  @input=${(event: Event) => {
+                    this.snippetDraftName = (
+                      event.target as HTMLInputElement
+                    ).value;
+                  }}
+                />
+              </label>
+              <label class="inspector-event-snippets__field">
+                <span>AG-UI events</span>
+                <textarea
+                  spellcheck="false"
+                  .value=${this.snippetDraftEvents}
+                  @input=${(event: Event) => {
+                    this.snippetDraftEvents = (
+                      event.target as HTMLTextAreaElement
+                    ).value;
+                  }}
+                ></textarea>
+              </label>
+              <div class="inspector-event-snippets__save-row">
+                <button type="button" class="inspector-event-snippets__save" @click=${this.saveThreadEventSnippet}>Save snippet</button>
+              </div>
+            </section>
+          </main>
         </div>
       </div>
     `;
