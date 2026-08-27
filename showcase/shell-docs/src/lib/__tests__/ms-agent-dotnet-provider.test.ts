@@ -27,6 +27,7 @@ function listMarkdownFiles(relativeDirectory: string): string[] {
 const guardedFiles = [
   "showcase/shell-docs/src/content/docs/auth.mdx",
   ...listMarkdownFiles(MAF_DOCS_ROOT),
+  "examples/integrations/ms-agent-framework-dotnet/.env.example",
   "examples/integrations/ms-agent-framework-dotnet/README.md",
   "examples/integrations/ms-agent-framework-dotnet/agent/Program.cs",
   "examples/integrations/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
@@ -97,5 +98,72 @@ test("uses the current Agent Framework server and OpenAI APIs", () => {
   expect(starter).toContain(".AsAIAgent(");
   expect(project).toContain(
     'PackageReference Include="Microsoft.Agents.AI.OpenAI"',
+  );
+});
+
+test("pins quickstart packages to the starter's tested versions", () => {
+  const quickstart = read(
+    "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/quickstart.mdx",
+  );
+  const project = read(
+    "examples/integrations/ms-agent-framework-dotnet/agent/ProverbsAgent.csproj",
+  );
+  const packages = [
+    "Microsoft.Agents.AI.Hosting.AGUI.AspNetCore",
+    "Microsoft.Agents.AI.OpenAI",
+  ] as const;
+
+  for (const packageName of packages) {
+    const packageReference = project
+      .split("\n")
+      .find((line) =>
+        line.includes(`<PackageReference Include="${packageName}"`),
+      );
+    const version = packageReference?.match(/Version="([^"]+)"/)?.[1];
+
+    expect(
+      version,
+      `${packageName} must be pinned in the starter`,
+    ).toBeDefined();
+    expect(quickstart).toContain(
+      `dotnet add package ${packageName} --version ${version}`,
+    );
+  }
+
+  expect(quickstart).not.toContain("--prerelease");
+});
+
+test("registers predictive state mappings as AG-UI endpoint metadata", () => {
+  const guide = read(
+    "showcase/shell-docs/src/content/docs/integrations/microsoft-agent-framework/shared-state/predictive-state-updates.mdx",
+  );
+
+  expect(guide).toMatch(
+    /AGUIStreamOptions streamOptions = new AGUIStreamOptions\(\)[\s\S]*?\.MapCall\("step_progress",[\s\S]*?app\.MapAGUIServer\("\/", agent\)\.WithMetadata\(streamOptions\);/,
+  );
+});
+
+test("runs the provider guard in docs CI for docs and starter changes", () => {
+  const workflow = read(".github/workflows/test_integration-docs.yml");
+  const pathTriggers = [
+    "showcase/shell-docs/src/content/**",
+    "showcase/shell-docs/model-allowlist.json",
+    "showcase/shell-docs/src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
+    "showcase/shell-docs/package.json",
+    "showcase/shell-docs/package-lock.json",
+    "examples/integrations/ms-agent-framework-dotnet/**",
+  ] as const;
+
+  for (const pathTrigger of pathTriggers) {
+    const matchingLines = workflow
+      .split("\n")
+      .filter((line) => line === `      - "${pathTrigger}"`);
+    expect(
+      matchingLines,
+      `${pathTrigger} must trigger on PRs and pushes`,
+    ).toHaveLength(2);
+  }
+  expect(workflow).toContain(
+    "npm exec -- vitest run src/lib/__tests__/ms-agent-dotnet-provider.test.ts",
   );
 });
