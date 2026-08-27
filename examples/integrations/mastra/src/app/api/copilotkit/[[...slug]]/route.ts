@@ -13,7 +13,7 @@ const runtime = new CopilotRuntime({
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
           ...(process.env.INTELLIGENCE_API_URL
             ? { apiUrl: process.env.INTELLIGENCE_API_URL }
             : {}),

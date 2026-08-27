@@ -163,7 +163,7 @@ describe("Channels documentation journey", () => {
         "The install command below uses an exact, tested SDK pair",
       );
       expect(doc?.source).toContain("`CHANNEL_CODE`");
-      expect(doc?.source).toContain("`INTELLIGENCE_API_KEY`");
+      expect(doc?.source).toContain("`CPK_INTELLIGENCE_API_KEY`");
       expect(doc?.source).toContain("## Before you start");
       expect(doc?.source).toContain("## Build and run your Channel");
       expect(doc?.source).toContain("## Troubleshooting");
@@ -616,7 +616,7 @@ describe("Channels documentation journey", () => {
     for (const filtered of [slack, teams]) {
       expect(filtered).toContain("**Waiting for runtime**");
       expect(filtered).toContain("`CHANNEL_CODE`");
-      expect(filtered).toContain("`INTELLIGENCE_API_KEY`");
+      expect(filtered).toContain("`CPK_INTELLIGENCE_API_KEY`");
     }
   });
 

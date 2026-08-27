@@ -48,7 +48,8 @@ import type { Page } from "@playwright/test";
 
 const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7250";
 const KEY =
-  process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
+  process.env.CPK_INTELLIGENCE_API_KEY ??
+  "cpk_sPRVSEED_seed0privat0longtoken00";
 const USER_ID = process.env.CPKI_USER_ID ?? "jordan-beamson";
 const TXN_ID = process.env.GATE_TXN_ID ?? "t-3";
 const SEED_CODE = "EXC-BOARD-APPROVED";
