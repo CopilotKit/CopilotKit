@@ -36,7 +36,14 @@ describe("home-briefing", () => {
       suggestionsOn: false,
       audioOn: false,
     });
-    expect(model.hero.title).toBe("Intelligence is not setup");
+    expect(model.hero.title).toBe("CopilotKit Intelligence");
+    // In install mode this body is the screen-reader summary, not the visible
+    // paragraph, so it has to carry the whole chain in one sentence. If a link
+    // in that chain drops out, assistive tech gets a weaker pitch than sighted
+    // users and nothing else in the suite would notice.
+    expect(model.hero.body).toContain("thread");
+    expect(model.hero.body).toContain("corrections");
+    expect(model.hero.body).toContain("skills");
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);

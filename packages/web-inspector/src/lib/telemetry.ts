@@ -53,6 +53,11 @@ export const TELEMETRY_EVENTS = {
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
   homeViewed: "oss.inspector.home_viewed",
   homeCtaClicked: "oss.inspector.home_cta_clicked",
+  // Carries the CLI's own `onboarding_run_id`, which is the whole point: it is
+  // the first event that can be joined to `cli.onboarding.completed` on the
+  // Intelligence side. `home_cta_clicked` only ever proved someone clicked a
+  // link, never that an install followed.
+  homePromptCopied: "oss.inspector.home_prompt_copied",
   metadataModuleViewed: "oss.inspector.metadata_module_viewed",
   metadataActionClicked: "oss.inspector.metadata_action_clicked",
 } as const;
@@ -600,6 +605,31 @@ export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
     action_kind: props.action_kind,
     group_key: props.group_key ?? "home",
     leaf_key: props.leaf_key ?? "home",
+  });
+}
+
+export type InspectorHomePromptCopiedTelemetryProps = Readonly<{
+  /** The id minted for this session and substituted into the copied prompt. */
+  onboarding_run_id: string;
+  /** Whether the clipboard write actually landed. */
+  outcome: "copied" | "failed";
+}>;
+
+/**
+ * Report a copy of the Intelligence install prompt.
+ *
+ * `outcome` is reported rather than only emitting on success, because a
+ * clipboard that refuses is indistinguishable from a developer who never
+ * pressed the button — and the two call for opposite fixes.
+ */
+export function trackHomePromptCopied(
+  props: InspectorHomePromptCopiedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.homePromptCopied, {
+    onboarding_run_id: props.onboarding_run_id,
+    outcome: props.outcome,
+    group_key: "home",
+    leaf_key: "home",
   });
 }
 
