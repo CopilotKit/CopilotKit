@@ -36,6 +36,7 @@ Configure authentication in your AG-UI server:
     using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
     using Microsoft.AspNetCore.Authentication.JwtBearer;
     using OpenAI;
+    using OpenAI.Chat;
 
     var builder = WebApplication.CreateBuilder(args);
 
@@ -55,6 +56,7 @@ Configure authentication in your AG-UI server:
         });
 
     builder.Services.AddAuthorization();
+    builder.Services.AddAGUIServer();
 
     var app = builder.Build();
 
@@ -62,15 +64,13 @@ Configure authentication in your AG-UI server:
     app.UseAuthorization();
 
     // Create and map your agent
-    string githubToken = builder.Configuration["GitHubToken"]!;
-    var openAI = new OpenAIClient(
-        new System.ClientModel.ApiKeyCredential(githubToken),
-        new OpenAIClientOptions { Endpoint = new Uri("https://models.inference.ai.azure.com") }
-    );
+    string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+        ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
+    var openAI = new OpenAIClient(openAiApiKey);
     var agent = openAI.GetChatClient("gpt-5.4-mini")
-        .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+        .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
-    app.MapAGUI("/", agent).RequireAuthorization();
+    app.MapAGUIServer("/", agent).RequireAuthorization();
 
     await app.RunAsync();
     ```
@@ -144,9 +144,15 @@ Add settings to your server configuration:
     ```json title="appsettings.json"
     {
       "JwtAuthority": "https://login.microsoftonline.com/{your-tenant-id}/v2.0",
-      "JwtAudience": "api://{your-client-id}",
-      "GitHubToken": "your-github-token-here"
+      "JwtAudience": "api://{your-client-id}"
     }
+    ```
+
+    Save the model key outside `appsettings.json`:
+
+    ```bash
+    dotnet user-secrets init
+    dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
     ```
   </Tab>
   <Tab value="Python">
