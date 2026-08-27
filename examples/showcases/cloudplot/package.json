@@ -2,6 +2,13 @@
   "name": "cloudplot",
   "version": "0.1.0",
   "private": true,
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "dependsOn": ["^build"]
+      }
+    }
+  },
   "scripts": {
     "dev": "concurrently \"pnpm dev:ui\" \"pnpm dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
     "dev:debug": "LOG_LEVEL=debug pnpm dev",
