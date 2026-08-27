@@ -9,8 +9,8 @@ import {
 import type { ɵThread, ɵThreadStore } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
-import { WebInspectorElement } from "../index.js";
-import type { ɵCpkThreadDetails } from "../index.js";
+import { WebInspectorElement } from "../../index.js";
+import type { ɵCpkThreadDetails } from "../../index.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 

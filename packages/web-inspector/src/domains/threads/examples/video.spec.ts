@@ -9,7 +9,7 @@ import type { ɵThreadStore } from "@copilotkit/core";
 import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
 
-import { WebInspectorElement } from "../index.js";
+import { WebInspectorElement } from "../../../index.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const AGENT_ID = "video-agent";

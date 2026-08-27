@@ -11,16 +11,6 @@ import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
-  createInspectorThreadRequestId,
-  emitInspectorStopViewing,
-  emitInspectorViewThread,
-  isInspectorThreadBridgeEnabled,
-  onInspectorActiveThread,
-  onInspectorViewThreadResult,
-  ɵselectThreads,
-  ɵselectThreadsIsLoading,
-  ɵselectThreadsError,
-  ɵcreateThreadStore,
   ɵselectMemories,
   ɵselectMemoriesIsLoading,
   ɵselectMemoriesError,
@@ -100,7 +90,6 @@ import {
   shouldUseIconRail,
 } from "./lib/inspector-nav.js";
 import type { InspectorNavGroupKey, MenuKey } from "./lib/inspector-nav.js";
-import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -142,7 +131,6 @@ import {
 import { normalizeDisplayValue } from "./shared/display/display-value.js";
 import type { DisplayValue } from "./shared/display/types.js";
 import type {
-  ThreadDebuggerEvent,
   ThreadDebuggerMessage,
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
@@ -154,6 +142,80 @@ import {
   ɵCpkThreadDetails,
 } from "./domains/threads/detail/thread-inspector.js";
 import type { ThreadDetailsTab } from "./domains/threads/detail/thread-inspector.js";
+import {
+  areThreadEndpointsAvailable,
+  getThreadServiceStatus,
+  hasVisibleSettledRealThreads,
+  selectActiveThreadsState,
+  selectRealThread,
+  selectVisibleRealThreadId,
+  shouldRenderExampleThreads,
+} from "./domains/threads/selectors.js";
+import { createThreadsState } from "./domains/threads/state.js";
+import {
+  getExampleKind,
+  THREADS_EXAMPLE_THREADS,
+} from "./domains/threads/examples/data.js";
+import {
+  getExampleThreadProvider,
+  isExampleThreadId,
+} from "./domains/threads/examples/provider.js";
+import {
+  clearThreadsUsageRefresh,
+  getMetadataActionPlacement,
+  getThreadsCapacityState,
+  getThreadsExpiryBucket,
+  getThreadsUsageBucket,
+  renderThreadsUsageFooter as renderThreadsDomainUsageFooter,
+  scheduleThreadsUsageRefresh,
+} from "./domains/threads/usage.js";
+import {
+  cancelThreadRefreshDebounce,
+  ensureOwnedThreadStore as ensureOwnedStore,
+  rebuildFlattenedThreads,
+  refreshOwnedThreadStore as refreshOwnedStore,
+  removeOwnedThreadStore as removeOwnedStore,
+  getViewInAppMode as selectViewInAppMode,
+  stopViewingThreadInApp,
+  subscribeToThreadStore as subscribeThreadStore,
+  subscribeToInspectorThreadBridge as subscribeThreadBridge,
+  teardownOwnedThreadStores as teardownOwnedStores,
+  teardownThreadStoreSubscriptions as teardownThreadSubscriptions,
+  unsubscribeFromInspectorThreadBridge as unsubscribeThreadBridge,
+  updateOwnedThreadStoreHeaders as updateOwnedStoreHeaders,
+  viewThreadInApp,
+} from "./domains/threads/store-bridge.js";
+import {
+  dismissExampleTour as dismissTour,
+  getExampleTourTelemetryPair,
+  readExampleTourDismissed,
+  setExampleTourStep as updateExampleTourStep,
+  startExampleTour as activateExampleTour,
+  THREADS_EXAMPLE_TOUR_STEPS,
+  writeExampleTourDismissed,
+} from "./domains/threads/examples/tour.js";
+import {
+  claimExampleSelected,
+  claimExampleTourStep,
+  claimExampleViewed,
+  claimThreadsViewState,
+} from "./domains/threads/telemetry/events.js";
+import {
+  getThreadsEmptyOnboardingAction,
+  renderThreadsOverview,
+  renderThreadsTour,
+  renderThreadsView as renderThreadsDomainView,
+  selectThread,
+  SELF_HOSTED_INTELLIGENCE_URL,
+  THREADS_DOCS_URL,
+} from "./domains/threads/view.js";
+import {
+  cleanupThreadsExampleVideo,
+  controlThreadsExampleVideo,
+  reconcileThreadsExampleVideo,
+  renderThreadsExampleVideo,
+} from "./domains/threads/examples/video.js";
+import { threadsViewStyles } from "./domains/threads/view.styles.js";
 import {
   INSPECTOR_COPY_BUTTON_TAG,
   InspectorCopyButtonElement,
@@ -176,7 +238,6 @@ import type {
   InspectorWiringErrorSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
-  MetadataActionPlacement,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
   WhatsNewSignalPresentation,
@@ -590,7 +651,6 @@ function eventErrorKeyForCode(
  * at once. Further calls in this window share one trailing request, so a
  * flaky network does not fire a burst of list fetches and error cards.
  */
-const THREAD_LIST_DEBOUNCE_MS = 300;
 
 /** The launcher's accessible name with nothing wrong. */
 const LAUNCHER_BASE_LABEL = "Web Inspector";
@@ -686,8 +746,6 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 function createPlaygroundThreadId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
 }
-
-const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 
@@ -850,81 +908,7 @@ const INTELLIGENCE_STORY_CHAIN = [
   { icon: "FileText", name: "Skills", detail: "You approve" },
   { icon: "Wand2", name: "Your agent", detail: "Starts from what worked" },
 ] as const;
-const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
-  "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
-const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
-  "The demo video is unavailable. Use the example threads to explore Messages, AG-UI Events, and State.";
-const THREADS_EXAMPLE_TOUR_STORAGE_KEY =
-  "cpk:inspector:threads-example-tour:v1";
-const THREADS_EXAMPLE_AGENT_ID = "threads-feature";
-
-type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
-type ThreadsExampleOverviewVideoState =
-  | "deferred"
-  | "ready"
-  | "playing"
-  | "failed";
 type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
-type ThreadsExampleOverviewVideoListeners = Readonly<{
-  loadeddata: EventListener;
-  play: EventListener;
-  pause: EventListener;
-  error: EventListener;
-}>;
-
-type ThreadStoreStatus = Readonly<{
-  error: Error | null;
-  isLoading: boolean;
-}>;
-
-/** Keep one row per thread id when flattening per-agent stores. */
-function uniqueThreadsById(threads: ɵThread[]): ɵThread[] {
-  const seen = new Set<string>();
-  const unique: ɵThread[] = [];
-  for (const thread of threads) {
-    if (seen.has(thread.id)) {
-      continue;
-    }
-    seen.add(thread.id);
-    unique.push(thread);
-  }
-  return unique;
-}
-
-function flattenThreadsByAgent(
-  threadsByAgent: Map<string, ɵThread[]>,
-): ɵThread[] {
-  return uniqueThreadsById(Array.from(threadsByAgent.values()).flat());
-}
-
-/**
- * Selects the Thread store status with a stable object identity so loading-only
- * transitions reach one of the Inspector's two existing store subscriptions.
- */
-function createThreadStoreStatusSelector(): (
-  state: ReturnType<ɵThreadStore["getState"]>,
-) => ThreadStoreStatus {
-  let previousError: Error | null | undefined;
-  let previousIsLoading: boolean | undefined;
-  let previousStatus: ThreadStoreStatus | undefined;
-
-  return (state) => {
-    const error = ɵselectThreadsError(state);
-    const isLoading = ɵselectThreadsIsLoading(state);
-    if (
-      previousStatus &&
-      previousError === error &&
-      previousIsLoading === isLoading
-    ) {
-      return previousStatus;
-    }
-
-    previousError = error;
-    previousIsLoading = isLoading;
-    previousStatus = { error, isLoading };
-    return previousStatus;
-  };
-}
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
@@ -1093,277 +1077,6 @@ type InspectorEvent = {
   timestamp: number;
   payload: SanitizedValue;
 };
-
-type ExampleThread = ɵThread & { isExample: true };
-
-type ExampleThreadDetails = {
-  messages: ThreadDebuggerMessage[];
-  events: ThreadDebuggerEvent[];
-  state: Record<string, unknown>;
-};
-
-const THREADS_EXAMPLE_THREADS: ExampleThread[] = [
-  {
-    id: "example-realtime-sync",
-    name: "Realtime thread sync",
-    agentId: THREADS_EXAMPLE_AGENT_ID,
-    organizationId: "example-organization",
-    createdById: "example-user",
-    archived: false,
-    createdAt: "2026-07-08T16:00:00.000Z",
-    updatedAt: "2026-07-08T16:30:00.000Z",
-    isExample: true,
-  },
-  {
-    id: "example-manage-history",
-    name: "Manage saved conversations",
-    agentId: THREADS_EXAMPLE_AGENT_ID,
-    organizationId: "example-organization",
-    createdById: "example-user",
-    archived: false,
-    createdAt: "2026-07-07T17:45:00.000Z",
-    updatedAt: "2026-07-07T18:15:00.000Z",
-    isExample: true,
-  },
-  {
-    id: "example-inspect-runs",
-    name: "Inspect durable run history",
-    agentId: THREADS_EXAMPLE_AGENT_ID,
-    organizationId: "example-organization",
-    createdById: "example-user",
-    archived: false,
-    createdAt: "2026-07-06T20:15:00.000Z",
-    updatedAt: "2026-07-06T20:45:00.000Z",
-    isExample: true,
-  },
-];
-
-/** Map Sam's fixed example IDs to a closed telemetry vocabulary. */
-function getExampleKind(threadId: string): ExampleKind | undefined {
-  switch (threadId) {
-    case "example-realtime-sync":
-      return "realtime_sync";
-    case "example-manage-history":
-      return "manage_history";
-    case "example-inspect-runs":
-      return "inspect_runs";
-    default:
-      return undefined;
-  }
-}
-
-const THREADS_EXAMPLE_DETAILS: Record<string, ExampleThreadDetails> = {
-  "example-realtime-sync": {
-    messages: [
-      {
-        id: "example-sync-user",
-        role: "user",
-        content: "Resume the checkout support thread from yesterday.",
-      },
-      {
-        id: "example-sync-assistant",
-        role: "assistant",
-        content:
-          "I found the saved thread, restored the cart state, and continued from the latest user message.",
-      },
-    ],
-    events: [
-      {
-        type: "RUN_STARTED",
-        timestamp: "2026-07-08T16:30:00.000Z",
-        payload: {
-          threadId: "example-realtime-sync",
-          agentId: THREADS_EXAMPLE_AGENT_ID,
-        },
-      },
-      {
-        type: "MESSAGES_SNAPSHOT",
-        timestamp: "2026-07-08T16:30:01.000Z",
-        payload: {
-          messageCount: 6,
-          source: "thread-history",
-        },
-      },
-      {
-        type: "STATE_SNAPSHOT",
-        timestamp: "2026-07-08T16:30:02.000Z",
-        payload: {
-          cartId: "cart_demo_42",
-          checkoutStep: "shipping",
-          resumed: true,
-        },
-      },
-      {
-        type: "RUN_FINISHED",
-        timestamp: "2026-07-08T16:30:04.000Z",
-        payload: {
-          status: "completed",
-        },
-      },
-    ],
-    state: {
-      cartId: "cart_demo_42",
-      checkoutStep: "shipping",
-      userIntent: "resume_previous_checkout",
-      persistedThread: true,
-    },
-  },
-  "example-manage-history": {
-    messages: [
-      {
-        id: "example-history-user",
-        role: "user",
-        content: "Rename this saved support conversation for the handoff.",
-      },
-      {
-        id: "example-history-assistant",
-        role: "assistant",
-        content:
-          "Renamed the thread and kept the prior messages available for the next session.",
-      },
-    ],
-    events: [
-      {
-        type: "RUN_STARTED",
-        timestamp: "2026-07-07T18:15:00.000Z",
-        payload: {
-          threadId: "example-manage-history",
-          agentId: THREADS_EXAMPLE_AGENT_ID,
-        },
-      },
-      {
-        type: "CUSTOM_EVENT",
-        timestamp: "2026-07-07T18:15:01.000Z",
-        payload: {
-          action: "thread_renamed",
-          previousName: "Untitled",
-          name: "Billing escalation handoff",
-        },
-      },
-      {
-        type: "RUN_FINISHED",
-        timestamp: "2026-07-07T18:15:03.000Z",
-        payload: {
-          status: "completed",
-        },
-      },
-    ],
-    state: {
-      name: "Billing escalation handoff",
-      savedMessages: 14,
-      lastHandoff: "support-team",
-    },
-  },
-  "example-inspect-runs": {
-    messages: [
-      {
-        id: "example-inspect-user",
-        role: "user",
-        content: "Why did the assistant recommend the enterprise plan?",
-      },
-      {
-        id: "example-inspect-assistant",
-        role: "assistant",
-        content:
-          "The recommendation came from the account size, SSO requirement, and audit-log constraint in state.",
-      },
-    ],
-    events: [
-      {
-        type: "RUN_STARTED",
-        timestamp: "2026-07-06T20:45:00.000Z",
-        payload: {
-          threadId: "example-inspect-runs",
-          agentId: THREADS_EXAMPLE_AGENT_ID,
-        },
-      },
-      {
-        type: "TOOL_CALL_START",
-        timestamp: "2026-07-06T20:45:01.000Z",
-        payload: {
-          toolCallId: "call_account_lookup",
-          toolName: "lookupAccount",
-        },
-      },
-      {
-        type: "TOOL_CALL_RESULT",
-        timestamp: "2026-07-06T20:45:02.000Z",
-        payload: {
-          toolCallId: "call_account_lookup",
-          seats: 220,
-          requiresSso: true,
-        },
-      },
-      {
-        type: "RUN_FINISHED",
-        timestamp: "2026-07-06T20:45:04.000Z",
-        payload: {
-          status: "completed",
-        },
-      },
-    ],
-    state: {
-      accountTier: "growth",
-      seats: 220,
-      requiresSso: true,
-      auditLogsRequired: true,
-    },
-  },
-};
-
-const THREADS_EXAMPLE_TOUR_STEPS: ReadonlyArray<{
-  tab: ThreadDetailsTab;
-  label: string;
-  title: string;
-  body: string;
-}> = [
-  {
-    tab: "timeline",
-    label: "Messages",
-    title: "Read the run as a story",
-    body: "The timeline turns messages, tool calls, state changes, and run markers into a scannable debugging trail.",
-  },
-  {
-    tab: "raw-events",
-    label: "AG-UI Events",
-    title: "Drop into the protocol payloads",
-    body: "Raw events show the exact AG-UI stream behind the timeline when you need to verify ordering or payload shape.",
-  },
-  {
-    tab: "state",
-    label: "State",
-    title: "Check the durable state",
-    body: "The state tab shows the saved values that make a thread resumable across sessions.",
-  },
-];
-
-type ExampleTourTelemetryPair = Readonly<{
-  tour_step: ExampleTourStep;
-  tour_tab: ExampleTourTab;
-}>;
-
-/** Return only the three supported tour step/tab pairs. */
-function getExampleTourTelemetryPair(
-  index: number,
-): ExampleTourTelemetryPair | undefined {
-  switch (index) {
-    case 0:
-      return { tour_step: 1, tour_tab: "timeline" };
-    case 1:
-      return { tour_step: 2, tour_tab: "raw-events" };
-    case 2:
-      return { tour_step: 3, tour_tab: "state" };
-    default:
-      return undefined;
-  }
-}
-
-/** Convert rendered action placement to its stable telemetry key. */
-function getMetadataActionPlacement(
-  placement: "threads-footer" | "locked",
-): MetadataActionPlacement {
-  return placement === "threads-footer" ? "threads_footer" : "threads_locked";
-}
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -2330,36 +2043,7 @@ export class WebInspectorElement extends LitElement {
     inspect: "ag-ui-events",
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
-  private selectedThreadId: string | null = null;
-  private inAppThreadId: string | null = null;
-  private inAppAgentId: string | null = null;
-  private inAppSource: "app" | "override" | null = null;
-  private activeViewInAppRequestId: string | null = null;
-  private viewInAppError: string | null = null;
-  private inspectorBridgeUnsubscribers: Array<() => void> = [];
-  private selectedRealThreadIsExplicit = false;
-  private selectedLocalExampleThreadId: string | null = null;
-  private requestedThreadId: string | null = null;
-  private focusedThreadMessageId: string | null = null;
-  private threadFocusRequestId = 0;
-  private threadListWidth = 290;
-  private threadDividerResizing = false;
-  private threadDividerPointerId = -1;
-  private threadDividerStartX = 0;
-  private threadDividerStartWidth = 0;
-  private _threads: ɵThread[] = [];
-  private _threadStoreSubscriptions: Map<string, () => void> = new Map();
-  private _threadsByAgent: Map<string, ɵThread[]> = new Map();
-  private threadUsageSignature = "";
-  private threadUsageRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-  // Error from each agent's thread store (REST list rejection, Phoenix
-  // subscribe failure, retry exhaustion). When non-empty for the active
-  // selection, the threads view renders an error state instead of stale
-  // data with no indication.
-  private _threadsErrorByAgent: Map<string, Error> = new Map();
-  private _threadsLoadingByAgent: Map<string, boolean> = new Map();
-  // Thread stores created and owned by the inspector (keyed by agentId)
-  private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
+  private readonly threads = createThreadsState();
   private playgroundAgent: AbstractAgent | null = null;
   private playgroundAgentId: string | null = null;
   private playgroundAgentUnsubscribe: (() => void) | null = null;
@@ -2372,8 +2056,6 @@ export class WebInspectorElement extends LitElement {
   private playgroundError: string | null = null;
   private playgroundSourceThreadId: string | null = null;
   private playgroundShowEphemeralNotice = false;
-  private threadCapabilityEnabled: boolean | null = null;
-  private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
   private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
     null;
@@ -2449,13 +2131,6 @@ export class WebInspectorElement extends LitElement {
   > = { run: null, tool: null, memory: null };
   private pendingScrollToEventId: string | null = null;
   private pendingScrollToToolCallId: string | null = null;
-  /** Last time an inspector-owned /threads refresh left this host, per agent. */
-  private readonly threadRefreshLastSentAt: Map<string, number> = new Map();
-  /** Trailing /threads refresh timers, one per agent. */
-  private readonly threadRefreshTrailingTimers: Map<
-    string,
-    ReturnType<typeof setTimeout>
-  > = new Map();
   /**
    * Whether this outage has already had its beat. Global rather than
    * per-source: a connection failure cascades into thread failures, so one
@@ -2537,29 +2212,6 @@ export class WebInspectorElement extends LitElement {
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
-  private viewedThreadsTelemetryStates: Set<string> = new Set();
-  private viewedExampleKinds: Set<ExampleKind> = new Set();
-  private selectedExampleKinds: Set<ExampleKind> = new Set();
-  private viewedExampleTourSteps: Set<string> = new Set();
-  private exampleThreadProviders: Map<string, ThreadDebuggerProvider> =
-    new Map();
-  private exampleTourDismissed = false;
-  private exampleTourActive = false;
-  private exampleTourStep = 0;
-  private exampleTourAutoShown = false;
-  private threadsExampleOverviewVideoState: ThreadsExampleOverviewVideoState =
-    "deferred";
-  private threadsExampleOverviewVideoLoaded = false;
-  private threadsExampleOverviewVideoReducedMotion = false;
-  private threadsExampleOverviewVideoLoadTimer: number | null = null;
-  private threadsExampleOverviewVideoIdleCallbackId: number | null = null;
-  private threadsExampleOverviewVideoElement: HTMLVideoElement | null = null;
-  private threadsExampleOverviewVideoListeners: ThreadsExampleOverviewVideoListeners | null =
-    null;
-  private threadsExampleOverviewVideoLifecycleGeneration = 0;
-  private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
-  private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
-  private threadsExampleOverviewVideoPlayOnNextBind = false;
   private homeFeaturePromptCopyState: {
     serviceId: HomeFeaturePromptId;
     state: HomeFeaturePromptCopyState;
@@ -2741,29 +2393,20 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private getThreadServiceStatus(): ThreadServiceStatus {
-    if (!this._core) return "unknown";
-    if (!this._core.threadEndpoints) return "unknown";
-    return this._core.threadEndpoints?.list === false
-      ? "unavailable"
-      : "available";
+  private getThreadServiceStatus() {
+    return getThreadServiceStatus(this._core);
   }
 
   private areThreadEndpointsAvailable(): boolean {
-    const endpoints = this._core?.threadEndpoints;
-    return (
-      endpoints !== null &&
-      typeof endpoints === "object" &&
-      endpoints.list !== false
-    );
+    return areThreadEndpointsAvailable(this._core);
   }
 
   private synchronizeThreadCapability(): void {
     const enabled = this.areThreadEndpointsAvailable();
-    if (this.threadCapabilityEnabled === enabled) return;
+    if (this.threads.threadCapabilityEnabled === enabled) return;
 
-    this.threadCapabilityEnabled = enabled;
-    this.threadCapabilityGeneration += 1;
+    this.threads.threadCapabilityEnabled = enabled;
+    this.threads.threadCapabilityGeneration += 1;
 
     if (enabled) {
       const core = this.core;
@@ -2786,11 +2429,14 @@ export class WebInspectorElement extends LitElement {
 
     this.teardownThreadStoreSubscriptions();
     this.teardownOwnedThreadStores();
-    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
-      this.selectedThreadId = null;
-      this.selectedLocalExampleThreadId = null;
+    if (
+      this.threads.selectedThreadId !==
+      this.threads.selectedLocalExampleThreadId
+    ) {
+      this.threads.selectedThreadId = null;
+      this.threads.selectedLocalExampleThreadId = null;
     }
-    this.selectedRealThreadIsExplicit = false;
+    this.threads.selectedRealThreadIsExplicit = false;
     this.requestUpdate();
   }
 
@@ -2799,75 +2445,23 @@ export class WebInspectorElement extends LitElement {
     threadsErrorMessage: string | null;
     threadsLoading: boolean;
   } {
-    const displayThreads =
-      this.selectedContext === "all-agents"
-        ? this._threads
-        : (this._threadsByAgent.get(this.selectedContext) ?? []);
-
-    // Surface a thread-store load error inline. For "all-agents" we report
-    // the first error encountered across all agents (good enough for a
-    // debugging surface — the per-agent context filter narrows down the
-    // culprit). For a specific agent we use that agent's error directly.
-    let threadsErrorMessage: string | null = null;
-    if (this.selectedContext === "all-agents") {
-      const firstError = this._threadsErrorByAgent.values().next().value;
-      threadsErrorMessage = firstError?.message ?? null;
-    } else {
-      threadsErrorMessage =
-        this._threadsErrorByAgent.get(this.selectedContext)?.message ?? null;
-    }
-
-    const threadsLoading =
-      this.selectedContext === "all-agents"
-        ? Array.from(this._threadsLoadingByAgent.values()).some(Boolean)
-        : (this._threadsLoadingByAgent.get(this.selectedContext) ?? false);
-
-    return { displayThreads, threadsErrorMessage, threadsLoading };
+    return selectActiveThreadsState(this.threads, this.selectedContext);
   }
 
-  /** Bucket trusted usage without retaining exact counts or limits. */
   private getThreadsUsageBucket(): ThreadsUsageBucket {
-    const usage = this.inspectorMetadataProjection.usage;
-    if (!usage) return "absent";
-    if (usage.used === 0) return "empty";
-    if (usage.limit.kind === "finite") {
-      return usage.used < usage.limit.value
-        ? "within_limit"
-        : "at_or_over_limit";
-    }
-    if (usage.limit.kind === "unlimited") return "unlimited";
-    return "unknown_limit";
+    return getThreadsUsageBucket(this.inspectorMetadataProjection.usage);
   }
 
-  /** Classify finite usage for render-only capacity copy and color. */
   private getThreadsCapacityState():
     | "normal"
     | "warning"
     | "critical"
     | undefined {
-    const usage = this.inspectorMetadataProjection.usage;
-    if (!usage || usage.limit.kind !== "finite") return undefined;
-    if (usage.used >= usage.limit.value) return "critical";
-
-    const warningThreshold =
-      usage.limit.value - Math.floor(usage.limit.value / 10);
-    return usage.used >= warningThreshold ? "warning" : "normal";
+    return getThreadsCapacityState(this.inspectorMetadataProjection.usage);
   }
 
-  /** Bucket trusted expiry data independently from the usage-limit bucket. */
   private getThreadsExpiryBucket(): ThreadsExpiryBucket {
-    const usage = this.inspectorMetadataProjection.usage;
-    if (
-      !usage ||
-      !Object.prototype.hasOwnProperty.call(usage, "expiringSoonCount")
-    ) {
-      return "unavailable";
-    }
-    if (usage.expiringSoonCount === 0) return "zero";
-    return typeof usage.expiringSoonCount === "number" &&
-      usage.expiringSoonCount > 0
-      ? "positive"
-      : "unavailable";
+    return getThreadsExpiryBucket(this.inspectorMetadataProjection.usage);
   }
 
   /** Report only real rows visible in the active, settled Threads view. */
@@ -2879,9 +2473,7 @@ export class WebInspectorElement extends LitElement {
     ) {
       return false;
     }
-    const { displayThreads, threadsErrorMessage, threadsLoading } =
-      this.getActiveThreadsState();
-    return !threadsErrorMessage && !threadsLoading && displayThreads.length > 0;
+    return hasVisibleSettledRealThreads(this.getActiveThreadsState());
   }
 
   /** Build the closed common property set shared by all Thread events. */
@@ -2967,237 +2559,112 @@ export class WebInspectorElement extends LitElement {
     href: string;
     label: "Sign up for Intelligence" | "Explore self-hosted Intelligence";
   }> {
-    const planCode = this.inspectorMetadataProjection.plan?.code
-      .trim()
-      .toLowerCase();
-    if (planCode === "team_self_hosted" || planCode === "team-self-hosted") {
-      return {
-        href: this.getSelfHostedIntelligenceUrl(),
-        label: "Explore self-hosted Intelligence",
-      };
-    }
-    return {
-      href: this.getThreadsIntelligenceSignupUrl(),
-      label: "Sign up for Intelligence",
-    };
+    return getThreadsEmptyOnboardingAction(
+      this.inspectorMetadataProjection.plan?.code,
+      {
+        signup: this.getThreadsIntelligenceSignupUrl(),
+        selfHosted: this.getSelfHostedIntelligenceUrl(),
+      },
+    );
   }
 
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
-    if (!this.areThreadEndpointsAvailable()) return;
-    if (this._threadStoreSubscriptions.has(agentId)) return;
-    const capabilityGeneration = this.threadCapabilityGeneration;
-    const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
-      if (
-        capabilityGeneration !== this.threadCapabilityGeneration ||
-        !this.areThreadEndpointsAvailable()
-      ) {
-        return;
-      }
-      this._threadsByAgent.set(agentId, threads as ɵThread[]);
-      this.rebuildFlattenedThreads();
-      this.autoSelectLatestThread();
-      this.requestUpdate();
+    subscribeThreadStore(this.threads, agentId, store, {
+      endpointsAvailable: () => this.areThreadEndpointsAvailable(),
+      reconcileSelection: () => this.autoSelectLatestThread(),
+      onThreadsChanged: () => this.scheduleInspectorUsageRefresh(),
+      requestUpdate: () => this.requestUpdate(),
     });
-    const statusSub = store
-      .select(createThreadStoreStatusSelector())
-      .subscribe(({ error, isLoading }) => {
-        if (
-          capabilityGeneration !== this.threadCapabilityGeneration ||
-          !this.areThreadEndpointsAvailable()
-        ) {
-          return;
-        }
-        if (error) {
-          this._threadsErrorByAgent.set(agentId, error);
-        } else if (!isLoading) {
-          this._threadsErrorByAgent.delete(agentId);
-        }
-        this._threadsLoadingByAgent.set(agentId, isLoading);
-        this.requestUpdate();
-      });
-    this._threadStoreSubscriptions.set(agentId, () => {
-      threadsSub.unsubscribe();
-      statusSub.unsubscribe();
-    });
-    // Populate immediately from current state
-    if (
-      capabilityGeneration !== this.threadCapabilityGeneration ||
-      !this.areThreadEndpointsAvailable()
-    ) {
-      return;
-    }
-    const initialState = store.getState();
-    this._threadsByAgent.set(agentId, ɵselectThreads(initialState));
-    this._threadsLoadingByAgent.set(
-      agentId,
-      ɵselectThreadsIsLoading(initialState),
-    );
-    const initialError = ɵselectThreadsError(initialState);
-    if (initialError) {
-      this._threadsErrorByAgent.set(agentId, initialError);
-    } else if (!ɵselectThreadsIsLoading(initialState)) {
-      this._threadsErrorByAgent.delete(agentId);
-    }
-    this.rebuildFlattenedThreads();
-    this.autoSelectLatestThread();
   }
 
   private rebuildFlattenedThreads(): void {
-    this._threads = flattenThreadsByAgent(this._threadsByAgent);
+    rebuildFlattenedThreads(this.threads);
     this.scheduleInspectorUsageRefresh();
   }
 
   private scheduleInspectorUsageRefresh(): void {
-    const signature = this._threads
-      .map((thread) => thread.id)
-      .sort()
-      .join(",");
-    if (signature === this.threadUsageSignature) {
-      return;
-    }
-    this.threadUsageSignature = signature;
-    if (this.threadUsageRefreshTimer !== null) {
-      clearTimeout(this.threadUsageRefreshTimer);
-    }
-    this.threadUsageRefreshTimer = setTimeout(() => {
-      this.threadUsageRefreshTimer = null;
+    scheduleThreadsUsageRefresh(this.threads, () => {
       const core = this.core;
       if (core && typeof core.refreshInspectorMetadata === "function") {
         void core.refreshInspectorMetadata();
       }
-    }, 300);
+    });
   }
 
   private clearInspectorUsageRefresh(): void {
-    if (this.threadUsageRefreshTimer !== null) {
-      clearTimeout(this.threadUsageRefreshTimer);
-      this.threadUsageRefreshTimer = null;
-    }
-    this.threadUsageSignature = "";
+    clearThreadsUsageRefresh(this.threads);
   }
 
   private autoSelectLatestThread(): void {
     if (!this.areThreadEndpointsAvailable()) return;
     const { displayThreads } = this.getActiveThreadsState();
-    const previousSelectedThreadId = this.selectedThreadId;
+    const previousSelectedThreadId = this.threads.selectedThreadId;
 
-    if (this.requestedThreadId !== null) {
-      this.selectedThreadId = this.requestedThreadId;
-      this.selectedRealThreadIsExplicit = true;
+    if (this.threads.requestedThreadId !== null) {
+      this.threads.selectedThreadId = this.threads.requestedThreadId;
+      this.threads.selectedRealThreadIsExplicit = true;
       if (
-        displayThreads.some((thread) => thread.id === this.requestedThreadId)
+        displayThreads.some(
+          (thread) => thread.id === this.threads.requestedThreadId,
+        )
       ) {
-        this.requestedThreadId = null;
+        this.threads.requestedThreadId = null;
       }
       return;
     }
 
     if (
-      this.selectedLocalExampleThreadId !== null &&
-      previousSelectedThreadId === this.selectedLocalExampleThreadId &&
+      this.threads.selectedLocalExampleThreadId !== null &&
+      previousSelectedThreadId === this.threads.selectedLocalExampleThreadId &&
       displayThreads.length === 0
     ) {
-      this.selectedRealThreadIsExplicit = false;
+      this.threads.selectedRealThreadIsExplicit = false;
       return;
     }
 
-    if (this.selectedLocalExampleThreadId !== null) {
-      this.exampleTourActive = false;
+    if (this.threads.selectedLocalExampleThreadId !== null) {
+      this.threads.exampleTourActive = false;
     }
-    this.selectedLocalExampleThreadId = null;
-    const explicitSelectedThreadId = this.selectedRealThreadIsExplicit
+    this.threads.selectedLocalExampleThreadId = null;
+    const explicitSelectedThreadId = this.threads.selectedRealThreadIsExplicit
       ? previousSelectedThreadId
       : null;
     const nextSelectedThreadId = selectVisibleRealThreadId({
       threads: displayThreads,
       selectedThreadId: explicitSelectedThreadId,
     });
-    this.selectedThreadId = nextSelectedThreadId;
-    this.selectedRealThreadIsExplicit =
+    this.threads.selectedThreadId = nextSelectedThreadId;
+    this.threads.selectedRealThreadIsExplicit =
       explicitSelectedThreadId !== null &&
       nextSelectedThreadId === explicitSelectedThreadId;
   }
 
   private teardownThreadStoreSubscriptions(): void {
-    for (const unsub of this._threadStoreSubscriptions.values()) {
-      unsub();
-    }
-    this._threadStoreSubscriptions.clear();
-    this._threadsByAgent.clear();
-    this._threadsErrorByAgent.clear();
-    this._threadsLoadingByAgent.clear();
-    this._threads = [];
-    this.clearInspectorUsageRefresh();
-  }
-
-  private ensureOwnedThreadStore(agentId: string): void {
-    if (!this.areThreadEndpointsAvailable()) return;
-    if (this._ownedThreadStores.has(agentId)) return;
-    // Don't overwrite a store already registered by useThreads() or another external caller
-    if (this.core?.getThreadStore(agentId)) return;
-    const core = this.core;
-    if (!core?.runtimeUrl) return;
-
-    const runtimeFetch =
-      typeof core.ɵruntimeFetch === "function"
-        ? core.ɵruntimeFetch
-        : globalThis.fetch;
-    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
-    store.start();
-    store.setContext({
-      runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
-      agentId,
-    });
-    this._ownedThreadStores.set(agentId, store);
-    // Subscribe directly so threads render even before the registry callback
-    // fires (some published-core code paths land on the subscriber after
-    // registerThreadStore returns).
-    this.subscribeToThreadStore(agentId, store);
-    core.registerThreadStore(agentId, store);
-  }
-
-  private refreshOwnedThreadStore(agentId: string): void {
-    if (!this.areThreadEndpointsAvailable()) return;
-    const store = this._ownedThreadStores.get(agentId);
-    if (!store) return;
-
-    const now = Date.now();
-    const lastSentAt = this.threadRefreshLastSentAt.get(agentId) ?? 0;
-    const waitMs = THREAD_LIST_DEBOUNCE_MS - (now - lastSentAt);
-    if (waitMs <= 0) {
-      this.sendOwnedThreadRefresh(agentId, store, now);
-      return;
-    }
-    if (this.threadRefreshTrailingTimers.has(agentId)) return;
-    this.threadRefreshTrailingTimers.set(
-      agentId,
-      setTimeout(() => {
-        this.threadRefreshTrailingTimers.delete(agentId);
-        const current = this._ownedThreadStores.get(agentId);
-        if (!current) return;
-        this.sendOwnedThreadRefresh(agentId, current, Date.now());
-      }, waitMs),
+    teardownThreadSubscriptions(this.threads, () =>
+      this.clearInspectorUsageRefresh(),
     );
   }
 
-  private sendOwnedThreadRefresh(
-    agentId: string,
-    store: ɵThreadStore,
-    sentAt: number,
-  ): void {
-    this.threadRefreshLastSentAt.set(agentId, sentAt);
-    // refresh() re-fetches without resetting threads to [] first, so the list
-    // stays visible while new data loads and survives transient fetch failures.
-    store.refresh();
+  private ensureOwnedThreadStore(agentId: string): void {
+    ensureOwnedStore(
+      this.threads,
+      this.core,
+      agentId,
+      (id, store) => this.subscribeToThreadStore(id, store),
+      this.areThreadEndpointsAvailable(),
+    );
+  }
+
+  private refreshOwnedThreadStore(agentId: string): void {
+    refreshOwnedStore(
+      this.threads,
+      agentId,
+      this.areThreadEndpointsAvailable(),
+    );
   }
 
   private cancelThreadRefreshDebounce(): void {
-    for (const timer of this.threadRefreshTrailingTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.threadRefreshTrailingTimers.clear();
+    cancelThreadRefreshDebounce(this.threads);
   }
 
   // Keep inspector-owned thread stores in sync when the host updates headers
@@ -3207,38 +2674,20 @@ export class WebInspectorElement extends LitElement {
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
-    if (!this.areThreadEndpointsAvailable()) return;
-    const core = this.core;
-    if (!core?.runtimeUrl) return;
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext({
-        runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
-        wsUrl: core.intelligence?.wsUrl,
-        agentId,
-      });
-    }
+    updateOwnedStoreHeaders(
+      this.threads,
+      this.core,
+      headers,
+      this.areThreadEndpointsAvailable(),
+    );
   }
 
   private removeOwnedThreadStore(agentId: string): void {
-    const store = this._ownedThreadStores.get(agentId);
-    if (!store) return;
-    this._ownedThreadStores.delete(agentId);
-    store.stop();
-    if (this.core?.getThreadStore(agentId) === store) {
-      this.core.unregisterThreadStore(agentId);
-    }
+    removeOwnedStore(this.threads, this.core, agentId);
   }
 
   private teardownOwnedThreadStores(): void {
-    const ownedThreadStores = Array.from(this._ownedThreadStores);
-    this._ownedThreadStores.clear();
-    for (const [agentId, store] of ownedThreadStores) {
-      store.stop();
-      if (this.core?.getThreadStore(agentId) === store) {
-        this.core.unregisterThreadStore(agentId);
-      }
-    }
+    teardownOwnedStores(this.threads, this.core);
   }
 
   private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
@@ -3290,7 +2739,7 @@ export class WebInspectorElement extends LitElement {
         this.runtimeStatus = status;
         this.updateInspectorMetadataProjection(this.inspectorMetadataValue);
         const threadCapabilityWasEnabled =
-          this.threadCapabilityEnabled === true;
+          this.threads.threadCapabilityEnabled === true;
         this.synchronizeThreadCapability();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
@@ -3302,14 +2751,14 @@ export class WebInspectorElement extends LitElement {
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
           ) {
-            for (const agentId of this._ownedThreadStores.keys()) {
+            for (const agentId of this.threads.ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
             }
           }
         } else {
           // Clear stale thread data immediately when the server goes away
-          this._threadsByAgent.clear();
-          this._threads = [];
+          this.threads.threadsByAgent.clear();
+          this.threads.threads = [];
           this.clearInspectorUsageRefresh();
         }
         this.requestUpdate();
@@ -3363,18 +2812,18 @@ export class WebInspectorElement extends LitElement {
         this.requestUpdate();
       },
       onThreadStoreUnregistered: ({ agentId, prevStore }) => {
-        const unsub = this._threadStoreSubscriptions.get(agentId);
+        const unsub = this.threads.threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
-          this._threadStoreSubscriptions.delete(agentId);
+          this.threads.threadStoreSubscriptions.delete(agentId);
         }
-        if (this._ownedThreadStores.get(agentId) === prevStore) {
-          this._ownedThreadStores.delete(agentId);
+        if (this.threads.ownedThreadStores.get(agentId) === prevStore) {
+          this.threads.ownedThreadStores.delete(agentId);
           prevStore.stop();
         }
-        this._threadsByAgent.delete(agentId);
-        this._threadsErrorByAgent.delete(agentId);
-        this._threadsLoadingByAgent.delete(agentId);
+        this.threads.threadsByAgent.delete(agentId);
+        this.threads.threadsErrorByAgent.delete(agentId);
+        this.threads.threadsLoadingByAgent.delete(agentId);
         this.rebuildFlattenedThreads();
         this.autoSelectLatestThread();
         this.requestUpdate();
@@ -3550,13 +2999,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private detachFromCore(): void {
-    this.threadCapabilityGeneration += 1;
-    this.threadCapabilityEnabled = null;
-    if (this.selectedThreadId !== this.selectedLocalExampleThreadId) {
-      this.selectedThreadId = null;
-      this.selectedLocalExampleThreadId = null;
+    this.threads.threadCapabilityGeneration += 1;
+    this.threads.threadCapabilityEnabled = null;
+    if (
+      this.threads.selectedThreadId !==
+      this.threads.selectedLocalExampleThreadId
+    ) {
+      this.threads.selectedThreadId = null;
+      this.threads.selectedLocalExampleThreadId = null;
     }
-    this.selectedRealThreadIsExplicit = false;
+    this.threads.selectedRealThreadIsExplicit = false;
     if (this.coreUnsubscribe) {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
@@ -4057,22 +3509,22 @@ export class WebInspectorElement extends LitElement {
     this.lastSelectedMenuByGroup.workbench = "threads";
     this.contextMenuOpen = false;
     this.layoutMenuOpen = false;
-    this.selectedLocalExampleThreadId = null;
-    this.exampleTourActive = false;
+    this.threads.selectedLocalExampleThreadId = null;
+    this.threads.exampleTourActive = false;
     this.selectedContext =
       options.agentId &&
       this.contextOptions.some((option) => option.key === options.agentId)
         ? options.agentId
         : "all-agents";
-    this.requestedThreadId = options.threadId;
-    this.selectedThreadId = options.threadId;
-    this.selectedRealThreadIsExplicit = true;
-    this.focusedThreadMessageId = options.messageId ?? null;
-    this.threadFocusRequestId += 1;
+    this.threads.requestedThreadId = options.threadId;
+    this.threads.selectedThreadId = options.threadId;
+    this.threads.selectedRealThreadIsExplicit = true;
+    this.threads.focusedThreadMessageId = options.messageId ?? null;
+    this.threads.threadFocusRequestId += 1;
 
     const { displayThreads } = this.getActiveThreadsState();
     if (displayThreads.some((thread) => thread.id === options.threadId)) {
-      this.requestedThreadId = null;
+      this.threads.requestedThreadId = null;
     }
 
     this.persistState();
@@ -4420,6 +3872,7 @@ export class WebInspectorElement extends LitElement {
 
   static styles = [
     unsafeCSS(tailwindStyles),
+    threadsViewStyles,
     css`
       :host {
         --cpk-inspector-shell-radius: 5px;
@@ -6223,31 +5676,6 @@ export class WebInspectorElement extends LitElement {
       .cpk-tab-active {
         cursor: pointer;
       }
-      .cpk-threads-overview-video-frame {
-        position: relative;
-        display: block;
-        width: 100%;
-        max-width: 440px;
-        aspect-ratio: 16 / 9;
-        margin: 0 0 14px;
-        overflow: hidden;
-        border: 1px solid #dbdbe5;
-        border-radius: 10px;
-        background:
-          linear-gradient(
-            135deg,
-            rgba(190, 194, 255, 0.18),
-            rgba(133, 236, 206, 0.12)
-          ),
-          #ffffff;
-        box-shadow: 0 8px 20px rgba(1, 5, 7, 0.08);
-      }
-      .cpk-threads-overview-video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
       /* ── Header controls on the branded account strip ──────────── */
       .drag-handle > div[data-inspector-account-strip] button {
         color: #57575b !important;
@@ -6542,7 +5970,7 @@ export class WebInspectorElement extends LitElement {
     super.connectedCallback();
     if (typeof window !== "undefined") {
       this.accountCtaMotionPaused = document.visibilityState !== "visible";
-      this.threadsExampleOverviewVideoReducedMotion =
+      this.threads.exampleOverviewVideoReducedMotion =
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
         false;
       this.ensureBrandFonts();
@@ -6569,7 +5997,8 @@ export class WebInspectorElement extends LitElement {
       this.hydrateStateFromStorageEarly();
       this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
-      this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
+      this.threads.exampleTourDismissed =
+        this.readThreadsExampleTourDismissed();
       // The superseded, origin-scoped read state is discarded rather than
       // migrated: every existing user is re-armed exactly once so they
       // discover the surface that replaced the announcement bubble. Deleting
@@ -6637,6 +6066,12 @@ export class WebInspectorElement extends LitElement {
       this.homeFeaturePromptCopyResetTimeoutId = null;
     }
     this.homeFeaturePromptCopyState = null;
+    this.threads.setupPromptCopyGeneration += 1;
+    if (this.threads.setupPromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.threads.setupPromptCopyResetTimeoutId);
+      this.threads.setupPromptCopyResetTimeoutId = null;
+    }
+    this.threads.setupPromptCopyState = "idle";
     this.stopSignalPulse();
     this.cancelGestureTail();
     this.cancelLauncherHudIntro();
@@ -11165,7 +10600,9 @@ export class WebInspectorElement extends LitElement {
     }
 
     const core = this._core;
-    const thread = this._threads.find((candidate) => candidate.id === threadId);
+    const thread = this.threads.threads.find(
+      (candidate) => candidate.id === threadId,
+    );
     if (!core?.runtimeUrl || !thread) return;
 
     this.playgroundIsLoadingThread = true;
@@ -11475,7 +10912,7 @@ export class WebInspectorElement extends LitElement {
 
   private renderPlaygroundView() {
     const agentId = this.resolvePlaygroundAgentId(this.selectedContext);
-    const sourceThreads = this._threads.filter(
+    const sourceThreads = this.threads.threads.filter(
       (thread) => !agentId || thread.agentId === agentId,
     );
     const visibleMessages = this.playgroundMessages.filter(
@@ -12297,44 +11734,46 @@ export class WebInspectorElement extends LitElement {
   };
 
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
-    this.threadDividerResizing = true;
-    this.threadDividerPointerId = event.pointerId;
-    this.threadDividerStartX = event.clientX;
-    this.threadDividerStartWidth = this.threadListWidth;
+    this.threads.threadDividerResizing = true;
+    this.threads.threadDividerPointerId = event.pointerId;
+    this.threads.threadDividerStartX = event.clientX;
+    this.threads.threadDividerStartWidth = this.threads.threadListWidth;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     event.preventDefault();
   };
 
   private handleThreadDividerPointerMove = (event: PointerEvent) => {
     if (
-      !this.threadDividerResizing ||
-      this.threadDividerPointerId !== event.pointerId
+      !this.threads.threadDividerResizing ||
+      this.threads.threadDividerPointerId !== event.pointerId
     )
       return;
-    const delta = event.clientX - this.threadDividerStartX;
-    this.threadListWidth = Math.max(
+    const delta = event.clientX - this.threads.threadDividerStartX;
+    this.threads.threadListWidth = Math.max(
       180,
-      Math.min(480, this.threadDividerStartWidth + delta),
+      Math.min(480, this.threads.threadDividerStartWidth + delta),
     );
     this.requestUpdate();
   };
 
   private handleThreadDividerPointerUp = (event: PointerEvent) => {
-    if (this.threadDividerPointerId !== event.pointerId) return;
+    if (this.threads.threadDividerPointerId !== event.pointerId) return;
     const target = event.currentTarget as HTMLElement;
-    if (target.hasPointerCapture(this.threadDividerPointerId)) {
-      target.releasePointerCapture(this.threadDividerPointerId);
+    if (target.hasPointerCapture(this.threads.threadDividerPointerId)) {
+      target.releasePointerCapture(this.threads.threadDividerPointerId);
     }
-    this.threadDividerResizing = false;
+    this.threads.threadDividerResizing = false;
   };
 
   private trackThreadsViewStateOnce(
     state: "locked" | "empty_enabled" | "enabled",
   ): void {
     if (this.core?.telemetryDisabled) return;
-    const key = `${state}:${this.getThreadServiceStatus()}`;
-    if (this.viewedThreadsTelemetryStates.has(key)) return;
-    this.viewedThreadsTelemetryStates.add(key);
+    if (
+      !claimThreadsViewState(this.threads, state, this.getThreadServiceStatus())
+    ) {
+      return;
+    }
     const props = this.getThreadsTelemetryProps();
     if (state === "locked") {
       trackThreadsLockedViewed(props);
@@ -12351,48 +11790,27 @@ export class WebInspectorElement extends LitElement {
     threadsErrorMessage: string | null,
     threadsLoading: boolean,
   ): boolean {
-    return (
-      locked ||
-      (!threadsErrorMessage && !threadsLoading && displayThreads.length === 0)
-    );
+    return shouldRenderExampleThreads(locked, {
+      displayThreads,
+      threadsErrorMessage,
+      threadsLoading,
+    });
   }
 
   private isExampleThreadId(threadId: string | null | undefined): boolean {
-    return THREADS_EXAMPLE_THREADS.some((thread) => thread.id === threadId);
+    return isExampleThreadId(threadId);
   }
 
   private getExampleThreadProvider(threadId: string): ThreadDebuggerProvider {
-    const cached = this.exampleThreadProviders.get(threadId);
-    if (cached) return cached;
-    const thread = THREADS_EXAMPLE_THREADS.find((item) => item.id === threadId);
-    const details = THREADS_EXAMPLE_DETAILS[threadId];
-    const provider: ThreadDebuggerProvider = {
-      getThreadMetadata: async () =>
-        thread
-          ? {
-              id: thread.id,
-              name: thread.name,
-              agentId: thread.agentId,
-              endUserId: "example-user",
-              status: "completed",
-              createdAt: thread.createdAt,
-              updatedAt: thread.updatedAt,
-            }
-          : null,
-      getMessages: async () => details?.messages ?? [],
-      getEvents: async () => details?.events ?? [],
-      getState: async () => details?.state ?? null,
-    };
-    this.exampleThreadProviders.set(threadId, provider);
-    return provider;
+    return getExampleThreadProvider(this.threads, threadId);
   }
 
   private trackThreadsExampleViewedOnce(): void {
     if (this.core?.telemetryDisabled) return;
     for (const thread of THREADS_EXAMPLE_THREADS) {
       const exampleKind = getExampleKind(thread.id);
-      if (!exampleKind || this.viewedExampleKinds.has(exampleKind)) continue;
-      this.viewedExampleKinds.add(exampleKind);
+      if (!exampleKind || !claimExampleViewed(this.threads, exampleKind))
+        continue;
       trackThreadsExampleViewed({
         ...this.getThreadsTelemetryProps(),
         example_kind: exampleKind,
@@ -12403,8 +11821,8 @@ export class WebInspectorElement extends LitElement {
   private trackThreadsExampleSelectedOnce(threadId: string): void {
     if (this.core?.telemetryDisabled) return;
     const exampleKind = getExampleKind(threadId);
-    if (!exampleKind || this.selectedExampleKinds.has(exampleKind)) return;
-    this.selectedExampleKinds.add(exampleKind);
+    if (!exampleKind || !claimExampleSelected(this.threads, exampleKind))
+      return;
     trackThreadsExampleSelected({
       ...this.getThreadsTelemetryProps(),
       example_kind: exampleKind,
@@ -12412,108 +11830,36 @@ export class WebInspectorElement extends LitElement {
   }
 
   private subscribeToInspectorThreadBridge(): void {
-    this.unsubscribeFromInspectorThreadBridge();
-    if (!isInspectorThreadBridgeEnabled()) return;
-    this.inspectorBridgeUnsubscribers.push(
-      onInspectorActiveThread((payload) => {
-        if (payload.requestId !== this.activeViewInAppRequestId) return;
-        this.inAppThreadId = payload.threadId;
-        this.inAppAgentId = payload.agentId;
-        this.inAppSource = payload.source;
-        if (payload.source === "app") {
-          this.activeViewInAppRequestId = null;
-          this.viewInAppError = null;
-        }
-        this.requestUpdate();
-      }),
-      onInspectorViewThreadResult((payload) => {
-        if (payload.requestId !== this.activeViewInAppRequestId) return;
-        if (payload.ok) {
-          this.viewInAppError = null;
-          this.inAppThreadId = payload.threadId;
-          this.inAppAgentId = payload.agentId;
-          this.inAppSource = "override";
-        } else {
-          this.activeViewInAppRequestId = null;
-          this.inAppThreadId = null;
-          this.inAppAgentId = null;
-          this.inAppSource = null;
-          this.viewInAppError =
-            "The app could not load that thread. The previous chat is back.";
-        }
-        this.requestUpdate();
-      }),
-    );
+    subscribeThreadBridge(this.threads, () => this.requestUpdate());
   }
 
   private unsubscribeFromInspectorThreadBridge(): void {
-    for (const unsubscribe of this.inspectorBridgeUnsubscribers) {
-      unsubscribe();
-    }
-    this.inspectorBridgeUnsubscribers = [];
+    unsubscribeThreadBridge(this.threads);
   }
 
   private getViewInAppMode(
     thread: ɵThread | null,
     isExample: boolean,
   ): "hidden" | "view" | "stop" {
-    if (!isInspectorThreadBridgeEnabled()) return "hidden";
-    if (!thread || isExample) return "hidden";
-    if (
-      this.activeViewInAppRequestId &&
-      this.inAppSource === "override" &&
-      this.inAppThreadId === thread.id
-    ) {
-      return "stop";
-    }
-    return "view";
+    return selectViewInAppMode(this.threads, thread, isExample);
   }
 
   private handleViewInApp = (): void => {
     const thread = this.getSelectedRealThread();
     if (!thread) return;
-    if (this.activeViewInAppRequestId && this.inAppAgentId) {
-      emitInspectorStopViewing({
-        requestId: this.activeViewInAppRequestId,
-        agentId: this.inAppAgentId,
-      });
-    }
-    this.viewInAppError = null;
-    const requestId = createInspectorThreadRequestId();
-    this.activeViewInAppRequestId = requestId;
-    const handled = emitInspectorViewThread({
-      requestId,
-      threadId: thread.id,
-      agentId: thread.agentId,
-    });
-    if (!handled) {
-      this.activeViewInAppRequestId = null;
-      this.inAppThreadId = null;
-      this.inAppAgentId = null;
-      this.inAppSource = null;
-      this.viewInAppError = "No official chat for this agent is on the page.";
-    }
+    viewThreadInApp(this.threads, thread);
     this.requestUpdate();
   };
 
   private handleStopViewing = (): void => {
-    const requestId = this.activeViewInAppRequestId;
-    const agentId = this.inAppAgentId;
-    if (!requestId || !agentId) return;
-    this.viewInAppError = null;
-    emitInspectorStopViewing({ requestId, agentId });
-    this.requestUpdate();
+    if (stopViewingThreadInApp(this.threads)) this.requestUpdate();
   };
 
   private getSelectedRealThread(): ɵThread | null {
-    if (!this.selectedThreadId) return null;
-    if (this.selectedThreadId === this.selectedLocalExampleThreadId) {
-      return null;
-    }
-    return (
-      this.getActiveThreadsState().displayThreads.find(
-        (thread) => thread.id === this.selectedThreadId,
-      ) ?? null
+    return selectRealThread(
+      this.getActiveThreadsState().displayThreads,
+      this.threads.selectedThreadId,
+      this.threads.selectedLocalExampleThreadId,
     );
   }
 
@@ -12525,10 +11871,10 @@ export class WebInspectorElement extends LitElement {
           tour_tab: ExampleTourTab;
         }>)
     | undefined {
-    const exampleKind = this.selectedThreadId
-      ? getExampleKind(this.selectedThreadId)
+    const exampleKind = this.threads.selectedThreadId
+      ? getExampleKind(this.threads.selectedThreadId)
       : undefined;
-    const tourPair = getExampleTourTelemetryPair(this.exampleTourStep);
+    const tourPair = getExampleTourTelemetryPair(this.threads.exampleTourStep);
     if (!exampleKind || !tourPair) return undefined;
     return {
       ...this.getThreadsTelemetryProps(),
@@ -12538,18 +11884,20 @@ export class WebInspectorElement extends LitElement {
   }
 
   private trackThreadsExampleTourStepViewedOnce(): void {
-    if (this.core?.telemetryDisabled || !this.selectedThreadId) return;
+    if (this.core?.telemetryDisabled || !this.threads.selectedThreadId) return;
     const props = this.getCurrentExampleTourProps();
     if (!props) return;
-    const key = `${props.example_kind}:${props.tour_step}`;
-    if (this.viewedExampleTourSteps.has(key)) return;
-    this.viewedExampleTourSteps.add(key);
+    if (
+      !claimExampleTourStep(this.threads, props.example_kind, props.tour_step)
+    ) {
+      return;
+    }
     trackThreadsExampleTourStepViewed(props);
   }
 
   private syncExampleTourTab(): void {
     const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
+      THREADS_EXAMPLE_TOUR_STEPS[this.threads.exampleTourStep] ??
       THREADS_EXAMPLE_TOUR_STEPS[0]!;
     if (!step) return;
     void this.updateComplete.then(() => {
@@ -12561,11 +11909,8 @@ export class WebInspectorElement extends LitElement {
   }
 
   private startExampleTour(autoStarted: boolean): void {
-    if (!this.selectedThreadId) return;
-    this.exampleTourActive = true;
-    this.exampleTourStep = 0;
+    if (!activateExampleTour(this.threads, autoStarted)) return;
     if (autoStarted) {
-      this.exampleTourAutoShown = true;
       if (!this.core?.telemetryDisabled) {
         const props = this.getCurrentExampleTourProps();
         if (props) trackThreadsExampleTourStarted(props);
@@ -12580,21 +11925,14 @@ export class WebInspectorElement extends LitElement {
   }
 
   private setExampleTourStep(nextStep: number): void {
-    const telemetryStepIsValid =
-      getExampleTourTelemetryPair(nextStep) !== undefined;
-    this.exampleTourStep = Math.max(
-      0,
-      Math.min(THREADS_EXAMPLE_TOUR_STEPS.length - 1, nextStep),
-    );
+    const telemetryStepIsValid = updateExampleTourStep(this.threads, nextStep);
     if (telemetryStepIsValid) this.trackThreadsExampleTourStepViewedOnce();
     this.syncExampleTourTab();
     this.requestUpdate();
   }
 
   private dismissExampleTour(method: "skip" | "done"): void {
-    if (!this.selectedThreadId) return;
-    this.exampleTourActive = false;
-    this.exampleTourDismissed = true;
+    if (!dismissTour(this.threads)) return;
     this.writeThreadsExampleTourDismissed();
     if (!this.core?.telemetryDisabled) {
       const currentProps = this.getCurrentExampleTourProps();
@@ -12614,361 +11952,37 @@ export class WebInspectorElement extends LitElement {
     threadId: string,
     showingExamples: boolean,
   ): void {
-    this.requestedThreadId = null;
-    this.focusedThreadMessageId = null;
-    if (
-      showingExamples &&
-      this.selectedThreadId === threadId &&
-      this.selectedLocalExampleThreadId === threadId
-    ) {
-      this.selectedThreadId = null;
-      this.selectedRealThreadIsExplicit = false;
-      this.selectedLocalExampleThreadId = null;
-      this.exampleTourActive = false;
-      this.requestUpdate();
-      return;
-    }
-
-    this.selectedThreadId = threadId;
-    if (showingExamples && this.isExampleThreadId(threadId)) {
-      this.selectedRealThreadIsExplicit = false;
-      this.selectedLocalExampleThreadId = threadId;
+    const result = selectThread(this.threads, {
+      threadId,
+      showingExamples,
+      isExample: this.isExampleThreadId(threadId),
+      displayThreads: this.getActiveThreadsState().displayThreads,
+    });
+    if (result.kind === "example") {
       this.trackThreadsExampleSelectedOnce(threadId);
-      if (!this.exampleTourDismissed && !this.exampleTourAutoShown) {
-        this.startExampleTour(true);
-      } else {
-        this.exampleTourActive = false;
-      }
-    } else {
-      const { displayThreads } = this.getActiveThreadsState();
-      this.selectedRealThreadIsExplicit = displayThreads.some(
-        (thread) => thread.id === threadId,
-      );
-      this.selectedLocalExampleThreadId = null;
-      this.exampleTourActive = false;
+      if (result.autoStartTour) this.startExampleTour(true);
     }
     this.requestUpdate();
   }
 
   private readThreadsExampleTourDismissed(): boolean {
-    if (typeof window === "undefined") return false;
-    try {
-      const raw = window.localStorage.getItem(THREADS_EXAMPLE_TOUR_STORAGE_KEY);
-      if (!raw) return false;
-      const value = JSON.parse(raw) as { dismissed?: unknown };
-      return value.dismissed === true;
-    } catch {
-      return false;
-    }
-  }
-
-  private writeThreadsExampleTourDismissed(): void {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        THREADS_EXAMPLE_TOUR_STORAGE_KEY,
-        JSON.stringify({ dismissed: true }),
-      );
-    } catch {
-      // Persistence is best-effort; the inspector should keep working without it.
-    }
-  }
-
-  /** Cancels the one deferred gate without disturbing a newer lifecycle. */
-  private cancelThreadsExampleOverviewVideoGate(): void {
-    if (this.threadsExampleOverviewVideoLoadTimer !== null) {
-      if (typeof window !== "undefined") {
-        window.clearTimeout(this.threadsExampleOverviewVideoLoadTimer);
-      }
-      this.threadsExampleOverviewVideoLoadTimer = null;
-    }
-    if (this.threadsExampleOverviewVideoIdleCallbackId !== null) {
-      if (
-        typeof window !== "undefined" &&
-        typeof window.cancelIdleCallback === "function"
-      ) {
-        window.cancelIdleCallback(
-          this.threadsExampleOverviewVideoIdleCallbackId,
-        );
-      }
-      this.threadsExampleOverviewVideoIdleCallbackId = null;
-    }
-  }
-
-  /** Returns whether media work still belongs to the mounted lifecycle. */
-  private isCurrentThreadsExampleOverviewVideo(
-    video: HTMLVideoElement,
-    lifecycleGeneration: number,
-  ): boolean {
-    return (
-      this.isConnected &&
-      video.isConnected &&
-      this.threadsExampleOverviewVideoElement === video &&
-      this.threadsExampleOverviewVideoLifecycleGeneration ===
-        lifecycleGeneration
+    return readExampleTourDismissed(
+      typeof window === "undefined" ? null : window,
     );
   }
 
-  /** Invalidates any unresolved play request without exposing another state. */
-  private invalidateThreadsExampleOverviewVideoPlay(): void {
-    this.threadsExampleOverviewVideoPlayAttemptGeneration += 1;
-    this.threadsExampleOverviewVideoPlayPromise = null;
-  }
-
-  /** Moves a current media lifecycle into its readable failure state. */
-  private failThreadsExampleOverviewVideo(
-    video: HTMLVideoElement,
-    lifecycleGeneration: number,
-  ): void {
-    if (
-      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
-    ) {
-      return;
-    }
-    this.invalidateThreadsExampleOverviewVideoPlay();
-    this.threadsExampleOverviewVideoLoaded = false;
-    this.threadsExampleOverviewVideoState = "failed";
-    this.requestUpdate();
-  }
-
-  /** Settles one guarded play promise and ignores stale completion. */
-  private async settleThreadsExampleOverviewVideoPlay(
-    video: HTMLVideoElement,
-    lifecycleGeneration: number,
-    playAttemptGeneration: number,
-    playback: Promise<void>,
-  ): Promise<void> {
-    try {
-      await playback;
-      if (
-        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
-        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
-          playAttemptGeneration &&
-        this.threadsExampleOverviewVideoState !== "failed"
-      ) {
-        this.threadsExampleOverviewVideoState = "playing";
-        this.requestUpdate();
-      }
-    } catch {
-      if (
-        this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration) &&
-        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
-          playAttemptGeneration
-      ) {
-        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
-      }
-    } finally {
-      if (
-        this.threadsExampleOverviewVideoPlayAttemptGeneration ===
-        playAttemptGeneration
-      ) {
-        this.threadsExampleOverviewVideoPlayPromise = null;
-      }
-    }
-  }
-
-  /** Starts at most one play request for the current media lifecycle. */
-  private playThreadsExampleOverviewVideo(
-    video: HTMLVideoElement,
-    lifecycleGeneration: number,
-  ): void {
-    if (
-      this.threadsExampleOverviewVideoPlayPromise !== null ||
-      this.threadsExampleOverviewVideoState === "deferred" ||
-      this.threadsExampleOverviewVideoState === "failed" ||
-      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
-    ) {
-      return;
-    }
-
-    const playAttemptGeneration =
-      this.threadsExampleOverviewVideoPlayAttemptGeneration + 1;
-    this.threadsExampleOverviewVideoPlayAttemptGeneration =
-      playAttemptGeneration;
-    try {
-      const playback = Promise.resolve(video.play());
-      this.threadsExampleOverviewVideoPlayPromise =
-        this.settleThreadsExampleOverviewVideoPlay(
-          video,
-          lifecycleGeneration,
-          playAttemptGeneration,
-          playback,
-        );
-    } catch {
-      this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
-    }
-  }
-
-  /** Attaches the sole source for a generation and optionally starts playback. */
-  private activateThreadsExampleOverviewVideo(
-    video: HTMLVideoElement,
-    lifecycleGeneration: number,
-    play: boolean,
-  ): void {
-    if (
-      this.threadsExampleOverviewVideoState !== "deferred" ||
-      !this.isCurrentThreadsExampleOverviewVideo(video, lifecycleGeneration)
-    ) {
-      return;
-    }
-
-    this.threadsExampleOverviewVideoState = "ready";
-    this.threadsExampleOverviewVideoLoaded = false;
-    video.autoplay = !this.threadsExampleOverviewVideoReducedMotion;
-    video.setAttribute("src", THREADS_EXAMPLE_OVERVIEW_VIDEO_URL);
-    this.requestUpdate();
-    if (play) {
-      this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
-    }
-  }
-
-  /** Schedules exactly one idle or timer gate for the current video. */
-  private scheduleThreadsExampleOverviewVideoLoad(): void {
-    const video = this.threadsExampleOverviewVideoElement;
-    if (
-      !video ||
-      !this.isConnected ||
-      this.threadsExampleOverviewVideoState !== "deferred" ||
-      this.threadsExampleOverviewVideoLoadTimer !== null ||
-      this.threadsExampleOverviewVideoIdleCallbackId !== null ||
-      typeof window === "undefined"
-    ) {
-      return;
-    }
-
-    const lifecycleGeneration =
-      this.threadsExampleOverviewVideoLifecycleGeneration;
-    if (typeof window.requestIdleCallback === "function") {
-      let idleCallbackId = 0;
-      const loadVideo = () => {
-        if (this.threadsExampleOverviewVideoIdleCallbackId !== idleCallbackId) {
-          return;
-        }
-        this.threadsExampleOverviewVideoIdleCallbackId = null;
-        this.activateThreadsExampleOverviewVideo(
-          video,
-          lifecycleGeneration,
-          !this.threadsExampleOverviewVideoReducedMotion,
-        );
-      };
-      idleCallbackId = window.requestIdleCallback(loadVideo, { timeout: 1200 });
-      this.threadsExampleOverviewVideoIdleCallbackId = idleCallbackId;
-      return;
-    }
-
-    const loadTimer = window.setTimeout(() => {
-      if (this.threadsExampleOverviewVideoLoadTimer !== loadTimer) {
-        return;
-      }
-      this.threadsExampleOverviewVideoLoadTimer = null;
-      this.activateThreadsExampleOverviewVideo(
-        video,
-        lifecycleGeneration,
-        !this.threadsExampleOverviewVideoReducedMotion,
-      );
-    }, 450);
-    this.threadsExampleOverviewVideoLoadTimer = loadTimer;
-  }
-
-  /** Attaches one generation-scoped media listener set to the stable video. */
-  private bindThreadsExampleOverviewVideo(video: HTMLVideoElement): void {
-    const lifecycleGeneration =
-      this.threadsExampleOverviewVideoLifecycleGeneration;
-    const listeners: ThreadsExampleOverviewVideoListeners = {
-      loadeddata: () => {
-        if (
-          !this.isCurrentThreadsExampleOverviewVideo(
-            video,
-            lifecycleGeneration,
-          ) ||
-          this.threadsExampleOverviewVideoState === "deferred" ||
-          this.threadsExampleOverviewVideoState === "failed"
-        ) {
-          return;
-        }
-        this.threadsExampleOverviewVideoLoaded = true;
-        this.requestUpdate();
-      },
-      play: () => {
-        if (
-          this.isCurrentThreadsExampleOverviewVideo(
-            video,
-            lifecycleGeneration,
-          ) &&
-          this.threadsExampleOverviewVideoState !== "deferred" &&
-          this.threadsExampleOverviewVideoState !== "failed"
-        ) {
-          this.threadsExampleOverviewVideoState = "playing";
-          this.requestUpdate();
-        }
-      },
-      pause: () => {
-        if (
-          this.isCurrentThreadsExampleOverviewVideo(
-            video,
-            lifecycleGeneration,
-          ) &&
-          this.threadsExampleOverviewVideoState !== "deferred" &&
-          this.threadsExampleOverviewVideoState !== "failed"
-        ) {
-          this.invalidateThreadsExampleOverviewVideoPlay();
-          this.threadsExampleOverviewVideoState = "ready";
-          this.requestUpdate();
-        }
-      },
-      error: () => {
-        this.failThreadsExampleOverviewVideo(video, lifecycleGeneration);
-      },
-    };
-    this.threadsExampleOverviewVideoElement = video;
-    this.threadsExampleOverviewVideoListeners = listeners;
-    video.addEventListener("loadeddata", listeners.loadeddata);
-    video.addEventListener("play", listeners.play);
-    video.addEventListener("pause", listeners.pause);
-    video.addEventListener("error", listeners.error);
-    video.muted = true;
-    video.loop = true;
-    video.playsInline = true;
-    video.autoplay =
-      this.threadsExampleOverviewVideoState !== "deferred" &&
-      !this.threadsExampleOverviewVideoReducedMotion;
+  private writeThreadsExampleTourDismissed(): void {
+    writeExampleTourDismissed(typeof window === "undefined" ? null : window);
   }
 
   /** Tears down gates, listeners, playback, and source in cleanup order. */
   private cleanupThreadsExampleOverviewVideo(): void {
-    const video = this.threadsExampleOverviewVideoElement;
-    if (video) {
-      this.threadsExampleOverviewVideoLifecycleGeneration += 1;
-    }
-    this.invalidateThreadsExampleOverviewVideoPlay();
-    this.cancelThreadsExampleOverviewVideoGate();
-    this.threadsExampleOverviewVideoPlayOnNextBind = false;
-
-    const listeners = this.threadsExampleOverviewVideoListeners;
-    if (video && listeners) {
-      video.removeEventListener("loadeddata", listeners.loadeddata);
-      video.removeEventListener("play", listeners.play);
-      video.removeEventListener("pause", listeners.pause);
-      video.removeEventListener("error", listeners.error);
-    }
-    this.threadsExampleOverviewVideoElement = null;
-    this.threadsExampleOverviewVideoListeners = null;
-
-    if (video) {
-      try {
-        video.pause();
-      } catch {
-        // Some DOM shims expose media methods that throw instead of no-oping.
-      }
-      video.removeAttribute("src");
-      try {
-        video.load();
-      } catch {
-        // Cleanup must stay synchronous and never surface media abort errors.
-      }
-    }
-    this.threadsExampleOverviewVideoLoaded = false;
-    this.threadsExampleOverviewVideoState = "deferred";
+    cleanupThreadsExampleVideo({
+      state: this.threads,
+      win: typeof window === "undefined" ? null : window,
+      isConnected: () => this.isConnected,
+      requestUpdate: () => this.requestUpdate(),
+    });
   }
 
   /** Reconciles the rendered media node with its current lifecycle. */
@@ -12976,263 +11990,66 @@ export class WebInspectorElement extends LitElement {
     const video = this.activeRoot.querySelector<HTMLVideoElement>(
       ".cpk-threads-overview-video",
     );
-    if (!video) {
-      if (
-        this.threadsExampleOverviewVideoElement ||
-        this.threadsExampleOverviewVideoState !== "deferred" ||
-        this.threadsExampleOverviewVideoLoadTimer !== null ||
-        this.threadsExampleOverviewVideoIdleCallbackId !== null ||
-        this.threadsExampleOverviewVideoPlayOnNextBind
-      ) {
-        this.cleanupThreadsExampleOverviewVideo();
-      }
-      return;
-    }
-
-    if (this.threadsExampleOverviewVideoElement !== video) {
-      if (this.threadsExampleOverviewVideoElement) {
-        this.cleanupThreadsExampleOverviewVideo();
-      }
-      this.bindThreadsExampleOverviewVideo(video);
-    }
-    if (this.threadsExampleOverviewVideoPlayOnNextBind) {
-      this.threadsExampleOverviewVideoPlayOnNextBind = false;
-      this.activateThreadsExampleOverviewVideo(
-        video,
-        this.threadsExampleOverviewVideoLifecycleGeneration,
-        true,
-      );
-      return;
-    }
-    this.scheduleThreadsExampleOverviewVideoLoad();
+    reconcileThreadsExampleVideo(
+      {
+        state: this.threads,
+        win: typeof window === "undefined" ? null : window,
+        isConnected: () => this.isConnected,
+        requestUpdate: () => this.requestUpdate(),
+      },
+      video,
+    );
   }
 
   /** Handles the external native Play/Pause control. */
   private handleThreadsExampleOverviewVideoControl = (): void => {
-    const video = this.threadsExampleOverviewVideoElement;
-    if (!video) return;
-
-    if (this.threadsExampleOverviewVideoState === "playing") {
-      this.invalidateThreadsExampleOverviewVideoPlay();
-      try {
-        video.pause();
-      } catch {
-        // Keep the visible state usable when a media shim cannot pause.
-      }
-      this.threadsExampleOverviewVideoState = "ready";
-      this.requestUpdate();
-      return;
-    }
-
-    if (this.threadsExampleOverviewVideoState === "failed") {
-      this.cleanupThreadsExampleOverviewVideo();
-      if (!this.isConnected || !video.isConnected) return;
-      this.threadsExampleOverviewVideoPlayOnNextBind = true;
-      this.requestUpdate();
-      return;
-    }
-
-    this.cancelThreadsExampleOverviewVideoGate();
-    const lifecycleGeneration =
-      this.threadsExampleOverviewVideoLifecycleGeneration;
-    if (this.threadsExampleOverviewVideoState === "deferred") {
-      this.activateThreadsExampleOverviewVideo(
-        video,
-        lifecycleGeneration,
-        true,
-      );
-      return;
-    }
-    this.playThreadsExampleOverviewVideo(video, lifecycleGeneration);
+    controlThreadsExampleVideo({
+      state: this.threads,
+      win: typeof window === "undefined" ? null : window,
+      isConnected: () => this.isConnected,
+      requestUpdate: () => this.requestUpdate(),
+    });
   };
 
   private renderThreadsExampleOverviewVideo() {
-    const isPlaying = this.threadsExampleOverviewVideoState === "playing";
-    const sourceIsAttached =
-      this.threadsExampleOverviewVideoState !== "deferred";
-    const video = html`<video
-      class="cpk-threads-overview-video"
-      data-loaded=${this.threadsExampleOverviewVideoLoaded}
-      ?autoplay=${
-        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
-      }
-      .autoplay=${
-        sourceIsAttached && !this.threadsExampleOverviewVideoReducedMotion
-      }
-      loop
-      .loop=${true}
-      muted
-      .muted=${true}
-      playsinline
-      .playsInline=${true}
-      preload="metadata"
-    ></video>`;
-    // Alternating template identities retire the prior media node after cleanup.
-    // The node remains stable for every render within one lifecycle generation.
-    const generationScopedVideo =
-      this.threadsExampleOverviewVideoLifecycleGeneration % 2 === 0
-        ? html`<!-- cpk-video-generation-even -->${video}`
-        : html`<!-- cpk-video-generation-odd -->${video}`;
-    return html`
-      <div class="cpk-threads-overview-video-frame" aria-hidden="true">
-        ${generationScopedVideo}
-      </div>
-      <button
-        class="cpk-threads-overview-video-control"
-        type="button"
-        aria-pressed=${isPlaying ? "false" : "true"}
-        @click=${this.handleThreadsExampleOverviewVideoControl}
-      >
-        ${isPlaying ? "Pause demo" : "Play demo"}
-      </button>
-      ${
-        this.threadsExampleOverviewVideoState === "failed"
-          ? html`
-            <p class="cpk-threads-overview-video-fallback" role="status">
-              ${THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK}
-            </p>
-          `
-          : nothing
-      }
-    `;
+    return renderThreadsExampleVideo(
+      this.threads,
+      this.handleThreadsExampleOverviewVideoControl,
+    );
   }
 
   private renderThreadsExampleOverview(locked: boolean) {
     const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
     const { lockedAction } = this.inspectorMetadataProjection;
-    const onboardingAction = this.getThreadsEmptyOnboardingAction();
-    return html`
-      <div class="cpk-threads-overview">
-        <div class="cpk-threads-overview-content">
-          <h2 class="cpk-threads-overview-title">
-            ${
-              lockedCopy?.heading ??
-              "Threads are persistent, inspectable conversations"
-            }
-          </h2>
-          ${this.renderThreadsExampleOverviewVideo()}
-          <p class="cpk-threads-overview-copy">
-            ${
-              lockedCopy?.description ??
-              "Take a tour with the example threads in the sidebar. Then, start chatting in your app to create the first real thread."
-            }
-          </p>
-          ${
-            locked
-              ? this.renderRuntimeEntitlementDiagnostic(
-                  this.getRuntimeEntitlementDiagnostic(),
-                )
-              : nothing
-          }
-          <div class="cpk-threads-overview-actions">
-            ${
-              locked
-                ? html`
-                  ${this.renderFeatureSetupPrompt(
-                    "threads",
-                    "cpk-threads-overview-action cpk-threads-overview-action-primary",
-                  )}
-                  ${
-                    lockedAction
-                      ? this.renderInspectorAction(lockedAction, "locked")
-                      : nothing
-                  }
-                `
-                : html`
-                  <a
-                    href=${this.getThreadsDocsUrl()}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-primary"
-                  >
-                    Learn how Threads work
-                  </a>
-                  <a
-                    href=${onboardingAction.href}
-                    target="_blank"
-                    rel="noopener"
-                    class="cpk-threads-overview-action cpk-threads-overview-action-secondary"
-                  >
-                    ${onboardingAction.label}
-                  </a>
-                `
-            }
-          </div>
-        </div>
-      </div>
-    `;
+    return renderThreadsOverview({
+      locked,
+      lockedCopy,
+      diagnostic: locked
+        ? this.renderRuntimeEntitlementDiagnostic(
+            this.getRuntimeEntitlementDiagnostic(),
+          )
+        : nothing,
+      setupPrompt: locked
+        ? this.renderFeatureSetupPrompt(
+            "threads",
+            "cpk-threads-overview-action cpk-threads-overview-action-primary",
+          )
+        : nothing,
+      docsUrl: this.getThreadsDocsUrl(),
+      onboardingAction: this.getThreadsEmptyOnboardingAction(),
+      video: this.renderThreadsExampleOverviewVideo(),
+      lockedAction: lockedAction
+        ? this.renderInspectorAction(lockedAction, "locked")
+        : nothing,
+    });
   }
 
   private renderThreadsExampleTour() {
-    if (
-      !this.selectedThreadId ||
-      this.selectedThreadId !== this.selectedLocalExampleThreadId
-    ) {
-      return nothing;
-    }
-
-    if (!this.exampleTourActive) {
-      return html`
-        <button
-          class="cpk-threads-tour-launch"
-          type="button"
-          @click=${() => this.startExampleTour(false)}
-        >
-          Show tour
-        </button>
-      `;
-    }
-
-    const step =
-      THREADS_EXAMPLE_TOUR_STEPS[this.exampleTourStep] ??
-      THREADS_EXAMPLE_TOUR_STEPS[0]!;
-    const isFirst = this.exampleTourStep === 0;
-    const isLast =
-      this.exampleTourStep === THREADS_EXAMPLE_TOUR_STEPS.length - 1;
-
-    return html`
-      <div
-        class="cpk-threads-tour"
-        role="dialog"
-        aria-label="Example thread tour"
-      >
-        <div class="cpk-threads-tour-step">
-          ${this.exampleTourStep + 1}/${THREADS_EXAMPLE_TOUR_STEPS.length}
-          ${step.label}
-        </div>
-        <div class="cpk-threads-tour-title">${step.title}</div>
-        <div class="cpk-threads-tour-copy">${step.body}</div>
-        <div class="cpk-threads-tour-actions">
-          <button
-            class="cpk-threads-tour-skip"
-            type="button"
-            @click=${() => this.dismissExampleTour("skip")}
-          >
-            Skip
-          </button>
-          <div class="cpk-threads-tour-nav">
-            <button
-              class="cpk-threads-tour-button cpk-threads-tour-button-secondary"
-              type="button"
-              ?disabled=${isFirst}
-              @click=${() => this.setExampleTourStep(this.exampleTourStep - 1)}
-            >
-              Back
-            </button>
-            <button
-              class="cpk-threads-tour-button cpk-threads-tour-button-primary"
-              type="button"
-              @click=${() =>
-                isLast
-                  ? this.dismissExampleTour("done")
-                  : this.setExampleTourStep(this.exampleTourStep + 1)}
-            >
-              ${isLast ? "Done" : "Next"}
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+    return renderThreadsTour(this.threads, {
+      start: () => this.startExampleTour(false),
+      setStep: (step) => this.setExampleTourStep(step),
+      dismiss: (method) => this.dismissExampleTour(method),
+    });
   }
 
   private renderThreadsLockedBackgroundMockup() {
@@ -13702,90 +12519,20 @@ export class WebInspectorElement extends LitElement {
   /** Renders trusted Threads usage and its independent plan action. */
   private renderThreadsUsageFooter() {
     const { usage, threadsFooterAction } = this.inspectorMetadataProjection;
-    if (!usage && !threadsFooterAction) {
-      return nothing;
-    }
-
-    let countLabel: string | undefined;
-    let progressMax: number | undefined;
-    let progressValue: number | undefined;
     const capacityState = this.getThreadsCapacityState();
-    if (usage) {
-      if (usage.limit.kind === "finite") {
-        const overLimit = usage.used > usage.limit.value;
-        const visibleUsed = overLimit
-          ? `${usage.limit.value}+`
-          : String(usage.used);
-        countLabel = `${visibleUsed} / ${usage.limit.value} Threads`;
-        progressMax = usage.limit.value;
-        progressValue = Math.min(usage.used, usage.limit.value);
-      } else if (usage.limit.kind === "unlimited") {
-        countLabel = `${usage.used} Threads · Unlimited`;
-      } else {
-        countLabel = `${usage.used} Threads · Limit unavailable`;
-      }
-    }
-
-    return html`
-      <footer
-        class="inspector-threads-footer"
-        data-inspector-threads-footer
-        role="group"
-        aria-label="Threads usage"
-      >
-        ${
-          usage && countLabel
-            ? html`
-              <div class="inspector-threads-usage">
-                <span data-inspector-thread-count>${countLabel}</span>
-                ${
-                  progressMax !== undefined && progressValue !== undefined
-                    ? html`
-                      <progress
-                        class="inspector-thread-progress"
-                        data-inspector-thread-progress
-                        data-inspector-thread-capacity=${capacityState}
-                        max=${progressMax}
-                        value=${progressValue}
-                        aria-label=${
-                          capacityState === "warning"
-                            ? `${countLabel}. Near thread limit.`
-                            : capacityState === "critical"
-                              ? `${countLabel}. Thread limit reached.`
-                              : countLabel
-                        }
-                      >
-                        ${countLabel}
-                      </progress>
-                    `
-                    : nothing
-                }
-                ${
-                  usage.expiringSoonCount !== undefined
-                    ? html`
-                      <span data-inspector-thread-expiry
-                        >${usage.expiringSoonCount} Expiring Soon</span
-                      >
-                    `
-                    : nothing
-                }
-              </div>
-            `
-            : nothing
-        }
-        ${
-          threadsFooterAction
-            ? this.renderInspectorAction(
-                threadsFooterAction,
-                "threads-footer",
-                capacityState === "warning" || capacityState === "critical"
-                  ? "Upgrade Your Plan"
-                  : threadsFooterAction.label,
-              )
-            : nothing
-        }
-      </footer>
-    `;
+    return renderThreadsDomainUsageFooter(
+      usage,
+      threadsFooterAction
+        ? this.renderInspectorAction(
+            threadsFooterAction,
+            "threads-footer",
+            capacityState === "warning" || capacityState === "critical"
+              ? "Upgrade Your Plan"
+              : threadsFooterAction.label,
+          )
+        : null,
+      capacityState,
+    );
   }
 
   private renderThreadsView() {
@@ -13815,12 +12562,13 @@ export class WebInspectorElement extends LitElement {
     }
 
     const selectedThread =
-      this.selectedThreadId != null
-        ? (visibleThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+      this.threads.selectedThreadId != null
+        ? (visibleThreads.find((t) => t.id === this.threads.selectedThreadId) ??
+          null)
         : null;
     const selectedThreadIsLocalExample =
       selectedThread !== null &&
-      selectedThread.id === this.selectedLocalExampleThreadId;
+      selectedThread.id === this.threads.selectedLocalExampleThreadId;
 
     if (locked) {
       this.trackThreadsViewStateOnce("locked");
@@ -13833,180 +12581,62 @@ export class WebInspectorElement extends LitElement {
       );
     }
 
-    return html`
-      <div
-        style="display:flex;height:100%;overflow:hidden;flex-direction:column;"
-      >
-        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
-          <!-- Left sidebar: thread list -->
-          <div
-            style="width:${
-              this.threadListWidth
-            }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
-          >
-            <cpk-thread-list
-              style="min-height:0;flex:1;"
-              data-color-scheme=${this.colorScheme}
-              .threads=${visibleThreads}
-              .selectedThreadId=${this.selectedThreadId}
-              .inAppThreadId=${this.inAppThreadId}
-              .errorMessage=${threadsErrorMessage}
-              .suppressEmptyState=${loadingWithoutRows}
-              @threadSelected=${(e: CustomEvent<string>) => {
-                this.handleThreadsThreadSelected(e.detail, showingExamples);
-              }}
-            ></cpk-thread-list>
-            ${this.renderThreadsUsageFooter()}
-          </div>
-
-          <!-- Resize divider -->
-          <div
-            style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
-            @pointerdown=${this.handleThreadDividerPointerDown}
-            @pointermove=${this.handleThreadDividerPointerMove}
-            @pointerup=${this.handleThreadDividerPointerUp}
-            @pointercancel=${this.handleThreadDividerPointerUp}
-          ></div>
-
-          <!-- Center + right: thread details or empty state -->
-          <div
-            style="flex:1;min-width:0;overflow:hidden;display:flex;position:relative;"
-          >
-            ${
-              !locked && threadsErrorMessage
-                ? html`
-                  <div
-                    role="alert"
-                    style="
-                        display: flex;
-                        flex: 1;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        padding: 24px;
-                        color: #c0333a;
-                        text-align: center;
-                      "
-                  >
-                    <strong style="font-size:13px;"
-                      >Failed to load threads</strong
-                    >
-                    <span
-                      style="max-width:440px;font-size:12px;line-height:1.5;"
-                      >${threadsErrorMessage}</span
-                    >
-                  </div>
-                `
-                : loadingWithoutRows
-                  ? html`
-                      <div
-                        role="status"
-                        style="
-                          display: flex;
-                          flex: 1;
-                          align-items: center;
-                          justify-content: center;
-                          color: #57575b;
-                          font-size: 13px;
-                        "
-                      >
-                        Loading threads…
-                      </div>
-                    `
-                  : selectedThread
-                    ? html`<cpk-thread-details
-                        style="flex:1;min-width:0;"
-                        data-color-scheme=${this.colorScheme}
-                        .threadId=${selectedThread.id}
-                        .thread=${selectedThread}
-                        .provider=${
-                          selectedThreadIsLocalExample
-                            ? this.getExampleThreadProvider(selectedThread.id)
-                            : null
-                        }
-                        .runtimeUrl=${
-                          selectedThreadIsLocalExample
-                            ? ""
-                            : (this._core?.runtimeUrl ?? "")
-                        }
-                        .headers=${this._core?.headers ?? {}}
-                        .threadInspectionAvailable=${
-                          selectedThreadIsLocalExample ||
-                          (this.areThreadEndpointsAvailable() &&
-                            this._core?.threadEndpoints?.inspect !== false)
-                        }
-                        .liveMessageVersion=${
-                          this.liveMessageVersion.get(selectedThread.id) ?? 0
-                        }
-                        .viewInAppMode=${this.getViewInAppMode(
-                          selectedThread,
-                          selectedThreadIsLocalExample,
-                        )}
-                        .viewInAppError=${this.viewInAppError}
-                        @viewInApp=${this.handleViewInApp}
-                        @stopViewing=${this.handleStopViewing}
-                        .focusMessageId=${this.focusedThreadMessageId}
-                        .focusRequestId=${this.threadFocusRequestId}
-                        .agentStateInput=${this.getLatestStateForAgent(
-                          selectedThread.agentId,
-                        )}
-                        .agentEventsInput=${
-                          this.agentEvents.get(selectedThread.agentId) ?? []
-                        }
-                        .agentMessagesInput=${
-                          selectedThreadIsLocalExample
-                            ? EMPTY_INSPECTOR_MESSAGES
-                            : this.getLiveAgentMessagesForThread(selectedThread)
-                        }
-                      ></cpk-thread-details>
-                      ${
-                        selectedThreadIsLocalExample
-                          ? this.renderThreadsExampleTour()
-                          : nothing
-                      }`
-                    : showingExamples
-                      ? this.renderThreadsExampleOverview(locked)
-                      : html`
-                        <div
-                          style="
-                        flex: 1;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 8px;
-                        color: #68686e;
-                      "
-                        >
-                          <svg
-                            width="32"
-                            height="32"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="#c0c0c8"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path
-                              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                            />
-                          </svg>
-                          <span style="font-size: 13px"
-                            >${
-                              displayThreads.length === 0
-                                ? "No threads yet"
-                                : "Select a thread to inspect"
-                            }</span
-                          >
-                        </div>
-                      `
-            }
-          </div>
-        </div>
-      </div>
-    `;
+    const runtimeUrl = selectedThreadIsLocalExample
+      ? ""
+      : (this._core?.runtimeUrl ?? "");
+    return renderThreadsDomainView(
+      {
+        state: this.threads,
+        colorScheme: this.colorScheme,
+        visibleThreads,
+        displayThreadCount: displayThreads.length,
+        selectedThread,
+        selectedThreadIsLocalExample,
+        threadsErrorMessage: locked ? null : threadsErrorMessage,
+        loadingWithoutRows,
+        showingExamples,
+        runtimeUrl,
+        headers: this._core?.headers ?? {},
+        threadInspectionAvailable:
+          selectedThreadIsLocalExample ||
+          (this.areThreadEndpointsAvailable() &&
+            this._core?.threadEndpoints?.inspect !== false),
+        liveMessageVersion: selectedThread
+          ? (this.liveMessageVersion.get(selectedThread.id) ?? 0)
+          : 0,
+        viewInAppMode: this.getViewInAppMode(
+          selectedThread,
+          selectedThreadIsLocalExample,
+        ),
+        provider:
+          selectedThread && selectedThreadIsLocalExample
+            ? this.getExampleThreadProvider(selectedThread.id)
+            : null,
+        agentStateInput: selectedThread
+          ? this.getLatestStateForAgent(selectedThread.agentId)
+          : undefined,
+        agentEventsInput: selectedThread
+          ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+          : [],
+        agentMessagesInput: selectedThread
+          ? selectedThreadIsLocalExample
+            ? EMPTY_INSPECTOR_MESSAGES
+            : this.getLiveAgentMessagesForThread(selectedThread)
+          : EMPTY_INSPECTOR_MESSAGES,
+        usageFooter: this.renderThreadsUsageFooter(),
+        tour: this.renderThreadsExampleTour(),
+        overview: this.renderThreadsExampleOverview(locked),
+      },
+      {
+        selectThread: (threadId) =>
+          this.handleThreadsThreadSelected(threadId, showingExamples),
+        resizeStart: this.handleThreadDividerPointerDown,
+        resizeMove: this.handleThreadDividerPointerMove,
+        resizeEnd: this.handleThreadDividerPointerUp,
+        viewInApp: this.handleViewInApp,
+        stopViewing: this.handleStopViewing,
+      },
+    );
   }
 
   private renderEventsToolbar(
@@ -16497,7 +15127,7 @@ export class WebInspectorElement extends LitElement {
       // cards do not flash off between retries.
       return this.errorSignalArmed.connection && state === "connecting";
     }
-    return this._threadsErrorByAgent.size > 0;
+    return this.threads.threadsErrorByAgent.size > 0;
   }
 
   /**
@@ -16517,7 +15147,7 @@ export class WebInspectorElement extends LitElement {
         // and what would change it.
         //
         // `threads` can genuinely flap: the list is refetched on events, at up
-        // to one request per `THREAD_LIST_DEBOUNCE_MS`, so a failure followed
+        // to one request per debounce interval, so a failure followed
         // by a success plays a whole gesture for a blip that is already over.
         // The damage is bounded by machinery that is already here — one
         // pending-beat slot, and a running gesture defers the next — so the

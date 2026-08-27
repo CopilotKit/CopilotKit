@@ -19,9 +19,9 @@ import type {
 } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
 
-import { WebInspectorElement } from "../index.js";
-import type { CpkThreadInspector } from "../index.js";
-import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
+import { WebInspectorElement } from "../../index.js";
+import type { CpkThreadInspector } from "../../index.js";
+import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../../lib/telemetry.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const AGENT_ID = "state-agent";

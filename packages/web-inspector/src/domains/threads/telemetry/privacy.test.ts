@@ -21,18 +21,17 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
-  trackThreadsTryFromHereClicked,
-} from "../telemetry.js";
+} from "../../../lib/telemetry.js";
 import type {
   InspectorMetadataActionClickedTelemetryProps,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorThreadTelemetryProps,
   TelemetryEvent,
-} from "../telemetry.js";
+} from "../../../lib/telemetry.js";
 import {
   _resetTelemetryPersistenceForTesting,
   setTelemetryOptOut,
-} from "../persistence.js";
+} from "../../../lib/persistence.js";
 
 const TEST_UUID = "00000000-0000-4000-8000-000000000001";
 const PACKAGE_PROPERTY_KEYS = Object.freeze([
@@ -62,8 +61,7 @@ type ThreadEventKey =
   | "example_kind"
   | "tour_step"
   | "tour_tab"
-  | "dismiss_method"
-  | "outcome";
+  | "dismiss_method";
 
 type ThreadEventFields = Required<
   Pick<InspectorThreadTelemetryProps, ThreadEventKey>
@@ -235,7 +233,6 @@ function createThreadFixture(
     tour_step: overrides.tour_step ?? 1,
     tour_tab: overrides.tour_tab ?? "timeline",
     dismiss_method: overrides.dismiss_method ?? "skip",
-    outcome: overrides.outcome ?? "success",
     ...forbidden,
   };
 
@@ -296,13 +293,6 @@ test.each<ThreadHelperCase>([
     invoke: trackThreadsTabClicked,
     expectedEvent: "oss.inspector.threads_tab_clicked",
     expectedProperties: {},
-  },
-  {
-    name: "threads try from here clicked",
-    invoke: trackThreadsTryFromHereClicked,
-    expectedEvent: "oss.inspector.threads_try_from_here_clicked",
-    eventOverrides: { outcome: "success" },
-    expectedProperties: { outcome: "success" },
   },
   {
     name: "threads locked viewed",

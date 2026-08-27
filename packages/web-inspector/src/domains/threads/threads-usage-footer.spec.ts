@@ -5,7 +5,7 @@ import {
 import type { InspectorMetadataV1 } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
-import { WebInspectorElement } from "../index.js";
+import { WebInspectorElement } from "../../index.js";
 
 type ThreadsUsage = NonNullable<InspectorMetadataV1["usage"]>;
 

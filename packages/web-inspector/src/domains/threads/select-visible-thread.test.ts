@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
-import { selectVisibleRealThreadId } from "../thread-selection.js";
-import type { VisibleRealThreadCandidate } from "../thread-selection.js";
+import { selectVisibleRealThreadId } from "./selectors.js";
+import type { VisibleRealThreadCandidate } from "./selectors.js";
 
 const DEFAULT_UPDATED_AT = "2026-08-03T12:00:00.000Z";
 const DEFAULT_CREATED_AT = "2026-08-03T11:00:00.000Z";
