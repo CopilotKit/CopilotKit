@@ -814,9 +814,7 @@ def apply_tool_result(state: AgentState, data: Mapping) -> AppliedToolResult:
                 f"Cannot update {resource_id}: resource type is {actual_type}, "
                 f"not {requested_type}"
             )
-            new_logs.append(
-                log_thought(state, "tool_node", error_message, "error")
-            )
+            new_logs.append(log_thought(state, "tool_node", error_message, "error"))
             return {
                 "nodes": new_nodes,
                 "edges": new_edges,
