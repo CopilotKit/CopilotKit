@@ -387,18 +387,20 @@ const createAppContextBeforeAgent = (state, runtime) => {
  * });
  * ```
  */
-const copilotKitStateSchema = z.object({
-  copilotkit: zodState(
-    z
-      .object({
-        actions: z.array(z.any()),
-        context: z.any().optional(),
-        interceptedToolCalls: z.array(z.any()).optional(),
-        originalAIMessageId: z.string().optional(),
-      })
-      .optional(),
-  ),
-});
+const copilotKitStateSchema = z
+  .object({
+    copilotkit: zodState(
+      z
+        .object({
+          actions: z.array(z.any()),
+          context: z.any().optional(),
+          interceptedToolCalls: z.array(z.any()).optional(),
+          originalAIMessageId: z.string().optional(),
+        })
+        .optional(),
+    ),
+  })
+  .passthrough();
 
 const isToolCallContentBlock = (block: unknown) =>
   typeof block === "object" &&

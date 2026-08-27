@@ -24,6 +24,8 @@ import {
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
+import { FakeListChatModel } from "@langchain/core/utils/testing";
+import { createAgent, createMiddleware } from "langchain";
 
 import {
   copilotkitMiddleware,
@@ -66,6 +68,23 @@ function systemContents(messages: any[]): string[] {
     }
   }
   return out;
+}
+
+class CapturingFakeListChatModel extends FakeListChatModel {
+  readonly receivedMessages: Array<
+    Parameters<FakeListChatModel["_generate"]>[0]
+  > = [];
+
+  override async _generate(
+    ...args: Parameters<FakeListChatModel["_generate"]>
+  ) {
+    this.receivedMessages.push(args[0]);
+    return super._generate(...args);
+  }
+
+  override bindTools() {
+    return this;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,6 +138,35 @@ describe("frontend tool injection", () => {
 // ---------------------------------------------------------------------------
 
 describe("exposeState", () => {
+  it("surfaces state owned by a sibling middleware during an agent run", async () => {
+    const model = new CapturingFakeListChatModel({ responses: ["Hello"] });
+    const agentNameMiddleware = createMiddleware({
+      name: "AgentNameMiddleware",
+      stateSchema: z.object({ agentName: z.string().optional() }),
+    });
+    const middleware = createCopilotkitMiddleware({
+      exposeState: ["agentName"],
+    });
+    const agent = createAgent({
+      model,
+      tools: [],
+      systemPrompt: "You are a helpful assistant.",
+      middleware: [agentNameMiddleware, middleware],
+    });
+
+    await agent.invoke({
+      messages: [new HumanMessage("What is your name?")],
+      agentName: "Mochi",
+    });
+
+    const systemMessage = model.receivedMessages[0].find(
+      (message) => message._getType() === "system",
+    );
+    const systemContent = JSON.stringify(systemMessage?.content);
+    expect(systemContent).toContain("agentName");
+    expect(systemContent).toContain("Mochi");
+  });
+
   it("is off by default — user state never lands in the system prompt", async () => {
     const request = makeRequest({
       state: { messages: [], liked: ["a", "b"] },
