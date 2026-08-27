@@ -9536,6 +9536,7 @@ export class WebInspectorElement extends LitElement {
        * z-index (4, 3, 1) instead of leaning on DOM paint order, because a
        * relative order in which only one member states its position is not
        * an order. The mark's own ring and shadow are deliberately left
+       * alone for the whole gesture - the circle's outline staying visible
        * inside the open pill was looked at against the alternative and kept.
        *
        * A column, not a row: the pill carries a heading and a subline stacked,
@@ -10726,7 +10727,7 @@ export class WebInspectorElement extends LitElement {
             >${this.getGestureLabel() ?? ""}</span
           >`
         }
-        ${this.renderLauncherHud()}
+        ${this.renderLauncherDrawer()}
       </div>
     `;
   }
@@ -10977,7 +10978,7 @@ export class WebInspectorElement extends LitElement {
   private renderHudCheck(): TemplateResult {
     return html`
       <svg
-        class="cpk-launcher-hud__check"
+        class="cpk-launcher-drawer__check"
         viewBox="0 0 16 16"
         aria-hidden="true"
         focusable="false"
@@ -10998,17 +10999,13 @@ export class WebInspectorElement extends LitElement {
   private renderHudRow(args: {
     id: LauncherHudRowId;
     label: string;
-    detail: string;
-    connected?: boolean;
+    connected: boolean;
     introIndex: number;
   }): TemplateResult {
-    const helpOpen = this.launcherHudHelp === args.id;
-    const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
-        class="cpk-launcher-hud__row"
+        class="cpk-launcher-drawer__row"
         data-cpk-hud-row=${args.id}
-        data-cpk-hud-help=${helpOpen ? "open" : nothing}
         style=${styleMap({
           "--cpk-hud-row-index": `${args.introIndex}`,
           "--cpk-hud-row-delay": `${
@@ -11018,33 +11015,20 @@ export class WebInspectorElement extends LitElement {
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
+        ${args.connected ? this.renderHudCheck() : nothing}
         <button
+          class="cpk-launcher-drawer__action"
           type="button"
-          class="cpk-launcher-hud__action"
           data-cpk-hud-action
-          aria-describedby=${detailId}
           @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
         >
-          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
+          ${args.label}
         </button>
-        <button
-          type="button"
-          class="cpk-launcher-hud__help"
-          aria-expanded=${helpOpen ? "true" : "false"}
-          aria-controls=${detailId}
-          aria-label=${`About ${args.label}`}
-          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          <span aria-hidden="true">?</span>
-        </button>
-        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
       </li>
     `;
   }
 
-  private renderLauncherHud(): TemplateResult | typeof nothing {
+  private renderLauncherDrawer(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
     // The launcher must agree with Home about feature availability. Raw
     // transport flags can be present for a runtime that is not entitled to use
@@ -11059,10 +11043,10 @@ export class WebInspectorElement extends LitElement {
     const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
-        class="cpk-launcher-hud"
+        class="cpk-launcher-drawer"
         id="cpk-launcher-hud"
-        data-cpk-launcher-hud
-        data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-launcher-drawer
+        data-cpk-drawer-side=${this.launcherHudSide}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
@@ -11070,50 +11054,28 @@ export class WebInspectorElement extends LitElement {
           "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
         })}
       >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
-        <div class="cpk-launcher-hud__card">
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "inspector",
-              label: HUD_OPEN_INSPECTOR_LABEL,
-              detail: HUD_OPEN_INSPECTOR_DETAIL,
-              introIndex: 0,
-            })}
-          </ul>
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "threads",
-              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-              detail: threadsOn
-                ? HUD_THREADS_ON_DETAIL
-                : HUD_THREADS_OFF_DETAIL,
-              connected: threadsOn,
-              introIndex: 1,
-            })}
-            ${this.renderHudRow({
-              id: "intelligence",
-              label: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_LABEL
-                : HUD_INTELLIGENCE_OFF_LABEL,
-              detail: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_DETAIL
-                : HUD_INTELLIGENCE_OFF_DETAIL,
-              connected: intelligenceOn,
-              introIndex: 2,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: learningOn
-                ? HUD_LEARNING_ON_LABEL
-                : HUD_LEARNING_OFF_LABEL,
-              detail: learningOn
-                ? HUD_LEARNING_ON_DETAIL
-                : HUD_LEARNING_OFF_DETAIL,
-              connected: learningOn,
-              introIndex: 3,
-            })}
-          </ul>
-        </div>
+        <ul class="cpk-launcher-drawer__list" role="list">
+          ${this.renderHudRow({
+            id: "threads",
+            label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
+            connected: threadsOn,
+            introIndex: 0,
+          })}
+          ${this.renderHudRow({
+            id: "intelligence",
+            label: intelligenceOn
+              ? HUD_INTELLIGENCE_ON_LABEL
+              : HUD_INTELLIGENCE_OFF_LABEL,
+            connected: intelligenceOn,
+            introIndex: 1,
+          })}
+          ${this.renderHudRow({
+            id: "learning",
+            label: learningOn ? HUD_LEARNING_ON_LABEL : HUD_LEARNING_OFF_LABEL,
+            connected: learningOn,
+            introIndex: 2,
+          })}
+        </ul>
       </div>
     `;
   }
