@@ -71,9 +71,10 @@ const LAUNCHER_SIZE = 52;
 const EDGE_MARGIN = 16;
 
 /**
- * The capsule's rendered width, as the direction logic would measure it via
- * `getBoundingClientRect().width`. jsdom lays nothing out — every rect is
- * zero — so this is stubbed rather than measured; see `stubGeometry`.
+ * The island's pinned width, mirroring `LAUNCHER_ISLAND_WIDTH` in the
+ * implementation. The direction rule never measures the capsule — jsdom lays
+ * nothing out, so every rect is zero regardless — it takes only the
+ * launcher mark's rect (stubbed by `stubGeometry`) and this constant.
  *
  * The capsule is pinned to `--cpk-launcher-island` rather than sized by its
  * content, so this constant mirrors that token's value rather than a
@@ -442,19 +443,18 @@ function renderedText(inspector: WebInspectorElement): string {
 }
 
 /**
- * Gives the launcher and the pill real dimensions, because jsdom lays nothing
- * out: every rect is zero, so the pill would trivially fit on either side and
- * the direction decision would never be exercised.
+ * Gives the launcher mark real dimensions, because jsdom lays nothing out:
+ * every rect is zero, so the direction rule would always see a mark with no
+ * width and the decision would never be exercised.
  *
  * `launcherLeft` is where the launcher's left edge sits, which is what a
- * reader changes by dragging it, and `pillWidth` is the pill's natural width
- * at its full label.
+ * reader changes by dragging it. The rule reads only that rect and the
+ * island's constant width, never the capsule's own dimensions.
  */
 let restoreViewportWidth: (() => void) | null = null;
 
 function stubGeometry(options: {
   launcherLeft: number;
-  pillWidth: number;
   viewportWidth: number;
 }): void {
   const previousWidth = window.innerWidth;
@@ -486,11 +486,6 @@ function stubGeometry(options: {
         }) as DOMRect;
       if (this.classList.contains("console-button")) {
         return box(options.launcherLeft, LAUNCHER_SIZE);
-      }
-      if (this.hasAttribute("data-cpk-launcher-capsule")) {
-        // A clip never changes the layout box, so this is the full width
-        // whichever phase the pill is in.
-        return box(options.launcherLeft, options.pillWidth);
       }
       return box(0, 0);
     },
@@ -1598,7 +1593,6 @@ test("the pill opens left when there is room to the left", async () => {
   // Anchored top-right with the whole window to its left.
   stubGeometry({
     launcherLeft: 1200,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -1615,7 +1609,6 @@ test("the pill opens right when the launcher sits too close to the left edge", a
   // exists — permanently, because the position persists.
   stubGeometry({
     launcherLeft: 16,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -1631,7 +1624,6 @@ test("neither side having room leaves the dot and the beat untouched, and no pil
   // A window too narrow for the label on either side.
   stubGeometry({
     launcherLeft: 16,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 130,
   });
   await armConnectionFailure(context);
@@ -1651,7 +1643,6 @@ test("with no room the failure is still spoken", async () => {
   const context = await setup();
   stubGeometry({
     launcherLeft: 16,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 130,
   });
   await armConnectionFailure(context);
@@ -1671,7 +1662,6 @@ test("a window exactly wide enough still opens the pill", async () => {
   const context = await setup();
   stubGeometry({
     launcherLeft: EDGE_MARGIN,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: TIGHTEST_FIT,
   });
   await armConnectionFailure(context);
@@ -1683,7 +1673,6 @@ test("one pixel narrower than that degrades to no pill at all", async () => {
   const context = await setup();
   stubGeometry({
     launcherLeft: EDGE_MARGIN,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: TIGHTEST_FIT - 1,
   });
   await armConnectionFailure(context);
@@ -2061,7 +2050,6 @@ test("the visibility event reports whether the pill was shown or suppressed", as
   const context = await setup();
   stubGeometry({
     launcherLeft: 1200,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -2076,7 +2064,6 @@ test("the visibility event reports the no-room fallback as suppressed", async ()
   const context = await setup();
   stubGeometry({
     launcherLeft: 16,
-    pillWidth: ISLAND_WIDTH,
     viewportWidth: 130,
   });
   await armConnectionFailure(context);
