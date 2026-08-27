@@ -13,7 +13,7 @@ import logging
 import time
 import uuid
 from collections.abc import Mapping
-from typing import Literal, NotRequired, TypedDict
+from typing import Annotated, Literal, NotRequired, TypedDict
 
 from copilotkit import CopilotKitState
 from langchain.tools import tool
@@ -24,6 +24,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 LOGGER = logging.getLogger("cloudplot.agent")
 
@@ -35,6 +36,124 @@ ResourceType = Literal["s3", "ec2", "rds", "lambda", "vpc", "alb"]
 StatusType = Literal["healthy", "warning", "error", "stopped"]
 AgentStatusType = Literal["idle", "designing", "validating"]
 TierType = Literal["network", "frontend", "compute", "data", "storage"]
+
+
+class StrictResourceConfig(BaseModel):
+    """Reject coercion and unknown model-generated configuration fields."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class S3ResourceConfig(StrictResourceConfig):
+    bucket_name: str
+    access_level: Literal["public", "private"]
+    versioning: bool
+
+
+class EC2ResourceConfig(StrictResourceConfig):
+    instance_type: str
+    ami: str
+    name: str
+    security_group: str | None = None
+
+
+class RDSResourceConfig(StrictResourceConfig):
+    engine: str
+    instance_class: str
+    multi_az: bool
+    encryption: bool
+    name: str
+
+
+class LambdaResourceConfig(StrictResourceConfig):
+    runtime: str
+    memory: int
+    timeout: int
+    name: str
+
+
+class VPCResourceConfig(StrictResourceConfig):
+    cidr_block: str
+    subnets: list[str]
+    name: str
+
+
+class ALBResourceConfig(StrictResourceConfig):
+    listeners: list[int]
+    target_groups: list[str]
+    name: str
+
+
+class S3ResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["s3"]
+    bucket_name: str | None = None
+    access_level: Literal["public", "private"] | None = None
+    versioning: bool | None = None
+
+
+class EC2ResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["ec2"]
+    instance_type: str | None = None
+    ami: str | None = None
+    name: str | None = None
+    security_group: str | None = None
+
+
+class RDSResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["rds"]
+    engine: str | None = None
+    instance_class: str | None = None
+    multi_az: bool | None = None
+    encryption: bool | None = None
+    name: str | None = None
+
+
+class LambdaResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["lambda"]
+    runtime: str | None = None
+    memory: int | None = None
+    timeout: int | None = None
+    name: str | None = None
+
+
+class VPCResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["vpc"]
+    cidr_block: str | None = None
+    subnets: list[str] | None = None
+    name: str | None = None
+
+
+class ALBResourceUpdate(StrictResourceConfig):
+    resource_type: Literal["alb"]
+    listeners: list[int] | None = None
+    target_groups: list[str] | None = None
+    name: str | None = None
+
+
+ResourceUpdate = Annotated[
+    S3ResourceUpdate
+    | EC2ResourceUpdate
+    | RDSResourceUpdate
+    | LambdaResourceUpdate
+    | VPCResourceUpdate
+    | ALBResourceUpdate,
+    Field(discriminator="resource_type"),
+]
+
+
+class UpdateResourceArgs(BaseModel):
+    resource_id: str
+    update: ResourceUpdate
+
+
+RESOURCE_CONFIG_MODELS: dict[str, type[StrictResourceConfig]] = {
+    "s3": S3ResourceConfig,
+    "ec2": EC2ResourceConfig,
+    "rds": RDSResourceConfig,
+    "lambda": LambdaResourceConfig,
+    "vpc": VPCResourceConfig,
+    "alb": ALBResourceConfig,
+}
 
 # Tier mapping by resource type (for automatic assignment)
 RESOURCE_TIER_MAP: dict[ResourceType, TierType] = {
@@ -218,6 +337,16 @@ def generate_state_summary(nodes: list[NodeData], edges: list[EdgeData]) -> str:
     return f"\n[Current state: Resources: {nodes_list}. Connections: {edges_list}]"
 
 
+def format_validation_error(error: ValidationError) -> str:
+    """Return a compact model-visible validation failure without a traceback."""
+
+    details = []
+    for item in error.errors(include_url=False, include_context=False):
+        location = ".".join(str(part) for part in item["loc"])
+        details.append(f"{location}: {item['msg']}")
+    return "Invalid resource configuration: " + "; ".join(details)
+
+
 # -----------------------------------------------------------------------------
 # Backend Tools
 # -----------------------------------------------------------------------------
@@ -227,7 +356,7 @@ def generate_state_summary(nodes: list[NodeData], edges: list[EdgeData]) -> str:
 def add_resource(
     resource_type: str,
     name: str,
-    config: dict | None = None,
+    resource_config: dict | None = None,
     vpc_id: str | None = None,
 ) -> dict:
     """
@@ -236,7 +365,7 @@ def add_resource(
     Args:
         resource_type: Type of resource (s3, ec2, rds, lambda, vpc, alb)
         name: Display name for the resource
-        config: Resource-specific configuration
+        resource_config: Resource-specific configuration
         vpc_id: Optional ID of parent VPC to place this resource inside
 
     Returns:
@@ -263,12 +392,21 @@ def add_resource(
         "alb": {"listeners": [80, 443], "target_groups": [], "name": name},
     }
 
-    merged_config = {**default_configs.get(resource_type, {}), **(config or {})}
+    merged_config = {
+        **default_configs.get(resource_type, {}),
+        **(resource_config or {}),
+    }
+    try:
+        validated_config = RESOURCE_CONFIG_MODELS[resource_type].model_validate(
+            merged_config
+        )
+    except ValidationError as error:
+        return {"success": False, "error": format_validation_error(error)}
 
     result = {
         "id": node_id,
         "type": resource_type,
-        "config": merged_config,
+        "config": validated_config.model_dump(exclude_none=True),
         "status": "healthy",
         "tier": RESOURCE_TIER_MAP.get(resource_type, "compute"),
     }
@@ -316,21 +454,24 @@ def remove_resource(resource_id: str) -> dict:
     return {"removed": resource_id, "success": True}
 
 
-@tool
-def update_resource(resource_id: str, updates: dict | None = None) -> dict:
+@tool(args_schema=UpdateResourceArgs)
+def update_resource(resource_id: str, update: ResourceUpdate) -> dict:
     """
     Update an existing resource's configuration.
 
     Args:
         resource_id: ID of the resource to update
-        updates: New configuration values to merge
+        update: Typed resource-specific configuration values to merge
 
     Returns:
         Updated resource info
     """
-    if updates is None:
-        return {"error": "updates are required to update resource", "success": False}
-    return {"updated": resource_id, "config": updates, "success": True}
+    return {
+        "updated": resource_id,
+        "resource_type": update.resource_type,
+        "config": update.model_dump(exclude={"resource_type"}, exclude_none=True),
+        "success": True,
+    }
 
 
 @tool
@@ -536,6 +677,16 @@ def apply_tool_result(state: AgentState, data: Mapping) -> AppliedToolResult:
     new_logs = list(state.get("logs", []))
     node_ids = {node["id"] for node in new_nodes}
 
+    if data.get("success") is False and isinstance(data.get("error"), str):
+        error_message = data["error"]
+        new_logs.append(log_thought(state, "tool_node", error_message, "error"))
+        return {
+            "nodes": new_nodes,
+            "edges": new_edges,
+            "logs": new_logs,
+            "tool_error": error_message,
+        }
+
     if "id" in data and "type" in data:
         parent_id = data.get("parentId")
         if parent_id and not any(
@@ -654,6 +805,25 @@ def apply_tool_result(state: AgentState, data: Mapping) -> AppliedToolResult:
                 "tool_error": error_message,
             }
 
+        actual_type = next(
+            node["type"] for node in new_nodes if node["id"] == resource_id
+        )
+        requested_type = data.get("resource_type")
+        if requested_type != actual_type:
+            error_message = (
+                f"Cannot update {resource_id}: resource type is {actual_type}, "
+                f"not {requested_type}"
+            )
+            new_logs.append(
+                log_thought(state, "tool_node", error_message, "error")
+            )
+            return {
+                "nodes": new_nodes,
+                "edges": new_edges,
+                "logs": new_logs,
+                "tool_error": error_message,
+            }
+
         new_config = data.get("config", {})
         for node in new_nodes:
             if node["id"] == resource_id:
@@ -733,6 +903,17 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
     tool_errors: list[str | None] = []
 
     for message in messages:
+        if getattr(message, "status", None) == "error":
+            error_message = (
+                f"Invalid arguments for {getattr(message, 'name', 'backend tool')}: "
+                f"{getattr(message, 'content', 'validation failed')}"
+            )
+            updated["logs"].append(
+                log_thought(state, "tool_node", error_message, "error")
+            )
+            tool_errors.append(error_message)
+            continue
+
         data = parse_tool_result(getattr(message, "content", message))
         if data is None:
             error_message = "Malformed backend tool result: expected a JSON object"

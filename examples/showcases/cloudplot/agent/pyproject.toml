@@ -10,6 +10,7 @@ dependencies = [
   "langchain==1.2.15",
   "langchain-openai==1.1.9",
   "langgraph==1.1.6",
+  "pydantic>=2.10,<3.0",
   "uvicorn[standard]>=0.40.0,<1.0.0",
 ]
 

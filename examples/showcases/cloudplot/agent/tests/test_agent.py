@@ -50,6 +50,116 @@ class FakeModel:
 
 
 class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_tool_node_preserves_model_supplied_resource_config(self):
+        tool_call = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "add_resource",
+                    "args": {
+                        "resource_type": "ec2",
+                        "name": "api",
+                        "resource_config": {
+                            "instance_type": "t3.large",
+                            "ami": "ami-custom",
+                        },
+                    },
+                    "id": "add-custom-ec2",
+                    "type": "tool_call",
+                }
+            ],
+        )
+
+        command = await main.tool_node_wrapper(
+            base_state(messages=[tool_call]),
+            {"configurable": {"__pregel_runtime": Runtime()}},
+        )
+
+        node = command.update["nodes"][0]
+        self.assertEqual(node["config"]["instance_type"], "t3.large")
+        self.assertEqual(node["config"]["ami"], "ami-custom")
+        self.assertEqual(command.update["cost"], 60.74)
+
+    async def test_invalid_typed_update_returns_structured_error_without_mutation(self):
+        state = base_state(
+            nodes=[
+                {
+                    "id": "lambda-1",
+                    "type": "lambda",
+                    "config": {"runtime": "python3.12", "memory": 128, "timeout": 30},
+                    "position": {},
+                }
+            ]
+        )
+        tool_call = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "update_resource",
+                    "args": {
+                        "resource_id": "lambda-1",
+                        "update": {
+                            "resource_type": "lambda",
+                            "memory": "4 GB",
+                        },
+                    },
+                    "id": "invalid-lambda-update",
+                    "type": "tool_call",
+                }
+            ],
+        )
+
+        command = await main.tool_node_wrapper(
+            {**state, "messages": [tool_call]},
+            {"configurable": {"__pregel_runtime": Runtime()}},
+        )
+
+        self.assertEqual(command.update["nodes"], state["nodes"])
+        self.assertEqual(command.update["edges"], state["edges"])
+        self.assertEqual(command.update["logs"][-1]["type"], "error")
+        response = command.update["messages"][0].content
+        self.assertIn('"success": false', response)
+        self.assertIn("Invalid arguments for update_resource", response)
+
+    async def test_update_rejects_a_resource_type_mismatch(self):
+        state = base_state(
+            nodes=[
+                {
+                    "id": "lambda-1",
+                    "type": "lambda",
+                    "config": {"runtime": "python3.12", "memory": 128, "timeout": 30},
+                    "position": {},
+                }
+            ]
+        )
+        tool_call = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "update_resource",
+                    "args": {
+                        "resource_id": "lambda-1",
+                        "update": {
+                            "resource_type": "ec2",
+                            "instance_type": "t3.large",
+                        },
+                    },
+                    "id": "mismatched-update",
+                    "type": "tool_call",
+                }
+            ],
+        )
+
+        command = await main.tool_node_wrapper(
+            {**state, "messages": [tool_call]},
+            {"configurable": {"__pregel_runtime": Runtime()}},
+        )
+
+        self.assertEqual(command.update["nodes"], state["nodes"])
+        response = command.update["messages"][0].content
+        self.assertIn('"success": false', response)
+        self.assertIn("resource type is lambda, not ec2", response)
+
     async def test_architect_prompt_marks_simulation_boundary_as_critical(self):
         model = FakeModel(AIMessage(content="Architecture ready"))
 
@@ -203,7 +313,13 @@ class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
             ),
             (
                 "update_resource",
-                {"resource_id": "missing-resource", "updates": {"size": "large"}},
+                {
+                    "resource_id": "missing-resource",
+                    "update": {
+                        "resource_type": "ec2",
+                        "instance_type": "t3.large",
+                    },
+                },
             ),
             (
                 "move_to_vpc",
