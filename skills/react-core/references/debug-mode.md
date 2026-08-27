@@ -48,11 +48,14 @@ dump full message/tool-call payloads.
 />
 ```
 
-### Env-gate the inspector
+### Disable the Inspector in development
 
 ```tsx
 <CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false} />
 ```
+
+Use this when you want no Inspector FAB in local development. Production
+builds never load the Inspector.
 
 ## Common Mistakes
 
@@ -67,12 +70,11 @@ Wrong:
 Correct:
 
 ```tsx
-<CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false} />
+<CopilotKit runtimeUrl="/api/copilotkit" />
 ```
 
-`showDevConsole` no longer controls Inspector visibility. Use
-`enableInspector={false}` to disable the development default; production is
-always guarded.
+`showDevConsole` no longer controls Inspector visibility. Omit it. The
+Inspector is on in development and off in production.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:301-321`
 
@@ -132,7 +134,7 @@ Correct:
 ```
 
 The inspector persists its anchor via `localStorage`. In sandboxed iframes
-without storage access, the component throws on mount. Disable it for an
-iframe deployment or whitelist storage in the sandbox attrs.
+without storage access, `loadInspectorState` throws on mount. Disable it for
+an iframe deployment or whitelist storage in the sandbox attrs.
 
-Source: `packages/react-core/src/v2/components/CopilotKitInspector.tsx:16-53`
+Source: `packages/web-inspector/src/lib/persistence.ts` (`loadInspectorState`)
