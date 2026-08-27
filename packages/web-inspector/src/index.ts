@@ -778,6 +778,13 @@ const INTELLIGENCE_STORY_SIGNALS = [
 // skill's name and the document the platform actually stores.
 const INTELLIGENCE_STORY_SKILL_FILE = "meeting-scheduling/SKILL.md";
 
+/**
+ * How long the copied confirmation stands before the button invites a second
+ * press. Longer than the 2s the Threads setup prompt uses, because this state
+ * also carries an instruction that has to be read, not just an acknowledgement.
+ */
+const PROMPT_COPY_RESET_MS = 4_000;
+
 // The real pipeline, named the way the product names it: threads produce
 // evidence-backed Insights, Insights produce Skill candidates, a human
 // approves, and the approved set is what the project pulls in. `Lightbulb` is
@@ -6308,12 +6315,16 @@ export class WebInspectorElement extends LitElement {
   // switched editors must not look like two journeys.
   private onboardingRunId: string | null = null;
   /**
-   * `copied` and `failed` both persist deliberately. The prompt is useless
-   * without the follow-up instruction, and the developer's next act is to
-   * leave for their editor and come back — so the instruction has to still be
-   * on screen when they return. A toast that fades would be a dead end.
+   * `copied` reverts after {@link PROMPT_COPY_RESET_MS}; `failed` does not.
+   *
+   * The instruction only has to survive long enough to be read. Keeping it
+   * forever left a button wearing a checkmark and reading as spent, which is
+   * the wrong signal for the likeliest reason someone comes back to this card:
+   * to copy again. A failed copy is the opposite case — the prompt itself is
+   * on screen to be selected by hand, so it stays until acted on.
    */
   private promptCopyState: "idle" | "copied" | "failed" = "idle";
+  private promptCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ── Intelligence story (Home) ───────────────────────────────────────────
   //
@@ -10367,6 +10378,7 @@ export class WebInspectorElement extends LitElement {
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
     this.stopIntelligenceStory();
+    this.clearIntelligencePromptReset();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
@@ -12147,6 +12159,9 @@ export class WebInspectorElement extends LitElement {
   private handleIntelligencePromptCopy = async (
     event?: Event,
   ): Promise<void> => {
+    // A second press restarts the clock rather than inheriting the first
+    // press's countdown.
+    this.clearIntelligencePromptReset();
     const runId = this.getOnboardingRunId();
     const clipboard = this.getClipboard(event);
     let outcome: "copied" | "failed" = "failed";
@@ -12167,10 +12182,45 @@ export class WebInspectorElement extends LitElement {
     this.promptCopyState = outcome;
     this.requestUpdate();
 
+    if (outcome === "copied") {
+      this.scheduleIntelligencePromptReset();
+    }
+
     if (!this.core?.telemetryDisabled) {
       trackHomePromptCopied({ onboarding_run_id: runId, outcome });
     }
   };
+
+  /**
+   * Return the button and its secondary line to the idle state.
+   *
+   * Long enough to read six words, short enough that a developer who went to
+   * their editor and came back — because the paste went somewhere wrong, or
+   * the terminal is gone — finds a button that plainly invites a second press
+   * rather than a spent one wearing a checkmark.
+   *
+   * Only the copied state resets. A failed copy has the prompt on screen for
+   * manual selection, and yanking that away mid-drag would be worse than the
+   * clipboard failing in the first place.
+   */
+  private scheduleIntelligencePromptReset(): void {
+    this.clearIntelligencePromptReset();
+    this.promptCopyResetTimer = setTimeout(() => {
+      this.promptCopyResetTimer = null;
+      if (!this.isConnected || this.promptCopyState !== "copied") {
+        return;
+      }
+      this.promptCopyState = "idle";
+      this.requestUpdate();
+    }, PROMPT_COPY_RESET_MS);
+  }
+
+  private clearIntelligencePromptReset(): void {
+    if (this.promptCopyResetTimer !== null) {
+      clearTimeout(this.promptCopyResetTimer);
+      this.promptCopyResetTimer = null;
+    }
+  }
 
   /**
    * The three-beat Intelligence story.
