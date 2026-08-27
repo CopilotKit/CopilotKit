@@ -1,4 +1,4 @@
-import { Component, isDevMode, signal } from "@angular/core";
+import { Component, signal } from "@angular/core";
 import {
   CopilotChat,
   CopilotThreadsDrawer,
@@ -8,7 +8,6 @@ import { LucideAngularModule, MessageCircle, X } from "lucide-angular";
 import { z } from "zod";
 import { AGENT_ID } from "./app.config";
 import { MainContent } from "./main-content";
-import { WebInspector } from "./web-inspector";
 
 /**
  * Viewport width (px) at/above which an open chat DOCKS and pushes the content
@@ -24,7 +23,6 @@ const DOCK_BREAKPOINT_PX = 1200;
     CopilotChat,
     CopilotThreadsDrawer,
     MainContent,
-    WebInspector,
     LucideAngularModule,
   ],
   // Expose the theme on the HOST (an ancestor of both the layout and the
@@ -83,13 +81,6 @@ const DOCK_BREAKPOINT_PX = 1200;
     >
       <lucide-angular [img]="ChatIcon" [size]="24" />
     </button>
-
-    <!-- Dev-only floating inspector (mounts into <body>). @defer keeps it — and
-         its @copilotkit/web-inspector dependency — out of the production initial
-         bundle: in a prod build isDev is false, so the deferred chunk never loads. -->
-    @defer (when isDev) {
-      <app-web-inspector />
-    }
   `,
   styles: [
     `
@@ -223,9 +214,6 @@ export class App {
   /** lucide icons matching React's sidebar (X for close, MessageCircle to open). */
   protected readonly CloseIcon = X;
   protected readonly ChatIcon = MessageCircle;
-  /** Dev-only: gates the @defer'd web inspector so it stays out of prod builds. */
-  protected readonly isDev = isDevMode();
-
   constructor() {
     // 🪁 Frontend tool: recolor the center panel (and, via --app-theme-color on
     // the host, the generative-UI weather card in the chat).

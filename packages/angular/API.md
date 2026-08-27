@@ -251,11 +251,12 @@ Import these symbols from `@copilotkit/angular`.
 
 ### Internal extension points
 
-The following exported Angular DI token exists only so CopilotKit-maintained
-secondary entry points can contribute built-in renderers. Applications must
-not depend on it; its `ɵ` prefix and TSDoc mark it internal.
+The following exported Angular DI tokens exist only so CopilotKit-maintained
+code can hook Inspector development mode and built-in renderers. Applications
+must not depend on them; the `ɵ` prefix and TSDoc mark them internal.
 
 - `ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS`
+- `ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE`
 <!-- public-api:root:end -->
 
 ## MCP Apps entry point
