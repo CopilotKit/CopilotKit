@@ -8884,6 +8884,11 @@ export class WebInspectorElement extends LitElement {
         height: var(--cpk-launcher-size);
         /* Keep the 1px border inside the declared outer size. */
         box-sizing: border-box;
+        /* Stacks above the capsule and the drawer. See spec decision on
+           the launcher's z-index table. Declaring this makes the button
+           a stacking context, which is harmless: its own pseudo-elements
+           and children (mark, signal dot) keep their relative order. */
+        z-index: 4;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
           scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -9527,9 +9532,10 @@ export class WebInspectorElement extends LitElement {
        * halo would become ellipses.
        *
        * The launcher's own face and border are repeated here so the two form
-       * one capsule: the button paints last and therefore on top, with no
-       * z-index needed. The mark's own ring and shadow are deliberately left
-       * alone for the whole gesture — the circle's outline staying visible
+       * one capsule: button, capsule and drawer each declare an explicit
+       * z-index (4, 3, 1) instead of leaning on DOM paint order, because a
+       * relative order in which only one member states its position is not
+       * an order. The mark's own ring and shadow are deliberately left
        * inside the open pill was looked at against the alternative and kept.
        *
        * A column, not a row: the pill carries a heading and a subline stacked,
@@ -9541,6 +9547,7 @@ export class WebInspectorElement extends LitElement {
         position: absolute;
         top: 50%;
         margin-top: calc(var(--cpk-launcher-size) / -2);
+        z-index: 3;
         height: var(--cpk-launcher-size);
         /* One width in every state, so the capsule and the drawer cannot
            drift apart. See spec decision 9.
@@ -9820,6 +9827,7 @@ export class WebInspectorElement extends LitElement {
         border-radius: 999px;
         font-size: 12px;
         font-weight: 500;
+        cursor: pointer;
       }
 
       .cpk-launcher-drawer__row:hover,
@@ -9836,7 +9844,12 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-launcher-drawer__action:focus-visible {
-        outline: 2px solid var(--cpk-launcher-edge);
+        /* Deliberately NOT --cpk-launcher-edge: that token is a hairline
+           colour at 25% alpha (~1.82:1 over the drawer face), fine for a
+           decorative separator but below the 3:1 floor WCAG 2.1 SC 1.4.11
+           sets for a focus indicator. The opaque colour matches the
+           launcher button's own focus ring. */
+        outline: 2px solid #bec2ff;
         outline-offset: 2px;
       }
 
@@ -9913,7 +9926,7 @@ export class WebInspectorElement extends LitElement {
           cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .cpk-launcher-drawer[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"][data-cpk-drawer-side="right"] {
         animation-name: cpk-launcher-hud-intro-right;
       }
 
