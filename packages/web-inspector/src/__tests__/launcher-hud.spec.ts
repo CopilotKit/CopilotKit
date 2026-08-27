@@ -98,7 +98,9 @@ function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
 }
 
 function hud(inspector: WebInspectorElement): HTMLElement | null {
-  return root(inspector).querySelector<HTMLElement>("[data-cpk-launcher-hud]");
+  return root(inspector).querySelector<HTMLElement>(
+    "[data-cpk-launcher-drawer]",
+  );
 }
 
 function hudOpen(inspector: WebInspectorElement): boolean {
@@ -231,7 +233,6 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
     "Threads on",
     "Intelligence connected",
     "Learning on",
@@ -240,7 +241,7 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
     Array.from(
       root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
     ).map((row) => row.style.getPropertyValue("--cpk-hud-row-delay")),
-  ).toEqual(["180ms", "350ms", "520ms", "690ms"]);
+  ).toEqual(["180ms", "350ms", "520ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);
@@ -262,12 +263,11 @@ test("hovering during the page-load preview keeps the HUD open", async () => {
   expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
 });
 
-test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Learning", async () => {
+test("hovering the launcher shows Threads, Intelligence, and Learning", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
   expect(hudOpen(inspector)).toBe(true);
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
     "Turn on Threads",
     "Turn on Intelligence",
     "Turn on Learning",
@@ -281,7 +281,6 @@ test("connected Intelligence and Threads keep their slots and show a check", asy
   });
   await openHud();
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
     "Threads on",
     "Intelligence connected",
     "Learning on",
@@ -313,7 +312,6 @@ test("the HUD respects a runtime that is not entitled to Intelligence", async ()
   await openHud();
 
   expect(hudRowLabels(inspector)).toEqual([
-    "Open Inspector",
     "Turn on Threads",
     "Turn on Intelligence",
     "Turn on Learning",
@@ -343,14 +341,6 @@ test("the floating window does not cover the sidebar toggle with a SW handle", a
   expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
-test("Open Inspector in the HUD opens the panel", async () => {
-  const { inspector, openHud, clickHud } = await setup();
-  await openHud();
-  await clickHud("inspector");
-  expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
-  expect(currentMenu(inspector)).toBe("home");
-});
-
 test("Turn on Threads lands on the Threads view", async () => {
   const { inspector, openHud, clickHud } = await setup();
   await openHud();
@@ -361,12 +351,10 @@ test("Turn on Threads lands on the Threads view", async () => {
 test("a press on the row body lands, not only the title", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
-  const detail = requireElement(
-    root(inspector).querySelector<HTMLElement>(
-      '[data-cpk-hud-row="threads"] .cpk-launcher-hud__detail',
-    ),
+  const rowBody = requireElement(
+    root(inspector).querySelector<HTMLElement>('[data-cpk-hud-row="threads"]'),
   );
-  detail.click();
+  rowBody.click();
   await settle(inspector);
   expect(currentMenu(inspector)).toBe("threads");
 });
@@ -378,25 +366,6 @@ test("Threads on still lands on the Threads view", async () => {
   await openHud();
   await clickHud("threads");
   expect(currentMenu(inspector)).toBe("threads");
-});
-
-test("the help mark keeps a row's detail open without hover", async () => {
-  const { inspector, openHud } = await setup();
-  await openHud();
-  const help = requireElement(
-    root(inspector).querySelector<HTMLButtonElement>(
-      '[data-cpk-hud-row="threads"] [aria-expanded]',
-    ),
-  );
-  help.click();
-  await settle(inspector);
-  expect(
-    root(inspector)
-      .querySelector('[data-cpk-hud-row="threads"]')
-      ?.getAttribute("data-cpk-hud-help"),
-  ).toBe("open");
-  expect(help.getAttribute("aria-expanded")).toBe("true");
-  expect(root(inspector).querySelector(".inspector-window")).toBeNull();
 });
 
 test("Turn on Intelligence lands on Home", async () => {
