@@ -361,24 +361,14 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+type LauncherHudRowId = "threads" | "intelligence" | "learning";
 
-const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
 const HUD_THREADS_OFF_LABEL = "Turn on Threads";
 const HUD_THREADS_ON_LABEL = "Threads on";
 const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
 const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
-const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
-const HUD_INTELLIGENCE_OFF_DETAIL =
-  "Connect Intelligence to use Threads and Learning.";
-const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
 const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
 const HUD_LEARNING_ON_LABEL = "Learning on";
-const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
-const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
-const HUD_OPEN_INSPECTOR_DETAIL =
-  "Same as clicking the circle. Opens the full Inspector.";
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -6714,7 +6704,6 @@ export class WebInspectorElement extends LitElement {
    * drawer to show.
    */
   private launcherHudSide: LauncherIslandSide | null = null;
-  private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private launcherHudIntro = false;
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
@@ -10873,7 +10862,6 @@ export class WebInspectorElement extends LitElement {
         this.launcherHudIntroEndTimer = null;
         this.launcherHudIntro = false;
         this.launcherHudOpen = false;
-        this.launcherHudHelp = null;
         this.requestUpdate();
       }, LAUNCHER_HUD_INTRO_MS.duration);
     }, delay);
@@ -10942,9 +10930,8 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
-    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
-    this.launcherHudHelp = null;
     this.requestUpdate();
   }
 
@@ -10999,30 +10986,14 @@ export class WebInspectorElement extends LitElement {
     event.preventDefault();
     event.stopPropagation();
     this.hudLandingMenu =
-      row === "inspector"
-        ? null
-        : row === "threads"
-          ? "threads"
-          : row === "learning"
-            ? "memories"
-            : "home";
+      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
 
-  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
-    this.requestUpdate();
-  };
-
   private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
     const target = event.target;
-    if (
-      target instanceof Element &&
-      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
-    ) {
+    if (target instanceof Element && target.closest("[data-cpk-hud-action]")) {
       return;
     }
     this.handleHudActionClick(event, row);
@@ -11060,7 +11031,6 @@ export class WebInspectorElement extends LitElement {
         class="cpk-launcher-drawer__row"
         data-cpk-hud-row=${args.id}
         style=${styleMap({
-          "--cpk-hud-row-index": `${args.introIndex}`,
           "--cpk-hud-row-delay": `${
             LAUNCHER_HUD_INTRO_MS.rowStart +
             args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
@@ -11107,7 +11077,6 @@ export class WebInspectorElement extends LitElement {
         data-cpk-launcher-drawer
         data-cpk-drawer-side=${side}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
-        data-color-scheme=${this.colorScheme}
         style=${styleMap({
           "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
           "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
