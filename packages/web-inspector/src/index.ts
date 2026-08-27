@@ -675,7 +675,16 @@ const INTELLIGENCE_STORY_BEATS = [
     // pace rather than a glance. The rail is there for anyone who wants to
     // move faster.
     duration: 6_500,
-    lead: "You only see this session. Your users had thousands.",
+    // "Your users" means the end users of the developer's app, not the
+    // developer. That is what the platform means too: `identifyUser` resolves
+    // one `{id, name}` per request from the app, and a thread carries
+    // `end_user_id` — a column renamed from `user_id` precisely because the
+    // old name "caused repeated misdiagnosis" against control-plane users.
+    //
+    // No count in the claim. A developer wiring this up locally has no users
+    // yet, and "thousands" would read as a lie on day one while still being
+    // true at scale. "All the others" holds in both cases.
+    lead: "You only see this session. Your users have all the others.",
     // "Rich Threads" is the product's own name for the durable ones, and the
     // distinction is the sale: the Inspector's Threads tab already lists local
     // ones that die on reload.
@@ -698,17 +707,23 @@ const INTELLIGENCE_STORY_BEATS = [
     id: "skill",
     label: "Skills",
     duration: 5_500,
-    lead: "An Insight becomes a proposed skill.",
-    // The review step is real and load-bearing: candidates land at
-    // pending_review and a human approves before anything is published. Saying
-    // so is also the stronger pitch — a developer does not want a platform
-    // silently editing how their agent behaves.
+    lead: "An Insight becomes a skill you own.",
+    // The review step is real (candidates land at pending_review and a human
+    // approves), but it is sold as control rather than as reassurance. The
+    // earlier wording — "nothing reaches your agent until you approve it" —
+    // answered a fear the reader had not voiced yet, which reads as a defence
+    // and plants the worry it deflects. Ownership is the same fact, stated as
+    // a feature: a readable file you review, edit and ship.
     support:
-      "A SKILL.md assembled from that evidence. Nothing reaches your agent until you approve it.",
+      "A SKILL.md built from that evidence — yours to review, edit and ship with your project.",
   },
   {
-    id: "reuse",
-    label: "Better agents",
+    id: "intelligence",
+    // Named after the product, not after the mechanism. The other three tabs
+    // are the parts; this one is the whole, so the rail reads "Threads ·
+    // Learning · Skills · Intelligence" — the pieces, then the thing that
+    // unites them. "Reuse" named neither a surface nor an outcome.
+    label: "Intelligence",
     duration: 6_000,
     lead: "Every round of real use leaves your agent better.",
     // Deliberately NOT "Skills apply it for you". The platform does not apply
@@ -12374,8 +12389,8 @@ export class WebInspectorElement extends LitElement {
     return html`
       <div
         class="inspector-intelligence-beat"
-        data-beat-id="reuse"
-        data-position=${this.intelligenceBeatPosition("reuse")}
+        data-beat-id="intelligence"
+        data-position=${this.intelligenceBeatPosition("intelligence")}
       >
         <div class="inspector-intelligence-chain">
           ${INTELLIGENCE_STORY_CHAIN.map(

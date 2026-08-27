@@ -2105,7 +2105,7 @@ small.inspector-system-health-detail {
 }
 
 /* Beat 3 — the loop, and the proof that closes it. */
-.inspector-intelligence-beat[data-beat-id="reuse"] {
+.inspector-intelligence-beat[data-beat-id="intelligence"] {
   flex-direction: column;
   justify-content: center;
   gap: 12px;
@@ -2174,9 +2174,9 @@ small.inspector-system-health-detail {
   height: 13px;
 }
 
-.inspector-intelligence-story[data-beat="reuse"]
+.inspector-intelligence-story[data-beat="intelligence"]
   .inspector-intelligence-chain-step,
-.inspector-intelligence-story[data-beat="reuse"]
+.inspector-intelligence-story[data-beat="intelligence"]
   .inspector-intelligence-chain-arrow {
   opacity: 1;
   transform: none;
@@ -2214,7 +2214,7 @@ small.inspector-system-health-detail {
   font-weight: 600;
 }
 
-.inspector-intelligence-story[data-beat="reuse"]
+.inspector-intelligence-story[data-beat="intelligence"]
   .inspector-intelligence-chain-proof {
   opacity: 1;
   transform: none;
