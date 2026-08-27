@@ -6,7 +6,7 @@ import { WorkspaceCard } from "./WorkspaceCard";
 interface WorkspaceProps {
   resources: AWSNodeData[];
   cost: number;
-  onSelectPill?: (content: string) => void;
+  onSelectPill?: (content: string) => Promise<void>;
 }
 
 export function Workspace({ resources, cost, onSelectPill }: WorkspaceProps) {

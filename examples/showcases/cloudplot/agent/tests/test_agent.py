@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.graph import END
 from langgraph.runtime import Runtime
 
@@ -27,10 +27,12 @@ def base_state(**overrides):
 
 
 class FakeBoundModel:
-    def __init__(self, response):
+    def __init__(self, response, invocations):
         self.response = response
+        self.invocations = invocations
 
-    async def ainvoke(self, _messages, _config):
+    async def ainvoke(self, messages, _config):
+        self.invocations.append(messages)
         return self.response
 
 
@@ -39,14 +41,25 @@ class FakeModel:
         self.response = response
         self.bound_tools = []
         self.parallel_tool_calls = None
+        self.invocations = []
 
     def bind_tools(self, tools, *, parallel_tool_calls):
         self.bound_tools = tools
         self.parallel_tool_calls = parallel_tool_calls
-        return FakeBoundModel(self.response)
+        return FakeBoundModel(self.response, self.invocations)
 
 
 class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_architect_prompt_marks_simulation_boundary_as_critical(self):
+        model = FakeModel(AIMessage(content="Architecture ready"))
+
+        with patch.object(main, "create_architect_model", return_value=model):
+            await main.architect_node(base_state(), {})
+
+        system_prompt = model.invocations[0][0].content
+        self.assertIn("CRITICAL:", system_prompt)
+        self.assertIn("simulation", system_prompt.lower())
+
     async def test_frontend_approval_tool_is_bound_and_returned_to_copilotkit(self):
         approval = {
             "name": "approveDeployment",
@@ -226,6 +239,38 @@ class AgentBehaviorTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIn('"success": false', response)
                 self.assertIn("does not exist", response)
                 self.assertNotIn('"success": true', response)
+
+    async def test_tool_wrapper_reports_malformed_results_as_failures(self):
+        state = base_state(
+            nodes=[
+                {"id": "vpc-1", "type": "vpc", "config": {}, "position": {}},
+            ],
+        )
+
+        class MalformedToolNode:
+            def __init__(self, *, tools):
+                self.tools = tools
+
+            async def ainvoke(self, _state, _config):
+                return {
+                    "messages": [
+                        ToolMessage(
+                            content="{'created': 'ec2-1'}",
+                            tool_call_id="malformed-1",
+                            name="add_resource",
+                        )
+                    ]
+                }
+
+        with patch.object(main, "ToolNode", MalformedToolNode):
+            command = await main.tool_node_wrapper(state, {})
+
+        self.assertEqual(command.update["nodes"], state["nodes"])
+        self.assertEqual(command.update["edges"], state["edges"])
+        response = command.update["messages"][0].content
+        self.assertIn('"success": false', response)
+        self.assertIn("Malformed backend tool result", response)
+        self.assertEqual(command.update["logs"][-1]["type"], "error")
 
     async def test_validation_and_cost_run_against_production_nodes(self):
         nodes = [

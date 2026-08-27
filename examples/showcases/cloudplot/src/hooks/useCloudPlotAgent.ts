@@ -30,13 +30,13 @@ export function useCloudPlotAgent() {
   }, [agent]);
 
   const appendMessage = useCallback(
-    (content: string) => {
+    async (content: string) => {
       agent.addMessage({
         id: crypto.randomUUID(),
         role: "user" as const,
         content,
       });
-      agent.runAgent();
+      await agent.runAgent();
     },
     [agent],
   );

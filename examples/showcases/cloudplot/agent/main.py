@@ -436,7 +436,9 @@ AVAILABLE TOOLS:
 - remove_resource: Remove a resource
 - update_resource: Modify resource configuration
 - move_to_vpc: Move an existing resource into a VPC (use this to relocate resources)
-- approveDeployment: Ask the operator to approve or reject a simulated deployment. Call this when the user asks to deploy or approve the proposed architecture. Include the affected resource names, estimated monthly cost impact, and a risk level. Never claim that approval creates AWS resources.
+- approveDeployment: Ask the operator to approve or reject a simulated deployment. Call this when the user asks to deploy or approve the proposed architecture. Include the affected resource names, estimated monthly cost impact, and a risk level.
+
+CRITICAL: CloudPlot is a simulation only. Never claim that approval creates or deploys AWS resources.
 
 GUIDELINES:
 1. When adding resources, use descriptive names
@@ -733,15 +735,16 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
     for message in messages:
         data = parse_tool_result(getattr(message, "content", message))
         if data is None:
+            error_message = "Malformed backend tool result: expected a JSON object"
             updated["logs"].append(
                 log_thought(
                     state,
                     "tool_node",
-                    "Ignored malformed backend tool result; see agent logs",
-                    "warning",
+                    error_message,
+                    "error",
                 )
             )
-            tool_errors.append(None)
+            tool_errors.append(error_message)
             continue
         applied = apply_tool_result({**state, **updated}, data)
         tool_errors.append(applied.get("tool_error"))
@@ -757,21 +760,21 @@ async def tool_node_wrapper(state: AgentState, config: RunnableConfig) -> Comman
     state_summary = generate_state_summary(updated["nodes"], updated["edges"])
     enriched_messages = []
     for msg, tool_error in zip(messages, tool_errors, strict=True):
-        if hasattr(msg, "content") and isinstance(msg.content, str):
-            # Create new message with state summary appended
-            content = (
-                json.dumps({"success": False, "error": tool_error})
-                if tool_error
-                else msg.content
-            )
+        if tool_error:
+            content = json.dumps({"success": False, "error": tool_error})
+        elif hasattr(msg, "content") and isinstance(msg.content, str):
+            content = msg.content
+        else:
+            enriched_messages.append(msg)
+            continue
+
+        if hasattr(msg, "content"):
             enriched_msg = ToolMessage(
                 content=content + state_summary,
                 tool_call_id=getattr(msg, "tool_call_id", ""),
                 name=getattr(msg, "name", None),
             )
             enriched_messages.append(enriched_msg)
-        else:
-            enriched_messages.append(msg)
 
     return Command(
         goto="architect_node",
