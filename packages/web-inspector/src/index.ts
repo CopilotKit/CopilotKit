@@ -8856,6 +8856,8 @@ export class WebInspectorElement extends LitElement {
           7vw,
           ${LAUNCHER_MAX_SIZE}px
         );
+        /* The island's width, shared by the capsule and the drawer so the two are bündig by construction rather than by two matching literals. Provisional: chosen by eye and not yet checked against both ends of the size clamp. */
+        --cpk-launcher-island: 252px;
       }
 
       .console-button {
@@ -9516,18 +9518,19 @@ export class WebInspectorElement extends LitElement {
        * centres the pair vertically and "align-items" keeps both lines flush
        * left, so the pill never grows taller than the launcher it opens from.
        */
-      .cpk-launcher-pill {
+      .cpk-launcher-capsule {
         position: absolute;
         top: 50%;
         margin-top: calc(var(--cpk-launcher-size) / -2);
         height: var(--cpk-launcher-size);
+        width: var(--cpk-launcher-island);
         display: inline-flex;
         flex-direction: column;
         justify-content: center;
         align-items: flex-start;
         gap: 1px;
         box-sizing: border-box;
-        border-radius: 999px;
+        border-radius: calc(var(--cpk-launcher-size) / 2);
         border: 1px solid var(--cpk-launcher-edge);
         background: var(--cpk-launcher-face);
         color: #ffffff;
@@ -9537,7 +9540,7 @@ export class WebInspectorElement extends LitElement {
       }
 
       /* The failure class, word-identical to the panel's own wording. */
-      .cpk-launcher-pill__heading {
+      .cpk-launcher-capsule__heading {
         font-size: 12px;
         font-weight: 600;
         line-height: 1.2;
@@ -9553,7 +9556,7 @@ export class WebInspectorElement extends LitElement {
        * delivered through an announcement, and it would double the spoken
        * length — so the live region carries the failure class alone.
        */
-      .cpk-launcher-pill__subline {
+      .cpk-launcher-capsule__subline {
         font-size: 10.5px;
         font-weight: 500;
         line-height: 1.2;
@@ -9570,13 +9573,13 @@ export class WebInspectorElement extends LitElement {
        * straight edge begins. A literal 14px put it 16px inside the curve at the
        * production launcher size, which is itself a clamp on the viewport.
        */
-      .cpk-launcher-pill[data-cpk-pill-direction="left"] {
+      .cpk-launcher-capsule[data-cpk-capsule-direction="left"] {
         right: 0;
         padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
           calc(var(--cpk-launcher-size) / 2);
         clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
       }
-      .cpk-launcher-pill[data-cpk-pill-direction="right"] {
+      .cpk-launcher-capsule[data-cpk-capsule-direction="right"] {
         left: 0;
         padding: 0 calc(var(--cpk-launcher-size) / 2) 0
           calc(var(--cpk-launcher-size) + 12px);
@@ -9589,7 +9592,7 @@ export class WebInspectorElement extends LitElement {
        * wiping across it. An unrounded inset reads as a wipe; this reads as an
        * opening. It adds no animated property: the clip is still the clip.
        */
-      @keyframes cpk-launcher-pill-left {
+      @keyframes cpk-launcher-capsule-left {
         0% {
           opacity: 0;
           clip-path: inset(
@@ -9602,7 +9605,7 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      @keyframes cpk-launcher-pill-right {
+      @keyframes cpk-launcher-capsule-right {
         0% {
           opacity: 0;
           clip-path: inset(
@@ -9626,39 +9629,39 @@ export class WebInspectorElement extends LitElement {
        * The button paints last and therefore wins the pointer where the two
        * overlap, so dragging the launcher is unaffected throughout.
        */
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"],
+      .cpk-launcher-capsule[data-cpk-capsule-phase="holding"],
+      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
         pointer-events: auto;
         cursor: pointer;
       }
 
       /* Closing is the same animation played backwards, so the two phases can
          never drift apart. */
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"],
+      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
         animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
         animation-iteration-count: 1;
         animation-fill-mode: forwards;
       }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"] {
-        animation-duration: var(--cpk-launcher-pill-open);
+      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"] {
+        animation-duration: var(--cpk-launcher-capsule-open);
       }
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
-        animation-duration: var(--cpk-launcher-pill-close);
+      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
+        animation-duration: var(--cpk-launcher-capsule-close);
         animation-direction: reverse;
       }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="left"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="left"] {
-        animation-name: cpk-launcher-pill-left;
+      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="left"],
+      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="left"] {
+        animation-name: cpk-launcher-capsule-left;
       }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="right"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="right"] {
-        animation-name: cpk-launcher-pill-right;
+      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="right"],
+      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="right"] {
+        animation-name: cpk-launcher-capsule-right;
       }
 
       /* The hold is the end state of the reveal, held. */
-      .cpk-launcher-pill[data-cpk-pill-phase="holding"] {
+      .cpk-launcher-capsule[data-cpk-capsule-phase="holding"] {
         opacity: 1;
         clip-path: inset(0 0 0 0);
       }
@@ -9673,9 +9676,9 @@ export class WebInspectorElement extends LitElement {
          * same hold. The instruction is to reduce motion, not to withhold
          * information, and this reader needs the label as much as anyone.
          */
-        .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-        .cpk-launcher-pill[data-cpk-pill-phase="holding"],
-        .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
+        .cpk-launcher-capsule[data-cpk-capsule-phase="opening"],
+        .cpk-launcher-capsule[data-cpk-capsule-phase="holding"],
+        .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
           animation: none !important;
           opacity: 1;
           clip-path: inset(0 0 0 0);
@@ -10720,7 +10723,7 @@ export class WebInspectorElement extends LitElement {
         @focusout=${this.handleLauncherHudFocusOut}
         @keydown=${this.handleLauncherHudKeydown}
       >
-        ${this.renderLauncherPill()}
+        ${this.renderLauncherCapsule()}
         <button
           class=${buttonClasses}
           type="button"
@@ -10833,7 +10836,7 @@ export class WebInspectorElement extends LitElement {
    * shows nothing — because the room it needs cannot be measured until it has
    * been laid out, and the direction is decided at gesture start.
    */
-  private renderLauncherPill(): TemplateResult | typeof nothing {
+  private renderLauncherCapsule(): TemplateResult | typeof nothing {
     const key = this.gestureSignal;
     if (key === null || this.pillPhase === null) return nothing;
     const signal = LAUNCHER_SIGNALS[key];
@@ -10841,10 +10844,10 @@ export class WebInspectorElement extends LitElement {
     if (label === undefined) return nothing;
     return html`
       <span
-        class="cpk-launcher-pill"
-        data-cpk-launcher-pill=${key}
-        data-cpk-pill-phase=${this.pillPhase}
-        data-cpk-pill-direction=${
+        class="cpk-launcher-capsule"
+        data-cpk-launcher-capsule=${key}
+        data-cpk-capsule-phase=${this.pillPhase}
+        data-cpk-capsule-direction=${
           // Before the measurement the pill is laid out as if it were opening
           // left, which is width-identical to the other side and shows nothing
           // either way while the clip is closed.
@@ -10852,16 +10855,16 @@ export class WebInspectorElement extends LitElement {
         }
         style=${styleMap({
           "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
-          "--cpk-launcher-pill-open": `${ERROR_GESTURE_MS.open}ms`,
-          "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
+          "--cpk-launcher-capsule-open": `${ERROR_GESTURE_MS.open}ms`,
+          "--cpk-launcher-capsule-close": `${ERROR_GESTURE_MS.close}ms`,
         })}
         aria-hidden="true"
         @click=${this.handlePillClick}
       >
-        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
+        <span class="cpk-launcher-capsule__heading" data-cpk-capsule-heading
           >${label}</span
         >
-        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
+        <span class="cpk-launcher-capsule__subline" data-cpk-capsule-subline
           >${PILL_SUBLINE_LABEL}</span
         >
       </span>
@@ -20017,7 +20020,7 @@ export class WebInspectorElement extends LitElement {
       ".console-button-wrapper",
     );
     const button = wrapper?.querySelector<HTMLElement>(".console-button");
-    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-pill");
+    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-capsule");
     if (!button || !pill || typeof window === "undefined") return;
 
     const mark = button.getBoundingClientRect();
