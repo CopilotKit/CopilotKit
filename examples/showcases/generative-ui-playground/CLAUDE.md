@@ -127,24 +127,21 @@ The standalone MCP server needs no API key.
 
 ## Railway Deployment
 
-### Railway Monorepo Configuration
+### Railway Infrastructure as Code
 
-Create services named exactly `frontend`, `a2a-agent`, and `mcp-server`.
-Railway variable references are case-sensitive, so changing these names also
-requires updating every reference. Configure these exact repository paths. The
-Railway Config File is always repository-absolute; it does not inherit the
-service Root Directory. The Docker build context is the Root Directory.
+Railway's per-service Config as Code is deprecated and unavailable to new
+services. Manage this demo through `.railway/railway.ts` with Railway CLI 5.45.2
+or newer. The single project definition owns the `frontend`, `a2a-agent`, and
+`mcp-server` services, their GitHub source roots, Dockerfile paths,
+healthchecks, restart policy, and variables.
 
-| Service      | Root Directory                                            | Railway Config File                                                    | Docker build context                                     |
-| ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- |
-| `frontend`   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    |
-| `a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  |
-| `mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` |
+The frontend keeps repository Root Directory `/` because its nested Dockerfile
+copies the root pnpm workspace. The sidecars use their isolated `a2a-agent` and
+`mcp-server` roots. Service names are case-sensitive because private-network
+variables reference them directly.
 
-The frontend must keep Root Directory `/`: its `railway.toml` selects `examples/showcases/generative-ui-playground/Dockerfile`, and that Dockerfile copies the root pnpm workspace. The sidecar configs each select the `Dockerfile` inside their own isolated root.
-
-Create a sealed/shared Railway variable named `OPENAI_API_KEY`, then set these
-service variables:
+Create a sealed/shared Railway variable named `OPENAI_API_KEY` before applying
+the IaC definition. It sets these service variables:
 
 ```text
 # frontend
@@ -172,15 +169,24 @@ Railway injects `PORT`. Next.js, `mcp-server/server.ts`, and
 for local development only. Generate the frontend domain against its detected
 `PORT`, and do not hard-code those local ports into production variables.
 
-Docker and Railway deployment validation is manual for this showcase; no repository CI workflow currently enforces it. From the repository root, run:
+Preview and apply the project from the demo directory with `railway config
+plan` and `railway config apply`. The Node runtime contract and Python SDK
+compatibility smoke run in `test / unit / generative-ui`; container builds remain
+manual. From the repository root, run:
 
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts
-COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test:a2a-runtime --skip-nx-cache
+COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test --skip-nx-cache
 pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
 docker build \
   -f examples/showcases/generative-ui-playground/Dockerfile \
   -t ui-protocols-demo:local .
+docker build \
+  -t ui-protocols-a2a-agent:local \
+  examples/showcases/generative-ui-playground/a2a-agent
+docker build \
+  -t ui-protocols-mcp-server:local \
+  examples/showcases/generative-ui-playground/mcp-server
 ```
 
 The Nx A2A test target builds its exact `@copilotkit/runtime` workspace

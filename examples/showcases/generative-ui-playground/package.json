@@ -31,12 +31,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "railway": "3.11.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
   "nx": {
     "targets": {
-      "test:a2a-runtime": {
+      "test": {
         "executor": "nx:run-commands",
         "dependsOn": [
           {

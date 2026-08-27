@@ -132,26 +132,31 @@ Frontend (Next.js) ────────────────────�
    Port 3001            Port 10002
 ```
 
-## Railway Service Settings
+## Railway Infrastructure as Code
 
-Create three Railway services from this repository named exactly `frontend`,
-`a2a-agent`, and `mcp-server`. The names are case-sensitive because the
-frontend variables below reference the sidecars by service name. Configure
-these exact paths. Railway's config-file path is repository-absolute and does
-not follow the Root Directory. The Docker build context is the configured Root
-Directory.
+Railway's legacy `railway.toml` Config as Code feature is deprecated and cannot
+be enabled on new services. This demo instead defines its complete three-service
+project in [`.railway/railway.ts`](./.railway/railway.ts), using Railway's
+project-level [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code).
+Use Railway CLI 5.45.2 or newer.
 
-| Service      | Root Directory                                            | Railway Config File                                                    | Docker build context                                     | `dockerfilePath` resolved from that context              |
-| ------------ | --------------------------------------------------------- | ---------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
-| `frontend`   | `/`                                                       | `/examples/showcases/generative-ui-playground/railway.toml`            | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` |
-| `a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent`  | `/examples/showcases/generative-ui-playground/a2a-agent/railway.toml`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             |
-| `mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server` | `/examples/showcases/generative-ui-playground/mcp-server/railway.toml` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             |
+The IaC definition creates services named exactly `frontend`, `a2a-agent`, and
+`mcp-server`. Their names are case-sensitive because the frontend variables
+reference the two sidecars by service name.
 
-Do not set the frontend Root Directory to the demo subdirectory. Its Dockerfile copies the root pnpm workspace and local `packages/`, so it requires the repository root as its build context. See Railway's [monorepo](https://docs.railway.com/deployments/monorepo), [config-as-code](https://docs.railway.com/config-as-code), and [Dockerfile](https://docs.railway.com/builds/dockerfiles) documentation for the path semantics.
+| Service      | Source Root Directory                                    | Dockerfile                                               | Healthcheck               |
+| ------------ | -------------------------------------------------------- | -------------------------------------------------------- | ------------------------- |
+| `frontend`   | repository root (`/`)                                    | `examples/showcases/generative-ui-playground/Dockerfile` | `/`                       |
+| `a2a-agent`  | `examples/showcases/generative-ui-playground/a2a-agent`  | `Dockerfile`                                             | `/.well-known/agent.json` |
+| `mcp-server` | `examples/showcases/generative-ui-playground/mcp-server` | `Dockerfile`                                             | `/health`                 |
 
-Store the OpenAI key as a sealed/shared Railway variable named
-`OPENAI_API_KEY`; do not commit it or put it in a Docker build argument. Then
-configure the service variables exactly as follows:
+The frontend keeps the repository root as its build context because its
+Dockerfile copies the pnpm workspace and local `packages/`. Each sidecar uses
+its isolated source root and the `Dockerfile` inside that directory.
+
+Before applying the IaC definition, store the OpenAI key as a sealed/shared
+Railway variable named `OPENAI_API_KEY`; do not commit it or put it in a Docker
+build argument. The IaC definition then configures these service variables:
 
 ```text
 # frontend
@@ -181,15 +186,33 @@ server, and Python A2A entry point all listen on it; their local fallbacks are
 the Railway variables. Generate the frontend public domain after deployment
 and target the detected frontend `PORT`.
 
-The repository does not currently run this showcase's container build in CI. Before changing its dependency or deployment configuration, verify it manually from the repository root:
+Create or link the target Railway project, then preview and apply from the demo
+directory:
+
+```bash
+cd examples/showcases/generative-ui-playground
+railway link
+railway config plan
+railway config apply
+```
+
+The Node A2A runtime contract and Python A2A SDK compatibility smoke run in the
+`test / unit / generative-ui` workflow. Container builds remain a manual verification;
+from the repository root run:
 
 ```bash
 pnpm install --frozen-lockfile --ignore-scripts
-COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test:a2a-runtime --skip-nx-cache
+COPILOTKIT_TELEMETRY_DISABLED=true pnpm exec nx run ui-protocols-demo:test --skip-nx-cache
 pnpm exec nx run ui-protocols-demo:build --skip-nx-cache
 docker build \
   -f examples/showcases/generative-ui-playground/Dockerfile \
   -t ui-protocols-demo:local .
+docker build \
+  -t ui-protocols-a2a-agent:local \
+  examples/showcases/generative-ui-playground/a2a-agent
+docker build \
+  -t ui-protocols-mcp-server:local \
+  examples/showcases/generative-ui-playground/mcp-server
 ```
 
 The Nx A2A test target builds its exact `@copilotkit/runtime` workspace

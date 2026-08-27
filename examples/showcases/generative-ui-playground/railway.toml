@@ -1,8 +1,0 @@
-[build]
-builder = "dockerfile"
-dockerfilePath = "examples/showcases/generative-ui-playground/Dockerfile"
-
-[deploy]
-healthcheckPath = "/"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 5
