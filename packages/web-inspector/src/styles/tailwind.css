@@ -1680,16 +1680,11 @@ small.inspector-system-health-detail {
   line-height: 1.55;
 }
 
+/* One row, always: a secondary message and the button. The message's content
+   changes with the copy state, but the row's shape never does, so the header
+   band cannot grow when the instruction appears. */
 .inspector-intelligence-install {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
-}
-
-.inspector-intelligence-install-row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
@@ -1738,12 +1733,14 @@ small.inspector-system-health-detail {
   height: 12px;
 }
 
+/* Sits in the secondary slot the "What Intelligence does" link vacates, so it
+   matches that link's metrics rather than introducing a second text size. */
 .inspector-intelligence-install-hint {
   margin: 0;
   color: #68686e;
-  font-size: 10.5px;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.4;
-  text-align: right;
   white-space: nowrap;
 }
 

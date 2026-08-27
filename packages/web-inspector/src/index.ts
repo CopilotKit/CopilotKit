@@ -12077,13 +12077,19 @@ export class WebInspectorElement extends LitElement {
         class="inspector-intelligence-install"
         data-copy-state=${this.promptCopyState}
       >
-        <div class="inspector-intelligence-install-row">
-          ${
-            // Secondary first, primary at the outer edge. In a right-aligned
-            // action group the primary belongs on the outside; with the filled
-            // button in the middle it read as a block wedged between the
-            // heading and the link rather than as the one thing to press.
-            action
+        ${
+          // One slot for the secondary message, and its content follows the
+          // state: before the press the useful aside is "what is this", after
+          // it is "where to put it". Adding the instruction as a second row
+          // instead pushed the action column past the band's 76px and shoved
+          // the whole story down at the moment the developer had just acted.
+          // Both are single lines, so swapping them cannot change the height.
+          //
+          // Secondary sits inside the row and the primary at the outer edge:
+          // in a right-aligned group the filled button belongs on the outside,
+          // not wedged between the heading and a link.
+          this.promptCopyState === "idle"
+            ? action
               ? html`
                 <a
                   class="inspector-intelligence-install-secondary"
@@ -12099,30 +12105,6 @@ export class WebInspectorElement extends LitElement {
                 </a>
               `
               : nothing
-          }
-          <button
-            type="button"
-            class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
-            data-inspector-intelligence-copy-prompt
-            aria-label=${
-              copied
-                ? "Install prompt copied to clipboard"
-                : "Copy the Intelligence install prompt"
-            }
-            style=${INTERACTIVE_FOCUS_BASE_STYLE}
-            @click=${this.handleIntelligencePromptCopy}
-          >
-            ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
-            ${copied ? "Prompt copied" : "Copy setup prompt"}
-          </button>
-        </div>
-        ${
-          // Only after a press, and kept to one short line: it sits in the
-          // header's action column, so a long sentence here would stretch the
-          // band and push the story down. The prompt's own text explains the
-          // rest once it is pasted.
-          this.promptCopyState === "idle"
-            ? nothing
             : html`
               <p
                 class="inspector-intelligence-install-hint"
@@ -12132,11 +12114,26 @@ export class WebInspectorElement extends LitElement {
                 ${
                   failed
                     ? "Clipboard blocked — copy the prompt below."
-                    : "Paste it into Claude Code, Codex or Cursor."
+                    : "Paste it into your coding agent."
                 }
               </p>
             `
         }
+        <button
+          type="button"
+          class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
+          data-inspector-intelligence-copy-prompt
+          aria-label=${
+            copied
+              ? "Install prompt copied to clipboard. Paste it into your coding agent."
+              : "Copy the Intelligence install prompt"
+          }
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+          @click=${this.handleIntelligencePromptCopy}
+        >
+          ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
+          ${copied ? "Prompt copied" : "Copy setup prompt"}
+        </button>
       </div>
     `;
   }
