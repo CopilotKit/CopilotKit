@@ -9,13 +9,13 @@ export type CopilotKitInspectorOpenRequest = {
 };
 
 type CopilotKitInspectorContextValue = {
-  isLocalInspectorEnabled: boolean;
+  isInspectorEnabled: boolean;
   openInspector: (request: CopilotKitInspectorOpenRequest) => void;
 };
 
 const CopilotKitInspectorContext =
   React.createContext<CopilotKitInspectorContextValue>({
-    isLocalInspectorEnabled: false,
+    isInspectorEnabled: false,
     openInspector: () => undefined,
   });
 

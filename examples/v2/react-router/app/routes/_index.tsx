@@ -237,7 +237,7 @@ export default function Index() {
   const dark = theme === "dark";
 
   return (
-    <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL} showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL}>
       <AppContext theme={theme} agentType={agentType} />
       <div
         className={`h-screen w-screen flex flex-col transition-colors ${

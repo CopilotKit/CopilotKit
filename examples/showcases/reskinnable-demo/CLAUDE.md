@@ -317,18 +317,17 @@ src/app/api/*/v1/dev/reset` for the reset routes. Check BOTH, because a reset
   the provider, so `useRuntimeProperties` can read its context) →
   `CopilotKitProvider` (runtimeUrl `/api/copilotkit`, `useSingleEndpoint={false}`,
   `properties={skin.useRuntimeProperties?.()}`, the skin's `catalog`,
-  `sandboxFunctions`, `designSkill`, and `showDevConsole={true}`) →
+  `sandboxFunctions`, and `designSkill`) →
   `CopilotChatConfigurationProvider
 agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   canvas providers → the skin's optional `Providers` (mounted **below** the
   provider) → `SkinSuggestions` + `Tools` + `LayoutPreferencesProvider` →
   `ShellFrame`, which receives the skin's `Layout` (wrapping `CanvasRegion`) as its
   `app` slot and the shared `ChatPanel` as its `chat` slot.
-- **The inspector is shell-mounted for every skin** via that
-  `showDevConsole={true}`, which surfaces `CopilotKitInspector`. A skin
-  contributes nothing to it. Not part of the standard demo flow, but the thing to
-  open when a technical audience wants to see the actual AG-UI event stream, or
-  when debugging one.
+- **The inspector is shell-mounted for every skin** by the provider's
+  development default. A skin contributes nothing to it. It is not part of the
+  standard demo flow, but is useful for showing the AG-UI event stream or
+  debugging a skin.
 - `src/app/[skin]/[[...rest]]/page.tsx` — renders `skin.resolvePage(rest)`, or a
   404 when it returns `null`. `resolvePage` receives **all** remaining segments, so
   a skin can resolve parameterized routes — `keel` is the worked example

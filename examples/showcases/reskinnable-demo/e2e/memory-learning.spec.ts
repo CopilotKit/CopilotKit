@@ -222,7 +222,7 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
   });
 
   // The former bespoke-inspector test was removed with that pane (banking
-  // migration D). The product web-inspector is now enabled via showDevConsole
+  // migration D). The product web-inspector is enabled automatically in development
   // and is owned/covered by packages/web-inspector's own tests; the
   // self-learning recall behavior is asserted by the headless test above.
 });

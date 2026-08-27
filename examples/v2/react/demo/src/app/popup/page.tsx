@@ -29,7 +29,6 @@ export default function PopupDemoPage() {
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
     >
       <PopupLayout />
     </CopilotKitProvider>

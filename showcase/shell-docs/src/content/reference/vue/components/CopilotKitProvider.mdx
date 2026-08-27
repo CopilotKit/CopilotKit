@@ -136,8 +136,15 @@ Don't have it yet? Go to https://dashboard.operations.copilotkit.ai and get one 
   Configuration for Open Generative UI. `sandboxFunctions` exposes host functions to generated sandboxed UI (callable via `Websandbox.connection.remote`), and `designSkill` overrides the default design guidelines provided to the generation tool. `sandboxFunctions` must be a stable array.
 </PropertyReference>
 
-<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;" default="false">
-  Whether to show the dev console and inspector. `true` always shows it, `false` always hides it, and `"auto"` shows it only on `localhost` / `127.0.0.1`.
+<PropertyReference name="enableInspector" type="boolean">
+  Controls the CopilotKit Inspector during development. It is enabled by
+  default in browser development builds and is never loaded in production or
+  during SSR. In a Vue template, pass `:enable-inspector="false"` to disable it.
+</PropertyReference>
+
+<PropertyReference name="showDevConsole" type="boolean | &quot;auto&quot;">
+  **Deprecated:** use `enableInspector`. This prop no longer controls the
+  Inspector.
 </PropertyReference>
 
 <PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
@@ -179,10 +186,6 @@ function handleError(event: {
 </template>
 ```
 
-</PropertyReference>
-
-<PropertyReference name="inspectorDefaultAnchor" type="{ horizontal: &quot;left&quot; | &quot;right&quot;; vertical: &quot;top&quot; | &quot;bottom&quot; }" default='{ horizontal: "right", vertical: "top" }'>
-  Default anchor corner for the inspector button and window. Used only on first load, before the user drags it to a custom position.
 </PropertyReference>
 
 <PropertyReference name="debug" type="DebugConfig">
