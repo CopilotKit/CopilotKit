@@ -372,12 +372,14 @@ const pulsing = (inspector: WebInspectorElement): boolean =>
 
 /** The pill on the closed launcher, or null when the launcher is not talking. */
 function pill(inspector: WebInspectorElement): HTMLElement | null {
-  return root(inspector).querySelector<HTMLElement>("[data-cpk-launcher-pill]");
+  return root(inspector).querySelector<HTMLElement>(
+    "[data-cpk-launcher-capsule]",
+  );
 }
 
 /** Which subject the pill names, or null when there is no pill. */
 function pillSubject(inspector: WebInspectorElement): string | null {
-  return pill(inspector)?.getAttribute("data-cpk-launcher-pill") ?? null;
+  return pill(inspector)?.getAttribute("data-cpk-launcher-capsule") ?? null;
 }
 
 /** The pill's first line — the failure class — or null when there is no pill. */
@@ -395,14 +397,14 @@ function lineText(
   line: "heading" | "subline",
 ): string | null {
   const text = pill(inspector)
-    ?.querySelector(`[data-cpk-pill-${line}]`)
+    ?.querySelector(`[data-cpk-capsule-${line}]`)
     ?.textContent?.trim();
   return text === undefined || text === "" ? null : text;
 }
 
 /** Which side the pill grew from, or null when there is no pill. */
 function pillDirection(inspector: WebInspectorElement): string | null {
-  return pill(inspector)?.getAttribute("data-cpk-pill-direction") ?? null;
+  return pill(inspector)?.getAttribute("data-cpk-capsule-direction") ?? null;
 }
 
 /**
@@ -411,7 +413,7 @@ function pillDirection(inspector: WebInspectorElement): string | null {
  * is shown.
  */
 function pillPhase(inspector: WebInspectorElement): string | null {
-  return pill(inspector)?.getAttribute("data-cpk-pill-phase") ?? null;
+  return pill(inspector)?.getAttribute("data-cpk-capsule-phase") ?? null;
 }
 
 /** Whether the pill is actually showing its words. */
@@ -491,7 +493,7 @@ function stubGeometry(options: {
       if (this.classList.contains("console-button")) {
         return box(options.launcherLeft, LAUNCHER_SIZE);
       }
-      if (this.hasAttribute("data-cpk-launcher-pill")) {
+      if (this.hasAttribute("data-cpk-launcher-capsule")) {
         // A clip never changes the layout box, so this is the full width
         // whichever phase the pill is in.
         return box(options.launcherLeft, options.pillWidth);
@@ -1368,7 +1370,8 @@ test("every subject's pill carries the same subline", async () => {
 test("the second line does not make the pill taller than the launcher", async () => {
   const context = await setup();
   const css = stylesheetText(context.inspector);
-  const pillRule = /\.cpk-launcher-pill\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  const pillRule =
+    /\.cpk-launcher-capsule\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
 
   // Two lines inside an unchanged height: a column, centred, with the pill's
   // height still pinned to the launcher's own diameter. Growing the pill
@@ -1381,9 +1384,9 @@ test("the second line does not make the pill taller than the launcher", async ()
 
   // The two lines are typographically distinct, and the subline recedes.
   const heading =
-    /\.cpk-launcher-pill__heading\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+    /\.cpk-launcher-capsule__heading\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
   const subline =
-    /\.cpk-launcher-pill__subline\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+    /\.cpk-launcher-capsule__subline\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
   expect(heading).toContain("font-size: 12px");
   expect(heading).toContain("line-height: 1.2");
   expect(subline).toContain("font-size: 10.5px");
@@ -1409,7 +1412,7 @@ test("the pill's text is held off its own border and clear of the mark", async (
   for (const direction of ["left", "right"]) {
     const rule =
       new RegExp(
-        `\\.cpk-launcher-pill\\[data-cpk-pill-direction="${direction}"\\]\\s*\\{([\\s\\S]*?)\\}`,
+        `\\.cpk-launcher-capsule\\[data-cpk-capsule-direction="${direction}"\\]\\s*\\{([\\s\\S]*?)\\}`,
       ).exec(css)?.[1] ?? "";
     expect(rule).toContain("calc(var(--cpk-launcher-size) / 2)");
     expect(rule).toContain("calc(var(--cpk-launcher-size) + 12px)");
@@ -1440,7 +1443,7 @@ test("the pill and the launcher share one surface and one edge", async () => {
   expect(buttonRules).toContain("var(--cpk-launcher-face)");
   expect(buttonRules).toContain("var(--cpk-launcher-edge)");
 
-  const pillRules = allBlocks(/\.cpk-launcher-pill\s*\{([\s\S]*?)\}/g);
+  const pillRules = allBlocks(/\.cpk-launcher-capsule\s*\{([\s\S]*?)\}/g);
   expect(pillRules).toContain("var(--cpk-launcher-face)");
   expect(pillRules).toContain("var(--cpk-launcher-edge)");
   expect(pillRules).not.toContain("color-mix");
@@ -1713,7 +1716,7 @@ test("reduced motion shows the pill with no clip animation and the same hold", a
   );
   // Shown by opacity alone, with the clip held open rather than animated.
   expect(reduced).toContain(
-    '.cpk-launcher-pill[data-cpk-pill-phase="holding"]',
+    '.cpk-launcher-capsule[data-cpk-capsule-phase="holding"]',
   );
   expect(reduced).toContain("animation: none");
   expect(reduced).toContain("clip-path: inset(0 0 0 0)");
@@ -1728,7 +1731,7 @@ test("the reveal animates a rectangular clip, never a width or a scale", async (
   for (const direction of ["left", "right"]) {
     const frames =
       new RegExp(
-        `@keyframes\\s+cpk-launcher-pill-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
+        `@keyframes\\s+cpk-launcher-capsule-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
       ).exec(css)?.[1] ?? "";
     expect(frames).toContain("clip-path: inset(");
     expect(frames).toContain("opacity");
@@ -1740,8 +1743,13 @@ test("the reveal animates a rectangular clip, never a width or a scale", async (
   }
 
   // Laid out at full width from the start, so only the visible region moves.
-  const pillRule = /\.cpk-launcher-pill\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
-  expect(pillRule).not.toMatch(/(^|[^-])width\s*:/);
+  // The layout guarantee is that no *keyframe* animates width — the two
+  // `expect(frames).not.toContain("width")` assertions above are the real
+  // guard. A static declared width is what makes the capsule and the drawer
+  // flush by construction.
+  const pillRule =
+    /\.cpk-launcher-capsule\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  expect(pillRule).toContain("width: var(--cpk-launcher-island)");
   expect(pillRule).not.toContain("transform: scale");
 });
 
@@ -1756,7 +1764,7 @@ test("the revealing edge is the capsule's own rounded end, not a straight wipe",
   for (const direction of ["left", "right"]) {
     const frames =
       new RegExp(
-        `@keyframes\\s+cpk-launcher-pill-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
+        `@keyframes\\s+cpk-launcher-capsule-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
       ).exec(css)?.[1] ?? "";
     const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
     expect(stops).toHaveLength(2);
@@ -1840,7 +1848,8 @@ test("the pill is clickable only while it is on screen", async () => {
   const context = await setup();
   await armConnectionFailure(context);
   const css = stylesheetText(context.inspector);
-  const pillRule = /\.cpk-launcher-pill\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
+  const pillRule =
+    /\.cpk-launcher-capsule\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
 
   // During the beat the clip covers the mark alone, and a click target nobody
   // can see over someone else's page is not something to ship. The base rule
@@ -1848,7 +1857,7 @@ test("the pill is clickable only while it is on screen", async () => {
   // back.
   expect(pillRule).toContain("pointer-events: none");
   const visible =
-    /\.cpk-launcher-pill\[data-cpk-pill-phase="opening"\],\s*\.cpk-launcher-pill\[data-cpk-pill-phase="holding"\],\s*\.cpk-launcher-pill\[data-cpk-pill-phase="closing"\]\s*\{([\s\S]*?)\}/.exec(
+    /\.cpk-launcher-capsule\[data-cpk-capsule-phase="opening"\],\s*\.cpk-launcher-capsule\[data-cpk-capsule-phase="holding"\],\s*\.cpk-launcher-capsule\[data-cpk-capsule-phase="closing"\]\s*\{([\s\S]*?)\}/.exec(
       css,
     )?.[1] ?? "";
   expect(visible).toContain("pointer-events: auto");
