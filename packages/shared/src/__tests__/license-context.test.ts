@@ -53,6 +53,41 @@ test("license context uses ready active feature grants and numeric limits", () =
   expect(ctx.getLimit("unknown")).toBeNull();
 });
 
+test.each([0, 25])(
+  "license context treats an own threads.max_count limit of %s as a thread grant",
+  (threadLimit) => {
+    const ctx = createLicenseContextValue("valid", {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "managedOrgSubscription",
+        features: {},
+        limits: { "threads.max_count": threadLimit },
+      },
+    });
+
+    expect(ctx.checkFeature("threads")).toBe(true);
+    expect(ctx.getLimit("threads.max_count")).toBe(threadLimit);
+  },
+);
+
+test.each([true, false])(
+  "license context preserves a legacy threads feature value of %s",
+  (threads) => {
+    const ctx = createLicenseContextValue("valid", {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "selfHostedDeploymentLicense",
+        features: { threads },
+        limits: {},
+      },
+    });
+
+    expect(ctx.checkFeature("threads")).toBe(threads);
+  },
+);
+
 test("license context denies features and limits for a ready inactive entitlement", () => {
   const ctx = createLicenseContextValue("none", {
     status: "ready",

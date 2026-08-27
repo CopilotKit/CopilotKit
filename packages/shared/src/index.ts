@@ -115,7 +115,13 @@ export function createLicenseContextValue(
     checkFeature: (feature) =>
       featureAuthority
         ? activeEntitlement
-          ? (getOwnRecordValue(activeEntitlement.features, feature) ?? false)
+          ? feature === "threads" &&
+            Object.prototype.hasOwnProperty.call(
+              activeEntitlement.limits,
+              "threads.max_count",
+            )
+            ? true
+            : (getOwnRecordValue(activeEntitlement.features, feature) ?? false)
           : false
         : featuresEnabled,
     getLimit: (feature) =>
