@@ -746,9 +746,11 @@ test("the launcher animates opacity, transform and a clip — nothing that force
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
-  // Two for the halo, one per direction for both launcher reveals, and one
+  // Two for the halo, one per direction for the capsule reveal, one
+  // direction-agnostic HUD intro (it now only fades, so left and right
+  // share the same keyframe instead of needing a mirrored one), and one
   // each for the HUD row and connected check stagger.
-  expect(keyframes).toHaveLength(8);
+  expect(keyframes).toHaveLength(7);
 
   const animated = new Set(
     keyframes

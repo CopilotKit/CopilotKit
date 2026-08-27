@@ -9943,19 +9943,6 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      @keyframes cpk-launcher-hud-intro-right {
-        0% {
-          opacity: 0;
-        }
-        8%,
-        88% {
-          opacity: 1;
-        }
-        100% {
-          opacity: 0;
-        }
-      }
-
       @keyframes cpk-launcher-hud-row-online {
         from {
           opacity: 0;
@@ -9982,10 +9969,6 @@ export class WebInspectorElement extends LitElement {
         animation: cpk-launcher-hud-intro
           var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-
-      .cpk-launcher-drawer[data-cpk-hud-intro="true"][data-cpk-drawer-side="right"] {
-        animation-name: cpk-launcher-hud-intro-right;
       }
 
       .cpk-launcher-drawer[data-cpk-hud-intro="true"]
