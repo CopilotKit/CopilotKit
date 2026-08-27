@@ -81,6 +81,8 @@ examples/v2/interrupts-langgraph/apps/web/next.config.ts
 examples/v2/next-pages-router/next.config.mjs
 examples/v2/react-router/vite.config.ts
 examples/v2/react/demo/next.config.ts
+examples/v2/vue/vite-inspector/src/vite-env.d.ts
+examples/v2/vue/vite-inspector/vite.config.ts
 packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
 packages/core/tsdown.config.ts
