@@ -5,7 +5,7 @@ const modalPath = resolve(__dirname, "../Modal.tsx");
 const messageTimestampPath = resolve(__dirname, "./MessageTimestamp.tsx");
 const hookPath = resolve(
   __dirname,
-  "../../../../../react-core/src/hooks/use-copilot-chat_internal.ts",
+  "../../../../../react-core/src/v1-deprecated/hooks/use-copilot-chat_internal.ts",
 );
 const sharedMessagePath = resolve(
   __dirname,
