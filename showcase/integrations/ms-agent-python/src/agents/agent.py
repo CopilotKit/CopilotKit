@@ -27,7 +27,6 @@ from tools import (
     get_sales_todos_impl,
     schedule_meeting_impl,
     search_flights_impl,
-    build_a2ui_operations_from_tool_call,
 )
 
 STATE_SCHEMA: dict[str, object] = {
@@ -159,60 +158,6 @@ def search_flights(
     return json.dumps(result)
 
 
-@tool(
-    name="generate_a2ui",
-    description=(
-        "Generate dynamic A2UI components based on the conversation. "
-        "A secondary LLM designs the UI schema and data."
-    ),
-)
-def generate_a2ui(
-    context: Annotated[
-        str, Field(description="Conversation context to generate UI from.")
-    ],
-) -> str:
-    """Generate dynamic A2UI dashboard from conversation context."""
-    from openai import OpenAI
-
-    client = OpenAI()
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": "_design_a2ui_surface",
-            "description": "Render a dynamic A2UI v0.9 surface.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
-                    "components": {"type": "array", "items": {"type": "object"}},
-                    "data": {"type": "object"},
-                },
-                "required": ["surfaceId", "catalogId", "components"],
-            },
-        },
-    }
-
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
-        ],
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
-    )
-
-    if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
-
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
-    result = build_a2ui_operations_from_tool_call(args)
-    return json.dumps(result)
 
 
 def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
@@ -260,7 +205,6 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
             query_data,
             schedule_meeting,
             search_flights,
-            generate_a2ui,
         ],
     )
 
