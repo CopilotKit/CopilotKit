@@ -1662,9 +1662,9 @@ test("with no room the failure is still spoken", async () => {
 
 // The narrowest window a rightward pill fits in: the launcher's own left
 // offset, the island's own width, and the margin the pill keeps from the
-// edge on the other side. LAUNCHER_SIZE cancels out now that the width is
-// a token rather than content-derived, which is the whole reason
-// ISLAND_WIDTH is a named number.
+// edge on the other side. LAUNCHER_SIZE has always cancelled here — the
+// mark's width is inside the island's. The threshold moves with the token,
+// which is the whole reason ISLAND_WIDTH is a named number.
 const TIGHTEST_FIT = EDGE_MARGIN + ISLAND_WIDTH + EDGE_MARGIN;
 
 test("a window exactly wide enough still opens the pill", async () => {

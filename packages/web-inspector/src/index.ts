@@ -8866,7 +8866,7 @@ export class WebInspectorElement extends LitElement {
            MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans,
            measures ~155px, leaving ~10px of slack at the tightest end.
            At 252px it overflowed the frame, because the capsule is nowrap
-           and pinned - it can no longer grow the way the old auto-width
+           and pinned - it can no longer expand the way the old auto-width
            pill did.
 
            The slack is stated to the nearest pixel on purpose. Canvas and
