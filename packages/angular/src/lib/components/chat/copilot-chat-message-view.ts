@@ -20,12 +20,6 @@ import { CopilotChatReasoningMessage } from "./copilot-chat-reasoning-message";
 import { cn } from "../../utils";
 import { CopilotKit } from "../../copilotkit";
 import type { RenderActivityMessageConfig } from "../../activity-renderer";
-import { CopilotInspector } from "../../inspector";
-import { CopilotChatConfiguration } from "../../chat-configuration";
-import { injectChatLabels } from "../../chat-config";
-import { Bookmark, CopilotIcon } from "../icons/copilot-icon";
-import { CopilotChatAssistantMessageToolbarButton } from "./copilot-chat-assistant-message-buttons";
-import { CopilotSaveSnippetBeside } from "./copilot-save-snippet-beside";
 
 /**
  * CopilotChatMessageView component - Angular port of the React component.
@@ -43,9 +37,6 @@ import { CopilotSaveSnippetBeside } from "./copilot-save-snippet-beside";
     CopilotChatUserMessage,
     CopilotChatReasoningMessage,
     CopilotChatMessageViewCursor,
-    CopilotIcon,
-    CopilotChatAssistantMessageToolbarButton,
-    CopilotSaveSnippetBeside,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -118,24 +109,10 @@ import { CopilotSaveSnippetBeside } from "./copilot-save-snippet-beside";
           } @else if (message && message.role === "activity") {
             @let activityRender = resolveActivityRender(message);
             @if (activityRender) {
-              <copilot-save-snippet-beside
-                [enabled]="canSaveActivity(asActivityMessage(message))"
-              >
-                <ng-container
-                  [ngComponentOutlet]="activityRender.component"
-                  [ngComponentOutletInputs]="activityRender.inputs"
-                />
-                <button
-                  saveSnippet
-                  type="button"
-                  copilotChatAssistantMessageToolbarButton
-                  data-testid="copilot-activity-save-snippet-button"
-                  [title]="saveSnippetTitle()"
-                  (click)="saveActivitySnippet(asActivityMessage(message))"
-                >
-                  <copilot-icon [img]="bookmarkIcon" [size]="18" />
-                </button>
-              </copilot-save-snippet-beside>
+              <ng-container
+                [ngComponentOutlet]="activityRender.component"
+                [ngComponentOutletInputs]="activityRender.inputs"
+              />
             }
           }
         }
@@ -219,12 +196,6 @@ export class CopilotChatMessageView {
   protected readonly defaultReasoningComponent = CopilotChatReasoningMessage;
   protected readonly defaultCursorComponent = CopilotChatMessageViewCursor;
   protected readonly copilotKit = inject(CopilotKit);
-  private readonly inspector = inject(CopilotInspector, { optional: true });
-  private readonly chatConfig = inject(CopilotChatConfiguration, {
-    optional: true,
-  });
-  protected readonly labels = injectChatLabels();
-  protected readonly bookmarkIcon = Bookmark;
 
   // Derived values from inputs
   protected messagesValue = computed(() => this.messages());
@@ -306,33 +277,6 @@ export class CopilotChatMessageView {
 
   asReasoningMessage(message: Message): ReasoningMessage {
     return message as ReasoningMessage;
-  }
-
-  asActivityMessage(message: Message): ActivityMessage {
-    return message as ActivityMessage;
-  }
-
-  canSaveActivity(message: ActivityMessage): boolean {
-    return (
-      this.inspector?.isInspectorEnabled === true &&
-      (message.activityType === "a2ui-surface" ||
-        message.activityType === "open-generative-ui")
-    );
-  }
-
-  saveSnippetTitle(): string {
-    return `${this.labels.assistantMessageToolbarSaveSnippetLabel} (${this.labels.assistantMessageToolbarInspectorLocalOnlyLabel})`;
-  }
-
-  saveActivitySnippet(message: ActivityMessage): void {
-    void this.inspector?.saveEventSnippet({
-      kind: "activity",
-      messageId: message.id,
-      activityType: message.activityType,
-      content: message.content,
-      threadId: this.chatConfig?.threadId(),
-      agentId: this.chatConfig?.agentId(),
-    });
   }
 
   // TrackBy function for performance optimization

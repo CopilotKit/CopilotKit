@@ -128,7 +128,7 @@ Before you begin, you'll need the following:
                         ```bash title="agent/.env (Azure OpenAI)"
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
                         AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.4-mini
-                        # If you are not relying on az login:
+                        # Optional when az login is unavailable:
                         # AZURE_OPENAI_API_KEY=...
                         ```
                     </Tab>
@@ -245,6 +245,7 @@ Before you begin, you'll need the following:
                         from agent_framework import Agent
                         from agent_framework.openai import OpenAIChatClient
                         from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+                        from azure.identity import DefaultAzureCredential
                         from dotenv import load_dotenv
                         from fastapi import FastAPI
 
@@ -252,9 +253,11 @@ Before you begin, you'll need the following:
 
                         def _build_chat_client():
                             if os.getenv("AZURE_OPENAI_ENDPOINT"):
+                                azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
                                 return OpenAIChatClient(
                                     model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
-                                    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                                    api_key=azure_api_key,
+                                    credential=None if azure_api_key else DefaultAzureCredential(),
                                     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                                 )
                             if os.getenv("OPENAI_API_KEY"):
@@ -263,7 +266,7 @@ Before you begin, you'll need the following:
                                     api_key=os.getenv("OPENAI_API_KEY"),
                                 )
                             raise RuntimeError(
-                                "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
+                                "Set AZURE_OPENAI_ENDPOINT (uses az login unless AZURE_OPENAI_API_KEY is set) or OPENAI_API_KEY."
                             )
 
                         chat_client = _build_chat_client()
@@ -290,7 +293,8 @@ Before you begin, you'll need the following:
                         # or Azure OpenAI (agent/.env)
                         AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
                         AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.4-mini
-                        # (optional) AZURE_OPENAI_API_KEY=...
+                        # Optional when az login is unavailable:
+                        # AZURE_OPENAI_API_KEY=...
 
                         # Run the agent
                         uv run main.py
@@ -403,6 +407,14 @@ Before you begin, you'll need the following:
                   );
                 }
                 ```
+
+                <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+                  server of its own and an absolute `runtimeUrl` such as
+                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+                  `/angular` and `/react-native` each show that setup.
+                </Callout>
             </Step>
             <Step>
               ### Add the chat interface

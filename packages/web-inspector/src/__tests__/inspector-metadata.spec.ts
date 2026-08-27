@@ -172,7 +172,7 @@ async function setup(options: SetupOptions = {}): Promise<InspectorContext> {
     requests,
     open: async () => {
       const button = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!button) {
         throw new Error("Web Inspector opener was not rendered");
@@ -406,7 +406,7 @@ test("an old Core without metadata members attaches and renders without error", 
   try {
     await inspector.updateComplete;
     inspector.shadowRoot
-      ?.querySelector<HTMLButtonElement>('button[aria-label="Web Inspector"]')
+      ?.querySelector<HTMLButtonElement>('button[aria-label^="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
@@ -537,12 +537,7 @@ test("metadata usage stays independent from Threads capability and debug navigat
       expect(findControl(root, label), label).toBeDefined();
     }
     await context.selectTab("Agent");
-    for (const label of [
-      "AG-UI Events",
-      "Event Snippets",
-      "Agent",
-      "Context",
-    ]) {
+    for (const label of ["AG-UI Events", "Agent", "Context"]) {
       expect(findControl(root, label), label).toBeDefined();
     }
   } finally {

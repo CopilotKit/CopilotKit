@@ -114,7 +114,7 @@ async function setup(
   );
   await inspector.updateComplete;
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();

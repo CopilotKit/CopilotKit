@@ -24,38 +24,7 @@ export type AngularInspectorOpenRequest = {
   messageId: string;
   threadId?: string;
   agentId?: string;
-  menu?: "event-snippets";
-  snippetId?: string;
 };
-
-export type AngularInspectorSaveRequest = {
-  threadId?: string;
-  agentId?: string;
-} & (
-  | {
-      kind: "text";
-      messageId: string;
-      content: string;
-    }
-  | {
-      kind: "reasoning";
-      messageId: string;
-      content: string;
-    }
-  | {
-      kind: "tool-call";
-      messageId: string;
-      toolCallId: string;
-      toolName: string;
-      argsJson: string | Record<string, unknown>;
-    }
-  | {
-      kind: "activity";
-      messageId: string;
-      activityType: string;
-      content: unknown;
-    }
-);
 
 @Injectable({ providedIn: "root" })
 export class CopilotInspector {
@@ -97,38 +66,6 @@ export class CopilotInspector {
 
   openInspector(request: AngularInspectorOpenRequest): void {
     this.element?.openInspector?.("message_toolbar", request);
-  }
-
-  async saveEventSnippet(request: AngularInspectorSaveRequest): Promise<void> {
-    try {
-      const mod = await import("@copilotkit/web-inspector");
-      const threadId = request.threadId ?? "inspector-snippet";
-      const runId = `inspector-snippet-${Date.now()}`;
-      const compiled = mod.compileChatSnippet({
-        ...request,
-        threadId,
-        runId,
-      });
-      const now = new Date().toISOString();
-      const snippet = {
-        id: crypto.randomUUID(),
-        name: compiled.name,
-        recipe: compiled.recipe,
-        events: compiled.events,
-        createdAt: now,
-        updatedAt: now,
-      };
-      mod.upsertEventSnippet(snippet);
-      this.openInspector({
-        messageId: request.messageId,
-        threadId: request.threadId,
-        agentId: request.agentId,
-        menu: "event-snippets",
-        snippetId: snippet.id,
-      });
-    } catch (error) {
-      console.error("[CopilotKit] Could not save the event snippet.", error);
-    }
   }
 
   private async mount(): Promise<void> {

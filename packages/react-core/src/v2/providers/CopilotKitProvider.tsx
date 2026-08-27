@@ -21,10 +21,7 @@ export { CopilotKitContext, useLicenseContext } from "../context";
 import { z } from "zod";
 import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import { CopilotKitInspectorContextProvider } from "../components/CopilotKitInspectorContext";
-import type {
-  CopilotKitInspectorOpenRequest,
-  CopilotKitInspectorSaveRequest,
-} from "../components/CopilotKitInspectorContext";
+import type { CopilotKitInspectorOpenRequest } from "../components/CopilotKitInspectorContext";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
@@ -339,50 +336,12 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [],
   );
 
-  const saveEventSnippet = useCallback(
-    async (request: CopilotKitInspectorSaveRequest) => {
-      try {
-        const mod = await import("@copilotkit/web-inspector");
-        const threadId = request.threadId ?? "inspector-snippet";
-        const runId = `inspector-snippet-${Date.now()}`;
-        const compiled = mod.compileChatSnippet({
-          ...request,
-          threadId,
-          runId,
-        });
-        const now = new Date().toISOString();
-        const snippet = {
-          id: crypto.randomUUID(),
-          name: compiled.name,
-          recipe: compiled.recipe,
-          events: compiled.events,
-          createdAt: now,
-          updatedAt: now,
-        };
-        mod.upsertEventSnippet(snippet);
-        requestInspectorOpen({
-          messageId: request.messageId,
-          threadId: request.threadId,
-          agentId: request.agentId,
-          menu: "event-snippets",
-          snippetId: snippet.id,
-        });
-      } catch (error) {
-        // Compile can throw on bad args, and storage can throw QuotaExceededError.
-        // Callers fire this as `void saveEventSnippet(...)`, so report it here.
-        console.error("[CopilotKit] Could not save the event snippet.", error);
-      }
-    },
-    [requestInspectorOpen],
-  );
-
   const inspectorContextValue = useMemo(
     () => ({
       isInspectorEnabled: shouldRenderInspector,
       openInspector: requestInspectorOpen,
-      saveEventSnippet,
     }),
-    [shouldRenderInspector, requestInspectorOpen, saveEventSnippet],
+    [shouldRenderInspector, requestInspectorOpen],
   );
 
   // Normalize array props to stable references with clear dev warnings

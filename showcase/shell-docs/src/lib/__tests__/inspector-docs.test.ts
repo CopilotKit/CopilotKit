@@ -104,15 +104,6 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   expect(read("docs/frontend-tools.mdx")).toContain(
     "open-inspector-pane-frontend-tools.mdx",
   );
-  expect(read("docs/frontend-tools.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
-  );
-  expect(read("docs/generative-ui/open-generative-ui.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
-  );
-  expect(read("docs/generative-ui/a2ui/index.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
-  );
   expect(read("docs/shared-state.mdx")).toContain(
     "open-inspector-pane-state.mdx",
   );
@@ -153,9 +144,6 @@ test("Inspector Callout snippets name the shipped pane and skip unshipped work",
   expect(
     read("snippets/shared/inspector/open-inspector-pane-threads.mdx"),
   ).toContain("**Threads**");
-  expect(
-    read("snippets/shared/inspector/open-inspector-pane-event-snippets.mdx"),
-  ).toContain("**Event Snippets**");
 });
 
 test("pane map lists each shipped pane with a Callout or no page yet", () => {
@@ -170,7 +158,6 @@ test("pane map lists each shipped pane with a Callout or no page yet", () => {
     "Context",
     "Learning",
     "Capabilities",
-    "Event Snippets",
   ]) {
     expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));
   }

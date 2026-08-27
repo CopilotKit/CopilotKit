@@ -7,11 +7,7 @@ import type { InspectorMetadataV1 } from "@copilotkit/core";
 import type { ɵThread } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
-import {
-  WebInspectorElement,
-  compileChatSnippet,
-  upsertEventSnippet,
-} from "../index.js";
+import { WebInspectorElement } from "../index.js";
 
 type InspectorNavigationContext = {
   core: CopilotKitCore;
@@ -189,7 +185,7 @@ async function setup(
     document.body.appendChild(inspector);
     await inspector.updateComplete;
     const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-      'button[aria-label="Web Inspector"]',
+      'button[aria-label^="Web Inspector"]',
     );
     if (!opener) {
       throw new Error("Web Inspector opener was not rendered before Core");
@@ -249,7 +245,7 @@ async function setup(
         return;
       }
       const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!opener) {
         throw new Error("Web Inspector opener was not rendered");
@@ -403,7 +399,6 @@ test("first launch opens Home with live navigation and sidebar statuses", async 
       "memories",
       "agents",
       "ag-ui-events",
-      "event-snippets",
       "agent-context",
     ]);
     expect(navigation.textContent).toContain("Workbench");
@@ -565,6 +560,66 @@ test("Playground omits the durability CTA when Intelligence is active", async ()
   } finally {
     context.teardown();
   }
+});
+
+test("Playground composer stays readable in dark mode", async () => {
+  const context = await setup({ agent: true });
+  try {
+    await context.open();
+    await context.selectLeaf("playground");
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const inspectorWindow = requireElement(
+      root.querySelector<HTMLElement>(".inspector-window"),
+      "Inspector window was not rendered",
+    );
+    const toggle = requireElement(
+      root.querySelector<HTMLButtonElement>("[data-inspector-theme-toggle]"),
+      "Theme toggle was not rendered",
+    );
+
+    toggle.click();
+    await waitFor(
+      () => inspectorWindow.dataset.colorScheme === "dark",
+      "dark color scheme",
+    );
+
+    expect(
+      root
+        .querySelector('textarea[aria-label="Playground message"]')
+        ?.classList.contains("cpk-playground-input"),
+    ).toBe(true);
+    expect(root.querySelector(".cpk-playground-composer")).not.toBeNull();
+    expect(
+      root
+        .querySelector('button[aria-label="Send playground message"]')
+        ?.classList.contains("cpk-playground-send"),
+    ).toBe(true);
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Playground surface styles live in the Web Inspector shadow root", () => {
+  const styles = WebInspectorElement.styles as Array<{ cssText?: string }>;
+  const cssText = styles.map((style) => style.cssText ?? "").join("\n");
+
+  expect(cssText).toMatch(
+    /\.cpk-playground-root\s*\{[^}]*background:\s*#fbfbfd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-header\s*\{[^}]*min-height:\s*58px[^}]*background:\s*#f7f6fd\s*!important/s,
+  );
+  expect(cssText).toMatch(
+    /\.cpk-playground-composer\s*\{[^}]*border:\s*1px solid #dcdce8/s,
+  );
+  expect(cssText).toMatch(
+    /\.inspector-window\[data-color-scheme="dark"\]\s+\.cpk-playground-composer\s*\{[^}]*background:\s*#15171e\s*!important/s,
+  );
+  expect(cssText).toContain("@keyframes cpk-playground-message-enter");
 });
 
 test("trusted identity stays on Home while connection state moves into branded chrome", async () => {
@@ -1043,7 +1098,6 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "memories",
       "agents",
       "ag-ui-events",
-      "event-snippets",
       "frontend-tools",
       "capabilities",
       "agent-context",
@@ -1074,7 +1128,6 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
       "memories",
       "agents",
       "ag-ui-events",
-      "event-snippets",
       "agent-context",
     ]);
     expectCurrentNavigation(root, "inspect", "agents");
@@ -1087,11 +1140,6 @@ test("Inspect shows flattened live leaves and hides optional sources", async () 
 test("persisted leaves restore after Inspector has been opened, and first upgrade open is Home", async () => {
   const validLeaves = [
     { leaf: "ag-ui-events", group: "inspect", marker: "No events yet" },
-    {
-      leaf: "event-snippets",
-      group: "inspect",
-      marker: "Event Snippets",
-    },
     { leaf: "agents", group: "inspect", marker: "No agent selected" },
     {
       leaf: "frontend-tools",
@@ -1348,7 +1396,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     const visibleOption = () =>
       scope.querySelector(
-        '[data-context-dropdown-root="true"] > button[data-context-dropdown-root="true"]',
+        '.inspector-icon-rail-menu[data-open="true"] button[data-context-dropdown-root="true"]',
       );
     expect(visibleOption()).not.toBeNull();
     scopeTrigger.dispatchEvent(
@@ -1362,6 +1410,7 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
     await context.inspector.updateComplete;
     expect(visibleOption()).not.toBeNull();
     scopeRoot.dispatchEvent(new Event("pointerleave"));
+    await new Promise((resolve) => setTimeout(resolve, 200));
     await context.inspector.updateComplete;
     expect(visibleOption()).toBeNull();
     expect(sidebar.querySelector(".inspector-sidebar-footer")).toBeNull();
@@ -1475,305 +1524,5 @@ Read what shipped.
     expect(root.textContent).not.toContain("You're all caught up");
   } finally {
     withoutAnnouncement.teardown();
-  }
-});
-
-test("opening a saved snippet fills the Event Snippets recipe form", async () => {
-  const context = await setup();
-  try {
-    const text = compileChatSnippet({
-      kind: "text",
-      messageId: "asst-1",
-      content: "Hello from the saved snippet",
-      threadId: "thread-1",
-      runId: "run-1",
-    });
-    const tool = compileChatSnippet({
-      kind: "tool-call",
-      messageId: "asst-2",
-      toolCallId: "call-1",
-      toolName: "sayHello",
-      argsJson: '{"name":"Alem"}',
-      threadId: "thread-1",
-      runId: "run-2",
-    });
-    const textSnippet = {
-      id: "snip-text-1",
-      name: text.name,
-      recipe: text.recipe,
-      events: text.events,
-      createdAt: "2026-08-21T00:00:00.000Z",
-      updatedAt: "2026-08-21T00:00:00.000Z",
-    };
-    const toolSnippet = {
-      id: "snip-tool-1",
-      name: tool.name,
-      recipe: tool.recipe,
-      events: tool.events,
-      createdAt: "2026-08-21T00:00:01.000Z",
-      updatedAt: "2026-08-21T00:00:01.000Z",
-    };
-    upsertEventSnippet(textSnippet);
-    upsertEventSnippet(toolSnippet);
-
-    context.inspector.openInspector("message_toolbar", {
-      messageId: "asst-1",
-      menu: "event-snippets",
-      snippetId: textSnippet.id,
-    });
-    await context.inspector.updateComplete;
-
-    const root = requireElement(
-      context.inspector.shadowRoot,
-      "Web Inspector shadow root was not rendered",
-    );
-    const recipe = requireElement(
-      root.querySelector<HTMLSelectElement>(
-        '[data-testid="cpk-snippet-recipe"]',
-      ),
-      "Recipe select was not rendered",
-    );
-    const textField = requireElement(
-      root.querySelector<HTMLTextAreaElement>(
-        '[data-testid="cpk-snippet-text"]',
-      ),
-      "Assistant text field was not rendered",
-    );
-    expect(recipe.value).toBe("text");
-    expect(textField.value).toBe("Hello from the saved snippet");
-
-    const toolRow = Array.from(root.querySelectorAll("button")).find((button) =>
-      button.textContent?.includes(toolSnippet.name),
-    );
-    requireElement(toolRow, "Saved tool snippet was not listed").click();
-    await context.inspector.updateComplete;
-
-    const toolRecipe = requireElement(
-      root.querySelector<HTMLSelectElement>(
-        '[data-testid="cpk-snippet-recipe"]',
-      ),
-      "Recipe select was not rendered after tool select",
-    );
-    const toolName = requireElement(
-      root.querySelector<HTMLInputElement>(
-        '[data-testid="cpk-snippet-tool-name"]',
-      ),
-      "Tool name field was not rendered",
-    );
-    const toolArgs = requireElement(
-      root.querySelector<HTMLTextAreaElement>(
-        '[data-testid="cpk-snippet-tool-args"]',
-      ),
-      "Tool args field was not rendered",
-    );
-    expect(toolRecipe.value).toBe("tool-call");
-    expect(toolName.value).toBe("sayHello");
-    expect(JSON.parse(toolArgs.value)).toEqual({ name: "Alem" });
-  } finally {
-    context.teardown();
-  }
-});
-
-test("Event Snippets groups by recipe and disables idle actions", async () => {
-  const context = await setup({ agentIds: ["default"] });
-  try {
-    const text = compileChatSnippet({
-      kind: "text",
-      messageId: "asst-1",
-      content: "Hello from the saved snippet",
-      threadId: "thread-1",
-      runId: "run-1",
-    });
-    const tool = compileChatSnippet({
-      kind: "tool-call",
-      messageId: "asst-2",
-      toolCallId: "call-1",
-      toolName: "sayHello",
-      argsJson: '{"name":"Alem"}',
-      threadId: "thread-1",
-      runId: "run-2",
-    });
-    upsertEventSnippet({
-      id: "snip-text-1",
-      name: text.name,
-      recipe: text.recipe,
-      events: text.events,
-      createdAt: "2026-08-21T00:00:00.000Z",
-      updatedAt: "2026-08-21T00:00:00.000Z",
-    });
-    upsertEventSnippet({
-      id: "snip-tool-1",
-      name: tool.name,
-      recipe: tool.recipe,
-      events: tool.events,
-      createdAt: "2026-08-21T00:00:01.000Z",
-      updatedAt: "2026-08-21T00:00:01.000Z",
-    });
-
-    await context.open();
-    await context.selectLeaf("event-snippets");
-
-    const root = requireElement(
-      context.inspector.shadowRoot,
-      "Web Inspector shadow root was not rendered",
-    );
-    const categories = Array.from(
-      root.querySelectorAll("[data-testid='cpk-snippet-category']"),
-    ).map((node) => node.getAttribute("data-recipe"));
-    expect(categories).toEqual(["tool-call", "text"]);
-    expect(
-      root.querySelector("[data-testid='cpk-snippet-list-resize']"),
-    ).not.toBeNull();
-    expect(
-      root.querySelectorAll("[data-testid='cpk-snippet-item']").length,
-    ).toBe(2);
-    expect(
-      root.querySelector("[data-testid='cpk-snippet-import']"),
-    ).not.toBeNull();
-    const toolItem = requireElement(
-      root.querySelector<HTMLButtonElement>(
-        "[data-testid='cpk-snippet-item'][data-recipe='tool-call']",
-      ),
-      "Tool snippet was not listed",
-    );
-    expect(toolItem.classList.contains("inspector-nav-control")).toBe(true);
-    expect(
-      root
-        .querySelector("[data-testid='cpk-snippet-category']")
-        ?.classList.contains("inspector-sidebar-label"),
-    ).toBe(true);
-
-    const run = requireElement(
-      root.querySelector<HTMLButtonElement>("[data-testid='cpk-snippet-run']"),
-      "Run was not rendered",
-    );
-    const save = requireElement(
-      root.querySelector<HTMLButtonElement>("[data-testid='cpk-snippet-save']"),
-      "Save was not rendered",
-    );
-    const reset = requireElement(
-      root.querySelector<HTMLButtonElement>(
-        "[data-testid='cpk-snippet-reset']",
-      ),
-      "Reset was not rendered",
-    );
-    const del = requireElement(
-      root.querySelector<HTMLButtonElement>(
-        "[data-testid='cpk-snippet-delete']",
-      ),
-      "Delete was not rendered",
-    );
-    const exp = requireElement(
-      root.querySelector<HTMLButtonElement>(
-        "[data-testid='cpk-snippet-export']",
-      ),
-      "Export was not rendered",
-    );
-    expect(run.disabled).toBe(true);
-    expect(save.disabled).toBe(true);
-    expect(reset.disabled).toBe(true);
-    expect(del.disabled).toBe(true);
-    expect(exp.disabled).toBe(false);
-    expect(
-      run.parentElement?.querySelector("[data-testid='cpk-snippet-import']"),
-    ).toBeNull();
-
-    toolItem.click();
-    await context.inspector.updateComplete;
-
-    expect(
-      requireElement(
-        root.querySelector<HTMLButtonElement>(
-          "[data-testid='cpk-snippet-item'][data-recipe='tool-call']",
-        ),
-        "Tool snippet was not listed after select",
-      ).classList.contains("inspector-nav-control-active"),
-    ).toBe(true);
-
-    const runAfter = requireElement(
-      root.querySelector<HTMLButtonElement>("[data-testid='cpk-snippet-run']"),
-      "Run was not rendered after select",
-    );
-    const saveAfter = requireElement(
-      root.querySelector<HTMLButtonElement>("[data-testid='cpk-snippet-save']"),
-      "Save was not rendered after select",
-    );
-    const delAfter = requireElement(
-      root.querySelector<HTMLButtonElement>(
-        "[data-testid='cpk-snippet-delete']",
-      ),
-      "Delete was not rendered after select",
-    );
-    expect(runAfter.disabled).toBe(false);
-    expect(saveAfter.disabled).toBe(false);
-    expect(delAfter.disabled).toBe(false);
-  } finally {
-    context.teardown();
-  }
-});
-
-test("Event Snippets enables Run and Save after typing into the raw recipe", async () => {
-  const context = await setup({ agentIds: ["default"] });
-  try {
-    await context.open();
-    await context.selectLeaf("event-snippets");
-
-    const root = requireElement(
-      context.inspector.shadowRoot,
-      "Web Inspector shadow root was not rendered",
-    );
-    const recipe = requireElement(
-      root.querySelector<HTMLSelectElement>(
-        "[data-testid='cpk-snippet-recipe']",
-      ),
-      "Recipe selector was not rendered",
-    );
-    recipe.value = "raw";
-    recipe.dispatchEvent(new Event("change", { bubbles: true }));
-    await context.inspector.updateComplete;
-
-    const json = requireElement(
-      root.querySelector<HTMLTextAreaElement>(
-        "[data-testid='cpk-snippet-json']",
-      ),
-      "Events JSON field was not rendered",
-    );
-    expect(
-      requireElement(
-        root.querySelector<HTMLButtonElement>(
-          "[data-testid='cpk-snippet-run']",
-        ),
-        "Run was not rendered",
-      ).disabled,
-    ).toBe(true);
-
-    json.value = JSON.stringify([
-      { type: "RUN_STARTED", threadId: "thread-1", runId: "run-1" },
-      { type: "TEXT_MESSAGE_START", messageId: "msg-1", role: "assistant" },
-      { type: "TEXT_MESSAGE_CONTENT", messageId: "msg-1", delta: "hi" },
-      { type: "TEXT_MESSAGE_END", messageId: "msg-1" },
-      { type: "RUN_FINISHED", threadId: "thread-1", runId: "run-1" },
-    ]);
-    json.dispatchEvent(new Event("input", { bubbles: true }));
-    await context.inspector.updateComplete;
-
-    expect(
-      requireElement(
-        root.querySelector<HTMLButtonElement>(
-          "[data-testid='cpk-snippet-run']",
-        ),
-        "Run was not rendered after typing",
-      ).disabled,
-    ).toBe(false);
-    expect(
-      requireElement(
-        root.querySelector<HTMLButtonElement>(
-          "[data-testid='cpk-snippet-save']",
-        ),
-        "Save was not rendered after typing",
-      ).disabled,
-    ).toBe(false);
-  } finally {
-    context.teardown();
   }
 });

@@ -9,7 +9,6 @@ import {
   ViewEncapsulation,
   Optional,
   Inject,
-  inject,
   input,
   output,
 } from "@angular/core";
@@ -36,12 +35,7 @@ import {
   CopilotChatAssistantMessageCopyButton,
   CopilotChatAssistantMessageThumbsUpButton,
   CopilotChatAssistantMessageThumbsDownButton,
-  CopilotChatAssistantMessageToolbarButton,
 } from "./copilot-chat-assistant-message-buttons";
-import { Bookmark, CopilotIcon } from "../icons/copilot-icon";
-import { CopilotInspector } from "../../inspector";
-import { CopilotChatConfiguration } from "../../chat-configuration";
-import { injectChatLabels } from "../../chat-config";
 import { CopilotChatAssistantMessageToolbar } from "./copilot-chat-assistant-message-toolbar";
 import { cn } from "../../utils";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
@@ -55,9 +49,7 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
     CopilotChatAssistantMessageRenderer,
     CopilotChatAssistantMessageCopyButton,
     CopilotChatAssistantMessageToolbar,
-    CopilotChatAssistantMessageToolbarButton,
     CopilotChatToolCallsView,
-    CopilotIcon,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
@@ -103,8 +95,8 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
         </copilot-chat-tool-calls-view>
       }
 
-      <!-- Toolbar: show for text, or for Inspector actions on tool-only messages -->
-      @if (toolbarVisible() && (hasMessageContent() || inspectorEnabled())) {
+      <!-- Toolbar: show only when there is assistant text content -->
+      @if (toolbarVisible() && hasMessageContent()) {
         @if (toolbarTemplate || toolbarComponent()) {
           <copilot-slot
             [slot]="toolbarTemplate || toolbarComponent()"
@@ -131,29 +123,6 @@ import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
                   (clicked)="handleCopy()"
                 >
                 </copilot-chat-assistant-message-copy-button>
-              }
-
-              @if (inspectorEnabled()) {
-                <button
-                  type="button"
-                  copilotChatAssistantMessageToolbarButton
-                  data-testid="copilot-inspector-button"
-                  [title]="inspectorTitle()"
-                  (click)="handleViewInspector()"
-                >
-                  I
-                </button>
-                @if (hasMessageContent()) {
-                  <button
-                    type="button"
-                    copilotChatAssistantMessageToolbarButton
-                    data-testid="copilot-save-snippet-button"
-                    [title]="saveSnippetTitle()"
-                    (click)="handleSaveSnippet()"
-                  >
-                    <copilot-icon [img]="bookmarkIcon" [size]="18" />
-                  </button>
-                }
               }
 
               <!-- Thumbs up button - show if custom slot provided OR if handler available at top level -->
@@ -443,11 +412,6 @@ export class CopilotChatAssistantMessage {
   // DI service exposes handler availability scoped to CopilotChatView
   // Make it optional with a default fallback for testing
   handlers: CopilotChatViewHandlers;
-  private readonly inspector = inject(CopilotInspector, { optional: true });
-  private readonly chatConfig = inject(CopilotChatConfiguration, {
-    optional: true,
-  });
-  private readonly labels = injectChatLabels();
 
   constructor(
     @Optional()
@@ -505,46 +469,9 @@ export class CopilotChatAssistantMessage {
     children: null, // Will be populated by the toolbar content
   }));
 
-  protected readonly bookmarkIcon = Bookmark;
-
   // Return true if assistant message has non-empty text content
   hasMessageContent(): boolean {
     return (this.message()?.content ?? "").trim().length > 0;
-  }
-
-  inspectorEnabled(): boolean {
-    return this.inspector?.isInspectorEnabled === true;
-  }
-
-  inspectorTitle(): string {
-    return `${this.labels.assistantMessageToolbarInspectorLabel} (${this.labels.assistantMessageToolbarInspectorLocalOnlyLabel})`;
-  }
-
-  saveSnippetTitle(): string {
-    return `${this.labels.assistantMessageToolbarSaveSnippetLabel} (${this.labels.assistantMessageToolbarInspectorLocalOnlyLabel})`;
-  }
-
-  handleViewInspector(): void {
-    const message = this.message();
-    this.inspector?.openInspector({
-      messageId: message.id,
-      threadId: this.chatConfig?.threadId(),
-      agentId: this.chatConfig?.agentId(),
-    });
-  }
-
-  handleSaveSnippet(): void {
-    const message = this.message();
-    if (!this.hasMessageContent()) {
-      return;
-    }
-    void this.inspector?.saveEventSnippet({
-      kind: "text",
-      messageId: message.id,
-      content: message.content ?? "",
-      threadId: this.chatConfig?.threadId(),
-      agentId: this.chatConfig?.agentId(),
-    });
   }
 
   toolCallsViewContext = computed(() => ({

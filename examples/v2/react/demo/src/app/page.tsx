@@ -114,31 +114,6 @@ export default function Home() {
   );
 }
 
-function DemoToolCard({
-  colors,
-  title,
-  body,
-}: {
-  colors: (typeof themeColors)[Theme];
-  title: string;
-  body: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: "12px",
-        backgroundColor: colors.muted,
-        borderRadius: "8px",
-        border: `1px solid ${colors.border}`,
-        color: colors.text,
-      }}
-    >
-      <strong>{title}</strong>
-      <pre style={{ marginTop: "8px", fontSize: "12px" }}>{body}</pre>
-    </div>
-  );
-}
-
 function Chat({
   theme,
   onToggleTheme,
@@ -159,17 +134,6 @@ function Chat({
 
   useConfigureSuggestions({
     instructions: "Suggest follow-up tasks based on the current page content",
-    available: "always",
-  });
-
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Call 3 tools",
-        message:
-          "In this turn, call all three tools: sayHello with name Alem, getTime, and addNumbers with a=2 and b=3. Call each tool. Do not skip any.",
-      },
-    ],
     available: "always",
   });
 
@@ -197,7 +161,6 @@ function Chat({
 
   useFrontendTool({
     name: "sayHello",
-    description: "Greet a person by name.",
     parameters: z.object({
       name: z.string(),
     }),
@@ -205,53 +168,6 @@ function Chat({
       alert(`Hello ${name}`);
       return `Hello ${name}`;
     },
-    render: ({ args, status }) => (
-      <DemoToolCard
-        colors={colors}
-        title="sayHello"
-        body={`Status: ${status}${args.name ? `\nName: ${args.name}` : ""}`}
-      />
-    ),
-  });
-
-  useFrontendTool({
-    name: "getTime",
-    description: "Return the current local time.",
-    parameters: z.object({
-      label: z.string().optional().describe("Optional label for this reading"),
-    }),
-    handler: async ({ label }) => {
-      const time = new Date().toLocaleString();
-      return label ? `${label}: ${time}` : time;
-    },
-    render: ({ args, status, result }) => (
-      <DemoToolCard
-        colors={colors}
-        title="getTime"
-        body={`Status: ${status}${
-          args.label ? `\nLabel: ${args.label}` : ""
-        }${result ? `\n${String(result)}` : ""}`}
-      />
-    ),
-  });
-
-  useFrontendTool({
-    name: "addNumbers",
-    description: "Add two numbers and return the sum.",
-    parameters: z.object({
-      a: z.number().describe("First number"),
-      b: z.number().describe("Second number"),
-    }),
-    handler: async ({ a, b }) => a + b,
-    render: ({ args, status, result }) => (
-      <DemoToolCard
-        colors={colors}
-        title="addNumbers"
-        body={`Status: ${status}\n${args.a ?? "?"} + ${args.b ?? "?"} = ${
-          result ?? "..."
-        }`}
-      />
-    ),
   });
   const toolsMenu = useMemo<(ToolsMenuItem | "-")[]>(
     () => [

@@ -94,6 +94,11 @@ export function ThreadSwitcher() {
           </li>
         ))}
       </ul>
+      {/*
+        `key` here remounts ONLY <CopilotChat>. Keep it that way: a `key` on
+        an ancestor would remount the app tree below it too. See
+        "Keying a subtree on the active thread id" below.
+      */}
       {activeId && (
         <CopilotChat key={activeId} agentId="default" threadId={activeId} />
       )}
@@ -102,7 +107,67 @@ export function ThreadSwitcher() {
 }
 ```
 
+`activeId` starts as `null` and becomes a real thread id only after the
+`useThreads` fetch resolves — so this is an **asynchronous, post-mount**
+change, not something settled during the first render.
+
 ## Common Mistakes
+
+### HIGH — Keying a subtree on the active thread id above app state
+
+Wrong:
+
+```tsx
+// app/layout.tsx
+const { threadId } = useThreadSelection();
+
+return (
+  <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    {/* Remounts EVERYTHING below on every thread change. */}
+    <MyAppProvider key={threadId}>{children}</MyAppProvider>
+  </CopilotKitProvider>
+);
+```
+
+Correct:
+
+```tsx
+// app/layout.tsx — app state stays mounted across thread changes.
+return (
+  <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <MyAppProvider>{children}</MyAppProvider>
+  </CopilotKitProvider>
+);
+```
+
+```tsx
+// Reset only what is genuinely per-thread, as deep as possible.
+<ThreadScopedTranscript key={threadId} />
+```
+
+`key={threadId}` is a legitimate way to reset per-thread state, but it
+discards **all** state below it — refs, correlation maps, in-flight request
+bookkeeping, scroll positions. Placed on a layout-level provider it wipes
+the whole page, with no error and no warning; the symptom surfaces
+somewhere unrelated, as "our response routing is flaky".
+
+Two properties make this hard to catch:
+
+- The reset is asynchronous. Durable threads only exist in Intelligence
+  mode, so with a plain SSE runtime `useThreads` returns nothing, the
+  selected thread never changes, and the remount never fires. It appears
+  the moment Intelligence is wired.
+- It is timing-dependent. Whether state survives depends on whether the
+  user acted before the thread list resolved.
+
+Put the `key` on the smallest subtree that genuinely owns per-thread
+state, and never above state the application expects to keep. If a
+component both dispatches requests and correlates the responses, it must
+sit **outside** the keyed subtree.
+
+Source: `packages/react-core/src/v2/hooks/use-threads.tsx:282-289` (thread
+endpoints exist only in Intelligence mode), `364-368` (the list fetch is
+deferred until `/info` resolves)
 
 ### HIGH — Using `useThreads` with an SSE-only runtime
 

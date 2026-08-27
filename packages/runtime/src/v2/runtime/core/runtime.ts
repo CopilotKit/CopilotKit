@@ -499,8 +499,25 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      runner?: unknown;
       ɵlearning?: unknown;
     };
+    // Runtime guard mirroring the `channels` guard in `CopilotSseRuntime`: this
+    // constructor hardcodes `IntelligenceAgentRunner` into its `super()` call,
+    // so a caller-supplied `runner` can never be honored. The type forbids it
+    // (`runner` is declared only on `CopilotSseRuntimeOptions`), but that is an
+    // excess-property check — a JS / `as any` / non-literal caller passing
+    // `{ intelligence, runner }` would otherwise land here and have `runner`
+    // silently dropped in favor of the auto-wired one. Fail loud instead.
+    if (rawOptions.runner !== undefined) {
+      throw new Error(
+        "Intelligence Runtime auto-wires its own `runner`; passing `runner` " +
+          "alongside `intelligence` is not supported. Durability is managed by " +
+          "the Intelligence service, so `InMemoryAgentRunner` / a SQLite runner " +
+          "is unnecessary here — drop `runner`, or drop `intelligence` to run " +
+          "in SSE mode with a runner you control.",
+      );
+    }
     if (
       rawOptions.identifyUser !== undefined &&
       typeof rawOptions.identifyUser !== "function"
