@@ -101,6 +101,7 @@ vi.mock("@copilotkit/core", async (importOriginal) => {
     ...actual,
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
+    isInspectorThreadBridgeEnabled: () => false,
   } as any;
 });
 
