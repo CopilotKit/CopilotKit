@@ -256,9 +256,18 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   );
   if (!note) return request;
 
+  const existingMessage = request.systemMessage;
+  if (existingMessage != null) {
+    const separator = existingMessage.text === "" ? "" : "\n\n";
+    return {
+      ...request,
+      systemMessage: existingMessage.concat(`${separator}${note}`),
+    };
+  }
+
   const existing = request.systemPrompt;
   if (existing == null) {
-    return { ...request, systemPrompt: new SystemMessage({ content: note }) };
+    return { ...request, systemPrompt: note };
   }
   // existing may be a string OR a SystemMessage
   const baseText =
@@ -269,7 +278,7 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
         : String(existing.content);
   return {
     ...request,
-    systemPrompt: new SystemMessage({ content: `${baseText}\n\n${note}` }),
+    systemPrompt: `${baseText}\n\n${note}`,
   };
 };
 
@@ -387,18 +396,20 @@ const createAppContextBeforeAgent = (state, runtime) => {
  * });
  * ```
  */
-const copilotKitStateSchema = z.object({
-  copilotkit: zodState(
-    z
-      .object({
-        actions: z.array(z.any()),
-        context: z.any().optional(),
-        interceptedToolCalls: z.array(z.any()).optional(),
-        originalAIMessageId: z.string().optional(),
-      })
-      .optional(),
-  ),
-});
+const copilotKitStateSchema = z
+  .object({
+    copilotkit: zodState(
+      z
+        .object({
+          actions: z.array(z.any()),
+          context: z.any().optional(),
+          interceptedToolCalls: z.array(z.any()).optional(),
+          originalAIMessageId: z.string().optional(),
+        })
+        .optional(),
+    ),
+  })
+  .passthrough();
 
 const isToolCallContentBlock = (block: unknown) =>
   typeof block === "object" &&
