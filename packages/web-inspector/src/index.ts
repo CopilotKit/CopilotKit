@@ -9824,27 +9824,27 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      /*
-       * The drawer sits BEHIND the capsule and shares its top edge, so it can
-       * only ever be seen below it. The row/mark overlap is not fixed here,
-       * it is made impossible: the top of this box is covered by the capsule,
-       * which is covered in turn by the mark.
-       *
-       * Because it grows downward from behind a capsule that never moves,
-       * the only thing that changes between states is this element's height.
-       * Nothing morphs and no edge travels.
-       *
-       * No shadow, no second surface token, no blur. The capsule's own bottom
-       * border is the whole separator, measured at 1.82:1 against this
-       * surface on both light and dark host pages - the edge is internal, so
-       * the host page cannot reach it. See spec decision 6.
-       */
       .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-drawer {
         pointer-events: auto;
         opacity: 1;
         visibility: visible;
       }
 
+      /*
+       * The drawer sits BEHIND the capsule and shares its top edge, so it can
+       * only ever be seen below it. The row/mark overlap is not fixed here,
+       * it is made impossible: the top of this box is covered by the capsule,
+       * which is covered in turn by the mark.
+       *
+       * It grows downward from behind a capsule that never moves, so once it
+       * has more than one state, height will be the only thing that changes
+       * between them. Nothing will morph and no edge will travel.
+       *
+       * No shadow, no second surface token, no blur. The capsule's own bottom
+       * border is the whole separator, measured at 1.82:1 against this
+       * surface on both light and dark host pages - the edge is internal, so
+       * the host page cannot reach it. See spec decision 6.
+       */
       .cpk-launcher-drawer {
         position: absolute;
         top: 50%;
@@ -10920,7 +10920,13 @@ export class WebInspectorElement extends LitElement {
 
   private openLauncherHud(): void {
     if (this.isLauncherHudBlocked() || this.isOpen) return;
-    if (!this.resolveLauncherHudSide()) return;
+    if (!this.resolveLauncherHudSide()) {
+      // The room went away under an open drawer. Closing keeps the wrapper's
+      // data-cpk-hud, the button's aria-expanded and the rendered drawer
+      // agreeing; returning early leaves the first two claiming the third.
+      this.closeLauncherHud();
+      return;
+    }
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -11077,9 +11083,10 @@ export class WebInspectorElement extends LitElement {
 
   private renderLauncherDrawer(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
-    // Neither side had room. Both of the island's surfaces stand down together
-    // in that case, so this is the drawer's half of the honest degrade rather
-    // than a second, weaker rule.
+    // Last line of defence, not where the degrade happens: room is resolved
+    // and the state is kept consistent at the open path (openLauncherHud
+    // closes rather than leaving launcherHudOpen true with no side). This
+    // guard only covers a state this render should never actually observe.
     const side = this.launcherHudSide;
     if (side === null) return nothing;
     // The launcher must agree with Home about feature availability. Raw
