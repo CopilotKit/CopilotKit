@@ -4,6 +4,9 @@ import { expect, test, vi } from "vitest";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
 
+const RUNTIME_URL = "/runtime-entitlements-test";
+const RUNTIME_INFO_URL = `${RUNTIME_URL}/info`;
+
 function runtimeInfo(
   runtimeEntitlements: RuntimeInfo["runtimeEntitlements"],
 ): RuntimeInfo {
@@ -26,21 +29,33 @@ function setupRuntimeEntitlementMirror(
 ): {
   copilotkit: CopilotKit;
   dispose: () => void;
-  fetchMock: ReturnType<typeof vi.fn<typeof globalThis.fetch>>;
+  runtimeInfoRequestCount: () => number;
 } {
-  const fetchMock = vi.fn<typeof globalThis.fetch>();
-  for (const info of runtimeInfoResponses) {
-    fetchMock.mockResolvedValueOnce(
+  let runtimeInfoResponseIndex = 0;
+  let runtimeInfoRequestCount = 0;
+  const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) => {
+    const requestUrl = input instanceof Request ? input.url : input.toString();
+    if (requestUrl !== RUNTIME_INFO_URL) {
+      return new Response(null, { status: 404 });
+    }
+
+    runtimeInfoRequestCount += 1;
+    const info =
+      runtimeInfoResponses[
+        Math.min(runtimeInfoResponseIndex, runtimeInfoResponses.length - 1)
+      ];
+    runtimeInfoResponseIndex += 1;
+    return Promise.resolve(
       new Response(JSON.stringify(info), {
         status: 200,
         headers: { "content-type": "application/json" },
       }),
     );
-  }
+  });
   vi.stubGlobal("fetch", fetchMock);
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
-    providers: [provideCopilotKit({ runtimeUrl: "/api" })],
+    providers: [provideCopilotKit({ runtimeUrl: RUNTIME_URL })],
   });
   const copilotkit = TestBed.inject(CopilotKit);
 
@@ -50,7 +65,7 @@ function setupRuntimeEntitlementMirror(
       TestBed.resetTestingModule();
       vi.unstubAllGlobals();
     },
-    fetchMock,
+    runtimeInfoRequestCount: () => runtimeInfoRequestCount,
   };
 }
 
@@ -74,21 +89,22 @@ test("Angular mirrors structured entitlement authority through Core's bounded re
       limits: {},
     },
   };
-  const { copilotkit, dispose, fetchMock } = setupRuntimeEntitlementMirror(
-    runtimeInfo(retryableEntitlements),
-    runtimeInfo(readyEntitlements),
-  );
+  const { copilotkit, dispose, runtimeInfoRequestCount } =
+    setupRuntimeEntitlementMirror(
+      runtimeInfo(retryableEntitlements),
+      runtimeInfo(readyEntitlements),
+    );
 
   try {
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(copilotkit.runtimeEntitlements()).toEqual(retryableEntitlements);
+    await vi.waitFor(() => {
+      expect(runtimeInfoRequestCount()).toBe(1);
+      expect(copilotkit.runtimeEntitlements()).toEqual(retryableEntitlements);
+    });
     expect(copilotkit.runtimeEntitlementRetryPending()).toBe(true);
 
     await vi.advanceTimersByTimeAsync(5_000);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(runtimeInfoRequestCount()).toBe(2);
     expect(copilotkit.runtimeEntitlements()).toEqual(readyEntitlements);
     expect(copilotkit.runtimeEntitlementRetryPending()).toBe(false);
   } finally {
