@@ -15,6 +15,12 @@ import type { WebInspectorElement } from "@copilotkit/web-inspector";
 import { COPILOT_KIT_CONFIG, type CopilotKitConfig } from "./config";
 import { CopilotKit } from "./copilotkit";
 
+/**
+ * Injection token that reports whether the Inspector treats the app as
+ * development. Tests can override it. Applications must not depend on it.
+ *
+ * @internal
+ */
 export const ɵCOPILOTKIT_INSPECTOR_DEVELOPMENT_MODE =
   new InjectionToken<boolean>("CopilotKit Inspector development mode", {
     factory: isDevMode,
