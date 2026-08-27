@@ -14,16 +14,16 @@
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     "declarative-gen-ui": {
-      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
     "a2ui-fixed-schema": {
-      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui/fixed-schema",
+      "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
     },
     "a2ui-recovery": {
-      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui",
-      "shell_docs_path": "/generative-ui/a2ui"
+      "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/a2ui/dynamic-schema",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
     "gen-ui-tool-based": {
       "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",

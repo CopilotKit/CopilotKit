@@ -1,0 +1,159 @@
+---
+title: "Advanced"
+description: "Custom progress rendering, frontend action handlers, and advanced A2UI configuration."
+---
+## Custom A2UI Progress Renderer
+
+When using [Dynamic Schema A2UI](./dynamic-schema), a render sub-agent generates the UI schema and data. This takes a few seconds — during which CopilotKit shows a built-in progress indicator.
+
+You can replace the built-in indicator with your own component using `useRenderTool`.
+
+### How it works
+
+The dynamic schema flow calls a tool named `render_a2ui` under the hood. While the tool call is in progress (`status === "inProgress"`), your custom renderer is shown. Once the A2UI surface starts rendering (`status === "complete"`), your component is hidden and the actual surface takes over.
+
+### Implementation
+
+<Steps>
+<Step>
+### Create a progress component
+
+```tsx title="src/components/a2ui-progress.tsx"
+"use client";
+
+import { memo } from "react";
+
+export const A2UIProgress = memo(function A2UIProgress({
+  parameters,
+}: {
+  parameters: Record<string, unknown>;
+}) {
+  const componentCount = Array.isArray(parameters?.components)
+    ? parameters.components.length
+    : 0;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+        <span>Building interface...</span>
+      </div>
+      {componentCount > 0 && (
+        <p className="mt-2 text-xs text-gray-500">{componentCount} components</p>
+      )}
+    </div>
+  );
+});
+```
+</Step>
+
+<Step>
+### Register the renderer
+
+Use `useRenderTool` to intercept the `render_a2ui` tool call and show your component while it's in progress:
+
+```tsx title="src/hooks/use-a2ui-progress.tsx"
+"use client";
+
+import { useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { A2UIProgress } from "@/components/a2ui-progress";
+
+export function useA2UIProgress() {
+  useRenderTool(
+    {
+      name: "render_a2ui",
+      parameters: z.any(),
+      render: ({ status, parameters }) => {
+        // Hide when complete — the A2UI surface renderer takes over
+        if (status === "complete") return <></>;
+        return <A2UIProgress parameters={parameters ?? {}} />;
+      },
+    },
+    [],
+  );
+}
+```
+</Step>
+
+<Step>
+### Call the hook in your page
+
+```tsx title="src/app/page.tsx"
+function Chat() {
+  useA2UIProgress();
+  return <CopilotChat className="flex-1" />;
+}
+```
+</Step>
+</Steps>
+
+### What's in `parameters`?
+
+As the render sub-agent generates the A2UI surface, the `parameters` object accumulates:
+
+| Field | Type | Description |
+|---|---|---|
+| `surfaceId` | `string` | Unique ID for this surface |
+| `components` | `array` | The component tree (schema) — arrives first |
+| `root` | `string` | Root component ID |
+| `data` | `object` | Data values — arrive after the schema |
+
+## Action Handlers
+
+Fixed-schema buttons declare an `action` in the schema (see [Fixed Schema — Button actions](./fixed-schema#button-actions)). By default a click is forwarded to the agent; the React `createA2UIMessageRenderer` factory lets you intercept it in the browser instead.
+
+### `onAction` interceptor
+
+Pass `onAction` to the renderer factory. Return `null` after handling the action locally; return `undefined` to forward it unchanged to the agent:
+
+```tsx
+import {
+  createA2UIMessageRenderer,
+  type A2UIUserAction,
+} from "@copilotkit/react-core/v2";
+import { theme } from "./theme";
+
+const A2UIMessageRenderer = createA2UIMessageRenderer({
+  theme,
+  onAction: (action: A2UIUserAction) => {
+    if (action.name === "book_flight") {
+      console.info("Booking requested", action.context);
+      return null;
+    }
+    return undefined;
+  },
+});
+```
+
+Pass the returned renderer through the provider's `renderActivityMessages` prop when you need this custom `onAction` behavior. User-provided renderers take precedence over the provider's built-in A2UI renderer.
+
+### Forward a modified action
+
+An interceptor can return a modified `A2UIUserAction`; the renderer forwards that action to the agent:
+
+```tsx
+const A2UIMessageRenderer = createA2UIMessageRenderer({
+  theme,
+  onAction: (action) => {
+    if (action.name !== "book_flight") return;
+    return {
+      ...action,
+      context: { ...(action.context ?? {}), source: "a2ui" },
+    };
+  },
+});
+```
+
+### Action flow
+
+1. Returning `null` handles the action in the browser and skips the agent.
+2. Returning an `A2UIUserAction` forwards that modified action.
+3. Returning `undefined` forwards the original action.
+
+### Types reference
+
+| Type | Description |
+|---|---|
+| `A2UIUserAction` | Dispatched action: `{ name, surfaceId, sourceComponentId, timestamp, context? }` |
+| `createA2UIMessageRenderer` | Factory that accepts `theme` and optional `onAction` |

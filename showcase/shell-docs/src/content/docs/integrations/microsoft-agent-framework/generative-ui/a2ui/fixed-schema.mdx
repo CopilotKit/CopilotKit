@@ -1,0 +1,141 @@
+---
+title: "Fixed Schema A2UI"
+description: "Pre-defined A2UI schema with dynamic data. The fastest approach — no LLM schema generation needed."
+---
+In the fixed-schema approach, you design the UI schema once (in a JSON file or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and your agent tool only provides the data. The surface appears instantly when the tool returns.
+
+## How it works
+
+1. The schema is loaded from a JSON file at startup
+2. The agent tool receives data from the LLM (e.g. a flight to display)
+3. The tool returns an `a2ui_operations` container (createSurface + updateComponents + updateDataModel)
+4. The A2UI middleware intercepts the tool result and renders the surface
+
+The backend agent owns the tool, so the runtime does **not** auto-inject an A2UI
+tool for this demo (`injectA2UITool: false`).
+
+## Implementation
+
+<Steps>
+<Step>
+### Create the A2UI schema
+
+Design your schema using the [A2UI Composer](https://a2ui-composer.ag-ui.com/) or write it by hand, and save it as a JSON file:
+
+```
+src/agents/a2ui_schemas/flight_schema.json
+```
+</Step>
+
+<Step>
+### Define the agent tool (Python)
+
+The tool loads the schema once and builds the `a2ui_operations` container by
+hand — `createSurface` pins the catalog, `updateComponents` supplies the
+authored schema, and `updateDataModel` fills in the runtime data:
+
+```python title="src/agents/a2ui_fixed.py"
+import json
+from pathlib import Path
+from typing import Annotated
+
+from agent_framework import Agent, tool
+from pydantic import Field
+
+CATALOG_ID = "copilotkit://flight-fixed-catalog"
+SURFACE_ID = "flight-fixed-schema"
+
+FLIGHT_SCHEMA = json.load(
+    open(Path(__file__).parent / "a2ui_schemas" / "flight_schema.json")
+)
+
+
+@tool(name="display_flight", description="Show a flight card for the given trip.")
+def display_flight(
+    origin: Annotated[str, Field(description="3-letter origin code, e.g. 'SFO'.")],
+    destination: Annotated[str, Field(description="3-letter destination code.")],
+    airline: Annotated[str, Field(description="Airline name.")],
+    price: Annotated[str, Field(description="Price string, e.g. '$289'.")],
+) -> str:
+    ops = [
+        {"version": "v0.9", "createSurface": {"surfaceId": SURFACE_ID, "catalogId": CATALOG_ID}},
+        {"version": "v0.9", "updateComponents": {"surfaceId": SURFACE_ID, "components": FLIGHT_SCHEMA}},
+        {
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": SURFACE_ID,
+                "path": "/",
+                "value": {"origin": origin, "destination": destination, "airline": airline, "price": price},
+            },
+        },
+    ]
+    return json.dumps({"a2ui_operations": ops})
+```
+
+Key points:
+- The `Annotated` + `Field` parameters are essential — Microsoft Agent Framework serializes them into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
+- The frontend registers a matching catalog (`copilotkit://flight-fixed-catalog`) that pins the schema's component names to real React implementations.
+</Step>
+
+<Step>
+### Register the tool on the agent
+
+```python title="src/agents/a2ui_fixed.py"
+from agent_framework import Agent
+from agent_framework_ag_ui import AgentFrameworkAgent
+
+base_agent = Agent(
+    client=chat_client,
+    name="a2ui_fixed_agent",
+    instructions="You help users find flights. Call `display_flight` with origin, destination, airline, and price.",
+    tools=[display_flight],
+)
+
+agent = AgentFrameworkAgent(agent=base_agent)
+```
+</Step>
+
+<Step>
+### Configure the runtime (TypeScript)
+
+The backend agent owns `display_flight`, so disable auto-injection:
+
+```typescript title="app/api/copilotkit-a2ui-fixed-schema/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "a2ui-fixed-schema": fixedSchemaAgent },
+  a2ui: {
+    injectA2UITool: false,
+  },
+});
+```
+</Step>
+</Steps>
+
+## Button actions
+
+Schema buttons declare an `action` with data-bound context fields. When clicked,
+the values are resolved from that specific card's data:
+
+```json
+{
+  "id": "book-button",
+  "component": "Button",
+  "child": "book-label",
+  "variant": "primary",
+  "action": {
+    "event": {
+      "name": "book_flight",
+      "context": {
+        "flightNumber": { "path": "flightNumber" },
+        "price": { "path": "price" }
+      }
+    }
+  }
+}
+```
+
+When this button is clicked on a card showing flight AA100 at $350, frontend action handling receives `context: { flightNumber: "AA100", price: "$350" }`.
+
+<Callout type="info">
+For custom frontend handling with `createA2UIMessageRenderer` and its `onAction` option, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+</Callout>
