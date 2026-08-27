@@ -7,7 +7,7 @@ hideTOC: true
 
 `@copilotkit/react-native` gives you CopilotKit's provider and hooks for React Native, plus optional pre-built chat components. This guide builds a fully custom chat UI with the hooks, backed by a [Copilot Runtime](/backend/copilot-runtime) endpoint on your server.
 
-The package has three import surfaces — `/headless` (provider + hooks, no native peer dependencies), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
+The package has three import surfaces — `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
 
 ## Prerequisites
 
@@ -54,6 +54,18 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
                 ```
             </Tab>
         </Tabs>
+
+        <Callout type="warn" title="`/headless` needs `@copilotkit/react-native` 1.64.0 or later">
+            This guide imports from `@copilotkit/react-native/headless` throughout. That subpath first ships in **1.64.0** — the commands above install the latest version, so a fresh install has it, but a project already pinned to 1.63.x or earlier does not. There, every `/headless` import fails at bundle time with `Unable to resolve module @copilotkit/react-native/headless`, which on Metro reads like a broken install rather than a version skew.
+
+            Check what you actually resolved before going further:
+
+            ```bash
+            npm ls @copilotkit/react-native
+            ```
+
+            On 1.63.x or earlier, prefer upgrading to 1.64.0+. If you cannot — because you are matching a pinned `@copilotkit/runtime` — the same `CopilotKitProvider`, `useAgent` and `useCopilotKit` are exported from the package root, so dropping `/headless` from the import path is the whole code change. It is not a free swap, though: on those versions the root barrel statically imports `expo-document-picker` and `expo-file-system`, so you must also install (or stub) both, or your release bundle fails with `Unable to resolve module expo-document-picker`. See [Import surfaces](#import-surfaces).
+        </Callout>
     </Step>
     <Step>
         ### Add polyfills
@@ -301,11 +313,11 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
 
 `@copilotkit/react-native` has three JavaScript entry points. They differ in what UI they give you and — crucially for release bundles — which native peer dependencies Metro has to resolve.
 
-| Import | What you get | Native peers Metro must resolve |
-|--------|--------------|---------------------------------|
-| `@copilotkit/react-native/headless` | `CopilotKitProvider` and every platform-agnostic hook. No components. | **None** |
-| `@copilotkit/react-native` (root) | Everything in `/headless`, plus `useAttachments`, the two *headless* chat wrappers (`CopilotChat`, `CopilotModal`) and the `CopilotSidebar` / `CopilotPopup` chrome | `expo-document-picker`, `expo-file-system` (via `useAttachments`) |
-| `@copilotkit/react-native/components` | The **rendered** chat UI: a `CopilotChat` with a message list, a bottom-sheet `CopilotModal`, `CopilotMarkdown`, `AssistantMessage`, `UserMessage` | `@gorhom/bottom-sheet` (which itself needs `react-native-reanimated` + `react-native-gesture-handler`), `react-native-streamdown` |
+| Import | Available since | What you get | Native peers Metro must resolve |
+|--------|-----------------|--------------|---------------------------------|
+| `@copilotkit/react-native/headless` | **1.64.0** | `CopilotKitProvider` and every platform-agnostic hook. No components. | **None** |
+| `@copilotkit/react-native` (root) | all versions | Everything in `/headless`, plus `useAttachments`, the two *headless* chat wrappers (`CopilotChat`, `CopilotModal`) and the `CopilotSidebar` / `CopilotPopup` chrome | `expo-document-picker`, `expo-file-system` (via `useAttachments`) |
+| `@copilotkit/react-native/components` | all versions | The **rendered** chat UI: a `CopilotChat` with a message list, a bottom-sheet `CopilotModal`, `CopilotMarkdown`, `AssistantMessage`, `UserMessage` | `@gorhom/bottom-sheet` (which itself needs `react-native-reanimated` + `react-native-gesture-handler`), `react-native-streamdown` |
 
 Supporting entry points:
 
@@ -328,6 +340,8 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-native/headless"; // [!code highlight]
 ```
+
+On `@copilotkit/react-native` 1.63.x and earlier there is no `/headless` — the subpath was added in 1.64.0 ([#6142](https://github.com/CopilotKit/CopilotKit/pull/6142)) precisely to make this custom-UI case possible without the chat and attachment peers. The root barrel is still the package's default, full surface, and it exports the same provider and hooks on every version; `/headless` is the lean alternative, not a replacement. On a pinned older version, import from the root and install or stub `expo-document-picker` and `expo-file-system`.
 
 Importing the provider auto-installs the polyfills: `/headless` runs the polyfill barrel as its first statement, and the root barrel gets it through its `/headless` re-export. `/components` does **not** install them itself — it relies on the provider you import alongside it (from `/headless` or the root). And because the root barrel re-exports everything from `/headless`, existing `@copilotkit/react-native` imports keep working unchanged.
 
