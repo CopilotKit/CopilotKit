@@ -75,7 +75,7 @@ Copy the generated values into your shell before importing:
 
 ```bash title="Terminal"
 export INTELLIGENCE_API_URL="https://..."
-export INTELLIGENCE_API_KEY="cpk_..."
+export CPK_INTELLIGENCE_API_KEY="cpk_..."
 ```
 
 `COPILOTKIT_API_KEY` is also accepted for the key. You can pass the destination directly with `--api-url` and `--api-key` instead.
@@ -106,7 +106,7 @@ For self-hosted CopilotKit Intelligence, pass the target connection explicitly:
 npx copilotkit@latest import \
   --source langgraph \
   --api-url "$INTELLIGENCE_API_URL" \
-  --api-key "$INTELLIGENCE_API_KEY" \
+  --api-key "$CPK_INTELLIGENCE_API_KEY" \
   --agent-map ./agent-map.json \
   --user-source configurable.user_id \
   --yes

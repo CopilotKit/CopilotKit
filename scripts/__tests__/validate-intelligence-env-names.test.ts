@@ -107,12 +107,23 @@ describe("managedUrlEnvFileAssignment", () => {
 
   it("ignores a different Intelligence variable", () => {
     expect(
-      managedUrlEnvFileAssignment("INTELLIGENCE_API_KEY=cpk_example"),
+      managedUrlEnvFileAssignment("CPK_INTELLIGENCE_API_KEY=cpk_example"),
     ).toBeNull();
   });
 });
 
 describe("the repository", () => {
+  it("uses one Intelligence project key name", () => {
+    const oldName = ["INTELLIGENCE", "API", "KEY"].join("_");
+    const offenders = findViolations().filter(
+      (violation) => violation.name === oldName,
+    );
+
+    expect(
+      offenders.map((violation) => `${violation.file}:${violation.line}`),
+    ).toEqual([]);
+  }, 60_000);
+
   // A repo-wide scan: several `git grep` passes over the whole tree.
   it("never overrides the managed Intelligence URL defaults", () => {
     const offenders = findViolations().filter(

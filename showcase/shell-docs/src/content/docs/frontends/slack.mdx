@@ -14,7 +14,7 @@ New to the product? Start with the [Channels overview](/channels) to understand
 how the SDK, Runtime, Intelligence, and provider connection fit together.
 
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
-You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
+You should have `CHANNEL_CODE` and `CPK_INTELLIGENCE_API_KEY`.
 
 ## Before you start
 
@@ -118,7 +118,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     });
 
     const intelligence = new CopilotKitIntelligence({
-      apiKey: required("INTELLIGENCE_API_KEY"),
+      apiKey: required("CPK_INTELLIGENCE_API_KEY"),
       // Managed deployments use the hosted defaults. Override both URLs
       // together only for self-hosted or non-production Intelligence.
       apiUrl: process.env.INTELLIGENCE_API_URL,
@@ -180,7 +180,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     ### Configure secrets and start
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_KEY=<project-api-key>
+    CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=support-slack
     # Add the agent variables shown for your selected backend.
     PORT=3000
@@ -264,7 +264,7 @@ const channel = createChannel({
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
     Confirm `CHANNEL_CODE` exactly matches the Intelligence Code and the
-    project-scoped `INTELLIGENCE_API_KEY` belongs to the same project. Provider
+    project-scoped `CPK_INTELLIGENCE_API_KEY` belongs to the same project. Provider
     routing comes from the Slack connection attached in Intelligence, not from a
     `createChannel` option.
   </Accordion>

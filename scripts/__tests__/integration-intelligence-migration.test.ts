@@ -12,7 +12,7 @@ const integrationsDir = path.join(repoRoot, "examples", "integrations");
 const MANAGED_API_KEY = "CPK_INTELLIGENCE_API_KEY";
 const MANAGED_API_KEY_SENTINEL = "cpk_secret_must_not_reach_browser_assets";
 const OPTIONAL_TELEMETRY_ID = "CPK_TELEMETRY_ID";
-const LEGACY_API_KEY = "INTELLIGENCE_API_KEY";
+const LEGACY_API_KEY = ["INTELLIGENCE", "API", "KEY"].join("_");
 const LEGACY_TELEMETRY_ID = "COPILOTKIT_TELEMETRY_ID";
 const MANAGED_LICENSE_TOKEN = "COPILOTKIT_LICENSE_TOKEN";
 const MANAGED_API_KEY_SECRET_CONFIG =
@@ -3826,11 +3826,10 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
         true,
       );
       expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
       expect(gate).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
+      expect(gate).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
       for (const contents of [runtime, gate, readme]) {
-        expect(contents).not.toMatch(
-          exactEnvIdentifierPattern(MANAGED_API_KEY),
-        );
         expect(contents).not.toMatch(
           exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
         );
