@@ -148,6 +148,30 @@ import {
   renderLearningView,
 } from "./domains/learning/view.js";
 import { learningViewStyles } from "./domains/learning/view.styles.js";
+import {
+  retryPlaygroundRun,
+  sendPlaygroundMessage,
+  submitPlaygroundOnEnter,
+  updatePlaygroundInput,
+} from "./domains/playground/composer.js";
+import { isPlaygroundSelectElement } from "./domains/playground/element-guards.js";
+import { mapPlaygroundMessagesToAgent } from "./domains/playground/message-adapter.js";
+import {
+  clearPlaygroundSession,
+  createPlaygroundSession,
+  createPlaygroundSubscriber,
+  loadPlaygroundThread,
+  resolvePlaygroundAgentId,
+  runPlaygroundAgent,
+  syncPlaygroundMessages,
+} from "./domains/playground/session.js";
+import { createPlaygroundState } from "./domains/playground/state.js";
+import type {
+  PlaygroundMessage,
+  PlaygroundToolCall,
+} from "./domains/playground/state.js";
+import { renderPlaygroundView as renderPlaygroundDomainView } from "./domains/playground/view.js";
+import { playgroundViewStyles } from "./domains/playground/view.styles.js";
 import { CpkThreadList } from "./domains/threads/list/thread-list.js";
 import {
   CpkThreadInspector,
@@ -971,26 +995,9 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
 
 type SanitizedValue = DisplayValue;
 
-type InspectorToolCall = {
-  id?: string;
-  function?: {
-    name?: string;
-    arguments?: SanitizedValue | string;
-  };
-  toolName?: string;
-  status?: string;
-};
+type InspectorToolCall = PlaygroundToolCall;
 
-type InspectorMessage = {
-  id?: string;
-  role: string;
-  contentText: string;
-  contentRaw?: SanitizedValue;
-  toolCalls: InspectorToolCall[];
-  toolCallId?: string;
-  /** Populated for role="activity" messages (Generative UI). */
-  activityType?: string;
-};
+type InspectorMessage = PlaygroundMessage;
 
 const EMPTY_INSPECTOR_MESSAGES: InspectorMessage[] = [];
 
@@ -1317,18 +1324,7 @@ export class WebInspectorElement extends LitElement {
   private lastScrolledAgentNavigationLayout: string | null = null;
   private readonly learning = createLearningState();
   private readonly threads = createThreadsState();
-  private playgroundAgent: AbstractAgent | null = null;
-  private playgroundAgentId: string | null = null;
-  private playgroundAgentUnsubscribe: (() => void) | null = null;
-  private playgroundMessages: InspectorMessage[] = [];
-  private playgroundInput = "";
-  private playgroundIsRunning = false;
-  private playgroundRunStartedAt: number | null = null;
-  private playgroundReasoningDurations: Map<string, number> = new Map();
-  private playgroundIsLoadingThread = false;
-  private playgroundError: string | null = null;
-  private playgroundSourceThreadId: string | null = null;
-  private playgroundShowEphemeralNotice = false;
+  private readonly playground = createPlaygroundState();
   private contextMenuOpen = false;
   private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
     null;
@@ -2833,7 +2829,7 @@ export class WebInspectorElement extends LitElement {
           const callId =
             typeof call?.id === "string" ? call.id : `tool-call-${index + 1}`;
           const argsString = this.formatToolCallArguments(
-            call.function?.arguments,
+            call.function?.arguments ?? call.arguments,
           );
           const isFailedCall =
             toolError?.toolCallId !== undefined &&
@@ -2866,7 +2862,9 @@ export class WebInspectorElement extends LitElement {
                 argsString
                   ? html`<div class="mt-2">
                     ${renderJsonValue(
-                      coerceJsonValue(call.function?.arguments),
+                      coerceJsonValue(
+                        call.function?.arguments ?? call.arguments,
+                      ),
                     )}
                   </div>`
                   : nothing
@@ -3031,6 +3029,7 @@ export class WebInspectorElement extends LitElement {
   static styles = [
     unsafeCSS(tailwindStyles),
     learningViewStyles,
+    playgroundViewStyles,
     threadsViewStyles,
     css`
       :host {
@@ -3065,142 +3064,6 @@ export class WebInspectorElement extends LitElement {
         --cpk-copy-color: #d5d7df;
         --cpk-copy-hover-background: #292d37;
         --cpk-copy-hover-color: #ffffff;
-      }
-
-      @keyframes cpk-playground-message-enter {
-        from {
-          opacity: 0;
-          filter: blur(2px);
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          filter: blur(0);
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes cpk-playground-thinking {
-        0%,
-        60%,
-        100% {
-          opacity: 0.28;
-          transform: translateY(0);
-        }
-        30% {
-          opacity: 1;
-          transform: translateY(-2px);
-        }
-      }
-
-      .cpk-playground-root {
-        container-type: inline-size;
-        background: #fbfbfd !important;
-      }
-
-      .cpk-playground-header {
-        min-height: 58px;
-        background: #f7f6fd !important;
-      }
-
-      .cpk-playground-welcome {
-        max-width: 560px;
-        padding: 24px;
-      }
-
-      .cpk-playground-welcome-title {
-        color: #24242b;
-        font-size: 15px;
-        font-weight: 600;
-        letter-spacing: -0.015em;
-      }
-
-      .cpk-playground-composer {
-        border: 1px solid #dcdce8;
-        box-shadow:
-          0 8px 22px rgba(31, 23, 57, 0.08),
-          0 1px 2px rgba(31, 23, 57, 0.1);
-      }
-
-      .cpk-playground-composer:focus-within {
-        border-color: #aaa4d4;
-        box-shadow:
-          0 10px 26px rgba(86, 53, 155, 0.13),
-          0 0 0 3px rgba(190, 194, 255, 0.3);
-      }
-
-      .inspector-window[data-color-scheme="dark"] .cpk-playground-root,
-      .inspector-window[data-color-scheme="dark"] .cpk-playground-header {
-        background: #15171e !important;
-      }
-
-      .inspector-window[data-color-scheme="dark"]
-        .cpk-playground-welcome-title {
-        color: #f3f4f8 !important;
-      }
-
-      .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
-        border-color: #464957;
-        background: #15171e !important;
-        box-shadow:
-          0 8px 22px rgba(0, 0, 0, 0.26),
-          0 1px 2px rgba(0, 0, 0, 0.36);
-      }
-
-      .inspector-window[data-color-scheme="dark"]
-        .cpk-playground-composer:focus-within {
-        border-color: #777aae;
-        box-shadow:
-          0 10px 26px rgba(0, 0, 0, 0.34),
-          0 0 0 3px rgba(102, 106, 158, 0.3);
-      }
-
-      .cpk-playground-message-enter {
-        animation: cpk-playground-message-enter 0.24s
-          cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-
-      .cpk-playground-thinking-dot {
-        animation: cpk-playground-thinking 1.2s ease-in-out infinite;
-      }
-
-      .cpk-playground-thinking-dot:nth-child(2) {
-        animation-delay: 0.12s;
-      }
-
-      .cpk-playground-thinking-dot:nth-child(3) {
-        animation-delay: 0.24s;
-      }
-
-      .cpk-playground-reasoning summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
-        transform: rotate(90deg);
-      }
-
-      @container (max-width: 560px) {
-        .cpk-playground-header {
-          align-items: stretch;
-        }
-
-        .cpk-playground-actions {
-          width: 100%;
-        }
-
-        .cpk-playground-thread-select {
-          min-width: 0;
-          max-width: none;
-          flex: 1;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .cpk-playground-message-enter,
-        .cpk-playground-thinking-dot {
-          animation: none;
-        }
       }
 
       .rounded-sm {
@@ -9609,35 +9472,28 @@ export class WebInspectorElement extends LitElement {
   }
 
   private resolvePlaygroundAgentId(preferredAgentId?: string): string | null {
-    const agents = this._core?.agents ?? {};
-    if (
-      preferredAgentId &&
-      preferredAgentId !== "all-agents" &&
-      agents[preferredAgentId]
-    ) {
-      return preferredAgentId;
-    }
-    return Object.keys(agents)[0] ?? null;
+    return resolvePlaygroundAgentId(this._core?.agents ?? {}, preferredAgentId);
   }
 
   private teardownPlaygroundAgent(): void {
-    this.playgroundAgentUnsubscribe?.();
-    this.playgroundAgentUnsubscribe = null;
-    if (this.playgroundAgent && this.playgroundIsRunning) {
-      this.playgroundAgent.abortRun();
-      void this.playgroundAgent.detachActiveRun().catch(() => {});
+    const cleanup = clearPlaygroundSession(this.playground);
+    cleanup.unsubscribe?.();
+    if (cleanup.agent && cleanup.wasRunning) {
+      cleanup.agent.abortRun();
+      void cleanup.agent.detachActiveRun().catch(() => {});
     }
-    this.playgroundAgent = null;
-    this.playgroundAgentId = null;
-    this.playgroundMessages = [];
-    this.playgroundIsRunning = false;
-    this.playgroundRunStartedAt = null;
-    this.playgroundReasoningDurations.clear();
   }
 
   private syncPlaygroundMessages(): void {
-    this.playgroundMessages =
-      this.normalizeAgentMessages(this.playgroundAgent?.messages) ?? [];
+    const agent = this.playground.agent;
+    if (
+      !agent ||
+      !syncPlaygroundMessages(this.playground, agent, (messages) =>
+        this.normalizeAgentMessages(messages),
+      )
+    ) {
+      return;
+    }
     this.requestUpdate();
     void this.updateComplete.then(() => {
       const messages = this.activeRoot.querySelector<HTMLElement>(
@@ -9653,106 +9509,50 @@ export class WebInspectorElement extends LitElement {
     seedState: unknown = {},
     preferredAgentId?: string,
   ): void {
-    const agentId = this.resolvePlaygroundAgentId(
-      preferredAgentId ?? this.selectedContext,
-    );
-    const sourceAgent = agentId
-      ? typeof this._core?.getAgent === "function"
-        ? this._core.getAgent(agentId)
-        : this._core?.agents[agentId]
-      : undefined;
-
     this.teardownPlaygroundAgent();
-    this.playgroundError = null;
-    this.playgroundSourceThreadId = null;
-    this.playgroundShowEphemeralNotice =
-      showEphemeralNotice && this._core?.runtimeMode !== "intelligence";
-
-    if (!agentId || !sourceAgent) {
+    const core = this._core;
+    const session = createPlaygroundSession(this.playground, {
+      agents: core?.agents ?? {},
+      preferredAgentId: preferredAgentId ?? this.selectedContext,
+      runtimeMode: core?.runtimeMode ?? "sse",
+      showEphemeralNotice,
+      seedMessages,
+      seedState,
+      createThreadId: createPlaygroundThreadId,
+      getAgent: core
+        ? (agentId) =>
+            typeof core.getAgent === "function"
+              ? core.getAgent(agentId)
+              : core.agents[agentId]
+        : undefined,
+    });
+    if (!session) {
       this.requestUpdate();
       return;
     }
 
-    if (this.selectedContext !== agentId) {
-      this.selectedContext = agentId;
+    if (this.selectedContext !== session.agentId) {
+      this.selectedContext = session.agentId;
     }
-
-    const playgroundAgent = sourceAgent.clone();
-    playgroundAgent.threadId = createPlaygroundThreadId();
-    playgroundAgent.setMessages(seedMessages);
-    playgroundAgent.setState(seedState);
-    const subscriber: AgentSubscriber = {
-      onMessagesChanged: () => this.syncPlaygroundMessages(),
-      onActivitySnapshotEvent: () => this.syncPlaygroundMessages(),
-      onActivityDeltaEvent: () => this.syncPlaygroundMessages(),
-      onRunErrorEvent: ({ event }) => {
-        this.playgroundError =
-          "message" in event && typeof event.message === "string"
-            ? event.message
-            : "The agent run failed.";
-        this.requestUpdate();
+    const subscriber = createPlaygroundSubscriber(
+      this.playground,
+      session.agent,
+      {
+        syncMessages: () => this.syncPlaygroundMessages(),
+        requestUpdate: () => this.requestUpdate(),
       },
-      onRunFailed: ({ error }) => {
-        this.playgroundError = error.message;
-        this.requestUpdate();
-      },
-    };
-    const { unsubscribe } = playgroundAgent.subscribe(subscriber);
-
-    this.playgroundAgent = playgroundAgent;
-    this.playgroundAgentId = agentId;
-    this.playgroundAgentUnsubscribe = unsubscribe;
+    );
+    const { unsubscribe } = session.agent.subscribe(subscriber);
+    this.playground.agentUnsubscribe = unsubscribe;
     this.syncPlaygroundMessages();
-  }
-
-  private mapThreadMessagesToPlayground(
-    messages: ThreadDebuggerMessage[],
-  ): Message[] {
-    const mapped: Message[] = [];
-    for (const message of messages) {
-      if (message.role === "user") {
-        mapped.push({
-          id: message.id,
-          role: "user",
-          content: message.content ?? "",
-        });
-      } else if (message.role === "assistant") {
-        mapped.push({
-          id: message.id,
-          role: "assistant",
-          content: message.content ?? "",
-          ...(message.toolCalls?.length
-            ? {
-                toolCalls: message.toolCalls.map((toolCall) => ({
-                  id: toolCall.id,
-                  type: "function" as const,
-                  function: {
-                    name: toolCall.name,
-                    arguments:
-                      typeof toolCall.args === "string"
-                        ? toolCall.args
-                        : JSON.stringify(toolCall.args),
-                  },
-                })),
-              }
-            : {}),
-        });
-      } else if (message.role === "tool" && message.toolCallId) {
-        mapped.push({
-          id: message.id,
-          role: "tool",
-          content: message.content ?? "",
-          toolCallId: message.toolCallId,
-        });
-      }
-    }
-    return mapped;
   }
 
   private handlePlaygroundThreadSourceChange = async (
     event: Event,
   ): Promise<void> => {
-    const threadId = (event.currentTarget as HTMLSelectElement).value;
+    const source = event.currentTarget;
+    if (!isPlaygroundSelectElement(source)) return;
+    const threadId = source.value;
     if (!threadId) {
       this.startPlaygroundSession(false);
       return;
@@ -9763,117 +9563,54 @@ export class WebInspectorElement extends LitElement {
       (candidate) => candidate.id === threadId,
     );
     if (!core?.runtimeUrl || !thread) return;
-
-    this.playgroundIsLoadingThread = true;
-    this.playgroundError = null;
+    const loaded = await loadPlaygroundThread(this.playground, {
+      thread,
+      runtimeUrl: core.runtimeUrl,
+      headers: core.headers,
+      fetch,
+      requestUpdate: () => this.requestUpdate(),
+    });
+    if (!loaded) return;
+    this.startPlaygroundSession(
+      false,
+      mapPlaygroundMessagesToAgent(loaded.messages),
+      loaded.threadState,
+      loaded.agentId,
+    );
+    this.playground.sourceThreadId = loaded.threadId;
     this.requestUpdate();
-
-    try {
-      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
-      const encodedThreadId = encodeURIComponent(threadId);
-      const [messagesResponse, stateResponse] = await Promise.all([
-        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-          headers: { ...core.headers },
-        }),
-        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-          headers: { ...core.headers },
-        }),
-      ]);
-      if (!messagesResponse.ok) {
-        throw new Error(
-          `Failed to load thread (HTTP ${messagesResponse.status}).`,
-        );
-      }
-      const messagesBody = (await messagesResponse.json()) as {
-        messages?: ThreadDebuggerMessage[];
-      };
-      const stateBody = stateResponse.ok
-        ? ((await stateResponse.json()) as { state?: unknown })
-        : { state: {} };
-      this.startPlaygroundSession(
-        false,
-        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
-        stateBody.state ?? {},
-        thread.agentId,
-      );
-      this.playgroundSourceThreadId = threadId;
-    } catch (error) {
-      this.playgroundError =
-        error instanceof Error ? error.message : "Failed to load thread.";
-    } finally {
-      this.playgroundIsLoadingThread = false;
-      this.requestUpdate();
-    }
   };
 
   private runPlaygroundAgent = async (): Promise<void> => {
     const core = this._core;
-    const agent = this.playgroundAgent;
-    if (!core || !agent || this.playgroundIsRunning) return;
-
-    this.playgroundIsRunning = true;
-    this.playgroundRunStartedAt = Date.now();
-    this.playgroundError = null;
-    this.requestUpdate();
-    try {
-      await core.runAgent({ agent });
-    } catch (error) {
-      this.playgroundError =
-        error instanceof Error ? error.message : "The agent run failed.";
-    } finally {
-      this.playgroundIsRunning = false;
-      this.syncPlaygroundMessages();
-      let reasoningMessage: InspectorMessage | undefined;
-      for (
-        let index = this.playgroundMessages.length - 1;
-        index >= 0;
-        index -= 1
-      ) {
-        const message = this.playgroundMessages[index];
-        if (message?.role === "reasoning") {
-          reasoningMessage = message;
-          break;
-        }
-      }
-      if (reasoningMessage?.id && this.playgroundRunStartedAt !== null) {
-        this.playgroundReasoningDurations.set(
-          reasoningMessage.id,
-          Date.now() - this.playgroundRunStartedAt,
-        );
-      }
-      this.playgroundRunStartedAt = null;
-      this.requestUpdate();
-    }
+    if (!core) return;
+    await runPlaygroundAgent(this.playground, {
+      runAgent: (agent) => core.runAgent({ agent }),
+      syncMessages: () => this.syncPlaygroundMessages(),
+      requestUpdate: () => this.requestUpdate(),
+    });
   };
 
+  private getPlaygroundComposerController() {
+    return {
+      state: this.playground,
+      selectedAgentId: this.resolvePlaygroundAgentId(this.selectedContext),
+      createMessageId: createPlaygroundThreadId,
+      startSession: (preferredAgentId?: string) =>
+        this.startPlaygroundSession(false, [], {}, preferredAgentId),
+      syncMessages: () => this.syncPlaygroundMessages(),
+      runAgent: this.runPlaygroundAgent,
+      requestUpdate: () => this.requestUpdate(),
+    };
+  }
+
   private sendPlaygroundMessage(content: string): void {
-    if (
-      !content ||
-      this.playgroundIsRunning ||
-      this.playgroundIsLoadingThread
-    ) {
-      return;
-    }
-
-    const selectedAgentId = this.resolvePlaygroundAgentId(this.selectedContext);
-    if (!this.playgroundAgent || this.playgroundAgentId !== selectedAgentId) {
-      this.startPlaygroundSession(false, [], {}, selectedAgentId ?? undefined);
-    }
-    if (!this.playgroundAgent) return;
-
-    this.playgroundAgent.addMessage({
-      id: createPlaygroundThreadId(),
-      role: "user",
-      content,
-    });
-    this.playgroundInput = "";
-    this.syncPlaygroundMessages();
-    void this.runPlaygroundAgent();
+    sendPlaygroundMessage(this.getPlaygroundComposerController(), content);
   }
 
   private handlePlaygroundSubmit = (event: SubmitEvent): void => {
     event.preventDefault();
-    this.sendPlaygroundMessage(this.playgroundInput.trim());
+    this.sendPlaygroundMessage(this.playground.input.trim());
   };
 
   private handlePlaygroundSuggestion = (message: string): void => {
@@ -9881,138 +9618,20 @@ export class WebInspectorElement extends LitElement {
   };
 
   private handlePlaygroundInput = (event: Event): void => {
-    const input = event.currentTarget as HTMLTextAreaElement;
-    this.playgroundInput = input.value;
-    input.style.height = "auto";
-    input.style.height = `${Math.min(input.scrollHeight, 128)}px`;
-    this.requestUpdate();
+    updatePlaygroundInput(this.playground, event, () => this.requestUpdate());
   };
 
   private handlePlaygroundKeyDown = (event: KeyboardEvent): void => {
-    if (event.key !== "Enter" || event.shiftKey) return;
-    event.preventDefault();
-    (event.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
+    submitPlaygroundOnEnter(event);
   };
 
   private handlePlaygroundRetry = (): void => {
-    const agent = this.playgroundAgent;
-    if (!agent || this.playgroundIsRunning) return;
-    let lastUserIndex = -1;
-    for (let index = agent.messages.length - 1; index >= 0; index -= 1) {
-      if (agent.messages[index]?.role === "user") {
-        lastUserIndex = index;
-        break;
-      }
-    }
-    if (lastUserIndex < 0) return;
-    agent.setMessages(agent.messages.slice(0, lastUserIndex + 1));
-    this.syncPlaygroundMessages();
-    void this.runPlaygroundAgent();
+    retryPlaygroundRun(this.getPlaygroundComposerController());
   };
 
   private handlePlaygroundStop = (): void => {
-    this.playgroundAgent?.abortRun();
+    this.playground.agent?.abortRun();
   };
-
-  private renderPlaygroundComposer(
-    agentId: string | null,
-    busy: boolean,
-    hasRetry: boolean,
-    centered = false,
-  ) {
-    const placeholder = !agentId
-      ? "Waiting for an agent..."
-      : this.playgroundIsLoadingThread
-        ? "Loading thread..."
-        : "Type a message...";
-    const sendDisabled =
-      !agentId ||
-      this.playgroundIsLoadingThread ||
-      (!this.playgroundIsRunning && !this.playgroundInput.trim());
-
-    return html`
-      <form
-        class=${
-          centered
-            ? "cpk-playground-form mt-5 w-full"
-            : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"
-        }
-        @submit=${this.handlePlaygroundSubmit}
-      >
-        ${
-          this.playgroundError
-            ? html`<div
-              class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
-              role="alert"
-              data-playground-error
-            >
-              <span class="mt-0.5 shrink-0"
-                >${this.renderIcon("TriangleAlert")}</span
-              >
-              <div class="min-w-0 flex-1">
-                <p class="font-semibold">Agent run failed</p>
-                <p class="mt-0.5 break-words leading-relaxed">
-                  ${this.playgroundError}
-                </p>
-              </div>
-              ${
-                hasRetry
-                  ? html`
-                    <button
-                      type="button"
-                      class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
-                      ?disabled=${busy}
-                      @click=${this.handlePlaygroundRetry}
-                    >
-                      Retry
-                    </button>
-                  `
-                  : nothing
-              }
-            </div>`
-            : nothing
-        }
-        <div
-          class="cpk-playground-composer mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
-        >
-          <textarea
-            class="cpk-playground-input min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
-            rows="1"
-            placeholder=${placeholder}
-            aria-label="Playground message"
-            .value=${this.playgroundInput}
-            ?disabled=${!agentId || busy}
-            @input=${this.handlePlaygroundInput}
-            @keydown=${this.handlePlaygroundKeyDown}
-          ></textarea>
-          <button
-            type=${this.playgroundIsRunning ? "button" : "submit"}
-            class=${`cpk-playground-send mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
-              sendDisabled
-                ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
-                : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
-            }`}
-            aria-label=${
-              this.playgroundIsRunning
-                ? "Stop agent"
-                : "Send playground message"
-            }
-            ?disabled=${sendDisabled}
-            @click=${
-              this.playgroundIsRunning ? this.handlePlaygroundStop : nothing
-            }
-          >
-            ${this.renderIcon(this.playgroundIsRunning ? "Square" : "ArrowUp")}
-          </button>
-        </div>
-        <p
-          class="mx-auto max-w-3xl px-3 py-2 text-center text-[10px] leading-4 text-gray-500"
-        >
-          AI can make mistakes. Please verify important information.
-        </p>
-      </form>
-    `;
-  }
 
   private renderMainContent() {
     if (this.settingsOpen) {
@@ -10071,452 +9690,40 @@ export class WebInspectorElement extends LitElement {
 
   private renderPlaygroundView() {
     const agentId = this.resolvePlaygroundAgentId(this.selectedContext);
-    const sourceThreads = this.threads.threads.filter(
-      (thread) => !agentId || thread.agentId === agentId,
+    return renderPlaygroundDomainView(
+      {
+        state: this.playground,
+        agentId,
+        sourceThreads: this.threads.threads,
+        runtimeMode: this._core?.runtimeMode ?? "sse",
+        runtimeLabel: this._core?.runtimeUrl ?? "Self-managed agent",
+        suggestions:
+          agentId && this._core
+            ? this._core.getSuggestions(agentId).suggestions
+            : [],
+        intelligenceSignupUrl: this.getThreadsIntelligenceSignupUrl(),
+        clipboard: this.getClipboard(),
+        renderIcon: (name) => this.renderIcon(name),
+        renderToolCalls: (toolCalls) => this.renderToolCallDetails(toolCalls),
+      },
+      {
+        composer: {
+          submit: this.handlePlaygroundSubmit,
+          input: this.handlePlaygroundInput,
+          keyDown: this.handlePlaygroundKeyDown,
+          retry: this.handlePlaygroundRetry,
+          stop: this.handlePlaygroundStop,
+        },
+        loadThread: this.handlePlaygroundThreadSourceChange,
+        newThread: () => this.startPlaygroundSession(true),
+        dismissEphemeralNotice: () => {
+          this.playground.showEphemeralNotice = false;
+          this.requestUpdate();
+        },
+        suggestion: this.handlePlaygroundSuggestion,
+        retry: this.handlePlaygroundRetry,
+      },
     );
-    const visibleMessages = this.playgroundMessages.filter(
-      (message) =>
-        message.role === "user" ||
-        message.role === "assistant" ||
-        message.role === "reasoning" ||
-        message.role === "activity",
-    );
-    const hasRetry =
-      this.playgroundAgent?.messages.some(
-        (message) => message.role === "user",
-      ) ?? false;
-    const runtimeMode = this._core?.runtimeMode ?? "sse";
-    const runtimeLabel = this._core?.runtimeUrl ?? "Self-managed agent";
-    const busy = this.playgroundIsRunning || this.playgroundIsLoadingThread;
-    const suggestions =
-      agentId && this._core
-        ? this._core.getSuggestions(agentId).suggestions
-        : [];
-    const lastAssistantIndex = visibleMessages.reduce(
-      (last, message, index) => (message.role === "assistant" ? index : last),
-      -1,
-    );
-    const lastReasoningIndex = visibleMessages.reduce(
-      (last, message, index) => (message.role === "reasoning" ? index : last),
-      -1,
-    );
-    const showWelcome =
-      !this.playgroundIsLoadingThread && visibleMessages.length === 0;
-
-    return html`
-      <div
-        class="cpk-playground-root flex h-full min-h-[420px] flex-col bg-white"
-      >
-        <header
-          class="cpk-playground-header flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-3 py-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-1.5">
-              <h2 class="text-xs font-semibold text-gray-900">Playground</h2>
-              <span
-                class="rounded-full border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[9px] font-medium text-gray-600"
-                >${runtimeMode.toUpperCase()}</span
-              >
-            </div>
-            <div
-              class="mt-0.5 flex min-w-0 items-center gap-1.5 text-[9px] text-gray-600"
-            >
-              <span class="truncate">Agent: ${agentId ?? "waiting..."}</span>
-              <span
-                class="h-3 w-px shrink-0 bg-gray-200"
-                aria-hidden="true"
-              ></span>
-              <span class="truncate" title=${runtimeLabel}
-                >${runtimeLabel}</span
-              >
-            </div>
-          </div>
-          <div
-            class="cpk-playground-actions ml-auto flex min-w-0 items-center gap-2"
-          >
-            ${
-              sourceThreads.length > 0
-                ? html`
-                  <label class="sr-only" for="cpk-playground-thread-source"
-                    >Start from a thread</label
-                  >
-                  <select
-                    id="cpk-playground-thread-source"
-                    class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    .value=${this.playgroundSourceThreadId ?? ""}
-                    ?disabled=${busy}
-                    @change=${this.handlePlaygroundThreadSourceChange}
-                  >
-                    <option
-                      value=""
-                      ?selected=${!this.playgroundSourceThreadId}
-                    >
-                      Load a thread...
-                    </option>
-                    ${sourceThreads.map(
-                      (thread) => html`
-                        <option
-                          value=${thread.id}
-                          ?selected=${
-                            this.playgroundSourceThreadId === thread.id
-                          }
-                        >
-                          ${
-                            thread.name?.trim() ||
-                            `Thread ${thread.id.slice(0, 8)}`
-                          }
-                        </option>
-                      `,
-                    )}
-                  </select>
-                `
-                : nothing
-            }
-            <button
-              type="button"
-              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 [&>svg]:h-3.5 [&>svg]:w-3.5"
-              ?disabled=${busy || !agentId}
-              @click=${() => this.startPlaygroundSession(true)}
-            >
-              ${this.renderIcon("Plus")} <span>New thread</span>
-            </button>
-          </div>
-        </header>
-
-        ${
-          this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
-            ? html`
-              <div
-                role="alert"
-                class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
-                data-playground-ephemeral-notice
-              >
-                <span class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                  >${this.renderIcon("Clock3")}</span
-                >
-                <p class="min-w-0 flex-1 leading-relaxed">
-                  Scratch threads are ephemeral and will be deleted when your
-                  local session ends. Need durable history?
-                  <a
-                    class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                    href=${this.getThreadsIntelligenceSignupUrl()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    >Set up Intelligence</a
-                  >.
-                </p>
-                <button
-                  type="button"
-                  class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                  aria-label="Dismiss ephemeral thread notice"
-                  @click=${() => {
-                    this.playgroundShowEphemeralNotice = false;
-                    this.requestUpdate();
-                  }}
-                >
-                  ${this.renderIcon("X")}
-                </button>
-              </div>
-            `
-            : nothing
-        }
-
-        <div
-          class="min-h-0 flex-1 overflow-y-auto px-3 py-3"
-          data-playground-messages
-        >
-          ${
-            this.playgroundIsLoadingThread
-              ? html`
-                <div
-                  class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
-                >
-                  <span
-                    class="text-gray-500 [&>svg]:animate-spin"
-                    aria-hidden="true"
-                    >${this.renderIcon("LoaderCircle")}</span
-                  >
-                  Loading thread into a scratch session...
-                </div>
-              `
-              : visibleMessages.length === 0
-                ? html`
-                  <div
-                    class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
-                  >
-                    <p class="cpk-playground-welcome-title">
-                      How can I help you today?
-                    </p>
-                    ${this.renderPlaygroundComposer(
-                      agentId,
-                      busy,
-                      hasRetry,
-                      true,
-                    )}
-                  </div>
-                `
-                : html`
-                  <div class="mx-auto flex max-w-3xl flex-col pb-5">
-                    ${visibleMessages.map((message, index) => {
-                      const isUser = message.role === "user";
-                      const isReasoning = message.role === "reasoning";
-                      const isActivity = message.role === "activity";
-                      const content = isActivity
-                        ? (message.activityType ?? "Agent activity")
-                        : message.contentText;
-                      if (
-                        !isReasoning &&
-                        !content &&
-                        message.toolCalls.length === 0
-                      ) {
-                        return nothing;
-                      }
-                      if (isReasoning) {
-                        const isStreaming =
-                          this.playgroundIsRunning &&
-                          index === lastReasoningIndex;
-                        const duration = message.id
-                          ? this.playgroundReasoningDurations.get(message.id)
-                          : undefined;
-                        const durationLabel =
-                          duration === undefined || duration < 1000
-                            ? "a few seconds"
-                            : `${Math.round(duration / 1000)} seconds`;
-                        const label = isStreaming
-                          ? "Thinking…"
-                          : `Thought for ${durationLabel}`;
-
-                        if (isStreaming) {
-                          return html`
-                            <section
-                              class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
-                              data-playground-message-role="reasoning"
-                            >
-                              <div
-                                class="inline-flex items-center gap-1 py-1 font-medium"
-                              >
-                                <span>${label}</span>
-                                ${
-                                  content
-                                    ? nothing
-                                    : html`
-                                        <span
-                                          class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
-                                          aria-hidden="true"
-                                        ></span>
-                                      `
-                                }
-                              </div>
-                              ${
-                                content
-                                  ? html`<div
-                                    class="pb-2 pt-1 leading-5 text-gray-500"
-                                  >
-                                    ${content}
-                                  </div>`
-                                  : nothing
-                              }
-                            </section>
-                          `;
-                        }
-
-                        return content
-                          ? html`
-                              <details
-                                class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
-                                data-playground-message-role="reasoning"
-                              >
-                                <summary
-                                  class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
-                                >
-                                  <span>${label}</span>
-                                  <span
-                                    class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
-                                    >${this.renderIcon("ChevronRight")}</span
-                                  >
-                                </summary>
-                                <div class="pb-2 pt-1 leading-5 text-gray-500">
-                                  ${content}
-                                </div>
-                              </details>
-                            `
-                          : html`
-                              <div
-                                class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
-                                data-playground-message-role="reasoning"
-                              >
-                                ${label}
-                              </div>
-                            `;
-                      }
-                      const isMultiline =
-                        content.includes("\n") || content.length > 72;
-                      const showToolbar =
-                        !isUser &&
-                        !isActivity &&
-                        Boolean(content) &&
-                        !(
-                          this.playgroundIsRunning &&
-                          index === lastAssistantIndex
-                        );
-                      return html`
-                        <article
-                          class=${
-                            isActivity
-                              ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
-                              : isUser
-                                ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
-                                : "cpk-playground-message-enter w-full"
-                          }
-                          data-playground-message-role=${message.role}
-                        >
-                          ${
-                            isActivity
-                              ? html`
-                                <span class="text-gray-500"
-                                  >${this.renderIcon("Activity")}</span
-                                >
-                                <span class="font-medium text-gray-700"
-                                  >Activity</span
-                                >
-                                <span class="truncate">${content}</span>
-                              `
-                              : isUser
-                                ? html`
-                                  <div
-                                    class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
-                                      isMultiline ? "py-2.5" : "py-1"
-                                    }`}
-                                  >
-                                    ${content}
-                                  </div>
-                                `
-                                : html`
-                                  <div
-                                    class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
-                                  >
-                                    ${content}
-                                  </div>
-                                `
-                          }
-                          ${
-                            !isUser && message.toolCalls.length > 0
-                              ? this.renderToolCallDetails(message.toolCalls)
-                              : nothing
-                          }
-                          ${
-                            showToolbar
-                              ? html`
-                                <div
-                                  class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
-                                  data-playground-assistant-toolbar
-                                >
-                                  <cpk-inspector-copy-button
-                                    variant="icon"
-                                    title="Copy message"
-                                    label="Copy message"
-                                    copied-label="Message copied"
-                                    .value=${content}
-                                    .clipboard=${this.getClipboard()}
-                                  >
-                                  </cpk-inspector-copy-button>
-                                  ${
-                                    index === lastAssistantIndex &&
-                                    hasRetry &&
-                                    !busy &&
-                                    !this.playgroundError
-                                      ? html`
-                                        <button
-                                          type="button"
-                                          class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                                          title="Retry last prompt"
-                                          aria-label="Retry last prompt"
-                                          @click=${this.handlePlaygroundRetry}
-                                        >
-                                          ${this.renderIcon("RotateCcw")}
-                                        </button>
-                                      `
-                                      : nothing
-                                  }
-                                </div>
-                              `
-                              : nothing
-                          }
-                        </article>
-                      `;
-                    })}
-                    ${
-                      this.playgroundIsRunning && lastReasoningIndex < 0
-                        ? html`
-                            <div
-                              class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
-                              aria-label="Agent is working"
-                            >
-                              <span
-                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                              ></span>
-                              <span
-                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                              ></span>
-                              <span
-                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                              ></span>
-                            </div>
-                          `
-                        : nothing
-                    }
-                    ${
-                      !busy && lastAssistantIndex >= 0 && suggestions.length > 0
-                        ? html`
-                          <div
-                            class="mt-3 flex flex-wrap items-center gap-1.5"
-                            data-playground-suggestions
-                          >
-                            ${suggestions.map(
-                              (suggestion) => html`
-                                <button
-                                  type="button"
-                                  class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
-                                  ?disabled=${suggestion.isLoading}
-                                  aria-busy=${
-                                    suggestion.isLoading ? "true" : "false"
-                                  }
-                                  @click=${() =>
-                                    this.handlePlaygroundSuggestion(
-                                      suggestion.message,
-                                    )}
-                                >
-                                  ${
-                                    suggestion.isLoading
-                                      ? html`<span
-                                        class="[&>svg]:animate-spin"
-                                        aria-hidden="true"
-                                        >${this.renderIcon(
-                                          "LoaderCircle",
-                                        )}</span
-                                      >`
-                                      : nothing
-                                  }
-                                  <span>${suggestion.title}</span>
-                                </button>
-                              `,
-                            )}
-                          </div>
-                        `
-                        : nothing
-                    }
-                  </div>
-                `
-          }
-        </div>
-
-        ${
-          showWelcome
-            ? nothing
-            : this.renderPlaygroundComposer(agentId, busy, hasRetry)
-        }
-      </div>
-    `;
   }
 
   private renderSettingsPanel() {
@@ -12381,7 +11588,7 @@ export class WebInspectorElement extends LitElement {
       this.autoSelectLatestThread();
     }
 
-    if (key === "playground" && !this.playgroundAgent) {
+    if (key === "playground" && !this.playground.agent) {
       this.startPlaygroundSession(false);
     }
 
