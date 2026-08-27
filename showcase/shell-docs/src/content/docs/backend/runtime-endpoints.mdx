@@ -274,12 +274,12 @@ project's Intelligence API key:
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 ```
 
 `apiKey` is the only required option. `copilotkit project select` writes this
-key into your project's `.env` as `INTELLIGENCE_API_KEY`, and this is what
+key into your project's `.env` as `CPK_INTELLIGENCE_API_KEY`, and this is what
 consumes it.
 
 Keep the key server-side. It is a project API key, so it is a different
@@ -294,7 +294,7 @@ points the two planes at different deployments, which logs a warning:
 
 ```ts
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   apiUrl: process.env.INTELLIGENCE_API_URL,
   wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
 });
