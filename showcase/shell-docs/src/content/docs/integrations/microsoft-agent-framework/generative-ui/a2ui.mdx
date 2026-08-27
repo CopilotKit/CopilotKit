@@ -1,7 +1,125 @@
 ---
 title: "A2UI"
 icon: "lucide/FileJson"
-description: "Render declarative UI components using the A2UI specification."
+description: "Render rich, declarative UI surfaces from a Microsoft Agent Framework agent using the A2UI protocol."
 ---
 
+import A2UI from "@/snippets/shared/generative-ui/a2ui.mdx";
+
 <A2UI components={props.components} />
+
+## What is this?
+
+A2UI lets a Microsoft Agent Framework (Python) agent render rich, declarative
+UI surfaces — dashboards, cards, charts, status badges — instead of plain text,
+composed from a catalog of components you define. This integration ships all
+three A2UI flavors, wired through the `agent-framework-ag-ui` bridge.
+
+## A2UI with Microsoft Agent Framework
+
+CopilotKit ships three complementary A2UI flavors, all backed by a Microsoft
+Agent Framework (Python) agent behind the AG-UI bridge
+(`agent-framework-ag-ui`). Each is a live demo in this integration:
+
+| Approach | Demo | Where the schema comes from |
+|---|---|---|
+| **Dynamic Schema** | `declarative-gen-ui` | A secondary LLM generates both the component tree *and* the data from the conversation. Maximum flexibility. |
+| **Fixed Schema** | `a2ui-fixed-schema` | The component tree is authored ahead of time; the agent only streams *data* into the data model at runtime. Fastest, no schema generation. |
+| **Error Recovery** | `a2ui-recovery` | Same as dynamic schema, but the toolkit's validate→retry recovery loop is made visible: a malformed first render heals into a valid one, and an unrecoverable render shows a graceful fallback. |
+
+All three share the same A2UI wire protocol and the same frontend renderer.
+The difference is *where the schema comes from* and *how the agent owns the
+`generate_a2ui` tool*.
+
+## How it works
+
+Every A2UI surface is assembled from three operations the agent emits and the
+frontend renderer consumes:
+
+1. **`createSurface`** initializes the surface with its catalog (must come first).
+2. **`updateComponents`** defines the component tree (the schema).
+3. **`updateDataModel`** supplies the data that populates the components.
+
+Bring your own catalog of components once and register it on the provider. The
+runtime serializes the catalog (component names + prop schemas) into the
+agent's context so the model knows which components it may emit, and the A2UI
+middleware detects the emitted operations and renders surfaces progressively.
+
+```tsx title="app/demos/declarative-gen-ui/page.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { myCatalog } from "./a2ui/catalog";
+
+<CopilotKit
+  runtimeUrl="/api/copilotkit-declarative-gen-ui"
+  agent="declarative-gen-ui"
+  a2ui={{ catalog: myCatalog }}
+>
+  {children}
+</CopilotKit>;
+```
+
+## Who owns the `generate_a2ui` tool?
+
+The `injectA2UITool` runtime flag decides whether CopilotKit auto-injects the
+`generate_a2ui` tool or the backend agent owns it.
+
+- **Auto-inject (`injectA2UITool: true`, the default when a catalog is
+  registered):** the runtime injects `generate_a2ui`. The dynamic-schema and
+  fixed-schema demos take this path.
+- **Backend-owned (`injectA2UITool: false`):** the agent owns `generate_a2ui`
+  itself, so the runtime must not inject a second copy. The **error-recovery**
+  demo takes this path, using the adapter's native `enable_a2ui`:
+
+```python title="src/agents/recovery_agent.py"
+from agent_framework import Agent
+from agent_framework_ag_ui import AgentFrameworkAgent, enable_a2ui
+
+base_agent = Agent(client=chat_client, instructions=SYSTEM_PROMPT)
+
+# `enable_a2ui` (agent-framework-ag-ui[a2ui] >= 1.2.0) wraps the agent so its
+# `generate_a2ui` runs the render sub-agent + the shared toolkit's
+# validate->retry recovery loop in-process. `maxAttempts` pins the renderer's
+# "Retrying… (N/M)" label; when every attempt fails, the tool returns the
+# `a2ui_recovery_exhausted` envelope, which the renderer surfaces as a tasteful
+# `failed` state instead of a broken surface.
+a2ui_runner = enable_a2ui(
+    base_agent,
+    chat_client,
+    params={
+        "recovery": {"maxAttempts": 3},
+        "default_catalog_id": "declarative-gen-ui-catalog",
+    },
+)
+
+agent = AgentFrameworkAgent(agent=a2ui_runner)
+```
+
+```ts title="app/api/copilotkit-a2ui-recovery/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "a2ui-recovery": recoveryAgent },
+  a2ui: {
+    // The backend agent owns generate_a2ui; do not inject a second copy.
+    injectA2UITool: false,
+    defaultCatalogId: "declarative-gen-ui-catalog",
+  },
+});
+```
+
+The `[a2ui]` extra on `agent-framework-ag-ui` pulls `ag-ui-a2ui-toolkit`, which
+supplies the validation, the recovery loop, and the recovery-exhausted
+envelope. Chat-Completions clients (`OpenAIChatCompletionClient`) stream the
+`render_a2ui` sub-agent's arguments progressively, so surfaces paint as they
+generate.
+
+<Callout>
+  The dynamic-schema and error-recovery demos reuse the same catalog
+  (`declarative-gen-ui-catalog`), so a component authored once renders in every
+  A2UI flavor.
+</Callout>
+
+## Next steps
+
+- [Tool Rendering](/microsoft-agent-framework/generative-ui/tool-rendering) — render an agent's tool calls with custom components.
+- [State Rendering](/microsoft-agent-framework/generative-ui/state-rendering) — drive UI from shared agent state.
+- [A2UI site](https://a2ui.org/) — the A2UI specification.
+- [A2UI Composer](https://a2ui-editor.ag-ui.com/gallery) — design and preview A2UI surfaces.
