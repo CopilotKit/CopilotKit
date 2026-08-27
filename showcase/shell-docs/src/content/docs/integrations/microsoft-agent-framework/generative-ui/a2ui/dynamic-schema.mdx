@@ -7,7 +7,7 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 ## How it works
 
 1. The primary LLM decides to call `generate_a2ui`
-2. Inside the tool, a render sub-agent generates a `render_a2ui` tool call with components, data, and layout
+2. Inside the tool, a secondary LLM generates a `render_a2ui` tool call with components, data, and layout
 3. The tool call arguments stream through the agent as `TOOL_CALL_ARGS` events
 4. The A2UI middleware intercepts these events and renders cards progressively as they stream in
 
@@ -15,32 +15,28 @@ In the dynamic-schema approach, a secondary LLM generates the entire UI — sche
 
 Enable A2UI on your `CopilotRuntime` with `injectA2UITool: true`:
 
-```typescript title="app/api/copilotkit-declarative-gen-ui/route.ts"
+```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
-  agents: { "declarative-gen-ui": declarativeGenUiAgent },
+  agents: { default: myAgent },
   a2ui: {
     injectA2UITool: true,
-    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 ```
 
 `injectA2UITool: true` is the single switch: it forwards the decision to the agent so the A2UI tool is injected. Set it to `false` to turn A2UI off entirely — nothing is injected and no surfaces render.
 
-Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](/generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
+Register your component catalog on the provider so the LLM knows what it can draw (see [Bring Your Own Catalog](../../../../generative-ui/a2ui/dynamic-schema) for the catalog `definitions` / `renderers` / `createCatalog` split):
 
-```tsx title="src/app/demos/declarative-gen-ui/page.tsx"
+```tsx title="frontend/src/app/page.tsx"
 <CopilotKit a2ui={{ catalog: myCatalog }}>
   {/* ... */}
 </CopilotKit>
 ```
 
-## Backend
+## Backend — auto-injected tool
 
-The agent binds **no** A2UI tool of its own. When `injectA2UITool` is on, the
-`agent-framework-ag-ui` adapter auto-injects the native `generate_a2ui` tool
-(built from the agent's own model) and runs it — so the backend is just a plain
-agent with a system prompt:
+The agent binds no A2UI tool of its own. When `injectA2UITool` is on, the `agent-framework-ag-ui` adapter auto-injects `generate_a2ui` (built from your agent's own model) and executes it:
 
 ```python title="src/agents/a2ui_dynamic.py"
 from agent_framework import Agent
@@ -61,25 +57,44 @@ base_agent = Agent(
 agent = AgentFrameworkAgent(agent=base_agent)
 ```
 
-<Callout type="info">
-To own `generate_a2ui` on the backend instead — for example to make the
-validate→retry recovery loop visible — set `injectA2UITool: false` and wrap the
-agent with `enable_a2ui()` from `agent-framework-ag-ui[a2ui]`. It runs the same
-render sub-agent plus the shared toolkit's recovery loop in-process, and returns
-a graceful `a2ui_recovery_exhausted` fallback when a surface can't be produced.
-</Callout>
+The system prompt can be used to tell the model *when* to draw; the adapter supplies and runs the tool.
+
+## Backend — owning the tool
+
+To own `generate_a2ui` yourself — for example to make the validate→retry recovery loop visible — wrap the agent with `enable_a2ui` and set `injectA2UITool: false` so the runtime does not inject a second copy:
+
+```python title="src/agents/recovery_agent.py"
+from agent_framework import Agent
+from agent_framework_ag_ui import AgentFrameworkAgent, enable_a2ui
+
+base_agent = Agent(client=chat_client, name="a2ui_recovery_agent", instructions=SYSTEM_PROMPT)
+
+a2ui_runner = enable_a2ui(
+    base_agent,
+    chat_client,
+    params={
+        "recovery": {"maxAttempts": 3},
+        "default_catalog_id": "declarative-gen-ui-catalog",
+    },
+)
+
+agent = AgentFrameworkAgent(agent=a2ui_runner)
+```
+
+`enable_a2ui(agent, subagent_client, params)` takes an `A2UIToolParams` object — the same params the adapter uses under the hood:
+
+- **`recovery`** — the validate→retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
+- **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
+- **`guidelines`** — optional prompt knobs for the render sub-agent (which components exist and how to compose them).
 
 ## Progressive streaming
 
-The render sub-agent's `render_a2ui` tool call streams as `TOOL_CALL_ARGS`
-events. Use a Chat-Completions client (`OpenAIChatCompletionClient`) for the
-sub-agent so the arguments stream token-by-token rather than buffering. The A2UI
-middleware:
+The secondary LLM's `render_a2ui` tool call streams through the agent as `TOOL_CALL_ARGS` events. The A2UI middleware:
 
 1. Extracts the `components` array as it streams — waits for the full schema before rendering
 2. Extracts `surfaceId` and `root` from the partial JSON
 3. Once the schema is complete, emits `createSurface` + `updateComponents`
-4. Extracts complete data objects progressively and emits `updateDataModel` for each
+4. Extracts complete `items` objects progressively and emits `updateDataModel` for each
 5. Cards appear one by one as data streams in
 
 ## Built-in progress indicator

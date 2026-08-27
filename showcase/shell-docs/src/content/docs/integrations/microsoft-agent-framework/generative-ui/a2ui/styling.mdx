@@ -57,7 +57,7 @@ Override the font family on the surface container:
 
 ## Image sizing
 
-A2UI surfaces render Image components at their natural size. For consistent layouts (e.g. airline logos, avatars), constrain images with CSS:
+A2UI surfaces render Image components at their natural size. For consistent layouts (e.g., airline logos, avatars), constrain images with CSS:
 
 ```css title="src/a2ui/theme.css"
 /* Constrain logos and avatars */
@@ -65,6 +65,14 @@ A2UI surfaces render Image components at their natural size. For consistent layo
   max-width: 28px;
   max-height: 28px;
   border-radius: 4px;
+}
+
+/* Smaller status indicator icons */
+.a2ui-surface img[alt="On Time"],
+.a2ui-surface img[alt="Delayed"] {
+  max-width: 10px;
+  max-height: 10px;
+  border-radius: 50%;
 }
 ```
 
@@ -94,5 +102,41 @@ Target dark mode with a class or media query:
     --input: #444444;
     --background: #111111;
   }
+}
+```
+
+## Full example
+
+Here's a complete theme file combining all the patterns above:
+
+```css title="src/a2ui/theme.css"
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.a2ui-surface {
+  /* Colors */
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --card: #ffffff;
+  --border: #e0e0e0;
+  --radius: 12px;
+  --foreground: #111111;
+  --input: #d4d4d4;
+  --background: #fafafa;
+
+  /* Typography */
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+
+/* Image constraints */
+.a2ui-surface img {
+  max-width: 28px;
+  max-height: 28px;
+  border-radius: 4px;
+}
+
+/* Streaming card width */
+.a2ui-surface .a2ui-card {
+  min-width: 280px;
 }
 ```
