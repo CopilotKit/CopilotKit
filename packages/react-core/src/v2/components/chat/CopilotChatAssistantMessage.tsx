@@ -80,7 +80,7 @@ export function CopilotChatAssistantMessage({
   ...props
 }: CopilotChatAssistantMessageProps) {
   useKatexStyles();
-  const { isLocalInspectorEnabled, openInspector } = useCopilotKitInspector();
+  const { isInspectorEnabled, openInspector } = useCopilotKitInspector();
   const chatConfiguration = useCopilotChatConfiguration();
 
   const boundMarkdownRenderer = renderSlot(
@@ -156,7 +156,7 @@ export function CopilotChatAssistantMessage({
       children: (
         <div className="cpk:flex cpk:items-center cpk:gap-1">
           {boundCopyButton}
-          {isLocalInspectorEnabled && boundInspectorButton}
+          {isInspectorEnabled && boundInspectorButton}
           {(onThumbsUp || thumbsUpButton) && boundThumbsUpButton}
           {(onThumbsDown || thumbsDownButton) && boundThumbsDownButton}
           {(onReadAloud || readAloudButton) && boundReadAloudButton}
@@ -183,7 +183,7 @@ export function CopilotChatAssistantMessage({
     messages?.[messages.length - 1]?.id === message.id;
   const shouldShowToolbar =
     toolbarVisible &&
-    (hasContent || isLocalInspectorEnabled) &&
+    (hasContent || isInspectorEnabled) &&
     !(isRunning && isLatestAssistantMessage);
 
   if (children) {

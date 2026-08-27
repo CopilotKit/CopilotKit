@@ -194,10 +194,6 @@ function SkinCopilotRuntime({
         sandboxFunctions: skin.sandboxFunctions ?? [],
         designSkill: skin.designSkill,
       }}
-      // Surface the product web-inspector (<CopilotKitInspector>) on every
-      // host — this reference demo showcases it. `true` (not "auto") so
-      // deployed demo hosts show it too.
-      showDevConsole={true}
     >
       <CopilotChatConfigurationProvider agentId={skin.id} threadId={threadId}>
         <SkinProvider skin={skin}>
