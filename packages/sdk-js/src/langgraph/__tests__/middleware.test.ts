@@ -145,6 +145,19 @@ describe("frontend tool injection", () => {
 describe("exposeState", () => {
   it("surfaces state owned by a sibling middleware during an agent run", async () => {
     const model = new CapturingFakeListChatModel({ responses: ["Hello"] });
+    const originalSystemMessage = new SystemMessage({
+      content: [
+        {
+          type: "text",
+          text: "You are a helpful assistant.",
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      additional_kwargs: { provider: "anthropic" },
+      response_metadata: { model: "claude" },
+      id: "system-message-id",
+      name: "deep-agent",
+    });
     const agentNameMiddleware = createMiddleware({
       name: "AgentNameMiddleware",
       stateSchema: z.object({ agentName: z.string().optional() }),
@@ -155,7 +168,7 @@ describe("exposeState", () => {
     const agent = createAgent({
       model,
       tools: [],
-      systemPrompt: "You are a helpful assistant.",
+      systemPrompt: originalSystemMessage,
       middleware: [agentNameMiddleware, middleware],
     });
 
@@ -186,6 +199,13 @@ describe("exposeState", () => {
     expect(textBlocks.map((block) => block.text).join("\n")).toContain(
       '"agentName": "Mochi"',
     );
+    expect(systemContent[0]).toEqual(originalSystemMessage.content[0]);
+    expect(systemMessage).toMatchObject({
+      additional_kwargs: originalSystemMessage.additional_kwargs,
+      response_metadata: originalSystemMessage.response_metadata,
+      id: originalSystemMessage.id,
+      name: originalSystemMessage.name,
+    });
   });
 
   it("is off by default — user state never lands in the system prompt", async () => {

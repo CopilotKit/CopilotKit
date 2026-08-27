@@ -256,6 +256,15 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   );
   if (!note) return request;
 
+  const existingMessage = request.systemMessage;
+  if (existingMessage != null) {
+    const separator = existingMessage.text === "" ? "" : "\n\n";
+    return {
+      ...request,
+      systemMessage: existingMessage.concat(`${separator}${note}`),
+    };
+  }
+
   const existing = request.systemPrompt;
   if (existing == null) {
     return { ...request, systemPrompt: note };
