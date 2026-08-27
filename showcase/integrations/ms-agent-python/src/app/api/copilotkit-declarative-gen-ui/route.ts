@@ -31,14 +31,15 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
-    // The backend agent owns the `generate_a2ui` tool explicitly (see
-    // src/agents/a2ui_dynamic.py), so the runtime MUST NOT auto-inject its
-    // own A2UI tool on top. The A2UI middleware still runs — it serialises
-    // the registered client catalog into the agent's `copilotkit.context`
-    // so the secondary LLM inside `generate_a2ui` knows which components
-    // to emit — and it still detects the `a2ui_operations` container in
-    // the tool result and streams rendered surfaces to the frontend.
-    injectA2UITool: false,
+    // Native auto-injection (matches the langgraph-python reference). The
+    // backend agent (src/agents/a2ui_dynamic.py) owns NO A2UI tool; the
+    // runtime forwards `injectA2UITool: true` and the Microsoft Agent
+    // Framework adapter's `plan_a2ui_injection` auto-injects the native
+    // `generate_a2ui` sub-agent (progressive `render_a2ui` streaming + the
+    // shared toolkit recovery loop). The A2UI middleware still serialises the
+    // registered client catalog into the agent's context so the sub-agent
+    // knows which components to emit.
+    injectA2UITool: true,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
     // ("Catalog not found" render error). Pin the catalog the page registers.
