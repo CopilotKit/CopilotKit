@@ -305,7 +305,11 @@ describe("MCP Apps ui/message followUp behavior", () => {
     const agent = new MockMCPProxyAgent();
     agent.agentId = "ui-msg-agent-meta";
 
-    const iframe = await setupMCPActivity(agent, "ui-msg-agent-meta", "Meta test");
+    const iframe = await setupMCPActivity(
+      agent,
+      "ui-msg-agent-meta",
+      "Meta test",
+    );
 
     const runSpy = vi.spyOn(agent, "run");
 

@@ -257,28 +257,6 @@ interface FetchedResource {
   };
 }
 
-interface JSONRPCRequest {
-  jsonrpc: "2.0";
-  id: string | number;
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-interface JSONRPCResponse {
-  jsonrpc: "2.0";
-  id: string | number;
-  result?: unknown;
-  error?: { code: number; message: string };
-}
-
-interface JSONRPCNotification {
-  jsonrpc: "2.0";
-  method: string;
-  params?: Record<string, unknown>;
-}
-
-type JSONRPCMessage = JSONRPCRequest | JSONRPCResponse | JSONRPCNotification;
-
 /**
  * Props for the activity renderer component
  */
@@ -313,7 +291,7 @@ const CopilotKitUiMessageSchema = z.object({
       role: z.string().optional(),
       content: z.array(z.any()).optional(),
       followUp: z.boolean().optional(),
-      _meta: z.record(z.any()).optional(),
+      _meta: z.record(z.string(), z.any()).optional(),
     })
     .passthrough(),
 });
