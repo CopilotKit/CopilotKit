@@ -2174,10 +2174,17 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
 
   await context.activate(pill(context.inspector));
   expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  const errorAction = root(context.inspector).querySelector<HTMLButtonElement>(
+    '[data-cpk-event-error="run"]',
+  );
+  expect(errorAction?.textContent).toContain("model refused the run");
+  expect(errorAction?.tagName).toBe("BUTTON");
+  expect(errorAction?.closest('[role="alert"]')).not.toBeNull();
   expect(
-    root(context.inspector).querySelector('[data-cpk-event-error="run"]')
-      ?.textContent,
-  ).toContain("model refused the run");
+    root(context.inspector).querySelector(
+      '[role="alert"][data-cpk-event-error="run"]',
+    ),
+  ).toBeNull();
 });
 
 test("a run error with no run to point at claims no highlight", async () => {

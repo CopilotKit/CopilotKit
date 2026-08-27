@@ -18,7 +18,7 @@ import type {
   ɵThread,
   RuntimeLicenseStatus,
 } from "@copilotkit/core";
-import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
+import type { AbstractAgent, Message } from "@ag-ui/client";
 import type {
   Anchor,
   ContextKey,
@@ -166,10 +166,59 @@ import {
   syncPlaygroundMessages,
 } from "./domains/playground/session.js";
 import { createPlaygroundState } from "./domains/playground/state.js";
+import {
+  AGENT_SCOPE_POPUP_ID,
+  AGENT_SCOPE_TRIGGER_ID,
+  createLiveInspectionState,
+} from "./domains/live-inspection/state.js";
 import type {
-  PlaygroundMessage,
-  PlaygroundToolCall,
-} from "./domains/playground/state.js";
+  InspectorAgentEventType,
+  InspectorEvent,
+  InspectorMessage,
+  InspectorToolCall,
+  InspectorToolDefinition,
+} from "./domains/live-inspection/state.js";
+import {
+  normalizeAgentMessages,
+  subscribeToAgent as subscribeLiveAgent,
+  teardownAgentSubscriptions as teardownLiveAgentSubscriptions,
+  unsubscribeFromAgent as unsubscribeLiveAgent,
+} from "./domains/live-inspection/agent-adapter.js";
+import { recordEvent as recordLiveEvent } from "./domains/live-inspection/event-buffer.js";
+import {
+  EMPTY_INSPECTOR_MESSAGES,
+  agentStats,
+  agentStatus,
+  hasRenderableState,
+  latestMessagesForAgent,
+  latestStateForAgent,
+  liveAgentMessagesForThread,
+} from "./domains/live-inspection/agents/model.js";
+import {
+  renderAgentScopeDropdown,
+  renderAgentsView as renderLiveAgentsView,
+} from "./domains/live-inspection/agents/view.js";
+import { buildCapabilityRows } from "./domains/live-inspection/capabilities/model.js";
+import type { CapabilityToolRow } from "./domains/live-inspection/capabilities/model.js";
+import { renderCapabilitiesView as renderLiveCapabilitiesView } from "./domains/live-inspection/capabilities/view.js";
+import { normalizeContextStore } from "./domains/live-inspection/context/model.js";
+import { renderContextView as renderLiveContextView } from "./domains/live-inspection/context/view.js";
+import {
+  clearEvents,
+  eventsForSelectedContext,
+  resetEventFilters,
+  resizeEventColumn,
+} from "./domains/live-inspection/events/model.js";
+import { renderEventsView } from "./domains/live-inspection/events/view.js";
+import { liveInspectionViewStyles } from "./domains/live-inspection/events/view.styles.js";
+import {
+  refreshToolsSnapshot as refreshLiveToolsSnapshot,
+  toolsForAgent,
+} from "./domains/live-inspection/tools/model.js";
+import {
+  renderAgentToolsSection as renderLiveAgentToolsSection,
+  renderToolsView as renderLiveToolsView,
+} from "./domains/live-inspection/tools/view.js";
 import { renderPlaygroundView as renderPlaygroundDomainView } from "./domains/playground/view.js";
 import { playgroundViewStyles } from "./domains/playground/view.styles.js";
 import { CpkThreadList } from "./domains/threads/list/thread-list.js";
@@ -289,8 +338,8 @@ export type {
   ThreadDebuggerToolCall,
 } from "./shared/thread-debugger/types.js";
 export { CpkThreadInspector, ɵCpkThreadDetails };
-export { buildCapabilityRows as ɵbuildCapabilityRows };
-export type { CapabilityToolRow as ɵCapabilityToolRow };
+export { buildCapabilityRows as ɵbuildCapabilityRows } from "./domains/live-inspection/capabilities/model.js";
+export type { CapabilityToolRow as ɵCapabilityToolRow } from "./domains/live-inspection/capabilities/model.js";
 
 export type InspectorOpenOptions = {
   /** Select the thread that contains the message. */
@@ -756,13 +805,11 @@ const DEFAULT_BUTTON_SIZE: Size = {
 };
 const DEFAULT_WINDOW_SIZE: Size = { width: 960, height: 740 };
 const DOCKED_LEFT_WIDTH = 720;
-const MAX_AGENT_EVENTS = 200;
 const INTERACTIVE_FOCUS_BASE_STYLE =
   "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
 // Cap on banner impressions held while waiting for the runtime handshake, so a
 // runtime that never connects can't accumulate an unbounded queue.
 const MAX_PENDING_BANNER_VIEWED = 20;
-const MAX_TOTAL_EVENTS = 500;
 const INTELLIGENCE_SIGNUP_URL = "https://intelligence.copilotkit.ai";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Label for the Capabilities tab (client-authoritative dev experimentation
@@ -938,156 +985,7 @@ const INTELLIGENCE_STORY_CHAIN = [
 ] as const;
 type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
 
-type InspectorAgentEventType =
-  | "RUN_STARTED"
-  | "RUN_FINISHED"
-  | "RUN_ERROR"
-  | "STEP_STARTED"
-  | "STEP_FINISHED"
-  | "TEXT_MESSAGE_START"
-  | "TEXT_MESSAGE_CONTENT"
-  | "TEXT_MESSAGE_END"
-  | "TOOL_CALL_START"
-  | "TOOL_CALL_ARGS"
-  | "TOOL_CALL_END"
-  | "TOOL_CALL_RESULT"
-  | "STATE_SNAPSHOT"
-  | "STATE_DELTA"
-  | "MESSAGES_SNAPSHOT"
-  | "RAW_EVENT"
-  | "CUSTOM_EVENT"
-  | "REASONING_START"
-  | "REASONING_MESSAGE_START"
-  | "REASONING_MESSAGE_CONTENT"
-  | "REASONING_MESSAGE_END"
-  | "REASONING_END"
-  | "REASONING_ENCRYPTED_VALUE"
-  | "ACTIVITY_SNAPSHOT"
-  | "ACTIVITY_DELTA";
-
-const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
-  "RUN_STARTED",
-  "RUN_FINISHED",
-  "RUN_ERROR",
-  "STEP_STARTED",
-  "STEP_FINISHED",
-  "TEXT_MESSAGE_START",
-  "TEXT_MESSAGE_CONTENT",
-  "TEXT_MESSAGE_END",
-  "TOOL_CALL_START",
-  "TOOL_CALL_ARGS",
-  "TOOL_CALL_END",
-  "TOOL_CALL_RESULT",
-  "STATE_SNAPSHOT",
-  "STATE_DELTA",
-  "MESSAGES_SNAPSHOT",
-  "RAW_EVENT",
-  "CUSTOM_EVENT",
-  "REASONING_START",
-  "REASONING_MESSAGE_START",
-  "REASONING_MESSAGE_CONTENT",
-  "REASONING_MESSAGE_END",
-  "REASONING_END",
-  "REASONING_ENCRYPTED_VALUE",
-  "ACTIVITY_SNAPSHOT",
-  "ACTIVITY_DELTA",
-] as const;
-
 type SanitizedValue = DisplayValue;
-
-type InspectorToolCall = PlaygroundToolCall;
-
-type InspectorMessage = PlaygroundMessage;
-
-const EMPTY_INSPECTOR_MESSAGES: InspectorMessage[] = [];
-
-function textFromUnknownContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    const parts: string[] = [];
-    for (const part of content) {
-      if (typeof part === "string") {
-        parts.push(part);
-        continue;
-      }
-      if (typeof part === "object" && part !== null && "text" in part) {
-        const text = part.text;
-        if (typeof text === "string") parts.push(text);
-      }
-    }
-    return parts.join("");
-  }
-  if (typeof content === "object" && content !== null && "text" in content) {
-    const text = content.text;
-    if (typeof text === "string") return text;
-  }
-  return "";
-}
-
-type InspectorToolDefinition = {
-  agentId: string;
-  name: string;
-  description?: string;
-  parameters?: unknown;
-  type: "handler" | "renderer";
-};
-
-// ─── Capabilities tab view-models ────────────────────────────────────────────
-// A single toggle row. `key` is the stable identity used as a Lit list key; for
-// tools it is `${agentId}:${name}` (agentId "" for global tools), for catalog
-// components it is the component name.
-type CapabilityToolRow = {
-  key: string;
-  name: string;
-  description?: string;
-  agentId?: string;
-  enabled: boolean;
-};
-
-// Minimal structural view of CopilotKitCore that the pure helper needs, so
-// buildCapabilityRows is trivially unit-testable with a plain object. Method
-// names MUST match the A1 contract exactly.
-type CapabilityToolSource = {
-  tools?: ReadonlyArray<{
-    name: string;
-    description?: string;
-    agentId?: string;
-  }>;
-  isToolEnabled: (name: string, agentId?: string) => boolean;
-};
-
-/**
- * Map core.tools (the registry INCLUDING disabled tools) into Capabilities-tab
- * frontend-tool rows. Pure: no DOM, no `this`. Reads current on/off state from
- * core.isToolEnabled(name, agentId?) per the A1 contract.
- */
-function buildCapabilityRows(core: CapabilityToolSource): CapabilityToolRow[] {
-  const rows: CapabilityToolRow[] = [];
-  for (const tool of core.tools ?? []) {
-    const agentId = tool.agentId ?? "";
-    const key = `${agentId}:${tool.name}`;
-    rows.push({
-      key,
-      name: tool.name,
-      description: tool.description,
-      agentId: tool.agentId,
-      enabled: core.isToolEnabled(tool.name, tool.agentId),
-    });
-  }
-  return rows.sort((a, b) => {
-    const agentCompare = (a.agentId ?? "").localeCompare(b.agentId ?? "");
-    if (agentCompare !== 0) return agentCompare;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-type InspectorEvent = {
-  id: string;
-  agentId: string;
-  type: InspectorAgentEventType;
-  timestamp: number;
-  payload: SanitizedValue;
-};
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1245,23 +1143,56 @@ export class WebInspectorElement extends LitElement {
     code: CopilotKitCoreErrorCode;
     message: string;
   } | null = null;
-  private agentSubscriptions: Map<string, () => void> = new Map();
-  private agentEvents: Map<string, InspectorEvent[]> = new Map();
-  private agentMessages: Map<string, InspectorMessage[]> = new Map();
+  private readonly live = createLiveInspectionState();
+
+  private get agentSubscriptions() {
+    return this.live.agentSubscriptions;
+  }
+
+  private get agentEvents() {
+    return this.live.agentEvents;
+  }
+
+  private get agentMessages() {
+    return this.live.agentMessages;
+  }
+
+  private get agentStates() {
+    return this.live.agentStates;
+  }
+
+  private get flattenedEvents() {
+    return this.live.flattenedEvents;
+  }
+
+  private set flattenedEvents(events: InspectorEvent[]) {
+    this.live.flattenedEvents = events;
+  }
+
+  private get eventCounter() {
+    return this.live.eventCounter;
+  }
+
+  private set eventCounter(value: number) {
+    this.live.eventCounter = value;
+  }
+
+  private get contextStore() {
+    return this.live.contextStore;
+  }
+
+  private set contextStore(value: typeof this.live.contextStore) {
+    this.live.contextStore = value;
+  }
+
+  private get liveMessageVersion() {
+    return this.live.liveMessageVersion;
+  }
   // Per-thread monotonic version that ticks every time an agent currently
   // running on that thread emits a message change. `cpk-thread-details`
   // watches this prop and re-fetches `/threads/:id/messages` when it changes,
   // which is how live updates flow into the conversation view without
   // duplicating the runtime's message-shape conversion in the inspector.
-  private liveMessageVersion: Map<string, number> = new Map();
-  private agentStates: Map<string, SanitizedValue> = new Map();
-  private flattenedEvents: InspectorEvent[] = [];
-  private eventCounter = 0;
-  private contextStore: Record<
-    string,
-    { description?: string; value: unknown }
-  > = {};
-
   private pointerId: number | null = null;
   private dragStart: Position | null = null;
   private dragOffset: Position = { x: 0, y: 0 };
@@ -1340,23 +1271,61 @@ export class WebInspectorElement extends LitElement {
   private pendingSelectedContext: string | null = null;
   public autoAttachCore = true;
   private attemptedAutoAttach = false;
-  private cachedTools: InspectorToolDefinition[] = [];
-  private toolSignature = "";
-  // Bumped after every core.setToolEnabled / core.setCatalogComponentEnabled
-  // call so the Capabilities tab re-paints from the fresh isToolEnabled /
-  // isCatalogComponentEnabled getters. There is no core subscriber for
-  // enablement changes — the inspector itself drives the toggle, so we force
-  // the re-render locally.
-  private _capabilitiesVersion = 0;
-  private eventFilterText = "";
-  private eventTypeFilter: InspectorAgentEventType | "all" = "all";
-  // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
-  private evtColWidths = [100, 80, 150];
-  private _evtColResize: {
-    col: number;
-    startX: number;
-    startW: number;
-  } | null = null;
+  private get _capabilitiesVersion() {
+    return this.live.capabilitiesVersion;
+  }
+
+  private set _capabilitiesVersion(value: number) {
+    this.live.capabilitiesVersion = value;
+  }
+
+  private get cachedTools() {
+    return this.live.cachedTools;
+  }
+
+  private set cachedTools(value: InspectorToolDefinition[]) {
+    this.live.cachedTools = value;
+  }
+
+  private get toolSignature() {
+    return this.live.toolSignature;
+  }
+
+  private set toolSignature(value: string) {
+    this.live.toolSignature = value;
+  }
+
+  private get eventFilterText() {
+    return this.live.eventFilterText;
+  }
+
+  private set eventFilterText(value: string) {
+    this.live.eventFilterText = value;
+  }
+
+  private get eventTypeFilter() {
+    return this.live.eventTypeFilter;
+  }
+
+  private set eventTypeFilter(value: InspectorAgentEventType | "all") {
+    this.live.eventTypeFilter = value;
+  }
+
+  private get evtColWidths() {
+    return this.live.eventColumnWidths;
+  }
+
+  private set evtColWidths(value: number[]) {
+    this.live.eventColumnWidths = value;
+  }
+
+  private get _evtColResize() {
+    return this.live.eventColumnResize;
+  }
+
+  private set _evtColResize(value: typeof this.live.eventColumnResize) {
+    this.live.eventColumnResize = value;
+  }
 
   private announcementHtml: string | null = null;
   private announcementMarkdown: string | null = null;
@@ -2057,7 +2026,7 @@ export class WebInspectorElement extends LitElement {
         }
       },
       onContextChanged: ({ context }) => {
-        this.contextStore = this.normalizeContextStore(context);
+        this.contextStore = normalizeContextStore(context);
         this.requestUpdate();
       },
       onSuggestionsChanged: () => this.requestUpdate(),
@@ -2112,7 +2081,7 @@ export class WebInspectorElement extends LitElement {
 
     // Initialize context from core
     if (core.context) {
-      this.contextStore = this.normalizeContextStore(core.context);
+      this.contextStore = normalizeContextStore(core.context);
     }
 
     // NOTE: the memory store is intentionally NOT touched here. Calling
@@ -2206,15 +2175,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private teardownAgentSubscriptions(): void {
-    for (const unsubscribe of this.agentSubscriptions.values()) {
-      unsubscribe();
-    }
-    this.agentSubscriptions.clear();
-    this.agentEvents.clear();
-    this.agentMessages.clear();
-    this.agentStates.clear();
-    this.flattenedEvents = [];
-    this.eventCounter = 0;
+    teardownLiveAgentSubscriptions(this.live);
   }
 
   private processAgentsChanged(
@@ -2251,31 +2212,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private refreshToolsSnapshot(): void {
-    if (!this._core) {
-      if (this.cachedTools.length > 0) {
-        this.cachedTools = [];
-        this.toolSignature = "";
-        this.requestUpdate();
-      }
-      return;
-    }
-
-    const tools = this.extractToolsFromAgents();
-    const signature = JSON.stringify(
-      tools.map((tool) => ({
-        agentId: tool.agentId,
-        name: tool.name,
-        type: tool.type,
-        hasDescription: Boolean(tool.description),
-        hasParameters: Boolean(tool.parameters),
-      })),
-    );
-
-    if (signature !== this.toolSignature) {
-      this.toolSignature = signature;
-      this.cachedTools = tools;
-      this.requestUpdate();
-    }
+    if (refreshLiveToolsSnapshot(this.live, this._core)) this.requestUpdate();
   }
 
   private tryAutoAttachCore(): void {
@@ -2309,177 +2246,14 @@ export class WebInspectorElement extends LitElement {
   }
 
   private subscribeToAgent(agent: AbstractAgent): void {
-    if (!agent.agentId) {
-      return;
-    }
-
-    const agentId = agent.agentId;
-
-    this.unsubscribeFromAgent(agentId);
-
-    const subscriber: AgentSubscriber = {
-      onRunStartedEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "RUN_STARTED", event);
-      },
-      onRunFinishedEvent: (params) => {
-        this.recordAgentEvent(agentId, "RUN_FINISHED", {
-          event: params.event,
-          result: "result" in params ? params.result : undefined,
-        });
-        if (this.areThreadEndpointsAvailable()) {
-          this.refreshOwnedThreadStore(agentId);
-        }
-      },
-      onRunErrorEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "RUN_ERROR", event);
-      },
-      onStepStartedEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "STEP_STARTED", event);
-      },
-      onStepFinishedEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "STEP_FINISHED", event);
-      },
-      onTextMessageStartEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "TEXT_MESSAGE_START", event);
-      },
-      onTextMessageContentEvent: ({ event, textMessageBuffer }) => {
-        this.recordAgentEvent(agentId, "TEXT_MESSAGE_CONTENT", {
-          event,
-          textMessageBuffer,
-        });
-      },
-      onTextMessageEndEvent: ({ event, textMessageBuffer }) => {
-        this.recordAgentEvent(agentId, "TEXT_MESSAGE_END", {
-          event,
-          textMessageBuffer,
-        });
-      },
-      onToolCallStartEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "TOOL_CALL_START", event);
-      },
-      onToolCallArgsEvent: ({
-        event,
-        toolCallBuffer,
-        toolCallName,
-        partialToolCallArgs,
-      }) => {
-        this.recordAgentEvent(agentId, "TOOL_CALL_ARGS", {
-          event,
-          toolCallBuffer,
-          toolCallName,
-          partialToolCallArgs,
-        });
-      },
-      onToolCallEndEvent: ({ event, toolCallArgs, toolCallName }) => {
-        this.recordAgentEvent(agentId, "TOOL_CALL_END", {
-          event,
-          toolCallArgs,
-          toolCallName,
-        });
-      },
-      onToolCallResultEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "TOOL_CALL_RESULT", event);
-      },
-      onStateSnapshotEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "STATE_SNAPSHOT", event);
-        this.syncAgentState(agent);
-      },
-      onStateDeltaEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "STATE_DELTA", event);
-        this.syncAgentState(agent);
-      },
-      onMessagesSnapshotEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "MESSAGES_SNAPSHOT", event);
-        this.syncAgentMessages(agent);
-      },
-      onMessagesChanged: () => {
-        this.syncAgentMessages(agent);
-      },
-      onStateChanged: () => {
-        this.syncAgentState(agent);
-      },
-      onRawEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "RAW_EVENT", event);
-      },
-      onCustomEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "CUSTOM_EVENT", event);
-      },
-      onReasoningStartEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "REASONING_START", event);
-      },
-      onReasoningMessageStartEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "REASONING_MESSAGE_START", event);
-      },
-      onReasoningMessageContentEvent: ({ event, reasoningMessageBuffer }) => {
-        this.recordAgentEvent(agentId, "REASONING_MESSAGE_CONTENT", {
-          event,
-          reasoningMessageBuffer,
-        });
-      },
-      onReasoningMessageEndEvent: ({ event, reasoningMessageBuffer }) => {
-        this.recordAgentEvent(agentId, "REASONING_MESSAGE_END", {
-          event,
-          reasoningMessageBuffer,
-        });
-      },
-      onReasoningEndEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "REASONING_END", event);
-      },
-      onReasoningEncryptedValueEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
-      },
-      onActivitySnapshotEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "ACTIVITY_SNAPSHOT", event);
-        this.syncAgentMessages(agent);
-      },
-      onActivityDeltaEvent: ({ event }) => {
-        this.recordAgentEvent(agentId, "ACTIVITY_DELTA", event);
-        this.syncAgentMessages(agent);
-      },
-    };
-
-    const { unsubscribe } = agent.subscribe(subscriber);
-    this.agentSubscriptions.set(agentId, unsubscribe);
-    this.syncAgentMessages(agent);
-    this.syncAgentState(agent);
-
-    if (!this.agentEvents.has(agentId)) {
-      this.agentEvents.set(agentId, []);
-    }
-  }
-
-  private unsubscribeFromAgent(agentId: string): void {
-    const unsubscribe = this.agentSubscriptions.get(agentId);
-    if (unsubscribe) {
-      unsubscribe();
-      this.agentSubscriptions.delete(agentId);
-    }
-  }
-
-  private mapMessagesToConversation(
-    messages: InspectorMessage[] | null,
-  ): { id: string; type: string; content: string; createdAt: string }[] | null {
-    if (!messages) return null;
-    return messages
-      .filter(
-        (m) =>
-          m.role === "user" || m.role === "assistant" || m.role === "activity",
-      )
-      .map((m, i) => ({
-        id: m.id ?? `msg-${i}`,
-        type:
-          m.role === "user"
-            ? "user"
-            : m.role === "activity"
-              ? "generative-ui"
-              : "assistant",
-        // For activity messages, store the activityType as a label so the
-        // renderer has something meaningful to display.
-        // TODO: render activity payload once available.
-        content:
-          m.role === "activity" ? (m.activityType ?? "unknown") : m.contentText,
-        createdAt: "",
-      }));
+    subscribeLiveAgent(this.live, agent, {
+      recordEvent: (agentId, type, payload) =>
+        this.recordAgentEvent(agentId, type, payload),
+      requestUpdate: () => this.requestUpdate(),
+      refreshTools: () => this.refreshToolsSnapshot(),
+      refreshThreads: (agentId) => this.refreshOwnedThreadStore(agentId),
+      canRefreshThreads: () => this.areThreadEndpointsAvailable(),
+    });
   }
 
   private recordAgentEvent(
@@ -2487,89 +2261,13 @@ export class WebInspectorElement extends LitElement {
     type: InspectorAgentEventType,
     payload: unknown,
   ): void {
-    const eventId = `${agentId}:${++this.eventCounter}`;
-    const normalizedPayload = this.normalizeEventPayload(type, payload);
-    const event: InspectorEvent = {
-      id: eventId,
-      agentId,
-      type,
-      timestamp: Date.now(),
-      payload: normalizedPayload,
-    };
-
-    const currentAgentEvents = this.agentEvents.get(agentId) ?? [];
-    const nextAgentEvents = [event, ...currentAgentEvents].slice(
-      0,
-      MAX_AGENT_EVENTS,
-    );
-    this.agentEvents.set(agentId, nextAgentEvents);
-
-    this.flattenedEvents = [event, ...this.flattenedEvents].slice(
-      0,
-      MAX_TOTAL_EVENTS,
-    );
+    recordLiveEvent(this.live, agentId, type, payload);
     this.refreshToolsSnapshot();
     this.requestUpdate();
   }
 
-  private syncAgentMessages(agent: AbstractAgent): void {
-    if (!agent?.agentId) {
-      return;
-    }
-
-    try {
-      const messages = this.normalizeAgentMessages(
-        (agent as { messages?: unknown }).messages,
-      );
-      if (messages) {
-        this.agentMessages.set(agent.agentId, messages);
-      } else {
-        this.agentMessages.delete(agent.agentId);
-      }
-
-      // Bump the live-message version for whichever thread this agent is
-      // currently running on. cpk-thread-details watches this for the
-      // selected thread and re-fetches `/threads/:id/messages` when it ticks,
-      // so the conversation view stays in sync with the streaming agent
-      // without the parent re-implementing AG-UI → ConversationItem mapping.
-      const runThreadId = this.readAgentThreadId(agent);
-      if (runThreadId) {
-        this.liveMessageVersion.set(
-          runThreadId,
-          (this.liveMessageVersion.get(runThreadId) ?? 0) + 1,
-        );
-      }
-
-      this.requestUpdate();
-    } catch (error) {
-      console.error(
-        `[CopilotKit Inspector] Failed to sync messages for agent "${agent.agentId}":`,
-        error,
-      );
-    }
-  }
-
-  private syncAgentState(agent: AbstractAgent): void {
-    if (!agent?.agentId) {
-      return;
-    }
-
-    try {
-      const state = (agent as { state?: unknown }).state;
-
-      if (state === undefined || state === null) {
-        this.agentStates.delete(agent.agentId);
-      } else {
-        this.agentStates.set(agent.agentId, normalizeDisplayValue(state));
-      }
-
-      this.requestUpdate();
-    } catch (error) {
-      console.error(
-        `[CopilotKit Inspector] Failed to sync state for agent "${agent.agentId}":`,
-        error,
-      );
-    }
+  private unsubscribeFromAgent(agentId: string): void {
+    unsubscribeLiveAgent(this.live, agentId);
   }
 
   private updateContextOptions(agentIds: Set<string>): void {
@@ -2647,14 +2345,6 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private getEventsForSelectedContext(): InspectorEvent[] {
-    if (this.selectedContext === "all-agents") {
-      return this.flattenedEvents;
-    }
-
-    return this.agentEvents.get(this.selectedContext) ?? [];
-  }
-
   private focusThread(options: InspectorOpenOptions): void {
     if (!options.threadId) return;
     this.pendingPersistedMenu = null;
@@ -2685,104 +2375,18 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private filterEvents(events: InspectorEvent[]): InspectorEvent[] {
-    const query = this.eventFilterText.trim().toLowerCase();
-
-    return events.filter((event) => {
-      if (
-        this.eventTypeFilter !== "all" &&
-        event.type !== this.eventTypeFilter
-      ) {
-        return false;
-      }
-
-      if (!query) {
-        return true;
-      }
-
-      const payloadText = this.stringifyPayload(
-        event.payload,
-        false,
-      ).toLowerCase();
-      return (
-        event.type.toLowerCase().includes(query) ||
-        event.agentId.toLowerCase().includes(query) ||
-        payloadText.includes(query)
-      );
-    });
-  }
-
   private getLatestStateForAgent(agentId: string): SanitizedValue | null {
-    if (this.agentStates.has(agentId)) {
-      const value = this.agentStates.get(agentId);
-      return value === undefined ? null : value;
-    }
-
-    const events = this.agentEvents.get(agentId) ?? [];
-    const stateEvent = events.find((e) => e.type === "STATE_SNAPSHOT");
-    if (!stateEvent) {
-      return null;
-    }
-    return stateEvent.payload;
-  }
-
-  private getLatestMessagesForAgent(
-    agentId: string,
-  ): InspectorMessage[] | null {
-    const messages = this.agentMessages.get(agentId);
-    return messages ?? null;
-  }
-
-  private readAgentThreadId(agent: AbstractAgent): string | undefined {
-    if (!("threadId" in agent)) return undefined;
-    const threadId = agent.threadId;
-    return typeof threadId === "string" ? threadId : undefined;
+    return latestStateForAgent(this.live, agentId);
   }
 
   private getLiveAgentMessagesForThread(thread: ɵThread): InspectorMessage[] {
-    const messages =
-      this.agentMessages.get(thread.agentId) ?? EMPTY_INSPECTOR_MESSAGES;
-    const core = this._core;
-    if (!core || typeof core.getAgent !== "function") return messages;
-    const agent = core.getAgent(thread.agentId);
-    if (!agent) return EMPTY_INSPECTOR_MESSAGES;
-    if (this.readAgentThreadId(agent) !== thread.id) {
-      return EMPTY_INSPECTOR_MESSAGES;
-    }
-    return messages;
-  }
-
-  private getAgentStatus(agentId: string): "running" | "idle" | "error" {
-    const events = this.agentEvents.get(agentId) ?? [];
-    if (events.length === 0) {
-      return "idle";
-    }
-
-    // Check most recent run-related event
-    const runEvent = events.find(
-      (e) =>
-        e.type === "RUN_STARTED" ||
-        e.type === "RUN_FINISHED" ||
-        e.type === "RUN_ERROR",
+    return liveAgentMessagesForThread(
+      this.live,
+      thread,
+      this._core && typeof this._core.getAgent === "function"
+        ? (agentId) => this._core?.getAgent(agentId)
+        : undefined,
     );
-
-    if (!runEvent) {
-      return "idle";
-    }
-
-    if (runEvent.type === "RUN_ERROR") {
-      return "error";
-    }
-
-    if (runEvent.type === "RUN_STARTED") {
-      // Check if there's a RUN_FINISHED after this
-      const finishedAfter = events.find(
-        (e) => e.type === "RUN_FINISHED" && e.timestamp > runEvent.timestamp,
-      );
-      return finishedAfter ? "idle" : "running";
-    }
-
-    return "idle";
   }
 
   private getAgentStats(agentId: string): {
@@ -2792,26 +2396,7 @@ export class WebInspectorElement extends LitElement {
     toolCalls: number;
     errors: number;
   } {
-    const events = this.agentEvents.get(agentId) ?? [];
-
-    const messages = this.agentMessages.get(agentId);
-
-    const toolCallCount = messages
-      ? messages.reduce(
-          (count, message) => count + (message.toolCalls?.length ?? 0),
-          0,
-        )
-      : events.filter((e) => e.type === "TOOL_CALL_END").length;
-
-    const messageCount = messages?.length ?? 0;
-
-    return {
-      totalEvents: events.length,
-      lastActivity: events[0]?.timestamp ?? null,
-      messages: messageCount,
-      toolCalls: toolCallCount,
-      errors: events.filter((e) => e.type === "RUN_ERROR").length,
-    };
+    return agentStats(this.live, agentId);
   }
 
   private renderToolCallDetails(toolCalls: InspectorToolCall[]) {
@@ -2899,111 +2484,6 @@ export class WebInspectorElement extends LitElement {
     }
 
     return String(args);
-  }
-
-  private hasRenderableState(state: unknown): boolean {
-    if (state === null || state === undefined) {
-      return false;
-    }
-
-    if (Array.isArray(state)) {
-      return state.length > 0;
-    }
-
-    if (typeof state === "object") {
-      return Object.keys(state as Record<string, unknown>).length > 0;
-    }
-
-    if (typeof state === "string") {
-      const trimmed = state.trim();
-      return trimmed.length > 0 && trimmed !== "{}";
-    }
-
-    return true;
-  }
-
-  private formatStateForDisplay(state: unknown): string {
-    if (state === null || state === undefined) {
-      return "";
-    }
-
-    if (typeof state === "string") {
-      const trimmed = state.trim();
-      if (trimmed.length === 0) {
-        return "";
-      }
-      try {
-        const parsed = JSON.parse(trimmed);
-        return JSON.stringify(parsed, null, 2);
-      } catch {
-        return state;
-      }
-    }
-
-    if (typeof state === "object") {
-      try {
-        return JSON.stringify(state, null, 2);
-      } catch {
-        return String(state);
-      }
-    }
-
-    return String(state);
-  }
-
-  private getEventBadgeClasses(type: string): string {
-    const base =
-      "font-mono text-[10px] font-semibold inline-flex items-center rounded-sm px-1.5 py-0.5 border";
-
-    if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-800 border-rose-200`;
-    }
-
-    if (type.startsWith("TEXT_MESSAGE")) {
-      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
-    }
-
-    if (type.startsWith("TOOL_CALL")) {
-      return `${base} bg-emerald-50 text-gray-900 border-emerald-200`;
-    }
-
-    if (type.startsWith("RUN_") || type.startsWith("STEP_")) {
-      return `${base} bg-gray-100 text-gray-900 border-gray-200`;
-    }
-
-    if (type.startsWith("REASONING")) {
-      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
-    }
-
-    if (type.startsWith("STATE") || type.startsWith("MESSAGES")) {
-      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
-    }
-
-    return `${base} bg-gray-100 text-gray-900 border-gray-200`;
-  }
-
-  private stringifyPayload(payload: unknown, pretty: boolean): string {
-    try {
-      if (payload === undefined) {
-        return pretty ? "undefined" : "undefined";
-      }
-      if (typeof payload === "string") {
-        return payload;
-      }
-      return JSON.stringify(payload, null, pretty ? 2 : 0) ?? "";
-    } catch (error) {
-      console.warn("Failed to stringify inspector payload", error);
-      return String(payload);
-    }
-  }
-
-  private extractEventFromPayload(payload: unknown): unknown {
-    // If payload is an object with an 'event' field, extract it
-    if (payload && typeof payload === "object" && "event" in payload) {
-      return (payload as Record<string, unknown>).event;
-    }
-    // Otherwise, assume the payload itself is the event
-    return payload;
   }
 
   /** Prefer the window that owns the UI: the popup while popped out. */
@@ -3233,28 +2713,6 @@ export class WebInspectorElement extends LitElement {
       .tooltip-target:hover::after {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
-      }
-
-      /* ── Agent tab section cards ─────────────────────────────────────── */
-      .cpk-section-card {
-        border-radius: 10px;
-        background: #ffffff;
-        overflow: hidden;
-      }
-
-      /* ── Agent icon bubble ───────────────────────────────────────────── */
-      .cpk-agent-icon {
-        background-color: #f0f0f4 !important;
-        color: #57575b !important;
-      }
-
-      /* ── Agent stat cards ────────────────────────────────────────────── */
-      .cpk-stat-card {
-        background-color: #ffffff !important;
-        border: 1px solid #dbdbe5 !important;
-      }
-      button.cpk-stat-card:hover {
-        background-color: #f7f7f9 !important;
       }
 
       /* ── Circle chevron (Frontend Tools + Context) ──────────────────── */
@@ -4986,6 +4444,7 @@ export class WebInspectorElement extends LitElement {
         color: #010507 !important;
       }
     `,
+    liveInspectionViewStyles,
   ];
 
   connectedCallback(): void {
@@ -6788,40 +6247,44 @@ export class WebInspectorElement extends LitElement {
     if (!error) return nothing;
     const guide = EVENT_ERROR_GUIDANCE[key];
     return html`
-      <div
-        class="mx-3 mt-3 flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
-        role="alert"
-        tabindex="0"
-        data-cpk-event-error=${key}
-        @click=${this.refocusEventErrorLanding}
-        @keydown=${this.handleEventErrorBannerKeydown}
-      >
-        <span class="mt-0.5 shrink-0">${this.renderIcon("TriangleAlert")}</span>
-        <div class="min-w-0 flex-1 space-y-1">
-          <p class="font-semibold">${guide.title}</p>
-          ${error.agentId ? html`<p>Agent: ${error.agentId}</p>` : nothing}
-          ${error.toolName ? html`<p>Tool: ${error.toolName}</p>` : nothing}
-          <p class="break-words leading-relaxed">${error.message}</p>
-          ${
-            guide.advice
-              ? html`<p class="leading-relaxed">${guide.advice}</p>`
-              : nothing
-          }
-          ${
-            guide.highlight && this.hasEventErrorHighlight(key)
-              ? html`<p class="leading-relaxed">${guide.highlight}</p>`
-              : nothing
-          }
-        </div>
+      <div role="alert">
+        <button
+          type="button"
+          class="live-inspection-control mx-3 mt-3 flex w-[calc(100%-1.5rem)] cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-left text-[11px] text-rose-950"
+          data-cpk-event-error=${key}
+          @click=${this.refocusEventErrorLanding}
+        >
+          <span aria-hidden="true" class="mt-0.5 shrink-0"
+            >${this.renderIcon("TriangleAlert")}</span
+          >
+          <span class="min-w-0 flex-1 space-y-1">
+            <span class="block font-semibold">${guide.title}</span>
+            ${
+              error.agentId
+                ? html`<span class="block">Agent: ${error.agentId}</span>`
+                : nothing
+            }
+            ${
+              error.toolName
+                ? html`<span class="block">Tool: ${error.toolName}</span>`
+                : nothing
+            }
+            <span class="block break-words leading-relaxed">${error.message}</span>
+            ${
+              guide.advice
+                ? html`<span class="block leading-relaxed">${guide.advice}</span>`
+                : nothing
+            }
+            ${
+              guide.highlight && this.hasEventErrorHighlight(key)
+                ? html`<span class="block leading-relaxed">${guide.highlight}</span>`
+                : nothing
+            }
+          </span>
+        </button>
       </div>
     `;
   }
-
-  private handleEventErrorBannerKeydown = (event: KeyboardEvent): void => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    event.preventDefault();
-    this.refocusEventErrorLanding(event);
-  };
 
   /** Scroll the landing view to the failed tool call or RUN_ERROR again. */
   private refocusEventErrorLanding = (event: Event): void => {
@@ -7695,7 +7158,7 @@ export class WebInspectorElement extends LitElement {
     });
     const iconRail = this.sidebarCollapsed || automaticallyCollapsed;
     const contextDropdown = hasContextDropdown
-      ? this.renderContextDropdown(iconRail)
+      ? this.renderLiveContextDropdown(iconRail)
       : nothing;
     const agentSelector = hasContextDropdown
       ? contextDropdown
@@ -9246,157 +8709,33 @@ export class WebInspectorElement extends LitElement {
       .join(" ");
   }
 
-  private normalizeEventPayload(
-    _type: InspectorAgentEventType,
-    payload: unknown,
-  ): SanitizedValue {
-    if (payload && typeof payload === "object" && "event" in payload) {
-      const { event, ...rest } = payload as Record<string, unknown>;
-      const cleaned =
-        Object.keys(rest).length === 0 ? event : { event, ...rest };
-      return normalizeDisplayValue(cleaned);
-    }
-
-    return normalizeDisplayValue(payload);
+  private get contextOptions() {
+    return this.live.contextOptions;
   }
 
-  private normalizeMessageContent(content: unknown): string {
-    const extracted = textFromUnknownContent(content);
-    if (extracted) return extracted;
-
-    if (content === null || content === undefined) {
-      return "";
-    }
-
-    if (typeof content === "object") {
-      try {
-        return JSON.stringify(normalizeDisplayValue(content));
-      } catch {
-        return "";
-      }
-    }
-
-    return String(content);
+  private set contextOptions(value: Array<{ key: string; label: string }>) {
+    this.live.contextOptions = value;
   }
 
-  private normalizeToolCalls(raw: unknown): InspectorToolCall[] {
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-
-    return raw
-      .map((entry) => {
-        if (!entry || typeof entry !== "object") {
-          return null;
-        }
-        const call = entry as Record<string, unknown>;
-        const fn = call.function as Record<string, unknown> | undefined;
-        const functionName =
-          typeof fn?.name === "string"
-            ? fn.name
-            : typeof call.toolName === "string"
-              ? call.toolName
-              : undefined;
-        const args =
-          fn && "arguments" in fn
-            ? (fn as Record<string, unknown>).arguments
-            : call.arguments;
-
-        const normalized: InspectorToolCall = {
-          id: typeof call.id === "string" ? call.id : undefined,
-          toolName:
-            typeof call.toolName === "string" ? call.toolName : functionName,
-          status: typeof call.status === "string" ? call.status : undefined,
-        };
-
-        if (functionName) {
-          normalized.function = {
-            name: functionName,
-            arguments: normalizeDisplayValue(args),
-          };
-        }
-
-        return normalized;
-      })
-      .filter((call): call is InspectorToolCall => Boolean(call));
+  private get selectedContext() {
+    return this.live.selectedContext;
   }
 
-  private normalizeAgentMessage(message: unknown): InspectorMessage | null {
-    if (!message || typeof message !== "object") {
-      return null;
-    }
-
-    const raw = message as Record<string, unknown>;
-    const role = typeof raw.role === "string" ? raw.role : "unknown";
-    const contentText = this.normalizeMessageContent(raw.content);
-    const toolCalls = this.normalizeToolCalls(raw.toolCalls);
-
-    return {
-      id: typeof raw.id === "string" ? raw.id : undefined,
-      role,
-      contentText,
-      contentRaw:
-        raw.content !== undefined
-          ? normalizeDisplayValue(raw.content)
-          : undefined,
-      toolCalls,
-      toolCallId:
-        typeof raw.toolCallId === "string" ? raw.toolCallId : undefined,
-      activityType:
-        typeof raw.activityType === "string" ? raw.activityType : undefined,
-    };
+  private set selectedContext(value: string) {
+    this.live.selectedContext = value;
   }
 
-  private normalizeAgentMessages(messages: unknown): InspectorMessage[] | null {
-    if (!Array.isArray(messages)) {
-      return null;
-    }
-
-    const normalized = messages
-      .map((message) => this.normalizeAgentMessage(message))
-      .filter((msg): msg is InspectorMessage => msg !== null);
-
-    return normalized;
+  private get expandedRows() {
+    return this.live.expandedEventIds;
   }
 
-  private normalizeContextStore(
-    context: Readonly<Record<string, unknown>> | null | undefined,
-  ): Record<string, { description?: string; value: unknown }> {
-    if (!context || typeof context !== "object") {
-      return {};
-    }
-
-    const normalized: Record<string, { description?: string; value: unknown }> =
-      {};
-    for (const [key, entry] of Object.entries(context)) {
-      if (
-        entry &&
-        typeof entry === "object" &&
-        "value" in (entry as Record<string, unknown>)
-      ) {
-        const candidate = entry as Record<string, unknown>;
-        const description =
-          typeof candidate.description === "string" &&
-          candidate.description.trim().length > 0
-            ? candidate.description
-            : undefined;
-        normalized[key] = { description, value: candidate.value };
-      } else {
-        normalized[key] = { value: entry };
-      }
-    }
-
-    return normalized;
+  private get expandedTools() {
+    return this.live.expandedToolIds;
   }
 
-  private contextOptions: Array<{ key: string; label: string }> = [
-    { key: "all-agents", label: "All Agents" },
-  ];
-
-  private selectedContext = "all-agents";
-  private expandedRows: Set<string> = new Set();
-  private expandedTools: Set<string> = new Set();
-  private expandedContextItems: Set<string> = new Set();
+  private get expandedContextItems() {
+    return this.live.expandedContextIds;
+  }
 
   private renderCoreWarningBanner() {
     if (this._core) {
@@ -9488,9 +8827,7 @@ export class WebInspectorElement extends LitElement {
     const agent = this.playground.agent;
     if (
       !agent ||
-      !syncPlaygroundMessages(this.playground, agent, (messages) =>
-        this.normalizeAgentMessages(messages),
-      )
+      !syncPlaygroundMessages(this.playground, agent, normalizeAgentMessages)
     ) {
       return;
     }
@@ -9651,7 +8988,7 @@ export class WebInspectorElement extends LitElement {
         <div class="flex h-full min-h-0 flex-col">
           ${this.renderEventErrorBanner("run")}
           <div class="min-h-0 flex-1 overflow-hidden">
-            ${this.renderEventsTable()}
+            ${this.renderLiveEventsTable()}
           </div>
         </div>
       `;
@@ -9662,19 +8999,19 @@ export class WebInspectorElement extends LitElement {
     }
 
     if (this.selectedMenu === "agents") {
-      return this.renderAgentsView();
+      return this.renderLiveAgentsView();
     }
 
     if (this.selectedMenu === "frontend-tools") {
-      return this.renderToolsView();
+      return this.renderLiveToolsView();
     }
 
     if (this.selectedMenu === "capabilities") {
-      return this.renderCapabilitiesView();
+      return this.renderLiveCapabilitiesView();
     }
 
     if (this.selectedMenu === "agent-context") {
-      return this.renderContextView();
+      return this.renderLiveContextView();
     }
 
     if (this.selectedMenu === "threads") {
@@ -10706,282 +10043,34 @@ export class WebInspectorElement extends LitElement {
     );
   }
 
-  private renderEventsToolbar(
-    events: InspectorEvent[],
-    filteredEvents: InspectorEvent[],
-    options: { showAgentFilter?: boolean } = {},
-  ) {
-    const showAgentFilter = options.showAgentFilter !== false;
-    const selectedLabel =
-      this.selectedContext === "all-agents"
-        ? "all agents"
-        : `agent ${this.selectedContext}`;
-
-    return html`
-      <div
-        class="flex flex-col gap-1.5 border-b border-gray-200 bg-white px-4 py-2.5"
-      >
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="relative min-w-[200px] flex-1">
-            <input
-              type="search"
-              class="w-full rounded-md border border-gray-200 px-3 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none ring-1 ring-transparent transition focus:border-gray-300 focus:ring-gray-200"
-              placeholder="Search agent, type, payload"
-              .value=${this.eventFilterText}
-              @input=${this.handleEventFilterInput}
-            />
-          </div>
-          ${
-            showAgentFilter
-              ? html`
-                <select
-                  class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
-                  .value=${this.selectedContext}
-                  @change=${this.handleEventAgentChange}
-                  aria-label="Filter events by agent"
-                >
-                  ${this.contextOptions.map(
-                    (option) =>
-                      html`<option value=${option.key}>
-                        ${option.label}
-                      </option>`,
-                  )}
-                </select>
-              `
-              : nothing
-          }
-          <select
-            class="w-40 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[11px] text-gray-700 shadow-sm outline-none transition focus:border-gray-300 focus:ring-2 focus:ring-gray-200"
-            .value=${this.eventTypeFilter}
-            @change=${this.handleEventTypeChange}
-            aria-label="Filter events by type"
-          >
-            <option value="all">All event types</option>
-            ${AGENT_EVENT_TYPES.map(
-              (type) =>
-                html`<option value=${type}>
-                  ${type.toLowerCase().replace(/_/g, " ")}
-                </option>`,
-            )}
-          </select>
-          <div class="flex items-center gap-1 text-[11px]">
-            <button
-              type="button"
-              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Reset filters"
-              data-tooltip="Reset filters"
-              aria-label="Reset filters"
-              @click=${this.resetEventFilters}
-              ?disabled=${
-                !this.eventFilterText && this.eventTypeFilter === "all"
-              }
-            >
-              ${this.renderIcon("RotateCw")}
-            </button>
-            <button
-              type="button"
-              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Export JSON"
-              data-tooltip="Export JSON"
-              aria-label="Export JSON"
-              @click=${() => this.exportEvents(filteredEvents)}
-              ?disabled=${filteredEvents.length === 0}
-            >
-              ${this.renderIcon("Download")}
-            </button>
-            <button
-              type="button"
-              class="tooltip-target flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Clear events"
-              data-tooltip="Clear events"
-              aria-label="Clear events"
-              @click=${this.handleClearEvents}
-              ?disabled=${events.length === 0}
-            >
-              ${this.renderIcon("Trash2")}
-            </button>
-          </div>
-        </div>
-        <div class="text-[11px] text-gray-500">
-          Showing ${filteredEvents.length} of
-          ${events.length}${
-            this.selectedContext === "all-agents" ? "" : ` for ${selectedLabel}`
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  private renderEventsTable(options: { embedded?: boolean } = {}) {
-    const events = this.getEventsForSelectedContext();
-    const filteredEvents = this.filterEvents(events);
-    const embedded = options.embedded === true;
-
-    let body;
-    if (events.length === 0) {
-      body = html`
-        <div
-          class="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center"
-        >
-          <div class="text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
-            ${this.renderIcon("Zap")}
-          </div>
-          <span class="text-sm text-gray-600">No events yet</span>
-          <span class="max-w-[240px] text-xs leading-snug text-gray-400"
-            >Events are recorded live. Run the agent to see them here.</span
-          >
-        </div>
-      `;
-    } else if (filteredEvents.length === 0) {
-      body = html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md space-y-3">
-            <div
-              class="flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Filter")}
-            </div>
-            <p class="text-sm text-gray-600">
-              No events match the current filters.
-            </p>
-            <div>
-              <button
-                type="button"
-                class="inline-flex items-center gap-1 rounded-md bg-gray-900 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-gray-800"
-                @click=${this.resetEventFilters}
-              >
-                ${this.renderIcon("RefreshCw")}
-                <span>Reset filters</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-    } else {
-      const runError = this.eventErrorDetails.run;
-      const failedRunEventId = runError
-        ? this.findLatestRunErrorEvent(runError.agentId)?.id
-        : undefined;
-      body = html`
-        <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
-          <table class="w-full table-fixed border-collapse text-xs box-border">
-            <colgroup>
-              <col style="width:${this.evtColWidths[0]}px" />
-              <col style="width:${this.evtColWidths[1]}px" />
-              <col style="width:${this.evtColWidths[2]}px" />
-              <col />
-            </colgroup>
-            <thead class="sticky top-0 z-10">
-              <tr class="bg-white">
-                ${["Agent", "Time", "Event Type"].map(
-                  (label, col) =>
-                    html` <th
-                      class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                      style="position:relative;overflow:hidden;"
-                    >
-                      ${label}
-                      <div
-                        style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
-                        @pointerdown=${(e: PointerEvent) =>
-                          this._onEvtColResizeStart(e, col)}
-                        @pointermove=${(e: PointerEvent) =>
-                          this._onEvtColResizeMove(e)}
-                        @pointerup=${() => this._onEvtColResizeEnd()}
-                        @pointercancel=${() => this._onEvtColResizeEnd()}
-                      ></div>
-                    </th>`,
-                )}
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  AG-UI Event
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredEvents.map((event, index) => {
-                const isFailedRunEvent =
-                  failedRunEventId !== undefined &&
-                  event.id === failedRunEventId;
-                const rowBg = isFailedRunEvent
-                  ? "bg-rose-50"
-                  : index % 2 === 0
-                    ? "bg-white"
-                    : "bg-gray-50/50";
-                const badgeClasses = this.getEventBadgeClasses(event.type);
-                const extractedEvent = this.extractEventFromPayload(
-                  event.payload,
-                );
-                const inlineEvent =
-                  this.stringifyPayload(extractedEvent, false) || "—";
-                const isExpanded = this.expandedRows.has(event.id);
-
-                return html`
-                  <tr
-                    class="${rowBg} cursor-pointer transition hover:bg-blue-50/50"
-                    data-inspector-event-id=${event.id}
-                    data-cpk-failed-run-event=${
-                      isFailedRunEvent ? event.id : undefined
-                    }
-                    @click=${(clickEvent: Event) =>
-                      this.toggleRowExpansion(event.id, clickEvent)}
-                  >
-                    <td
-                      class="border-l border-r border-b border-gray-200 px-3 py-2"
-                    >
-                      <span class="font-mono text-[11px] text-gray-600"
-                        >${event.agentId}</span
-                      >
-                    </td>
-                    <td
-                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[11px] text-gray-600"
-                    >
-                      <span title=${new Date(event.timestamp).toLocaleString()}>
-                        ${new Date(event.timestamp).toLocaleTimeString()}
-                      </span>
-                    </td>
-                    <td class="border-r border-b border-gray-200 px-3 py-2">
-                      <span class=${badgeClasses}>${event.type}</span>
-                    </td>
-                    <td
-                      class="border-r border-b border-gray-200 px-3 py-2 font-mono text-[10px] text-gray-600 ${
-                        isExpanded ? "" : "truncate max-w-xs"
-                      }"
-                    >
-                      ${
-                        isExpanded
-                          ? renderJsonValue(extractedEvent, {
-                              copyable: true,
-                              clipboard: this.getClipboard(),
-                            })
-                          : inlineEvent
-                      }
-                    </td>
-                  </tr>
-                `;
-              })}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    return html`
-      <div
-        class="${
-          embedded
-            ? "flex h-[28rem] min-h-[20rem] flex-col"
-            : "flex h-full flex-col"
-        }"
-      >
-        ${this.renderEventsToolbar(events, filteredEvents, {
-          showAgentFilter: !embedded,
-        })}
-        <div class="min-h-0 flex-1 overflow-hidden">${body}</div>
-      </div>
-    `;
+  private renderLiveEventsTable(options: { embedded?: boolean } = {}) {
+    const events = eventsForSelectedContext(this.live);
+    const runError = this.eventErrorDetails.run;
+    const failedRunEventId = runError
+      ? this.findLatestRunErrorEvent(runError.agentId)?.id
+      : undefined;
+    return renderEventsView({
+      state: this.live,
+      events,
+      embedded: options.embedded,
+      failedRunEventId,
+      clipboard: this.getClipboard(),
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderJson: renderJsonValue,
+      onFilterInput: this.handleEventFilterInput,
+      onAgentChange: this.handleEventAgentChange,
+      onTypeChange: this.handleEventTypeChange,
+      onResetFilters: () => this.resetEventFilters(),
+      onExport: (filteredEvents) => this.exportEvents(filteredEvents),
+      onClear: this.handleClearEvents,
+      onToggle: (eventId, event) => this.toggleRowExpansion(eventId, event),
+      onResizeStart: (event, column) =>
+        this._onEvtColResizeStart(event, column),
+      onResizeMove: (event) => this._onEvtColResizeMove(event),
+      onResizeEnd: () => this._onEvtColResizeEnd(),
+      onResizeKeyDown: (event, column) =>
+        this.handleEventColumnResizeKeyDown(event, column),
+    });
   }
 
   private handleEventFilterInput(event: Event): void {
@@ -11010,8 +10099,7 @@ export class WebInspectorElement extends LitElement {
   }
 
   private resetEventFilters(): void {
-    this.eventFilterText = "";
-    this.eventTypeFilter = "all";
+    resetEventFilters(this.live);
     this.requestUpdate();
   }
 
@@ -11029,9 +10117,7 @@ export class WebInspectorElement extends LitElement {
   private _onEvtColResizeMove(e: PointerEvent): void {
     if (!this._evtColResize) return;
     const { col, startX, startW } = this._evtColResize;
-    this.evtColWidths = this.evtColWidths.map((w, i) =>
-      i === col ? Math.max(40, startW + (e.clientX - startX)) : w,
-    );
+    resizeEventColumn(this.live, col, startW + (e.clientX - startX));
     this.requestUpdate();
   }
 
@@ -11039,18 +10125,24 @@ export class WebInspectorElement extends LitElement {
     this._evtColResize = null;
   }
 
-  private handleClearEvents = (): void => {
-    if (this.selectedContext === "all-agents") {
-      this.agentEvents.clear();
-      this.flattenedEvents = [];
-    } else {
-      this.agentEvents.delete(this.selectedContext);
-      this.flattenedEvents = this.flattenedEvents.filter(
-        (event) => event.agentId !== this.selectedContext,
-      );
-    }
+  private handleEventColumnResizeKeyDown(
+    event: KeyboardEvent,
+    column: number,
+  ): void {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const step = event.shiftKey ? 1 : 10;
+    resizeEventColumn(
+      this.live,
+      column,
+      (this.live.eventColumnWidths[column] ?? 40) + direction * step,
+    );
+    this.requestUpdate();
+  }
 
-    this.expandedRows.clear();
+  private handleClearEvents = (): void => {
+    clearEvents(this.live);
     this.requestUpdate();
   };
 
@@ -11069,361 +10161,60 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private renderAgentsView() {
-    // Show message if "all-agents" is selected or no agents available
-    if (this.selectedContext === "all-agents") {
-      return html`
-        ${this.renderEventErrorBanner("tool")}
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Bot")}
-            </div>
-            <p class="text-sm text-gray-600">No agent selected</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Select an agent from the dropdown above to view details.
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
-    const agentId = this.selectedContext;
-    const status = this.getAgentStatus(agentId);
-    const stats = this.getAgentStats(agentId);
-    const state = this.getLatestStateForAgent(agentId);
-    const messages = this.getLatestMessagesForAgent(agentId);
-
-    const statusColors = {
-      running: "bg-emerald-50 text-emerald-700",
-      idle: "bg-gray-100 text-gray-600",
-      error: "bg-rose-50 text-rose-700",
-    };
-
-    return html`
-      <div class="cpk-agent-view flex flex-col gap-4 p-4 overflow-auto">
-        ${this.renderEventErrorBanner("tool")}
-        <!-- Agent Overview Card -->
-        <div
-          class="cpk-agent-overview rounded-lg border border-gray-200 bg-white p-4"
-        >
-          <div class="flex items-start justify-between mb-4">
-            <div class="flex items-center gap-3">
-              <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 cpk-agent-icon"
-              >
-                ${this.renderIcon("Bot")}
-              </div>
-              <div>
-                <h3 class="font-semibold text-sm text-gray-900">${agentId}</h3>
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                    statusColors[status]
-                  } relative -translate-y-[2px]"
-                >
-                  <span
-                    class="h-1.5 w-1.5 rounded-full ${
-                      status === "running"
-                        ? "bg-emerald-500 animate-pulse"
-                        : status === "error"
-                          ? "bg-rose-500"
-                          : "bg-gray-400"
-                    }"
-                  ></span>
-                  ${status.charAt(0).toUpperCase() + status.slice(1)}
-                </span>
-              </div>
-            </div>
-            ${
-              stats.lastActivity
-                ? html`<span class="text-xs text-gray-500"
-                  >Last activity:
-                  ${new Date(stats.lastActivity).toLocaleTimeString()}</span
-                >`
-                : nothing
-            }
-          </div>
-          <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <button
-              type="button"
-              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden cpk-stat-card"
-              @click=${() => this.handleMenuSelect("ag-ui-events")}
-              title="View all events in AG-UI Events"
-            >
-              <div class="truncate whitespace-nowrap text-xs text-gray-600">
-                Total Events
-              </div>
-              <div class="text-lg font-semibold text-gray-900">
-                ${stats.totalEvents}
-              </div>
-            </button>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
-              <div class="truncate whitespace-nowrap text-xs text-gray-600">
-                Messages
-              </div>
-              <div class="text-lg font-semibold text-gray-900">
-                ${stats.messages}
-              </div>
-            </div>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
-              <div class="truncate whitespace-nowrap text-xs text-gray-600">
-                Tool Calls
-              </div>
-              <div class="text-lg font-semibold text-gray-900">
-                ${stats.toolCalls}
-              </div>
-            </div>
-            <div
-              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
-            >
-              <div class="truncate whitespace-nowrap text-xs text-gray-600">
-                Errors
-              </div>
-              <div class="text-lg font-semibold text-gray-900">
-                ${stats.errors}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Current State Section -->
-        <div class="cpk-section-card">
-          <div class="cpk-section-header">
-            <h4>Current State</h4>
-          </div>
-          <div class="overflow-auto p-4">
-            ${
-              this.hasRenderableState(state)
-                ? renderJsonValue(state, { maxHeight: "16rem" })
-                : html`
-                  <div
-                    class="flex h-12 items-center justify-center text-xs text-gray-500"
-                  >
-                    <div class="flex items-center gap-2 text-gray-500">
-                      <span class="text-lg text-gray-400"
-                        >${this.renderIcon("Database")}</span
-                      >
-                      <span>State is empty</span>
-                    </div>
-                  </div>
-                `
-            }
-          </div>
-        </div>
-
-        <!-- Current Messages Section -->
-        <div class="cpk-section-card">
-          <div class="cpk-section-header">
-            <h4>Current Messages</h4>
-          </div>
-          <div class="overflow-auto">
-            ${
-              messages && messages.length > 0
-                ? html`
-                  <div class="w-full text-xs">
-                    <div class="cpk-agent-messages-head flex bg-gray-50">
-                      <div
-                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
-                      >
-                        Role
-                      </div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
-                        Content
-                      </div>
-                    </div>
-                    <div class="cpk-agent-messages-rows">
-                      ${messages.map((msg) => {
-                        const role = msg.role || "unknown";
-                        const roleColors: Record<string, string> = {
-                          user: "bg-blue-100 text-blue-800",
-                          assistant: "bg-green-100 text-green-800",
-                          system: "bg-gray-100 text-gray-800",
-                          tool: "bg-amber-100 text-amber-800",
-                          unknown: "bg-gray-100 text-gray-600",
-                        };
-
-                        const rawContent = msg.contentText ?? "";
-                        const toolCalls = msg.toolCalls ?? [];
-                        const hasContent = rawContent.trim().length > 0;
-                        const contentFallback =
-                          toolCalls.length > 0 ? "Invoked tool call" : "—";
-                        const toolError = this.eventErrorDetails.tool;
-                        const isFailedResult =
-                          role === "tool" &&
-                          toolError?.toolCallId !== undefined &&
-                          toolError.toolCallId === msg.toolCallId;
-
-                        return html`
-                          <div
-                            class=${
-                              isFailedResult
-                                ? "cpk-agent-message-row flex items-start bg-rose-50"
-                                : "cpk-agent-message-row flex items-start"
-                            }
-                            data-cpk-failed-tool-result=${
-                              isFailedResult ? msg.toolCallId : nothing
-                            }
-                          >
-                            <div class="w-40 shrink-0 px-4 py-2">
-                              <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
-                                  roleColors[role] || roleColors.unknown
-                                }"
-                              >
-                                ${role}
-                              </span>
-                            </div>
-                            <div class="flex-1 px-4 py-2">
-                              ${
-                                hasContent
-                                  ? html`
-                                    <!-- prettier-ignore -->
-                                    <div class="whitespace-pre-wrap break-words text-gray-700">${rawContent}</div>
-                                  `
-                                  : html`<div class="italic text-gray-400">
-                                    ${contentFallback}
-                                  </div>`
-                              }
-                              ${
-                                role === "assistant" && toolCalls.length > 0
-                                  ? this.renderToolCallDetails(toolCalls)
-                                  : nothing
-                              }
-                            </div>
-                          </div>
-                        `;
-                      })}
-                    </div>
-                  </div>
-                `
-                : html`
-                  <div
-                    class="flex h-12 items-center justify-center text-xs text-gray-500"
-                  >
-                    <div class="flex items-center gap-2 text-gray-500">
-                      <span class="text-lg text-gray-400"
-                        >${this.renderIcon("MessageSquare")}</span
-                      >
-                      <span>No messages available</span>
-                    </div>
-                  </div>
-                `
-            }
-          </div>
-        </div>
-
-        ${this.renderAgentToolsSection(agentId)}
-
-        <div class="cpk-section-card overflow-hidden">
-          <div class="cpk-section-header">
-            <h4>AG-UI Events</h4>
-          </div>
-          ${this.renderEventsTable({ embedded: true })}
-        </div>
-      </div>
-    `;
+  private renderLiveAgentsView() {
+    const agentId =
+      this.selectedContext === "all-agents" ? null : this.selectedContext;
+    const stats = agentId
+      ? agentStats(this.live, agentId)
+      : {
+          totalEvents: 0,
+          lastActivity: null,
+          messages: 0,
+          toolCalls: 0,
+          errors: 0,
+        };
+    const state = agentId ? latestStateForAgent(this.live, agentId) : null;
+    return renderLiveAgentsView({
+      agentId,
+      status: agentId ? agentStatus(this.live, agentId) : "idle",
+      stats,
+      state,
+      hasState: hasRenderableState(state),
+      messages: agentId ? latestMessagesForAgent(this.live, agentId) : null,
+      toolError: this.eventErrorDetails.tool,
+      errorBanner: this.renderEventErrorBanner("tool"),
+      toolsSection: agentId
+        ? renderLiveAgentToolsSection({
+            state: this.live,
+            tools: toolsForAgent(this.live, agentId),
+            available: this._core !== null,
+            renderIcon: (name) => this.renderIcon(name as LucideIconName),
+            onToggle: (id) => this.toggleToolExpansion(id),
+          })
+        : nothing,
+      eventsSection: this.renderLiveEventsTable({ embedded: true }),
+      clipboard: this.getClipboard(),
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderJson: renderJsonValue,
+      onViewEvents: () => this.handleMenuSelect("ag-ui-events"),
+    });
   }
 
-  private renderContextDropdown(iconRail = false) {
-    // Filter out "all-agents" when in agents view
-    const filteredOptions =
-      this.selectedMenu === "agents"
-        ? this.contextOptions.filter((opt) => opt.key !== "all-agents")
-        : this.contextOptions;
-
-    const selectedLabel =
-      filteredOptions.find((opt) => opt.key === this.selectedContext)?.label ??
-      "";
-
-    return html`
-      <div
-        class="relative z-40 min-w-0 flex-1"
-        data-context-dropdown-root="true"
-        @pointerenter=${
-          iconRail ? this.handleIconRailContextPointerEnter : nothing
-        }
-        @pointerleave=${
-          iconRail ? this.handleIconRailContextPointerLeave : nothing
-        }
-        @focusin=${iconRail ? this.handleIconRailContextFocusIn : nothing}
-        @focusout=${iconRail ? this.handleIconRailContextFocusOut : nothing}
-      >
-        <button
-          type="button"
-          class="relative z-40 flex w-full min-w-0 max-w-[240px] items-center gap-1.5 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-          aria-label="Select agent scope: ${selectedLabel}"
-          title=${selectedLabel}
-          @pointerdown=${
-            iconRail
-              ? this.handleIconRailContextPointerDown
-              : this.handleContextDropdownToggle
-          }
-        >
-          <span
-            class="inspector-context-dropdown-icon shrink-0"
-            aria-hidden="true"
-            >${this.renderIcon("Bot")}</span
-          >
-          <span
-            class="inspector-context-dropdown-label truncate flex-1 text-left"
-            >${selectedLabel}</span
-          >
-          <span
-            class="inspector-context-dropdown-chevron shrink-0 text-gray-400"
-            >${this.renderIcon("ChevronDown")}</span
-          >
-        </button>
-        ${
-          iconRail || this.contextMenuOpen
-            ? html`
-              <div
-                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5${
-                  iconRail ? " inspector-icon-rail-menu" : ""
-                }"
-                data-context-dropdown-root="true"
-                data-open=${this.contextMenuOpen ? "true" : "false"}
-                aria-hidden=${this.contextMenuOpen ? "false" : "true"}
-              >
-                ${filteredOptions.map(
-                  (option) => html`
-                    <button
-                      type="button"
-                      class="flex w-full items-center justify-between px-3 py-1.5 text-left text-xs transition hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
-                      data-context-dropdown-root="true"
-                      @click=${() => this.handleContextOptionSelect(option.key)}
-                    >
-                      <span
-                        class="truncate ${
-                          option.key === this.selectedContext
-                            ? "text-gray-900 font-medium"
-                            : "text-gray-600"
-                        }"
-                        >${option.label}</span
-                      >
-                      ${
-                        option.key === this.selectedContext
-                          ? html`<span class="text-gray-500"
-                            >${this.renderIcon("Check")}</span
-                          >`
-                          : nothing
-                      }
-                    </button>
-                  `,
-                )}
-              </div>
-            `
-            : nothing
-        }
-      </div>
-    `;
+  private renderLiveContextDropdown(iconRail = false) {
+    return renderAgentScopeDropdown({
+      state: this.live,
+      agentsOnly: this.selectedMenu === "agents",
+      iconRail,
+      open: this.contextMenuOpen,
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      onToggle: this.handleContextDropdownToggle,
+      onSelect: (key) => this.handleContextOptionSelect(key),
+      onPointerEnter: this.handleIconRailContextPointerEnter,
+      onPointerLeave: this.handleIconRailContextPointerLeave,
+      onFocusIn: this.handleIconRailContextFocusIn,
+      onFocusOut: this.handleIconRailContextFocusOut,
+      onKeyDown: this.handleContextDropdownKeyDown,
+    });
   }
 
   /**
@@ -11624,7 +10415,7 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private handleContextDropdownToggle(event: PointerEvent): void {
+  private handleContextDropdownToggle(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
     this.layoutMenuOpen = false;
@@ -11666,24 +10457,8 @@ export class WebInspectorElement extends LitElement {
     }, 180);
   };
 
-  private handleIconRailContextPointerDown = (event: PointerEvent): void => {
-    // A hover-only rail still needs to be operable on touch devices.
-    if (event.pointerType === "touch") {
-      this.handleContextDropdownToggle(event);
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-  };
-
   private handleIconRailContextFocusIn = (): void => {
     this.clearIconRailContextCloseTimer();
-    if (this.contextMenuOpen) {
-      return;
-    }
-    this.layoutMenuOpen = false;
-    this.contextMenuOpen = true;
-    this.requestUpdate();
   };
 
   private handleIconRailContextFocusOut = (event: FocusEvent): void => {
@@ -11715,153 +10490,76 @@ export class WebInspectorElement extends LitElement {
     this.contextMenuOpen = false;
     this.persistState();
     this.requestUpdate();
+    void this.updateComplete.then(() => this.focusContextDropdownTrigger());
   }
 
-  private renderCapabilitiesView() {
-    if (!this._core) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500"
-        >
-          No core instance available
-        </div>
-      `;
+  private handleContextDropdownKeyDown = (event: KeyboardEvent): void => {
+    const targetId =
+      event.target === null ? undefined : Reflect.get(event.target, "id");
+    if (
+      targetId === AGENT_SCOPE_TRIGGER_ID &&
+      (event.key === "ArrowDown" || event.key === "ArrowUp")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.clearIconRailContextCloseTimer();
+      this.layoutMenuOpen = false;
+      this.contextMenuOpen = true;
+      this.requestUpdate();
+      const position = event.key === "ArrowDown" ? "first" : "last";
+      void this.updateComplete.then(() =>
+        this.focusContextDropdownItem(position),
+      );
+      return;
     }
 
-    const toolRows = buildCapabilityRows(
-      this._core as unknown as CapabilityToolSource,
+    if (event.key !== "Escape" || !this.contextMenuOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearIconRailContextCloseTimer();
+    this.contextMenuOpen = false;
+    this.requestUpdate();
+    void this.updateComplete.then(() => this.focusContextDropdownTrigger());
+  };
+
+  private focusContextDropdownTrigger(): void {
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(`#${AGENT_SCOPE_TRIGGER_ID}`)
+      ?.focus();
+  }
+
+  private focusContextDropdownItem(position: "first" | "last"): void {
+    const items = Array.from(
+      this.activeRoot.querySelectorAll<HTMLButtonElement>(
+        `#${AGENT_SCOPE_POPUP_ID} [role="menuitemradio"]`,
+      ),
     );
-    const catalog = this._core.catalogComponents ?? [];
-    const hasCatalog = catalog.length > 0;
-
-    if (toolRows.length === 0 && !hasCatalog) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("SlidersHorizontal")}
-            </div>
-            <p class="text-sm text-gray-600">No capabilities registered</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Frontend tools and A2UI catalog components will appear here once
-              they are registered on the CopilotKit core.
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="flex h-full flex-col overflow-hidden">
-        <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            <p class="text-xs text-gray-500">
-              Toggle a capability off to omit it from what the agent sees. This
-              is a client-side experimentation surface and takes effect
-              immediately.
-            </p>
-          </div>
-
-          ${
-            toolRows.length > 0
-              ? html`
-                <div class="mt-4 space-y-2">
-                  <h3 class="text-sm text-slate-500">Frontend tools</h3>
-                  <div class="space-y-2">
-                    ${toolRows.map((row) => this.renderCapabilityRow(row))}
-                  </div>
-                </div>
-              `
-              : nothing
-          }
-          ${
-            hasCatalog
-              ? html`
-                <div class="mt-6 space-y-2">
-                  <h3 class="text-sm text-slate-500">
-                    A2UI catalog components
-                  </h3>
-                  <div class="space-y-2">
-                    ${catalog.map((component) =>
-                      this.renderCapabilityRow({
-                        key: component.name,
-                        name: component.name,
-                        description: component.description,
-                        enabled: this._core!.isCatalogComponentEnabled(
-                          component.name,
-                        ),
-                      }),
-                    )}
-                  </div>
-                </div>
-              `
-              : nothing
-          }
-        </div>
-      </div>
-    `;
+    const index = position === "first" ? 0 : items.length - 1;
+    items.forEach((item, itemIndex) => {
+      item.tabIndex = itemIndex === index ? 0 : -1;
+    });
+    items[index]?.focus();
   }
 
-  private renderCapabilityRow(row: CapabilityToolRow) {
-    // Frontend-tool keys are always `${agentId}:${name}` (agentId may be ""),
-    // so they contain a ":"; catalog keys are the bare component name.
-    const isTool = row.key.includes(":");
-    return html`
-      <div
-        class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3"
-      >
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <span class="font-mono text-sm font-semibold text-gray-900"
-              >${row.name}</span
-            >
-            ${
-              row.agentId
-                ? html`<span
-                  class="inline-flex items-center gap-1 text-xs text-gray-500"
-                >
-                  ${this.renderIcon("Bot")}<span class="font-mono"
-                    >${row.agentId}</span
-                  >
-                </span>`
-                : nothing
-            }
-          </div>
-          ${
-            row.description
-              ? html`<p class="mt-1 text-xs text-gray-600">${row.description}</p>`
-              : nothing
-          }
-        </div>
-        ${this.renderCapabilitySwitch(row.enabled, () =>
-          isTool
-            ? this.handleToggleTool(row)
-            : this.handleToggleCatalogComponent(row.name),
-        )}
-      </div>
-    `;
-  }
-
-  private renderCapabilitySwitch(enabled: boolean, onToggle: () => void) {
-    const track = enabled ? "bg-emerald-500" : "bg-gray-300";
-    const knob = enabled ? "translate-x-4" : "translate-x-0.5";
-    return html`
-      <button
-        type="button"
-        role="switch"
-        aria-checked=${enabled ? "true" : "false"}
-        class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 ${track}"
-        @click=${onToggle}
-      >
-        <span
-          class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${knob}"
-        ></span>
-      </button>
-    `;
+  private renderLiveCapabilitiesView() {
+    const core = this._core;
+    const tools = core ? buildCapabilityRows(core) : [];
+    const catalog = core
+      ? (core.catalogComponents ?? []).map((component) => ({
+          key: component.name,
+          name: component.name,
+          description: component.description,
+          enabled: core.isCatalogComponentEnabled(component.name),
+        }))
+      : [];
+    return renderLiveCapabilitiesView({
+      available: core !== null,
+      tools,
+      catalog,
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      onToggleTool: (row) => this.handleToggleTool(row),
+      onToggleCatalog: (row) => this.handleToggleCatalogComponent(row.name),
+    });
   }
 
   private handleToggleTool(row: CapabilityToolRow): void {
@@ -11882,512 +10580,21 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private renderToolsView() {
-    if (!this._core) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-xs text-gray-500"
-        >
-          No core instance available
-        </div>
-      `;
-    }
-
+  private renderLiveToolsView() {
     this.refreshToolsSnapshot();
-    const allTools = this.cachedTools;
-
-    if (allTools.length === 0) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Hammer")}
-            </div>
-            <p class="text-sm text-gray-600">No tools available</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Tools will appear here once agents are configured with tool
-              handlers or renderers.
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
-    // Filter tools by selected agent
-    const filteredTools =
+    const tools =
       this.selectedContext === "all-agents"
-        ? allTools
-        : allTools.filter(
+        ? this.cachedTools
+        : this.cachedTools.filter(
             (tool) => !tool.agentId || tool.agentId === this.selectedContext,
           );
-
-    return html`
-      <div class="flex h-full flex-col overflow-hidden">
-        <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            ${filteredTools.map((tool) => this.renderToolCard(tool))}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  private extractToolsFromAgents(): InspectorToolDefinition[] {
-    if (!this._core) {
-      return [];
-    }
-
-    const tools: InspectorToolDefinition[] = [];
-
-    // Start with tools registered on the core (frontend tools / HIL)
-    for (const coreTool of this._core.tools ?? []) {
-      tools.push({
-        agentId: coreTool.agentId ?? "",
-        name: coreTool.name,
-        description: coreTool.description,
-        parameters: coreTool.parameters,
-        type: "handler",
-      });
-    }
-
-    // Augment with agent-level tool handlers/renderers
-    for (const [agentId, agent] of Object.entries(this._core.agents)) {
-      if (!agent) continue;
-
-      // Try to extract tool handlers
-      const handlers = (agent as { toolHandlers?: Record<string, unknown> })
-        .toolHandlers;
-      if (handlers && typeof handlers === "object") {
-        for (const [toolName, handler] of Object.entries(handlers)) {
-          if (handler && typeof handler === "object") {
-            const handlerObj = handler as Record<string, unknown>;
-            tools.push({
-              agentId,
-              name: toolName,
-              description:
-                (typeof handlerObj.description === "string" &&
-                  handlerObj.description) ||
-                (handlerObj.tool as { description?: string } | undefined)
-                  ?.description,
-              parameters:
-                handlerObj.parameters ??
-                (handlerObj.tool as { parameters?: unknown } | undefined)
-                  ?.parameters,
-              type: "handler",
-            });
-          }
-        }
-      }
-
-      // Try to extract tool renderers
-      const renderers = (agent as { toolRenderers?: Record<string, unknown> })
-        .toolRenderers;
-      if (renderers && typeof renderers === "object") {
-        for (const [toolName, renderer] of Object.entries(renderers)) {
-          // Don't duplicate if we already have it as a handler
-          if (
-            !tools.some((t) => t.agentId === agentId && t.name === toolName)
-          ) {
-            if (renderer && typeof renderer === "object") {
-              const rendererObj = renderer as Record<string, unknown>;
-              tools.push({
-                agentId,
-                name: toolName,
-                description:
-                  (typeof rendererObj.description === "string" &&
-                    rendererObj.description) ||
-                  (rendererObj.tool as { description?: string } | undefined)
-                    ?.description,
-                parameters:
-                  rendererObj.parameters ??
-                  (rendererObj.tool as { parameters?: unknown } | undefined)
-                    ?.parameters,
-                type: "renderer",
-              });
-            }
-          }
-        }
-      }
-    }
-
-    return tools.sort((a, b) => {
-      const agentCompare = a.agentId.localeCompare(b.agentId);
-      if (agentCompare !== 0) return agentCompare;
-      return a.name.localeCompare(b.name);
+    return renderLiveToolsView({
+      state: this.live,
+      tools,
+      available: this._core !== null,
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      onToggle: (id) => this.toggleToolExpansion(id),
     });
-  }
-
-  private renderToolCard(tool: InspectorToolDefinition) {
-    const isExpanded = this.expandedTools.has(`${tool.agentId}:${tool.name}`);
-    const schema = this.extractSchemaInfo(tool.parameters);
-
-    const typeColors = {
-      handler: "bg-blue-50 text-blue-700 border-blue-200",
-      renderer: "bg-purple-50 text-purple-700 border-purple-200",
-    };
-
-    return html`
-      <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <button
-          type="button"
-          class="w-full px-4 py-3 text-left transition hover:bg-gray-50"
-          @click=${() =>
-            this.toggleToolExpansion(`${tool.agentId}:${tool.name}`)}
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="font-mono text-sm font-semibold text-gray-900"
-                  >${tool.name}</span
-                >
-                <span
-                  class="inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-medium ${
-                    typeColors[tool.type]
-                  }"
-                >
-                  ${tool.type}
-                </span>
-              </div>
-              <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span class="flex items-center gap-1">
-                  ${this.renderIcon("Bot")}
-                  <span class="font-mono">${tool.agentId}</span>
-                </span>
-                ${
-                  schema.properties.length > 0
-                    ? html`
-                      <span class="text-gray-300">•</span>
-                      <span
-                        >${schema.properties.length}
-                        parameter${
-                          schema.properties.length !== 1 ? "s" : ""
-                        }</span
-                      >
-                    `
-                    : nothing
-                }
-              </div>
-              ${
-                tool.description
-                  ? html`<p class="mt-2 text-xs text-gray-600">
-                    ${tool.description}
-                  </p>`
-                  : nothing
-              }
-            </div>
-            <span
-              class="shrink-0 text-gray-400 transition ${
-                isExpanded ? "rotate-180" : ""
-              }"
-            >
-              ${this.renderIcon("ChevronDown")}
-            </span>
-          </div>
-        </button>
-
-        ${
-          isExpanded
-            ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
-                ${
-                  schema.properties.length > 0
-                    ? html`
-                      <h5 class="mb-3 text-xs font-semibold text-gray-700">
-                        Parameters
-                      </h5>
-                      <div class="space-y-3">
-                        ${schema.properties.map(
-                          (prop) => html`
-                            <div
-                              class="rounded-md border border-gray-200 bg-white p-3"
-                            >
-                              <div
-                                class="flex items-start justify-between gap-2 mb-1"
-                              >
-                                <span
-                                  class="font-mono text-xs font-medium text-gray-900"
-                                  >${prop.name}</span
-                                >
-                                <div class="flex items-center gap-1.5 shrink-0">
-                                  ${
-                                    prop.required
-                                      ? html`
-                                          <span
-                                            class="text-[9px] rounded border border-rose-200 bg-rose-50 px-1 py-0.5 font-medium text-rose-700"
-                                            >required</span
-                                          >
-                                        `
-                                      : html`
-                                          <span
-                                            class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-medium text-gray-600"
-                                            >optional</span
-                                          >
-                                        `
-                                  }
-                                  ${
-                                    prop.type
-                                      ? html`<span
-                                        class="text-[9px] rounded border border-gray-200 bg-gray-50 px-1 py-0.5 font-mono text-gray-600"
-                                        >${prop.type}</span
-                                      >`
-                                      : nothing
-                                  }
-                                </div>
-                              </div>
-                              ${
-                                prop.description
-                                  ? html`<p class="mt-1 text-xs text-gray-600">
-                                    ${prop.description}
-                                  </p>`
-                                  : nothing
-                              }
-                              ${
-                                prop.defaultValue !== undefined
-                                  ? html`
-                                    <div
-                                      class="mt-2 flex items-center gap-1.5 text-[10px] text-gray-500"
-                                    >
-                                      <span>Default:</span>
-                                      <code
-                                        class="rounded bg-gray-100 px-1 py-0.5 font-mono"
-                                        >${JSON.stringify(
-                                          prop.defaultValue,
-                                        )}</code
-                                      >
-                                    </div>
-                                  `
-                                  : nothing
-                              }
-                              ${
-                                prop.enum && prop.enum.length > 0
-                                  ? html`
-                                    <div class="mt-2">
-                                      <span class="text-[10px] text-gray-500"
-                                        >Allowed values:</span
-                                      >
-                                      <div class="mt-1 flex flex-wrap gap-1">
-                                        ${prop.enum.map(
-                                          (val) => html`
-                                            <code
-                                              class="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-mono text-gray-700"
-                                              >${JSON.stringify(val)}</code
-                                            >
-                                          `,
-                                        )}
-                                      </div>
-                                    </div>
-                                  `
-                                  : nothing
-                              }
-                            </div>
-                          `,
-                        )}
-                      </div>
-                    `
-                    : html`
-                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
-                          <span>No parameters defined</span>
-                        </div>
-                      `
-                }
-              </div>
-            `
-            : nothing
-        }
-      </div>
-    `;
-  }
-
-  private extractSchemaInfo(parameters: unknown): {
-    properties: Array<{
-      name: string;
-      type?: string;
-      description?: string;
-      required: boolean;
-      defaultValue?: unknown;
-      enum?: unknown[];
-    }>;
-  } {
-    const result: {
-      properties: Array<{
-        name: string;
-        type?: string;
-        description?: string;
-        required: boolean;
-        defaultValue?: unknown;
-        enum?: unknown[];
-      }>;
-    } = { properties: [] };
-
-    if (!parameters || typeof parameters !== "object") {
-      return result;
-    }
-
-    // Try Zod schema introspection
-    const zodDef = (parameters as { _def?: Record<string, unknown> })._def;
-    if (zodDef && typeof zodDef === "object") {
-      // Handle Zod object schema
-      if (zodDef.typeName === "ZodObject") {
-        const rawShape = zodDef.shape;
-        const shape =
-          typeof rawShape === "function"
-            ? (rawShape as () => Record<string, unknown>)()
-            : (rawShape as Record<string, unknown> | undefined);
-
-        if (!shape || typeof shape !== "object") {
-          return result;
-        }
-        const requiredKeys = new Set<string>();
-
-        // Get required fields
-        if (zodDef.unknownKeys === "strict" || !zodDef.catchall) {
-          Object.keys(shape || {}).forEach((key) => {
-            const candidate = (shape as Record<string, unknown>)[key];
-            const fieldDef = (
-              candidate as { _def?: Record<string, unknown> } | undefined
-            )?._def;
-            if (fieldDef && !this.isZodOptional(candidate)) {
-              requiredKeys.add(key);
-            }
-          });
-        }
-
-        // Extract properties
-        for (const [key, value] of Object.entries(shape || {})) {
-          const fieldInfo = this.extractZodFieldInfo(value);
-          result.properties.push({
-            name: key,
-            type: fieldInfo.type,
-            description: fieldInfo.description,
-            required: requiredKeys.has(key),
-            defaultValue: fieldInfo.defaultValue,
-            enum: fieldInfo.enum,
-          });
-        }
-      }
-    } else if (
-      (parameters as { type?: string; properties?: Record<string, unknown> })
-        .type === "object" &&
-      (parameters as { properties?: Record<string, unknown> }).properties
-    ) {
-      // Handle JSON Schema format
-      const props = (parameters as { properties?: Record<string, unknown> })
-        .properties;
-      const required = new Set(
-        Array.isArray((parameters as { required?: string[] }).required)
-          ? (parameters as { required?: string[] }).required
-          : [],
-      );
-
-      for (const [key, value] of Object.entries(props ?? {})) {
-        const prop = value as Record<string, unknown>;
-        result.properties.push({
-          name: key,
-          type: prop.type as string | undefined,
-          description:
-            typeof prop.description === "string" ? prop.description : undefined,
-          required: required.has(key),
-          defaultValue: prop.default,
-          enum: Array.isArray(prop.enum) ? prop.enum : undefined,
-        });
-      }
-    }
-
-    return result;
-  }
-
-  private isZodOptional(zodSchema: unknown): boolean {
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return false;
-
-    const def = schema._def;
-
-    // Check if it's explicitly optional or nullable
-    if (def.typeName === "ZodOptional" || def.typeName === "ZodNullable") {
-      return true;
-    }
-
-    // Check if it has a default value
-    if (def.defaultValue !== undefined) {
-      return true;
-    }
-
-    return false;
-  }
-
-  private extractZodFieldInfo(zodSchema: unknown): {
-    type?: string;
-    description?: string;
-    defaultValue?: unknown;
-    enum?: unknown[];
-  } {
-    const info: {
-      type?: string;
-      description?: string;
-      defaultValue?: unknown;
-      enum?: unknown[];
-    } = {};
-
-    const schema = zodSchema as { _def?: Record<string, unknown> };
-    if (!schema?._def) return info;
-
-    let currentSchema = schema as { _def?: Record<string, unknown> };
-    let def = currentSchema._def as Record<string, unknown>;
-
-    // Unwrap optional/nullable
-    while (
-      def.typeName === "ZodOptional" ||
-      def.typeName === "ZodNullable" ||
-      def.typeName === "ZodDefault"
-    ) {
-      if (def.typeName === "ZodDefault" && def.defaultValue !== undefined) {
-        info.defaultValue =
-          typeof def.defaultValue === "function"
-            ? def.defaultValue()
-            : def.defaultValue;
-      }
-      currentSchema =
-        (def.innerType as { _def?: Record<string, unknown> }) ?? currentSchema;
-      if (!currentSchema?._def) break;
-      def = currentSchema._def as Record<string, unknown>;
-    }
-
-    // Extract description
-    info.description =
-      typeof def.description === "string" ? def.description : undefined;
-
-    const typeName =
-      typeof def.typeName === "string" ? def.typeName : undefined;
-
-    // Extract type
-    const typeMap: Record<string, string> = {
-      ZodString: "string",
-      ZodNumber: "number",
-      ZodBoolean: "boolean",
-      ZodArray: "array",
-      ZodObject: "object",
-      ZodEnum: "enum",
-      ZodLiteral: "literal",
-      ZodUnion: "union",
-      ZodAny: "any",
-      ZodUnknown: "unknown",
-    };
-    info.type = typeName
-      ? typeMap[typeName] || typeName.replace("Zod", "").toLowerCase()
-      : undefined;
-
-    // Extract enum values
-    if (typeName === "ZodEnum" && Array.isArray(def.values)) {
-      info.enum = def.values as unknown[];
-    } else if (typeName === "ZodLiteral" && def.value !== undefined) {
-      info.enum = [def.value];
-    }
-
-    return info;
   }
 
   private toggleToolExpansion(toolId: string): void {
@@ -12399,226 +10606,14 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private renderContextView() {
-    const contextEntries = Object.entries(this.contextStore);
-
-    if (contextEntries.length === 0) {
-      return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("FileText")}
-            </div>
-            <p class="text-sm text-gray-600">No context available</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Context will appear here once added to CopilotKit.
-            </p>
-          </div>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="flex h-full flex-col overflow-hidden">
-        <div class="overflow-auto p-4">
-          <div class="space-y-3">
-            ${contextEntries.map(([id, context]) =>
-              this.renderContextCard(id, context),
-            )}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  private renderContextCard(
-    id: string,
-    context: { description?: string; value: unknown },
-  ) {
-    const isExpanded = this.expandedContextItems.has(id);
-    const valuePreview = this.getContextValuePreview(context.value);
-    const hasValue = context.value !== undefined && context.value !== null;
-    const title = context.description?.trim() || id;
-
-    return html`
-      <div class="rounded-lg border border-gray-200 bg-white overflow-hidden">
-        <button
-          type="button"
-          class="w-full px-4 py-3 text-left transition hover:bg-gray-50"
-          @click=${() => this.toggleContextExpansion(id)}
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900 mb-1">${title}</p>
-              <div class="flex items-center gap-2 text-xs text-gray-500">
-                <span
-                  class="font-mono truncate inline-block align-middle"
-                  style="max-width: 180px;"
-                  >${id}</span
-                >
-                ${
-                  hasValue
-                    ? html`
-                      <span class="text-gray-300">•</span>
-                      <span class="truncate">${valuePreview}</span>
-                    `
-                    : nothing
-                }
-              </div>
-            </div>
-            <span
-              class="shrink-0 text-gray-400 transition ${
-                isExpanded ? "rotate-180" : ""
-              }"
-            >
-              ${this.renderIcon("ChevronDown")}
-            </span>
-          </div>
-        </button>
-
-        ${
-          isExpanded
-            ? html`
-              <div class="border-t border-gray-200 px-4 py-3">
-                <div class="mb-3">
-                  <div class="mb-1 flex items-center justify-between gap-2">
-                    <h5 class="text-xs font-semibold text-gray-700">ID</h5>
-                    <cpk-inspector-copy-button
-                      class="cpk-copy-btn"
-                      .value=${id}
-                      .clipboard=${this.getClipboard()}
-                      .resetDelayMs=${1_500}
-                    >
-                    </cpk-inspector-copy-button>
-                  </div>
-                  <code
-                    class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
-                    >${id}</code
-                  >
-                </div>
-                ${
-                  hasValue
-                    ? html`
-                      <div class="mb-2 flex items-center justify-between gap-2">
-                        <h5 class="text-xs font-semibold text-gray-700">
-                          Value
-                        </h5>
-                        <cpk-inspector-copy-button
-                          class="cpk-copy-btn"
-                          label="Copy JSON"
-                          .value=${this.formatContextValue(context.value)}
-                          .clipboard=${this.getClipboard()}
-                          .resetDelayMs=${1_500}
-                        >
-                        </cpk-inspector-copy-button>
-                      </div>
-                      ${renderJsonValue(context.value, {
-                        maxHeight: "180px",
-                      })}
-                    `
-                    : html`
-                        <div class="flex items-center justify-center py-4 text-xs text-gray-500">
-                          <span>No value available</span>
-                        </div>
-                      `
-                }
-              </div>
-            `
-            : nothing
-        }
-      </div>
-    `;
-  }
-
-  private getContextValuePreview(value: unknown): string {
-    const parsed = coerceJsonValue(value);
-
-    if (parsed === undefined || parsed === null) {
-      return "—";
-    }
-
-    if (typeof parsed === "string") {
-      return parsed.length > 50 ? `${parsed.slice(0, 50)}...` : parsed;
-    }
-
-    if (typeof parsed === "number" || typeof parsed === "boolean") {
-      return String(parsed);
-    }
-
-    if (Array.isArray(parsed)) {
-      return `Array(${parsed.length})`;
-    }
-
-    if (typeof parsed === "object") {
-      const keys = Object.keys(parsed);
-      return `Object with ${keys.length} key${keys.length !== 1 ? "s" : ""}`;
-    }
-
-    if (typeof parsed === "function") {
-      return "Function";
-    }
-
-    return String(parsed);
-  }
-
-  private getToolsForAgent(agentId: string): InspectorToolDefinition[] {
-    this.refreshToolsSnapshot();
-    return this.cachedTools.filter(
-      (tool) => !tool.agentId || tool.agentId === agentId,
-    );
-  }
-
-  private renderAgentToolsSection(agentId: string) {
-    const tools = this.getToolsForAgent(agentId);
-
-    return html`
-      <div class="cpk-section-card">
-        <div class="cpk-section-header">
-          <h4>Registered Tools</h4>
-        </div>
-        <div class="overflow-auto p-4">
-          ${
-            tools.length > 0
-              ? html`<div class="space-y-3">
-                ${tools.map((tool) => this.renderToolCard(tool))}
-              </div>`
-              : html`
-                <div
-                  class="flex h-12 items-center justify-center text-xs text-gray-500"
-                >
-                  <div class="flex items-center gap-2 text-gray-500">
-                    <span class="text-lg text-gray-400"
-                      >${this.renderIcon("Hammer")}</span
-                    >
-                    <span>No tools registered</span>
-                  </div>
-                </div>
-              `
-          }
-        </div>
-      </div>
-    `;
-  }
-
-  private formatContextValue(value: unknown): string {
-    if (value === undefined) {
-      return "undefined";
-    }
-
-    if (value === null) {
-      return "null";
-    }
-
-    if (typeof value === "function") {
-      return value.toString();
-    }
-
-    const pretty = this.formatStateForDisplay(coerceJsonValue(value));
-    return pretty.length > 0 ? pretty : String(value);
+  private renderLiveContextView() {
+    return renderLiveContextView({
+      state: this.live,
+      clipboard: this.getClipboard(),
+      renderIcon: (name) => this.renderIcon(name as LucideIconName),
+      renderJson: renderJsonValue,
+      onToggle: (id) => this.toggleContextExpansion(id),
+    });
   }
 
   private toggleContextExpansion(contextId: string): void {

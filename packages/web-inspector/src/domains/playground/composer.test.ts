@@ -23,9 +23,7 @@ describe("Playground composer cross-realm events", () => {
         updatePlaygroundInput(state, event, requestUpdate),
       );
       textarea.value = "Message from the pop-out";
-      textarea.dispatchEvent(
-        new frame.window.Event("input", { bubbles: true }),
-      );
+      textarea.dispatchEvent(frame.createEvent("input", { bubbles: true }));
 
       let submitted = false;
       form.addEventListener("submit", (event) => {
@@ -33,7 +31,7 @@ describe("Playground composer cross-realm events", () => {
         submitted = true;
       });
       textarea.addEventListener("keydown", submitPlaygroundOnEnter);
-      const enter = new frame.window.KeyboardEvent("keydown", {
+      const enter = frame.createKeyboardEvent("keydown", {
         key: "Enter",
         bubbles: true,
         cancelable: true,

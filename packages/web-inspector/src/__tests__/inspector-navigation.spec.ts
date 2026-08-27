@@ -1443,13 +1443,11 @@ test("docked sidebar automatically uses an icon rail and keeps accessible names"
         '.inspector-icon-rail-menu[data-open="true"] button[data-context-dropdown-root="true"]',
       );
     expect(visibleOption()).not.toBeNull();
-    scopeTrigger.dispatchEvent(
-      Object.assign(
-        new Event("pointerdown", { bubbles: true, cancelable: true }),
-        {
-          pointerType: "mouse",
-        },
-      ),
+    scopeTrigger.click();
+    await context.inspector.updateComplete;
+    expect(visibleOption()).toBeNull();
+    scopeRoot.dispatchEvent(
+      Object.assign(new Event("pointerenter"), { pointerType: "mouse" }),
     );
     await context.inspector.updateComplete;
     expect(visibleOption()).not.toBeNull();

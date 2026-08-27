@@ -22,7 +22,7 @@ describe("Playground element guards", () => {
           selectedThreadId = event.currentTarget.value;
         }
       });
-      select.dispatchEvent(new frame.window.Event("change", { bubbles: true }));
+      select.dispatchEvent(frame.createEvent("change", { bubbles: true }));
 
       expect(selectedThreadId).toBe("thread-1");
     } finally {

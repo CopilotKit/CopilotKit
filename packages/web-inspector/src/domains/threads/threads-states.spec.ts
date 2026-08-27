@@ -921,9 +921,7 @@ test("loading projects across all agents and clears when a store unregisters", a
         '[data-context-dropdown-root="true"] > button',
       );
       if (!trigger) throw new Error("Context dropdown was not rendered");
-      trigger.dispatchEvent(
-        new Event("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      trigger.click();
       await harness.flush();
       const option = Array.from(
         root.querySelectorAll<HTMLButtonElement>("button"),

@@ -301,9 +301,7 @@ async function setup(options: SetupOptions): Promise<ThreadSelectionHarness> {
           [],
       ).find((button) => button.textContent?.trim() === "All Agents");
       if (!trigger) throw new Error("All Agents context control not found");
-      trigger.dispatchEvent(
-        new Event("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      trigger.click();
       await flushInspector(inspector);
 
       const option = Array.from(

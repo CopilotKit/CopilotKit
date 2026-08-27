@@ -542,9 +542,7 @@ async function setup(options: SetupOptions = {}): Promise<TelemetryHarness> {
         ),
         "Context dropdown was not rendered",
       );
-      trigger.dispatchEvent(
-        new Event("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      trigger.click();
       await flushInspector(inspector);
       const option = Array.from(
         root.querySelectorAll<HTMLButtonElement>("button"),

@@ -1047,9 +1047,7 @@ describe("Inspector pop-out", () => {
         ),
         "Agent menu was not rendered in the pop-out",
       );
-      toggle.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      toggle.click();
       await context.inspector.updateComplete;
       await waitFor(
         () =>
@@ -1098,9 +1096,7 @@ describe("Inspector pop-out", () => {
         ),
         "Agent menu was not rendered in the pop-out",
       );
-      toggle.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      toggle.click();
       await context.inspector.updateComplete;
 
       const foreignButton = requireElement(
@@ -1145,11 +1141,13 @@ describe("Inspector pop-out", () => {
         "the pop-out Inspector to show the agent event",
       );
 
-      const eventRow = requireElement(
-        context.popDoc.querySelector<HTMLTableRowElement>("tbody tr"),
-        "Event row was not rendered in the pop-out",
+      const eventDisclosure = requireElement(
+        context.popDoc.querySelector<HTMLButtonElement>(
+          '.event-expansion-button[aria-label^="Expand RUN_STARTED event"]',
+        ),
+        "Event disclosure was not rendered in the pop-out",
       );
-      eventRow.click();
+      eventDisclosure.click();
       await context.inspector.updateComplete;
       await waitFor(() => {
         return findInspectorCopyControl(context.popDoc, "Copy") !== null;

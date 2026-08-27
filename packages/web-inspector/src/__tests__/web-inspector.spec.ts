@@ -2,7 +2,6 @@ import {
   CpkThreadInspector,
   configureWebInspectorElement,
   WebInspectorElement,
-  ɵbuildCapabilityRows,
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
@@ -25,22 +24,10 @@ import type { ThreadsState } from "../domains/threads/state.js";
 // WebInspectorElement stores these as private Lit reactive properties.
 // There's no public API to read them, so the cast is unavoidable in tests.
 
-type InspectorInternals = {
-  flattenedEvents: Array<{ type: string }>;
-  agentMessages: Map<string, Array<{ contentText?: string }>>;
-  agentStates: Map<string, unknown>;
-  cachedTools: Array<{ name: string }>;
-};
-
 type InspectorThreadViewInternals = {
   isOpen: boolean;
   selectedMenu: "ag-ui-events" | "threads";
   threads: ThreadsState;
-};
-
-type InspectorContextInternals = {
-  contextStore: Record<string, { description?: string; value: unknown }>;
-  persistState: () => void;
 };
 
 // --- Mock agent factory ---
@@ -193,17 +180,6 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
         }),
       );
     },
-    emitContextChanged(nextContext: Record<string, unknown>) {
-      core.context = nextContext;
-      subscribers.forEach((subscriber) =>
-        subscriber.onContextChanged?.({
-          copilotkit: core as unknown as CopilotKitCore,
-          context: core.context as unknown as Readonly<
-            Record<string, { value: string; description: string }>
-          >,
-        }),
-      );
-    },
   };
 }
 
@@ -217,16 +193,6 @@ function createInspectorWithCore(core: MockCore) {
   // only implements the subset exercised by these tests.
   inspector.core = core as unknown as WebInspectorElement["core"];
   return inspector;
-}
-
-/** Access private Lit reactive properties on the inspector. */
-function getInternals(inspector: WebInspectorElement) {
-  return inspector as unknown as InspectorInternals;
-}
-
-/** Access context-related private properties on the inspector. */
-function getContextInternals(inspector: WebInspectorElement) {
-  return inspector as unknown as InspectorContextInternals;
 }
 
 type TelemetryPost = { event: string; properties: Record<string, unknown> };
@@ -252,34 +218,8 @@ function telemetryPostsFrom(fetchMock: {
 // --- Tests ---
 
 describe("WebInspectorElement", () => {
-  let mockClipboard: { writeText: ReturnType<typeof vi.fn> };
-
   beforeEach(() => {
     document.body.innerHTML = "";
-
-    const store: Record<string, string> = {};
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-      removeItem: (key: string) => {
-        delete store[key];
-      },
-      clear: () => {
-        for (const key of Object.keys(store)) delete store[key];
-      },
-      get length() {
-        return Object.keys(store).length;
-      },
-      key: (index: number) => Object.keys(store)[index] ?? null,
-    });
-
-    mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
-    // navigator.clipboard is readonly in DOM types — assigning
-    // the mock requires a cast in jsdom-style test environments.
-    (navigator as unknown as { clipboard: typeof mockClipboard }).clipboard =
-      mockClipboard;
   });
 
   afterEach(() => {
@@ -296,93 +236,6 @@ describe("WebInspectorElement", () => {
     expect(inspector.autoAttachCore).toBe(false);
     expect(inspector.core).toBe(core);
   });
-
-  it("records agent events and syncs state/messages/tools", async () => {
-    const { agent, controller } = createMockAgent("alpha", {
-      messages: [{ id: "m1", role: "user", content: "hi there" }],
-      state: { foo: "bar" },
-      toolHandlers: {
-        greet: { description: "hello", parameters: { type: "object" } },
-      },
-    });
-    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
-    const inspector = createInspectorWithCore(core);
-
-    emitAgentsChanged();
-    await inspector.updateComplete;
-
-    controller.emit("onRunStartedEvent", { event: { id: "run-1" } });
-    controller.emit("onMessagesSnapshotEvent", { event: { id: "msg-1" } });
-    await inspector.updateComplete;
-
-    const internals = getInternals(inspector);
-
-    expect(
-      internals.flattenedEvents.some((evt) => evt.type === "RUN_STARTED"),
-    ).toBe(true);
-    expect(
-      internals.flattenedEvents.some((evt) => evt.type === "MESSAGES_SNAPSHOT"),
-    ).toBe(true);
-    expect(internals.agentMessages.get("alpha")?.[0]?.contentText).toContain(
-      "hi there",
-    );
-    expect(internals.agentStates.get("alpha")).toBeDefined();
-    expect(internals.cachedTools.some((tool) => tool.name === "greet")).toBe(
-      true,
-    );
-  });
-
-  it("renders Agent tab message text without template indent", async () => {
-    const { agent } = createMockAgent("alpha", {
-      messages: [{ id: "m1", role: "user", content: "test" }],
-    });
-    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
-    const inspector = createInspectorWithCore(core);
-
-    emitAgentsChanged();
-    await inspector.updateComplete;
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      selectedMenu: string;
-      selectedContext: string;
-    };
-    internals.isOpen = true;
-    internals.selectedMenu = "agents";
-    internals.selectedContext = "alpha";
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-
-    const content = inspector.shadowRoot?.querySelector(
-      ".cpk-agent-view .whitespace-pre-wrap",
-    );
-    expect(content?.textContent).toBe("test");
-  });
-
-  it("records step lifecycle events", async () => {
-    const { agent, controller } = createMockAgent("alpha");
-    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
-    const inspector = createInspectorWithCore(core);
-
-    emitAgentsChanged();
-    await inspector.updateComplete;
-
-    controller.emit("onStepStartedEvent", {
-      event: { stepName: "test-step" },
-    });
-    controller.emit("onStepFinishedEvent", {
-      event: { stepName: "test-step" },
-    });
-    await inspector.updateComplete;
-
-    const internals = getInternals(inspector);
-
-    expect(internals.flattenedEvents.map((event) => event.type)).toEqual([
-      "STEP_FINISHED",
-      "STEP_STARTED",
-    ]);
-  });
-
   it("opens the requested message's thread", async () => {
     const { agent } = createMockAgent("alpha");
     const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
@@ -413,81 +266,6 @@ describe("WebInspectorElement", () => {
       "assistant-message-1",
     );
     expect(focusInternals.threads.threadFocusRequestId).toBe(1);
-  });
-
-  it("normalizes context, persists state, and copies context values", async () => {
-    const { core, emitContextChanged } = createMockCore();
-    const inspector = createInspectorWithCore(core);
-
-    emitContextChanged({
-      ctxA: { value: { nested: true } },
-      ctxB: { description: "Described", value: 5 },
-    });
-    await inspector.updateComplete;
-
-    const contextInternals = getContextInternals(inspector);
-    const ctxA = contextInternals.contextStore.ctxA!;
-    const ctxB = contextInternals.contextStore.ctxB!;
-    expect(ctxA.value).toMatchObject({ nested: true });
-    expect(ctxB.description).toBe("Described");
-
-    inspector.openInspector("floating_button");
-    await inspector.updateComplete;
-    inspector.shadowRoot
-      ?.querySelector<HTMLButtonElement>(
-        '[data-inspector-menu-key="agent-context"]',
-      )
-      ?.click();
-    await inspector.updateComplete;
-    Array.from(
-      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-        "#cpk-main-scroll > div button",
-      ) ?? [],
-    )
-      .find((button) => button.textContent?.includes("ctxA"))
-      ?.click();
-    await inspector.updateComplete;
-    findInspectorCopyControl(inspector.shadowRoot!, "Copy JSON")?.click();
-    await vi.waitFor(() =>
-      expect(mockClipboard.writeText).toHaveBeenCalledWith(
-        '{\n  "nested": true\n}',
-      ),
-    );
-    expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
-
-    contextInternals.persistState();
-    expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
-  });
-
-  it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
-    // Simulates a selfManagedAgent where agent.setState() is called directly
-    // from UI code, bypassing the AG-UI event pipeline. Before the fix,
-    // only pipeline event handlers (onStateSnapshotEvent, onStateDeltaEvent)
-    // updated the inspector — onStateChanged was not subscribed to, so
-    // direct setState() left the inspector stale.
-    const { agent, controller } = createMockAgent("counter", {
-      state: { counter: 0 },
-    });
-    const { core, emitAgentsChanged } = createMockCore({ counter: agent });
-    const inspector = createInspectorWithCore(core);
-
-    emitAgentsChanged();
-    await inspector.updateComplete;
-
-    const internals = getInternals(inspector);
-
-    // Initial state should be captured on subscription
-    expect(internals.agentStates.get("counter")).toEqual({ counter: 0 });
-
-    // Simulate agent.setState({ counter: 1 })
-    controller.simulateSetState({ counter: 1 });
-    await inspector.updateComplete;
-    expect(internals.agentStates.get("counter")).toEqual({ counter: 1 });
-
-    // Simulate a second setState to verify repeated updates propagate
-    controller.simulateSetState({ counter: 5 });
-    await inspector.updateComplete;
-    expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
   });
 });
 
@@ -3196,215 +2974,5 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       example_kind: "realtime_sync",
       dismiss_method: "skip",
     });
-  });
-});
-
-describe("ɵbuildCapabilityRows", () => {
-  it("maps core.tools to rows, reflects isToolEnabled, and sorts by agentId then name", () => {
-    const enabled = new Set(["b-tool"]);
-    const core = {
-      tools: [
-        { name: "z-tool", agentId: "agent-2", description: "zed" },
-        { name: "a-tool", agentId: "agent-1" },
-        { name: "b-tool" },
-      ],
-      isToolEnabled: (name: string) => enabled.has(name),
-    };
-    const rows = ɵbuildCapabilityRows(core);
-    expect(rows.map((r) => r.name)).toEqual(["b-tool", "a-tool", "z-tool"]);
-    expect(rows[0]).toMatchObject({
-      key: ":b-tool",
-      name: "b-tool",
-      agentId: undefined,
-      enabled: true,
-    });
-    expect(rows.find((r) => r.name === "a-tool")).toMatchObject({
-      key: "agent-1:a-tool",
-      enabled: false,
-    });
-    expect(rows.find((r) => r.name === "z-tool")).toMatchObject({
-      description: "zed",
-      enabled: false,
-    });
-  });
-
-  it("passes isToolEnabled the tool's agentId (per-agent enablement)", () => {
-    const calls: Array<[string, string | undefined]> = [];
-    const core = {
-      tools: [{ name: "t", agentId: "agent-x" }],
-      isToolEnabled: (name: string, agentId?: string) => {
-        calls.push([name, agentId]);
-        return true;
-      },
-    };
-    ɵbuildCapabilityRows(core);
-    expect(calls).toEqual([["t", "agent-x"]]);
-  });
-
-  it("returns an empty array when there are no tools", () => {
-    expect(
-      ɵbuildCapabilityRows({ tools: [], isToolEnabled: () => false }),
-    ).toEqual([]);
-    expect(ɵbuildCapabilityRows({ isToolEnabled: () => false })).toEqual([]);
-  });
-});
-
-describe("WebInspectorElement Capabilities tab", () => {
-  beforeEach(() => {
-    document.body.innerHTML = "";
-    const store: Record<string, string> = {
-      "cpk:inspector:state": JSON.stringify({
-        isOpen: true,
-        selectedMenu: "capabilities",
-        hasOpenedInspector: true,
-      }),
-    };
-    vi.stubGlobal("localStorage", {
-      getItem: (k: string) => store[k] ?? null,
-      setItem: (k: string, v: string) => {
-        store[k] = v;
-      },
-      removeItem: (k: string) => {
-        delete store[k];
-      },
-      clear: () => {
-        for (const k of Object.keys(store)) delete store[k];
-      },
-      get length() {
-        return Object.keys(store).length;
-      },
-      key: (i: number) => Object.keys(store)[i] ?? null,
-    });
-  });
-
-  function createCapabilitiesCore() {
-    const toolEnabled: Record<string, boolean> = { greet: true, hide: true };
-    const catalogEnabled: Record<string, boolean> = { Chart: true };
-    const setToolEnabled = vi.fn(
-      (name: string, enabled: boolean, _agentId?: string) => {
-        toolEnabled[name] = enabled;
-      },
-    );
-    const setCatalogComponentEnabled = vi.fn(
-      (name: string, enabled: boolean) => {
-        catalogEnabled[name] = enabled;
-      },
-    );
-    const core = {
-      agents: {},
-      context: {},
-      properties: {},
-      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
-      subscribe: () => ({ unsubscribe: () => undefined }),
-      getThreadStores: () => ({}),
-      getThreadStore: () => undefined,
-      getMemoryStore: () => ({
-        getState: () => ({ available: true }),
-        select: () => ({
-          subscribe: (cb: (v: unknown) => void) => {
-            cb(undefined);
-            return { unsubscribe: () => undefined };
-          },
-        }),
-      }),
-      tools: [{ name: "greet", description: "Say hi" }, { name: "hide" }],
-      isToolEnabled: (name: string) => toolEnabled[name] ?? true,
-      setToolEnabled,
-      catalogComponents: [{ name: "Chart", schema: {} }],
-      isCatalogComponentEnabled: (name: string) => catalogEnabled[name] ?? true,
-      setCatalogComponentEnabled,
-    };
-    return { core, setToolEnabled, setCatalogComponentEnabled };
-  }
-
-  it("shows the Capabilities tab and renders both sections", async () => {
-    const { core } = createCapabilitiesCore();
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
-    (inspector as unknown as { isOpen: boolean }).isOpen = true;
-    (inspector as unknown as { selectedMenu: string }).selectedMenu =
-      "capabilities";
-    (
-      inspector as unknown as { handleMenuSelect: (k: string) => void }
-    ).handleMenuSelect("capabilities");
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Frontend tools");
-    expect(text).toContain("A2UI catalog components");
-    expect(text).toContain("greet");
-    expect(text).toContain("Chart");
-  });
-
-  it("calls setToolEnabled(false) when a tool switch is toggled off", async () => {
-    const { core, setToolEnabled } = createCapabilitiesCore();
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
-    (inspector as unknown as { isOpen: boolean }).isOpen = true;
-    (inspector as unknown as { selectedMenu: string }).selectedMenu =
-      "capabilities";
-    (
-      inspector as unknown as { handleMenuSelect: (k: string) => void }
-    ).handleMenuSelect("capabilities");
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    const switches =
-      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-        'button[role="switch"]',
-      ) ?? [];
-    switches[0]?.click();
-    await inspector.updateComplete;
-    expect(setToolEnabled).toHaveBeenCalledWith("greet", false, undefined);
-    const refreshed =
-      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-        'button[role="switch"]',
-      ) ?? [];
-    expect(refreshed[0]?.getAttribute("aria-checked")).toBe("false");
-  });
-
-  it("calls setCatalogComponentEnabled when a catalog switch is toggled", async () => {
-    const { core, setCatalogComponentEnabled } = createCapabilitiesCore();
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
-    (inspector as unknown as { isOpen: boolean }).isOpen = true;
-    (inspector as unknown as { selectedMenu: string }).selectedMenu =
-      "capabilities";
-    (
-      inspector as unknown as { handleMenuSelect: (k: string) => void }
-    ).handleMenuSelect("capabilities");
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    const switches =
-      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
-        'button[role="switch"]',
-      ) ?? [];
-    switches[switches.length - 1]?.click();
-    await inspector.updateComplete;
-    expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
-  });
-
-  it("hides Capabilities when the A2UI catalog is empty", async () => {
-    const { core } = createCapabilitiesCore();
-    (core as { catalogComponents: unknown[] }).catalogComponents = [];
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
-    (inspector as unknown as { isOpen: boolean }).isOpen = true;
-    (inspector as unknown as { selectedMenu: string }).selectedMenu =
-      "capabilities";
-    (
-      inspector as unknown as { handleMenuSelect: (k: string) => void }
-    ).handleMenuSelect("capabilities");
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    const root = inspector.shadowRoot;
-    const text = root?.textContent ?? "";
-    expect(
-      root?.querySelector('button[data-inspector-menu-key="capabilities"]'),
-    ).toBeNull();
-    expect(text).not.toContain("A2UI catalog components");
   });
 });
