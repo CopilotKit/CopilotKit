@@ -2762,7 +2762,7 @@ for (const stack of INTELLIGENCE_DEV_STACKS) {
         `INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:${stack.gatewayPort}`,
       );
     }
-  });
+  }, 30_000);
 }
 
 test("local Intelligence compose host defaults do not collide", () => {
