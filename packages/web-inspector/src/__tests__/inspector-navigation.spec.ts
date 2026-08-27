@@ -900,7 +900,9 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       ),
       "Home Intelligence setup action was not rendered",
     );
-    expect(homeSetup.textContent).toContain("What Intelligence does");
+    // Names the alternative route, not an explainer: this href is the
+    // Intelligence product page, so promising an explanation would mislead.
+    expect(homeSetup.textContent).toContain("Set it up yourself");
     expect(homeSetup.href).toBe(setupUrl);
 
     // The condensed story only belongs to the never-connected state.

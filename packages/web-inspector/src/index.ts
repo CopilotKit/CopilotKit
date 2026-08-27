@@ -12090,8 +12090,16 @@ export class WebInspectorElement extends LitElement {
         data-copy-state=${this.promptCopyState}
       >
         ${
+          // The two actions are two routes to the same outcome — let the coding
+          // agent wire it up, or go and do it in the browser — so the
+          // secondary names the alternative path rather than promising an
+          // explainer. It used to read "What Intelligence does", which pointed
+          // at intelligence.copilotkit.ai: a product and signup page, not an
+          // explanation. Mis-promising a destination is a poor trade right at
+          // the moment the card is asking to be trusted.
+          //
           // One slot for the secondary message, and its content follows the
-          // state: before the press the useful aside is "what is this", after
+          // state: before the press the useful aside is the other route, after
           // it is "where to put it". Adding the instruction as a second row
           // instead pushed the action column past the band's 76px and shoved
           // the whole story down at the moment the developer had just acted.
@@ -12109,11 +12117,11 @@ export class WebInspectorElement extends LitElement {
                   href=${action.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="What Intelligence does (opens in a new tab)"
+                  aria-label="Set Intelligence up yourself (opens in a new tab)"
                   style=${INTERACTIVE_FOCUS_BASE_STYLE}
                   @click=${() => this.handleHomeHeroCta(action)}
                 >
-                  What Intelligence does ${this.renderIcon("ArrowUpRight")}
+                  Set it up yourself ${this.renderIcon("ArrowUpRight")}
                 </a>
               `
               : nothing
