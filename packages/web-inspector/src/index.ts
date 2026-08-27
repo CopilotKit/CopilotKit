@@ -9759,241 +9759,96 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      /* ── Launcher HUD: hover menu, quieter than the error island ── */
-      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
+      /*
+       * The drawer sits BEHIND the capsule and shares its top edge, so it can
+       * only ever be seen below it. The row/mark overlap is not fixed here,
+       * it is made impossible: the top of this box is covered by the capsule,
+       * which is covered in turn by the mark.
+       *
+       * Because it grows downward from behind a capsule that never moves,
+       * the only thing that changes between states is this element's height.
+       * Nothing morphs and no edge travels.
+       *
+       * No shadow, no second surface token, no blur. The capsule's own bottom
+       * border is the whole separator, measured at 1.82:1 against this
+       * surface on both light and dark host pages - the edge is internal, so
+       * the host page cannot reach it. See spec decision 6.
+       */
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-drawer {
         pointer-events: auto;
         opacity: 1;
-        transform: none;
         visibility: visible;
       }
 
-      .cpk-launcher-hud {
-        --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.5);
-        --hud-blur: blur(12px) saturate(1.2);
+      .cpk-launcher-drawer {
         position: absolute;
-        top: 0;
-        z-index: 4;
-        padding-right: 14px;
+        top: 50%;
+        margin-top: calc(var(--cpk-launcher-size) / -2);
+        right: 0;
+        z-index: 1;
+        width: var(--cpk-launcher-island);
+        box-sizing: border-box;
+        /* Top padding clears the capsule that covers this band. */
+        padding: calc(var(--cpk-launcher-size) + 6px) 8px 8px;
+        border-radius: calc(var(--cpk-launcher-size) / 2);
+        border: 1px solid var(--cpk-launcher-edge);
+        background: var(--cpk-launcher-face);
+        color: #fff;
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transform: translateX(8px);
-        transition:
-          opacity 160ms ease,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+        transition: opacity 160ms ease;
       }
 
-      .cpk-launcher-hud[data-cpk-hud-side="left"] {
-        right: 100%;
-        padding-right: 14px;
-        padding-left: 0;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"] {
-        left: 100%;
+      .cpk-launcher-drawer[data-cpk-drawer-side="right"] {
         right: auto;
-        padding-right: 0;
-        padding-left: 14px;
-        transform: translateX(-8px);
+        left: 0;
       }
 
-      .console-button-wrapper[data-cpk-hud="open"]
-        .cpk-launcher-hud[data-cpk-hud-side="right"] {
-        transform: none;
-      }
-
-      .cpk-launcher-hud__card {
-        position: relative;
-        width: 228px;
-        padding: 4px;
-        border: 1px dotted var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
-        color: #fff;
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] {
-        --hud-fill: #fff;
-        --hud-line: #d8d8e8;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
-        color: #010507;
-      }
-
-      .cpk-launcher-hud__arrow {
-        position: absolute;
-        top: calc(var(--cpk-launcher-size) / 2);
-        z-index: 1;
-        width: 10px;
-        height: 10px;
-        border: 0;
-        /* The card frosts the page behind it, so it reads lighter than the
-           raw fill. Mix a little white so the arrow matches the glass card
-           without going lighter than the HUD. */
-        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
-        transform: translateY(-50%) rotate(45deg);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
-        right: 9px;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
-        left: 9px;
-      }
-
-      .cpk-launcher-hud__list {
+      .cpk-launcher-drawer__list {
         margin: 0;
         padding: 0;
         list-style: none;
       }
 
-      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
-        margin-top: 4px;
-        padding-top: 4px;
-        border-top: 1px dotted var(--hud-line);
-      }
-
-      .cpk-launcher-hud__row {
-        position: relative;
-        display: grid;
-        grid-template-columns: 1fr 28px;
-        align-items: start;
-        border-radius: 7px;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__row + .cpk-launcher-hud__row {
-        margin-top: 1px;
-      }
-
-      .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
-        background: rgb(255 255 255 / 0.06);
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
-        background: #f0f0f4;
-      }
-
-      .cpk-launcher-hud__action {
+      .cpk-launcher-drawer__row {
         display: flex;
-        gap: 8px;
-        min-height: 32px;
         align-items: center;
-        padding: 6px 8px;
-        border: 0;
-        border-radius: 7px;
-        background: transparent;
-        color: #fff;
-        font-family: inherit;
-        font-size: 12px;
-        font-weight: 600;
-        text-align: start;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
-        color: #010507;
-      }
-
-      /* Stretch the row action over the whole tab, including the detail
-         copy. The help mark sits above this layer. */
-      .cpk-launcher-hud__action::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-      }
-
-      .cpk-launcher-hud__check {
-        flex: none;
-        width: 14px;
-        height: 14px;
-        color: #34d399;
-      }
-
-      .cpk-launcher-hud__help {
-        position: relative;
-        z-index: 1;
-        display: inline-flex;
-        width: 28px;
+        gap: 9px;
         height: 32px;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: rgb(255 255 255 / 0.78);
+        padding: 0 20px;
+        border-radius: 999px;
         font-size: 12px;
-        font-weight: 600;
+        font-weight: 500;
+      }
+
+      .cpk-launcher-drawer__row:hover,
+      .cpk-launcher-drawer__row:focus-within {
+        background: rgb(255 255 255 / 0.07);
+      }
+
+      .cpk-launcher-drawer__action {
+        all: unset;
+        flex: 1;
         cursor: pointer;
+        color: inherit;
+        font: inherit;
       }
 
-      .cpk-launcher-hud__help span {
-        display: inline-flex;
-        width: 16px;
-        height: 16px;
-        align-items: center;
-        justify-content: center;
-        border: 1px dotted rgb(190 194 255 / 0.55);
-        border-radius: 50%;
-        line-height: 1;
+      .cpk-launcher-drawer__action:focus-visible {
+        outline: 2px solid var(--cpk-launcher-edge);
+        outline-offset: 2px;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
-        color: #68686e;
-      }
-
-      .cpk-launcher-hud__help:focus-visible,
-      .cpk-launcher-hud__action:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .cpk-launcher-hud__detail {
-        grid-column: 1 / -1;
-        max-height: 0;
-        margin: 0;
-        padding: 0 8px;
-        overflow: hidden;
-        color: rgb(255 255 255 / 0.78);
-        font-size: 11px;
-        font-weight: 400;
-        line-height: 1.4;
-        opacity: 0;
-        pointer-events: none;
-        transform: translateY(-6px);
-        transition:
-          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          opacity 150ms ease-out,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
-        color: #68686e;
-      }
-
-      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
-        max-height: 72px;
-        padding: 0 8px 7px;
-        opacity: 1;
-        transform: none;
+      .cpk-launcher-drawer__check {
+        flex: none;
+        width: 12px;
+        height: 12px;
+        color: #6ee7a8;
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .cpk-launcher-hud,
-        .cpk-launcher-hud__detail {
+        .cpk-launcher-drawer {
           transition: none;
         }
       }
@@ -10007,32 +9862,26 @@ export class WebInspectorElement extends LitElement {
       @keyframes cpk-launcher-hud-intro {
         0% {
           opacity: 0;
-          transform: translateX(8px);
         }
         8%,
         88% {
           opacity: 1;
-          transform: none;
         }
         100% {
           opacity: 0;
-          transform: translateX(4px);
         }
       }
 
       @keyframes cpk-launcher-hud-intro-right {
         0% {
           opacity: 0;
-          transform: translateX(-8px);
         }
         8%,
         88% {
           opacity: 1;
-          transform: none;
         }
         100% {
           opacity: 0;
-          transform: translateX(-4px);
         }
       }
 
@@ -10058,37 +9907,37 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"] {
         animation: cpk-launcher-hud-intro
           var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
         animation-name: cpk-launcher-hud-intro-right;
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__row {
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+        .cpk-launcher-drawer__row {
         animation: cpk-launcher-hud-row-online
           var(--cpk-launcher-hud-row-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: var(--cpk-hud-row-delay);
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__check {
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+        .cpk-launcher-drawer__check {
         animation: cpk-launcher-hud-check-online 220ms
           cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .cpk-launcher-hud[data-cpk-hud-intro="true"],
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__row,
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__check {
+        .cpk-launcher-drawer[data-cpk-hud-intro="true"],
+        .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+          .cpk-launcher-drawer__row,
+        .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+          .cpk-launcher-drawer__check {
           animation: none !important;
           opacity: 1;
           transform: none;
