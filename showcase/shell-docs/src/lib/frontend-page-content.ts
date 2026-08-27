@@ -39,6 +39,27 @@ export const ANGULAR_GUIDE_PAGES = [
   },
 ] as const;
 
+export const VUE_GUIDE_PAGES = [
+  { title: "Generative UI in Vue", slug: "guides/generative-ui" },
+] as const;
+
+interface FrontendGuidePage {
+  title: string;
+  slug: string;
+}
+
+/**
+ * Frontend-owned task guides, keyed by frontend. A frontend absent from this
+ * map has no guides yet and shows only its quickstart, docs status, and
+ * reference in the sidebar.
+ */
+const FRONTEND_GUIDE_PAGES: Partial<
+  Record<FrontendPageId, readonly FrontendGuidePage[]>
+> = {
+  angular: ANGULAR_GUIDE_PAGES,
+  vue: VUE_GUIDE_PAGES,
+};
+
 /**
  * React's root IA names frontend-specific capabilities more granularly than
  * the Angular task guides. Keep selector changes useful without copying the
@@ -226,20 +247,26 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   const frontendName =
     FRONTEND_OPTIONS.find((option) => option.id === id)?.name ?? id;
 
-  const authoredGuides: NavNode[] =
-    id === "angular"
-      ? [
+  const guidePages: NavNode[] = (FRONTEND_GUIDE_PAGES[id] ?? []).map(
+    (guide): NavNode => ({
+      type: "page",
+      title: guide.title,
+      slug: guide.slug,
+    }),
+  );
+  const authoredGuides: NavNode[] = [
+    ...(id === "angular"
+      ? ([
           { type: "page", title: "Feature examples", slug: "features" },
+        ] satisfies NavNode[])
+      : []),
+    ...(guidePages.length > 0
+      ? ([
           { type: "section", title: "Guides", icon: "lucide/BookOpen" },
-          ...ANGULAR_GUIDE_PAGES.map(
-            (guide): NavNode => ({
-              type: "page",
-              title: guide.title,
-              slug: guide.slug,
-            }),
-          ),
-        ]
-      : [];
+        ] satisfies NavNode[])
+      : []),
+    ...guidePages,
+  ];
   const upcomingGuides: NavNode[] =
     id === "angular"
       ? []
