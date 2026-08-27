@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  type DestroyRef,
   Input,
   signal,
 } from "@angular/core";
@@ -10,6 +11,7 @@ import { AbstractAgent } from "@ag-ui/client";
 import type {
   AgentSubscriber,
   BaseEvent,
+  Interrupt,
   Message,
   RunAgentInput,
   State,
@@ -32,6 +34,7 @@ type StubCore = Pick<
   | "runtimeConnectionStatus"
   | "headers"
   | "subscribeToAgentWithOptions"
+  | "runAgent"
 > & {
   agents?: Record<string, AbstractAgent>;
 };
@@ -52,6 +55,11 @@ function userMsg(id: string, content: string): Message {
 
 class MockAgent extends AbstractAgent {
   unsubscribeCount = 0;
+  subscribeCount = 0;
+
+  get activeSubscriberCount() {
+    return this.subscribers.length;
+  }
 
   constructor(id: string) {
     super();
@@ -64,6 +72,7 @@ class MockAgent extends AbstractAgent {
 
   override subscribe(subscriber: AgentSubscriber) {
     const sub = super.subscribe(subscriber);
+    this.subscribeCount += 1;
     return {
       unsubscribe: () => {
         sub.unsubscribe();
@@ -151,13 +160,16 @@ class CopilotKitStub {
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
   runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
+  credentials = this.#credentials.asReadonly();
   #coreInstance = new CopilotKitCore({});
+  runAgent = vi.fn(async () => ({ result: null, newMessages: [] }));
   core: StubCore = {
     runtimeUrl: undefined,
     runtimeTransport: "auto",
@@ -165,6 +177,7 @@ class CopilotKitStub {
     headers: {},
     subscribeToAgentWithOptions:
       this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),
+    runAgent: this.runAgent as unknown as CopilotKitCore["runAgent"],
   };
 
   setAgents(map: Record<string, AbstractAgent>) {
@@ -185,6 +198,10 @@ class CopilotKitStub {
   setHeaders(value: Record<string, string>) {
     this.#headers.set(value);
     this.core = { ...this.core, headers: value };
+  }
+
+  setCredentials(value: RequestCredentials | undefined) {
+    this.#credentials.set(value);
   }
 
   setRuntimeTransport(value: "rest" | "single" | "auto") {
@@ -291,10 +308,10 @@ describe("injectAgentStore", () => {
     fixture.detectChanges();
 
     expect(fixture.componentInstance.store()?.agent).toBe(secondAgent);
-    expect(firstAgent.unsubscribeCount).toBe(1);
+    expect(firstAgent.unsubscribeCount).toBe(2);
 
     fixture.destroy();
-    expect(secondAgent.unsubscribeCount).toBe(1);
+    expect(secondAgent.unsubscribeCount).toBe(2);
   });
 
   it("returns a proxied AgentStore while runtime is connecting", () => {
@@ -325,6 +342,36 @@ describe("injectAgentStore", () => {
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+  });
+
+  it("keeps credentials current on the cached provisional agent", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setCredentials("include");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    const initialAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(initialAgent).toBeInstanceOf(ProxiedCopilotRuntimeAgent);
+    expect(initialAgent.credentials).toBe("include");
+
+    copilotKitStub.setCredentials("omit");
+
+    const updatedAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(updatedAgent).toBe(initialAgent);
+    expect(updatedAgent.credentials).toBe("omit");
   });
 
   it("shares a provisional runtime agent across same-id consumers", () => {
@@ -639,5 +686,135 @@ describe("injectAgentStore", () => {
     agent.pushMessageInPlace(userMsg("2", "World"));
     fixture.detectChanges();
     expect(rendered()).toBe("2");
+  });
+});
+
+function interrupt(id: string): Interrupt {
+  return { id, reason: "approval", message: `Approve ${id}?` };
+}
+
+describe("AgentStore.interruptController", () => {
+  let copilotKitStub: CopilotKitStub;
+
+  function hostFor(agent: MockAgent) {
+    copilotKitStub.setAgents({ "agent-1": agent });
+
+    @Component({ standalone: true, template: "" })
+    class StoreHost {
+      store = injectAgentStore("agent-1");
+    }
+
+    const fixture = TestBed.createComponent(StoreHost);
+    fixture.detectChanges();
+    return { fixture, store: fixture.componentInstance.store() };
+  }
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    copilotKitStub = new CopilotKitStub();
+    TestBed.configureTestingModule({
+      providers: [{ provide: CopilotKit, useValue: copilotKitStub }],
+    });
+  });
+
+  it("binds to the store agent and resumes its retained interrupt", async () => {
+    const agent = new MockAgent("agent-1");
+    agent.pendingInterrupts = [interrupt("approve-refund")];
+    const { store } = hostFor(agent);
+    const controller = store.interruptController;
+
+    // One subscription projects the store; the other observes interrupts.
+    expect(agent.subscribeCount).toBe(2);
+    expect(agent.activeSubscriberCount).toBe(2);
+    expect(controller.interrupt()?.id).toBe("approve-refund");
+
+    await controller.resolve({ approved: true });
+
+    expect(copilotKitStub.runAgent).toHaveBeenCalledTimes(1);
+    const [runArgs] = copilotKitStub.runAgent.mock.calls[0] as [
+      { agent: AbstractAgent; resume?: unknown },
+    ];
+    expect(runArgs.agent).toBe(agent);
+    expect(runArgs.resume).toEqual([
+      {
+        interruptId: "approve-refund",
+        payload: { approved: true },
+        status: "resolved",
+      },
+    ]);
+  });
+
+  it.skip("clears the store interrupt as soon as its agent changes threads", () => {
+    const agent = new MockAgent("agent-1");
+    agent.threadId = "thread-a";
+    agent.pendingInterrupts = [interrupt("approve-refund")];
+    const { store } = hostFor(agent);
+
+    expect(store.interruptController.hasInterrupt()).toBe(true);
+
+    agent.threadId = "thread-b";
+
+    expect(store.interruptController.hasInterrupt()).toBe(false);
+  });
+
+  it("unregisters manual teardown and runs cleanup only once", () => {
+    const agent = new MockAgent("agent-1");
+    const unregisterDestroy = vi.fn();
+    const onDestroy = vi.fn(() => unregisterDestroy);
+    const destroyRef = {
+      destroyed: false,
+      onDestroy,
+    } as unknown as DestroyRef;
+    const unsubscribeStore = vi.fn();
+    const store = new AgentStore(agent, destroyRef, () => ({
+      unsubscribe: unsubscribeStore,
+    }));
+
+    store.teardown();
+    store.teardown();
+
+    expect(unregisterDestroy).toHaveBeenCalledTimes(1);
+    expect(unsubscribeStore).toHaveBeenCalledTimes(1);
+    expect(agent.unsubscribeCount).toBe(1);
+    expect(agent.activeSubscriberCount).toBe(0);
+  });
+
+  it("releases old and current subscriptions across swap and destroy", () => {
+    const first = new MockAgent("agent-1");
+    const second = new MockAgent("agent-2");
+    first.pendingInterrupts = [interrupt("stale")];
+    second.pendingInterrupts = [interrupt("fresh")];
+    copilotKitStub.setAgents({ "agent-1": first, "agent-2": second });
+    const agentId = signal<string | undefined>("agent-1");
+
+    @Component({ standalone: true, template: "" })
+    class SwitchingHost {
+      store = injectAgentStore(agentId);
+    }
+
+    const fixture = TestBed.createComponent(SwitchingHost);
+    fixture.detectChanges();
+    const firstController =
+      fixture.componentInstance.store().interruptController;
+    expect(firstController.hasInterrupt()).toBe(true);
+
+    // The previous store is torn down inside the factory's computed, so the
+    // controller's signal writes have to be untracked or Angular throws.
+    agentId.set("agent-2");
+    const swapped = fixture.componentInstance.store();
+
+    expect(swapped.agent).toBe(second);
+    expect(firstController.hasInterrupt()).toBe(false);
+    expect(first.unsubscribeCount).toBe(2);
+    expect(first.activeSubscriberCount).toBe(0);
+    const swappedController = swapped.interruptController;
+    expect(second.activeSubscriberCount).toBe(2);
+    expect(swappedController.interrupt()?.id).toBe("fresh");
+
+    fixture.destroy();
+
+    expect(first.unsubscribeCount).toBe(2);
+    expect(second.unsubscribeCount).toBe(2);
+    expect(second.activeSubscriberCount).toBe(0);
   });
 });

@@ -3,6 +3,9 @@ title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
 ---
+
+import InspectorPaneState from "@/snippets/shared/inspector/open-inspector-pane-state.mdx";
+
 ## What is shared state?
 
 Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
@@ -18,6 +21,8 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
   height={1000}
   className="rounded-lg shadow-lg border mt-0"
 />
+
+<InspectorPaneState components={props.components} />
 
 ## When should I use this?
 

@@ -5,6 +5,7 @@ import type {
   InteractionEvent,
   IncomingCommand,
   IncomingThreadStart,
+  IncomingWelcome,
   IncomingReaction,
   IncomingModalSubmit,
   IncomingModalClose,
@@ -27,12 +28,14 @@ import type {
   ChannelMessage,
   InteractionContext,
   IncomingMessage,
-  PlatformUser,
+  ProviderActor,
+  ApplicationUser,
   EmojiValue,
   EmojiPlatform,
   ModalView,
   ComponentFn,
   MessageRef,
+  Renderable,
 } from "@copilotkit/channels-ui";
 import {
   normalizeEmoji,
@@ -40,8 +43,18 @@ import {
   renderToIR,
 } from "@copilotkit/channels-ui";
 import { Transcripts } from "./transcripts.js";
-import type { Identity, TranscriptsConfig } from "./transcripts.js";
+import type { TranscriptsConfig } from "./transcripts.js";
+import { resolveChannelUser } from "./identity.js";
+import type {
+  ChannelIdentifyUser,
+  ChannelIdentityContext,
+} from "./identity.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { isChannelComponentDefinition } from "./channel-component.js";
+import type {
+  ChannelComponentDefinition,
+  ChannelComponentRenderContext,
+} from "./channel-component.js";
 import { ChannelTelemetry } from "./telemetry/channel-telemetry.js";
 import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
@@ -50,6 +63,9 @@ const pkg = createRequire(import.meta.url)("../package.json") as {
   name: string;
   version: string;
 };
+
+const ADAPTER_ROLLBACK_TIMEOUT_MS = 5_000;
+const DEFAULT_WELCOME_PROMPT = "Introduce yourself to the channel!";
 
 function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
   const n = s.constructor?.name;
@@ -106,7 +122,8 @@ export type ChannelConcurrency = "parallel" | "serial" | "drop";
  *
  * Fails loud on all three ways cloning can fail to isolate: a missing `clone()`,
  * a `clone()` that hands back the same object, and a `clone()` that silently
- * drops subclass state (see {@link assertCloneKeptOwnFields}).
+ * drops subclass state (see {@link warnOnCloneDroppedOwnFields}, which reports
+ * rather than refuses).
  */
 export function isolateAgentInstance(
   prototype: AbstractAgent,
@@ -125,7 +142,7 @@ export function isolateAgentInstance(
       "createChannel: agent.clone() must return a distinct instance for concurrent turns",
     );
   }
-  assertCloneKeptOwnFields(prototype, cloned);
+  warnOnCloneDroppedOwnFields(prototype, cloned);
   cloned.threadId = threadId;
   // `clone()` copies `isRunning` from the source, and a source that has already
   // run can be mid-run at the moment it is cloned. A fresh turn is not.
@@ -148,7 +165,7 @@ export function isolateAgentInstance(
 }
 
 /**
- * Fail loud when `clone()` silently drops subclass state.
+ * Report — but do not refuse — a `clone()` that drops subclass state.
  *
  * `AbstractAgent.prototype.clone()` copies a fixed field list, so a subclass
  * that declares its own fields (an auth client, config, a cache) gets them back
@@ -156,17 +173,37 @@ export function isolateAgentInstance(
  * exists and returns a correctly-typed instance, nothing else surfaces it. The
  * agent just runs gutted.
  *
- * Comparing own enumerable keys catches exactly that and stays quiet for the
- * agents that do override `clone()` (`HttpAgent`, `LangGraphAgent`,
- * `BuiltInAgent`, `IntelligenceAgent`). Symbol-keyed and non-enumerable fields
- * are not covered.
+ * This used to throw. It no longer does, because whether a dropped field matters
+ * depends on what the field HOLDS, and from here the two cases are
+ * indistinguishable:
+ *
+ * - **Config** (`orchestrationAgentUrl`, an auth client) is read during the run
+ *   and never rewritten, so losing it does gut the agent.
+ * - **Per-run scratch state** is re-initialized at the start of every run, so
+ *   losing it changes nothing. `LangGraphAgent`'s `emittedToolCallStartIds` and
+ *   `eventsStreamActive` are exactly this: both are reset when a run binds its
+ *   subscriber, before anything reads them.
+ *
+ * Throwing on the second case took a Channel that works and refused every turn
+ * — while the identical clone happens on every ordinary runtime request
+ * (`agent-utils.ts` clones per request) with no ill effect at all, which is why
+ * it had never been noticed outside Channels. A warning keeps the signal for the
+ * config case without failing the harmless one.
+ *
+ * Deliberately NOT done: copying the dropped fields onto the clone. That would
+ * share one mutable object across concurrent turns, which is the exact hazard
+ * this isolation exists to prevent.
+ *
+ * Comparing own enumerable keys stays quiet for the agents that override
+ * `clone()` fully (`HttpAgent`, `BuiltInAgent`, `IntelligenceAgent`).
+ * Symbol-keyed and non-enumerable fields are not covered.
  *
  * Own *functions* are deliberately exempt. Assigning a method on the instance is
  * how spies and instrumentation wrap an agent, and losing that wrapper leaves
  * the class's prototype method intact — the clone still behaves correctly, it
  * just isn't wrapped. Only dropped state leaves an agent genuinely gutted.
  */
-function assertCloneKeptOwnFields(
+function warnOnCloneDroppedOwnFields(
   prototype: AbstractAgent,
   cloned: AbstractAgent,
 ): void {
@@ -178,11 +215,13 @@ function assertCloneKeptOwnFields(
   );
   if (dropped.length === 0) return;
   const name = prototype.constructor?.name ?? "the configured agent";
-  throw new Error(
+  console.warn(
     `createChannel: ${name}.clone() dropped ${dropped.join(", ")}. ` +
       "Every turn runs on a clone, and AbstractAgent's clone() only copies its " +
-      `own fixed field list, so those fields would read as undefined. Override ` +
-      `clone() on ${name} to copy them (HttpAgent.clone() is the reference).`,
+      "own fixed field list, so those fields read as undefined on the clone. " +
+      "That is harmless for state a run re-initializes, and gutting for anything " +
+      `read as configuration — override clone() on ${name} to carry them if it is ` +
+      "the latter (HttpAgent.clone() is the reference).",
   );
 }
 
@@ -207,29 +246,6 @@ export function resolveChannelConcurrency(cfg: {
 }
 
 /**
- * The managed delivery provider a no-adapter Channel targets when it is
- * activated through CopilotKit Intelligence.
- *
- * This is the platform the runtime *declares* to the Intelligence gateway on
- * join; the gateway resolves the actual connection (workspace, credentials,
- * transport) for that provider. It is a per-Channel choice — one runtime can
- * declare a Slack-backed Channel and a Teams-backed Channel side by side.
- *
- * A CLOSED union of the providers the gateway has real/coordinated support for.
- * `"slack"` is generally available. `"teams"` is GATED/COORDINATED: the gateway
- * accepts only `"slack"` at join today, so declaring `provider: "teams"` is
- * SDK-ready but NOT generally available until the coordinated gateway path lands
- * (Intelligence OSS-450 / #511).
- *
- * Distinct from a {@link PlatformAdapter} attached via
- * `createChannel({ adapters })` / `channel.ɵruntime.addAdapter`: an adapter is
- * a *direct*, developer-owned connection this handler does not manage,
- * whereas `provider` selects the *managed* platform for a Channel with no
- * adapters.
- */
-export type ManagedChannelProvider = "slack" | "teams";
-
-/**
  * Any `@copilotkit/channels-ui` component function, regardless of its props type.
  * Accepting `(props: never)` lets a component with required, strongly-typed
  * props (e.g. `({ title }: { title: string }) => …`) be passed to
@@ -237,6 +253,9 @@ export type ManagedChannelProvider = "slack" | "teams";
  * with the props persisted in the store, so the specific shape isn't needed here.
  */
 export type ChannelComponent = (props: never) => ReturnType<ComponentFn>;
+export type ChannelComponentRegistration =
+  | ChannelComponent
+  | ChannelComponentDefinition;
 
 export type ChannelHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
@@ -246,7 +265,16 @@ export type ChannelHandler<TState = unknown> = (ctx: {
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
 export type ThreadStartHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
+}) => void | Promise<void>;
+
+/** Handler for a provider installation or conversation activation. */
+export type WelcomeHandler<TState = unknown> = (ctx: {
+  thread: StatefulThread<TState>;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
+  platform: string;
 }) => void | Promise<void>;
 
 /** Event passed to an `onReaction` handler. */
@@ -258,7 +286,8 @@ export interface ReactionEvent {
   /** true = added, false = removed. */
   added: boolean;
   /** The reacting user, when the platform reports one. */
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   messageId: string;
   /** Update-capable ref to the reacted message (`thread.update(messageRef, ui)`). */
   messageRef: MessageRef;
@@ -273,7 +302,8 @@ export type ReactionHandler = (evt: ReactionEvent) => void | Promise<void>;
 export interface ModalSubmitEvent {
   callbackId: string;
   values: Record<string, unknown>;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   /** Present when the submission carried a conversation context. */
   thread?: Thread;
   privateMetadata?: string;
@@ -286,7 +316,8 @@ export type ModalSubmitHandler = (
 /** Event passed to an `onModalClose` handler. */
 export interface ModalCloseEvent {
   callbackId: string;
-  user?: PlatformUser;
+  user: ApplicationUser | null;
+  actor: ProviderActor;
   privateMetadata?: string;
   raw: unknown;
 }
@@ -314,9 +345,7 @@ export interface StoreConfig<
   adapter?: StateStore;
   /** Standard Schema for per-thread state. When set, thread.state()/setState() are typed to its output and setState validates at runtime. */
   state?: TStateSchema;
-  /** Resolve a stable cross-platform identity key (e.g. email). Paired with `transcripts`. */
-  identity?: Identity;
-  /** Cross-platform transcript storage config. Paired with `identity`. */
+  /** Cross-platform transcript storage keyed by the identified application user. */
   transcripts?: TranscriptsConfig;
   /**
    * How overlapping turns on the same conversationKey are handled.
@@ -340,6 +369,8 @@ export interface StoreConfig<
   lockTtl?: number;
   /** TTL (ms) for the inbound event dedup window. Default 300_000. */
   dedupTtl?: number;
+  /** TTL (ms) for durable actions and HITL continuations. Default 604_800_000 (7 days). */
+  actionRetentionMs?: number;
 }
 
 /**
@@ -373,6 +404,8 @@ export interface ReplyContinuationOptions {
 export interface CreateChannelOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
+  /** Select the canonical application user for every incoming Channel event. */
+  identifyUser: ChannelIdentifyUser;
   /**
    * Project-unique Intelligence Channel name. Required for Intelligence Channel
    * Bots — it ties the runtime declaration to the Intelligence setup — and
@@ -386,22 +419,6 @@ export interface CreateChannelOptions<
    * (the Channel runtime uses this).
    */
   adapters?: PlatformAdapter[];
-  /**
-   * The managed delivery provider this Channel targets when it is activated via
-   * CopilotKit Intelligence (a no-adapter, managed Channel). The runtime
-   * declares this provider to the Intelligence gateway on join; the gateway
-   * resolves the actual connection. Defaults to `"slack"` when unset.
-   *
-   * `provider: "teams"` is GATED: it is SDK-ready, but the gateway accepts only
-   * `"slack"` at join today, so Teams is not generally available until the
-   * coordinated gateway path lands (Intelligence OSS-450 / #511). See
-   * {@link ManagedChannelProvider}.
-   *
-   * Ignored for direct-adapter Channels (those created with `adapters` /
-   * `channel.ɵruntime.addAdapter`) — a direct Channel is owned by the
-   * developer's own adapter, not by managed activation.
-   */
-  provider?: ManagedChannelProvider;
   /**
    * Override visible tool-call progress for a managed Channel. Managed Slack
    * defaults to hidden; other managed providers retain their existing default
@@ -437,12 +454,13 @@ export interface CreateChannelOptions<
   tools?: ChannelTool[];
   context?: ContextEntry[];
   /**
-   * Named JSX components used in interactive messages. Registering them here
-   * lets the channel re-render and re-fire their handlers after a restart (durable
-   * actions); without registration, a click on a message posted before the
-   * restart degrades to "action expired".
+   * Agent-rendered component definitions or legacy named JSX components.
+   * Definitions become tools. Both forms let the channel recover keyed handlers
+   * after a restart when the configured store is durable.
    */
-  components?: ChannelComponent[];
+  components?:
+    | ChannelComponentRegistration[]
+    | Record<string, ChannelComponent>;
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
   commands?: ChannelCommand[];
   /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
@@ -454,13 +472,6 @@ export interface Channel<TState = unknown> {
   readonly name?: string;
   /** Adapters currently attached to this Channel (read-only snapshot). The Channel runtime uses this to distinguish a managed-eligible Channel (no adapters) from one carrying developer-supplied direct adapters. */
   readonly adapters: readonly PlatformAdapter[];
-  /**
-   * The managed delivery provider a no-adapter Channel targets when activated
-   * via CopilotKit Intelligence (from `createChannel({ provider })`). Declared
-   * to the Intelligence gateway on join; `undefined` means the managed default
-   * (`"slack"`). Ignored for direct-adapter Channels.
-   */
-  readonly provider?: ManagedChannelProvider;
   /**
    * Managed tool-call visibility override from
    * `createChannel({ showToolStatus })`. Managed Slack defaults to hidden when
@@ -476,6 +487,8 @@ export interface Channel<TState = unknown> {
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
   onMessage(h: ChannelHandler<TState>): void;
+  /** Welcome a newly installed or activated provider conversation. */
+  onWelcome(h: WelcomeHandler<TState>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
@@ -497,6 +510,8 @@ export interface Channel<TState = unknown> {
     h: (args: {
       payload: TPayload;
       thread: StatefulThread<TState>;
+      user: ApplicationUser | null;
+      actor: ProviderActor;
     }) => void | Promise<void>,
   ): void;
   /** Register a slash command (with optional typed options). */
@@ -519,14 +534,15 @@ export interface Channel<TState = unknown> {
   /**
    * Internal lifecycle seam. Holds the `start`/`stop`/`addAdapter`
    * implementations that the runtime uses to drive the lifecycle directly —
-   * there is no public equivalent; channels are runtime-driven only. (Read the
-   * managed provider off the top-level `channel.provider`, not here.)
+   * there is no public equivalent; channels are runtime-driven only.
    * @internal
    */
   ɵruntime: {
     start(): Promise<void>;
     stop(): Promise<void>;
     addAdapter(adapter: PlatformAdapter): void;
+    /** @internal Mark this Channel as attached to an Intelligence Memory backend. */
+    enableIntelligenceMemory(): void;
   };
 }
 
@@ -535,8 +551,9 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
   return {
     text: turn.userText,
     contentParts: turn.contentParts,
-    user: turn.user ?? { id: "" },
-    ref: { id: "" },
+    user: null,
+    actor: turn.actor,
+    ref: turn.messageRef ?? { id: "" },
     platform: turn.platform,
     operation: turn.operation,
     eventId: turn.eventId,
@@ -545,26 +562,53 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
   };
 }
 
+function identityContextFromIngress(
+  provider: string,
+  event: {
+    conversationKey?: string;
+    actor?: ProviderActor;
+    identityContext?: import("./identity.js").IngressIdentityContext;
+  },
+  trigger: string,
+): ChannelIdentityContext {
+  const actor: ProviderActor = Object.freeze({
+    ...(event.actor ?? { id: "", kind: "unknown" as const }),
+  });
+  const tenant = Object.freeze({
+    ...(event.identityContext?.tenant ?? { id: "" }),
+  });
+  const installation = Object.freeze({
+    ...(event.identityContext?.installation ?? { id: "" }),
+  });
+  const conversation = Object.freeze({
+    ...(event.identityContext?.conversation ?? {
+      id: event.conversationKey ?? "",
+    }),
+  });
+  const normalizedEvent = Object.freeze({
+    ...event.identityContext?.event,
+  });
+  return Object.freeze({
+    provider,
+    tenant,
+    installation,
+    actor,
+    conversation,
+    trigger: event.identityContext?.trigger ?? trigger,
+    event: normalizedEvent,
+    raw: event.identityContext?.raw,
+    ...(event.identityContext?.lookupProfile
+      ? { lookupProfile: event.identityContext.lookupProfile }
+      : {}),
+  });
+}
+
 /** Resolve the provider that produced an event without changing adapter identity. */
 function ingressPlatform(
   adapter: PlatformAdapter,
   event: { platform?: string },
 ): string {
   return event.platform ?? adapter.platform;
-}
-
-/**
- * Enforce managed Intelligence Channel exclusivity. Managed and direct
- * delivery are alternative modes on a Channel: Intelligence holds provider
- * credentials, or the runtime does, never both.
- */
-function assertExclusive(adapters: PlatformAdapter[]): void {
-  if (adapters.some((a) => a.__intelligenceChannel) && adapters.length > 1) {
-    throw new Error(
-      "The managed Intelligence adapter must be the only adapter on a Channel — " +
-        "managed and direct delivery are alternative modes.",
-    );
-  }
 }
 
 /**
@@ -595,21 +639,20 @@ export function createChannel<
 >(
   opts: CreateChannelOptions<TStateSchema>,
 ): Channel<ThreadStateOf<TStateSchema>> {
-  const cfg = opts.store ?? {};
   if (
-    (cfg.identity && !cfg.transcripts) ||
-    (!cfg.identity && cfg.transcripts)
+    opts.identifyUser !== "platform" &&
+    typeof opts.identifyUser !== "function"
   ) {
     throw new Error(
-      "createChannel: `identity` and `transcripts` must be configured together.",
+      'createChannel: `identifyUser` must be "platform" or a callback',
     );
   }
+  const cfg = opts.store ?? {};
 
   // Adapters can be supplied up front or added later via
   // `channel.ɵruntime.addAdapter` (before `channel.ɵruntime.start()`). The
   // runtime uses the latter to attach Channel delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
-  assertExclusive(adapters);
   let started = false;
 
   // Backend, transcripts, telemetry, the action registry, and component
@@ -672,11 +715,80 @@ export function createChannel<
   }
 
   const toolMap = new Map<string, ChannelTool>();
-  for (const t of opts.tools ?? []) toolMap.set(t.name, t);
+  let componentConfigurationError: Error | undefined;
+  for (const tool of opts.tools ?? []) {
+    if (toolMap.has(tool.name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${tool.name}"`,
+      );
+      continue;
+    }
+    toolMap.set(tool.name, tool);
+  }
+  const componentEntries: Array<{
+    name: string;
+    requireKeys: boolean;
+    render: (
+      props: Record<string, unknown>,
+      context: ChannelComponentRenderContext,
+    ) => Renderable | Promise<Renderable>;
+  }> = [];
+  const configuredComponents = Array.isArray(opts.components)
+    ? opts.components.map((component) => ({
+        name: component.name,
+        component,
+      }))
+    : Object.entries(opts.components ?? {}).map(([name, component]) => ({
+        name,
+        component,
+      }));
+  const componentNames = new Set<string>();
+  for (const { name, component } of configuredComponents) {
+    if (!name) continue;
+    if (componentNames.has(name) || toolMap.has(name)) {
+      componentConfigurationError = new Error(
+        `duplicate channel tool or component name "${name}"`,
+      );
+      continue;
+    }
+    componentNames.add(name);
+    if (isChannelComponentDefinition(component)) {
+      componentEntries.push({
+        name,
+        requireKeys: true,
+        render: (props, renderContext) =>
+          component.render(props, renderContext),
+      });
+      toolMap.set(name, {
+        name,
+        description: component.description,
+        parameters: component.parameters,
+        async handler(args, toolContext) {
+          await (toolContext.thread as Thread).postRegisteredComponent(
+            name,
+            args,
+            {
+              platform:
+                toolContext.platform as ChannelComponentRenderContext["platform"],
+              signal: toolContext.signal ?? new AbortController().signal,
+            },
+          );
+          return `Rendered component "${name}".`;
+        },
+      });
+      continue;
+    }
+    componentEntries.push({
+      name,
+      requireKeys: false,
+      render: (props) => component(props as never) as Renderable,
+    });
+  }
   const context = opts.context ?? [];
 
   const mentionHandlers: ChannelHandler[] = [];
   const messageHandlers: ChannelHandler[] = [];
+  const welcomeHandlers: WelcomeHandler[] = [];
   const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
@@ -684,7 +796,12 @@ export function createChannel<
   >();
   const interruptHandlers = new Map<
     string,
-    (args: { payload: unknown; thread: Thread }) => void | Promise<void>
+    (args: {
+      payload: unknown;
+      thread: Thread;
+      user: ApplicationUser | null;
+      actor: ProviderActor;
+    }) => void | Promise<void>
   >();
   const commandHandlers = new Map<string, ChannelCommand>();
   for (const c of opts.commands ?? [])
@@ -696,6 +813,7 @@ export function createChannel<
   const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
   const modalCloseHandlers = new Map<string, ModalCloseHandler>();
   const waiters = new Map<string, (value: unknown) => void>();
+  let intelligenceMemoryAvailable = false;
 
   // Recomputed on start() so tools added via channel.tool() before start are picked up.
   let toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
@@ -706,8 +824,11 @@ export function createChannel<
     conversationKey: string,
     extras?: {
       platform?: string;
-      userKey?: string;
       message?: IncomingMessage;
+      defaultPrompt?: string;
+      user?: ApplicationUser | null;
+      actor?: ProviderActor;
+      interactionActionId?: string;
     },
   ): Thread {
     if (!backend || !registry || !telemetry) {
@@ -730,8 +851,14 @@ export function createChannel<
       state: backend,
       stateSchema: cfg.state,
       transcripts,
-      userKey: extras?.userKey,
       message: extras?.message,
+      defaultPrompt: extras?.defaultPrompt,
+      user: extras?.user ?? null,
+      actor: extras?.actor ?? { id: "unknown", kind: "unknown" },
+      channelName: opts.name ?? adapter.platform,
+      threadId: adapter.getCanonicalThreadId?.(replyTarget) ?? conversationKey,
+      interactionActionId: extras?.interactionActionId,
+      intelligenceMemoryAvailable,
       telemetry,
     };
     return new Thread(deps);
@@ -784,32 +911,30 @@ export function createChannel<
         }
       }
 
-      // Resolve cross-platform identity key (if configured) and stamp it on
-      // the message so handlers and transcript storage can use it. Done
-      // BEFORE makeThread so the thread carries the userKey + message for
-      // the transcript auto-bridge (runAgent({ transcript: true })).
-      let userKey: string | undefined;
-      if (cfg.identity) {
-        try {
-          const resolved = await cfg.identity({
-            adapter: platform,
-            author: turn.user ?? { id: "" },
-            message: msgFromTurn(turn),
-          });
-          userKey = resolved ?? undefined;
-        } catch (err) {
-          console.warn(
-            `[channel] identity resolution failed for ${platform}; continuing without userKey`,
-            err,
-          );
-        }
-      }
-      const message: ChannelMessage = { ...msgFromTurn(turn), userKey };
+      const identityContext = identityContextFromIngress(
+        platform,
+        turn,
+        "message",
+      );
+      const user: ApplicationUser | null = await resolveChannelUser(
+        opts.identifyUser,
+        identityContext,
+      );
+      const message: ChannelMessage = {
+        ...msgFromTurn(turn),
+        user,
+        actor: identityContext.actor,
+      };
       const thread = makeThread(
         adapter,
         turn.replyTarget,
         turn.conversationKey,
-        { platform, userKey, message },
+        {
+          platform,
+          message,
+          user,
+          actor: identityContext.actor,
+        },
       );
       const handlers = turn.operation.mentioned
         ? mentionHandlers.length > 0
@@ -880,24 +1005,39 @@ export function createChannel<
           }
         }
 
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "interaction",
+        );
+        const canonicalUser = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform },
+          {
+            platform,
+            user: canonicalUser,
+            actor: identityContext.actor,
+            interactionActionId: evt.id,
+          },
         );
-        const user = evt.user ?? { id: "" };
         const ctx: InteractionContext = {
           thread,
           message: {
             text: "",
-            user,
+            user: canonicalUser,
+            actor: identityContext.actor,
             ref: evt.messageRef ?? { id: "" },
             platform,
           },
           action: { id: evt.id, value: evt.value },
-          values: {},
-          user,
+          values: evt.values ?? {},
+          user: canonicalUser,
+          actor: identityContext.actor,
           platform,
         };
         const openModal = makeOpenModal(
@@ -948,11 +1088,24 @@ export function createChannel<
 
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
+        const identityContext = identityContextFromIngress(
+          platform,
+          cmd,
+          "command",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           cmd.replyTarget,
           cmd.conversationKey,
-          { platform },
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+          },
         );
         // Resolve typed options from any structured args the surface supplied
         // (e.g. Discord); text-only surfaces (Slack) leave `options` empty and
@@ -967,7 +1120,8 @@ export function createChannel<
           command: normalizeCommandName(cmd.command),
           text: cmd.text,
           options,
-          user: cmd.user,
+          user,
+          actor: identityContext.actor,
           platform,
         };
         const openModal = makeOpenModal(
@@ -978,18 +1132,65 @@ export function createChannel<
         if (openModal) ctx.openModal = openModal;
         await command.handler(ctx);
       },
-      async onThreadStarted(evt: IncomingThreadStart) {
-        // The adapter has already applied its static defaults (greeting /
-        // prompts) before emitting this, so handlers layer on top and never
-        // race. Zero handlers → no-op.
+      async onWelcome(evt: IncomingWelcome) {
+        const platform = ingressPlatform(adapter, evt);
+        if (evt.eventId && !adapter.skipIngressDedup) {
+          const dupKey = `evt:${platform}:${evt.eventId}`;
+          try {
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
+          } catch (err) {
+            console.warn(
+              `[channel] dedup check failed for ${platform}; processing welcome without dedup`,
+              err,
+            );
+          }
+        }
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "welcome",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform: ingressPlatform(adapter, evt) },
+          {
+            platform,
+            user,
+            actor: identityContext.actor,
+            defaultPrompt: DEFAULT_WELCOME_PROMPT,
+          },
+        );
+        for (const h of welcomeHandlers) {
+          await h({ thread, user, actor: identityContext.actor, platform });
+        }
+      },
+      async onThreadStarted(evt: IncomingThreadStart) {
+        // The adapter has already applied its static defaults (greeting /
+        // prompts) before emitting this, so handlers layer on top and never
+        // race. Zero handlers → no-op.
+        const platform = ingressPlatform(adapter, evt);
+        const identityContext = identityContextFromIngress(
+          platform,
+          evt,
+          "thread-start",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+          { platform, user, actor: identityContext.actor },
         );
         for (const h of threadStartedHandlers)
-          await h({ thread, user: evt.user });
+          await h({ thread, user, actor: identityContext.actor });
       },
       async onReaction(evt: IncomingReaction) {
         // Normalize by source platform, falling back to adapter identity for
@@ -999,11 +1200,24 @@ export function createChannel<
           ? normalizeEmoji(evt.rawEmoji, sourcePlatform)
           : undefined;
         const value: EmojiValue = normalized ?? evt.rawEmoji;
+        const identityContext = identityContextFromIngress(
+          sourcePlatform,
+          evt,
+          "reaction",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread = makeThread(
           adapter,
           evt.replyTarget,
           evt.conversationKey,
-          { platform: sourcePlatform },
+          {
+            platform: sourcePlatform,
+            user,
+            actor: identityContext.actor,
+          },
         );
         // Prefer the adapter's update-capable ref; fall back to the bare id.
         const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
@@ -1011,7 +1225,8 @@ export function createChannel<
           emoji: value,
           rawEmoji: evt.rawEmoji,
           added: evt.added,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           messageId: evt.messageId,
           messageRef,
           threadId: evt.threadId,
@@ -1036,7 +1251,8 @@ export function createChannel<
             emoji: value,
             rawEmoji: evt.rawEmoji,
             added: evt.added,
-            user: evt.user,
+            user,
+            actor: identityContext.actor,
             messageId: evt.messageId,
             thread,
             messageRef,
@@ -1046,16 +1262,28 @@ export function createChannel<
       async onModalSubmit(evt: IncomingModalSubmit) {
         const handler = modalSubmitHandlers.get(evt.callbackId);
         if (!handler) return; // unregistered → closes
+        const identityContext = identityContextFromIngress(
+          evt.platform,
+          evt,
+          "modal-submit",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         const thread =
           evt.conversationKey !== undefined && evt.replyTarget !== undefined
             ? makeThread(adapter, evt.replyTarget, evt.conversationKey, {
                 platform: evt.platform,
+                user,
+                actor: identityContext.actor,
               })
             : undefined;
         const result = await handler({
           callbackId: evt.callbackId,
           values: evt.values,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           thread,
           privateMetadata: evt.privateMetadata,
           raw: evt.raw,
@@ -1065,9 +1293,19 @@ export function createChannel<
       async onModalClose(evt: IncomingModalClose) {
         const handler = modalCloseHandlers.get(evt.callbackId);
         if (!handler) return;
+        const identityContext = identityContextFromIngress(
+          evt.platform,
+          evt,
+          "modal-close",
+        );
+        const user = await resolveChannelUser(
+          opts.identifyUser,
+          identityContext,
+        );
         await handler({
           callbackId: evt.callbackId,
-          user: evt.user,
+          user,
+          actor: identityContext.actor,
           privateMetadata: evt.privateMetadata,
           raw: evt.raw,
         });
@@ -1077,7 +1315,6 @@ export function createChannel<
 
   const channel: Channel<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
-    ...(opts.provider !== undefined ? { provider: opts.provider } : {}),
     ...(opts.showToolStatus !== undefined
       ? { showToolStatus: opts.showToolStatus }
       : {}),
@@ -1101,13 +1338,15 @@ export function createChannel<
       return transcripts;
     },
     ɵruntime: {
+      enableIntelligenceMemory() {
+        intelligenceMemoryAvailable = true;
+      },
       addAdapter(adapter) {
         if (started) {
           throw new Error(
             "channel.ɵruntime.addAdapter must be called before channel.ɵruntime.start()",
           );
         }
-        assertExclusive([...adapters, adapter]);
         adapters.push(adapter);
       },
       async start() {
@@ -1116,6 +1355,7 @@ export function createChannel<
         // — with a MemoryStore that wipes all lock/dedup/transcript/action state,
         // and real adapters would connect/port-bind twice.
         if (started) return;
+        if (componentConfigurationError) throw componentConfigurationError;
         if (
           adapters.some(
             (adapter) => adapter.capabilities.supportsMessageEvents,
@@ -1128,7 +1368,6 @@ export function createChannel<
           );
         }
         started = true;
-        assertExclusive(adapters);
         // Resolve persistence now that all adapters (including any attached via
         // addAdapter) are known, then build the transcript store, action
         // registry, and register components against it.
@@ -1141,33 +1380,36 @@ export function createChannel<
         });
         telemetry = tel;
         const registryInstance = new ActionRegistry({
-          store: opts.actionStore ?? kvActionStore(backend),
+          store:
+            opts.actionStore ??
+            kvActionStore(backend, {
+              defaultTtlMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
+            }),
+          retentionMs: cfg.actionRetentionMs ?? 7 * 24 * 60 * 60 * 1000,
         });
         registry = registryInstance;
-        for (const c of opts.components ?? []) {
-          if (!c.name) {
+        for (const component of componentEntries) {
+          if (!component.name) {
             console.warn(
               "[channel] createChannel: skipping anonymous component — give it a name to enable durable actions after restart.",
             );
             continue;
           }
-          registryInstance.registerComponent(
-            c.name,
-            c as unknown as ComponentFn,
-          );
+          registryInstance.registerComponent(component.name, component.render, {
+            requireKeys: component.requireKeys,
+          });
         }
         toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
         tel.capture("oss.channel.configured", {
           platforms: adapters.map((a) => normalizePlatform(a.platform)),
           adapterCount: adapters.length,
           store: storeKind(backend),
-          hasComponents: (opts.components?.length ?? 0) > 0,
-          componentsCount: opts.components?.length ?? 0,
+          hasComponents: componentEntries.length > 0,
+          componentsCount: componentEntries.length,
           toolsCount: toolMap.size,
           commandsCount: commandHandlers.size,
           contextCount: context.length,
           transcripts: !!cfg.transcripts,
-          identity: !!cfg.identity,
         });
         // Isolate per-adapter startup failures: one adapter rejecting (e.g.
         // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
@@ -1196,6 +1438,96 @@ export function createChannel<
             startedPlatforms.push(platform);
           }
         });
+        const managedFailureIndex = startResults.findIndex(
+          (result, index) =>
+            adapters[index]?.__intelligenceChannel === true &&
+            result.status === "rejected",
+        );
+        const stopAdapters = async (
+          indexes: readonly number[],
+          reason: string,
+        ) => {
+          const rollbackResults = await Promise.allSettled(
+            indexes.map(
+              (index) =>
+                new Promise<void>((resolve, reject) => {
+                  let settled = false;
+                  const timeout = setTimeout(() => {
+                    if (settled) return;
+                    settled = true;
+                    reject(
+                      new Error(
+                        `stop timed out after ${ADAPTER_ROLLBACK_TIMEOUT_MS}ms`,
+                      ),
+                    );
+                  }, ADAPTER_ROLLBACK_TIMEOUT_MS);
+                  void Promise.resolve()
+                    .then(() => adapters[index]!.stop())
+                    .then(
+                      () => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeout);
+                        resolve();
+                      },
+                      (error: unknown) => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeout);
+                        reject(error);
+                      },
+                    );
+                }),
+            ),
+          );
+          rollbackResults.forEach((result, resultIndex) => {
+            if (result.status === "rejected") {
+              const adapterIndex = indexes[resultIndex]!;
+              console.error(
+                `[channel] adapter "${adapters[adapterIndex]!.platform}" failed to stop ${reason}:`,
+                result.reason,
+              );
+            }
+          });
+        };
+        const allAdapterIndexes = adapters.map((_adapter, index) => index);
+        const rejectedAdapterIndexes = startResults.flatMap((result, index) =>
+          result.status === "rejected" ? [index] : [],
+        );
+        if (managedFailureIndex >= 0) {
+          // Managed activation must never report online merely because a
+          // coexisting direct adapter started. Roll back every attempted
+          // adapter, including the rejecting managed adapter, because start()
+          // may have acquired resources before it failed.
+          await stopAdapters(
+            allAdapterIndexes,
+            "after managed activation failed",
+          );
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start its managed Intelligence adapter`,
+          );
+        }
+        // A channel that has adapters but where NONE started is dead — surface an
+        // error so the runtime reports status "error", not a false "online". A
+        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
+        // `started` guard so a caller can retry after fixing the misconfiguration.
+        if (adapters.length > 0 && startedPlatforms.length === 0) {
+          await stopAdapters(
+            allAdapterIndexes,
+            "after all adapters failed to start",
+          );
+          started = false;
+          throw new Error(
+            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
+          );
+        }
+        if (rejectedAdapterIndexes.length > 0) {
+          // A rejecting start may still have acquired a listener or provider
+          // client. Release only those failed adapters while preserving the
+          // healthy adapters that make this a valid degraded start.
+          await stopAdapters(rejectedAdapterIndexes, "after its start failed");
+        }
         if (startedPlatforms.length > 0) {
           tel.capture("oss.channel.started", {
             platforms: startedPlatforms,
@@ -1208,28 +1540,25 @@ export function createChannel<
             toolsCount: toolMap.size,
           });
         }
-        // A channel that has adapters but where NONE started is dead — surface an
-        // error so the runtime reports status "error", not a false "online". A
-        // PARTIAL start (>=1 adapter live) still counts as started. Reset the
-        // `started` guard so a caller can retry after fixing the misconfiguration.
-        if (adapters.length > 0 && startedPlatforms.length === 0) {
-          started = false;
-          throw new Error(
-            `channel "${opts.name ?? "(unnamed)"}" failed to start: all ${failedPlatforms.length} adapter(s) failed to connect (${failedPlatforms.join(", ")}) — see the logged errors above`,
-          );
-        }
         // Hand declared commands to adapters that register them up front (e.g.
-        // Discord); adapters without `registerCommands` are skipped. Per-adapter
-        // failures are isolated the same way as start().
+        // Discord); adapters without `registerCommands` are skipped. Never call
+        // into adapters whose start failed and whose resources were just
+        // cleaned up. Per-adapter failures are isolated the same way as start().
         const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
         if (commandSpecs.length > 0) {
-          const registerResults = await Promise.allSettled(
-            adapters.map((a) => a.registerCommands?.(commandSpecs)),
+          const startedAdapterIndexes = startResults.flatMap((result, index) =>
+            result.status === "fulfilled" ? [index] : [],
           );
-          registerResults.forEach((r, i) => {
+          const registerResults = await Promise.allSettled(
+            startedAdapterIndexes.map((index) =>
+              adapters[index]!.registerCommands?.(commandSpecs),
+            ),
+          );
+          registerResults.forEach((r, resultIndex) => {
             if (r.status === "rejected") {
+              const adapterIndex = startedAdapterIndexes[resultIndex]!;
               console.error(
-                `[channel] adapter "${adapters[i]!.platform}" failed to register commands:`,
+                `[channel] adapter "${adapters[adapterIndex]!.platform}" failed to register commands:`,
                 r.reason,
               );
             }
@@ -1245,7 +1574,7 @@ export function createChannel<
         // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
         // must not prevent the others from being stopped.
         const stopResults = await Promise.allSettled(
-          adapters.map((a) => a.stop()),
+          adapters.map((a) => Promise.resolve().then(() => a.stop())),
         );
         stopResults.forEach((r, i) => {
           if (r.status === "rejected") {
@@ -1267,6 +1596,9 @@ export function createChannel<
     onMessage(h) {
       messageHandlers.push(h as ChannelHandler);
     },
+    onWelcome(h) {
+      welcomeHandlers.push(h as WelcomeHandler);
+    },
     onThreadStarted(h) {
       threadStartedHandlers.push(h as ThreadStartHandler);
     },
@@ -1284,6 +1616,8 @@ export function createChannel<
       h: (args: {
         payload: TPayload;
         thread: StatefulThread<ThreadStateOf<TStateSchema>>;
+        user: ApplicationUser | null;
+        actor: ProviderActor;
       }) => void | Promise<void>,
     ) {
       interruptHandlers.set(
@@ -1291,6 +1625,8 @@ export function createChannel<
         h as (args: {
           payload: unknown;
           thread: Thread;
+          user: ApplicationUser | null;
+          actor: ProviderActor;
         }) => void | Promise<void>,
       );
     },

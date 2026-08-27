@@ -27,6 +27,8 @@ export function conversationKeyOf(key: ConversationKey): string {
 export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const body = raw as {
     type?: string;
+    api_app_id?: string;
+    team?: { id?: string };
     trigger_id?: string;
     user?: { id?: string; name?: string; username?: string };
     channel?: { id?: string };
@@ -41,6 +43,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       value?: string;
       selected_option?: { value?: string };
       selected_options?: Array<{ value?: string }>;
+      selected_user?: string;
+      selected_users?: string[];
+      selected_conversation?: string;
+      selected_conversations?: string[];
+      selected_channel?: string;
+      selected_channels?: string[];
+      selected_date?: string;
+      selected_time?: string;
+      selected_date_time?: number;
       action_ts?: string;
     }>;
   };
@@ -78,15 +89,37 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   // value), JSON-parsed if it round-trips, otherwise the raw string. A
   // multi_static_select reports `selected_options` (an array) → a `string[]`.
   let value: unknown;
-  if (action.selected_options) {
+  if (action.selected_users) {
+    value = action.selected_users;
+  } else if (action.selected_conversations) {
+    value = action.selected_conversations;
+  } else if (action.selected_channels) {
+    value = action.selected_channels;
+  } else if (action.selected_user !== undefined) {
+    value = action.selected_user;
+  } else if (action.selected_conversation !== undefined) {
+    value = action.selected_conversation;
+  } else if (action.selected_channel !== undefined) {
+    value = action.selected_channel;
+  } else if (action.selected_date !== undefined) {
+    value = action.selected_date;
+  } else if (action.selected_time !== undefined) {
+    value = action.selected_time;
+  } else if (action.selected_date_time !== undefined) {
+    value = action.selected_date_time;
+  } else if (action.selected_options) {
     value = action.selected_options.map((o) => parseValue(o.value));
   } else {
     value = parseValue(action.value ?? action.selected_option?.value);
   }
 
-  const user = body.user?.id
-    ? { id: body.user.id, name: body.user.name ?? body.user.username }
-    : undefined;
+  const actor = body.user?.id
+    ? {
+        id: body.user.id,
+        kind: "human" as const,
+        name: body.user.name ?? body.user.username,
+      }
+    : { id: "unknown", kind: "unknown" as const };
 
   // The picker message's ts: an onClick `thread.update(message.ref, …)`
   // targets this message in place (the adapter's `update` reads `channel`
@@ -110,10 +143,18 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     conversationKey,
     replyTarget,
     value,
-    user,
+    actor,
     messageRef,
     triggerId: body.trigger_id,
     eventId,
+    identityContext: {
+      tenant: { id: body.team?.id ?? "unknown" },
+      installation: { id: body.api_app_id ?? "unknown" },
+      conversation: { id: conversationKey, kind: "thread" },
+      trigger: "interaction",
+      event: eventId ? { id: eventId } : {},
+      raw: { type: body.type, actionId: action.action_id },
+    },
   };
 }
 
@@ -129,6 +170,8 @@ function parseValue(raw: string | undefined): unknown {
 
 interface SlackReactionEvent {
   user?: string;
+  team?: string;
+  event_ts?: string;
   reaction?: string;
   item?: { type?: string; channel?: string; ts?: string };
 }
@@ -147,8 +190,21 @@ export function decodeReaction(
   return {
     rawEmoji: e.reaction,
     added,
-    user: e.user ? { id: e.user } : undefined,
+    actor: e.user
+      ? { id: e.user, kind: "human" }
+      : { id: "unknown", kind: "unknown" },
     conversationKey: conversationKeyOf({ channelId: channel, scope }),
+    identityContext: {
+      tenant: { id: e.team ?? "unknown" },
+      installation: { id: "unknown" },
+      conversation: {
+        id: conversationKeyOf({ channelId: channel, scope }),
+        kind: "thread",
+      },
+      trigger: "reaction",
+      event: e.event_ts ? { id: e.event_ts } : {},
+      raw: { reaction: e.reaction, added },
+    },
     // Thread the reply under the reacted message (channel/thread reactions);
     // DMs stay flat. A handler replying via thread.post/runAgent must land
     // under the reacted message, not at the channel root. Carry the reactor id
@@ -268,14 +324,25 @@ function decodeModalContext(privateMetadata: string | undefined): {
 /** Decode a Slack `view_submission` payload into an `IncomingModalSubmit`. */
 export function decodeViewSubmission(
   view: unknown,
-  user?: { id: string; name?: string },
+  actor?: { id: string; kind: "human"; name?: string },
 ): IncomingModalSubmit {
   const v = view as SlackViewState;
   const ctx = decodeModalContext(v.private_metadata);
   return {
     callbackId: v.callback_id ?? "",
     values: flattenViewValues(v),
-    user,
+    actor: actor ?? { id: "unknown", kind: "unknown" },
+    identityContext: {
+      tenant: { id: "unknown" },
+      installation: { id: "unknown" },
+      conversation: {
+        id: ctx.conversationKey ?? `modal:${v.callback_id ?? ""}`,
+        kind: "modal",
+      },
+      trigger: "modal-submit",
+      event: {},
+      raw: { callbackId: v.callback_id },
+    },
     privateMetadata: ctx.privateMetadata,
     ...(ctx.conversationKey ? { conversationKey: ctx.conversationKey } : {}),
     ...(ctx.replyTarget ? { replyTarget: ctx.replyTarget } : {}),
@@ -287,13 +354,24 @@ export function decodeViewSubmission(
 /** Decode a Slack `view_closed` payload into an `IncomingModalClose`. */
 export function decodeViewClosed(
   view: unknown,
-  user?: { id: string; name?: string },
+  actor?: { id: string; kind: "human"; name?: string },
 ): IncomingModalClose {
   const v = view as SlackViewState;
   const ctx = decodeModalContext(v.private_metadata);
   return {
     callbackId: v.callback_id ?? "",
-    user,
+    actor: actor ?? { id: "unknown", kind: "unknown" },
+    identityContext: {
+      tenant: { id: "unknown" },
+      installation: { id: "unknown" },
+      conversation: {
+        id: ctx.conversationKey ?? `modal:${v.callback_id ?? ""}`,
+        kind: "modal",
+      },
+      trigger: "modal-close",
+      event: {},
+      raw: { callbackId: v.callback_id },
+    },
     privateMetadata: ctx.privateMetadata,
     ...(ctx.conversationKey ? { conversationKey: ctx.conversationKey } : {}),
     ...(ctx.replyTarget ? { replyTarget: ctx.replyTarget } : {}),

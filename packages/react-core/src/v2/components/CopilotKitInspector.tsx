@@ -1,24 +1,30 @@
 import * as React from "react";
 import { createComponent } from "@lit-labs/react";
 import type { CopilotKitCore } from "@copilotkit/core";
-import type { Anchor } from "@copilotkit/web-inspector";
+import type { Anchor, WebInspectorElement } from "@copilotkit/web-inspector";
+import type { CopilotKitInspectorOpenRequest } from "./CopilotKitInspectorContext";
 
 type CopilotKitInspectorBaseProps = {
   core?: CopilotKitCore | null;
   defaultAnchor?: Anchor;
+  openRequest?: CopilotKitInspectorOpenRequest | null;
   [key: string]: unknown;
 };
 
-type InspectorComponent = React.ComponentType<CopilotKitInspectorBaseProps>;
+type InspectorComponent = React.ComponentType<
+  CopilotKitInspectorBaseProps & React.RefAttributes<WebInspectorElement>
+>;
 
 export interface CopilotKitInspectorProps extends CopilotKitInspectorBaseProps {}
 
 export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
   core,
+  openRequest,
   ...rest
 }) => {
   const [InspectorComponent, setInspectorComponent] =
     React.useState<InspectorComponent | null>(null);
+  const inspectorRef = React.useRef<WebInspectorElement | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -43,10 +49,18 @@ export const CopilotKitInspector: React.FC<CopilotKitInspectorProps> = ({
     };
   }, []);
 
+  React.useEffect(() => {
+    if (openRequest) {
+      inspectorRef.current?.openInspector("message_toolbar", openRequest);
+    }
+  }, [InspectorComponent, openRequest]);
+
   // During SSR (and until the client finishes loading), render nothing to keep markup consistent.
   if (!InspectorComponent) return null;
 
-  return <InspectorComponent {...rest} core={core ?? null} />;
+  return (
+    <InspectorComponent ref={inspectorRef} {...rest} core={core ?? null} />
+  );
 };
 
 CopilotKitInspector.displayName = "CopilotKitInspector";

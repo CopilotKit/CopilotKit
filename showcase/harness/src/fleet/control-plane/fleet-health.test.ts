@@ -3,7 +3,10 @@ import {
   createFleetHealthMonitor,
   DEFAULT_WORKER_STALE_AFTER_MS,
   DEFAULT_WORKER_GC_AFTER_MS,
+  DEFAULT_PID_SATURATION_RATIO,
+  DEFAULT_PID_SATURATION_CLEAR_RATIO,
 } from "./fleet-health.js";
+import type { PidSaturationReport } from "./fleet-health.js";
 import type {
   PbClient,
   ListOpts,
@@ -33,6 +36,9 @@ interface WorkerRow {
   worker_id: string;
   last_heartbeat_at: string;
   current_job_id?: string;
+  /** cgroup gauges the S9 heartbeat writes; null when unmeasurable. */
+  capacity_pids_current?: number | null;
+  capacity_pids_max?: number | null;
 }
 
 function jobView(over: Partial<JobView> = {}): JobView {
@@ -553,6 +559,7 @@ describe("createFleetHealthMonitor.checkOnce", () => {
       reclaimedOverlays: [],
       restartsAttempted: 0,
       gcDeleted: 0,
+      pidSaturated: [],
     });
     expect(claim.releases).toEqual([]);
   });
@@ -778,5 +785,240 @@ describe("createFleetHealthMonitor.checkOnce", () => {
     expect(DEFAULT_WORKER_GC_AFTER_MS).toBeGreaterThan(
       DEFAULT_WORKER_STALE_AFTER_MS,
     );
+  });
+});
+
+/**
+ * PID-SATURATION alarm (the second fleet-health leg). Pins the four properties
+ * the 2026-08-03 / 2026-08-10 worker-starvation incidents needed and nothing
+ * provided: an ONLINE worker whose cgroup PID gauges cross the threshold raises
+ * an alarm, a sub-threshold worker stays silent, an UNMEASURED worker stays
+ * silent, and a sustained saturation alarms ONCE rather than on every 15s cycle.
+ */
+describe("createFleetHealthMonitor PID saturation", () => {
+  function saturationHarness(
+    rows: Array<Partial<WorkerRow> & { worker_id: string }>,
+    over: Partial<Parameters<typeof createFleetHealthMonitor>[0]> = {},
+  ): {
+    monitor: ReturnType<typeof createFleetHealthMonitor>;
+    alarms: PidSaturationReport[];
+  } {
+    const { pb } = makeFakePb({
+      workers: rows.map((r, i) => ({
+        id: `w${i + 1}`,
+        last_heartbeat_at: FRESH,
+        ...r,
+      })) as WorkerRow[],
+      jobs: [],
+    });
+    const alarms: PidSaturationReport[] = [];
+    const monitor = createFleetHealthMonitor({
+      pb,
+      claim: makeFakeClaim(),
+      logger: SILENT_LOGGER,
+      now: () => NOW,
+      onPidSaturation: (r) => {
+        alarms.push(r);
+      },
+      ...over,
+    });
+    return { monitor, alarms };
+  }
+
+  it("alarms on an ONLINE worker whose PID gauges cross the threshold", async () => {
+    // The measured prod condition: heartbeating fine (so the stale/offline leg
+    // never sees it) while the cgroup is at 90% of its ceiling.
+    const { monitor, alarms } = saturationHarness([
+      {
+        worker_id: "worker-hot",
+        capacity_pids_current: 900,
+        capacity_pids_max: 1000,
+      },
+    ]);
+
+    const out = await monitor.checkOnce();
+
+    expect(out.online).toBe(1);
+    expect(out.pidSaturated).toHaveLength(1);
+    expect(alarms).toHaveLength(1);
+    expect(alarms[0]).toMatchObject({
+      workerId: "worker-hot",
+      pidsCurrent: 900,
+      pidsMax: 1000,
+      ratio: 0.9,
+      threshold: DEFAULT_PID_SATURATION_RATIO,
+    });
+  });
+
+  it("stays silent below the threshold, including just under it", async () => {
+    for (const pids of [10, 500, 740]) {
+      const { monitor, alarms } = saturationHarness([
+        {
+          worker_id: "worker-ok",
+          capacity_pids_current: pids,
+          capacity_pids_max: 1000,
+        },
+      ]);
+      const out = await monitor.checkOnce();
+      expect(out.pidSaturated, `pids=${pids}`).toEqual([]);
+      expect(alarms, `pids=${pids}`).toEqual([]);
+    }
+  });
+
+  it("stays silent when the gauges are UNMEASURED (null / unbounded max)", async () => {
+    // `registration.ts` writes null — never -1 — when the cgroup PID controller
+    // is unreadable (off-Linux). Null must never be read as "0 of 0" and must
+    // never alarm; a `pids.max` of 0 would otherwise divide by zero.
+    const { monitor, alarms } = saturationHarness([
+      {
+        worker_id: "worker-null",
+        capacity_pids_current: null,
+        capacity_pids_max: null,
+      },
+      { worker_id: "worker-absent" },
+      {
+        worker_id: "worker-zero-max",
+        capacity_pids_current: 900,
+        capacity_pids_max: 0,
+      },
+    ]);
+
+    const out = await monitor.checkOnce();
+
+    expect(out.online).toBe(3);
+    expect(out.pidSaturated).toEqual([]);
+    expect(alarms).toEqual([]);
+  });
+
+  it("is EDGE-triggered: a sustained saturation alarms once, not every cycle", async () => {
+    // The monitor ticks every DEFAULT_FLEET_HEALTH_INTERVAL_MS (15s). Without
+    // the latch a worker sitting saturated for the ~36h of lead time this alarm
+    // buys would emit ~8600 alerts.
+    const { monitor, alarms } = saturationHarness([
+      {
+        worker_id: "worker-hot",
+        capacity_pids_current: 950,
+        capacity_pids_max: 1000,
+      },
+    ]);
+
+    for (let i = 0; i < 10; i++) await monitor.checkOnce();
+
+    expect(alarms).toHaveLength(1);
+  });
+
+  it("re-arms only after the worker drops below the CLEAR ratio", async () => {
+    // Mutating row: saturate → sit just under the alarm (still latched, no
+    // re-alarm) → drop under the clear ratio (re-arm) → saturate again.
+    const row: WorkerRow & {
+      capacity_pids_current: number;
+      capacity_pids_max: number;
+    } = {
+      id: "w1",
+      worker_id: "worker-flap",
+      last_heartbeat_at: FRESH,
+      capacity_pids_current: 800,
+      capacity_pids_max: 1000,
+    };
+    const { pb } = makeFakePb({ workers: [row], jobs: [] });
+    const alarms: PidSaturationReport[] = [];
+    const monitor = createFleetHealthMonitor({
+      pb,
+      claim: makeFakeClaim(),
+      logger: SILENT_LOGGER,
+      now: () => NOW,
+      onPidSaturation: (r) => {
+        alarms.push(r);
+      },
+    });
+
+    await monitor.checkOnce();
+    expect(alarms).toHaveLength(1);
+
+    // 0.70: below the 0.75 alarm but ABOVE the 0.65 clear — still latched.
+    row.capacity_pids_current = 700;
+    await monitor.checkOnce();
+    expect(alarms).toHaveLength(1);
+
+    // 0.60: below the clear ratio — latch releases.
+    row.capacity_pids_current = 600;
+    await monitor.checkOnce();
+    expect(alarms).toHaveLength(1);
+
+    // Saturating again after a genuine recovery must alarm again.
+    row.capacity_pids_current = 900;
+    await monitor.checkOnce();
+    expect(alarms).toHaveLength(2);
+    expect(alarms[1].pidsCurrent).toBe(900);
+  });
+
+  it("never lets a throwing alarm hook abort the cycle", async () => {
+    const { pb } = makeFakePb({
+      workers: [
+        {
+          id: "w1",
+          worker_id: "worker-hot",
+          last_heartbeat_at: FRESH,
+          capacity_pids_current: 900,
+          capacity_pids_max: 1000,
+        } as WorkerRow,
+        { id: "w2", worker_id: "worker-fine", last_heartbeat_at: FRESH },
+      ],
+      jobs: [],
+    });
+    const monitor = createFleetHealthMonitor({
+      pb,
+      claim: makeFakeClaim(),
+      logger: SILENT_LOGGER,
+      now: () => NOW,
+      onPidSaturation: () => {
+        throw new Error("slack exploded");
+      },
+    });
+
+    // The second worker must still be counted — a failed operator ping cannot
+    // cost the rest of the roster its health cycle.
+    const out = await monitor.checkOnce();
+    expect(out.online).toBe(2);
+    expect(out.pidSaturated).toHaveLength(1);
+  });
+
+  it("fails loud on a ratio config that would alarm every cycle", async () => {
+    const { pb } = makeFakePb({ workers: [], jobs: [] });
+    const base = {
+      pb,
+      claim: makeFakeClaim(),
+      logger: SILENT_LOGGER,
+      now: () => NOW,
+    };
+
+    // No hysteresis gap → a worker at the threshold re-alarms forever.
+    expect(() =>
+      createFleetHealthMonitor({
+        ...base,
+        pidSaturationRatio: 0.75,
+        pidSaturationClearRatio: 0.75,
+      }),
+    ).toThrow(/pidSaturationClearRatio.*STRICTLY below/s);
+    expect(() =>
+      createFleetHealthMonitor({
+        ...base,
+        pidSaturationRatio: 0.75,
+        pidSaturationClearRatio: 0.8,
+      }),
+    ).toThrow(/pidSaturationClearRatio/);
+    // An out-of-range alarm ratio is permanently-on or unreachable.
+    expect(() =>
+      createFleetHealthMonitor({ ...base, pidSaturationRatio: 0 }),
+    ).toThrow(/pidSaturationRatio/);
+    expect(() =>
+      createFleetHealthMonitor({ ...base, pidSaturationRatio: 1.5 }),
+    ).toThrow(/pidSaturationRatio/);
+
+    // The shipped defaults must satisfy their own guard.
+    expect(DEFAULT_PID_SATURATION_CLEAR_RATIO).toBeLessThan(
+      DEFAULT_PID_SATURATION_RATIO,
+    );
+    expect(() => createFleetHealthMonitor(base)).not.toThrow();
   });
 });

@@ -13,7 +13,7 @@
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
- * example needs an Intelligence key (free tier: `COPILOTKIT_API_KEY`; the
+ * example needs an Intelligence key (free tier: `INTELLIGENCE_API_KEY`; the
  * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
@@ -71,6 +71,34 @@ const required = (name: string): string => {
     process.exit(1);
   }
   return v;
+};
+
+/**
+ * Resolves the Intelligence project key.
+ *
+ * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
+ */
+const requiredIntelligenceKey = (): string => {
+  const key =
+    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+  if (!key) {
+    console.error(
+      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+        "Channels run only through the Intelligence runtime, which needs an " +
+        "Intelligence key (free tier).\n" +
+        "  Run `copilotkit project select` to provision one, or set it manually.\n" +
+        "No URLs to set: the SDK defaults to the managed Intelligence platform.",
+    );
+    process.exit(1);
+  }
+  if (!process.env.INTELLIGENCE_API_KEY) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+    );
+  }
+  return key;
 };
 
 /** True only when every named env var is set and non-empty. */
@@ -193,6 +221,7 @@ async function main() {
   }
 
   const bot = createChannel({
+    identifyUser: "platform",
     // Every declared Channel needs a unique `name` — the Intelligence runtime
     // keys its lifecycle by it. All four platforms ride this ONE Channel; the
     // runtime starts each of its direct adapters when the Channel activates.
@@ -282,7 +311,7 @@ async function main() {
   const intelligence = new CopilotKitIntelligence({
     apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
     wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
-    apiKey: required("COPILOTKIT_API_KEY"),
+    apiKey: requiredIntelligenceKey(),
   });
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:
@@ -293,9 +322,6 @@ async function main() {
   const channelRuntime = new CopilotRuntime({
     agents: {},
     intelligence,
-    // Demo stub — replace with your own auth-derived user identity (e.g. OIDC)
-    // before any multi-user deployment, or all users share one thread history.
-    identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
     channels: [bot],
   });
 

@@ -4,16 +4,12 @@ import {
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import { LlamaIndexAgent } from "@ag-ui/llamaindex";
+import { createDefaultAgent } from "@/agent";
 import { handle } from "hono/vercel";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new LlamaIndexAgent({
-      url:
-        (process.env.AGENT_URL || "http://127.0.0.1:9000").replace(/\/$/, "") +
-        "/run",
-    }),
+    default: createDefaultAgent(),
   },
   // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN

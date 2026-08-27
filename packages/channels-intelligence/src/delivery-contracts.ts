@@ -1,6 +1,10 @@
 /** Hard-cut protocol for the dedicated `/channels` socket. */
 export const CHANNEL_DELIVERY_PROTOCOL = "channel_delivery_v1" as const;
 
+/** Negotiates authoritative snapshots for retry-safe Slack stream appends. */
+export const SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY =
+  "slack_stream_append_full_text_v1" as const;
+
 /** Fixed one-use delivery join-token lifetime. */
 export const CHANNEL_DELIVERY_JOIN_TOKEN_TTL_SECONDS = 60;
 
@@ -11,6 +15,7 @@ export const CHANNEL_DELIVERY_OWNER_TTL_SECONDS = 60 * 60;
 export const DELIVERY_PACKET_MAX_BYTES = 64 * 1024;
 
 const PROVIDER_REFERENCE_PATTERN = /^pref_v1_[A-Za-z0-9_-]{8,4088}$/;
+const PROVIDER_MESSAGE_ID_PATTERN = /^pid_v1_[A-Za-z0-9_-]{43}$/;
 const PACKET_ID_PATTERN = /^pkt_[A-Za-z0-9_-]{2,128}$/;
 const DELIVERY_ID_PATTERN = /^dlv_[A-Za-z0-9_-]{8,128}$/;
 const RUNTIME_ID_PATTERN = /^rti_[A-Za-z0-9_-]{4,96}$/;
@@ -24,6 +29,7 @@ export type ChannelProviderPayload =
       kind: "slack.stream.append";
       providerReference: string;
       delta: string;
+      fullText?: string;
     }
   | {
       kind: "slack.stream.task";
@@ -53,7 +59,7 @@ export type ChannelProviderPayload =
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
-      kind: "slack.message.delete";
+      kind: "slack.message.delete" | "teams.message.delete";
       providerReference: string;
     }
   | {
@@ -74,10 +80,30 @@ export type ChannelProviderPayload =
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
+      kind:
+        | "slack.reaction.add"
+        | "slack.reaction.remove"
+        | "teams.reaction.add"
+        | "teams.reaction.remove";
+      providerReference: string;
+      reaction: string;
+    }
+  | {
       kind: "slack.file.create";
       fileHandle: string;
       title?: string;
       altText?: string;
+    }
+  | {
+      kind: "teams.file.create";
+      fileHandle: string;
+      filename: string;
+      title?: string;
+      altText?: string;
+    }
+  | {
+      kind: "teams.file.consent.complete";
+      fileHandle: string;
     }
   | {
       kind: "slack.image.create" | "teams.image.create";
@@ -135,6 +161,44 @@ export function assertProviderReference(
   }
 }
 
+/** Return whether a value is one opaque, delivery-scoped provider capability. */
+export function isProviderReference(value: unknown): value is string {
+  try {
+    assertProviderReference(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Assert that a provider message id is a stable, non-capability correlation id. */
+export function assertProviderMessageId(
+  value: unknown,
+): asserts value is string {
+  if (typeof value !== "string" || !PROVIDER_MESSAGE_ID_PATTERN.test(value)) {
+    throw new TypeError(
+      "provider message id must be a stable pid_v1 correlation id",
+    );
+  }
+}
+
+/** Return whether a value is one stable, non-capability provider message id. */
+export function isProviderMessageId(value: unknown): value is string {
+  try {
+    assertProviderMessageId(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Return whether a provider-native reaction fits the shared UTF-8 bound. */
+export function isValidReactionName(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const byteLength = new TextEncoder().encode(value).byteLength;
+  return byteLength >= 1 && byteLength <= 128;
+}
+
 /** Return the UTF-8 JSON size of a value. */
 export function deliveryPacketByteLength(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -189,9 +253,15 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.stream.append":
       return (
-        hasExactFields(value, ["kind", "providerReference", "delta"]) &&
+        hasExactFields(
+          value,
+          ["kind", "providerReference", "delta", "fullText"],
+          ["fullText"],
+        ) &&
         validReference(value.providerReference) &&
-        boundedString(value.delta, 1, 40_000)
+        boundedString(value.delta, 1, 40_000) &&
+        (value.fullText === undefined ||
+          boundedString(value.fullText, 1, 40_000))
       );
     case "slack.stream.task":
       return (
@@ -242,6 +312,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         optionalRecordArray(value.blocks, 100)
       );
     case "slack.message.delete":
+    case "teams.message.delete":
       return (
         hasExactFields(value, ["kind", "providerReference"]) &&
         validReference(value.providerReference)
@@ -264,6 +335,15 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.text, 0, 40_000) &&
         optionalRecordArray(value.cards, 25)
       );
+    case "slack.reaction.add":
+    case "slack.reaction.remove":
+    case "teams.reaction.add":
+    case "teams.reaction.remove":
+      return (
+        hasExactFields(value, ["kind", "providerReference", "reaction"]) &&
+        validReference(value.providerReference) &&
+        isValidReactionName(value.reaction)
+      );
     case "slack.file.create":
       return (
         hasExactFields(
@@ -274,6 +354,23 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.fileHandle, 1, 128) &&
         optionalBoundedString(value.title, 512) &&
         optionalBoundedString(value.altText, 2_000)
+      );
+    case "teams.file.create":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "fileHandle", "filename", "title", "altText"],
+          ["title", "altText"],
+        ) &&
+        boundedString(value.fileHandle, 1, 128) &&
+        boundedString(value.filename, 1, 512) &&
+        optionalBoundedString(value.title, 512) &&
+        optionalBoundedString(value.altText, 2_000)
+      );
+    case "teams.file.consent.complete":
+      return (
+        hasExactFields(value, ["kind", "fileHandle"]) &&
+        boundedString(value.fileHandle, 1, 128)
       );
     case "slack.image.create":
     case "teams.image.create":

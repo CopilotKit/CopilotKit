@@ -28,15 +28,22 @@
     "release:prerelease:dry": "tsx scripts/release/prerelease.ts --scope monorepo --dry-run",
     "verify:channels-umbrella": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts",
     "verify:channels-umbrella:registry": "nx run @copilotkit/channels:build && tsx scripts/release/verify-channels-umbrella.ts --registry",
-    "verify:angular-package": "nx run @copilotkit/angular:build && tsx scripts/release/verify-angular-package.ts",
+    "verify:angular-package": "nx run-many -t build,check-types,test,publint,attw --projects=@copilotkit/angular && tsx scripts/release/verify-angular-package.ts",
     "verify:runtime-package": "nx run @copilotkit/runtime:build && tsx scripts/release/verify-runtime-package.ts",
     "prepare": "lefthook install",
     "graph": "nx graph",
     "publint": "nx run-many -t publint --projects=packages/**",
     "attw": "nx run-many -t attw --projects=packages/**",
-    "check:packages": "nx run-many -t publint,attw --projects=packages/**",
+    "check:packages": "nx run-many -t publint,attw,check-dts --projects=packages/**",
     "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
+    "validate:retired-anthropic-models": "nx run repo-scripts:validate-retired-anthropic-models",
+    "check:intelligence-env-names": "tsx scripts/validate-intelligence-env-names.ts",
     "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
+    "generate:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs generate",
+    "check:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs check",
+    "audit:channel-native-catalogs": "node scripts/channel-native-catalogs.mjs audit",
+    "generate:public-api-manifest": "tsx scripts/release/generate-public-api-manifest.ts --write",
+    "check:public-api-manifest": "tsx scripts/release/generate-public-api-manifest.ts --check",
     "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
@@ -170,6 +177,9 @@
       "@ai-sdk/mcp": "1.0.21",
       "storybook@>=8.0.0 <8.6.17": "8.6.17",
       "path-to-regexp@>=8.0.0 <8.4.0": ">=8.4.0"
+    },
+    "patchedDependencies": {
+      "eventsource@3.0.7": "patches/eventsource@3.0.7.patch"
     }
   }
 }

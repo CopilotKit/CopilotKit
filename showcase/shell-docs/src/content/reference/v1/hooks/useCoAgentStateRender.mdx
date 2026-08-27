@@ -7,7 +7,7 @@ description: "The useCoAgentStateRender hook allows you to render the state of t
  /*
   * ATTENTION! DO NOT MODIFY THIS FILE!
   * This page is auto-generated. If you want to make any changes to this page, changes must be made at:
-  * packages/react-core/src/hooks/use-coagent-state-render.ts
+  * packages/react-core/src/v1-deprecated/hooks/use-coagent-state-render.ts
   */
 }
 The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
@@ -43,7 +43,7 @@ This allows for you to render UI components or text based on what is happening w
  
 ### Example
 A great example of this is in our Perplexity Clone where we render the progress of an agent's internet search as it is happening.
-You can play around with it below or learn how to build it with its [demo](/coagents/videos/perplexity-clone).
+You can play around with it below or learn how to build it with the [state rendering guide](/langgraph-python/generative-ui/state-rendering).
  
 <Callout type="info">
   This example is hosted on Vercel and may take a few seconds to load.
@@ -68,4 +68,3 @@ The handler function to handle the state of the agent.
 <PropertyReference name="render" type="| (( props: CoAgentStateRenderProps<T>, ) => string | React.ReactElement | undefined | null) | string"  > 
 The render function to handle the state of the agent.
 </PropertyReference>
-

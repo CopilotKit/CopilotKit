@@ -3,7 +3,10 @@ title: Quickstart
 description: Turn your CrewAI Flows into an agent-native application in 10 minutes.
 icon: "lucide/Play"
 hideTOC: true
+doc_type: tutorial
 ---
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
 <OpsPlatformCTA
   variant="card"
@@ -15,15 +18,15 @@ hideTOC: true
 
 ## Prerequisites
 
-Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow) deployed on [CrewAI Enterprise](https://docs.crewai.com/enterprise/introduction). If you're looking for a sample flows, check out this [example agentic chat implementation](https://github.com/suhasdeshpande/agentic_chat).
+Before you begin, you need a [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow). It can run locally or on infrastructure you manage; a CrewAI Enterprise deployment is optional. If you use the CopilotKit CLI path below, the starter creates the Flow integration for you.
 
 ## Getting started
 
 <Steps>
 <Step>
-    ### Create a free account
+    ### Optional: Create a free account
 
-    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+    <SignupLink surface="docs_crewai_flows_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform if you want managed persistent threads and the inspector. A Copilot Cloud account is not required to run a local CrewAI Flow with CopilotKit.
 </Step>
 
 <Step>
@@ -43,7 +46,7 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
     >
         <Step>
             ### Run the CLI
-            Just run this following command in your Next.js application to get started!
+            Run the following command in your Next.js application:
 
             <Accordions>
                 <Accordion title="Don't have a Next.js application?">
@@ -57,6 +60,8 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             ```bash
             npx copilotkit@latest init --framework flows
             ```
+
+            The starter uses a regular CrewAI Flow. To make it session-aware, finish this Quickstart and then [promote the Flow to a Conversational Flow](/crewai-flows/conversational-flows). Your CopilotKit frontend stays the same.
         </Step>
         <Step>
             ### 🎉 Talk to your agent!
@@ -76,6 +81,11 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
             What do you think about React?
             ```
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     <TailoredContentOption
         id="code-along"
@@ -204,6 +214,11 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
                 </Accordion>
             </Accordions>
         </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
     </TailoredContentOption>
     </TailoredContent>
 </Step>
@@ -215,9 +230,15 @@ Before you begin, you must have a [CrewAI Flow](https://docs.crewai.com/guides/f
 ## What's next?
 
 You've now got a CrewAI Flow running in CopilotKit! Now you can start exploring the various ways that CopilotKit
-can help you build power agent native applications.
+can help you build powerful agent-native applications.
 
 <Cards>
+  <Card
+    title="Make your Flow conversational"
+    description="Promote the Flow to CrewAI's session-aware conversational execution mode."
+    href="/crewai-flows/conversational-flows"
+    icon={<MessageSquare />}
+  />
   <Card
     title="Implement Human in the Loop"
     description="Allow your users and agents to collaborate together on tasks."

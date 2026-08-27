@@ -34,6 +34,18 @@ describe("telemetry egress guard", () => {
     expect(realFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("preserves platform properties on the guarded fetch", () => {
+    const preconnect = vi.fn();
+    const realFetch = Object.assign(
+      vi.fn(() => Promise.resolve(new Response(null, { status: 200 }))),
+      { preconnect },
+    ) as unknown as typeof fetch;
+
+    const guarded = createTelemetryEgressGuard(realFetch);
+
+    expect(Reflect.get(guarded, "preconnect")).toBe(preconnect);
+  });
+
   it("is installed on the global fetch for every test in this package", () => {
     // A raw platform fetch would stringify as native code; the guard doesn't.
     expect(String(globalThis.fetch)).not.toContain("[native code]");

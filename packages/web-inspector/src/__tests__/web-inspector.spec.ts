@@ -10,6 +10,7 @@ import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type { InspectorOpenSource } from "../lib/telemetry.js";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Types for accessing LitElement-private reactive properties ---
@@ -326,6 +327,89 @@ describe("WebInspectorElement", () => {
     expect(internals.cachedTools.some((tool) => tool.name === "greet")).toBe(
       true,
     );
+  });
+
+  it("renders Agent tab message text without template indent", async () => {
+    const { agent } = createMockAgent("alpha", {
+      messages: [{ id: "m1", role: "user", content: "test" }],
+    });
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      selectedMenu: string;
+      selectedContext: string;
+    };
+    internals.isOpen = true;
+    internals.selectedMenu = "agents";
+    internals.selectedContext = "alpha";
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    const content = inspector.shadowRoot?.querySelector(
+      ".cpk-agent-view .whitespace-pre-wrap",
+    );
+    expect(content?.textContent).toBe("test");
+  });
+
+  it("records step lifecycle events", async () => {
+    const { agent, controller } = createMockAgent("alpha");
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    controller.emit("onStepStartedEvent", {
+      event: { stepName: "test-step" },
+    });
+    controller.emit("onStepFinishedEvent", {
+      event: { stepName: "test-step" },
+    });
+    await inspector.updateComplete;
+
+    const internals = getInternals(inspector);
+
+    expect(internals.flattenedEvents.map((event) => event.type)).toEqual([
+      "STEP_FINISHED",
+      "STEP_STARTED",
+    ]);
+  });
+
+  it("opens the requested message's thread", async () => {
+    const { agent } = createMockAgent("alpha");
+    const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    inspector.openInspector("message_toolbar", {
+      threadId: "thread-1",
+      agentId: "alpha",
+      messageId: "assistant-message-1",
+    });
+    await inspector.updateComplete;
+
+    const focusInternals = inspector as unknown as {
+      isOpen: boolean;
+      selectedMenu: string;
+      selectedContext: string;
+      selectedThreadId: string | null;
+      focusedThreadMessageId: string | null;
+      threadFocusRequestId: number;
+    };
+
+    expect(focusInternals.isOpen).toBe(true);
+    expect(focusInternals.selectedMenu).toBe("threads");
+    expect(focusInternals.selectedContext).toBe("alpha");
+    expect(focusInternals.selectedThreadId).toBe("thread-1");
+    expect(focusInternals.focusedThreadMessageId).toBe("assistant-message-1");
+    expect(focusInternals.threadFocusRequestId).toBe(1);
   });
 
   it("normalizes context, persists state, and copies context values", async () => {
@@ -909,8 +993,8 @@ describe("CpkThreadInspector provider contract", () => {
     expect(internals._fetchedEvents).toHaveLength(6);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Timeline");
-    expect(text).toContain("Raw AG-UI Events");
+    expect(text).toContain("Messages");
+    expect(text).toContain("AG-UI Events");
     expect(text).toContain("State");
     expect(text).toContain("Run started");
     expect(text).toContain("assistant message");
@@ -1405,159 +1489,16 @@ describe("CpkThreadInspector provider contract", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
-// Announcement preview (popout) dismissal MUST persist
-// ─────────────────────────────────────────────────────────────────────────
-//
-// The preview bubble that pops out of the floating button carries an X. Clicking
-// it MUST persist the announcement timestamp to localStorage. Otherwise
-// fetchAnnouncement() recomputes `showAnnouncementPreview` from the (still
-// empty) stored timestamp on the next mount and the bubble pops straight back
-// out — the regression these tests guard against. Persistence lives only in
-// markAnnouncementSeen(); the body-click / open paths clear the flag in memory
-// only and are intentionally NOT persistent.
-
-const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
-
-type AnnouncementInternals = {
-  hasUnseenAnnouncement: boolean;
-  showAnnouncementPreview: boolean;
-  announcementPreviewText: string | null;
-  announcementTimestamp: string | null;
-  isOpen: boolean;
-};
-
-describe("WebInspectorElement announcement preview dismissal", () => {
-  let store: Record<string, string>;
-
-  beforeEach(() => {
-    document.body.innerHTML = "";
-    store = {};
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => store[key] ?? null,
-      setItem: (key: string, value: string) => {
-        store[key] = value;
-      },
-      removeItem: (key: string) => {
-        delete store[key];
-      },
-      clear: () => {
-        for (const key of Object.keys(store)) delete store[key];
-      },
-      get length() {
-        return Object.keys(store).length;
-      },
-      key: (index: number) => Object.keys(store)[index] ?? null,
-    });
-  });
-
-  /** Mount a closed inspector with an unseen announcement so the popout renders. */
-  async function mountWithUnseenAnnouncement(timestamp: string) {
-    const { core } = createMockCore();
-    const inspector = createInspectorWithCore(core);
-    const a = inspector as unknown as AnnouncementInternals;
-    a.announcementTimestamp = timestamp;
-    a.announcementPreviewText = "Slack early access is here!";
-    a.hasUnseenAnnouncement = true;
-    a.showAnnouncementPreview = true;
-    inspector.requestUpdate();
-    await inspector.updateComplete;
-    return { inspector, a };
-  }
-
-  it("persists the announcement timestamp when the popout X is clicked", async () => {
-    const timestamp = "2026-06-11T13:00:00.000Z";
-    const { inspector, a } = await mountWithUnseenAnnouncement(timestamp);
-
-    const dismiss = inspector.shadowRoot?.querySelector<HTMLElement>(
-      ".announcement-preview__dismiss",
-    );
-    expect(dismiss, "popout dismiss control should render").not.toBeNull();
-
-    dismiss?.click();
-    await inspector.updateComplete;
-
-    // The dismissal is persisted, so a remount would stay closed.
-    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBe(JSON.stringify({ timestamp }));
-    // In-memory flags cleared and the bubble is gone.
-    expect(a.hasUnseenAnnouncement).toBe(false);
-    expect(a.showAnnouncementPreview).toBe(false);
-    expect(
-      inspector.shadowRoot?.querySelector(".announcement-preview"),
-    ).toBeNull();
-  });
-
-  it("dismissing the popout X does not open the inspector", async () => {
-    const { inspector, a } = await mountWithUnseenAnnouncement(
-      "2026-06-11T13:00:00.000Z",
-    );
-    expect(a.isOpen).toBe(false);
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-
-    // X dismisses without opening (only a body click opens the inspector).
-    expect(a.isOpen).toBe(false);
-  });
-
-  it("emits banner_dismissed with the bubble surface alongside banner_clicked", async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(null, { status: 204 }));
-    const timestamp = "2026-06-11T13:00:00.000Z";
-    const { inspector } = await mountWithUnseenAnnouncement(timestamp);
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
-      ?.click();
-    await inspector.updateComplete;
-
-    const posts = telemetryPostsFrom(fetchMock);
-    const dismissed = posts.find(
-      (post) => post.event === "oss.inspector.banner_dismissed",
-    );
-    expect(dismissed?.properties).toMatchObject({
-      banner_id: timestamp,
-      surface: "collapsed_preview",
-    });
-    // The legacy signal keeps flowing so existing dashboards don't zero out.
-    const clicked = posts.find(
-      (post) => post.event === "oss.inspector.banner_clicked",
-    );
-    expect(clicked?.properties).toMatchObject({
-      banner_id: timestamp,
-      cta: "dismiss",
-    });
-  });
-
-  it("clicking the popout body opens the inspector without persisting", async () => {
-    const { inspector, a } = await mountWithUnseenAnnouncement(
-      "2026-06-11T13:00:00.000Z",
-    );
-
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
-      ?.click();
-    await inspector.updateComplete;
-
-    // Body click is engagement, not dismissal: it opens but must NOT persist,
-    // so the in-window banner still shows the announcement.
-    expect(a.isOpen).toBe(true);
-    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
-    expect(a.hasUnseenAnnouncement).toBe(true);
-  });
-});
-
-// ─────────────────────────────────────────────────────────────────────────
-// Panel-open + banner-surface telemetry (OSS-566 / OSS-568)
+// Panel-open + What's new telemetry (OSS-566 / OSS-568 / OSS-864)
 // ─────────────────────────────────────────────────────────────────────────
 //
 // `oss.inspector.opened` exists because opens were previously only inferable
-// from in-panel activity (a floor) or from `banner_clicked` cta=body (which
-// misses the floating-button path). `banner_viewed` carries a `surface`
-// because the bubble on the collapsed widget and the card inside the opened
-// panel are separate impressions — reach on one says nothing about the other.
+// from in-panel activity (a floor) or from the announcement's own click event
+// (which misses the floating-button path). `whats_new_viewed` carries a
+// `surface` so a second one can be added later without reshaping the event,
+// and it fires only when What's new renders WITH CONTENT — so the metric
+// cannot inflate itself by counting people who opened the Inspector for an
+// unrelated reason, or who arrived before the feed resolved.
 
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 
@@ -1565,15 +1506,36 @@ type OpenTelemetryInternals = {
   isOpen: boolean;
   announcementTimestamp: string | null;
   fetchAnnouncement: () => Promise<void>;
-  openInspector: (source: "floating_button" | "announcement_preview") => void;
+  openInspector: (source: InspectorOpenSource) => void;
 };
 
-describe("WebInspectorElement open + banner surface telemetry", () => {
+/**
+ * Open the panel, then navigate to What's new the way a reader does.
+ *
+ * Spelled out rather than relying on the landing tab: the launcher restores
+ * whatever tab was last used, so a helper that only opened the panel would
+ * pass by coincidence whenever that happened to be What's new.
+ */
+async function openWhatsNew(inspector: WebInspectorElement): Promise<void> {
+  inspector.shadowRoot
+    ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
+    ?.click();
+  await inspector.updateComplete;
+  inspector.shadowRoot
+    ?.querySelector<HTMLElement>('button[data-inspector-menu-key="whats-new"]')
+    ?.click();
+  await inspector.updateComplete;
+}
+
+describe("WebInspectorElement open + What's new telemetry", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let body = "Channels are here — [read more](https://x.test)";
   const timestamp = "2026-07-01T09:00:00.000Z";
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.sessionStorage.clear();
+    body = "Channels are here — [read more](https://x.test)";
     fetchMock = vi.fn((input: unknown) => {
       if (String(input) === ANNOUNCEMENT_URL) {
         return Promise.resolve(
@@ -1581,7 +1543,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
             JSON.stringify({
               timestamp,
               previewText: "Channels are here",
-              announcement: "Channels are here — [read more](https://x.test)",
+              announcement: body,
             }),
             { status: 200 },
           ),
@@ -1622,43 +1584,237 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
   const posts = () => telemetryPostsFrom(fetchMock);
   const eventsNamed = (name: string) =>
     posts().filter((post) => post.event === name);
+  const launcherIsPulsing = (inspector: WebInspectorElement) =>
+    inspector.shadowRoot
+      ?.querySelector('button[aria-label="Web Inspector"]')
+      ?.getAttribute("data-cpk-signal-pulsing") === "true";
+  const announcementLink = (inspector: WebInspectorElement) => {
+    const link = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      ".announcement-content a",
+    );
+    if (!link) throw new Error("Expected announcement link");
+    return link;
+  };
 
-  it("records the collapsed bubble impression, then the in-panel card on open", async () => {
+  it("records one launcher signal presentation when the pulse is rendered", async () => {
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
     await inspector.updateComplete;
 
-    const first = eventsNamed("oss.inspector.banner_viewed");
-    expect(first).toHaveLength(1);
-    expect(first[0]!.properties).toMatchObject({
+    expect(launcherIsPulsing(inspector)).toBe(true);
+    const viewed = eventsNamed("oss.inspector.whats_new_signal_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
       banner_id: timestamp,
-      surface: "collapsed_preview",
+      surface: "launcher",
+      presentation: "animated",
+      package_name: "@copilotkit/web-inspector",
     });
 
-    // Opening reveals the in-panel card — a distinct impression.
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
+
+  it("waits to present and record the launcher signal until the tab is visible", async () => {
+    const originalVisibility = Object.getOwnPropertyDescriptor(
+      document,
+      "visibilityState",
+    );
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+
+    try {
+      const { inspector, internals } = mount();
+      await internals.fetchAnnouncement();
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(false);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        0,
+      );
+
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      await inspector.updateComplete;
+
+      expect(launcherIsPulsing(inspector)).toBe(true);
+      expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+        1,
+      );
+    } finally {
+      if (originalVisibility) {
+        Object.defineProperty(document, "visibilityState", originalVisibility);
+      } else {
+        Reflect.deleteProperty(document, "visibilityState");
+      }
+    }
+  });
+
+  it("labels a reduced-motion launcher presentation without requiring animation", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+      })),
+    );
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    expect(
+      eventsNamed("oss.inspector.whats_new_signal_viewed")[0]!.properties,
+    ).toMatchObject({ presentation: "reduced_motion" });
+  });
+
+  it("holds the launcher presentation until the runtime allows telemetry", async () => {
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      1,
+    );
+  });
+
+  it("records one What's new impression, enriched like every other event", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+
+    // Nothing yet: the announcement has loaded but nobody has seen it.
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
+
+    await openWhatsNew(inspector);
+
+    const viewed = eventsNamed("oss.inspector.whats_new_viewed");
+    expect(viewed).toHaveLength(1);
+    expect(viewed[0]!.properties).toMatchObject({
+      banner_id: timestamp,
+      surface: "whats_new",
+      package_name: "@copilotkit/web-inspector",
+    });
+  });
+
+  it("records announcement link activations, not ordinary content clicks", async () => {
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const content = inspector.shadowRoot?.querySelector<HTMLElement>(
+      ".announcement-content",
+    );
+    if (!content) throw new Error("Expected announcement content");
+
+    content.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    const link = content.querySelector<HTMLAnchorElement>("a");
+    if (!link) throw new Error("Expected announcement link");
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
+  });
+
+  it("does not expose notification telemetry before a disabling handshake", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+
+    harness.completeHandshake({ telemetryDisabled: true });
+    await inspector.updateComplete;
+    expect(eventsNamed("oss.inspector.whats_new_signal_viewed")).toHaveLength(
+      0,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(0);
+  });
+
+  it("adds notification attribution after the runtime allows telemetry", async () => {
+    body = "Channels are here — [read more](https://www.copilotkit.ai/news)";
+    const { inspector, harness, internals } = mount(false, false);
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    harness.completeHandshake({ telemetryDisabled: false });
+    await inspector.updateComplete;
+    await openWhatsNew(inspector);
+
+    const link = announcementLink(inspector);
+    expect(new URL(link.href).searchParams.has("posthog_distinct_id")).toBe(
+      false,
+    );
+
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(new URL(link.href).searchParams.get("posthog_distinct_id")).toMatch(
+      /^[0-9a-f-]{36}$/,
+    );
+    expect(eventsNamed("oss.inspector.whats_new_clicked")).toHaveLength(1);
+  });
+
+  // The metric must mean "the announcement was actually shown". A What's new
+  // render without content — a loading state, or a body that renders to
+  // nothing — is not an impression, so the metric cannot inflate itself.
+  it("records no impression for a What's new render without content", async () => {
+    body = "   ";
+    const { inspector, internals } = mount();
+
+    await internals.fetchAnnouncement();
+    await inspector.updateComplete;
+    // No dot to click: nothing armed, because nothing renders.
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
-    const surfaces = eventsNamed("oss.inspector.banner_viewed").map(
-      (post) => post.properties.surface,
-    );
-    expect(surfaces).toEqual(["collapsed_preview", "expanded_card"]);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
   });
 
-  it("does not re-record an impression for a surface already seen this mount", async () => {
+  it("does not re-record an impression already seen this mount", async () => {
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
-    await internals.fetchAnnouncement();
+    await openWhatsNew(inspector);
+    // Re-rendering the same view, repeatedly, is still one impression.
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(1);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(1);
   });
 
-  it("emits opened with the floating-button source and announcement context", async () => {
+  it("attributes every launcher open to the launcher, unread or not", async () => {
+    // The launcher never routes through the signal, so it has one source. The
+    // question "did a pending announcement coincide with this open?" is
+    // answered by has_unseen_announcement, not by a second source value.
     const { inspector, internals } = mount();
 
     await internals.fetchAnnouncement();
@@ -1678,20 +1834,32 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     });
   });
 
-  it("attributes an open through the announcement bubble to that surface", async () => {
-    const { inspector, internals } = mount();
-
-    await internals.fetchAnnouncement();
+  it("attributes a launcher open to the launcher when nothing is unread", async () => {
+    const { inspector } = mount();
     await inspector.updateComplete;
 
     inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.querySelector<HTMLElement>('button[aria-label="Web Inspector"]')
       ?.click();
     await inspector.updateComplete;
 
     expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
-      open_source: "announcement_preview",
+      open_source: "floating_button",
+      has_unseen_announcement: false,
     });
+  });
+
+  it("attributes an open from an assistant message toolbar", async () => {
+    const { inspector, internals } = mount();
+    await inspector.updateComplete;
+
+    inspector.openInspector("message_toolbar");
+    await inspector.updateComplete;
+
+    expect(eventsNamed("oss.inspector.opened")[0]!.properties).toMatchObject({
+      open_source: "message_toolbar",
+    });
+    expect(internals.isOpen).toBe(true);
   });
 
   it("counts one open per open, and nothing for an already-open panel", async () => {
@@ -1758,33 +1926,33 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
 
   // The impression deferral predates the surface split and must survive it: the
   // runtime's opt-out only arrives with /info.
-  it("holds a banner impression until the handshake, then drops it when telemetry is disabled", async () => {
+  it("holds an impression until the handshake, then drops it when telemetry is disabled", async () => {
     const { inspector, harness, internals } = mount(false, false);
 
     await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    await openWhatsNew(inspector);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
 
     harness.completeHandshake({ telemetryDisabled: true });
     await inspector.updateComplete;
 
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
   });
 
-  it("releases a held banner impression once the runtime allows telemetry", async () => {
+  it("releases a held impression once the runtime allows telemetry", async () => {
     const { inspector, harness, internals } = mount(false, false);
 
     await internals.fetchAnnouncement();
-    await inspector.updateComplete;
-    expect(eventsNamed("oss.inspector.banner_viewed")).toHaveLength(0);
+    await openWhatsNew(inspector);
+    expect(eventsNamed("oss.inspector.whats_new_viewed")).toHaveLength(0);
 
     harness.completeHandshake({ telemetryDisabled: false });
     await inspector.updateComplete;
 
-    const viewed = eventsNamed("oss.inspector.banner_viewed");
+    const viewed = eventsNamed("oss.inspector.whats_new_viewed");
     expect(viewed).toHaveLength(1);
     expect(viewed[0]!.properties).toMatchObject({
-      surface: "collapsed_preview",
+      surface: "whats_new",
     });
   });
 
@@ -1792,10 +1960,7 @@ describe("WebInspectorElement open + banner surface telemetry", () => {
     const { inspector, internals } = mount(true);
 
     await internals.fetchAnnouncement();
-    inspector.shadowRoot
-      ?.querySelector<HTMLElement>(".announcement-preview")
-      ?.click();
-    await inspector.updateComplete;
+    await openWhatsNew(inspector);
 
     expect(posts()).toEqual([]);
   });
@@ -1954,6 +2119,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    window.localStorage.setItem(
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        selectedMenu: "threads",
+        hasOpenedInspector: true,
+      }),
+    );
     fetchMock = vi.fn(() =>
       Promise.resolve({
         ok: true,
@@ -2103,23 +2276,25 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toMatch(/Enable Intelligence to inspect Threads\./);
+    expect(text).toMatch(/Threads are unavailable\./);
     expect(text).toContain("Talk to an Engineer");
-    expect(text).toContain("Sign up for Intelligence");
+    expect(text).not.toContain("Sign up for Intelligence");
     const ctaLabels = Array.from(
       inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
     ).map((anchor) => anchor.textContent?.trim());
-    expect(ctaLabels).toEqual([
-      "Talk to an Engineer",
-      "Sign up for Intelligence",
-    ]);
+    expect(
+      ctaLabels.filter((label) => label === "Talk to an Engineer"),
+    ).toEqual(["Talk to an Engineer"]);
     const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
@@ -2130,7 +2305,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     ).toBe(false);
   });
 
-  it("adds inspector attribution to locked-state CTAs", async () => {
+  it("keeps Threads-only engineer attribution when metadata action is absent", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
@@ -2146,10 +2321,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
@@ -2159,15 +2337,12 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
 
-    expect(signup).not.toBeNull();
+    expect(signup).toBeNull();
     expect(engineer).not.toBeNull();
 
-    const signupUrl = new URL(signup!.href);
-    expect(signupUrl.origin).toBe("https://dashboard.operations.copilotkit.ai");
-    expect(signupUrl.pathname).toBe("/sign-in");
-    expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
-    expectNoUtmParams(signupUrl);
-    const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
+    const distinctId = new URL(engineer!.href).searchParams.get(
+      "posthog_distinct_id",
+    );
     expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
 
     const engineerUrl = new URL(engineer!.href);
@@ -2189,6 +2364,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       false,
     );
 
+    localStorage.setItem(
+      "cpk:inspector:state",
+      JSON.stringify({
+        selectedMenu: "ag-ui-events",
+        hasOpenedInspector: true,
+      }),
+    );
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = harness.core as unknown as WebInspectorElement["core"];
@@ -2236,10 +2418,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2265,17 +2450,17 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "cpk-inspector-threads",
     );
     expectNoUtmParams(threadsDocsUrl);
-    const selfHosted = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+    const intelligence = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      '#cpk-main-scroll a[href^="https://intelligence.copilotkit.ai/?ref="]',
     );
-    expect(selfHosted?.textContent?.trim()).toBe(
-      "Explore self-hosted Intelligence",
+    expect(intelligence?.textContent?.trim()).toBe("Sign up for Intelligence");
+    const intelligenceUrl = new URL(intelligence!.href);
+    expect(intelligenceUrl.origin).toBe("https://intelligence.copilotkit.ai");
+    expect(intelligenceUrl.pathname).toBe("/");
+    expect(intelligenceUrl.searchParams.get("ref")).toBe(
+      "cpk-inspector-threads",
     );
-    const selfHostedUrl = new URL(selfHosted!.href);
-    expect(selfHostedUrl.origin).toBe("https://docs.copilotkit.ai");
-    expect(selfHostedUrl.pathname).toBe("/premium/self-hosting");
-    expect(selfHostedUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-    expectNoUtmParams(selfHostedUrl);
+    expectNoUtmParams(intelligenceUrl);
     expect(threadListText(inspector)).toContain("Example");
     expect(text).not.toContain("No threads yet");
     expect(
@@ -2294,149 +2479,6 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
     expectNoUtmParams(engineerUrl);
     expect(engineer?.closest("#cpk-main-scroll")).toBeNull();
-  });
-
-  it("defers loading the empty overview video until after the overview paints", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: false }));
-
-    const { agent } = createMockAgent("alpha");
-    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
-
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = harness.core as unknown as WebInspectorElement["core"];
-    harness.emitAgentsChanged();
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      handleMenuSelect: (key: "threads") => void;
-    };
-    internals.isOpen = true;
-    internals.handleMenuSelect("threads");
-    await inspector.updateComplete;
-
-    expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Threads are persistent, inspectable conversations",
-    );
-    expect(
-      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
-    ).not.toBeNull();
-    expect(
-      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
-    ).toBeNull();
-
-    await vi.advanceTimersByTimeAsync(450);
-    await inspector.updateComplete;
-
-    const video = inspector.shadowRoot?.querySelector<HTMLVideoElement>(
-      ".cpk-threads-overview-video",
-    );
-    expect(video?.src).toBe(
-      "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm",
-    );
-  });
-
-  it("does not load the empty overview video when reduced motion is preferred", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: true }));
-
-    const { agent } = createMockAgent("alpha");
-    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
-
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = harness.core as unknown as WebInspectorElement["core"];
-    harness.emitAgentsChanged();
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      handleMenuSelect: (key: "threads") => void;
-    };
-    internals.isOpen = true;
-    internals.handleMenuSelect("threads");
-    await inspector.updateComplete;
-
-    expect(inspector.shadowRoot?.textContent ?? "").toContain(
-      "Threads are persistent, inspectable conversations",
-    );
-    expect(
-      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video-frame"),
-    ).not.toBeNull();
-
-    await vi.advanceTimersByTimeAsync(1200);
-    await inspector.updateComplete;
-
-    expect(
-      inspector.shadowRoot?.querySelector(".cpk-threads-overview-video"),
-    ).toBeNull();
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("clears the deferred video timeout when disconnected before load", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: false }));
-    Object.defineProperty(window, "requestIdleCallback", {
-      configurable: true,
-      value: undefined,
-    });
-    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout");
-
-    const { agent } = createMockAgent("alpha");
-    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
-
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = harness.core as unknown as WebInspectorElement["core"];
-    harness.emitAgentsChanged();
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      handleMenuSelect: (key: "threads") => void;
-    };
-    internals.isOpen = true;
-    internals.handleMenuSelect("threads");
-    await inspector.updateComplete;
-
-    expect(vi.getTimerCount()).toBe(1);
-    inspector.remove();
-    expect(clearTimeoutSpy).toHaveBeenCalled();
-    expect(vi.getTimerCount()).toBe(0);
-  });
-
-  it("cancels the deferred video idle callback when disconnected before load", async () => {
-    vi.useFakeTimers();
-    vi.stubGlobal("matchMedia", () => ({ matches: false }));
-    const requestIdleCallback = vi.fn(() => 123);
-    const cancelIdleCallback = vi.fn();
-    Object.defineProperty(window, "requestIdleCallback", {
-      configurable: true,
-      value: requestIdleCallback,
-    });
-    Object.defineProperty(window, "cancelIdleCallback", {
-      configurable: true,
-      value: cancelIdleCallback,
-    });
-
-    const { agent } = createMockAgent("alpha");
-    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, false);
-
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = harness.core as unknown as WebInspectorElement["core"];
-    harness.emitAgentsChanged();
-
-    const internals = inspector as unknown as {
-      isOpen: boolean;
-      handleMenuSelect: (key: "threads") => void;
-    };
-    internals.isOpen = true;
-    internals.handleMenuSelect("threads");
-    await inspector.updateComplete;
-
-    expect(requestIdleCallback).toHaveBeenCalledTimes(1);
-    inspector.remove();
-    expect(cancelIdleCallback).toHaveBeenCalledWith(123);
   });
 
   it("does not render example threads once real threads are present", async () => {
@@ -2477,11 +2519,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
       selectedThreadId: string | null;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2520,7 +2565,16 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
   });
 
   it("persists example tour dismissal so it does not auto-open again", async () => {
-    const stored = new Map<string, string>();
+    const stored = new Map<string, string>([
+      [
+        "cpk:inspector:state",
+        JSON.stringify({
+          isOpen: true,
+          selectedMenu: "threads",
+          hasOpenedInspector: true,
+        }),
+      ],
+    ]);
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => stored.get(key) ?? null,
       setItem: (key: string, value: string) => stored.set(key, value),
@@ -2542,10 +2596,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2637,10 +2694,13 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     const internals = inspector as unknown as {
       isOpen: boolean;
+      selectedMenu: "home" | "threads";
       handleMenuSelect: (key: "threads") => void;
     };
     internals.isOpen = true;
+    internals.selectedMenu = "threads";
     internals.handleMenuSelect("threads");
+    inspector.requestUpdate();
     await inspector.updateComplete;
 
     await vi.waitFor(() => {
@@ -2680,14 +2740,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       (post) => post.event === "oss.inspector.threads_example_tour_step_viewed",
     );
     expect(stepViewed?.properties).toMatchObject({
-      example_thread_id: "example-realtime-sync",
+      example_kind: "realtime_sync",
       tour_step: 1,
     });
     const dismissed = posts.find(
       (post) => post.event === "oss.inspector.threads_example_tour_dismissed",
     );
     expect(dismissed?.properties).toMatchObject({
-      example_thread_id: "example-realtime-sync",
+      example_kind: "realtime_sync",
       dismiss_method: "skip",
     });
   });
@@ -2699,7 +2759,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 //
 // 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
 // 6.2  Subscription: inspector._memories is seeded from store
-// 6.3  Tab presence: "Memory" label appears in the rendered menu
+// 6.3  Tab presence: "Learning" primary navigation appears in the rendered menu
 // 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
 // 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
 // 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
@@ -2850,6 +2910,9 @@ async function mountMemories(
   };
   internals.isOpen = true;
   internals.handleMenuSelect("memories");
+  (el as unknown as { selectedMenu: string }).selectedMenu = "memories";
+  el.requestUpdate();
+  await el.updateComplete;
 
   await el.updateComplete;
   return el;
@@ -2918,18 +2981,21 @@ describe("WebInspectorElement memories — tab presence", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a Memory tab button in the inspector menu", async () => {
+  it("renders Learning primary navigation in the inspector menu", async () => {
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
     const buttons = Array.from(
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
-    const memoriesButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Memory"),
+    const learningButton = buttons.find((btn) =>
+      btn.textContent?.trim().includes("Learning"),
     );
 
-    expect(memoriesButton, "Memory tab button should render").toBeDefined();
+    expect(
+      learningButton,
+      "Learning workbench navigation should render",
+    ).toBeDefined();
   });
 });
 
@@ -2959,10 +3025,17 @@ describe("WebInspectorElement memories — view states", () => {
     const el = await mountMemories(core);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     expect(text).toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
+    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector(".cpk-memory-locked-scrim"),
+    ).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector(".cpk-memory-locked-action-secondary"),
+    ).not.toBeNull();
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -2978,7 +3051,7 @@ describe("WebInspectorElement memories — view states", () => {
       'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
     );
     const signup = el.shadowRoot?.querySelector<HTMLAnchorElement>(
-      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+      'a[href^="https://intelligence.copilotkit.ai/?ref="]',
     );
 
     expect(talkToEngineer).not.toBeNull();
@@ -2998,7 +3071,7 @@ describe("WebInspectorElement memories — view states", () => {
     const el = await mountMemories(core);
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3019,13 +3092,13 @@ describe("WebInspectorElement memories — view states", () => {
     await (memoryList as unknown as { updateComplete: Promise<void> })
       .updateComplete;
     const listText = memoryList?.shadowRoot?.textContent ?? "";
-    expect(listText).toContain("No memories yet");
+    expect(listText).toContain("No learning records yet");
   });
 
   it("keeps the list rendered (not the full-screen error) when a mutation error arrives with memories present", async () => {
     // INSP-2: a failed remove/update sets the store error while a valid list is
     // already on screen. That must NOT blank the list with the full-screen
-    // "Failed to load memories" state — the error is surfaced inline instead.
+    // "Failed to load learning data" state — the error is surfaced inline instead.
     const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
@@ -3055,12 +3128,12 @@ describe("WebInspectorElement memories — view states", () => {
     // Inline, non-blocking error with distinct copy.
     expect(text).toContain("Action failed: could not delete memory");
     // The full-screen load-failure copy must NOT appear.
-    expect(text).not.toContain("Failed to load memories");
+    expect(text).not.toContain("Failed to load learning data");
   });
 
   it("shows the full-screen load error only when no memories are loaded", async () => {
     // INSP-2 counterpart: a snapshot-load failure (empty list) still shows the
-    // full-screen "Failed to load memories" state.
+    // full-screen "Failed to load learning data" state.
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
@@ -3070,7 +3143,7 @@ describe("WebInspectorElement memories — view states", () => {
     await el.updateComplete;
 
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Failed to load memories");
+    expect(text).toContain("Failed to load learning data");
     expect(text).toContain("network down");
     expect(text).not.toContain("Action failed:");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
@@ -3244,7 +3317,9 @@ describe("cpk-memory-list", () => {
     const el = await mountList([]);
     const empty = el.shadowRoot?.querySelector(".cpk-ml__empty");
     expect(empty, "empty state should render").not.toBeNull();
-    expect(el.shadowRoot?.textContent ?? "").toContain("No memories yet");
+    expect(el.shadowRoot?.textContent ?? "").toContain(
+      "No learning records yet",
+    );
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length ?? 0).toBe(0);
   });
@@ -3372,7 +3447,10 @@ describe("WebInspectorElement memories — active-on-boot subscription", () => {
     // connectedCallback, before any user interaction) restores the Memories tab
     // as the active tab — reproducing the stuck-indicator boot scenario.
     const store: Record<string, string> = {
-      "cpk:inspector:state": JSON.stringify({ selectedMenu: "memories" }),
+      "cpk:inspector:state": JSON.stringify({
+        selectedMenu: "memories",
+        hasOpenedInspector: true,
+      }),
     };
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => store[key] ?? null,
@@ -3519,7 +3597,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
 
     // The locked teaser must render — cpk-memory-list must NOT appear.
     const text = el.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Learning");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(
       memoryList,
@@ -3561,7 +3639,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
     expect(text).toContain("Upgrade");
     // Must NOT show the deployment-not-enabled copy in this case.
     expect(text).not.toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
   });
 
@@ -3573,7 +3651,7 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
 
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain(
-      "Long-term memory isn't enabled on this deployment.",
+      "Learning turns durable information from agent interactions into reusable context. It isn't enabled on this deployment.",
     );
     expect(text).not.toContain("@copilotkit SDK");
   });
@@ -3774,7 +3852,13 @@ describe("ɵbuildCapabilityRows", () => {
 describe("WebInspectorElement Capabilities tab", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
-    const store: Record<string, string> = {};
+    const store: Record<string, string> = {
+      "cpk:inspector:state": JSON.stringify({
+        isOpen: true,
+        selectedMenu: "capabilities",
+        hasOpenedInspector: true,
+      }),
+    };
     vi.stubGlobal("localStorage", {
       getItem: (k: string) => store[k] ?? null,
       setItem: (k: string, v: string) => {
@@ -3839,9 +3923,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const text = inspector.shadowRoot?.textContent ?? "";
     expect(text).toContain("Frontend tools");
@@ -3856,9 +3943,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3880,9 +3970,12 @@ describe("WebInspectorElement Capabilities tab", () => {
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
     const switches =
       inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>(
@@ -3893,19 +3986,25 @@ describe("WebInspectorElement Capabilities tab", () => {
     expect(setCatalogComponentEnabled).toHaveBeenCalledWith("Chart", false);
   });
 
-  it("hides the catalog section when catalogComponents is empty", async () => {
+  it("hides Capabilities when the A2UI catalog is empty", async () => {
     const { core } = createCapabilitiesCore();
     (core as { catalogComponents: unknown[] }).catalogComponents = [];
     const inspector = new WebInspectorElement();
     document.body.appendChild(inspector);
     inspector.core = core as unknown as WebInspectorElement["core"];
     (inspector as unknown as { isOpen: boolean }).isOpen = true;
+    (inspector as unknown as { selectedMenu: string }).selectedMenu =
+      "capabilities";
     (
       inspector as unknown as { handleMenuSelect: (k: string) => void }
     ).handleMenuSelect("capabilities");
+    inspector.requestUpdate();
     await inspector.updateComplete;
-    const text = inspector.shadowRoot?.textContent ?? "";
-    expect(text).toContain("Frontend tools");
+    const root = inspector.shadowRoot;
+    const text = root?.textContent ?? "";
+    expect(
+      root?.querySelector('button[data-inspector-menu-key="capabilities"]'),
+    ).toBeNull();
     expect(text).not.toContain("A2UI catalog components");
   });
 });

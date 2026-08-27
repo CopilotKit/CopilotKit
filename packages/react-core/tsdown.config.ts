@@ -44,9 +44,46 @@ const postProcessDeclarations = (dir: string) => {
   if (fs.existsSync(dir)) walk(dir);
 };
 
+// Redirects any relative `../context` / `./context` import that resolves to
+// src/v2/context.ts onto the external `@copilotkit/react-core/v2/context`
+// package path.
+//
+// src/v2/context.ts is emitted as its own entry (dist/v2/context.*) so React
+// Native can consume it without dragging in the web bundle. Any build that ALSO
+// inlines it ends up running `createContext()` a second time, producing a
+// distinct context instance: `CopilotKitProvider` would publish to its inlined
+// copy while consumers importing from `@copilotkit/react-core/v2/context` read
+// the orphaned one and only ever see the defaults (e.g. `useLicenseContext()`
+// stuck at `status: null`). Externalizing keeps exactly one instance at runtime.
+//
+// The UMD builds deliberately skip this — they must stay self-contained.
+const externalizeContext = {
+  name: "externalize-context",
+  resolveId(source: string, importer?: string) {
+    // When any file imports ../context or ./context, redirect to
+    // the external package path so the context singleton is shared.
+    if (importer && /context(\.ts)?$/.test(source)) {
+      const resolved = path.resolve(path.dirname(importer), source);
+      if (
+        resolved === contextModulePath ||
+        resolved === contextModulePath + ".ts"
+      ) {
+        return {
+          id: "@copilotkit/react-core/v2/context",
+          external: true,
+        };
+      }
+    }
+    return null;
+  },
+};
+
 export default defineConfig([
   {
-    entry: ["src/index.tsx", "src/v2/index.ts"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+      "v2/index": "src/v2/index.ts",
+    },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -55,11 +92,13 @@ export default defineConfig([
     hooks: {
       "build:done": () => postProcessDeclarations(path.resolve("dist")),
     },
+    plugins: [externalizeContext],
     external: [
       "react",
       "react-dom",
       "@copilotkit/core",
       "@copilotkit/shared",
+      "@copilotkit/react-core/v2/context",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
       // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
@@ -114,28 +153,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist/v2",
-    plugins: [
-      {
-        name: "externalize-context",
-        resolveId(source, importer) {
-          // When any file imports ../context or ./context, redirect to
-          // the external package path so the context singleton is shared.
-          if (importer && /context(\.ts)?$/.test(source)) {
-            const resolved = path.resolve(path.dirname(importer), source);
-            if (
-              resolved === contextModulePath ||
-              resolved === contextModulePath + ".ts"
-            ) {
-              return {
-                id: "@copilotkit/react-core/v2/context",
-                external: true,
-              };
-            }
-          }
-          return null;
-        },
-      },
-    ],
+    plugins: [externalizeContext],
     external: [
       "react",
       "@ag-ui/client",
@@ -149,7 +167,9 @@ export default defineConfig([
     ],
   },
   {
-    entry: ["src/index.tsx"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+    },
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,

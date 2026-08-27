@@ -31,6 +31,15 @@ export class MemoryStore implements StateStore {
     delete: async (key: string): Promise<void> => {
       this.kvMap.delete(key);
     },
+    consume: async <T>(key: string): Promise<T | undefined> => {
+      const e = this.kvMap.get(key);
+      if (!live(e)) {
+        this.kvMap.delete(key);
+        return undefined;
+      }
+      this.kvMap.delete(key);
+      return e.value as T;
+    },
   };
 
   list = {

@@ -8,7 +8,7 @@ import {
   isJustifying,
   labelForExceptionCode,
 } from "@/skins/banking/data/policy-exception-codes";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -70,8 +70,7 @@ export function PolicyExceptionInline(props: Props) {
   const [busy, setBusy] = useState(false);
   const [doneId, setDoneId] = useState<string | null>(null);
 
-  const { beginRecording, endRecording, noteDemonstratedCode, logStep } =
-    useRecording();
+  const { beginRecording, endRecording, logStep } = useRecording();
 
   const submitDisabled = busy || code === "";
 
@@ -96,12 +95,13 @@ export function PolicyExceptionInline(props: Props) {
         return;
       }
 
-      // Surface the demonstrated code to the teach-mode context so the chat's
-      // awaitDashboardDemonstration card can report it to the agent — the
-      // demonstration happens on the dashboard, outside the chat HITL flow.
-      noteDemonstratedCode(code);
-      // Narrate the filing into the recorder HUD.
-      logStep("Filed the policy exception");
+      // Narrate the filing into the recorder HUD, carrying the demonstrated code
+      // on the very step that filed it: the shell's getDemonstratedCode() derives
+      // from the last coded step, so one call both narrates and surfaces the code
+      // to the chat's awaitDashboardDemonstration card. That card needs it because
+      // the demonstration happens on the dashboard, outside the chat HITL flow, so
+      // it cannot observe the choice directly.
+      logStep("Filed the policy exception", code);
       setDoneId(exceptionId);
       props.onFiled?.(code);
     } finally {

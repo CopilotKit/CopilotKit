@@ -2,10 +2,14 @@ import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
 import type { Observable, Subscription } from "rxjs";
 import type { ResolvedDebugConfig } from "@copilotkit/shared";
-import { createLogger } from "../../../../lib/logger";
-import type { CopilotRuntimeLogger } from "../../../../lib/logger";
+import { createLogger } from "../../../../v1-deprecated/lib/logger";
+import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
 import { telemetry } from "../../telemetry";
 import type { DebugEventBus } from "../../core/debug-event-bus";
+import type {
+  RuntimeErrorPhase,
+  RuntimeErrorReporter,
+} from "../../core/runtime-error-reporter";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -25,6 +29,8 @@ interface CreateSseEventResponseParams {
    * run telemetry.
    */
   captureTelemetry?: boolean;
+  runtimeErrorReporter?: RuntimeErrorReporter;
+  startTime?: number;
 }
 
 export function createSseEventResponse({
@@ -35,6 +41,8 @@ export function createSseEventResponse({
   debug,
   logger,
   captureTelemetry = true,
+  runtimeErrorReporter,
+  startTime,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -73,6 +81,22 @@ export function createSseEventResponse({
   };
 
   let subscription: Subscription | undefined;
+  let agentErrorReported = false;
+
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: debugThreadId || undefined,
+      runId: debugRunId || undefined,
+      phase,
+      startTime,
+    });
+  };
 
   (async () => {
     const observable = await observableFactory();
@@ -95,6 +119,24 @@ export function createSseEventResponse({
           const e = event as { threadId?: string; runId?: string };
           debugThreadId = e.threadId ?? "";
           debugRunId = e.runId ?? "";
+        }
+
+        if (event.type === "RUN_ERROR") {
+          const e = event as {
+            message?: unknown;
+            threadId?: string;
+            runId?: string;
+          };
+          debugThreadId = e.threadId ?? debugThreadId;
+          debugRunId = e.runId ?? debugRunId;
+          reportAgentError(
+            new Error(
+              typeof e.message === "string"
+                ? e.message
+                : "Runner reported a run error",
+            ),
+            "sse.subscription",
+          );
         }
 
         // Broadcast to debug listeners BEFORE the stream-closed gate below.
@@ -152,6 +194,7 @@ export function createSseEventResponse({
         }
       },
       error: async (error) => {
+        reportAgentError(error, "sse.subscription");
         if (captureTelemetry) {
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             error: error instanceof Error ? error.message : String(error),
@@ -186,6 +229,7 @@ export function createSseEventResponse({
       subscription.unsubscribe();
     }
   })().catch(async (error) => {
+    reportAgentError(error, "sse.factory");
     logError(error);
     await closeStream();
   });

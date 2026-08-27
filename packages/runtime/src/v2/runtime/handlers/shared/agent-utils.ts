@@ -10,12 +10,18 @@ import {
   resolveAgents,
 } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
+import {
+  INTELLIGENCE_MEMORY_GRANT_HEADER,
+  INTELLIGENCE_USER_ID_HEADER,
+} from "../../intelligence-platform/client";
 import {
   mergeForwardableHeaders,
   resolveForwardHeadersPolicy,
 } from "../header-utils";
+import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
+import { resolveWebMemory } from "./memory-policy";
+import { errorResponse } from "./json-response";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -119,13 +125,7 @@ export function configureAgentForRequest(params: {
   }
 
   if (runtime.mcpApps?.servers?.length) {
-    const mcpServers = runtime.mcpApps.servers
-      .filter((server) => !server.agentId || server.agentId === agentId)
-      .map((server) => {
-        const mcpServer = { ...server };
-        delete mcpServer.agentId;
-        return mcpServer;
-      });
+    const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
       agent.use(new MCPAppsMiddleware({ mcpServers }));
@@ -185,13 +185,14 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   runtime: CopilotRuntimeLike;
   request: Request;
   agent: AbstractAgent;
-}): Promise<void> {
+}): Promise<void | Response> {
   const { runtime, request } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
   if (
     !isIntelligenceRuntime(runtime) ||
-    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.()
+    (runtime.memory === undefined &&
+      !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.())
   ) {
     return;
   }
@@ -200,6 +201,12 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   // middleware — surface it rather than silently shipping a run with none
   // of the tools the operator opted into.
   if (typeof agent.use !== "function") {
+    if (runtime.memory) {
+      return errorResponse(
+        "Memory is configured, but this agent does not support middleware",
+        500,
+      );
+    }
     logger.warn(
       "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
         "does not support middleware (no `.use()` method); Intelligence tools were " +
@@ -209,7 +216,9 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   }
 
   const userResult = await resolveIntelligenceUser({ runtime, request });
-  if (userResult instanceof Response) return;
+  if (userResult instanceof Response) return userResult;
+  const access = await resolveWebMemory(runtime, request, userResult, "agent");
+  if (access instanceof Response) return access;
 
   agent.use(
     new MCPMiddleware([
@@ -220,6 +229,13 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         headers: {
           Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
           [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+          ...(runtime.memory
+            ? {
+                [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(
+                  access.grant,
+                ),
+              }
+            : {}),
         },
       },
     ]),

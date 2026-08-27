@@ -1,4 +1,5 @@
-import { logger } from "@copilotkit/shared";
+import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
+import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
 
 /**
@@ -12,6 +13,23 @@ import { randomUUID } from "crypto";
  * @internal
  */
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
+/** Immutable user/project Memory grant forwarded to Intelligence. */
+export const INTELLIGENCE_MEMORY_GRANT_HEADER = "x-cpki-memory-grant";
+
+interface RuntimeMemoryGrant {
+  readonly user: "none" | "read" | "read-write";
+  readonly project: "none" | "read" | "read-write";
+}
+
+const memoryRequestHeaders = (
+  userId: string,
+  grant?: RuntimeMemoryGrant,
+): Record<string, string> => ({
+  [INTELLIGENCE_USER_ID_HEADER]: userId,
+  ...(grant
+    ? { [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(grant) }
+    : {}),
+});
 
 /**
  * REST base URL of CopilotKit's managed Intelligence platform — the default
@@ -27,6 +45,9 @@ const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
  * realtime planes are deployed separately.
  */
 const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
+
+/** Maximum time spent on the optional Inspector metadata provider request. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -97,6 +118,9 @@ export interface CopilotKitIntelligenceConfig {
    *
    * Defaults to `false` — opt-in. Existing intelligence setups continue
    * to work without these tools unless they flip this flag.
+   *
+   * @deprecated Configure `memory.access` on `CopilotRuntime` so each web
+   * request receives an explicit agent or client Memory grant.
    */
   enableEnterpriseLearning?: boolean;
   /**
@@ -223,6 +247,8 @@ export interface CreateThreadRequest {
   agentId: string;
   /** Optional initial display name. If omitted, the thread is unnamed until explicitly renamed. */
   name?: string;
+  /** Developer-set stable ID of the Learning Container for this Thread. */
+  learningContainerId?: string;
 }
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
@@ -247,6 +273,7 @@ export interface SubscribeToThreadsResponse {
 
 export interface SubscribeToMemoriesRequest {
   userId: string;
+  memoryGrant?: RuntimeMemoryGrant;
 }
 
 /**
@@ -256,8 +283,8 @@ export interface SubscribeToMemoriesRequest {
  * `user_meta:memories:<joinCode>` channel topic.
  */
 export interface SubscribeToMemoriesResponse {
-  joinToken: string;
-  joinCode: string;
+  joinToken?: string;
+  joinCode?: string;
   /**
    * Project-scoped realtime credentials, minted by the platform only when the
    * caller's API key resolves to a project scope. Absent when project scope is
@@ -282,9 +309,8 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
  * from the customer's BFF auth before calling this; the platform prefixes
  * it with the project id at write time.
  *
- * `payload` is the type-specific JSON blob for the annotation (e.g. a
- * `"user_action"` event carries the recorded fields, a
- * `"set_learning_containers"` event carries the container list). The exact
+ * `payload` is the type-specific JSON blob for the annotation (for example, a
+ * `"user_action"` event carries the recorded fields). The exact
  * shape per type is validated by the Intelligence backend; canonical shapes
  * are documented on the Intelligence react-core side.
  */
@@ -296,7 +322,7 @@ export interface AnnotateParams {
   /**
    * Discriminator identifying the annotation type.
    * Must match a type known to the Intelligence platform
-   * (e.g. `"user_action"`, `"set_learning_containers"`).
+   * (for example, `"user_action"`).
    */
   type: string;
   /** Type-specific payload. Shape varies by `type`. */
@@ -389,6 +415,8 @@ export interface AcquireThreadLockRequest {
   runId: string;
   userId: string;
   agentId: string;
+  /** Developer-set stable ID to assign before the run lock is acquired. */
+  learningContainerId?: string;
   /** Internal managed-Channel delivery context for shared Thread access. */
   channelDeliveryId?: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
@@ -434,7 +462,7 @@ interface ThreadEnvelope {
  * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
  *
  * const intelligence = new CopilotKitIntelligence({
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -450,7 +478,7 @@ interface ThreadEnvelope {
  * const intelligence = new CopilotKitIntelligence({
  *   apiUrl: "https://intelligence.internal",
  *   wsUrl: "wss://realtime.intelligence.internal",
- *   apiKey: process.env.COPILOTKIT_API_KEY!,
+ *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  * ```
  */
@@ -585,6 +613,74 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
+  /**
+   * Fetch trusted Inspector metadata for this runtime's Intelligence project.
+   *
+   * The request always uses the server-configured Intelligence API key. A 404
+   * is treated as compatible absence so runtimes can work with older App API
+   * deployments that do not expose this endpoint yet.
+   *
+   * @returns Sanitized V1 metadata, or `undefined` when the provider has no
+   *   supported metadata.
+   * @throws {@link PlatformRequestError} for provider failures other than 404.
+   */
+  async getInspectorMetadata(): Promise<InspectorMetadataV1 | undefined> {
+    const path = "/api/inspector/metadata";
+    const abortController = new AbortController();
+    const timeoutError = new Error(
+      "Intelligence inspector metadata request timed out",
+    );
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(timeoutError);
+        abortController.abort(timeoutError);
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
+    });
+
+    try {
+      const response = await Promise.race([
+        fetch(`${this.#apiUrl}${path}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${this.#apiKey}` },
+          signal: abortController.signal,
+        }),
+        timeout,
+      ]);
+
+      if (response.status === 204 || response.status === 404) {
+        return undefined;
+      }
+
+      if (!response.ok) {
+        logger.error(
+          { status: response.status, path },
+          "Intelligence platform request failed",
+        );
+        throw new PlatformRequestError(
+          `Intelligence platform error ${response.status}`,
+          response.status,
+        );
+      }
+
+      const body = await Promise.race([response.text(), timeout]);
+      const decoded: unknown = JSON.parse(body);
+      return parseInspectorMetadataV1(decoded);
+    } catch (error) {
+      if (error === timeoutError) {
+        logger.warn(
+          { path, timeoutMs: INSPECTOR_METADATA_REQUEST_TIMEOUT_MS },
+          "Intelligence inspector metadata request timed out",
+        );
+      }
+      throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
   async #request<T>(
     method: string,
     path: string,
@@ -686,6 +782,7 @@ export class CopilotKitIntelligence {
    */
   async listMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     includeInvalidated?: boolean;
   }): Promise<ListMemoriesResponse> {
     const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
@@ -693,7 +790,7 @@ export class CopilotKitIntelligence {
       "GET",
       `/api/memories${qs}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -705,6 +802,7 @@ export class CopilotKitIntelligence {
    */
   async createMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     content: string;
     kind: string;
     /** Optional: when omitted, the platform applies its default (`"user"`). */
@@ -720,7 +818,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -734,6 +832,7 @@ export class CopilotKitIntelligence {
    */
   async updateMemory(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     id: string;
     content: string;
     kind: string;
@@ -750,7 +849,7 @@ export class CopilotKitIntelligence {
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -758,12 +857,16 @@ export class CopilotKitIntelligence {
    * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
-  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+  async removeMemory(params: {
+    userId: string;
+    id: string;
+    memoryGrant?: RuntimeMemoryGrant;
+  }): Promise<void> {
     await this.#request<void>(
       "DELETE",
       `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -775,6 +878,7 @@ export class CopilotKitIntelligence {
    */
   async recallMemories(params: {
     userId: string;
+    memoryGrant?: RuntimeMemoryGrant;
     query: string;
     limit?: number;
     scope?: string;
@@ -787,7 +891,7 @@ export class CopilotKitIntelligence {
         ...(params.limit !== undefined ? { limit: params.limit } : {}),
         ...(params.scope !== undefined ? { scope: params.scope } : {}),
       },
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -827,7 +931,7 @@ export class CopilotKitIntelligence {
       "POST",
       "/api/memories/subscribe",
       undefined,
-      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+      memoryRequestHeaders(params.userId, params.memoryGrant),
     );
   }
 
@@ -876,6 +980,9 @@ export class CopilotKitIntelligence {
         userId: params.userId,
         agentId: params.agentId,
         ...(params.name !== undefined ? { name: params.name } : {}),
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
       },
     );
     this.#invokeLifecycleCallback("onThreadCreated", response.thread);
@@ -1086,9 +1193,9 @@ export class CopilotKitIntelligence {
    *
    * This is the generalized replacement for the old
    * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
-   * multiple annotation types via the `type` discriminator:
-   * - `"user_action"` — records a user UI interaction for the self-learning loop.
-   * - `"set_learning_containers"` — sets the learning containers for a thread.
+   * multiple annotation types via the `type` discriminator. The
+   * `"user_action"` type records a user UI interaction for the self-learning
+   * loop.
    *
    * `userId` must be resolved on the runtime side before calling this — the
    * platform prefixes it with the project id from the API key.
@@ -1147,6 +1254,9 @@ export class CopilotKitIntelligence {
         runId: params.runId,
         userId: params.userId,
         agentId: params.agentId,
+        ...(params.learningContainerId !== undefined
+          ? { learningContainerId: params.learningContainerId }
+          : {}),
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),

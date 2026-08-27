@@ -6,9 +6,34 @@ import type {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  TextMessageStartEvent,
 } from "@ag-ui/client";
-import { randomUUID } from "@ag-ui/client";
+import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+
+const isContinuation = (input: RunAgentInput): boolean =>
+  input.resume !== undefined ||
+  Object.prototype.hasOwnProperty.call(
+    (input.forwardedProps as { command?: object } | undefined)?.command ?? {},
+    "resume",
+  );
+
+export interface CopilotKitCoreContinuationHandoff {
+  cancel(): void;
+  bind(input: object): void;
+}
+
+interface PendingContinuation extends CopilotKitCoreContinuationHandoff {
+  expectedInput?: object;
+  active: boolean;
+  /**
+   * The logical run id this continuation belongs to. Events arriving on the
+   * continuation are re-stamped with it, so the run reads as ONE run to
+   * everything downstream (state/message association, external tracing) even
+   * though the transport minted a fresh id for the follow-up invocation.
+   */
+  expectedRunId?: string;
+}
 
 /**
  * Manages state and message tracking by run for CopilotKitCore.
@@ -22,11 +47,22 @@ export class StateManager {
   private messageToRun: Map<string, Map<string, Map<string, string>>> =
     new Map();
 
+  // Direct text-start metadata: agentId -> threadId -> messageId -> rawEvent
+  private rawEventByMessage: Map<string, Map<string, Map<string, unknown>>> =
+    new Map();
+
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
 
   // Agent subscriptions for cleanup
   private agentSubscriptions: Map<string, () => void> = new Map();
+
+  // Internal follow-ups are marked in memory so the marker never reaches a
+  // runtime or becomes user-controlled forwardedProps data.
+  private pendingContinuations = new WeakMap<
+    AbstractAgent,
+    Set<PendingContinuation>
+  >();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -35,6 +71,35 @@ export class StateManager {
    */
   initialize(): void {
     // Will be called when CopilotKitCore is initialized
+  }
+
+  markNextRunAsContinuation(
+    agent: AbstractAgent,
+    expectedRunId?: string,
+  ): CopilotKitCoreContinuationHandoff {
+    let pendingForAgent = this.pendingContinuations.get(agent);
+    if (!pendingForAgent) {
+      pendingForAgent = new Set();
+      this.pendingContinuations.set(agent, pendingForAgent);
+    }
+
+    const pending: PendingContinuation = {
+      active: true,
+      expectedRunId,
+      bind: (input) => {
+        if (pending.active) pending.expectedInput = input;
+      },
+      cancel: () => {
+        if (!pending.active) return;
+        pending.active = false;
+        pendingForAgent!.delete(pending);
+        if (pendingForAgent!.size === 0) {
+          this.pendingContinuations.delete(agent);
+        }
+      },
+    };
+    pendingForAgent.add(pending);
+    return pending;
   }
 
   /**
@@ -66,12 +131,9 @@ export class StateManager {
     //
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
-    //    pipeline is set up. Concretely: the test emits RUN_STARTED for run2
-    //    before copilotkit.runAgent() has had a chance to set up the new
-    //    pipeline. At that point S1 is still active and sees run2's events with
-    //    input1.runId. To prevent both runs from sharing the same runId key, we
-    //    detect the "seen RUN_FINISHED, then RUN_STARTED again" pattern and
-    //    generate a fresh runId for the second logical run.
+    //    pipeline is set up. An explicit standard or legacy resume input is a
+    //    continuation, so only an ordinary new run gets a fresh ID after
+    //    RUN_FINISHED.
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
@@ -82,9 +144,25 @@ export class StateManager {
     });
 
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
+      onRunStartedEvent: ({ event, input, state }) => {
         if (revoked) return;
-        if (runFinished && input.runId === subRunId) {
+        const pendingForAgent = this.pendingContinuations.get(agent);
+        const internalContinuation = [...(pendingForAgent ?? [])].find(
+          (pending) => pending.expectedInput === input,
+        );
+        internalContinuation?.cancel();
+
+        if (internalContinuation) {
+          // An internal continuation re-stamps onto the run id it continues, so
+          // the follow-up does not have to reuse that id on the wire.
+          subRunId =
+            internalContinuation.expectedRunId ?? event.runId ?? input.runId;
+        } else if (
+          runFinished &&
+          input.runId === subRunId &&
+          !isContinuation(input) &&
+          (event.runId == null || event.runId === subRunId)
+        ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
           // copilotkit.runAgent() has had a chance to set up the new pipeline:
@@ -93,7 +171,8 @@ export class StateManager {
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
         } else {
-          subRunId = input.runId;
+          // A connect replay may contain multiple server runs under one input.runId.
+          subRunId = event.runId || input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
@@ -117,6 +196,10 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
+      onTextMessageStartEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.handleTextMessageStart(agent, event, effectiveInput(input));
+      },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
         this.handleMessagesSnapshot(
@@ -124,6 +207,12 @@ export class StateManager {
           event,
           effectiveInput(input),
           messages,
+        );
+        this.pruneRawEvents(
+          agent.agentId!,
+          input.threadId,
+          event.messages,
+          effectiveInput(input),
         );
       },
       onNewMessage: ({ message, input }) => {
@@ -134,10 +223,17 @@ export class StateManager {
           input ? effectiveInput(input) : undefined,
         );
       },
+      onMessagesChanged: ({ messages, input }) => {
+        if (revoked) return;
+        if (!input) {
+          this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
+        }
+      },
     });
 
     this.agentSubscriptions.set(agentId, () => {
       revoked = true;
+      this.pendingContinuations.delete(agent);
       unsubscribe();
     });
   }
@@ -151,6 +247,7 @@ export class StateManager {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -177,6 +274,21 @@ export class StateManager {
     messageId: string,
   ): string | undefined {
     return this.messageToRun.get(agentId)?.get(threadId)?.get(messageId);
+  }
+
+  /**
+   * Get direct text-start metadata associated with a message.
+   */
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    const rawEvent = this.rawEventByMessage
+      .get(agentId)
+      ?.get(threadId)
+      ?.get(messageId);
+    return rawEvent === undefined ? undefined : structuredClone_(rawEvent);
   }
 
   /**
@@ -266,6 +378,41 @@ export class StateManager {
   }
 
   /**
+   * Capture only defined metadata from a normalized direct text-start event.
+   */
+  private handleTextMessageStart(
+    agent: AbstractAgent,
+    event: TextMessageStartEvent,
+    input: RunAgentInput,
+  ): void {
+    if (!agent.agentId) return;
+
+    const { threadId } = input;
+    if (event.rawEvent === undefined) {
+      const threadEvents = this.rawEventByMessage
+        .get(agent.agentId)
+        ?.get(threadId);
+      threadEvents?.delete(event.messageId);
+      if (threadEvents?.size === 0) {
+        this.rawEventByMessage.get(agent.agentId)?.delete(threadId);
+      }
+      if (this.rawEventByMessage.get(agent.agentId)?.size === 0) {
+        this.rawEventByMessage.delete(agent.agentId);
+      }
+      return;
+    }
+
+    if (!this.rawEventByMessage.has(agent.agentId)) {
+      this.rawEventByMessage.set(agent.agentId, new Map());
+    }
+    const agentEvents = this.rawEventByMessage.get(agent.agentId)!;
+    if (!agentEvents.has(threadId)) {
+      agentEvents.set(threadId, new Map());
+    }
+    agentEvents.get(threadId)!.set(event.messageId, event.rawEvent);
+  }
+
+  /**
    * Handle messages snapshot event
    */
   private handleMessagesSnapshot(
@@ -278,9 +425,20 @@ export class StateManager {
 
     const { threadId, runId } = input;
 
-    // Associate all messages in the snapshot with this run
+    // Cumulative snapshots repeat messages from earlier runs, so only assign
+    // messages that do not already have a run association.
     for (const message of event.messages) {
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+      if (
+        this.getRunIdForMessage(agent.agentId, threadId, message.id) ===
+        undefined
+      ) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
     }
   }
 
@@ -361,12 +519,37 @@ export class StateManager {
     threadMessages.set(messageId, runId);
   }
 
+  private pruneRawEvents(
+    agentId: string,
+    fallbackThreadId: string | undefined,
+    messages: ReadonlyArray<Readonly<Message>>,
+    input?: RunAgentInput,
+  ): void {
+    const threadId = input?.threadId ?? fallbackThreadId;
+    if (!threadId) return;
+
+    const threadEvents = this.rawEventByMessage.get(agentId)?.get(threadId);
+    if (!threadEvents) return;
+
+    const messageIds = new Set(messages.map((message) => message.id));
+    for (const messageId of threadEvents.keys()) {
+      if (!messageIds.has(messageId)) threadEvents.delete(messageId);
+    }
+    if (threadEvents.size === 0) {
+      this.rawEventByMessage.get(agentId)?.delete(threadId);
+    }
+    if (this.rawEventByMessage.get(agentId)?.size === 0) {
+      this.rawEventByMessage.delete(agentId);
+    }
+  }
+
   /**
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -375,5 +558,6 @@ export class StateManager {
   clearThreadState(agentId: string, threadId: string): void {
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
+    this.rawEventByMessage.get(agentId)?.delete(threadId);
   }
 }

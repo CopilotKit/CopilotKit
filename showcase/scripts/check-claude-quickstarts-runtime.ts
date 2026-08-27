@@ -441,6 +441,33 @@ async function postAgUiRun(
   return { contentType, events, text };
 }
 
+async function assertPythonRequestRejected(
+  url: string,
+  body: string,
+  label: string,
+) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body,
+    signal: AbortSignal.timeout(5_000),
+  });
+  const responseText = await response.text();
+
+  if (response.status !== 422) {
+    throw new Error(
+      `${label} must return 422, got ${response.status}: ${responseText}`,
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("text/event-stream")) {
+    throw new Error(`${label} must be rejected before SSE starts`);
+  }
+}
+
 function assertRuntimeRouteContract(blocks: CodeBlock[]) {
   const route = blockByTitle(blocks, "app/api/copilotkit/route.ts");
   if (!/export\s+const\s+POST\s*=/.test(route)) {
@@ -529,7 +556,7 @@ async function checkTypeScriptQuickstart() {
         ANTHROPIC_API_KEY: LIVE_ANTHROPIC
           ? process.env.ANTHROPIC_API_KEY
           : "test-key",
-        CLAUDE_MODEL: process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6",
+        CLAUDE_MODEL: process.env.CLAUDE_MODEL ?? "claude-opus-4-8",
       },
     });
 
@@ -567,6 +594,9 @@ async function checkTypeScriptQuickstart() {
 }
 
 async function checkPythonVersion(version: string) {
+  const blocks = readBlocks(PYTHON_QUICKSTART);
+  assertRuntimeRouteContract(blocks);
+
   if (LIVE_ANTHROPIC && !process.env.ANTHROPIC_API_KEY) {
     throw new Error("--live-anthropic requires ANTHROPIC_API_KEY");
   }
@@ -585,9 +615,6 @@ async function checkPythonVersion(version: string) {
   if (!(await commandExists("uv"))) {
     throw new Error("Python quickstart runtime check requires uv");
   }
-
-  const blocks = readBlocks(PYTHON_QUICKSTART);
-  assertRuntimeRouteContract(blocks);
 
   const root = mkdtempSync(
     join(tmpdir(), `claude-sdk-py${version.replace(".", "")}-`),
@@ -652,13 +679,23 @@ async function checkPythonVersion(version: string) {
           ANTHROPIC_API_KEY: LIVE_ANTHROPIC
             ? process.env.ANTHROPIC_API_KEY
             : "test-key",
-          ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+          ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL ?? "claude-opus-4-8",
         },
       },
     );
 
     try {
       await waitForHealth(`http://127.0.0.1:${port}/health`, server.readOutput);
+      await assertPythonRequestRejected(
+        `http://127.0.0.1:${port}/`,
+        "{",
+        "Malformed JSON request",
+      );
+      await assertPythonRequestRejected(
+        `http://127.0.0.1:${port}/`,
+        "{}",
+        "Schema-invalid AG-UI request",
+      );
       const threadId = `thread-py-${version}`;
       await postAgUiRun(
         `http://127.0.0.1:${port}/`,

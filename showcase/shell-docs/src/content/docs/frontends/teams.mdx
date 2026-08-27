@@ -5,16 +5,44 @@ icon: "lucide/MessagesSquare"
 doc_type: tutorial
 ---
 
-In this guide, you will connect an AG-UI agent to a managed Azure Bot,
-start a long-running Channels SDK listener, and verify a real Microsoft Teams
-message. CopilotKit Intelligence owns the public messaging endpoint and Teams
-credentials; your process owns the agent and application logic.
+In this guide, you will connect an AG-UI agent to a managed Microsoft Teams
+bot, start a long-running Channels SDK listener, and verify a real Microsoft
+Teams message. CopilotKit Intelligence owns the public messaging endpoint and
+Teams credentials; your process owns the agent and application logic.
+
+The bot is created in your own Microsoft tenant and belongs to you. Setup
+registers it in Teams Developer Portal — no Azure subscription and no Azure Bot
+resource are involved.
 
 New to the product? Start with the [Channels overview](/channels) to understand
 how the SDK, Runtime, Intelligence, and provider connection fit together.
 
 Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
 You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
+
+## What kind of bot this is
+
+Microsoft supports more than one kind of bot identity. Setup creates a
+**Teams-managed** bot: Teams Developer Portal owns the registration, and its app
+ID and client secrets live there under **Tools → Bot management**, in your
+directory, rotatable by your own admins. It is registered single-tenant, so it is
+scoped to your organization. Nothing is created in your Azure account and nothing
+is billable. If you stop using CopilotKit the registration stays in your
+Developer Portal; removing it is yours to do.
+
+The alternative Microsoft offers is an **Azure Bot** — a billable Azure Bot
+Service resource in your own subscription, needing a subscription, resource
+group, and region. Microsoft's Teams CLI recognizes only these two kinds; a
+self-managed Microsoft Entra app registration that you create and manage yourself
+is not something it can produce or consume.
+
+Treat the choice as permanent. Microsoft provides a one-way `teams app bot
+migrate` to Azure that replaces the existing registration, with nothing to
+migrate back. CopilotKit itself is indifferent to which kind you point a Channel
+at — Intelligence performs an ordinary client-credentials grant with the app ID,
+tenant ID, and secret — but the app ID is embedded in the app package as the bot
+ID, so changing identity means generating a fresh package, uploading it, and
+re-installing.
 
 ## Before you start
 
@@ -37,7 +65,7 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     cd my-teams-channel
     npm init -y
     npm pkg set type=module
-    npm install --save-exact @copilotkit/channels@0.4.0 @copilotkit/runtime@1.64.1
+    npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
     npm install -D tsx typescript @types/node
     ```
 
@@ -92,14 +120,8 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
     const channel = createChannel({
       name: required("CHANNEL_CODE"),
-      provider: "teams",
+      identifyUser: "platform",
       agent: makeAgent,
-      context: [
-        {
-          description: "Channel behavior",
-          value: "You are working in Microsoft Teams. Keep responses concise.",
-        },
-      ],
     });
 
     channel.onMessage(async ({ thread, message }) => {
@@ -129,7 +151,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     const runtime = new CopilotRuntime({
       agents: {},
       intelligence,
-      identifyUser: () => ({ id: "channels-runtime", name: "Channels Runtime" }),
       channels: [channel],
     });
 
@@ -176,8 +197,9 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     Channel online. Skip `ready()` and activation failures land in your logs
     instead.
 
-    The runner does not expose a Teams webhook. The public messaging endpoint
-    remains the Intelligence endpoint you copied into Azure Bot.
+    The runner does not expose a Teams webhook. Teams delivers to the
+    Intelligence messaging endpoint, which setup registered on the bot for
+    you.
 
   </Step>
 
@@ -238,8 +260,11 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
     Summarize the decisions in this conversation.
     ```
 
-    In a team channel, mention the bot if the Teams surface requires it. A real
-    response validates the Azure Bot registration, Intelligence messaging
+    In a team channel, mention the bot. A message that does not mention it is
+    ambient, and an ambient message only reaches your agent once a thread has
+    been subscribed to.
+
+    A real response validates the bot registration, Intelligence messaging
     endpoint, managed credentials, gateway listener, agent, and Adaptive Card
     reply path.
 
@@ -250,17 +275,26 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
 
 <Accordions>
   <Accordion title="The Channel stays at Waiting for runtime">
-    Confirm the Code matches `CHANNEL_CODE`, the declaration uses `provider:
-    "teams"`, and the API key belongs to the same Intelligence project.
+    Confirm the Code matches `CHANNEL_CODE` and the API key belongs to the same
+    Intelligence project. Provider routing comes from the Teams connection
+    attached in Intelligence, not from a `createChannel` option.
   </Accordion>
   <Accordion title="Teams cannot reach the bot">
-    In Azure Bot Configuration, use the exact read-only Messaging endpoint from
-    Intelligence and confirm the Microsoft Teams channel is enabled. Do not use
-    your runner's `PORT`.
+    In Teams Developer Portal, open **Tools → Bot management**, select the bot,
+    and compare its endpoint address with the messaging endpoint shown in
+    Intelligence. They must match exactly, including no leading or trailing
+    space — Developer Portal rejects a padded value and reports it as a save
+    failure, which reads like a portal fault rather than a bad value. A bot with
+    the wrong endpoint completes setup and then never receives anything.
+
+    This is not your runner's `PORT`. The runner takes no inbound provider
+    traffic at all.
   </Accordion>
-  <Accordion title="The custom app package is rejected">
-    Download a fresh package after entering the Azure Bot App ID. Upload the
-    complete zip; do not unzip and upload only `manifest.json`.
+  <Accordion title="The app package is rejected">
+    Upload the complete zip that setup produced; do not unzip it and upload only
+    `manifest.json`. If the app is already in the team and you are re-adding it
+    to change permissions, remove it first — Teams settles app permissions only
+    while the app is being added.
   </Accordion>
   <Accordion title="Startup settles but does not become Online">
     Inspect `channels.status()` after the guard in the runner. Finish any
@@ -270,5 +304,6 @@ You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
   </Accordion>
 </Accordions>
 
-Next, add [tools and context](/channels/tools) or
+Next, [map application users and choose Memory grants](/channels/identity-and-memory),
+add [tools and context](/channels/tools), or build
 [interactive approvals](/channels/interactive).

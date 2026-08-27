@@ -12,23 +12,25 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/crewai-crews/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/` });
+const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps` });
 
 // headless-complete shares this runtime (its page wires
-// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
-// LatestAiDevelopment crew on "/" — the same backend the main route
-// registers it against.
-const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+// runtimeUrl="/api/copilotkit-mcp-apps") and needs the dedicated frontend-tool
+// Flow so backend-rendered and browser-owned tools are both offered.
+const headlessCompleteAgent = new HttpAgent({
+  url: `${AGENT_URL}/tool-rendering`,
+});
 
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
@@ -62,12 +64,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-mcp-apps",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-mcp-apps",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

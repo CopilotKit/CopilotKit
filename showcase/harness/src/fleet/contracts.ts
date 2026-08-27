@@ -709,6 +709,38 @@ export function deriveHealth(
  * invariant rather than leak the racy value to registry/heartbeat consumers.
  * Pure; unit-tested.
  */
+/**
+ * Compute the fraction of a worker's cgroup PID ceiling currently consumed
+ * (`pids.current / pids.max`), or `null` when the gauges are NOT MEASURED.
+ *
+ * The `null` case is load-bearing on BOTH sides of the fleet and must never be
+ * conflated with 0:
+ *   - `BrowserPool.budget()` degrades both gauges to the `-1` sentinel when the
+ *     cgroup PID controller is unreadable (off-Linux — every macOS dev machine
+ *     — or a missing controller), and the S9 registration writer maps that
+ *     sentinel to `null` on the PB row rather than storing -1.
+ *   - A non-positive `pids.max` means unbounded (cgroup's `max` sentinel) or
+ *     would divide by zero.
+ * In every one of those cases there is NO ratio: the control-plane alarm must
+ * stay quiet and the worker's claim gate must stay OPEN (a dev worker whose
+ * cgroup is unreadable has to keep claiming jobs).
+ *
+ * Shared by the control-plane's PID-saturation alarm (`fleet-health.ts`) and the
+ * worker's claim-time PID headroom gate (`worker/worker-loop.ts`) so the two
+ * cannot drift on what "saturated" arithmetically means. Pure; unit-tested.
+ */
+export function pidUsageRatio(
+  pidsCurrent: number | null | undefined,
+  pidsMax: number | null | undefined,
+): number | null {
+  if (typeof pidsCurrent !== "number" || !Number.isFinite(pidsCurrent)) {
+    return null;
+  }
+  if (typeof pidsMax !== "number" || !Number.isFinite(pidsMax)) return null;
+  if (pidsCurrent < 0 || pidsMax <= 0) return null;
+  return pidsCurrent / pidsMax;
+}
+
 export function workerCapacityFromBudget(
   budget: BrowserPoolBudget,
 ): WorkerCapacity {

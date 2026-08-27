@@ -84,6 +84,7 @@ import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
+import { handleInspectorMetadata } from "../handlers/handle-inspector-metadata";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
@@ -110,10 +111,26 @@ import {
   parseMethodCall,
   createJsonRequest,
   expectString,
+  detectSingleRouteEnvelope,
 } from "../endpoints/single-route-helpers";
 import type { MethodCall } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
 import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
+
+/**
+ * Emitted when a single-route client's JSON envelope reaches a runtime mounted
+ * in multi-route mode. Named so callers can branch on the cause rather than
+ * string-matching the prose.
+ */
+const SINGLE_ROUTE_ENVELOPE_CODE =
+  "single_route_envelope_against_multi_route_runtime";
+
+const SINGLE_ROUTE_ENVELOPE_MESSAGE =
+  'Received a single-route request envelope ({ method: "..." }) but this ' +
+  "runtime is mounted in multi-route mode, so the request matched no route. " +
+  "Either drop useSingleEndpoint from the frontend provider so it negotiates " +
+  'the transport, or mount the runtime with mode: "single-route" to serve ' +
+  "this envelope.";
 
 /* ------------------------------------------------------------------------------------------------
  * Public types
@@ -248,6 +265,7 @@ function getOrCreateChannelManager(
   const manager = new ChannelManager({
     intelligence: runtime.intelligence,
     runner: runtime.runner,
+    ...(runtime.learning !== undefined ? { learning: runtime.learning } : {}),
     lockTtlSeconds: runtime.lockTtlSeconds,
     lockHeartbeatIntervalSeconds: runtime.lockHeartbeatIntervalSeconds,
     ...(runtime.lockKeyPrefix !== undefined
@@ -381,6 +399,25 @@ export function createCopilotRuntimeHandler(
         // Multi-route: match URL pattern
         const matched = matchRoute(path, basePath);
         if (!matched) {
+          // A single-endpoint client POSTing `{ method }` at the base path
+          // matches no route here. Say so, rather than leaving the developer
+          // with a bare 404 and no way to tell a transport mismatch from a
+          // wrong `basePath` (issue OSS-882).
+          const envelopeMethod = await detectSingleRouteEnvelope(request);
+          if (envelopeMethod) {
+            logger.warn(
+              { url: request.url, path, method: envelopeMethod },
+              SINGLE_ROUTE_ENVELOPE_MESSAGE,
+            );
+            throw jsonResponse(
+              {
+                error: "Not found",
+                code: SINGLE_ROUTE_ENVELOPE_CODE,
+                message: SINGLE_ROUTE_ENVELOPE_MESSAGE,
+              },
+              404,
+            );
+          }
           throw jsonResponse({ error: "Not found" }, 404);
         }
 
@@ -526,6 +563,14 @@ function dispatchRoute(
   route: RouteInfo,
   options: { threadEndpointsEnabled: boolean },
 ): Promise<Response> {
+  if (
+    isIntelligenceRuntime(runtime) &&
+    runtime.identifyUser === undefined &&
+    route.method !== "info"
+  ) {
+    throw jsonResponse({ error: "Not found" }, 404);
+  }
+
   // Opt-in gate for the client-facing memory proxy routes (secure default:
   // off). When not explicitly enabled, every `/memories/*` route 404s as if it
   // did not exist — this MUST run before the per-handler `isIntelligenceRuntime`
@@ -571,6 +616,8 @@ function dispatchRoute(
         request,
         threadEndpointsEnabled: options.threadEndpointsEnabled,
       });
+    case "inspector/metadata":
+      return handleInspectorMetadata({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
     case "threads/clear":
@@ -697,6 +744,9 @@ async function resolveSingleRoute(
     case "info":
       route = { method: "info" };
       break;
+    case "inspector/metadata":
+      route = { method: "inspector/metadata" };
+      break;
     case "transcribe":
       route = { method: "transcribe" };
       break;
@@ -724,6 +774,7 @@ function validateHttpMethod(
 
   switch (route.method) {
     case "info":
+    case "inspector/metadata":
     case "threads/list":
     case "threads/messages":
     case "threads/events":

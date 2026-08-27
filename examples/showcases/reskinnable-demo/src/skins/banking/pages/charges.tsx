@@ -2,11 +2,19 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { Search, X } from "lucide-react";
-import { CHARGES, CHARGE_CATEGORIES, CHARGE_STATUSES } from "./charges-data";
-import type { Charge, ChargeStatus } from "./charges-data";
+import {
+  CHARGE_CATEGORIES,
+  CHARGE_STATUSES,
+  toChargeRow,
+  parseSort,
+  parseTop,
+} from "./charges-data";
+import type { ChargeRow, ChargeStatus, SortKey } from "./charges-data";
+
+import useCreditCards from "@/skins/banking/actions";
+import { withOverLimit } from "@/skins/banking/data/over-limit";
 import { cn, formatCurrency } from "@/lib/utils";
 
-type SortKey = "amount_desc" | "amount_asc" | "date_desc" | "date_asc";
 const SORT_LABELS: Record<SortKey, string> = {
   amount_desc: "Most expensive",
   amount_asc: "Least expensive",
@@ -26,13 +34,14 @@ export default function ChargesPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { transactions, policies } = useCreditCards();
 
   // All filter state lives in the URL so the copilot can deep-link into a
   // pre-filtered, pre-sorted view (e.g. ?sort=amount_desc&top=10) and the
   // on-screen controls reflect exactly what it set.
-  const sort = (searchParams.get("sort") as SortKey) || "amount_desc";
-  const topRaw = searchParams.get("top");
-  const top = topRaw && !Number.isNaN(Number(topRaw)) ? Number(topRaw) : null;
+  const sortParam = parseSort(searchParams.get("sort"));
+  const sort: SortKey = sortParam ?? "amount_desc";
+  const top = parseTop(searchParams.get("top"));
   const categories = (searchParams.get("category") ?? "")
     .split(",")
     .filter(Boolean);
@@ -49,7 +58,11 @@ export default function ChargesPage() {
   // the user can see WHAT changed, not just that the page changed. Manually
   // choosing a non-default keeps the tint, which is the same statement: this
   // view is filtered.
-  const sortIsSet = searchParams.get("sort") !== null;
+  //
+  // Keyed on the PARSED value, not on the param's presence: an unrecognised
+  // `?sort=banana` is not a sort the user chose, so tinting it would claim a
+  // filter the table is not applying.
+  const sortIsSet = sortParam !== null;
   const topIsSet = top !== null;
   const activeSelect =
     "border-brand/50 bg-brand-soft font-semibold text-brand-indigo dark:text-brand-violet";
@@ -81,12 +94,20 @@ export default function ChargesPage() {
     top != null ||
     sort !== "amount_desc";
 
+  // Every charge on this page comes from the same ledger the report and the
+  // agent read, over REST. `withOverLimit` is the single source of truth for the
+  // over-limit rule, so the badge here cannot disagree with the report's
+  // "Needs a decision" rows.
+  const allRows = withOverLimit(transactions, policies).map((t) =>
+    toChargeRow(t, t.overLimit),
+  );
+
   // No manual useMemo: the filter args (categories/statuses) are fresh arrays
   // each render, which the React Compiler's preserve-manual-memoization rule
   // rejects as memo deps. The compiler memoizes this derivation from the URL
   // state on its own, so compute it directly.
-  const visible = ((): Charge[] => {
-    const rows: Charge[] = CHARGES.filter((c) => {
+  const visible = ((): ChargeRow[] => {
+    const rows: ChargeRow[] = allRows.filter((c) => {
       if (categories.length && !categories.includes(c.category)) return false;
       if (statuses.length && !statuses.includes(c.status)) return false;
       if (vendor && !c.merchant.toLowerCase().includes(vendor.toLowerCase()))
@@ -133,7 +154,7 @@ export default function ChargesPage() {
         <div>
           <h2 className="text-xl font-bold tracking-tight text-ink">Charges</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            {visible.length} of {CHARGES.length} charges ·{" "}
+            {visible.length} of {allRows.length} charges ·{" "}
             {formatCurrency(totalVisible)} shown
           </p>
         </div>

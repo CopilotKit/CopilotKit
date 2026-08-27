@@ -205,8 +205,8 @@ const memoryRestEvents = createActionGroup("Memory REST", {
   credentialsRequested: props<{ sessionId: number }>(),
   credentialsSucceeded: props<{
     sessionId: number;
-    joinToken: string;
-    joinCode: string;
+    joinToken?: string;
+    joinCode?: string;
     // Optional project-scoped realtime credentials. Present only when the
     // caller's API key resolves a project scope (B1b `/memories/subscribe`
     // returns them alongside the user credentials); omitted otherwise. When
@@ -697,8 +697,8 @@ function createMemoryCredentialsFetchObservable(
         }
 
         return response.json() as Promise<{
-          joinToken: string;
-          joinCode: string;
+          joinToken?: string;
+          joinCode?: string;
           projectJoinToken?: string;
           projectJoinCode?: string;
         }>;
@@ -715,12 +715,11 @@ function createMemoryCredentialsFetchObservable(
         },
       }),
       map((data) => {
-        if (typeof data.joinToken !== "string" || data.joinToken.length === 0) {
-          throw new Error("missing joinToken");
-        }
-        if (typeof data.joinCode !== "string" || data.joinCode.length === 0) {
-          throw new Error("missing joinCode");
-        }
+        const hasUserCreds =
+          typeof data.joinToken === "string" &&
+          data.joinToken.length > 0 &&
+          typeof data.joinCode === "string" &&
+          data.joinCode.length > 0;
 
         // Project credentials are optional and only forwarded when BOTH are
         // non-empty strings (the silent-degrade contract): a partial/malformed
@@ -732,11 +731,15 @@ function createMemoryCredentialsFetchObservable(
           data.projectJoinToken.length > 0 &&
           typeof data.projectJoinCode === "string" &&
           data.projectJoinCode.length > 0;
+        if (!hasUserCreds && !hasProjectCreds) {
+          throw new Error("missing memory realtime credentials");
+        }
 
         return memoryRestEvents.credentialsSucceeded({
           sessionId,
-          joinToken: data.joinToken,
-          joinCode: data.joinCode,
+          ...(hasUserCreds
+            ? { joinToken: data.joinToken, joinCode: data.joinCode }
+            : {}),
           ...(hasProjectCreds
             ? {
                 projectJoinToken: data.projectJoinToken,
@@ -1203,6 +1206,11 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           const context = state.context as MemoryRuntimeContext;
           const { joinToken, joinCode, projectJoinToken, projectJoinCode } =
             action;
+          const primaryJoinToken = joinToken ?? projectJoinToken!;
+          const primaryTopic =
+            joinToken && joinCode
+              ? `user_meta:memories:${joinCode}`
+              : `project_meta:memories:${projectJoinCode!}`;
           const sessionId = action.sessionId;
           const shutdown$ = actions$.pipe(
             ofType(
@@ -1266,14 +1274,14 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             const socket$ = ɵphoenixSocket$({
               url: context.wsUrl,
               options: {
-                params: { join_token: joinToken },
+                params: { join_token: primaryJoinToken },
                 reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
                 rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
               },
             }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
             const channel$ = ɵphoenixChannel$({
               socket$,
-              topic: `user_meta:memories:${joinCode}`,
+              topic: primaryTopic,
             }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
             const socketSignals$ =
               ɵobservePhoenixSocketSignals$(socket$).pipe(share());
@@ -1334,10 +1342,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
                 of(memoryDomainEvents.realtimeConnected({ sessionId })),
               ),
               catchError((error) => {
-                console.warn(
-                  `[memory] failed to join user_meta:memories:${joinCode}`,
-                  error,
-                );
+                console.warn(`[memory] failed to join ${primaryTopic}`, error);
                 return of(
                   memoryDomainEvents.realtimeUnavailable({ sessionId }),
                 );
@@ -1350,7 +1355,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             // without going stale. Absent project creds -> `EMPTY`: user-only,
             // no second socket, no status regression (silent degrade).
             const projectMetadata$ =
-              projectJoinToken && projectJoinCode
+              joinToken && joinCode && projectJoinToken && projectJoinCode
                 ? channelMetadata$(
                     projectJoinToken,
                     `project_meta:memories:${projectJoinCode}`,

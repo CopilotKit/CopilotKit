@@ -120,7 +120,7 @@ export function CopilotChat({
   const hasExplicitThreadId =
     !!threadId || !!existingConfig?.hasExplicitThreadId;
 
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: resolvedAgentId,
     throttleMs,
   });
@@ -952,8 +952,21 @@ export function CopilotChat({
   // stability we just established for stableMessageView and other slot values.
   const mergedProps: Partial<CopilotChatViewProps> = {
     isRunning: agent.isRunning,
-    suggestions: autoSuggestions,
-    onSelectSuggestion: handleSelectSuggestion,
+    // HIDE suggestion pills until the runtime is ready, mirroring the
+    // `onSubmitMessage` gate below. Static `available:"always"` pills render
+    // during the provisional window (before `/info` swaps the real agent in),
+    // so a click before `isReady` would commit `suggestion.message` to the
+    // doomed provisional agent and run against it — the same empty-assistant
+    // loss the typed-message gate prevents. Withholding `onSelectSuggestion`
+    // alone leaves the pill VISUALLY ENABLED but inert (a click silently drops
+    // the user's intent), so instead we do not surface the pills at all until
+    // the real agent is bound: passing an empty list keeps `hasSuggestions`
+    // false in the view (the same mechanism that hides pills while connecting /
+    // running). Once `isReady` flips true the real suggestions appear and the
+    // handler goes live. The `onSelectSuggestion` gate is retained as
+    // defense-in-depth for any custom chatView slot that renders its own pills.
+    suggestions: isReady ? autoSuggestions : [],
+    onSelectSuggestion: isReady ? handleSelectSuggestion : undefined,
     suggestionView: stableSuggestionView,
     ...restProps,
   };
@@ -980,6 +993,11 @@ export function CopilotChat({
   //   - message id, role, content length (text streaming)
   //   - content part count (multimodal additions)
   //   - tool call ids + argument lengths (tool call streaming)
+  //   - object content for activity messages (ACTIVITY_SNAPSHOT replace keeps
+  //     the same message id; a length-based key is always 0 for objects and
+  //     freezes generative-UI / progress renderers on the first frame)
+  // Multimodal attachments stay on the array branch (part count only), so this
+  // does not reintroduce base64 serialization for user uploads.
   const messagesMemoKey = agent.messages
     .map((m) => {
       const contentKey =
@@ -987,7 +1005,9 @@ export function CopilotChat({
           ? m.content.length
           : Array.isArray(m.content)
             ? m.content.length
-            : 0;
+            : m.content && typeof m.content === "object"
+              ? JSON.stringify(m.content)
+              : 0;
       const toolCallsKey =
         "toolCalls" in m && Array.isArray(m.toolCalls)
           ? m.toolCalls
@@ -1040,7 +1060,14 @@ export function CopilotChat({
     ...mergedProps,
     messages,
     // Input behavior props
-    onSubmitMessage: onSubmitInput,
+    // Gate submission on runtime readiness. While `isReady` is false the
+    // `agent` returned by useAgent is a provisional stand-in that `/info` will
+    // swap out; a message committed to it (and the composer cleared) is lost
+    // on that swap, surfacing as an empty assistant response. Withholding
+    // `onSubmitMessage` disables the send control (canSend keys off it) and
+    // makes Enter a no-op that preserves the composer text until the real
+    // agent is bound.
+    onSubmitMessage: isReady ? onSubmitInput : undefined,
     onStop: effectiveStopHandler,
     inputMode: effectiveMode,
     inputValue,

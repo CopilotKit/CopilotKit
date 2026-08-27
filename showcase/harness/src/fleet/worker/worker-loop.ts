@@ -42,6 +42,7 @@
 
 import type { ProbeState, ProbeResult, Logger } from "../../types/index.js";
 import type { BrowserPoolBudget } from "../../probes/helpers/browser-pool.js";
+import { pidUsageRatio } from "../contracts.js";
 import type {
   FleetQueueClient,
   JobLease,
@@ -193,6 +194,13 @@ export interface WorkerLoopDeps {
   /** Idle poll interval when there's no work / no budget. */
   pollIntervalMs?: number;
   /**
+   * Claim-time PID headroom gate ratio. Defaults to the
+   * WORKER_PID_CLAIM_GATE_RATIO env override, else
+   * `DEFAULT_PID_CLAIM_GATE_RATIO`. Injectable so a test can drive the gate
+   * without touching process.env.
+   */
+  pidClaimGateRatio?: number;
+  /**
    * Optional hook fired when the worker's current job changes: the claimed
    * `jobId` when a job is won, then `null` when it settles (reported/failed).
    * The entrypoint wires this to the registration heartbeat so the worker's
@@ -201,6 +209,34 @@ export interface WorkerLoopDeps {
    * must never throw into the loop, so the loop swallows its rejection.
    */
   onCurrentJobChange?: (currentJobId: string | null) => void;
+  /**
+   * Max SETTLED jobs this worker processes before it recycles: stops claiming,
+   * runs the existing graceful drain, and exits non-zero so the platform
+   * restarts a fresh container (pre-empting slow Chromium/heap growth on a
+   * long-lived worker — Gunicorn `--max-requests` / Celery
+   * `max-tasks-per-child`). Injectable override; when omitted the loop resolves
+   * `WORKER_MAX_JOBS` (default `DEFAULT_WORKER_MAX_JOBS`). `0` DISABLES the
+   * feature (the worker runs forever, pre-recycle behavior).
+   */
+  maxJobs?: number;
+  /**
+   * Per-replica stagger: a value in `[0, maxJobsJitter]` is derived
+   * DETERMINISTICALLY from `workerId`/HOSTNAME and subtracted from `maxJobs`
+   * ONCE at startup, so replicas recycle at slightly different job counts
+   * instead of all at once (avoiding a fleet-wide simultaneous restart).
+   * Injectable override; when omitted the loop resolves `WORKER_MAX_JOBS_JITTER`
+   * (default `DEFAULT_WORKER_MAX_JOBS_JITTER`).
+   */
+  maxJobsJitter?: number;
+  /**
+   * Injectable process-exit, ABSTRACTED so the recycle path is unit-testable
+   * without killing the test process. Defaults to `process.exit`. The
+   * entrypoint MAY inject a richer exit that runs the full graceful teardown
+   * (`drainFleetWorker` — deregister + pool shutdown) BEFORE exiting non-zero;
+   * the bare default only fires the loop-local `requestDrain()` (which, at the
+   * settle point, has no in-flight run to drain) then exits.
+   */
+  exit?: (code: number) => void;
 }
 
 /** Handle returned by `startWorkerLoop` — `stop()` requests a bounded drain. */
@@ -238,6 +274,58 @@ export const DEFAULT_LEASE_SECONDS = 300;
 export const DEFAULT_HEARTBEAT_MS = 60_000;
 /** Default idle poll interval when there's no work / no budget. */
 export const DEFAULT_POLL_INTERVAL_MS = 5_000;
+
+/**
+ * Claim-time PID HEADROOM gate: a worker declines to claim while
+ * `pids.current / pids.max` is at or above this fraction of its cgroup ceiling.
+ *
+ * WHY THIS EXISTS: `budget.available` counts free Playwright CONTEXT slots
+ * (`browser-pool.ts` — `maxContexts - liveContextCount`) and nothing else. A
+ * worker whose container has leaked PIDs to the 1000-PID ceiling still reports
+ * full context budget, so it kept winning claims it could not possibly run: the
+ * driver cannot fork, and the job burns its whole 600000ms lease before aborting.
+ * Measured at the 2026-08-10 incident: workers at `pids=1000/1000` with 758-761
+ * zombies, and 320 `timeout after 600000ms` abort rows. Declining the claim
+ * leaves the job PENDING for a healthy worker instead of converting it into a
+ * ten-minute abort.
+ *
+ * WHY 0.90 (and why it is much higher than the control-plane's 0.75 alarm):
+ * these two thresholds do DIFFERENT jobs and must not be equal. 0.75 alarms an
+ * operator early (~36h of lead time at the observed leak rate) while the worker
+ * is still perfectly capable of running jobs — gating dispatch that early would
+ * convert a warning into a day-and-a-half of lost fleet capacity. 0.90 is the
+ * point at which we stop trusting the worker to fork a browser tree at all; at
+ * the prod ceiling of `pids.max=1000` it leaves 100 free PIDs. The per-job PID
+ * cost of a chromium context tree is NOT MEASURED, so 100 is a chosen reserve,
+ * not a derived one — hence the env override. The ordering invariant that DOES
+ * matter is that the alarm fires strictly before the gate engages, so an
+ * operator is always told before capacity is withdrawn.
+ *
+ * Env-overridable via WORKER_PID_CLAIM_GATE_RATIO. Note the gate is INERT when
+ * the cgroup gauges are unreadable (`pidUsageRatio` → null: off-Linux, every
+ * macOS dev box) — an unmeasurable worker keeps claiming exactly as before.
+ */
+export const DEFAULT_PID_CLAIM_GATE_RATIO = 0.9;
+
+/**
+ * Resolve the claim-time PID headroom gate ratio from the environment. An
+ * unparseable or out-of-(0,1] override falls back to the default rather than
+ * either wedging the fleet (a 0 gate declines every claim forever) or silently
+ * disabling the gate.
+ */
+function resolvePidClaimGateRatio(logger: Logger): number {
+  const raw = process.env.WORKER_PID_CLAIM_GATE_RATIO;
+  if (raw === undefined || raw.trim() === "") {
+    return DEFAULT_PID_CLAIM_GATE_RATIO;
+  }
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed > 0 && parsed <= 1) return parsed;
+  safeLog(logger, "warn", "fleet.worker.pid-claim-gate-ratio-invalid", {
+    raw,
+    fallback: DEFAULT_PID_CLAIM_GATE_RATIO,
+  });
+  return DEFAULT_PID_CLAIM_GATE_RATIO;
+}
 /**
  * Bound on the roster-row deregister await inside the orchestrator's
  * `drainFleetWorker` (which re-exports this constant).
@@ -360,6 +448,78 @@ export function safeLog(
     // Swallow: the logger is the failing component; nothing load-bearing may
     // sit behind a forensic log line.
   }
+}
+
+/**
+ * Default recycle threshold: after this many SETTLED jobs a worker drains and
+ * exits non-zero for a fresh restart. 100 mirrors a conservative Gunicorn
+ * `--max-requests`; the exact value trades restart churn against how much
+ * Chromium/heap growth accumulates on a long-lived worker. Env-overridable via
+ * `WORKER_MAX_JOBS`; `0` disables the feature.
+ */
+export const DEFAULT_WORKER_MAX_JOBS = 100;
+/**
+ * Default per-replica recycle stagger. A deterministic value in `[0, this]`
+ * (derived from the worker id) is subtracted from `WORKER_MAX_JOBS` once at
+ * startup so a fleet of identically-configured replicas does not all recycle on
+ * the same job count (Gunicorn `--max-requests-jitter`). Env-overridable via
+ * `WORKER_MAX_JOBS_JITTER`.
+ */
+export const DEFAULT_WORKER_MAX_JOBS_JITTER = 15;
+/**
+ * Exit code the worker uses when RECYCLING (max-jobs reached). NON-ZERO is
+ * REQUIRED: Railway's `restartPolicyType: ON_FAILURE` only replaces the
+ * container on a non-zero exit — a zero exit reads as an intentional stop and
+ * may NOT restart, which would silently drain the fleet. 42 is an arbitrary
+ * distinctive non-zero sentinel (distinct from the boot-failure `1`) so a
+ * recycle is greppable in platform logs.
+ */
+export const WORKER_RECYCLE_EXIT_CODE = 42;
+
+/**
+ * Resolve a NON-NEGATIVE integer env knob (the recycle max-jobs / jitter share
+ * this shape: `0` is a MEANINGFUL value — disabled / no-stagger — so unlike the
+ * strictly-positive `resolveDrainGraceMs` this accepts `>= 0`). Unset/empty
+ * falls back to `fallback`; a present-but-garbage or negative override warns and
+ * falls back (fail-loud-ish, matching the drain-grace resolver) rather than
+ * silently mis-tuning. Construction-time; the warn is the same deliberately
+ * unguarded fail-loud misconfig surface as the other knob resolvers.
+ */
+function resolveNonNegativeIntEnv(
+  envName: string,
+  fallback: number,
+  logger: Logger,
+): number {
+  const raw = process.env[envName];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  if (Number.isInteger(parsed) && parsed >= 0) return parsed;
+  logger.warn("fleet.worker.recycle-knob-invalid", {
+    envName,
+    raw,
+    fallback,
+  });
+  return fallback;
+}
+
+/**
+ * Deterministic per-process jitter in `[0, jitter]` derived from a stable seed
+ * (the worker id / HOSTNAME). Uses a 32-bit FNV-1a hash so the value is STABLE
+ * within a process (computed once at startup) yet DIFFERS across replicas with
+ * distinct ids — never `Math.random`, which would pick a fresh value per call
+ * and could not stagger a fixed replica reproducibly. Returns 0 when `jitter`
+ * is 0 (no stagger).
+ */
+export function deterministicJitter(seed: string, jitter: number): number {
+  if (jitter <= 0) return 0;
+  let h = 0x811c9dc5; // FNV-1a offset basis
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193); // FNV prime
+  }
+  // `h` is a signed 32-bit int; `>>> 0` makes it unsigned before the modulus so
+  // the result is always in `[0, jitter]`.
+  return (h >>> 0) % (jitter + 1);
 }
 
 function resolveDrainGraceMs(logger: Logger): number {
@@ -1088,6 +1248,65 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
   const heartbeatMs = deps.heartbeatMs ?? DEFAULT_HEARTBEAT_MS;
   const pollIntervalMs = deps.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
   const { workerId, queue, pool, logger } = deps;
+  // Claim-time PID headroom gate (see DEFAULT_PID_CLAIM_GATE_RATIO). Resolved
+  // ONCE at construction alongside the other knobs; `pidGateLatched` makes the
+  // decline log edge-triggered so a long saturation warns once, not every poll.
+  const pidClaimGateRatio =
+    deps.pidClaimGateRatio ?? resolvePidClaimGateRatio(logger);
+  let pidGateLatched = false;
+
+  // RECYCLE knobs (resolved ONCE at construction, like the gate ratio above).
+  // `maxJobs` 0 disables the feature; otherwise the effective per-process
+  // threshold is `maxJobs` minus a deterministic per-replica jitter, so a fleet
+  // of identical replicas does not all recycle on the same job count. Floored at
+  // 1 so a jitter >= maxJobs can never yield a 0/negative threshold (which would
+  // recycle on the very first job or never). Computed here, BEFORE the claim
+  // loop, so the stagger is fixed for the process lifetime.
+  const maxJobs =
+    deps.maxJobs ??
+    resolveNonNegativeIntEnv(
+      "WORKER_MAX_JOBS",
+      DEFAULT_WORKER_MAX_JOBS,
+      logger,
+    );
+  const maxJobsJitter =
+    deps.maxJobsJitter ??
+    resolveNonNegativeIntEnv(
+      "WORKER_MAX_JOBS_JITTER",
+      DEFAULT_WORKER_MAX_JOBS_JITTER,
+      logger,
+    );
+  const recycleEnabled = maxJobs > 0;
+  const recycleThreshold = recycleEnabled
+    ? Math.max(
+        1,
+        maxJobs -
+          deterministicJitter(
+            `${workerId}:${process.env.HOSTNAME ?? ""}`,
+            maxJobsJitter,
+          ),
+      )
+    : 0;
+  const exit =
+    deps.exit ??
+    ((code: number): void => {
+      process.exit(code);
+    });
+  // Count of SETTLED jobs (claimed → ran → reported). Never incremented on
+  // empty poll cycles or abandoned (grace-expiry) runs. Closure-scoped so each
+  // loop instance counts independently (one worker per process in production;
+  // isolation keeps the unit tests free of cross-test counter bleed a
+  // module-scoped counter would introduce).
+  let completedJobs = 0;
+  let recycleTriggered = false;
+  if (recycleEnabled) {
+    safeLog(logger, "info", "fleet.worker.recycle-armed", {
+      workerId,
+      maxJobs,
+      maxJobsJitter,
+      recycleThreshold,
+    });
+  }
 
   // Fail-loud at construction: the heartbeat must fire (and renew) BEFORE the
   // lease expires, or the sweeper reclaims a live worker's job and synthesizes a
@@ -1257,6 +1476,63 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         continue;
       }
 
+      // 1b. PID HEADROOM gate. `budget.available` above counts free browser
+      //     CONTEXT slots and is blind to the container's PID ceiling, so a
+      //     worker whose cgroup is exhausted reports full capacity and keeps
+      //     winning claims it cannot run — the job then burns its entire lease
+      //     and lands as a `timeout after 600000ms` abort. Decline instead.
+      //
+      //     BLAST RADIUS — deliberately the SAME decline-and-idle path as the
+      //     no-budget branch above, which is what makes this safe when EVERY
+      //     worker is saturated:
+      //       - the job is never claimed, so it is never dropped and never
+      //         requeued — it simply stays `pending` for a healthy worker (or
+      //         for this one, post-redeploy);
+      //       - the loop sleeps a full `pollIntervalMs` before re-checking, so a
+      //         fully-saturated fleet idles at the poll cadence rather than
+      //         spinning;
+      //       - the queue therefore STALLS VISIBLY: `probe_jobs` rows pile up
+      //         pending, and the reason is stated by the rising-edge warn below
+      //         plus the control-plane's `system:worker-pid-saturation` alarm,
+      //         which by construction fired at 0.75 before this gate engaged at
+      //         0.90.
+      //     A stalled, alarmed queue is recoverable by redeploy; the pre-fix
+      //     behaviour (claim, fail, repeat) silently burned the whole cadence.
+      //
+      //     `pidUsageRatio` returns null when the cgroup gauges are unreadable
+      //     (off-Linux/dev), and a null ratio leaves the gate OPEN.
+      const pidRatio = pidUsageRatio(budget.pidsCurrent, budget.pidsMax);
+      if (pidRatio !== null && pidRatio >= pidClaimGateRatio) {
+        // Rising edge at WARN (stderr → Sentry) so a fleet that has stopped
+        // claiming says why exactly once; steady state drops to debug so a
+        // multi-hour saturation doesn't emit a warn every `pollIntervalMs`.
+        safeLog(
+          logger,
+          pidGateLatched ? "debug" : "warn",
+          "fleet.worker.pid-headroom-exhausted",
+          {
+            workerId,
+            pidsCurrent: budget.pidsCurrent,
+            pidsMax: budget.pidsMax,
+            ratio: Number(pidRatio.toFixed(4)),
+            gateRatio: pidClaimGateRatio,
+            msg: "declining to claim — cgroup PID headroom exhausted; jobs stay pending for a healthy worker",
+          },
+        );
+        pidGateLatched = true;
+        await safeSleep(pollIntervalMs);
+        continue;
+      }
+      if (pidGateLatched) {
+        safeLog(logger, "info", "fleet.worker.pid-headroom-recovered", {
+          workerId,
+          pidsCurrent: budget.pidsCurrent,
+          pidsMax: budget.pidsMax,
+          gateRatio: pidClaimGateRatio,
+        });
+        pidGateLatched = false;
+      }
+
       // 2. Attempt a claim.
       let claimed: Awaited<ReturnType<FleetQueueClient["claimNext"]>>;
       try {
@@ -1402,8 +1678,40 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
         // again on the next registration heartbeat.
         notifyCurrentJob(null);
       }
+
+      // RECYCLE CHECK — settle point. Count this SETTLED job (claimed → ran →
+      // reported) EXACTLY ONCE; empty poll cycles and abandoned (grace-expiry)
+      // runs never reach here. Once the per-process threshold is crossed, stop
+      // claiming (the EXISTING loop-local drain, `requestDrain()` — no in-flight
+      // run remains at the settle point, so nothing to wait on), break the loop,
+      // and exit NON-ZERO below so the platform restart policy replaces the
+      // container — pre-empting slow Chromium/heap growth on a long-lived worker
+      // (Gunicorn `--max-requests` / Celery `max-tasks-per-child`).
+      completedJobs++;
+      if (recycleEnabled && completedJobs >= recycleThreshold) {
+        safeLog(logger, "info", "fleet.worker.recycle-max-jobs", {
+          workerId,
+          completedJobs,
+          recycleThreshold,
+          maxJobs,
+          maxJobsJitter,
+          exitCode: WORKER_RECYCLE_EXIT_CODE,
+        });
+        recycleTriggered = true;
+        requestDrain();
+        break;
+      }
     }
     safeLog(logger, "info", "fleet.worker.loop-stopped", { workerId });
+    if (recycleTriggered) {
+      // Exit NON-ZERO so the platform (Railway `restartPolicyType: ON_FAILURE`)
+      // replaces this container with a fresh one. A zero exit would read as an
+      // intentional stop and might NOT restart — silently shrinking the fleet.
+      // `exit` is injectable (default `process.exit`) so the recycle path is
+      // testable without killing the test process; a richer injected exit MAY
+      // run the full graceful teardown (deregister + pool shutdown) first.
+      exit(WORKER_RECYCLE_EXIT_CODE);
+    }
   })();
 
   return {

@@ -5,16 +5,22 @@ import {
   useComponent,
   useHumanInTheLoop,
   useFrontendTool,
+  useRenderTool,
 } from "@copilotkit/react-core/v2";
-import { usePathname, useRouter } from "next/navigation";
+import { ExpenseHarnessReport } from "@/skins/banking/components/expense-harness-report";
+import { HarnessConsole } from "@/skins/banking/components/harness-console";
+import { useFirstDelegationToolCallId } from "@/shell/subagents/subagent-activity";
+import type { HarnessSummary } from "@/skins/banking/harness/types";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useSkin } from "@/shell/skin-provider";
+import { useSkinHref, useSkinSegments } from "@/shell/skin-path";
 import useCreditCards from "@/skins/banking/actions";
+import { navTarget, chargesTarget } from "@/skins/banking/nav-target";
 import { CHARGE_CATEGORIES } from "@/skins/banking/pages/charges-data";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording, RecordingFeed } from "@/shell/teach";
 import { ApprovalButtons } from "@/skins/banking/components/approval-buttons";
-import { RecordingSteps } from "@/skins/banking/components/recording-feed";
 import { PendingApprovalsChat } from "@/skins/banking/components/wow/pending-approvals-chat";
 import {
   PinChangeCard,
@@ -60,6 +66,22 @@ export const AVAILABLE_OPERATIONS_PER_PAGE = {
 // the over-limit gate (proven in scripts/over-limit-gate-smoke.mjs). This text
 // lands in the thread, which is how the agent recalls the procedure later in the
 // SAME session. The agent only ever sees the code, never its human label.
+// The expense report tool's result reaches the client as a STRING (the runtime
+// stringifies whatever the tool returned), so the report card's props have to be
+// recovered from it. Tolerant on purpose: a run that failed comes back as an
+// error string, and the renderer must degrade to a readable line rather than
+// throwing inside the transcript and taking the conversation down with it.
+const parseHarnessSummary = (result: string): HarnessSummary | null => {
+  try {
+    const parsed: unknown = JSON.parse(result);
+    return parsed && typeof parsed === "object" && "verdicts" in parsed
+      ? (parsed as HarnessSummary)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 const canonicalProcedure = (code: string): string =>
   `Saved workflow for clearing an over-limit charge: (1) open a policy ` +
   `exception against the transaction with code ${code}, (2) finalize the ` +
@@ -105,15 +127,17 @@ const answeredPinChanges = new Map<
 // on.
 export function BankingTools() {
   const { currentUser } = useAuthContext();
+  // The run's first `task` call — the parent's one delegation to the analyst,
+  // and the console's stable home. See the console block below.
+  const consoleAnchorId = useFirstDelegationToolCallId();
   const skin = useSkin();
-  const base = `/${skin.id}`;
-  const pathname = usePathname();
+  const skinHref = useSkinHref(skin.id);
   const router = useRouter();
-  // Page segment RELATIVE to the skin base. Under /[skin] routing the raw
-  // pathname is `/banking/<page>`, so the old `pathname.split("/").pop()`
-  // reported the skin id (or a stale tail) instead of the page.
-  const rest = pathname.split("/").slice(2).join("/");
-  const restHead = rest.split("/")[0];
+  // Page segment RELATIVE to the skin base. The raw pathname carries the skin
+  // prefix on an unlocked deploy (`/banking/<page>`) and not on a locked one, so
+  // the old `pathname.split("/").pop()` reported the skin id (or a stale tail)
+  // instead of the page.
+  const restHead = useSkinSegments(skin.id)[0] ?? "";
   const {
     cards,
     policies,
@@ -251,12 +275,12 @@ export function BankingTools() {
               // Card tools/operations (add card, change PIN) are registered on
               // the skin's INDEX route (the Credit Cards view), so `/` and the
               // `/cards` alias both land on the skin base; `/team` maps to the
-              // team segment under the skin base. Skin-relative so this works
-              // under /[skin] routing instead of 404ing at a root path.
-              const target =
-                page === "/" || page === "/cards"
-                  ? base
-                  : `${base}${page!.toLowerCase()}`;
+              // team segment under the skin base. `navTarget` routes through
+              // `skinHref` (not by concatenating onto its no-arg result) so it is
+              // skin-relative under /[skin] routing AND never emits a
+              // protocol-relative `//` href on a locked deploy, where the no-arg
+              // base is "/".
+              const target = navTarget(skinHref, page!);
               // Client-side navigation: a full reload (window.location) tears
               // down the chat panel mid-run, so the conversation — and the
               // in-flight operation — is lost the moment we navigate.
@@ -362,8 +386,12 @@ export function BankingTools() {
       // emitter, so the marker is applied here where it is guaranteed — and
       // only when the text actually reads as an alert, so ordinary notes stay
       // plain.
+      // Anchored on BOTH sides, and whole words rather than stems. Left-anchored
+      // alone, `report` matched inside "reporter" and "quarterly report", and
+      // `disput` inside "disputation" — so ordinary notes ("attached to the
+      // quarterly report") were served a fraud marker.
       const alerting =
-        /\b(unrecognized|unrecognised|suspicious|report(ed)?|fraud|disput)/i.test(
+        /\b(unrecognized|unrecognised|suspicious|reported|fraud|fraudulent|dispute[ds]?|disputing)\b/i.test(
           content,
         );
       const text =
@@ -609,7 +637,11 @@ export function BankingTools() {
             if (from) params.set("from", from);
             if (to) params.set("to", to);
             const qs = params.toString();
-            router.push(qs ? `${base}/charges?${qs}` : `${base}/charges`);
+            // `chargesTarget` builds through `skinHref` rather than concatenating
+            // onto its no-arg result: `/banking/charges` unlocked, `/charges`
+            // locked — where `${base}/charges` would emit the protocol-relative
+            // `//charges` on a lock (base is "/"). Query string preserved.
+            router.push(chargesTarget(skinHref, qs));
             respond?.(`Opened the Charges page${qs ? ` (${qs})` : ""}.`);
           }}
           onCancel={() => respond?.("The user chose to stay on this page.")}
@@ -848,6 +880,76 @@ export function BankingTools() {
     [policies],
   );
 
+  // ── The offsite-expenses CLI console ───────────────────────────────────────
+  //
+  // Anchored on the run's FIRST `task` call — the parent's single delegation to
+  // `expense-analyst`. That slot opens when the harness starts and stays for the
+  // whole run, which is what the Codex-era console got from
+  // `analyzeOffsiteExpenses`.
+  //
+  // The nested `task` calls (analyst → researchers) must NOT each render their
+  // own console. An earlier version excluded them by asking the live event
+  // stream which tool calls a subagent had made, which fails on a RESTORED
+  // thread: those events never replay, the set is empty, and all six
+  // delegations render a console. Message order is the durable answer — see
+  // `useFirstDelegationToolCallId`.
+  useRenderTool(
+    {
+      name: "task",
+      parameters: z.object({}).passthrough(),
+      render: ({ toolCallId }) =>
+        toolCallId === consoleAnchorId ? <HarnessConsole /> : <></>,
+    },
+    [consoleAnchorId],
+  );
+
+  // ── The offsite-expenses report card ───────────────────────────────────────
+  //
+  // `useRenderTool`, NOT `useComponent`, and the difference is load-bearing:
+  // `useComponent` hands its render ONLY the tool's parsed args, so `status` and
+  // `result` would both be permanently undefined. `useRenderTool` registers a
+  // renderer in the shared registry WITHOUT also registering a frontend tool of
+  // that name — exactly right for a tool executed somewhere else entirely.
+  //
+  // "Somewhere else" is the point: `submit_expense_report` is executed by the
+  // PYTHON deep agent (`agent/agent.py`), not by anything in this process. The
+  // renderer matches on tool NAME against the AG-UI event stream, and a
+  // TOOL_CALL_START/ARGS/END/RESULT quartet looks identical whether a
+  // `BuiltInAgent` in this Node process or a remote LangChain agent produced it.
+  // That is why this beat needed no new client surface.
+  useRenderTool(
+    {
+      name: "submit_expense_report",
+      // The renderer takes no parameters of its own — it reads the tool's
+      // result. `z.object({})` keeps the registration shape while making it
+      // explicit that nothing here validates the agent's arguments.
+      parameters: z.object({}),
+      render: ({ status, result }) => {
+        // The agent's reasoning and tool calls have been streaming into the
+        // transcript for minutes by the time this slot appears, so it does not
+        // need to narrate the run — it only has to not look broken while the
+        // report's arguments finish streaming.
+        if (status !== "complete") {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink/60 shadow-soft">
+              Compiling the expense report…
+            </div>
+          );
+        }
+        const summary = parseHarnessSummary(result);
+        if (!summary) {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink/60 shadow-soft">
+              The expense analysis did not finish: {result}
+            </div>
+          );
+        }
+        return <ExpenseHarnessReport summary={summary} />;
+      },
+    },
+    [],
+  );
+
   useComponent(
     {
       name: "showIncomeVsExpenses",
@@ -910,7 +1012,7 @@ export function BankingTools() {
       transactionId: z.string(),
       code: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId, code } = args;
 
       if (status === "inProgress") {
@@ -936,6 +1038,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId || !code) {
                 respond?.("Missing transaction or exception code");
@@ -973,7 +1076,7 @@ export function BankingTools() {
     parameters: z.object({
       exceptionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { exceptionId } = args;
 
       if (status === "inProgress") {
@@ -995,6 +1098,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!exceptionId) {
                 respond?.("Missing exception id");
@@ -1031,7 +1135,7 @@ export function BankingTools() {
     parameters: z.object({
       transactionId: z.string(),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       const { transactionId } = args;
 
       if (status === "inProgress") {
@@ -1054,6 +1158,7 @@ export function BankingTools() {
             </p>
           </div>
           <ApprovalButtons
+            resolved={status === "complete" || !!result}
             onApprove={async () => {
               if (!transactionId) {
                 respond?.("Missing transaction id");
@@ -1214,7 +1319,7 @@ export function BankingTools() {
           </div>
           {/* Live feed of the actions being captured — same chat card, so it
               reads consistently with the other cards (not a floating overlay). */}
-          <RecordingSteps />
+          <RecordingFeed />
           <ApprovalButtons
             approveLabel="I'm done"
             denyLabel="Cancel"

@@ -2,12 +2,12 @@ import { expect, test, vi } from "vitest";
 import { ChannelDeliveryFileClient } from "./delivery-files.js";
 
 test("image uploads carry an allowlisted MIME inferred from the filename", async () => {
-  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>((async () => {
     return new Response(JSON.stringify({ handle: "file_image_1" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
-  });
+  }) as unknown as typeof globalThis.fetch);
   const client = new ChannelDeliveryFileClient({
     baseUrl: "https://intelligence.example",
     apiKey: "test-key",
@@ -32,12 +32,12 @@ test("image uploads carry an allowlisted MIME inferred from the filename", async
 });
 
 test("general file uploads keep the binary MIME", async () => {
-  const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+  const fetch = vi.fn<typeof globalThis.fetch>((async () => {
     return new Response(JSON.stringify({ handle: "file_document_1" }), {
       status: 200,
       headers: { "content-type": "application/json" },
     });
-  });
+  }) as unknown as typeof globalThis.fetch);
   const client = new ChannelDeliveryFileClient({
     baseUrl: "https://intelligence.example",
     apiKey: "test-key",

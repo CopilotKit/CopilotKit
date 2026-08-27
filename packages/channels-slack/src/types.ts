@@ -1,4 +1,4 @@
-import type { PlatformUser } from "@copilotkit/channels-core";
+import type { ProviderActor } from "@copilotkit/channels-core";
 import type { MessageOperation } from "@copilotkit/channels-ui";
 
 /**
@@ -56,7 +56,7 @@ export interface SlackAssistantOptions {
 export interface SlackFeedback {
   sentiment: "positive" | "negative";
   /** The user who clicked, if Slack supplied their identity. */
-  user?: PlatformUser;
+  user?: ProviderActor;
   /** Channel (or DM) the reply lives in. */
   channel: string;
   /** Thread the reply belongs to, if any. */

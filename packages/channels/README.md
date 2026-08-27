@@ -3,10 +3,12 @@
 `@copilotkit/channels` is the batteries-included CopilotKit Channels package. One install
 provides the engine, JSX vocabulary, UI primitives, testing API, and every supported adapter.
 
-**Channels require a CopilotKit Intelligence connection** (an API key — a free tier
-is available, so this is "connect your Intelligence account," not "pay for it").
-There is no standalone / DIY way to run a Channel: the `CopilotRuntime` starts and
-owns each Channel's lifecycle once Intelligence is configured.
+**Channels run through a channel runner.** CopilotKit Intelligence provides the
+managed runner, available on a free plan: the `CopilotRuntime` starts and owns
+each Channel's lifecycle once Intelligence is configured. You can also build and
+operate your own channel runner on the lower-level SDK primitives, with no
+Intelligence dependency — a supported path where your team owns state,
+persistence, concurrency, locking, retries, and race-condition handling.
 
 ## Install
 
@@ -33,6 +35,7 @@ import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const channel = createChannel({
   name: "support-bot", // project-unique Intelligence Channel name
+  identifyUser: "platform",
   adapters: [
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
@@ -54,9 +57,8 @@ const runtime = new CopilotRuntime({
   intelligence: new CopilotKitIntelligence({
     // apiUrl and wsUrl default to the managed Intelligence platform — override
     // both together only for a self-hosted deployment.
-    apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!, // free tier available
+    apiKey: process.env.INTELLIGENCE_API_KEY!, // free tier available
   }),
-  identifyUser: async () => ({ id: "support-bot", name: "Support Bot" }),
   channels: [channel],
 });
 

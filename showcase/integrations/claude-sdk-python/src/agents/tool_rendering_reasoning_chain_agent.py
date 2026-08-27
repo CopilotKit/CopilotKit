@@ -104,17 +104,12 @@ SYSTEM_PROMPT = dedent("""
 """).strip()
 
 
-# Extended-thinking budget for the native reasoning channel. Anthropic
-# requires max_tokens > budget_tokens when thinking is enabled.
-_THINKING_BUDGET_TOKENS = 2048
-
-
 def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build the Anthropic `messages.stream` kwargs with extended thinking
+    """Build the Anthropic `messages.stream` kwargs with adaptive thinking
     enabled so Claude streams native `thinking`/`thinking_delta` blocks.
 
     Mirrors claude-sdk-typescript's /reasoning handler: a thinking-capable
-    model plus `thinking={"type": "enabled", ...}`. The model is overridable
+    model plus `thinking={"type": "adaptive"}`. The model is overridable
     via ANTHROPIC_REASONING_MODEL (falling back to ANTHROPIC_MODEL) so a
     deployment can pin a different extended-thinking model. Under aimock
     replay the thinking channel is produced from the fixture's `reasoning`
@@ -122,19 +117,16 @@ def _build_stream_kwargs(messages: list[dict[str, Any]]) -> dict[str, Any]:
     """
     model = os.getenv(
         "ANTHROPIC_REASONING_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6"),
+        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
     )
     model = normalize_claude_model(model)
     return {
         "model": model,
-        "max_tokens": _THINKING_BUDGET_TOKENS + 2048,
+        "max_tokens": 4096,
         "system": SYSTEM_PROMPT,
         "messages": messages,
         "tools": TOOLS,
-        "thinking": {
-            "type": "enabled",
-            "budget_tokens": _THINKING_BUDGET_TOKENS,
-        },
+        "thinking": {"type": "adaptive"},
     }
 
 

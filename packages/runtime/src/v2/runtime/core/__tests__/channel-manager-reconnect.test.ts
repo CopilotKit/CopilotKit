@@ -3,6 +3,7 @@ import { createChannel } from "@copilotkit/channels";
 import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { ChannelManager } from "../channel-manager";
 import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
+import { telemetry } from "../../telemetry";
 
 /* ------------------------------------------------------------------------------------------------
  * Reconnection is delegated to the Phoenix connection layer (the launcher's
@@ -58,7 +59,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -85,7 +86,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -105,7 +106,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -121,7 +122,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -141,7 +142,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
     });
     mgr.activate();
@@ -162,7 +163,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
       reconnectLogIntervalMs: 5,
@@ -199,7 +200,7 @@ describe("ChannelManager connection health (onStateChange)", () => {
 
     const mgr = new ChannelManager({
       intelligence: fakeIntelligence(),
-      channels: [createChannel({ name: "support" })],
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
       activateChannel: engine,
       log: (m: string) => logs.push(m),
     });
@@ -215,5 +216,137 @@ describe("ChannelManager connection health (onStateChange)", () => {
     // Status semantics are unchanged.
     expect(mgr.status().channels.support).toBe("error");
     await mgr.stop();
+  });
+
+  it("repeats the drop cause on every still-down line (OSS-825)", async () => {
+    const handle = observableHandle();
+    const engine: ActivateChannelEngine = vi.fn(async () => handle);
+    const logs: string[] = [];
+
+    const mgr = new ChannelManager({
+      intelligence: fakeIntelligence(),
+      channels: [createChannel({ identifyUser: "platform", name: "support" })],
+      activateChannel: engine,
+      log: (m: string) => logs.push(m),
+      reconnectLogIntervalMs: 5,
+    });
+    mgr.activate();
+    await mgr.ready();
+
+    handle.fireState("reconnecting", {
+      reason: "the gateway host answered HTTP 502",
+    });
+    await new Promise((r) => setTimeout(r, 20));
+
+    // An operator reading a repeat line hours into an outage must not have to
+    // scroll back to the first line to learn the cause: prod emitted
+    // "still down after 233134s; Phoenix is retrying" with no cause at all.
+    const repeats = logs.filter((m) => m.includes("still down"));
+    expect(repeats.length).toBeGreaterThan(0);
+    expect(repeats[0]).toContain("HTTP 502");
+    await mgr.stop();
+  });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Drop/recovery telemetry (OSS-825). A managed session that loses its gateway
+ * link is invisible outside the host process: the only trace is the injected
+ * `log` seam, which for a self-hosted or Railway-hosted runtime reaches nobody
+ * who can act on it. A 2026-08-12 incident ran 2.7 days on one Channel before a
+ * customer reported it. These events make an outage — and its end — reportable.
+ * --------------------------------------------------------------------------------------------- */
+describe("ChannelManager drop/recovery telemetry (OSS-825)", () => {
+  it("captures a dropped event carrying the transport cause", async () => {
+    const captureSpy = vi
+      .spyOn(telemetry, "capture")
+      .mockResolvedValue(undefined);
+    try {
+      const handle = observableHandle();
+      const engine: ActivateChannelEngine = vi.fn(async () => handle);
+      const mgr = new ChannelManager({
+        intelligence: fakeIntelligence(),
+        channels: [
+          createChannel({ identifyUser: "platform", name: "support" }),
+        ],
+        activateChannel: engine,
+      });
+      mgr.activate();
+      await mgr.ready();
+
+      handle.fireState("reconnecting", {
+        reason: "the gateway host answered HTTP 502",
+      });
+
+      expect(captureSpy).toHaveBeenCalledWith(
+        "oss.runtime.channel_session_dropped",
+        { reason: "the gateway host answered HTTP 502" },
+      );
+      await mgr.stop();
+    } finally {
+      captureSpy.mockRestore();
+    }
+  });
+
+  it("captures a recovered event carrying the outage duration", async () => {
+    const captureSpy = vi
+      .spyOn(telemetry, "capture")
+      .mockResolvedValue(undefined);
+    try {
+      const handle = observableHandle();
+      const engine: ActivateChannelEngine = vi.fn(async () => handle);
+      const mgr = new ChannelManager({
+        intelligence: fakeIntelligence(),
+        channels: [
+          createChannel({ identifyUser: "platform", name: "support" }),
+        ],
+        activateChannel: engine,
+      });
+      mgr.activate();
+      await mgr.ready();
+
+      handle.fireState("reconnecting");
+      await new Promise((r) => setTimeout(r, 10));
+      handle.fireState("online");
+
+      const call = captureSpy.mock.calls.find(
+        ([event]) => event === "oss.runtime.channel_session_recovered",
+      );
+      expect(call).toBeDefined();
+      expect((call![1] as { downForMs: number }).downForMs).toBeGreaterThan(0);
+      await mgr.stop();
+    } finally {
+      captureSpy.mockRestore();
+    }
+  });
+
+  it("captures no recovery for an online transition that follows no outage", async () => {
+    const captureSpy = vi
+      .spyOn(telemetry, "capture")
+      .mockResolvedValue(undefined);
+    try {
+      const handle = observableHandle();
+      const engine: ActivateChannelEngine = vi.fn(async () => handle);
+      const mgr = new ChannelManager({
+        intelligence: fakeIntelligence(),
+        channels: [
+          createChannel({ identifyUser: "platform", name: "support" }),
+        ],
+        activateChannel: engine,
+      });
+      mgr.activate();
+      await mgr.ready();
+
+      // A session may report `online` without a preceding drop; that is not a
+      // recovery and must not be reported as one.
+      handle.fireState("online");
+
+      expect(captureSpy).not.toHaveBeenCalledWith(
+        "oss.runtime.channel_session_recovered",
+        expect.anything(),
+      );
+      await mgr.stop();
+    } finally {
+      captureSpy.mockRestore();
+    }
   });
 });

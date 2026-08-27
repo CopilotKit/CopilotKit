@@ -1,7 +1,8 @@
 // Server-only runtime config reader for shell-docs. Reads from
 // process.env at REQUEST time (not at module load) so a single built
-// artifact can serve different URL/key values across staging vs prod by
-// changing the Railway service's env vars — no rebuild required.
+// artifact can serve different shell/signup/analytics values across staging
+// vs prod by changing the Railway service's env vars — no rebuild required.
+// The production docs base URL is deliberately fixed; see readBaseUrl().
 //
 // `unstable_noStore()` opts the calling segment out of Next.js's static
 // cache so reads always reflect the live env. Without it, a server
@@ -29,22 +30,26 @@ export interface RuntimeConfig {
   googleAnalyticsTrackingId: string;
   reb2bKey: string;
   reoKey: string;
+  /** Clerk public key for public-page auth state only. Empty string disables Clerk. */
+  clerkPublishableKey: string;
 }
 
-const PROD_BASE_URL_FALLBACK = "https://docs.copilotkit.ai";
+export const PRODUCTION_DOCS_ORIGIN = "https://docs.copilotkit.ai";
 const PROD_INVALID_SHELL_URL = "about:blank#shell-url-missing";
 const PROD_DEFAULT_SIGNUP_URL = "https://dashboard.operations.copilotkit.ai/";
 const PROD_DEFAULT_POSTHOG_HOST = "https://eu.i.posthog.com";
 
 /**
  * Resolve the runtime config for shell-docs. Called once per request by
- * the root layout and by any other server component / route that needs
- * it (sitemap, robots, middleware via the Edge wrapper).
+ * the root layout and by any other server component / route that needs it
+ * (sitemap, robots, middleware via the Edge wrapper). Production canonical
+ * identity is fixed even when deployment environment configuration drifts.
  *
  * Fail-loud strategy:
- *   - URL fields in production (severity=fatal): missing env vars
- *     produce sentinel URLs (or, for `baseUrl`, the canonical prod host
- *     — preserves existing sitemap behavior) AND a console.error
+ *   - URL fields in production (severity=fatal): missing env vars produce
+ *     sentinel URLs. `baseUrl` always uses the canonical production origin
+ *     and logs when its configured value is missing or different. Both paths
+ *     emit a console.error
  *     prefixed `FATAL-CONFIG:` (the prefix is what Sentry pattern-
  *     matches for ops alerts).
  *   - URL fields in production with a working default (severity=info,
@@ -72,16 +77,7 @@ export function getRuntimeConfig(
   if (opts.noStore !== false) noStore();
   const isProd = process.env.NODE_ENV === "production";
 
-  const baseUrl = readUrl(
-    "NEXT_PUBLIC_BASE_URL",
-    // baseUrl preserves the prior `https://docs.copilotkit.ai` prod
-    // fallback (matches the legacy getBaseUrl() behavior in
-    // sitemap-helpers.ts) so a misconfigured deploy still emits a
-    // reasonable sitemap rather than a sentinel URL. Logged either way.
-    isProd ? PROD_BASE_URL_FALLBACK : "http://localhost:3003",
-    isProd,
-    "fatal",
-  );
+  const baseUrl = readBaseUrl(isProd);
   const shellUrl = readUrl(
     "NEXT_PUBLIC_SHELL_URL",
     isProd ? PROD_INVALID_SHELL_URL : "http://localhost:3000",
@@ -120,6 +116,7 @@ export function getRuntimeConfig(
     ),
     reb2bKey: readKey("NEXT_PUBLIC_REB2B_KEY"),
     reoKey: readKey("NEXT_PUBLIC_REO_KEY"),
+    clerkPublishableKey: readKey("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
   };
 }
 
@@ -160,6 +157,44 @@ function readEnvPair(envKey: string): string | undefined {
   const alt = process.env[altEnvName(envKey)];
   if (alt && alt.length > 0) return alt;
   return undefined;
+}
+
+/**
+ * The public docs origin is an identity invariant, not deploy-specific
+ * configuration. Production-mode servers can run behind the canonical
+ * hostname, a staging hostname, or a provider-generated hostname, but all
+ * machine-facing URLs must identify docs.copilotkit.ai as canonical.
+ *
+ * Keep the env override in non-production so local integration tests can
+ * point generated URLs at their test server. In production, report a stale
+ * deployment value loudly and ignore it.
+ */
+function readBaseUrl(isProd: boolean): string {
+  if (!isProd) {
+    return readUrl(
+      "NEXT_PUBLIC_BASE_URL",
+      "http://localhost:3003",
+      false,
+      "fatal",
+    );
+  }
+
+  const configured = readEnvPair("NEXT_PUBLIC_BASE_URL");
+  const normalized = configured?.replace(/\/+$/, "");
+  if (normalized === undefined) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[shell-docs runtime-config] FATAL-CONFIG: NEXT_PUBLIC_BASE_URL is unset in a production deploy; " +
+        `using canonical origin ${PRODUCTION_DOCS_ORIGIN}.`,
+    );
+  } else if (normalized !== PRODUCTION_DOCS_ORIGIN) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[shell-docs runtime-config] FATAL-CONFIG: NEXT_PUBLIC_BASE_URL " +
+        `is configured as ${normalized}; refusing it and using canonical origin ${PRODUCTION_DOCS_ORIGIN}.`,
+    );
+  }
+  return PRODUCTION_DOCS_ORIGIN;
 }
 
 function readUrl(

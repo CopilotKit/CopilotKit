@@ -73,8 +73,8 @@ module Railway
     # EXPECTED_DOMAINS is derived from showcase/scripts/railway-envs.generated.json
     # (canonical source: showcase/scripts/railway-envs.ts). The CI guard
     # `npx tsx showcase/scripts/emit-railway-envs-json.ts --check` ensures the
-    # JSON artifact stays in sync with the TS SSOT on every PR. Only public
-    # (non-`*.up.railway.app`) hosts are included, preserving the original set.
+    # JSON artifact stays in sync with the TS SSOT on every PR. Only non-empty
+    # public (non-`*.up.railway.app`) hosts are included.
     # Shared SSOT load — read once at class-load, derive both EXPECTED_DOMAINS
     # and STAGING_SERVICES from the same generated.json so they cannot drift.
     SSOT_DATA = begin
@@ -92,8 +92,8 @@ module Railway
             domains = svc.fetch("domains")
             prod = domains.fetch("prod")
             staging = domains.fetch("staging")
-            by_env[PRODUCTION_ENV_ID] << prod unless prod.end_with?(".up.railway.app")
-            by_env[STAGING_ENV_ID] << staging unless staging.end_with?(".up.railway.app")
+            by_env[PRODUCTION_ENV_ID] << prod unless prod.empty? || prod.end_with?(".up.railway.app")
+            by_env[STAGING_ENV_ID] << staging unless staging.empty? || staging.end_with?(".up.railway.app")
         end
         by_env.transform_values { |v| v.sort.uniq.freeze }.freeze
     end
@@ -2158,12 +2158,19 @@ module Railway
             # (NOTE: the 12 starter-<slug> demos are NO LONGER staging-only —
             # S2 brought them under the SSOT in BOTH envs, so they are normal
             # dual-env services that satisfy parity on their own; they are not
-            # an exemption case here.) Full-fleet promotes (target nil) retain
-            # full-strictness parity on both arms — there, any env-shape
-            # asymmetry across the whole fleet is a genuine REFUSE.
+            # an exemption case here.) Full-fleet promotes (target nil) exempt
+            # only asymmetry explicitly declared by the generated SSOT. Any
+            # unknown live Railway asymmetry remains a genuine REFUSE.
             if target
                 staging_only = staging_only & [target]
                 prod_only    = prod_only & [target]
+            else
+                staging_only.reject! do |name|
+                    (ssot_service(name) || {})["onlyEnvironment"] == "staging"
+                end
+                prod_only.reject! do |name|
+                    (ssot_service(name) || {})["onlyEnvironment"] == "prod"
+                end
             end
             findings << "REFUSE: services in staging not in prod: #{staging_only.join(', ')}" unless staging_only.empty?
             findings << "REFUSE: services in prod not in staging: #{prod_only.join(', ')}" unless prod_only.empty?

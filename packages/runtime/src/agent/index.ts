@@ -15,8 +15,6 @@ import type {
   ToolCallStartEvent,
   ToolCallResultEvent,
   RunErrorEvent,
-  StateSnapshotEvent,
-  StateDeltaEvent,
   Interrupt,
   ResumeEntry,
 } from "@ag-ui/client";
@@ -40,7 +38,7 @@ import type {
 } from "ai";
 import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { createMCPClient } from "@ai-sdk/mcp";
-import type { MCPClient } from "@ai-sdk/mcp";
+import type { MCPClient, MCPTransport } from "@ai-sdk/mcp";
 import { Observable } from "rxjs";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -53,9 +51,9 @@ import { schemaToJsonSchema } from "@copilotkit/shared";
 import { jsonSchema as aiJsonSchema } from "ai";
 import { convertAISDKStream } from "./converters/aisdk";
 import { convertTanStackStream } from "./converters/tanstack";
+import { createStateEventNormalizer } from "./state-delta";
 import type { StreamableHTTPClientTransportOptions } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -94,16 +92,17 @@ export type BuiltInAgentModel =
   | "openai/o3-mini"
   | "openai/o4-mini"
   // Anthropic (Claude) models
-  | "anthropic/claude-sonnet-4.5"
-  | "anthropic/claude-sonnet-4"
-  | "anthropic/claude-3.7-sonnet"
-  | "anthropic/claude-opus-4.1"
-  | "anthropic/claude-opus-4"
-  | "anthropic/claude-3.5-haiku"
+  | "anthropic/claude-sonnet-4-6"
+  | "anthropic/claude-sonnet-4-5"
+  | "anthropic/claude-opus-4-8"
+  | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
   | "google/gemini-2.5-flash-lite"
+  // MiniMax models
+  | "minimax/MiniMax-M3"
+  | "minimax/MiniMax-M2.7"
   // Allow any LanguageModel instance
   | (string & {});
 
@@ -219,7 +218,7 @@ export function resolveModel(
         // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
         baseURL: process.env.ANTHROPIC_BASE_URL,
       });
-      // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
+      // Pass model identifiers through unchanged; the provider owns validation.
       return anthropic(model);
     }
 
@@ -235,6 +234,15 @@ export function resolveModel(
       });
       // Accepts any Gemini id, e.g. "gemini-2.5-pro", "gemini-2.5-flash"
       return google(model);
+    }
+
+    case "minimax": {
+      const minimax = createOpenAI({
+        name: "minimax",
+        apiKey: apiKey || process.env.MINIMAX_API_KEY!,
+        baseURL: process.env.MINIMAX_BASE_URL || "https://api.minimax.io/v1",
+      });
+      return minimax(model);
     }
 
     case "vertex": {
@@ -817,6 +825,7 @@ export interface BuiltInAgentClassicConfig {
    * - OPENAI_API_KEY for OpenAI models
    * - ANTHROPIC_API_KEY for Anthropic models
    * - GOOGLE_API_KEY for Google models
+   * - MINIMAX_API_KEY for MiniMax models
    */
   apiKey?: string;
   /**
@@ -1353,7 +1362,7 @@ export class BuiltInAgent extends AbstractAgent {
           ];
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
-              let transport;
+              let transport: MCPTransport | undefined;
 
               if (serverConfig.type === "http") {
                 const url = new URL(serverConfig.url);
@@ -1362,6 +1371,13 @@ export class BuiltInAgent extends AbstractAgent {
                   serverConfig.options,
                 );
               } else if (serverConfig.type === "sse") {
+                // Imported lazily: the SDK's SSE transport pulls in
+                // `eventsource`, whose `bun` export condition resolves to ESM
+                // and breaks the SDK's own CJS `require()` under Bun. Keeping
+                // it out of this module's static graph means only configs that
+                // actually ask for SSE ever load it.
+                const { SSEClientTransport } =
+                  await import("@modelcontextprotocol/sdk/client/sse.js");
                 transport = new SSEClientTransport(
                   new URL(serverConfig.url),
                   serverConfig.headers,
@@ -1373,7 +1389,7 @@ export class BuiltInAgent extends AbstractAgent {
                 // bad auth) must NOT fail the whole run — skip it and continue
                 // with the healthy servers and the agent's own tools. The run
                 // degrades gracefully instead of erroring out.
-                let mcpClient;
+                let mcpClient: MCPClient;
                 try {
                   mcpClient = await createMCPClient({ transport });
                 } catch (err) {
@@ -1426,7 +1442,7 @@ export class BuiltInAgent extends AbstractAgent {
               ]),
           );
           const pendingInterrupts: Interrupt[] = [];
-
+          const normalizeStateEvent = createStateEventNormalizer(input.state);
           const toolCallStates = new Map<
             string,
             {
@@ -1674,11 +1690,15 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const snapshot = toolResult.snapshot;
                   if (snapshot !== undefined) {
-                    const stateSnapshotEvent: StateSnapshotEvent = {
+                    const stateSnapshotEvent: BaseEvent = {
                       type: EventType.STATE_SNAPSHOT,
                       snapshot,
                     };
-                    subscriber.next(stateSnapshotEvent);
+                    for (const event of normalizeStateEvent(
+                      stateSnapshotEvent,
+                    )) {
+                      subscriber.next(event);
+                    }
                   }
                 } else if (
                   toolName === "AGUISendStateDelta" &&
@@ -1687,11 +1707,13 @@ export class BuiltInAgent extends AbstractAgent {
                 ) {
                   const delta = toolResult.delta;
                   if (delta !== undefined) {
-                    const stateDeltaEvent: StateDeltaEvent = {
+                    const stateDeltaEvent: BaseEvent = {
                       type: EventType.STATE_DELTA,
                       delta,
                     };
-                    subscriber.next(stateDeltaEvent);
+                    for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                      subscriber.next(event);
+                    }
                   }
                 }
 
@@ -1922,6 +1944,7 @@ export class BuiltInAgent extends AbstractAgent {
                 result.fullStream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
               );
               break;
             }
@@ -1931,6 +1954,7 @@ export class BuiltInAgent extends AbstractAgent {
                 stream,
                 controller.signal,
                 pendingInterrupts,
+                input.state,
               );
               break;
             }

@@ -8,10 +8,11 @@ import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
-import { FrontendLogo } from "./frontend-logo";
+import { ComingSoonChannelLogo, FrontendLogo } from "./frontend-logo";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import {
+  COMING_SOON_CHANNEL_OPTIONS,
   FRONTEND_OPTIONS,
   backendPathForCurrentPath,
   frontendFromPathname,
@@ -20,7 +21,10 @@ import {
   isFrontendOptionActive,
   shouldNavigateFrontendSelection,
 } from "@/lib/frontend-options";
-import type { FrontendId } from "@/lib/frontend-options";
+import type {
+  ComingSoonChannelOption,
+  FrontendId,
+} from "@/lib/frontend-options";
 
 export interface FrameworkOption {
   slug: string;
@@ -59,6 +63,36 @@ function SelectorAffordance({ active }: { active: boolean }) {
         strokeWidth={2}
       />
     </span>
+  );
+}
+
+export function ComingSoonChannelPickerOption({
+  option,
+}: {
+  option: ComingSoonChannelOption;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-disabled="true"
+      aria-selected={false}
+      disabled
+      className="shell-docs-radius-control flex w-full cursor-not-allowed items-center gap-2 px-2 py-1.5 text-[13px] text-[var(--text-muted)]"
+    >
+      <span
+        className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <ComingSoonChannelLogo icon={option.icon} size={17} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left font-medium">
+        {option.name}
+      </span>
+      <span className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--text-muted)]">
+        Coming soon
+      </span>
+    </button>
   );
 }
 
@@ -370,6 +404,12 @@ export function FrameworkSelector({
                   </React.Fragment>
                 );
               })}
+              {COMING_SOON_CHANNEL_OPTIONS.map((option) => (
+                <ComingSoonChannelPickerOption
+                  key={option.id}
+                  option={option}
+                />
+              ))}
             </div>
           )}
 

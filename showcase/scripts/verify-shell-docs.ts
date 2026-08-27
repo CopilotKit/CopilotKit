@@ -5,10 +5,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { glob } from "glob";
 import yaml from "yaml";
-import {
-  findUnexpectedMultiFileRegions,
-  type MultiFileRegionSource,
-} from "./lib/demo-region-guard.js";
+import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import type { MultiFileRegionSource } from "./lib/demo-region-guard.js";
 import { checkEssentialContent } from "./lib/essential-content.js";
 import type { PageInput } from "./lib/essential-content.js";
 
@@ -534,7 +532,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-python",
     path: "integrations/claude-sdk-python/quickstart.mdx",
     title: "Python",
-    modelEnvLine: "ANTHROPIC_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "ANTHROPIC_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.py",
       "src/agents/claude_agent_sdk_adapter.py",
@@ -545,7 +543,7 @@ const CLAUDE_QUICKSTARTS = [
     slug: "claude-sdk-typescript",
     path: "integrations/claude-sdk-typescript/quickstart.mdx",
     title: "TypeScript",
-    modelEnvLine: "CLAUDE_MODEL=claude-sonnet-4-6",
+    modelEnvLine: "CLAUDE_MODEL=claude-opus-4-8",
     requiredStarterFiles: [
       "src/agent_server.ts",
       "src/app/api/copilotkit/route.ts",
@@ -782,11 +780,16 @@ export function checkClaudeQuickstarts(input: {
       [
         ["HttpAgent", "HttpAgent"],
         ["CopilotRuntime", "CopilotRuntime"],
-        ["ExperimentalEmptyAdapter", "ExperimentalEmptyAdapter"],
-        [
-          "copilotRuntimeNextJSAppRouterEndpoint",
-          "copilotRuntimeNextJSAppRouterEndpoint",
-        ],
+        // The v2 fetch handler in single-route mode. These assertions used to
+        // require `ExperimentalEmptyAdapter` +
+        // `copilotRuntimeNextJSAppRouterEndpoint`, which pinned both pages to
+        // the v1 entrypoint. Single-route keeps the route POST-only at the
+        // plain `route.ts` path — matching the starter these pages document,
+        // so `requiredStarterFiles` below is unchanged.
+        ["createCopilotRuntimeHandler", "createCopilotRuntimeHandler"],
+        ['from "@copilotkit/runtime/v2"', "v2 runtime entrypoint"],
+        ['mode: "single-route"', "single-route mode"],
+        ["export const POST", "POST export"],
         ['"http://localhost:8000"', "localhost agent URL"],
       ],
     );
@@ -833,25 +836,23 @@ export function checkClaudeQuickstarts(input: {
         "frontend install",
         ["@copilotkit/runtime", "@copilotkit/react-core", "@ag-ui/client"],
       );
-      checkBlockContains(
-        failures,
-        page.path,
-        findTitledBlock(blocks, "main.py"),
-        "main.py",
+      const mainBlock = findTitledBlock(blocks, "main.py");
+      checkBlockContains(failures, page.path, mainBlock, "main.py", [
+        ["RunAgentInput", "RunAgentInput"],
         [
-          ["RunAgentInput", "RunAgentInput"],
-          ["await request.json()", "request JSON parsing"],
-          ['os.getenv("ANTHROPIC_MODEL"', "Anthropic model env var"],
-          ["RunErrorEvent", "RunErrorEvent"],
-          ["EventType.RUN_ERROR", "RUN_ERROR event"],
-          ["ClaudeAgentAdapter", "ClaudeAgentAdapter"],
-          ["adapter.run(input_data)", "adapter run"],
-          ["StreamingResponse", "StreamingResponse"],
-          ['media_type="text/event-stream"', "SSE media type"],
-          ['@app.get("/health")', "health route"],
-          ['@app.post("/")', "agent POST route"],
+          /async\s+def\s+run_agent\s*\(\s*input_data\s*:\s*RunAgentInput\s*\)/,
+          "typed RunAgentInput request body",
         ],
-      );
+        ['os.getenv("ANTHROPIC_MODEL"', "Anthropic model env var"],
+        ["RunErrorEvent", "RunErrorEvent"],
+        ["EventType.RUN_ERROR", "RUN_ERROR event"],
+        ["ClaudeAgentAdapter", "ClaudeAgentAdapter"],
+        ["adapter.run(input_data)", "adapter run"],
+        ["StreamingResponse", "StreamingResponse"],
+        ['media_type="text/event-stream"', "SSE media type"],
+        ['@app.get("/health")', "health route"],
+        ['@app.post("/")', "agent POST route"],
+      ]);
     } else {
       checkCommandContains(
         failures,

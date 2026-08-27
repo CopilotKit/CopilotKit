@@ -151,7 +151,7 @@ function extractCodeRegions(
  *   model="gpt-5.4-mini"
  *   model: "gpt-5.4"
  *   model='gemini-2.5-flash'
- *   "model": "claude-sonnet-4"
+ *   "model": "claude-sonnet-4-6"
  *   ChatOpenAI(model="gpt-5.4")
  *   openai/gpt-5.4-mini  (bare provider-prefixed)
  */

@@ -15,6 +15,10 @@ interactive behavior, state, and deployment.
 
 ## Create and configure your Channel
 
+Use the browser wizard below to create the Channel, store its provider
+credentials, and inspect its health and threads. It is the released setup path
+for both Slack and Microsoft Teams.
+
 <FrontendOnly frontend="slack">
 
 <OpsPlatformCTA
@@ -45,10 +49,10 @@ interactive behavior, state, and deployment.
   className="my-8 w-full rounded-xl border border-fd-border"
 />
 
-<Callout type="info" title="Create one Channel per platform">
-  Create a separate Intelligence Channel for Slack and Microsoft Teams. Give
-  each Channel a unique Code. Both Channels can connect to the same agent
-  backend.
+<Callout type="info" title="One Channel can serve both providers">
+  Attach Slack, Microsoft Teams, or both to one Intelligence Channel. The
+  Channel uses one Code and one SDK handler set; each event and reply remains in
+  its originating provider conversation.
 </Callout>
 
 <Steps>
@@ -78,64 +82,43 @@ interactive behavior, state, and deployment.
 
     Your SDK declaration must use that exact Code:
 
-    <FrontendOnly frontend="slack">
-
     ```ts title="channel.ts"
     import { createChannel } from "@copilotkit/channels";
     import { makeAgent } from "./agent.js";
 
     const channel = createChannel({
-      name: "support-slack",
-      provider: "slack",
+      name: "support",
+      identifyUser: "platform",
       agent: makeAgent,
     });
     ```
-
-    </FrontendOnly>
-
-    <FrontendOnly frontend="teams">
-
-    ```ts title="channel.ts"
-    import { createChannel } from "@copilotkit/channels";
-    import { makeAgent } from "./agent.js";
-
-    const channel = createChannel({
-      name: "support-teams",
-      provider: "teams",
-      agent: makeAgent,
-    });
-    ```
-
-    </FrontendOnly>
 
     A mismatch leaves the Channel at **Waiting for runtime**.
 
   </Step>
 
   <Step>
-    ### Choose a platform
+    ### Choose providers
 
-    Select Slack or Microsoft Teams. To support both platforms, finish this
-    Channel first, then create another Channel with a different Code for the
-    other platform.
+    Select Slack, Microsoft Teams, or both. Each connection has its own setup
+    and installation steps but shares this Channel's Code and runtime
+    declaration.
 
     <FrontendOnly frontend="slack">
 
-    Select and configure only Slack for this guide. Use `support-slack` or
-    another unique Code.
+    Configure Slack for this guide. You can attach Teams to the same Channel
+    now or later without changing the Code.
 
     </FrontendOnly>
 
     <FrontendOnly frontend="teams">
 
-    Select and configure only Microsoft Teams for this guide. Use
-    `support-teams` or another unique Code.
+    Configure Microsoft Teams for this guide. You can attach Slack to the same
+    Channel now or later without changing the Code.
 
     </FrontendOnly>
 
-    Slack is the generally available managed provider. Teams is SDK-ready for
-    the coordinated gateway path (OSS-450); confirm your project entitlement
-    before relying on managed Teams in production. If a provider says
+    Slack and Teams use the same managed delivery path. If a provider says
     **Not on your plan**, change the project entitlement before continuing.
 
     Managed Intelligence support for Discord and WhatsApp shows **Coming
@@ -151,16 +134,19 @@ interactive behavior, state, and deployment.
 
     1. Copy the generated manifest, open Slack's app-creation flow, and create
        the app **From a manifest** using the YAML.
-    2. In **OAuth & Permissions**, click **Install to Workspace**, approve the
-       app, and paste the `xoxb-…` **Bot User OAuth Token** into **Bot token**.
+    2. In **OAuth & Permissions**, click **Install to Workspace**. Approve the
+       complete scope set from the current manifest, reinstall after any scope
+       update, and paste the current `xoxb-…` **Bot User OAuth Token** into
+       **Bot token**. Slack can issue a new token after reinstall.
     3. In **Basic Information → App Credentials**, copy the
        **Signing Secret** into Intelligence.
     4. Invite the app to a channel with `/invite @<app-handle>`, or open a
        direct message with it.
 
-    Slack sends signed Events API and slash-command requests to the public
-    Intelligence URLs in the generated manifest. Hosted Intelligence provides
-    those URLs; a self-hosted deployment must expose them.
+    Slack sends signed Events API requests to the public Intelligence URL in
+    the generated manifest. Hosted Intelligence provides that URL; a
+    self-hosted deployment must expose it. Managed slash commands are not part
+    of the Channels product surface.
 
   </Step>
 
@@ -171,26 +157,78 @@ interactive behavior, state, and deployment.
   <Step>
     ### Connect Microsoft Teams
 
-    1. In Microsoft Entra, create or open the bot's app registration. Copy its
-       **Application (client) ID** and **Directory (tenant) ID**, then create a
-       client secret.
-    2. In Azure, create an **Azure Bot** backed by that app registration.
-    3. In the bot's **Configuration**, set the exact read-only
-       **Messaging endpoint** shown by Intelligence and enable the
-       **Microsoft Teams** channel.
-    4. In Intelligence, enter the required **Client ID** (the app
-       registration's Application/client ID), **Client secret**, and **Tenant
-       ID**. These credentials are write-only after submission.
-    5. Before downloading, enter that same Application/client ID in
-       **Azure Bot App ID**, then click **Download app package (.zip)**. If you
-       leave it blank, replace both `<your-azure-bot-app-id>` placeholders in
-       the downloaded manifest before uploading it.
-    6. Upload the completed package in Teams Developer Portal, or through
-       **Apps → Manage your apps → Upload a custom app**, and add it to a team
-       or chat.
+    Intelligence creates the Channel draft, then shows you a command to run:
 
-    Do not replace the generated messaging endpoint with your Channels runner
-    URL. Intelligence owns the public Teams edge.
+    ```bash title="Terminal"
+    npx copilotkit@latest channels add \
+      --project-id <project-id> --channel-id <channel-id> \
+      --adapter teams --provision
+    ```
+
+    Use the wizard's copy button rather than retyping it. The wizard fills in
+    the project and channel ids that bind the Microsoft app it creates to this
+    exact Channel; retyping them is the most common way this goes wrong.
+
+    The command signs you in to Microsoft, creates a Teams bot in your own
+    tenant, and points it at the Intelligence messaging endpoint. You are not
+    asked for a client ID, tenant ID, or secret: the command reads them from
+    the bot it just created and stores them write-only in Intelligence. You
+    never edit `manifest.json`.
+
+    It then writes `<channel-name>-teams-app.zip` next to where you ran it and
+    stops to hand that file to you. Microsoft exposes no install API, so
+    producing the package is as far as any tool can take you — the upload is
+    yours. Upload it from the **target team → … → Manage team → Apps**, not
+    from your personal Apps section: a personal-scope upload gives you a
+    working DM, no Team installation, and no way to promote it afterwards. The
+    command prints these steps with your package path filled in, then waits for
+    you to press Enter, and verifies the installation before it finishes.
+
+    If Teams offers no upload option, the tenant disallows custom apps and an
+    administrator has to add the package for you. Stop with Ctrl-C and run the
+    same command again once it is installed — it resumes rather than creating a
+    second app.
+
+    You need a Microsoft account that is allowed to upload a custom app to the
+    Team you pick. The bot is registered in Teams Developer Portal.
+
+    If you customized the app name or icons, the wizard builds that branding in
+    your browser and its command carries an extra `--teams-package "./<file>"`.
+    Run it from the folder holding that download. The CLI validates the file,
+    builds the app from it, and deletes the local copy; an invalid or
+    mistargeted path is rejected before anything is removed. This does not
+    replace the Team upload above — it only decides how the app looks.
+
+    #### The two permissions
+
+    Reading messages in a Team channel uses `ChannelMessage.Read.Group`, granted
+    by a Team owner as the app is added. This one is required — without it the
+    app is installed but deaf in channels.
+
+    Reading a file someone uploads to a Team channel additionally needs the
+    `Files.Read.All` application permission, which a Microsoft administrator
+    must consent to. The command asks and defaults to skipping it. It is
+    genuinely optional: skip it and everything works except attachments
+    uploaded to a Team channel — files shared in a 1:1 chat and images pasted
+    into a channel are unaffected, and the message still arrives, just without
+    that attachment. It reads only; the app never creates, updates, or deletes.
+    You can grant it later.
+
+    Teams settles app permissions only while the app is being added, so
+    changing your mind later means removing the app from the Team and adding it
+    again.
+
+    #### What finishing does and does not prove
+
+    Finish by adding the app to a team. A personal-only installation does not
+    complete setup. Intelligence then reports **Created and installed**, which
+    means the bot exists, the credentials were accepted, and a Team
+    installation was recorded. It does not claim your runtime is online or that
+    a real message was ever delivered — that is the next guide.
+
+    Do not replace the messaging endpoint with your Channels runner URL.
+    Intelligence owns the public Teams edge, and the runner takes no inbound
+    provider traffic at all.
 
   </Step>
 
@@ -212,8 +250,9 @@ interactive behavior, state, and deployment.
 
     <FrontendOnly frontend="teams">
 
-    A valid app registration can still fail if the Azure Bot or Teams app
-    package points at the wrong identity.
+    **Created and installed** is provider setup, not runtime verification. Start
+    the long-running runtime and send a real Teams message before calling the
+    Channel working.
 
     </FrontendOnly>
 

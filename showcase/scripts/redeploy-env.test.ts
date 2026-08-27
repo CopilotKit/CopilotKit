@@ -48,7 +48,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default staging scope = 39 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 40 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -68,18 +68,19 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 39 CI-built (27 showcase/infra incl. showcase-strands-typescript,
-    // now dual-env, + 12 starters) + harness-workers (imageOf consumer of
-    // showcase-harness) = 40. All 39 declare staging, so the env-aware
+    // 40 CI-built (28 showcase/infra incl. conversational flows,
+    // + 12 starters) + harness-workers (imageOf consumer of showcase-harness)
+    // = 41. All 40 declare staging, so the env-aware
     // default scope keeps every one of them.
-    expect(result.attempted).toBe(40);
-    expect(result.succeeded).toBe(40);
-    expect(redeploy).toHaveBeenCalledTimes(40);
+    expect(result.attempted).toBe(41);
+    expect(result.succeeded).toBe(41);
+    expect(redeploy).toHaveBeenCalledTimes(41);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
     // The TypeScript Strands integration declares staging, so it IS in the
     // staging default scope (and now prod too — see below).
     expect(seenNames).toContain("showcase-strands-typescript");
+    expect(seenNames).toContain("showcase-crewai-conversational-flows");
     // S2: starters are CI-built, so they JOIN the default redeploy scope.
     expect(seenNames).toContain("starter-adk");
     expect(seenNames).toContain("starter-mastra");
@@ -142,14 +143,15 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope includes the dual-env worker (harness-workers) and dual-env showcase-strands-typescript", async () => {
+  it("default prod scope includes the dual-env worker, Strands TS, and CrewAI conversational flows", async () => {
     // The default scope is env-aware: a service joins the prod scope when it
     // declares a prod env. harness-workers is now dual-env (the prod worker was
     // backfilled into the SSOT), so the env-aware imageOf expansion pulls it
     // into the prod scope as a showcase-harness consumer. showcase-strands-typescript
-    // is also dual-env and joins. The prod default = the 40 services that
-    // declare prod (27 CI-built showcase/infra incl. showcase-strands-typescript
-    // + 12 starters + the imageOf-consumer harness-workers).
+    // is also dual-env and joins. CrewAI Conversational Flows now has a prod
+    // instance and joins too. The prod default = the 41 services that declare
+    // prod (28 CI-built showcase/infra + 12 starters + the imageOf-consumer
+    // harness-workers).
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -163,12 +165,14 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(40);
+    expect(result.attempted).toBe(41);
     // harness-workers is now dual-env, so a prod redeploy of its showcase-harness
     // image bounces the prod worker too (it used to be silently skipped).
     expect(seenNames).toContain("harness-workers");
     // showcase-strands-typescript is dual-env, so it joins the prod scope.
     expect(seenNames).toContain("showcase-strands-typescript");
+    // CrewAI Conversational Flows is now dual-env, so it joins the prod scope.
+    expect(seenNames).toContain("showcase-crewai-conversational-flows");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });
@@ -575,12 +579,13 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 27 showcase/infra CI-built (incl. showcase-strands-typescript) + 12
-    // starters = 39. resolveTargetServices returns the FULL CI_BUILT set;
+    // 28 showcase/infra CI-built (incl. conversational flows) +
+    // 12 starters = 40. resolveTargetServices returns the FULL CI_BUILT set;
     // the env-aware narrowing happens later in runRedeploy, not here.
-    expect(resolved.length).toBe(39);
+    expect(resolved.length).toBe(40);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
+    expect(resolved).toContain("showcase-crewai-conversational-flows");
     // S2: starters are CI-built and part of the default scope.
     expect(resolved).toContain("starter-adk");
     // webhooks remains out-of-band.

@@ -40,7 +40,7 @@ jobs:
           persist-credentials: false
 
       - name: Detect changed paths
-        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: |
@@ -65,6 +65,8 @@ jobs:
               - 'showcase/integrations/mastra/**'
             crewai_crews:
               - 'showcase/integrations/crewai-crews/**'
+            crewai_conversational_flows:
+              - 'showcase/integrations/crewai-conversational-flows/**'
             pydantic_ai:
               - 'showcase/integrations/pydantic-ai/**'
             google_adk:
@@ -145,6 +147,7 @@ jobs:
             {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/integrations/langgraph-python","image":"showcase-langgraph-python","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/integrations/mastra","image":"showcase-mastra","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/integrations/crewai-crews","image":"showcase-crewai-crews","timeout":15,"build_args":"","dockerfile":""},
+            {"dispatch_name":"crewai-conversational-flows","filter_key":"crewai_conversational_flows","context":"showcase/integrations/crewai-conversational-flows","image":"showcase-crewai-conversational-flows","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/integrations/pydantic-ai","image":"showcase-pydantic-ai","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/integrations/google-adk","image":"showcase-google-adk","timeout":15,"build_args":"","dockerfile":""},
             {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/integrations/ag2","image":"showcase-ag2","timeout":15,"build_args":"","dockerfile":""},
@@ -213,7 +216,7 @@ jobs:
 
       - name: Setup pnpm
         if: needs.detect-changes.outputs.needs_angular == 'true'
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Setup Node
         if: needs.detect-changes.outputs.needs_angular == 'true'
@@ -275,7 +278,7 @@ jobs:
           path: ${{ runner.temp }}/showcase-angular-browser
 
       - name: Setup Depot
-        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+        uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
 
       - name: Prepare build args
         id: build-args
@@ -309,7 +312,7 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
-          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Dereference tools/, shared-tools/, data/, and _shared/ symlinks for the
           # Docker context. Integration directories use symlinks pointing
           # outside the build context (tools -> ../../shared/python/tools,
           # _shared -> ../_shared for the CVDIAG bootstrap modules). Docker
@@ -318,7 +321,7 @@ jobs:
           # symlinks: /_shared" — so each symlink is replaced with a real
           # copy of its target. Mirrors stage_shared() in
           # showcase/scripts/cli/_common.sh (the local bin/showcase path).
-          for link_name in tools shared-tools _shared; do
+          for link_name in tools shared-tools data _shared; do
             link_path="$CONTEXT/$link_name"
             if [ -L "$link_path" ]; then
               target="$(readlink -f "$link_path")"

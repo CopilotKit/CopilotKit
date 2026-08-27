@@ -14,14 +14,14 @@ npm install @copilotkit/angular
 
 Peer dependencies you provide in your app:
 
-- `@angular/core` and `@angular/common` (20, 21, or 22)
+- `@angular/core` and `@angular/common` (Angular 22)
 - `@angular/cdk` (match your Angular major)
 - `rxjs` 7.8 or newer
 
 The exact versions exercised by the packed-consumer release matrix are stored
 in `package.json` under `copilotkit.angularSupport`. The library is compiled at
-the Angular 20 support floor and installed with strict peer checking against
-all three supported majors.
+the Angular 22 baseline and installed with strict peer checking against that
+supported major.
 
 ## Quick start
 
@@ -107,6 +107,7 @@ The `agent` is an AG-UI `AbstractAgent`. Refer to your AG-UI agent implementatio
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
@@ -125,6 +126,8 @@ export interface CopilotKitConfig {
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
+- `credentials`: Fetch credentials mode. Use `"include"` for cross-origin
+  HTTP-only cookies.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
 - `selfManagedAgents`: AG-UI agents managed directly by the application.
@@ -153,6 +156,7 @@ export interface CopilotKitConfig {
 - `runtimeUrl`: `Signal<string | undefined>`
 - `runtimeTransport`: `Signal<CopilotRuntimeTransport>` (`"rest" | "single"`)
 - `headers`: `Signal<Record<string, string>>`
+- `credentials`: `Signal<RequestCredentials | undefined>`
 - `toolCallRenderConfigs`: `Signal<RenderToolCallConfig[]>`
 - `clientToolCallRenderConfigs`: `Signal<FrontendToolConfig[]>`
 - `humanInTheLoopToolRenderConfigs`: `Signal<HumanInTheLoopConfig[]>`
@@ -164,7 +168,7 @@ export interface CopilotKitConfig {
 - `addRenderToolCall(config: RenderToolCallConfig): void`
 - `addHumanInTheLoop(config: HumanInTheLoopConfig): void`
 - `removeTool(toolName: string, agentId?: string): void`
-- `updateRuntime(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: Record<string,string>; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; }): void`
+- `updateRuntime(options: { runtimeUrl?: string; runtimeTransport?: CopilotRuntimeTransport; headers?: Record<string,string>; credentials?: RequestCredentials; properties?: Record<string, unknown>; agents?: Record<string, AbstractAgent>; selfManagedAgents?: Record<string, AbstractAgent>; }): void`
 
 ### Advanced
 
@@ -395,6 +399,8 @@ Tool arguments are parsed with `partialJSONParse`, so incomplete JSON during str
 - Set `runtimeUrl` to your CopilotKit runtime endpoint.
 - If you need to change runtime settings at runtime, call `CopilotKit.updateRuntime(...)`.
 - `runtimeTransport` supports `"rest"` or `"single"` (SSE single-stream transport).
+- For cross-origin cookie authentication, set `credentials: "include"` and
+  enable credentialed CORS for the Angular app's exact origin.
 
 ## Activity renderers and generative UI
 

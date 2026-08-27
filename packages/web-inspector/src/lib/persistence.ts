@@ -14,7 +14,48 @@ export type PersistedState = {
   dockMode?: DockMode;
   selectedMenu?: string;
   selectedContext?: string;
+  hasOpenedInspector?: boolean;
+  sidebarCollapsed?: boolean;
+  /** @deprecated Replaced by colorSchemePreference to distinguish a user choice from the old light default. */
+  colorScheme?: "light" | "dark";
+  colorSchemePreference?: "light" | "dark";
 };
+
+export const HOME_NEWS_READ_STORAGE_KEY = "cpk:inspector:home-news-read";
+
+/** Return story ids the user has already opened or hovered on Home. */
+export function loadHomeNewsReadIds(storageKey: string): string[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((id): id is string => typeof id === "string");
+  } catch {
+    return [];
+  }
+}
+
+/** Persist Home news story ids that the user has already seen. */
+export function saveHomeNewsReadIds(storageKey: string, ids: string[]): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(storageKey, JSON.stringify(ids));
+  } catch (error) {
+    console.warn("Failed to persist Home news read state", error);
+  }
+}
 
 export function loadInspectorState(storageKey: string): PersistedState | null {
   if (typeof window === "undefined") {
@@ -108,6 +149,160 @@ export function isValidDockMode(value: unknown): value is DockMode {
   return value === "floating" || value === "docked-left";
 }
 
+// Announcement read state — "have I read this announcement" is a property of
+// the person, not of the project, so it must survive a change of localhost
+// port. localStorage cannot express that: it is partitioned by origin and
+// origin includes the port, so :3000 and :5173 are separate stores. Cookies
+// are partitioned by host, so a cookie set on `localhost` without a `domain`
+// attribute is shared by every port on that host.
+//
+// Underscores, not colons: `:` is a separator in RFC 6265 and is not valid in
+// a cookie name. Browsers are lenient about it; we don't rely on that.
+const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
+
+// localStorage mirror of the cookie, so a browser that blocks cookies
+// degrades to per-port behaviour instead of losing the read state entirely.
+// A NEW key on purpose — the legacy one is abandoned, not migrated.
+const ANNOUNCEMENT_READ_MIRROR_KEY = "cpk:inspector:announcement_read";
+
+// The superseded key. Every existing user is re-armed exactly once so they
+// discover the surface that replaced the announcement bubble, and the key is
+// deleted rather than left in place so nothing can fall back to it later.
+const LEGACY_ANNOUNCEMENT_READ_KEY = "cpk:inspector:announcements";
+
+// Pulse suppression is per browser tab, and stores the announcement timestamp
+// rather than a boolean: a boolean would swallow a newly published
+// announcement for the rest of that tab's life, and the feed is fetched once
+// per mount with no polling.
+const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
+
+// Roughly one year. No `Secure` — local development is served over plain
+// HTTP — and no `HttpOnly`, because the component reads the value from
+// script. `Path=/` and `SameSite=Lax` keep it host-wide and same-site only.
+const ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+/**
+ * The announcement timestamp the user has already read, or `null` when
+ * nothing has been read yet. Prefers the host-scoped cookie and falls back to
+ * the origin-scoped mirror, so cookie-blocking browsers still remember the
+ * read within the port they are on.
+ */
+export function loadAnnouncementReadTimestamp(): string | null {
+  return (
+    parseTimestampPayload(readAnnouncementCookie()) ??
+    parseTimestampPayload(readLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY))
+  );
+}
+
+/**
+ * Records an announcement as read in both the host-scoped cookie and the
+ * origin-scoped mirror. The stored value is `{"timestamp":"…"}` — the same
+ * shape the announcement state has always used.
+ */
+export function saveAnnouncementReadTimestamp(timestamp: string): void {
+  const payload = JSON.stringify({ timestamp });
+  writeAnnouncementCookie(payload);
+  writeLocalStorageItem(ANNOUNCEMENT_READ_MIRROR_KEY, payload);
+}
+
+/**
+ * Deletes the superseded origin-scoped read state. Safe to call on every
+ * startup: nothing writes that key any more, so the value cannot come back.
+ */
+export function clearLegacyAnnouncementReadState(): void {
+  removeLocalStorageItem(LEGACY_ANNOUNCEMENT_READ_KEY);
+}
+
+/**
+ * The announcement timestamp this browser tab has already pulsed for, or
+ * `null` when it hasn't pulsed yet.
+ */
+export function loadAnnouncementPulsedTimestamp(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage.getItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Suppresses further pulses for this announcement in this browser tab. */
+export function saveAnnouncementPulsedTimestamp(timestamp: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(ANNOUNCEMENT_PULSED_SESSION_KEY, timestamp);
+  } catch {
+    // No-op — a lost suppression costs one extra pulse, never correctness.
+  }
+}
+
+function parseTimestampPayload(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { timestamp?: unknown };
+    return typeof parsed?.timestamp === "string" ? parsed.timestamp : null;
+  } catch {
+    return null;
+  }
+}
+
+function readAnnouncementCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  try {
+    for (const entry of document.cookie.split(";")) {
+      const separator = entry.indexOf("=");
+      if (separator === -1) continue;
+      if (entry.slice(0, separator).trim() !== ANNOUNCEMENT_READ_COOKIE_NAME) {
+        continue;
+      }
+      return decodeURIComponent(entry.slice(separator + 1).trim());
+    }
+  } catch {
+    // Cookie access throws in sandboxed documents — fall through to the
+    // mirror rather than breaking the host app.
+  }
+  return null;
+}
+
+function writeAnnouncementCookie(value: string): void {
+  if (typeof document === "undefined") return;
+  try {
+    document.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=${encodeURIComponent(
+      value,
+    )}; Path=/; Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+  } catch {
+    // No-op — the mirror below is what a cookie-blocking browser falls back
+    // to, and neither may break the host app.
+  }
+}
+
+function readLocalStorageItem(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalStorageItem(key: string, value: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // No-op — see getOrCreateTelemetryDistinctId.
+  }
+}
+
+function removeLocalStorageItem(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // No-op.
+  }
+}
+
 // Telemetry persistence — flat per-key localStorage rather than the
 // JSON-blob shape used for window/dock state, because each value is
 // independent and we want to read/write them without round-tripping
@@ -118,8 +313,9 @@ const TELEMETRY_DISCLOSURE_SHOWN_KEY =
   "cpk:inspector:telemetry:disclosure_shown";
 
 // Module-level fallback for when localStorage is unavailable (private mode,
-// quota exceeded, etc.). Cached so that banner_viewed and banner_clicked from
-// the same page-load share one distinct_id even without persistent storage —
+// quota exceeded, etc.). Cached so that whats_new_viewed and
+// whats_new_clicked from the same page-load share one distinct_id even
+// without persistent storage —
 // funnel coherence within a session is preserved even when storage fails.
 let inMemoryFallbackId: string | null = null;
 

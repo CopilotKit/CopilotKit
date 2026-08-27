@@ -3,7 +3,6 @@ import useCreditCards from "@/skins/banking/actions";
 import { useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useAgentContext } from "@copilotkit/react-core/v2";
-import type { Transaction } from "@/skins/banking/data/data";
 import { ArrowDownRight, ArrowUpRight, Plus, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionsList } from "@/skins/banking/components/transactions-list";
@@ -12,7 +11,7 @@ import { StatisticsChart } from "@/skins/banking/components/statistics-chart";
 import { AnalyticsView } from "@/skins/banking/components/wow/analytics-view";
 import { ReportsView } from "@/skins/banking/components/wow/reports-view";
 import { useAuthContext } from "@/skins/banking/components/auth-context";
-import { useRecording } from "@/skins/banking/components/recording-context";
+import { useRecording } from "@/shell/teach";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 
@@ -62,7 +61,10 @@ export default function HomePage() {
     status,
   }: {
     id: string;
-    status: Transaction["status"];
+    // The mutation surface, deliberately narrower than Transaction["status"]:
+    // "flagged" is a review state the UI displays but never transitions to, and
+    // over-limit is derived rather than stored.
+    status: "pending" | "approved" | "denied";
   }): Promise<boolean> => {
     const { ok } = await changeTransactionStatus({ id, status });
     return ok;

@@ -1,0 +1,79 @@
+/* Keel (Harbor Point Health) theme — a dense, utilitarian internal-tool palette.
+   Re-values only the shared design tokens the shell defines in globals.css; adds
+   no new token names.
+
+   Deliberately distinct from both shipped skins: banking is a cool violet-indigo
+   consumer-fintech surface, airline a bright jet teal (190 88% 38%). Keel is a
+   deep pine/evergreen on WARM neutrals, with the tightest radius in the app.
+
+   --brand-violet is Keel's AMBER "awaiting approval" accent. The shell's token
+   vocabulary has no warning slot, and a skin may not invent token names, so the
+   secondary-accent slot carries the workflow-attention state. Airline likewise
+   re-purposes it. Use bg-brand-violet / text-brand-violet for awaiting_approval
+   and blocked states. */
+
+.theme-keel {
+  /* Dark capability, declared on the theme root. The `.dark` signal lands on
+     <html> and is global to all skins, so only a skin that ships a dark palette
+     (the `.dark .theme-keel` block below) should react to it — otherwise a
+     light-only skin inherits dark chat chrome and renders half-dark. The flag
+     name is a legacy artifact of the banking skin's "Northwind" origins, but it
+     is the signal the SHELL reads: reuse it verbatim, never rename it. */
+  --nw-dark-capable: 1;
+
+  /* Tightest radius in the app (airline 1.125rem, banking 0.75rem). Radius
+     alone is most of what reads as "internal tool". */
+  --radius: 0.5rem;
+
+  /* Brand: deep pine. NOT teal — airline owns 190 88% 38%. */
+  --brand: 170 38% 28%;
+  --brand-indigo: 178 40% 22%;
+  --brand-foreground: 0 0% 100%;
+  --brand-soft: 168 34% 93%;
+  /* The amber attention accent — see the note above. */
+  --brand-violet: 36 88% 46%;
+
+  /* Surfaces: warm neutrals, so light mode does not read clinical-cold. */
+  --background: 40 12% 99%;
+  --foreground: 30 10% 12%;
+
+  --canvas: 40 14% 96%;
+  --surface: 0 0% 100%;
+  --surface-muted: 40 12% 97%;
+  --ink: 30 10% 14%;
+  --ink-muted: 30 6% 42%;
+  /* Stronger than either shipped skin: the tables here are dense and need
+     visible rules. */
+  --hairline: 36 10% 85%;
+
+  --positive: 158 52% 34%;
+  --positive-soft: 158 44% 93%;
+  --negative: 6 66% 48%;
+  --negative-soft: 6 74% 96%;
+}
+
+/* DARK — cool graphite, the mode an internal tool actually lives in. `.dark`
+   lands on <html>, an ancestor of this theme root. Only tokens that differ from
+   the light block are restated. */
+.dark .theme-keel {
+  color-scheme: dark;
+
+  --background: 200 12% 9%;
+  --foreground: 40 8% 92%;
+
+  --canvas: 200 12% 11%;
+  --surface: 200 10% 13%;
+  --surface-muted: 200 10% 16%;
+  --ink: 40 8% 93%;
+  --ink-muted: 35 6% 62%;
+  --hairline: 200 8% 24%;
+
+  --brand: 168 42% 46%;
+  --brand-soft: 170 26% 20%;
+  --brand-violet: 36 84% 56%;
+
+  --positive: 158 46% 46%;
+  --positive-soft: 158 30% 18%;
+  --negative: 6 62% 56%;
+  --negative-soft: 6 40% 20%;
+}

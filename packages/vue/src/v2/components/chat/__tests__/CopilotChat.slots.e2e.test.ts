@@ -4,7 +4,6 @@ import { h } from "vue";
 import CopilotChat from "../CopilotChat.vue";
 import { renderWithCopilotKit } from "../../../__tests__/utils/mount";
 import { StateCapturingAgent } from "../../../__tests__/utils/agents";
-import { getThreadClone } from "../../../hooks/use-agent";
 
 describe("CopilotChat.slots.e2e", () => {
   it("supports full chat-view override with callback payload", async () => {
@@ -133,7 +132,7 @@ describe("CopilotChat.slots.e2e", () => {
     await flushPromises();
 
     const registryAgent = getCore().getAgent("custom-agent");
-    const resolvedAgent = getThreadClone(registryAgent, "explicit-thread");
+    const resolvedAgent = registryAgent;
     expect(defaultAgent.messages).toHaveLength(0);
     expect(resolvedAgent?.threadId).toBe("explicit-thread");
     expect(resolvedAgent?.messages.some((m) => m.role === "user")).toBe(true);

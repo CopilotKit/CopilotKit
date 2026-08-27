@@ -10,15 +10,19 @@
     "build": "next build",
     "start": "next start",
     "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
-    "postinstall": "npm run install:agent"
+    "postinstall": "npm run install:agent",
+    "channel": "tsx --tsconfig tsconfig.channel.json channel-host.mts",
+    "typecheck:channel": "tsc -p tsconfig.channel.json --noEmit"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@copilotkit/react-core": "1.62.3",
-    "@copilotkit/runtime": "1.62.3",
+    "@ag-ui/client": "0.0.58",
+    "@copilotkit/channels": "0.9.0",
+    "@copilotkit/react-core": "1.68.1",
+    "@copilotkit/runtime": "1.68.1",
     "@hono/node-server": "^1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^16.4.7",
     "hono": "^4",
     "lucide-react": "^0.577.0",
     "next": "16.1.1",
@@ -35,12 +39,13 @@
     "@types/react-dom": "^19",
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
-    "@ag-ui/encoder": "0.0.57",
-    "@ag-ui/proto": "0.0.57"
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
+    "@ag-ui/encoder": "0.0.58",
+    "@ag-ui/proto": "0.0.58"
   }
 }

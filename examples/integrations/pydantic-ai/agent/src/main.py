@@ -1,9 +1,17 @@
 from agent import ProverbsState, StateDeps, agent
+from pydantic_ai.ui.ag_ui import AGUIAdapter
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
 
-agui_app = agent.to_ag_ui(deps=StateDeps(ProverbsState()))
+
+async def run_agent(request: Request) -> Response:
+    # Fresh deps per request: `dispatch_request` writes the client's state into
+    # `deps.state`, so a shared instance leaks state between threads, channels and users.
+    return await AGUIAdapter.dispatch_request(
+        request, agent=agent, deps=StateDeps(ProverbsState())
+    )
 
 
 async def health(request):
@@ -13,7 +21,7 @@ async def health(request):
 app = Starlette(
     routes=[
         Route("/health", health),
-        Mount("/", app=agui_app),
+        Route("/", run_agent, methods=["POST"]),
     ]
 )
 

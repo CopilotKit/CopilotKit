@@ -2,12 +2,12 @@
 
 ## Agent Types in CopilotKit v2
 
-| Agent Type             | Package             | Description                                                                          |
-| ---------------------- | ------------------- | ------------------------------------------------------------------------------------ |
-| `BuiltInAgent`         | `@copilotkit/agent` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
-| `LangGraphAgent`       | `@ag-ui/langgraph`  | Wraps a LangGraph deployment (Python or JS)                                          |
-| `A2AAgent`             | Varies              | Agent-to-Agent protocol agent                                                        |
-| Custom `AbstractAgent` | `@ag-ui/client`     | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
+| Agent Type             | Package                  | Description                                                                          |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
+| `BuiltInAgent`         | `@copilotkit/runtime/v2` | Uses Vercel AI SDK `streamText` with configurable model providers                    |
+| `LangGraphAgent`       | `@ag-ui/langgraph`       | Wraps a LangGraph deployment (Python or JS)                                          |
+| `A2AAgent`             | Varies                   | Agent-to-Agent protocol agent                                                        |
+| Custom `AbstractAgent` | `@ag-ui/client`          | Any class extending `AbstractAgent` with a `run()` returning `Observable<BaseEvent>` |
 
 ## Agent Discovery Issues
 
@@ -209,7 +209,7 @@ The tool's `execute` function threw an exception.
 Supported formats:
 
 - `"openai/gpt-5"`, `"openai/gpt-4o"`, `"openai/o3-mini"`
-- `"anthropic/claude-sonnet-4.5"`, `"anthropic/claude-opus-4"`
+- `"anthropic/claude-sonnet-4-6"`, `"anthropic/claude-opus-4-8"`
 - `"google/gemini-2.5-pro"`, `"google/gemini-2.5-flash"`
 - `"vertex/gemini-2.5-pro"` (uses Google Vertex AI)
 

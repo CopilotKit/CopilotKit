@@ -1,0 +1,161 @@
+---
+title: Inspector
+description: Mount the CopilotKit Inspector in an Angular application and keep it out of production builds.
+icon: "lucide/SearchCheck"
+doc_type: how-to
+---
+
+The Inspector is a debugging overlay for the live connection between your Angular
+application and your agents. It opens from a floating launcher and reports what
+the application and the runtime exchange as a run happens.
+
+Its navigation has three groups — **Threads**, **Agents**, and **Learning** — and
+opens on Threads, whose contents depend on the runtime's license state. The
+agent-debugging views sit under Agents:
+
+| View                 | What it shows                                                        |
+| -------------------- | -------------------------------------------------------------------- |
+| **AG-UI Events**     | The raw event stream between your application and the agent.          |
+| **Available Agents** | The agents the runtime advertises to your application.                |
+| **Agent State**      | The selected agent's state as it updates.                             |
+| **Frontend Tools**   | The tools you registered, with their parameter schemas.               |
+| **Context**          | The context you sent to the agent, including readables and documents. |
+
+## Mount the element
+
+The Inspector is `cpk-web-inspector`, a framework-agnostic web component in
+`@copilotkit/web-inspector`. `@copilotkit/angular` does not depend on that
+package and does not mount the element, so an Angular application creates it and
+supplies the core itself.
+
+Install the package as a dev dependency to keep it out of your production
+dependency graph:
+
+```bash
+npm install --save-dev @copilotkit/web-inspector
+```
+
+Add a component that owns the element's lifecycle. It reuses an existing element
+or creates one after the first browser render, supplies the core, appends the
+element to `document.body`, and removes it when the component is destroyed:
+
+```ts title="src/app/web-inspector.ts"
+import { afterNextRender, Component, DestroyRef, inject } from "@angular/core";
+import { CopilotKit } from "@copilotkit/angular";
+import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
+import type { WebInspectorElement } from "@copilotkit/web-inspector";
+
+@Component({
+  selector: "app-web-inspector",
+  template: "",
+})
+export class WebInspector {
+  readonly #copilotKit = inject(CopilotKit);
+  readonly #destroyRef = inject(DestroyRef);
+
+  constructor() {
+    afterNextRender(() => {
+      const existing =
+        document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
+      const inspector =
+        existing ??
+        (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
+
+      // Supply the application's core instead of letting the element find one.
+      inspector.core = this.#copilotKit.core;
+      inspector.setAttribute("auto-attach-core", "false");
+
+      if (!existing) {
+        document.body.appendChild(inspector);
+      }
+
+      this.#destroyRef.onDestroy(() => {
+        if (inspector.isConnected) {
+          inspector.remove();
+        }
+      });
+    });
+  }
+}
+```
+
+Render the component once, from the root component, behind a development-only
+`@defer`:
+
+```ts title="src/app/app.ts"
+import { Component, isDevMode } from "@angular/core";
+import { WebInspector } from "./web-inspector";
+
+@Component({
+  selector: "app-root",
+  imports: [WebInspector],
+  template: `
+    <!-- your application -->
+
+    @defer (when isDev) {
+      <app-web-inspector />
+    }
+  `,
+})
+export class App {
+  protected readonly isDev = isDevMode();
+}
+```
+
+## Supply the application's core
+
+`inspector.core = copilotKit.core` is what makes the Inspector report your
+application rather than show an empty panel. Without an assigned core, the
+element searches development globals such as `window.__COPILOTKIT_CORE__` for
+one. Setting `auto-attach-core="false"` disables that search, so the element
+observes the core you assigned and nothing else.
+
+Assign `core` directly. It is a property, not an attribute, and
+`auto-attach-core` is the only attribute the element observes.
+
+## Position the launcher
+
+The launcher defaults to the top-right corner, and the element positions itself
+with an inline transform. Override both from your global stylesheet. A
+bottom-left corner keeps the launcher clear of the close button on a chat panel
+or sidebar:
+
+```css title="src/styles.css"
+cpk-web-inspector {
+  /* The panel is draggable and sets an inline transform. Neutralize it before
+     choosing a corner. */
+  transform: none !important;
+  top: auto !important;
+  bottom: 1rem !important;
+  left: 1rem !important;
+  right: auto !important;
+}
+```
+
+## Keep it out of production builds
+
+The element has no production guard of its own, so exclude it in the same place
+you mount it. `@defer (when isDev)` compiles the component and its
+`@copilotkit/web-inspector` import into a lazy chunk, and `isDevMode()` returns
+`false` in a production build, so that chunk is never requested. Removing the
+component and its `<app-web-inspector />` usage removes the Inspector entirely.
+
+## Server rendering
+
+`afterNextRender` runs only in the browser, so the element is never created
+during a server render. The deferred import also keeps the package out of the
+server bundle. Both matter: the web component registers itself against
+`customElements`, which does not exist on the server.
+
+## Clean up on destroy
+
+The element lives in `document.body`, outside the component's own view, so
+Angular does not remove it. `DestroyRef.onDestroy` removes it explicitly.
+Without that cleanup, a route change that destroys the component leaves an
+orphaned panel bound to a core the application no longer uses.
+
+## Next steps
+
+- [Troubleshooting Angular apps](/angular/guides/troubleshooting)
+- [AG-UI Event Inspector](/troubleshooting/event-inspector)
+- [Angular API: CopilotKit](/reference/angular/services/CopilotKit)
