@@ -158,8 +158,6 @@ def search_flights(
     return json.dumps(result)
 
 
-
-
 def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     """Instantiate the CopilotKit demo agent backed by Microsoft Agent Framework."""
     base_agent = Agent(
