@@ -167,10 +167,18 @@ describe("exposeState", () => {
     const systemMessage = model.receivedMessages[0].find(
       (message) => message._getType() === "system",
     );
-    expect(Array.isArray(systemMessage?.content)).toBe(true);
-    const textBlocks = (
-      systemMessage?.content as Array<{ type?: string; text?: unknown }>
-    ).filter((block) => block.type === "text");
+    const systemContent = systemMessage?.content;
+    expect(Array.isArray(systemContent)).toBe(true);
+    if (!Array.isArray(systemContent)) {
+      throw new Error("Expected system message content blocks");
+    }
+    const textBlocks = systemContent.filter(
+      (block): block is { type: "text"; text: unknown } =>
+        typeof block === "object" &&
+        block !== null &&
+        "type" in block &&
+        block.type === "text",
+    );
     expect(textBlocks.length).toBeGreaterThan(0);
     expect(textBlocks.every((block) => typeof block.text === "string")).toBe(
       true,
