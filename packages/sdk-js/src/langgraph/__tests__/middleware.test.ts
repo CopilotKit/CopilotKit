@@ -70,6 +70,11 @@ function systemContents(messages: any[]): string[] {
   return out;
 }
 
+function systemPromptText(request: any): string {
+  expect(typeof request.systemPrompt).toBe("string");
+  return request.systemPrompt;
+}
+
 class CapturingFakeListChatModel extends FakeListChatModel {
   readonly receivedMessages: Array<
     Parameters<FakeListChatModel["_generate"]>[0]
@@ -162,9 +167,17 @@ describe("exposeState", () => {
     const systemMessage = model.receivedMessages[0].find(
       (message) => message._getType() === "system",
     );
-    const systemContent = JSON.stringify(systemMessage?.content);
-    expect(systemContent).toContain("agentName");
-    expect(systemContent).toContain("Mochi");
+    expect(Array.isArray(systemMessage?.content)).toBe(true);
+    const textBlocks = (
+      systemMessage?.content as Array<{ type?: string; text?: unknown }>
+    ).filter((block) => block.type === "text");
+    expect(textBlocks.length).toBeGreaterThan(0);
+    expect(textBlocks.every((block) => typeof block.text === "string")).toBe(
+      true,
+    );
+    expect(textBlocks.map((block) => block.text).join("\n")).toContain(
+      '"agentName": "Mochi"',
+    );
   });
 
   it("is off by default — user state never lands in the system prompt", async () => {
@@ -185,11 +198,7 @@ describe("exposeState", () => {
 
     const { received } = await runWrap(middleware, request);
 
-    expect(received.systemPrompt).toBeDefined();
-    const content =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : String(received.systemPrompt.content);
+    const content = systemPromptText(received);
     expect(content).toContain("Current agent state:");
     expect(content).toContain('"liked"');
     expect(content).toContain('"a"');
@@ -213,10 +222,7 @@ describe("exposeState", () => {
 
     const { received } = await runWrap(middleware, request);
 
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
     expect(body).toContain('"liked"');
     for (const reserved of [
       "messages",
@@ -238,10 +244,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).not.toContain('"_internal"');
     expect(body).toContain('"visible"');
@@ -258,10 +261,7 @@ describe("exposeState", () => {
       const { received } = await runWrap(middleware, request);
       if (received.systemPrompt == null) return; // acceptable: nothing left
 
-      const body =
-        typeof received.systemPrompt.content === "string"
-          ? received.systemPrompt.content
-          : "";
+      const body = systemPromptText(received);
       expect(body).toContain('"filled"');
       expect(body).not.toContain('"blank"');
     },
@@ -290,10 +290,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain('"liked"');
     expect(body).not.toContain('"todos"');
@@ -309,10 +306,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt?.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("t-42");
   });
@@ -325,10 +319,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("You are a helpful assistant.");
     expect(body).toContain("Current agent state:");
@@ -345,10 +336,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     expect(body).toContain("base");
     expect(body).toContain("Current agent state:");
@@ -378,10 +366,7 @@ describe("exposeState", () => {
     });
 
     const { received } = await runWrap(middleware, request);
-    const body =
-      typeof received.systemPrompt.content === "string"
-        ? received.systemPrompt.content
-        : "";
+    const body = systemPromptText(received);
 
     const jsonPart = body.split("Current agent state:\n")[1];
     expect(JSON.parse(jsonPart)).toEqual({

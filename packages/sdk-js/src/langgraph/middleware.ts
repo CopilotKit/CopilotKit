@@ -258,7 +258,7 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
 
   const existing = request.systemPrompt;
   if (existing == null) {
-    return { ...request, systemPrompt: new SystemMessage({ content: note }) };
+    return { ...request, systemPrompt: note };
   }
   // existing may be a string OR a SystemMessage
   const baseText =
@@ -269,7 +269,7 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
         : String(existing.content);
   return {
     ...request,
-    systemPrompt: new SystemMessage({ content: `${baseText}\n\n${note}` }),
+    systemPrompt: `${baseText}\n\n${note}`,
   };
 };
 
