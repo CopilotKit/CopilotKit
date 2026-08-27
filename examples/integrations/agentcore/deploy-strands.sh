@@ -7,7 +7,6 @@ set -euo pipefail
 set +a
 set +x
 export -n CPK_INTELLIGENCE_API_KEY
-export -n COPILOTKIT_LICENSE_TOKEN
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATTERN="strands-single-agent"
@@ -49,9 +48,7 @@ if [ "$SKIP_BACKEND" = false ]; then
     export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
   fi
   : "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
-  : "${COPILOTKIT_LICENSE_TOKEN:?COPILOTKIT_LICENSE_TOKEN is required by the pinned SDK in .env}"
   export -n CPK_INTELLIGENCE_API_KEY
-  export -n COPILOTKIT_LICENSE_TOKEN
   export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
   export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
 fi
@@ -108,7 +105,6 @@ PYEOF
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
   unset CPK_INTELLIGENCE_API_KEY
-  unset COPILOTKIT_LICENSE_TOKEN
   echo "⚡ Skipping backend deploy (--skip-backend)"
 else
   # Materialize backend credentials only while backend resources are deployed.
@@ -120,19 +116,9 @@ else
   fi
   unset CPK_INTELLIGENCE_API_KEY
 
-  COPILOTKIT_LICENSE_TOKEN_SECRET_NAME=$(uv run --project "$SCRIPT_DIR" python -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_license_token_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
-  if aws secretsmanager describe-secret --secret-id "$COPILOTKIT_LICENSE_TOKEN_SECRET_NAME" >/dev/null 2>&1; then
-    COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID=$(printf '%s' "$COPILOTKIT_LICENSE_TOKEN" | aws secretsmanager put-secret-value --secret-id "$COPILOTKIT_LICENSE_TOKEN_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
-  else
-    COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID=$(printf '%s' "$COPILOTKIT_LICENSE_TOKEN" | aws secretsmanager create-secret --name "$COPILOTKIT_LICENSE_TOKEN_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
-  fi
-  unset COPILOTKIT_LICENSE_TOKEN
-
   : "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
-  : "${COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID:?Secrets Manager did not return a license token version ID}"
   export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
-  export COPILOTKIT_LICENSE_TOKEN_SECRET_VERSION_ID
-  echo "✓ Managed Intelligence credentials stored in Secrets Manager"
+  echo "✓ Managed Intelligence key stored in Secrets Manager"
 
   echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
   cd "$CDK_DIR"

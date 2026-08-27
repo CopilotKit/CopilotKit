@@ -61,7 +61,6 @@ function CopilotChatContent() {
     */
     <CopilotChatConfigurationProvider agentId={COPILOTKIT_AGENT_ID}>
       <div className={styles.layout}>
-        {/* The pinned SDK exposes this drawer only with its compatibility token. */}
         <CopilotThreadsDrawer agentId={COPILOTKIT_AGENT_ID} />
         <div className={styles.mainPanel}>
           <div className="h-full flex flex-row">
