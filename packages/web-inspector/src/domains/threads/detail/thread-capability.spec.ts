@@ -14,9 +14,12 @@ import type {
   ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
-import { CpkThreadInspector, WebInspectorElement } from "../index.js";
-import type { ThreadDebuggerEvent, ThreadDebuggerProvider } from "../index.js";
-import { textContentIncludingJson } from "../testing/inspector-elements.js";
+import { CpkThreadInspector, WebInspectorElement } from "../../../index.js";
+import type {
+  ThreadDebuggerEvent,
+  ThreadDebuggerProvider,
+} from "../../../index.js";
+import { textContentIncludingJson } from "../../../testing/inspector-elements.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const REGISTERED_AGENT_ID = "alpha";

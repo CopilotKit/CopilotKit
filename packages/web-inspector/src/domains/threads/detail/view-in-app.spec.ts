@@ -11,7 +11,7 @@ import type { ɵThread, ɵThreadStore } from "@copilotkit/core";
 import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
 import { afterEach, expect, test, vi } from "vitest";
 
-import { CpkThreadInspector, WebInspectorElement } from "../index.js";
+import { CpkThreadInspector, WebInspectorElement } from "../../../index.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const ENABLED_ENDPOINTS = {

@@ -8,12 +8,12 @@ import type { ɵThreadStore } from "@copilotkit/core";
 import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
 import { expect, test, vi } from "vitest";
 
-import { CpkThreadInspector, WebInspectorElement } from "../index.js";
+import { CpkThreadInspector, WebInspectorElement } from "../../../index.js";
 import type {
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
-} from "../index.js";
-import { textContentIncludingJson } from "../testing/inspector-elements.js";
+} from "../../../index.js";
+import { textContentIncludingJson } from "../../../testing/inspector-elements.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const AGENT_ID = "thread-detail-agent";
