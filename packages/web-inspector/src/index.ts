@@ -8856,8 +8856,21 @@ export class WebInspectorElement extends LitElement {
           7vw,
           ${LAUNCHER_MAX_SIZE}px
         );
-        /* The island's width, shared by the capsule and the drawer so the two are bündig by construction rather than by two matching literals. Provisional: chosen by eye and not yet checked against both ends of the size clamp. */
-        --cpk-launcher-island: 252px;
+        /* The island's width, shared by the capsule and the drawer so the
+           two are flush by construction rather than by two matching
+           literals.
+
+           272px, not 252: the content budget is
+           width - (size + 12) - (size / 2) - 2, which at the 62.208px
+           maximum clamp gives 164.7px. The widest label,
+           MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans, is
+           155.4px, so 9.3px of slack at the tightest end. At 252px that
+           label overflowed the frame by 10.7px, because the capsule is
+           nowrap and pinned - it can no longer grow the way the old
+           auto-width pill did. Measured in a browser against the loaded
+           font; an earlier figure taken against the wrong font said this
+           fitted, and it did not. */
+        --cpk-launcher-island: 272px;
       }
 
       .console-button {
@@ -9523,6 +9536,9 @@ export class WebInspectorElement extends LitElement {
         top: 50%;
         margin-top: calc(var(--cpk-launcher-size) / -2);
         height: var(--cpk-launcher-size);
+        /* One width in every state. The two-width proposal was measured at
+           11px, because both states share the same subline and that subline
+           sets the floor. See spec decision 9. */
         width: var(--cpk-launcher-island);
         display: inline-flex;
         flex-direction: column;
@@ -9530,6 +9546,8 @@ export class WebInspectorElement extends LitElement {
         align-items: flex-start;
         gap: 1px;
         box-sizing: border-box;
+        /* One radius for every shape: a circle at 62x62, a capsule at
+           272x62, a rounded rectangle at 272x174. See spec decision 10. */
         border-radius: calc(var(--cpk-launcher-size) / 2);
         border: 1px solid var(--cpk-launcher-edge);
         background: var(--cpk-launcher-face);
@@ -9539,11 +9557,21 @@ export class WebInspectorElement extends LitElement {
         opacity: 0;
       }
 
+      /*
+       * The capsule is pinned to --cpk-launcher-island and is nowrap, so a
+       * label longer than the budget would paint past the frame onto the
+       * host page. These three lines make it truncate instead. With today's
+       * labels the ellipsis never appears - it is the guard for the next
+       * label added without measuring, not a layout the design expects.
+       */
       /* The failure class, word-identical to the panel's own wording. */
       .cpk-launcher-capsule__heading {
         font-size: 12px;
         font-weight: 600;
         line-height: 1.2;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       /*
@@ -9561,6 +9589,9 @@ export class WebInspectorElement extends LitElement {
         font-weight: 500;
         line-height: 1.2;
         opacity: 0.72;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       /*

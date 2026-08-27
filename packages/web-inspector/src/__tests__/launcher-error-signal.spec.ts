@@ -71,24 +71,17 @@ const LAUNCHER_SIZE = 52;
 const EDGE_MARGIN = 16;
 
 /**
- * The pill's natural width at its widest label, as the direction logic would
- * measure it. jsdom lays nothing out — every rect is zero — so this is stubbed
- * rather than measured; see `stubGeometry`.
+ * The capsule's rendered width, as the direction logic would measure it via
+ * `getBoundingClientRect().width`. jsdom lays nothing out — every rect is
+ * zero — so this is stubbed rather than measured; see `stubGeometry`.
  *
- * It grew when the pill did: the mark-side padding went from `+2px` to `+12px`,
- * and the subline is now the widest line in it rather than the failure class.
- * It moved again when the text-side padding stopped being a literal and the two
- * lines grew a point: padding is measured from the bounding box, but the first
- * half-height of that side is the rounded cap, so a bare 14px left the text
- * sitting inside the curve. That side is now exactly `size / 2` — the radius —
- * which lands the text where the cap ends, i.e. 26 at this harness's launcher
- * size of 52.
- * Checked against a real browser at 12px/10.5px: 26 text-side padding +
- * 130 subline + 64 mark-side padding + 2 border. The threshold at which neither
- * side has room moved with it, which is what the two tests either side of
- * `TIGHTEST_FIT` pin down.
+ * The capsule is pinned to `--cpk-launcher-island` rather than sized by its
+ * content, so this constant mirrors that token's value rather than a
+ * measured text width. It no longer depends on the label, the padding, or
+ * the launcher size — it is the same 272 at every point of the size clamp,
+ * which is what the two tests either side of `TIGHTEST_FIT` pin down.
  */
-const PILL_WIDTH = 222;
+const ISLAND_WIDTH = 272;
 
 const ENABLED_ENDPOINTS = {
   list: true,
@@ -1402,7 +1395,7 @@ test("the pill's text is held off its own border and clear of the mark", async (
   // Both directions, because the mark is on the other end in each: the text
   // side gets room so the words do not sit against the border, and the mark
   // side clears the circle with room to spare. Widening the pill moves the
-  // threshold at which neither side has room — see PILL_WIDTH.
+  // threshold at which neither side has room — see ISLAND_WIDTH.
   //
   // The text side must stay derived from the capsule's radius rather than a
   // literal. Padding is measured from the bounding box, but the first
@@ -1604,7 +1597,7 @@ test("the pill opens left when there is room to the left", async () => {
   // Anchored top-right with the whole window to its left.
   stubGeometry({
     launcherLeft: 1200,
-    pillWidth: PILL_WIDTH,
+    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -1621,7 +1614,7 @@ test("the pill opens right when the launcher sits too close to the left edge", a
   // exists — permanently, because the position persists.
   stubGeometry({
     launcherLeft: 16,
-    pillWidth: PILL_WIDTH,
+    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -1635,7 +1628,11 @@ test("the pill opens right when the launcher sits too close to the left edge", a
 test("neither side having room leaves the dot and the beat untouched, and no pill", async () => {
   const context = await setup();
   // A window too narrow for the label on either side.
-  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
+  stubGeometry({
+    launcherLeft: 16,
+    pillWidth: ISLAND_WIDTH,
+    viewportWidth: 130,
+  });
   await armConnectionFailure(context);
 
   // The signal is intact and only the label is lost: degrading honestly beats
@@ -1651,7 +1648,11 @@ test("neither side having room leaves the dot and the beat untouched, and no pil
 
 test("with no room the failure is still spoken", async () => {
   const context = await setup();
-  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
+  stubGeometry({
+    launcherLeft: 16,
+    pillWidth: ISLAND_WIDTH,
+    viewportWidth: 130,
+  });
   await armConnectionFailure(context);
 
   // The same words still arrive; they simply arrive without the movement.
@@ -1661,15 +1662,15 @@ test("with no room the failure is still spoken", async () => {
 // The narrowest window a rightward pill fits in: the launcher's own left
 // offset, the mark, its overhang, and the margin the pill keeps from the edge.
 // Widening the pill — as the padding and the second line did — moves this,
-// which is the whole reason PILL_WIDTH is a named number.
+// which is the whole reason ISLAND_WIDTH is a named number.
 const TIGHTEST_FIT =
-  EDGE_MARGIN + LAUNCHER_SIZE + (PILL_WIDTH - LAUNCHER_SIZE) + EDGE_MARGIN;
+  EDGE_MARGIN + LAUNCHER_SIZE + (ISLAND_WIDTH - LAUNCHER_SIZE) + EDGE_MARGIN;
 
 test("a window exactly wide enough still opens the pill", async () => {
   const context = await setup();
   stubGeometry({
     launcherLeft: EDGE_MARGIN,
-    pillWidth: PILL_WIDTH,
+    pillWidth: ISLAND_WIDTH,
     viewportWidth: TIGHTEST_FIT,
   });
   await armConnectionFailure(context);
@@ -1681,7 +1682,7 @@ test("one pixel narrower than that degrades to no pill at all", async () => {
   const context = await setup();
   stubGeometry({
     launcherLeft: EDGE_MARGIN,
-    pillWidth: PILL_WIDTH,
+    pillWidth: ISLAND_WIDTH,
     viewportWidth: TIGHTEST_FIT - 1,
   });
   await armConnectionFailure(context);
@@ -2059,7 +2060,7 @@ test("the visibility event reports whether the pill was shown or suppressed", as
   const context = await setup();
   stubGeometry({
     launcherLeft: 1200,
-    pillWidth: PILL_WIDTH,
+    pillWidth: ISLAND_WIDTH,
     viewportWidth: 1280,
   });
   await armConnectionFailure(context);
@@ -2072,7 +2073,11 @@ test("the visibility event reports the no-room fallback as suppressed", async ()
   // A degradation whose frequency is unknown is a degradation that gets argued
   // about later, so the silent case is the one this property exists to count.
   const context = await setup();
-  stubGeometry({ launcherLeft: 16, pillWidth: PILL_WIDTH, viewportWidth: 130 });
+  stubGeometry({
+    launcherLeft: 16,
+    pillWidth: ISLAND_WIDTH,
+    viewportWidth: 130,
+  });
   await armConnectionFailure(context);
 
   expect(pill(context.inspector)).toBeNull();
