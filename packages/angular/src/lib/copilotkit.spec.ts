@@ -91,6 +91,13 @@ vi.mock("@copilotkit/core", () => {
   return {
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
+    // Inspector-by-default (#6577) makes the Angular component dynamically import
+    // @copilotkit/web-inspector, which calls these thread-bridge helpers (added
+    // in #6562) on @copilotkit/core. Without stubs the calls throw on an async
+    // path after the spec finishes, surfacing as flaky "unhandled errors".
+    isInspectorThreadBridgeEnabled: () => false,
+    subscribeToInspectorThreadBridge: () => () => {},
+    unsubscribeFromInspectorThreadBridge: () => {},
   } as any;
 });
 
