@@ -78,8 +78,9 @@ const EDGE_MARGIN = 16;
  * The capsule is pinned to `--cpk-launcher-island` rather than sized by its
  * content, so this constant mirrors that token's value rather than a
  * measured text width. It no longer depends on the label, the padding, or
- * the launcher size — it is the same 272 at every point of the size clamp,
- * which is what the two tests either side of `TIGHTEST_FIT` pin down.
+ * the launcher size. The threshold at which neither side has room moves
+ * with the token, which is what the two tests either side of
+ * `TIGHTEST_FIT` pin down.
  */
 const ISLAND_WIDTH = 272;
 
@@ -1660,11 +1661,11 @@ test("with no room the failure is still spoken", async () => {
 });
 
 // The narrowest window a rightward pill fits in: the launcher's own left
-// offset, the mark, its overhang, and the margin the pill keeps from the edge.
-// Widening the pill — as the padding and the second line did — moves this,
-// which is the whole reason ISLAND_WIDTH is a named number.
-const TIGHTEST_FIT =
-  EDGE_MARGIN + LAUNCHER_SIZE + (ISLAND_WIDTH - LAUNCHER_SIZE) + EDGE_MARGIN;
+// offset, the island's own width, and the margin the pill keeps from the
+// edge on the other side. LAUNCHER_SIZE cancels out now that the width is
+// a token rather than content-derived, which is the whole reason
+// ISLAND_WIDTH is a named number.
+const TIGHTEST_FIT = EDGE_MARGIN + ISLAND_WIDTH + EDGE_MARGIN;
 
 test("a window exactly wide enough still opens the pill", async () => {
   const context = await setup();

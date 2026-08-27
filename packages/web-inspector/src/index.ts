@@ -8863,13 +8863,19 @@ export class WebInspectorElement extends LitElement {
            272px, not 252: the content budget is
            width - (size + 12) - (size / 2) - 2, which at the 62.208px
            maximum clamp gives 164.7px. The widest label,
-           MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans, is
-           155.4px, so 9.3px of slack at the tightest end. At 252px that
-           label overflowed the frame by 10.7px, because the capsule is
-           nowrap and pinned - it can no longer grow the way the old
-           auto-width pill did. Measured in a browser against the loaded
-           font; an earlier figure taken against the wrong font said this
-           fitted, and it did not. */
+           MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans,
+           measures ~155px, leaving ~10px of slack at the tightest end.
+           At 252px it overflowed the frame, because the capsule is nowrap
+           and pinned - it can no longer grow the way the old auto-width
+           pill did.
+
+           The slack is stated to the nearest pixel on purpose. Canvas and
+           DOM measurement of the same string disagree by ~0.9px, and the
+           font arrives by @import from an external host, so a customer
+           page with a restrictive font-src CSP renders the fallback and
+           voids the figure entirely. Sizing to the measured width is the
+           optimisation; the truncation on the two text lines is the
+           guarantee. */
         --cpk-launcher-island: 272px;
       }
 
@@ -9536,9 +9542,14 @@ export class WebInspectorElement extends LitElement {
         top: 50%;
         margin-top: calc(var(--cpk-launcher-size) / -2);
         height: var(--cpk-launcher-size);
-        /* One width in every state. The two-width proposal was measured at
-           11px, because both states share the same subline and that subline
-           sets the floor. See spec decision 9. */
+        /* One width in every state, so the capsule and the drawer cannot
+           drift apart. See spec decision 9.
+           The floor is the widest heading (MEMORY_LOAD_ERROR_LABEL, ~155px
+           at 12px/600), not the subline (~131px at 10.5px/500). The
+           "11px apart" figure decision 9 was argued from came from the
+           round that assumed the subline was the widest line - the same
+           assumption behind the old 252px overflow - so it is not
+           restated here. */
         width: var(--cpk-launcher-island);
         display: inline-flex;
         flex-direction: column;
@@ -9572,6 +9583,13 @@ export class WebInspectorElement extends LitElement {
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
+        /* The clip box needs a hair more than the line box: at
+           line-height 1.2 the font's content area is taller than the
+           line, and overflow:hidden would otherwise shave the tips of
+           descenders. The negative margin cancels the padding, so the
+           text sits exactly where it did. */
+        padding-block: 1px;
+        margin-block: -1px;
       }
 
       /*
@@ -9592,6 +9610,8 @@ export class WebInspectorElement extends LitElement {
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
+        padding-block: 1px;
+        margin-block: -1px;
       }
 
       /*
