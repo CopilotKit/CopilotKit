@@ -24,11 +24,11 @@ You can design and preview A2UI schemas visually using the
 
 CopilotKit ships two complementary A2UI approaches:
 
-- **[Dynamic Schema](./a2ui/dynamic-schema)**: a secondary LLM
+- **[Dynamic Schema](./dynamic-schema)**: a secondary LLM
   generates both the schema *and* the data. Maximum flexibility, so
   the agent can produce any UI for any prompt.
 
-- **[Fixed Schema](./a2ui/fixed-schema)**: the component tree is
+- **[Fixed Schema](./fixed-schema)**: the component tree is
   authored ahead of time as JSON. The agent only streams *data* into
   the data model at runtime. Fastest, with no LLM schema generation.
 
@@ -111,7 +111,7 @@ When injection is on, the runtime adds a tool named `generate_a2ui` to
 your agent. Calling it runs a secondary LLM, a subagent, that designs
 the full A2UI surface (components, layout, and data) from your catalog,
 then streams it into the chat. You do not write this tool yourself. See
-[Dynamic Schema](./a2ui/dynamic-schema) for the full flow.
+[Dynamic Schema](./dynamic-schema) for the full flow.
 
 ### Customize or opt out
 
@@ -120,7 +120,7 @@ To take control instead of relying on auto-inject, set
 factory (`get_a2ui_tools()` in Python, `getA2UITools()` in TypeScript),
 where you set the model, default catalog id, and more. An explicit
 `injectA2UITool: false` always wins, even when a catalog is present.
-This is also how the [Fixed Schema](./a2ui/fixed-schema) approach
+This is also how the [Fixed Schema](./fixed-schema) approach
 works: your agent owns a data-only tool and no subagent is injected.
 
 ## Choose your approach
@@ -128,12 +128,12 @@ works: your agent owns a data-only tool and no subagent is injected.
 <Cards>
   <Card
     title="Dynamic Schema"
-    href="./a2ui/dynamic-schema"
+    href="./dynamic-schema"
     description="A secondary LLM generates both the schema and data. Any UI from any prompt."
   />
   <Card
     title="Fixed Schema"
-    href="./a2ui/fixed-schema"
+    href="./fixed-schema"
     description="Pre-authored JSON schema, agent streams data. Fastest path to production-quality UI."
   />
 </Cards>
