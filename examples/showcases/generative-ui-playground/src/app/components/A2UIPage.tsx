@@ -30,7 +30,7 @@ export function A2UIPage({ children }: A2UIPageProps) {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-a2ui"
-      showDevConsole={false}
+      enableInspector={false}
       renderActivityMessages={activityRenderers}
     >
       {isDesktop ? (

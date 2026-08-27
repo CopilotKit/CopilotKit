@@ -107,7 +107,7 @@ describe("CopilotChatAssistantMessage", () => {
 
       renderWithProvider(
         <CopilotKitInspectorContextProvider
-          value={{ isLocalInspectorEnabled: true, openInspector }}
+          value={{ isInspectorEnabled: true, openInspector }}
         >
           <CopilotChatAssistantMessage message={basicMessage} />
         </CopilotKitInspectorContextProvider>,
