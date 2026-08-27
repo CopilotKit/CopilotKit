@@ -554,12 +554,16 @@ const LAUNCHER_BASE_LABEL = "Web Inspector";
 type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
 
 /**
- * Which side the pill grows towards. The launcher is anchored top-right, so
- * the natural direction is leftwards, away from its own edge — but it is
- * draggable and its position persists, so a reader who parked it near the left
- * edge would otherwise get a permanently truncated pill.
+ * Which side of the mark the island grows towards. The launcher is anchored
+ * top-right, so the natural direction is leftwards, away from its own edge —
+ * but it is draggable and its position persists, so a reader who parked it
+ * near the left edge would otherwise get a permanently truncated pill.
+ *
+ * One type for both of the island's surfaces, because they are two halves of
+ * one object and there is exactly one answer for the pair. See
+ * `resolveLauncherIslandSide`.
  */
-type LauncherPillDirection = "left" | "right";
+type LauncherIslandSide = "left" | "right";
 
 /**
  * Whether the reader actually got a pill. `suppressed` is the honest-degrade
@@ -576,8 +580,6 @@ type CoreStatusSummary = Readonly<{
 type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
-/** HUD card plus the hover bridge. Used to pick left vs right. */
-const LAUNCHER_HUD_WIDTH = 248;
 /**
  * One page-load preview of the launcher's feature HUD.
  *
@@ -603,6 +605,70 @@ const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 // an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
 const LAUNCHER_MIN_SIZE = 51.84;
 const LAUNCHER_MAX_SIZE = 62.208;
+/**
+ * The island's width, shared by the capsule and the drawer so the two are
+ * flush by construction rather than by two matching literals.
+ *
+ * It lives here rather than in the stylesheet because the rule that picks the
+ * island's side needs the same number. `--cpk-launcher-island` is
+ * interpolated from this constant, exactly as the two launcher sizes above
+ * are, so the token and the geometry cannot come apart. A second literal for
+ * the geometry is what let the drawer go on choosing its side from a stale
+ * 248 long after the capsule had stopped agreeing with it.
+ *
+ * 272, not 252: the content budget is
+ * width - (size + 12) - (size / 2) - 2, which at the 62.208px
+ * maximum clamp gives 164.7px. The widest label,
+ * MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans,
+ * measures ~155px, leaving ~10px of slack at the tightest end.
+ * At 252px it overflowed the frame, because the capsule is nowrap
+ * and pinned - it can no longer expand the way the old auto-width
+ * pill did.
+ *
+ * The slack is stated to the nearest pixel on purpose. Canvas and
+ * DOM measurement of the same string disagree by ~0.9px, and the
+ * font arrives by @import from an external host, so a customer
+ * page with a restrictive font-src CSP renders the fallback and
+ * voids the figure entirely. Sizing to the measured width is the
+ * optimisation; the truncation on the two text lines is the
+ * guarantee.
+ */
+const LAUNCHER_ISLAND_WIDTH = 272;
+
+/**
+ * Which side of the mark the island opens on, or null when neither side has
+ * room for it.
+ *
+ * ONE rule for the whole island. Its two surfaces are pinned to the same
+ * width and anchored to the same edge of the same mark, so a pair that
+ * answered this question apart could end up pointing away from each other —
+ * which is exactly what happened while the drawer still measured itself as a
+ * card standing beside the mark instead of an island drawn over it.
+ *
+ * What has to fit is therefore the overhang, not the whole island: the part
+ * that hangs past the mark is the only part needing room it does not already
+ * have.
+ *
+ * Leftwards is the natural direction, away from the launcher's own edge.
+ * Where neither side has room there is no island at all rather than a cut-off
+ * one — for the capsule the dot and the beat still fire, so the signal is
+ * intact and only the label is lost, and for the drawer there is simply
+ * nothing to reveal on dwell. Constraining where the reader may drag the
+ * control to protect these surfaces was considered and rejected: the page is
+ * theirs.
+ */
+function resolveLauncherIslandSide(
+  mark: DOMRect,
+  viewportWidth: number,
+): LauncherIslandSide | null {
+  const overhang = Math.max(0, LAUNCHER_ISLAND_WIDTH - mark.width);
+  // Nothing extends past the mark, so there is nothing to fit.
+  if (overhang === 0) return "left";
+  if (mark.left - overhang >= EDGE_MARGIN) return "left";
+  if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) return "right";
+  return null;
+}
+
 const DEFAULT_BUTTON_SIZE: Size = {
   width: LAUNCHER_MIN_SIZE,
   height: LAUNCHER_MIN_SIZE,
@@ -6637,11 +6703,17 @@ export class WebInspectorElement extends LitElement {
    * Which side the pill opens from, or null before the room has been measured.
    * Decided once, at gesture start, and never revisited mid-gesture.
    */
-  private pillDirection: LauncherPillDirection | null = null;
+  private pillDirection: LauncherIslandSide | null = null;
   private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
   /** Hover/focus menu on the closed launcher. */
   private launcherHudOpen = false;
-  private launcherHudSide: "left" | "right" = "left";
+  /**
+   * Which side the drawer opens from — the same answer the pill gets, from the
+   * same rule. Null means nothing has been measured yet, or that the last
+   * measurement found no room on either side, and in both cases there is no
+   * drawer to show.
+   */
+  private launcherHudSide: LauncherIslandSide | null = null;
   private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private launcherHudIntro = false;
@@ -8858,25 +8930,10 @@ export class WebInspectorElement extends LitElement {
         );
         /* The island's width, shared by the capsule and the drawer so the
            two are flush by construction rather than by two matching
-           literals.
-
-           272px, not 252: the content budget is
-           width - (size + 12) - (size / 2) - 2, which at the 62.208px
-           maximum clamp gives 164.7px. The widest label,
-           MEMORY_LOAD_ERROR_LABEL at 12px/600 in Plus Jakarta Sans,
-           measures ~155px, leaving ~10px of slack at the tightest end.
-           At 252px it overflowed the frame, because the capsule is nowrap
-           and pinned - it can no longer expand the way the old auto-width
-           pill did.
-
-           The slack is stated to the nearest pixel on purpose. Canvas and
-           DOM measurement of the same string disagree by ~0.9px, and the
-           font arrives by @import from an external host, so a customer
-           page with a restrictive font-src CSP renders the fallback and
-           voids the figure entirely. Sizing to the measured width is the
-           optimisation; the truncation on the two text lines is the
-           guarantee. */
-        --cpk-launcher-island: 272px;
+           literals. Interpolated from LAUNCHER_ISLAND_WIDTH, which the rule
+           that picks the island's side reads too - see that constant for
+           why the number is 272 and not 252. */
+        --cpk-launcher-island: ${LAUNCHER_ISLAND_WIDTH}px;
       }
 
       .console-button {
@@ -10535,9 +10592,9 @@ export class WebInspectorElement extends LitElement {
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
-    // The pill's full width is only measurable once it has been laid out, and
-    // the answer decides both the direction and the telemetry label below, so
-    // this runs before the visibility event rather than after it.
+    // The room around the launcher is only measurable once it has been laid
+    // out, and the answer decides both the direction and the telemetry label
+    // below, so this runs before the visibility event rather than after it.
     this.resolvePillDirection();
     this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
@@ -10747,8 +10804,8 @@ export class WebInspectorElement extends LitElement {
    * The pill, laid out at its full width and clipped, for the whole gesture.
    *
    * It renders from the first frame of the beat — clipped to nothing, so it
-   * shows nothing — because the room it needs cannot be measured until it has
-   * been laid out, and the direction is decided at gesture start.
+   * shows nothing — because the direction is decided at gesture start, and the
+   * room around the launcher cannot be read until the launcher is laid out.
    */
   private renderLauncherCapsule(): TemplateResult | typeof nothing {
     const key = this.gestureSignal;
@@ -10822,7 +10879,10 @@ export class WebInspectorElement extends LitElement {
         return;
       }
 
-      this.resolveLauncherHudSide();
+      // No room for the island on either side, so there is nothing to preview.
+      // The preview is a one-shot page-load courtesy; it is dropped rather
+      // than retried, exactly as a blocked gesture's pill is.
+      if (!this.resolveLauncherHudSide()) return;
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
       this.requestUpdate();
@@ -10852,28 +10912,32 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private resolveLauncherHudSide(): void {
-    if (typeof window === "undefined") {
-      this.launcherHudSide = "left";
-      return;
-    }
+  /**
+   * Measures the room around the mark for the drawer, and reports whether it
+   * has any.
+   *
+   * The measurement is `resolveLauncherIslandSide` — the pill's rule, and the
+   * only one — so the two halves of the island cannot open on opposite sides.
+   * A false answer means neither side fits, and the drawer then does what the
+   * capsule does in the same position: it stays away, rather than opening over
+   * the edge of the window and being clipped by it.
+   */
+  private resolveLauncherHudSide(): boolean {
     const button =
       this.activeRoot.querySelector<HTMLElement>(".console-button");
-    if (!button) {
-      this.launcherHudSide = "left";
-      return;
-    }
-    const mark = button.getBoundingClientRect();
-    if (mark.left - LAUNCHER_HUD_WIDTH >= EDGE_MARGIN) {
-      this.launcherHudSide = "left";
-      return;
-    }
-    this.launcherHudSide = "right";
+    this.launcherHudSide =
+      button && typeof window !== "undefined"
+        ? resolveLauncherIslandSide(
+            button.getBoundingClientRect(),
+            window.innerWidth,
+          )
+        : null;
+    return this.launcherHudSide !== null;
   }
 
   private openLauncherHud(): void {
     if (this.isLauncherHudBlocked() || this.isOpen) return;
-    this.resolveLauncherHudSide();
+    if (!this.resolveLauncherHudSide()) return;
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -11030,6 +11094,11 @@ export class WebInspectorElement extends LitElement {
 
   private renderLauncherDrawer(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
+    // Neither side had room. Both of the island's surfaces stand down together
+    // in that case, so this is the drawer's half of the honest degrade rather
+    // than a second, weaker rule.
+    const side = this.launcherHudSide;
+    if (side === null) return nothing;
     // The launcher must agree with Home about feature availability. Raw
     // transport flags can be present for a runtime that is not entitled to use
     // Intelligence, which previously made the HUD show every service as on.
@@ -11046,7 +11115,7 @@ export class WebInspectorElement extends LitElement {
         class="cpk-launcher-drawer"
         id="cpk-launcher-hud"
         data-cpk-launcher-drawer
-        data-cpk-drawer-side=${this.launcherHudSide}
+        data-cpk-drawer-side=${side}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
@@ -19858,8 +19927,8 @@ export class WebInspectorElement extends LitElement {
   /**
    * Opens the gesture's tail alongside the beat, for a signal that carries a
    * pill. The pill is rendered immediately — clipped to nothing, so it shows
-   * nothing — because its full width has to be on the page before the room
-   * either side of the launcher can be measured.
+   * nothing — so the side it opens on is settled while it is still invisible,
+   * against a launcher already in its final place on the page.
    *
    * A signal with no pill label gets no tail at all, so the announcement's
    * gesture is exactly the beat it has always been.
@@ -19884,10 +19953,14 @@ export class WebInspectorElement extends LitElement {
    * draggable and its position persists: a reader who parked it near the left
    * edge would otherwise get a permanently truncated pill.
    *
-   * Where neither side has room there is no pill at all rather than a cut-off
-   * one — the dot and the beat still fire, so the signal is intact and only
-   * the label is lost. Constraining where the reader may drag the control to
-   * protect this animation was considered and rejected: the page is theirs.
+   * The rule itself is `resolveLauncherIslandSide`, which the drawer follows
+   * too — including its verdict that neither side has room, which drops both
+   * surfaces rather than one.
+   *
+   * The capsule still has to be on the page before the side is chosen. Not to
+   * be measured — its width is the island's, a constant — but because a
+   * gesture that has not rendered yet is a gesture whose telemetry has no
+   * answer to report, and `pillOutcome` IS that answer.
    */
   private resolvePillDirection(): void {
     if (this.pillDirection !== null || this.pillPhase === null) return;
@@ -19898,34 +19971,16 @@ export class WebInspectorElement extends LitElement {
     const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-capsule");
     if (!button || !pill || typeof window === "undefined") return;
 
-    const mark = button.getBoundingClientRect();
-    // A clip changes what is painted, never the layout box, so this is the
-    // pill's full width whichever phase it is in.
-    const overhang = Math.max(
-      0,
-      pill.getBoundingClientRect().width - mark.width,
+    this.setPillOutcome(
+      resolveLauncherIslandSide(
+        button.getBoundingClientRect(),
+        window.innerWidth,
+      ),
     );
-    const viewportWidth = window.innerWidth;
-
-    if (overhang === 0) {
-      // Nothing extends past the mark, so there is nothing to fit.
-      this.setPillOutcome("left");
-      return;
-    }
-    if (mark.left - overhang >= EDGE_MARGIN) {
-      // Leftwards is the natural direction: away from the launcher's own edge.
-      this.setPillOutcome("left");
-      return;
-    }
-    if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) {
-      this.setPillOutcome("right");
-      return;
-    }
-    this.setPillOutcome(null);
   }
 
   /** Records the measurement's verdict, and drops the pill when it is null. */
-  private setPillOutcome(direction: LauncherPillDirection | null): void {
+  private setPillOutcome(direction: LauncherIslandSide | null): void {
     if (direction === null) {
       this.pillPhase = null;
       this.pillDirection = null;
