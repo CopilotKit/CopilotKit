@@ -11,7 +11,8 @@ import server
 
 class ServerContractTests(unittest.TestCase):
     def test_health_reports_process_local_persistence(self):
-        response = TestClient(server.app).get("/health")
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
+            response = TestClient(server.app).get("/health")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
@@ -20,6 +21,20 @@ class ServerContractTests(unittest.TestCase):
                 "status": "ok",
                 "service": "cloudplot-agent",
                 "persistence": "process-memory",
+            },
+        )
+
+    def test_health_rejects_a_missing_openai_api_key(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": ""}):
+            response = TestClient(server.app).get("/health")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            response.json(),
+            {
+                "status": "not_ready",
+                "service": "cloudplot-agent",
+                "missing": ["OPENAI_API_KEY"],
             },
         )
 

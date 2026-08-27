@@ -7,6 +7,7 @@ import os
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from copilotkit import LangGraphAGUIAgent
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 from main import graph
 
@@ -27,12 +28,24 @@ app = FastAPI(title="Cloudplot Agent")
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {
-        "status": "ok",
-        "service": "cloudplot-agent",
-        "persistence": "process-memory",
-    }
+async def health() -> JSONResponse:
+    if not os.getenv("OPENAI_API_KEY", "").strip():
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "service": "cloudplot-agent",
+                "missing": ["OPENAI_API_KEY"],
+            },
+        )
+
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "service": "cloudplot-agent",
+            "persistence": "process-memory",
+        }
+    )
 
 
 add_langgraph_fastapi_endpoint(
