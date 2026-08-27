@@ -425,6 +425,44 @@ function launcherDomClasses(shadow: ShadowRoot): Set<string> {
   );
 }
 
+/** Every `data-cpk-*` attribute name actually carried by an element in `shadow`. */
+function launcherDomAttributes(shadow: ShadowRoot): Set<string> {
+  return new Set(
+    Array.from(shadow.querySelectorAll<HTMLElement>("*")).flatMap((el) =>
+      Array.from(el.attributes)
+        .map((attr) => attr.name)
+        .filter((name) => /^data-cpk-[\w-]+$/.test(name)),
+    ),
+  );
+}
+
+test("the drawer has a rule for each side it can open on", async () => {
+  const { inspector } = await setup();
+  const css = stylesheetText(inspector);
+  // This is the hole the class scan below cannot see: its regex stops at
+  // `[`, so `.cpk-launcher-drawer[data-cpk-drawer-side="right"]` only ever
+  // contributes the reachable class `cpk-launcher-drawer`. Rename the
+  // attribute in the stylesheet alone and every one of this file's other
+  // tests — all 617 of them — stays green, while the renamed rule matches no
+  // element: the right-opening drawer falls through to the base rule's
+  // `right: 0` and renders roughly 210px off the left edge of the viewport,
+  // for exactly the reader the direction-by-room rule exists to protect.
+  // Pinning both rules' bodies directly closes that gap.
+  const rightRule = ruleBody(
+    css,
+    '.cpk-launcher-drawer[data-cpk-drawer-side="right"]',
+  );
+  expect(rightRule, "no rule for the right-opening drawer").not.toBeNull();
+  expect(rightRule).toContain("left: 0");
+  expect(rightRule).toContain("right: auto");
+
+  // The base rule is the left-opening default: no `data-cpk-drawer-side`
+  // attribute at all resolves here, and it must still anchor the drawer to
+  // the right edge for that default to mean anything.
+  const baseRule = drawerRuleBody(css);
+  expect(baseRule).toContain("right: 0");
+});
+
 test("every launcher rule reaches an element, and every launcher element has a rule", async () => {
   // No single state renders the whole island, so this guard has to look at
   // the union of two states rather than one:
@@ -484,6 +522,100 @@ test("every launcher rule reaches an element, and every launcher element has a r
     expect
       .soft(css, `.${cls} is rendered but has no rule`)
       .toContain(`.${cls}`);
+  }
+
+  // (c)/(d) The same join again, but over attribute NAMES rather than class
+  // names. This is the half (a)/(b) above cannot see: the class regex stops
+  // at `[`, so `.cpk-launcher-drawer[data-cpk-drawer-side="right"]` only
+  // ever contributes the reachable class `cpk-launcher-drawer` — a
+  // stylesheet-only rename of `data-cpk-drawer-side` leaves (a)/(b) green
+  // while the renamed rule matches no element. The capsule's equivalent,
+  // `data-cpk-capsule-direction`, is pinned directly in
+  // launcher-error-signal.spec.ts; nothing pinned the drawer's, which is the
+  // asymmetry this join closes.
+  const dwellAttributes = launcherDomAttributes(root(dwell.inspector));
+  const gestureAttributes = launcherDomAttributes(root(gesture.inspector));
+  const domAttributes = new Set([...dwellAttributes, ...gestureAttributes]);
+
+  const selectorAttributes = new Set(
+    Array.from(css.matchAll(/data-cpk-[\w-]+/g)).map((m) => m[0]),
+  );
+  expect(selectorAttributes.size).toBeGreaterThan(0);
+
+  // Two sheet-declared names are legitimately absent from both states here —
+  // verified by reading the one code path that sets each, not assumed. Both
+  // are correctly wired; this suite simply never visits the state that
+  // reaches them. Neither is a rename casualty, so excluding them is not
+  // silencing a hole — leaving them in would make this join flaky against
+  // working code instead of catching a real regression.
+  const attributesReachedByAThirdStateOnly = new Set([
+    // Set only by the one-shot page-load intro preview
+    // (`scheduleLauncherHudIntro`, guarded by its own start/end timers) —
+    // never by `openHud()`'s pointerenter dwell path, which opens the drawer
+    // without touching `launcherHudIntro`. A third, timer-gated state this
+    // suite does not drive into.
+    "data-cpk-hud-intro",
+    // Styles `.inspector-nav-signal-dot`, the OPEN panel's sidebar
+    // navigation marker (see the render call beside
+    // `class="inspector-nav-signal-dot"`) — a different surface from the
+    // closed launcher this file covers. Neither dwell nor gesture opens the
+    // panel.
+    "data-cpk-signal-tone",
+  ]);
+  for (const attr of selectorAttributes) {
+    if (attributesReachedByAThirdStateOnly.has(attr)) continue;
+    expect
+      .soft(
+        domAttributes.has(attr),
+        `no element carries [${attr}] in either state`,
+      )
+      .toBe(true);
+  }
+
+  // Nine DOM-only names are excluded from the mirror direction below — every
+  // one confirmed by grep to be a query hook other spec files (or this
+  // component's own click handler) address by attribute selector, never a
+  // CSS one, and confirmed absent from this component's stylesheet rather
+  // than merely unchecked. A name added here without that same verification
+  // would be silencing a real hole, not documenting one.
+  const domOnlyQueryHooks = new Set([
+    // Live-region marker (role="status"); the region itself carries no
+    // visual styling, so nothing selects it.
+    "data-cpk-launcher-announcement",
+    // Boolean identity marker on the drawer root; queried by
+    // launcher-hud.spec.ts and launcher-island-direction.spec.ts. The
+    // `cpk-launcher-drawer` class carries the styling, this attribute does
+    // not.
+    "data-cpk-launcher-drawer",
+    // Boolean/key identity marker on the capsule root; queried by
+    // launcher-island-direction.spec.ts and launcher-error-signal.spec.ts.
+    // Same split as the drawer's marker above.
+    "data-cpk-launcher-capsule",
+    // Row-id query hook, read by launcher-hud.spec.ts and by this
+    // component's own `handleHudRowClick` closest() check.
+    "data-cpk-hud-row",
+    // Click-target query hook, read by launcher-hud.spec.ts and by this
+    // component's own `handleHudRowClick` closest() check.
+    "data-cpk-hud-action",
+    // Presence marker for the row's checkmark SVG, read by
+    // launcher-hud.spec.ts.
+    "data-cpk-hud-check",
+    // Presence marker for the capsule's heading span. No selector — CSS or
+    // test — currently addresses it by this attribute.
+    "data-cpk-capsule-heading",
+    // Presence marker for the capsule's subline span. Same as the heading
+    // marker above.
+    "data-cpk-capsule-subline",
+    // Query hook for the decorative signal dot, read by
+    // launcher-island-direction.spec.ts, launcher-error-signal.spec.ts,
+    // launcher-signal.spec.ts and inspector-pop-out.spec.ts.
+    "data-cpk-signal-dot",
+  ]);
+  for (const attr of domAttributes) {
+    if (domOnlyQueryHooks.has(attr)) continue;
+    expect
+      .soft(css, `${attr} is rendered but no rule references it`)
+      .toContain(attr);
   }
 });
 
