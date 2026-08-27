@@ -14,23 +14,25 @@ const initialState: CloudPlotAgentState = {
 };
 
 export function useCloudPlotAgent() {
-  const { agent } = useAgent({ agentId: "cloudplot_agent" });
+  const { agent, isReady } = useAgent({ agentId: "cloudplot_agent" });
   const state = (agent.state as CloudPlotAgentState | null) ?? initialState;
 
-  // Initialize state if empty on mount
-  const hasInitialized = useRef(false);
+  const initializedAgentRef = useRef<typeof agent | null>(null);
   useEffect(() => {
-    if (!hasInitialized.current) {
-      const currentState = agent.state as CloudPlotAgentState | null;
-      if (!currentState || Object.keys(currentState).length === 0) {
-        agent.setState(initialState);
-      }
-      hasInitialized.current = true;
+    if (!isReady || initializedAgentRef.current === agent) return;
+
+    const currentState = agent.state as CloudPlotAgentState | null;
+    if (!currentState || Object.keys(currentState).length === 0) {
+      agent.setState(structuredClone(initialState));
     }
-  }, [agent]);
+    initializedAgentRef.current = agent;
+  }, [agent, isReady]);
 
   const appendMessage = useCallback(
     async (content: string) => {
+      if (!isReady) {
+        throw new Error("CloudPlot agent is not ready");
+      }
       agent.addMessage({
         id: crypto.randomUUID(),
         role: "user" as const,
@@ -38,12 +40,13 @@ export function useCloudPlotAgent() {
       });
       await agent.runAgent();
     },
-    [agent],
+    [agent, isReady],
   );
 
   return {
     agent,
     state,
+    isReady,
     appendMessage,
   };
 }

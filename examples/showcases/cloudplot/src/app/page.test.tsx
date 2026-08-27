@@ -13,35 +13,40 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BranchState, CloudPlotAgentState } from "@/types";
 import CloudPlot from "./page";
 
-const mocks = vi.hoisted(() => ({
-  agentSetState: vi.fn(),
-  saveBranchState: vi.fn(),
-  switchBranch: vi.fn(),
-  getBranchState: vi.fn(),
-  agentState: null as unknown as CloudPlotAgentState,
-  branchManager: {
-    branches: [
-      {
+const mocks = vi.hoisted(() => {
+  const agentSetState = vi.fn();
+  return {
+    agentSetState,
+    currentAgent: { setState: agentSetState },
+    isReady: true,
+    saveBranchState: vi.fn(),
+    switchBranch: vi.fn(),
+    getBranchState: vi.fn(),
+    agentState: null as unknown as CloudPlotAgentState,
+    branchManager: {
+      branches: [
+        {
+          id: "main",
+          name: "main",
+          createdAt: 1,
+          threadId: "saved-thread",
+        },
+      ],
+      currentBranch: {
         id: "main",
         name: "main",
         createdAt: 1,
         threadId: "saved-thread",
       },
-    ],
-    currentBranch: {
-      id: "main",
-      name: "main",
-      createdAt: 1,
-      threadId: "saved-thread",
+      currentBranchId: "main",
+      createBranch: vi.fn(),
+      switchBranch: vi.fn(),
+      saveBranchState: vi.fn(),
+      getBranchState: vi.fn(),
+      isHydrated: true,
     },
-    currentBranchId: "main",
-    createBranch: vi.fn(),
-    switchBranch: vi.fn(),
-    saveBranchState: vi.fn(),
-    getBranchState: vi.fn(),
-    isHydrated: true,
-  },
-}));
+  };
+});
 
 const emptyState: CloudPlotAgentState = {
   nodes: [],
@@ -78,8 +83,9 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 
 vi.mock("@/hooks/useCloudPlotAgent", () => ({
   useCloudPlotAgent: () => ({
-    agent: { setState: mocks.agentSetState },
+    agent: mocks.currentAgent,
     state: mocks.agentState,
+    isReady: mocks.isReady,
     appendMessage: vi.fn(),
   }),
 }));
@@ -106,6 +112,8 @@ describe("CloudPlot hydration and branch restoration", () => {
     mocks.branchManager.switchBranch = mocks.switchBranch;
     mocks.branchManager.saveBranchState = mocks.saveBranchState;
     mocks.branchManager.getBranchState = mocks.getBranchState;
+    mocks.currentAgent = { setState: mocks.agentSetState };
+    mocks.isReady = true;
     mocks.agentState = structuredClone(restoredState);
     mocks.getBranchState.mockReturnValue({
       state: restoredState,
@@ -171,5 +179,30 @@ describe("CloudPlot hydration and branch restoration", () => {
 
     expect(mocks.agentSetState).toHaveBeenCalledWith(restoredState);
     expect(mocks.saveBranchState).not.toHaveBeenCalled();
+  });
+
+  it("restores the saved snapshot when a provisional agent is replaced", () => {
+    vi.useFakeTimers();
+    const provisionalSetState = vi.fn();
+    const realSetState = vi.fn();
+    mocks.currentAgent = { setState: provisionalSetState };
+    mocks.isReady = false;
+    mocks.agentState = structuredClone(emptyState);
+    const view = render(<CloudPlot />);
+
+    act(() => vi.advanceTimersByTime(500));
+    expect(provisionalSetState).not.toHaveBeenCalled();
+    expect(mocks.saveBranchState).not.toHaveBeenCalled();
+
+    mocks.currentAgent = { setState: realSetState };
+    mocks.isReady = true;
+    view.rerender(<CloudPlot />);
+
+    expect(realSetState).toHaveBeenCalledWith(restoredState);
+    expect(mocks.saveBranchState).not.toHaveBeenCalledWith(
+      "main",
+      emptyState,
+      [],
+    );
   });
 });

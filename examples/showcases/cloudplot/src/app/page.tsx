@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
@@ -39,7 +39,7 @@ function CloudPlotWorkspace({
 }: {
   branchManager: ReturnType<typeof useBranchManager>;
 }) {
-  const { agent, state, appendMessage } = useCloudPlotAgent();
+  const { agent, state, isReady, appendMessage } = useCloudPlotAgent();
   const {
     branches,
     currentBranch,
@@ -54,23 +54,72 @@ function CloudPlotWorkspace({
   useFrontendTools();
   useInfraApproval();
 
-  const restoredThreadRef = useRef<string | null>(null);
-  const skipNextPersistenceRef = useRef(false);
+  const [restoration, setRestoration] = useState<{
+    agent: typeof agent;
+    threadId: string;
+    expectedState: string | null;
+    confirmed: boolean;
+  } | null>(null);
+
   useEffect(() => {
-    if (restoredThreadRef.current === currentBranch.threadId) return;
-    restoredThreadRef.current = currentBranch.threadId;
+    if (!isReady) return;
+    if (
+      restoration?.agent === agent &&
+      restoration.threadId === currentBranch.threadId
+    ) {
+      return;
+    }
 
     const branchState = getBranchState(currentBranchId);
     if (branchState) {
-      skipNextPersistenceRef.current = true;
-      agent.setState(structuredClone(branchState.state));
+      const restoredState = structuredClone(branchState.state);
+      agent.setState(restoredState);
+      setRestoration({
+        agent,
+        threadId: currentBranch.threadId,
+        expectedState: JSON.stringify(restoredState),
+        confirmed: false,
+      });
+      return;
     }
-  }, [currentBranch.threadId, currentBranchId, getBranchState, agent]);
+
+    setRestoration({
+      agent,
+      threadId: currentBranch.threadId,
+      expectedState: null,
+      confirmed: true,
+    });
+  }, [
+    currentBranch.threadId,
+    currentBranchId,
+    getBranchState,
+    agent,
+    isReady,
+    restoration,
+  ]);
+
+  useEffect(() => {
+    if (
+      !restoration ||
+      restoration.confirmed ||
+      restoration.agent !== agent ||
+      restoration.threadId !== currentBranch.threadId
+    ) {
+      return;
+    }
+    if (JSON.stringify(state) === restoration.expectedState) {
+      setRestoration({ ...restoration, confirmed: true });
+    }
+  }, [agent, currentBranch.threadId, restoration, state]);
 
   // Debounced browser-local backup of the visible workspace.
   useEffect(() => {
-    if (skipNextPersistenceRef.current) {
-      skipNextPersistenceRef.current = false;
+    if (
+      !isReady ||
+      !restoration?.confirmed ||
+      restoration.agent !== agent ||
+      restoration.threadId !== currentBranch.threadId
+    ) {
       return;
     }
 
@@ -79,11 +128,20 @@ function CloudPlotWorkspace({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [state, currentBranchId, saveBranchState]);
+  }, [
+    agent,
+    currentBranch.threadId,
+    currentBranchId,
+    isReady,
+    restoration,
+    saveBranchState,
+    state,
+  ]);
 
   // Branch creation handler - forks current state
   const handleCreateBranch = useCallback(
     (name: string) => {
+      if (!isReady) return;
       // Save current state to current branch first
       saveBranchState(currentBranchId, state, []);
 
@@ -94,13 +152,13 @@ function CloudPlotWorkspace({
       };
       createBranch(name, forkState);
     },
-    [currentBranchId, state, saveBranchState, createBranch],
+    [currentBranchId, state, saveBranchState, createBranch, isReady],
   );
 
   // Branch switching handler - saves current state before switching
   const handleSwitchBranch = useCallback(
     (branchId: string) => {
-      if (branchId === currentBranchId) return;
+      if (!isReady || branchId === currentBranchId) return;
 
       // Save current branch state before switching
       saveBranchState(currentBranchId, state, []);
@@ -110,7 +168,7 @@ function CloudPlotWorkspace({
         agent.setState(structuredClone(branchState.state));
       }
     },
-    [agent, currentBranchId, state, saveBranchState, switchBranch],
+    [agent, currentBranchId, state, saveBranchState, switchBranch, isReady],
   );
 
   return (
