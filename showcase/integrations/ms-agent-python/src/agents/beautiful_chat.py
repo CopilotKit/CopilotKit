@@ -28,10 +28,7 @@ from agent_framework_ag_ui import AgentFrameworkAgent, state_update
 from pydantic import Field
 
 # Shared tool implementations live in `showcase/shared/python/tools/`.
-from tools import (
-    build_a2ui_operations_from_tool_call,
-    search_flights_impl,
-)
+from tools import search_flights_impl
 
 
 # ---------------------------------------------------------------------
@@ -221,83 +218,6 @@ def search_flights(
     return json.dumps({"a2ui_operations": operations})
 
 
-@tool(
-    name="generate_a2ui",
-    description=(
-        "Generate a dynamic A2UI dashboard based on the conversation. A "
-        "secondary LLM designs the UI schema and data. Use this for rich "
-        "custom dashboards (sales metrics, charts, tables, cards)."
-    ),
-)
-def generate_a2ui(
-    context: Annotated[
-        str,
-        # Default to empty so the primary LLM can call `generate_a2ui()` with
-        # no args (e.g. aimock fixture returns `arguments: "{}"`). Without a
-        # default, pydantic rejects the empty-args call with "Argument parsing
-        # failed" before the function body ever runs, and the secondary LLM
-        # path never gets to fire.
-        Field(default="", description="Conversation context to generate UI from."),
-    ] = "",
-) -> str:
-    """Generate a dynamic A2UI dashboard from conversation context."""
-    from openai import OpenAI
-
-    client = OpenAI()
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": "_design_a2ui_surface",
-            "description": "Render a dynamic A2UI v0.9 surface.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "surfaceId": {"type": "string"},
-                    "catalogId": {"type": "string"},
-                    "components": {"type": "array", "items": {"type": "object"}},
-                    "data": {"type": "object"},
-                },
-                "required": ["surfaceId", "catalogId", "components"],
-            },
-        },
-    }
-
-    # The secondary LLM's user message includes the caller-provided context.
-    # Without this, aimock fixtures that match on the original user query's
-    # substring (e.g. "with total revenue, new customers, and conversion rate
-    # metrics") never match and aimock falls through to real-OpenAI proxy.
-    # In LangGraph the equivalent path passes `*messages` (the full
-    # conversation) into the secondary LLM. agent_framework doesn't expose
-    # conversation history to tool functions, so we relay the caller's
-    # `context` string verbatim — the calling LLM is responsible for
-    # populating it with whatever the user asked for. Under aimock the
-    # primary fixture's `arguments="{}"` empties this; the fallback below
-    # keeps the request shape close enough to match the canonical sales
-    # dashboard fixture (`userMessage: "with total revenue, new customers,
-    # and conversion rate metrics"`) without needing a live LLM.
-    user_content = (
-        context
-        or "Show me a sales dashboard with total revenue, new customers, "
-        "and conversion rate metrics. Include a pie chart of revenue by "
-        "category and a bar chart of monthly sales."
-    )
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": "Generate a useful A2UI dashboard."},
-            {"role": "user", "content": user_content},
-        ],
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "_design_a2ui_surface"}},
-    )
-
-    if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call _design_a2ui_surface"})
-
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
-    result = build_a2ui_operations_from_tool_call(args)
-    return json.dumps(result)
 
 
 # ---------------------------------------------------------------------
@@ -390,7 +310,7 @@ def create_beautiful_chat_agent(
         client=chat_client,
         name="beautiful_chat_agent",
         instructions=SYSTEM_PROMPT,
-        tools=[manage_todos, query_data, search_flights, generate_a2ui],
+        tools=[manage_todos, query_data, search_flights],
         default_options={"allow_multiple_tool_calls": False},
     )
 

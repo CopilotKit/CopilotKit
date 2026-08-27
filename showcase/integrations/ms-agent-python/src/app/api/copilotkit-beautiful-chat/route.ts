@@ -44,13 +44,14 @@ const agents: Record<string, AbstractAgent> = {
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents,
-  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
+  // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: true, mcpApps.
   openGenerativeUI: true,
   a2ui: {
-    // The backend agent owns `generate_a2ui`, so we must NOT inject the
-    // runtime's default A2UI tool on top (that would double-bind the tool
-    // slot and confuse the LLM).
-    injectA2UITool: false,
+    // Native auto-injection (matches langgraph-python). The backend agent owns
+    // NO A2UI tool; the runtime forwards `injectA2UITool: true` and the
+    // agent-framework-ag-ui adapter's `plan_a2ui_injection` auto-injects the
+    // native `generate_a2ui` sub-agent alongside the agent's own tools.
+    injectA2UITool: true,
     // Models follow the tool-usage guide and omit `catalogId`, and the
     // middleware then falls back to the unregistered spec basic catalog
     // ("Catalog not found" render error). Pin the catalog the page registers.
