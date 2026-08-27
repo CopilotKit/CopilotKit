@@ -19,6 +19,3 @@ dependencies = [
   "pip>=26.0.1",
   "langchain-anthropic==1.4.1",
 ]
-
-[dependency-groups]
-test = ["pytest>=8.0,<9.0"]
