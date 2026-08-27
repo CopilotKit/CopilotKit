@@ -6,6 +6,7 @@ import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { findInspectorCopyControl } from "../testing/inspector-elements.js";
 import {
   INSPECTOR_POP_OUT_NAME,
   POP_OUT_BLOCKED_MESSAGE,
@@ -1151,8 +1152,7 @@ describe("Inspector pop-out", () => {
       eventRow.click();
       await context.inspector.updateComplete;
       await waitFor(() => {
-        const buttons = Array.from(context.popDoc.querySelectorAll("button"));
-        return buttons.some((button) => button.textContent?.includes("Copy"));
+        return findInspectorCopyControl(context.popDoc, "Copy") !== null;
       }, "the event Copy control in the pop-out");
 
       const pageWrite = vi.fn(async () => undefined);
@@ -1162,9 +1162,7 @@ describe("Inspector pop-out", () => {
       });
 
       const copy = requireElement(
-        Array.from(context.popDoc.querySelectorAll("button")).find((button) =>
-          button.textContent?.includes("Copy"),
-        ),
+        findInspectorCopyControl(context.popDoc, "Copy"),
         "Event Copy control was not rendered in the pop-out",
       );
       copy.click();

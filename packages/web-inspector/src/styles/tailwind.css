@@ -8,17 +8,6 @@
   }
 }
 
-.cpk-json-block {
-  margin: 0;
-  overflow: auto;
-  font-family: "Spline Sans Mono", ui-monospace, monospace;
-  font-size: 11px;
-  line-height: 1.8;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: #57575b;
-}
-
 .inspector-account-strip {
   width: 100%;
   min-width: 0;

@@ -16,6 +16,7 @@ import type {
 import { expect, test, vi } from "vitest";
 import { CpkThreadInspector, WebInspectorElement } from "../index.js";
 import type { ThreadDebuggerEvent, ThreadDebuggerProvider } from "../index.js";
+import { textContentIncludingJson } from "../testing/inspector-elements.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const REGISTERED_AGENT_ID = "alpha";
@@ -516,7 +517,10 @@ async function setup(options: SetupOptions): Promise<CapabilityHarness> {
       inspector.shadowRoot?.querySelector<HTMLElement>("cpk-thread-list")
         ?.shadowRoot?.textContent ?? "",
     details,
-    detailsText: () => details()?.shadowRoot?.textContent ?? "",
+    detailsText: () => {
+      const root = details()?.shadowRoot;
+      return root ? textContentIncludingJson(root) : "";
+    },
     async selectThread(name) {
       const threadList =
         inspector.shadowRoot?.querySelector<HTMLElement>("cpk-thread-list");

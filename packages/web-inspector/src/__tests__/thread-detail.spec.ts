@@ -13,6 +13,7 @@ import type {
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
 } from "../index.js";
+import { textContentIncludingJson } from "../testing/inspector-elements.js";
 
 const RUNTIME_URL = "https://runtime.example.test";
 const AGENT_ID = "thread-detail-agent";
@@ -1072,7 +1073,9 @@ test("all three local examples use the shared labels, created fact, local panels
       await selectTab(detail, "AG-UI Events");
       expect(detail.shadowRoot?.textContent).toContain(example.event);
       await selectTab(detail, "State");
-      expect(detail.shadowRoot?.textContent).toContain(example.state);
+      expect(textContentIncludingJson(detail.shadowRoot!)).toContain(
+        example.state,
+      );
       expectNoMutationControls(harness.inspector, detail);
       expect(harness.routes()).toEqual(routesBeforeExamples);
     }

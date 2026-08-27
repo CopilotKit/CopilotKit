@@ -28,6 +28,7 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import type { AbstractAgent } from "@ag-ui/client";
+import { textContentIncludingJson } from "../testing/inspector-elements.js";
 import { WebInspectorElement } from "../index.js";
 import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
@@ -2459,7 +2460,7 @@ test("a run error names the agent and highlights RUN_ERROR", async () => {
   );
   expect(failedEvent).not.toBeNull();
   expect(failedEvent?.textContent).toContain("RUN_ERROR");
-  expect(failedEvent?.textContent).toContain(
+  expect(textContentIncludingJson(requireElement(failedEvent))).toContain(
     "Inspector lab: the agent run failed.",
   );
 });

@@ -148,6 +148,15 @@ import type {
   ThreadDebuggerMetadata,
   ThreadDebuggerProvider,
 } from "./shared/thread-debugger/types.js";
+import { PortableLitElement } from "./ui/portable-lit-element.js";
+import {
+  INSPECTOR_COPY_BUTTON_TAG,
+  InspectorCopyButtonElement,
+} from "./ui/copy-button/copy-button.js";
+import {
+  INSPECTOR_JSON_VIEWER_TAG,
+  InspectorJsonViewerElement,
+} from "./ui/json-viewer/json-viewer.js";
 import type {
   ExampleKind,
   ExampleTourStep,
@@ -1459,55 +1468,8 @@ function getMetadataActionPlacement(
   return placement === "threads-footer" ? "threads_footer" : "threads_locked";
 }
 
-// ─── JSON syntax highlighter ─────────────────────────────────────────────────
-// Inline-styled so shadow DOM encapsulation preserves colors when the output
-// is injected via unsafeHTML. Only for structured data — never raw user HTML.
-
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Memoize highlight output by payload reference. Tab switches cause Lit to
-// re-render the active panel from scratch, and the JSON.stringify + regex
-// pass below is by far the most expensive thing in the events / state
-// panels (potentially MB of agent state). Caching by object reference
-// turns subsequent renders of an unchanged event list into near-zero JS work.
-const highlightedJsonCache = new WeakMap<object, string>();
-
-function highlightedJson(obj: unknown): string {
-  if (typeof obj === "object" && obj !== null) {
-    const cached = highlightedJsonCache.get(obj);
-    if (cached !== undefined) return cached;
-  }
-  const json = JSON.stringify(obj, null, 2);
-  if (!json) return "";
-  const parts: string[] = [];
-  let lastIndex = 0;
-  const re =
-    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(json)) !== null) {
-    parts.push(escapeHtml(json.slice(lastIndex, match.index)));
-    const m = match[0];
-    let token = "num";
-    if (m.startsWith('"')) {
-      token = m.trimEnd().endsWith(":") ? "key" : "str";
-    } else if (m === "true" || m === "false") {
-      token = "bool";
-    } else if (m === "null") {
-      token = "nil";
-    }
-    parts.push(
-      `<span class="cpk-json-token cpk-json-token--${token}">${escapeHtml(m)}</span>`,
-    );
-    lastIndex = match.index + m.length;
-  }
-  parts.push(escapeHtml(json.slice(lastIndex)));
-  const result = parts.join("");
-  if (typeof obj === "object" && obj !== null) {
-    highlightedJsonCache.set(obj, result);
-  }
-  return result;
 }
 
 function coerceJsonValue(value: unknown): unknown {
@@ -1534,17 +1496,23 @@ function coerceJsonValue(value: unknown): unknown {
   }
 }
 
-function renderHighlightedJsonBlock(
+function renderJsonValue(
   value: unknown,
-  options: { maxHeight?: string } = {},
+  options: {
+    maxHeight?: string;
+    copyable?: boolean;
+    copyLabel?: string;
+    clipboard?: Pick<Clipboard, "writeText">;
+  } = {},
 ) {
   const parsed = coerceJsonValue(value);
-  const style = options.maxHeight
-    ? `max-height:${options.maxHeight}`
-    : undefined;
-  return html`<pre class="cpk-json-block" style=${style || nothing}>
-${unsafeHTML(highlightedJson(parsed))}</pre
-  >`;
+  return html`<cpk-inspector-json-viewer
+    .value=${parsed}
+    .maxHeight=${options.maxHeight ?? ""}
+    .copyable=${options.copyable ?? false}
+    .copyLabel=${options.copyLabel ?? "Copy"}
+    .clipboard=${options.clipboard}
+  ></cpk-inspector-json-viewer>`;
 }
 
 function humanizeEventType(type: string): string {
@@ -1607,33 +1575,6 @@ function formatRelativeTimestamp(ts: string | number): string {
 
   const elapsedMinutes = Math.floor(elapsedSeconds / 60);
   return `${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"} ago`;
-}
-
-/**
- * Lit's constructable stylesheets belong to the document that created them.
- * These child elements move between the app and pop-out documents, so keep
- * their styles as shadow-root style nodes that travel with the live element.
- */
-abstract class PortableLitElement extends LitElement {
-  protected override createRenderRoot(): HTMLElement | DocumentFragment {
-    const elementClass = this.constructor as unknown as {
-      elementStyles: readonly (CSSStyleSheet | { cssText: string })[];
-      shadowRootOptions: ShadowRootInit;
-    };
-    const renderRoot =
-      this.shadowRoot ?? this.attachShadow(elementClass.shadowRootOptions);
-
-    for (const style of elementClass.elementStyles) {
-      const styleElement = this.ownerDocument.createElement("style");
-      styleElement.textContent =
-        "cssText" in style
-          ? style.cssText
-          : Array.from(style.cssRules, (rule) => rule.cssText).join("");
-      renderRoot.append(styleElement);
-    }
-
-    return renderRoot;
-  }
 }
 
 // ─── cpk-thread-list ────────────────────────────────────────────────────────
@@ -2349,6 +2290,9 @@ export class CpkThreadInspector extends PortableLitElement {
       --cpk-json-num: #8a5900;
       --cpk-json-bool: #c0333a;
       --cpk-json-nil: #57575b;
+      --cpk-json-border: none;
+      --cpk-json-border-block-start: 1px solid #dbdbe5;
+      --cpk-json-radius: 0;
     }
 
     .cpk-td {
@@ -3224,43 +3168,6 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-shrink: 0;
     }
 
-    .cpk-td__event-payload,
-    .cpk-td__json-block,
-    .cpk-json-block {
-      margin: 0;
-      padding: 10px 12px;
-      border-top: 1px solid #dbdbe5;
-      background: #f7f7f9;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 12px;
-      line-height: 1.65;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: normal;
-      color: #010507;
-      overflow: auto;
-    }
-
-    .cpk-json-token--key {
-      color: var(--cpk-json-key);
-    }
-
-    .cpk-json-token--str {
-      color: var(--cpk-json-str);
-    }
-
-    .cpk-json-token--num {
-      color: var(--cpk-json-num);
-    }
-
-    .cpk-json-token--bool {
-      color: var(--cpk-json-bool);
-    }
-
-    .cpk-json-token--nil {
-      color: var(--cpk-json-nil);
-    }
-
     /* ── Resize divider ──────────────────────────────────────────────── */
     /* Floats over the drawer's left edge so the toggle and the drawer
        touch directly without a 4px flex-gap between them. The hit zone
@@ -3362,6 +3269,9 @@ export class CpkThreadInspector extends PortableLitElement {
       --cpk-json-num: #ffac4d;
       --cpk-json-bool: #fa5f67;
       --cpk-json-nil: #afafb7;
+      --cpk-json-background: #111319;
+      --cpk-json-color: #f3f4f8;
+      --cpk-json-border-block-start: 1px solid #343742;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td {
@@ -3552,14 +3462,6 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
-      color: #f3f4f8;
-    }
-
-    :host([data-color-scheme="dark"]) .cpk-td__event-payload,
-    :host([data-color-scheme="dark"]) .cpk-td__json-block,
-    :host([data-color-scheme="dark"]) .cpk-json-block {
-      background: #111319;
-      border-top-color: #343742;
       color: #f3f4f8;
     }
 
@@ -5080,7 +4982,7 @@ export class CpkThreadInspector extends PortableLitElement {
         }
         ${
           item.details && detailsExpanded
-            ? renderHighlightedJsonBlock(item.details)
+            ? renderJsonValue(item.details)
             : nothing
         }
       </div>
@@ -5266,7 +5168,7 @@ export class CpkThreadInspector extends PortableLitElement {
             ? html`
               <div class="cpk-td__tool-body">
                 <div class="cpk-td__tool-section-label">Arguments</div>
-                ${renderHighlightedJsonBlock(item.arguments)}
+                ${renderJsonValue(item.arguments)}
                 ${
                   item.result
                     ? html`
@@ -5276,7 +5178,7 @@ export class CpkThreadInspector extends PortableLitElement {
                       >
                         Result
                       </div>
-                      ${renderHighlightedJsonBlock(item.result)}
+                      ${renderJsonValue(item.result)}
                     `
                     : nothing
                 }
@@ -5377,7 +5279,7 @@ export class CpkThreadInspector extends PortableLitElement {
     }
     const stateValue = this.activeState;
     return this.cachedPanelTpl("state", [stateValue], () => {
-      return renderHighlightedJsonBlock(stateValue);
+      return renderJsonValue(stateValue);
     });
   }
 
@@ -5476,7 +5378,7 @@ export class CpkThreadInspector extends PortableLitElement {
                 </button>
                 ${
                   detailsExpanded
-                    ? renderHighlightedJsonBlock(event.rawEvent ?? event)
+                    ? renderJsonValue(event.rawEvent ?? event)
                     : nothing
                 }
               </div>
@@ -8379,7 +8281,7 @@ export class WebInspectorElement extends LitElement {
               ${
                 argsString
                   ? html`<div class="mt-2">
-                    ${renderHighlightedJsonBlock(
+                    ${renderJsonValue(
                       coerceJsonValue(call.function?.arguments),
                     )}
                   </div>`
@@ -8542,34 +8444,6 @@ export class WebInspectorElement extends LitElement {
     return undefined;
   }
 
-  private async copyToClipboard(
-    text: string,
-    eventId: string,
-    event?: Event,
-  ): Promise<void> {
-    const clipboard = this.getClipboard(event);
-    if (!clipboard) {
-      console.error(
-        "Failed to copy to clipboard:",
-        "Clipboard API is not available",
-      );
-      return;
-    }
-    try {
-      await clipboard.writeText(text);
-      this.copiedEvents.add(eventId);
-      this.requestUpdate();
-
-      // Clear the "copied" state after 2 seconds
-      setTimeout(() => {
-        this.copiedEvents.delete(eventId);
-        this.requestUpdate();
-      }, 2000);
-    } catch (err) {
-      console.error("Failed to copy to clipboard:", err);
-    }
-  }
-
   static styles = [
     unsafeCSS(tailwindStyles),
     css`
@@ -8597,49 +8471,14 @@ export class WebInspectorElement extends LitElement {
         --cpk-json-num: #ffac4d;
         --cpk-json-bool: #fa5f67;
         --cpk-json-nil: #afafb7;
-      }
-
-      .cpk-json-token--key {
-        color: var(--cpk-json-key);
-      }
-
-      .cpk-json-token--str {
-        color: var(--cpk-json-str);
-      }
-
-      .cpk-json-token--num {
-        color: var(--cpk-json-num);
-      }
-
-      .cpk-json-token--bool {
-        color: var(--cpk-json-bool);
-      }
-
-      .cpk-json-token--nil {
-        color: var(--cpk-json-nil);
-      }
-
-      .cpk-json-block {
-        margin: 0;
-        padding: 10px 12px;
-        border: 1px solid #dbdbe5;
-        border-radius: 8px;
-        background: #f7f7f9;
-        font-family: "Spline Sans Mono", monospace;
-        font-size: 12px;
-        line-height: 1.65;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        word-break: normal;
-        color: #010507;
-        overflow: auto;
-      }
-
-      :host([data-color-scheme="dark"]) .cpk-json-block,
-      .inspector-window[data-color-scheme="dark"] .cpk-json-block {
-        background: #111319;
-        border-color: #343742;
-        color: #f3f4f8;
+        --cpk-json-background: #111319;
+        --cpk-json-color: #f3f4f8;
+        --cpk-json-border: 1px solid #343742;
+        --cpk-copy-border: #454956;
+        --cpk-copy-background: #1d2028;
+        --cpk-copy-color: #d5d7df;
+        --cpk-copy-hover-background: #292d37;
+        --cpk-copy-hover-color: #ffffff;
       }
 
       @keyframes cpk-playground-message-enter {
@@ -8992,34 +8831,24 @@ export class WebInspectorElement extends LitElement {
 
       /* ── Inline copy button ─────────────────────────────────────────── */
       .cpk-copy-btn {
-        font-size: 10px;
-        font-weight: 500;
-        color: #57575b;
-        background: #ffffff;
-        border: 1px solid #dbdbe5;
-        cursor: pointer;
-        padding: 2px 8px;
-        border-radius: 5px;
         flex-shrink: 0;
-        transition:
-          background-color 0.15s,
-          border-color 0.15s,
-          color 0.15s;
-      }
-      .cpk-copy-btn:hover {
-        background-color: #f0f0f4;
-        border-color: #afafb7;
+        --cpk-copy-font-size: 0.625rem;
+        --cpk-copy-font-weight: 500;
+        --cpk-copy-color: #57575b;
+        --cpk-copy-background: #ffffff;
+        --cpk-copy-border: #dbdbe5;
+        --cpk-copy-hover-background: #f0f0f4;
+        --cpk-copy-hover-border: #afafb7;
+        --cpk-copy-padding: 2px 8px;
+        --cpk-copy-radius: 5px;
       }
 
       .inspector-window[data-color-scheme="dark"] .cpk-copy-btn {
-        background: #191c24;
-        border-color: #3a3d49;
-        color: #f3f4f8;
-      }
-
-      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn:hover {
-        background: #20232d;
-        border-color: #57575b;
+        --cpk-copy-background: #191c24;
+        --cpk-copy-border: #3a3d49;
+        --cpk-copy-color: #f3f4f8;
+        --cpk-copy-hover-background: #20232d;
+        --cpk-copy-hover-border: #57575b;
       }
 
       .inspector-sidebar[data-icon-rail="true"]
@@ -9226,26 +9055,16 @@ export class WebInspectorElement extends LitElement {
       .announcement-code__copy {
         position: relative;
         pointer-events: auto;
-        padding: 3px 8px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 11px;
-        font-weight: 600;
-        color: #e6e8f2;
-        background: #1f222d;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 6px;
-        cursor: pointer;
-        transition:
-          background 0.12s ease,
-          color 0.12s ease;
-      }
-      .announcement-code__copy:hover {
-        background: #2a2e3c;
-      }
-      .announcement-code__copy[data-copied="true"] {
-        background: #eee6fe;
-        color: #6430ab;
-        border-color: transparent;
+        --cpk-copy-padding: 3px 8px;
+        --cpk-copy-font-size: 0.6875rem;
+        --cpk-copy-color: #e6e8f2;
+        --cpk-copy-background: #1f222d;
+        --cpk-copy-border: rgba(255, 255, 255, 0.15);
+        --cpk-copy-hover-background: #2a2e3c;
+        --cpk-copy-hover-color: #ffffff;
+        --cpk-copy-success-background: #eee6fe;
+        --cpk-copy-success-color: #6430ab;
+        --cpk-copy-success-border: transparent;
       }
 
       /* ── What's new ──────────────────────────────────────────────── */
@@ -10943,6 +10762,7 @@ export class WebInspectorElement extends LitElement {
 
   protected updated(): void {
     this.syncInspectorPortal();
+    this.syncAnnouncementCopyControls();
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
@@ -15144,10 +14964,8 @@ export class WebInspectorElement extends LitElement {
 
   private selectedContext = "all-agents";
   private expandedRows: Set<string> = new Set();
-  private copiedEvents: Set<string> = new Set();
   private expandedTools: Set<string> = new Set();
   private expandedContextItems: Set<string> = new Set();
-  private copiedContextItems: Set<string> = new Set();
 
   private renderCoreWarningBanner() {
     if (this._core) {
@@ -16030,9 +15848,6 @@ export class WebInspectorElement extends LitElement {
                       }
                       const isMultiline =
                         content.includes("\n") || content.length > 72;
-                      const copyKey = `playground-message-${
-                        message.id ?? index
-                      }`;
                       const showToolbar =
                         !isUser &&
                         !isActivity &&
@@ -16093,24 +15908,15 @@ export class WebInspectorElement extends LitElement {
                                   class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
                                   data-playground-assistant-toolbar
                                 >
-                                  <button
-                                    type="button"
-                                    class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                  <cpk-inspector-copy-button
+                                    variant="icon"
                                     title="Copy message"
-                                    aria-label="Copy message"
-                                    @click=${(event: Event) =>
-                                      this.copyToClipboard(
-                                        content,
-                                        copyKey,
-                                        event,
-                                      )}
+                                    label="Copy message"
+                                    copied-label="Message copied"
+                                    .value=${content}
+                                    .clipboard=${this.getClipboard()}
                                   >
-                                    ${
-                                      this.copiedEvents.has(copyKey)
-                                        ? this.renderIcon("Check")
-                                        : this.renderIcon("Copy")
-                                    }
-                                  </button>
+                                  </cpk-inspector-copy-button>
                                   ${
                                     index === lastAssistantIndex &&
                                     hasRetry &&
@@ -18517,8 +18323,6 @@ export class WebInspectorElement extends LitElement {
                 );
                 const inlineEvent =
                   this.stringifyPayload(extractedEvent, false) || "—";
-                const prettyEvent =
-                  this.stringifyPayload(extractedEvent, true) || inlineEvent;
                 const isExpanded = this.expandedRows.has(event.id);
 
                 return html`
@@ -18555,36 +18359,10 @@ export class WebInspectorElement extends LitElement {
                     >
                       ${
                         isExpanded
-                          ? html`
-                            <div class="group relative">
-                              ${renderHighlightedJsonBlock(extractedEvent)}
-                              <button
-                                class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
-                                  this.copiedEvents.has(event.id)
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
-                                }"
-                                @click=${(e: Event) => {
-                                  e.stopPropagation();
-                                  this.copyToClipboard(
-                                    prettyEvent,
-                                    event.id,
-                                    e,
-                                  );
-                                }}
-                              >
-                                ${
-                                  this.copiedEvents.has(event.id)
-                                    ? html`
-                                        <span>✓ Copied</span>
-                                      `
-                                    : html`
-                                        <span>Copy</span>
-                                      `
-                                }
-                              </button>
-                            </div>
-                          `
+                          ? renderJsonValue(extractedEvent, {
+                              copyable: true,
+                              clipboard: this.getClipboard(),
+                            })
                           : inlineEvent
                       }
                     </td>
@@ -18680,7 +18458,6 @@ export class WebInspectorElement extends LitElement {
     }
 
     this.expandedRows.clear();
-    this.copiedEvents.clear();
     this.requestUpdate();
   };
 
@@ -18832,7 +18609,7 @@ export class WebInspectorElement extends LitElement {
           <div class="overflow-auto p-4">
             ${
               this.hasRenderableState(state)
-                ? renderHighlightedJsonBlock(state, { maxHeight: "16rem" })
+                ? renderJsonValue(state, { maxHeight: "16rem" })
                 : html`
                   <div
                     class="flex h-12 items-center justify-center text-xs text-gray-500"
@@ -20117,20 +19894,13 @@ export class WebInspectorElement extends LitElement {
                 <div class="mb-3">
                   <div class="mb-1 flex items-center justify-between gap-2">
                     <h5 class="text-xs font-semibold text-gray-700">ID</h5>
-                    <button
-                      type="button"
+                    <cpk-inspector-copy-button
                       class="cpk-copy-btn"
-                      @click=${(e: Event) => {
-                        e.stopPropagation();
-                        void this.copyContextValue(id, `${id}:id`, e);
-                      }}
+                      .value=${id}
+                      .clipboard=${this.getClipboard()}
+                      .resetDelayMs=${1_500}
                     >
-                      ${
-                        this.copiedContextItems.has(`${id}:id`)
-                          ? "Copied"
-                          : "Copy"
-                      }
-                    </button>
+                    </cpk-inspector-copy-button>
                   </div>
                   <code
                     class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
@@ -20144,22 +19914,16 @@ export class WebInspectorElement extends LitElement {
                         <h5 class="text-xs font-semibold text-gray-700">
                           Value
                         </h5>
-                        <button
-                          type="button"
+                        <cpk-inspector-copy-button
                           class="cpk-copy-btn"
-                          @click=${(e: Event) => {
-                            e.stopPropagation();
-                            void this.copyContextValue(context.value, id, e);
-                          }}
+                          label="Copy JSON"
+                          .value=${this.formatContextValue(context.value)}
+                          .clipboard=${this.getClipboard()}
+                          .resetDelayMs=${1_500}
                         >
-                          ${
-                            this.copiedContextItems.has(id)
-                              ? "Copied"
-                              : "Copy JSON"
-                          }
-                        </button>
+                        </cpk-inspector-copy-button>
                       </div>
-                      ${renderHighlightedJsonBlock(context.value, {
+                      ${renderJsonValue(context.value, {
                         maxHeight: "180px",
                       })}
                     `
@@ -20262,31 +20026,6 @@ export class WebInspectorElement extends LitElement {
 
     const pretty = this.formatStateForDisplay(coerceJsonValue(value));
     return pretty.length > 0 ? pretty : String(value);
-  }
-
-  private async copyContextValue(
-    value: unknown,
-    contextId: string,
-    event?: Event,
-  ): Promise<void> {
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      console.warn("Clipboard API is not available in this environment.");
-      return;
-    }
-
-    const serialized = this.formatContextValue(value);
-    try {
-      await clipboard.writeText(serialized);
-      this.copiedContextItems.add(contextId);
-      this.requestUpdate();
-      setTimeout(() => {
-        this.copiedContextItems.delete(contextId);
-        this.requestUpdate();
-      }, 1500);
-    } catch (error) {
-      console.error("Failed to copy context value:", error);
-    }
   }
 
   private toggleContextExpansion(contextId: string): void {
@@ -21187,13 +20926,13 @@ export class WebInspectorElement extends LitElement {
       const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
       return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
     };
-    renderer.html = (html) => escapeHtml(html);
+    renderer.html = (markup) => escapeHtml(markup);
     renderer.code = (code, lang) => {
       const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
       const langClass = safeLang ? ` class="language-${safeLang}"` : "";
       const escaped = escapeHtml(code);
-      const encoded = this.encodeBase64(code);
-      return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
+      const value = this.escapeHtmlAttr(code);
+      return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><cpk-inspector-copy-button class="announcement-code__copy" value="${value}" accessible-label="Copy code" copied-label="Copied" reset-delay-ms="1500"></cpk-inspector-copy-button></div></div>`;
     };
     return marked.parse(markdown, { renderer, async: false });
   }
@@ -21216,85 +20955,29 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private copyResetTimeouts = new WeakMap<HTMLButtonElement, number>();
-
-  private encodeBase64(value: string): string {
-    if (typeof window === "undefined" || typeof window.btoa !== "function") {
-      return "";
+  private syncAnnouncementCopyControls(): void {
+    const clipboard = this.getClipboard();
+    for (const control of this.activeRoot.querySelectorAll<InspectorCopyButtonElement>(
+      ".announcement-code__copy",
+    )) {
+      control.clipboard = clipboard;
     }
-    // btoa only accepts Latin-1; round-trip via TextEncoder to keep full UTF-8.
-    const bytes = new TextEncoder().encode(value);
-    let binary = "";
-    for (const b of bytes) binary += String.fromCharCode(b);
-    return window.btoa(binary);
-  }
-
-  private decodeBase64(value: string): string {
-    if (typeof window === "undefined" || typeof window.atob !== "function") {
-      return "";
-    }
-    const decoded = window.atob(value);
-    const bytes = new Uint8Array(decoded.length);
-    for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
     const target = event.target as {
       closest?: (selector: string) => Element | null;
     } | null;
-    const copyControl =
-      typeof target?.closest === "function"
-        ? target.closest(".announcement-code__copy")
-        : null;
-    const button =
-      copyControl?.tagName === "BUTTON"
-        ? (copyControl as HTMLButtonElement)
-        : null;
-    if (!button) {
-      const link =
-        typeof target?.closest === "function" ? target.closest("a") : null;
-      if (!link) return;
+    const link =
+      typeof target?.closest === "function" ? target.closest("a") : null;
+    if (!link) return;
 
-      const href = link.getAttribute("href");
-      if (href) link.setAttribute("href", this.appendRefParam(href));
+    const href = link.getAttribute("href");
+    if (href) link.setAttribute("href", this.appendRefParam(href));
 
-      // whats_new_clicked fires once per banner per mount. Dedup prevents
-      // accidental multi-clicks from inflating the link-follow funnel.
-      this.trackWhatsNewClickedOnce({ cta: "body" });
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    const encoded = button.getAttribute("data-copy") ?? "";
-    const code = this.decodeBase64(encoded);
-    if (!code) {
-      return;
-    }
-    const showCopied = () => {
-      const view = button.ownerDocument.defaultView ?? window;
-      const existing = this.copyResetTimeouts.get(button);
-      if (existing !== undefined) {
-        view.clearTimeout(existing);
-      }
-      button.setAttribute("data-copied", "true");
-      button.setAttribute("aria-label", "Code copied");
-      button.textContent = "Copied";
-      const id = view.setTimeout(() => {
-        button.removeAttribute("data-copied");
-        button.setAttribute("aria-label", "Copy code");
-        button.textContent = "Copy";
-        this.copyResetTimeouts.delete(button);
-      }, 1500);
-      this.copyResetTimeouts.set(button, id);
-    };
-    const clipboard = this.getClipboard(event);
-    if (clipboard?.writeText) {
-      clipboard.writeText(code).then(showCopied, () => {
-        // ignore — clipboard may be unavailable (insecure context, denied
-        // permission, focus loss); button silently stays in idle state.
-      });
-    }
+    // whats_new_clicked fires once per banner per mount. Dedup prevents
+    // accidental multi-clicks from inflating the link-follow funnel.
+    this.trackWhatsNewClickedOnce({ cta: "body" });
   };
 
   private appendRefParam(href: string, ref = "cpk-inspector"): string {
@@ -21353,6 +21036,16 @@ export function defineWebInspector(
 ): void {
   if (!registry) return;
 
+  defineElementOnce(
+    registry,
+    INSPECTOR_COPY_BUTTON_TAG,
+    InspectorCopyButtonElement,
+  );
+  defineElementOnce(
+    registry,
+    INSPECTOR_JSON_VIEWER_TAG,
+    InspectorJsonViewerElement,
+  );
   defineElementOnce(registry, "cpk-thread-list", CpkThreadList);
   defineElementOnce(registry, THREAD_INSPECTOR_TAG, CpkThreadInspector);
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);

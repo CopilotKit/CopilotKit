@@ -1423,7 +1423,7 @@ test("the Home last-event link opens and expands that exact AG-UI event", async 
       "Linked AG-UI event row was not rendered",
     );
     expect(eventRow.textContent).toContain("RUN_FINISHED");
-    expect(eventRow.querySelector("pre")).not.toBeNull();
+    expect(eventRow.querySelector("cpk-inspector-json-viewer")).not.toBeNull();
   } finally {
     context.teardown();
   }
