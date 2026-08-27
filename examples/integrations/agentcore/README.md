@@ -24,7 +24,7 @@ cp .env.example .env
 
 Set `CPK_INTELLIGENCE_API_KEY` to the API key for your managed CopilotKit
 Intelligence project. `CPK_TELEMETRY_ID` is an optional, non-secret analytics
-identity and can stay blank. The pinned SDK token setup is below.
+identity and can stay blank.
 
 ## Deploy to AWS
 
@@ -37,9 +37,8 @@ identity and can stay blank. The pinned SDK token setup is below.
    ```
 
    Set `stack_name_base` and `admin_user_email` in `config.yaml`. The deploy
-   script stores the managed key and compatibility token from `.env` in their
-   configured AWS Secrets Manager secrets. CDK resolves both only for the
-   CopilotKit runtime Lambda.
+   script stores the managed key from `.env` in its configured AWS Secrets
+   Manager secret. CDK resolves it only for the CopilotKit runtime Lambda.
 
    Managed Intelligence uses its default endpoints. For self-hosted
    Intelligence, set endpoint overrides that AWS can reach. Do not use
@@ -134,23 +133,6 @@ Browser → API Gateway → CopilotKit Lambda (Node.js, AG-UI bridge)
 ```
 
 Auth: Cognito OIDC → Bearer token forwarded from browser through Lambda to AgentCore.
-
-## Pinned SDK compatibility and offline licensing
-
-This template pins `@copilotkit/runtime` and `@copilotkit/react-core` at
-`1.68.1`. Those packages do not yet return managed entitlement responses. Until
-the pins move to a release with that contract, set `COPILOTKIT_LICENSE_TOKEN` in
-`.env` alongside `CPK_INTELLIGENCE_API_KEY`. The token supplies the legacy
-Threads entitlement check; it does not replace the managed API key.
-
-The managed project setup does not issue this compatibility token, so this
-pinned template does not expose a key-only managed Threads drawer. Use an
-existing self-hosted or offline token-backed setup, or update the two SDK pins
-after a release includes structured managed entitlements.
-
-`CPK_TELEMETRY_ID` stays an optional, separate analytics identity. Offline or
-self-hosted deployments can also use `COPILOTKIT_LICENSE_TOKEN` as described
-in the self-hosting guide.
 
 ## Tear down
 
