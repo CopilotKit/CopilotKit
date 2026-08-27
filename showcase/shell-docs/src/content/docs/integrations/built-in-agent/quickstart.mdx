@@ -111,7 +111,7 @@ Before you begin, you'll need the following:
           agents: { default: builtInAgent }, // [!code highlight],
           // [!code highlight:8]
           intelligence: new CopilotKitIntelligence({
-            apiKey: process.env.INTELLIGENCE_API_KEY!,
+            apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
           }),
           // Threads are per-user. Without this, every visitor shares one history.
           identifyUser: (request) => ({
@@ -133,7 +133,7 @@ Before you begin, you'll need the following:
         this route:
 
         ```plaintext title=".env.local"
-        INTELLIGENCE_API_KEY=your_license_key
+        CPK_INTELLIGENCE_API_KEY=your_license_key
         ```
 
         <Callout type="info" title="Running without the Intelligence Platform?">

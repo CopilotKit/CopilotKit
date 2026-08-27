@@ -118,6 +118,7 @@ test("names create as the init command alias across managed setup guides", () =>
 });
 
 test("documents the managed CLI credential without an offline license token", () => {
+  const oldKeyName = ["INTELLIGENCE", "API", "KEY"].join("_");
   const sources = [
     "docs/premium/managed-intelligence-platform.mdx",
     "snippets/shared/cli/cli.mdx",
@@ -133,9 +134,7 @@ test("documents the managed CLI credential without an offline license token", ()
       "Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`.",
     );
     expect(source).toContain("`CPK_INTELLIGENCE_API_KEY`");
-    expect(source).not.toMatch(
-      /copy[^.]*`INTELLIGENCE_API_KEY`[^.]*`CPK_INTELLIGENCE_API_KEY`/i,
-    );
+    expect(source).not.toContain(`\`${oldKeyName}\``);
     expect(source).not.toContain("COPILOTKIT_LICENSE_TOKEN=...");
   }
 });
@@ -149,20 +148,21 @@ test("uses the managed API key prefix in thread import examples", () => {
   ]);
 
   for (const source of sources) {
-    expect(source).toContain('INTELLIGENCE_API_KEY="cpk_..."');
-    expect(source).not.toContain('INTELLIGENCE_API_KEY="cpk-..."');
+    expect(source).toContain('CPK_INTELLIGENCE_API_KEY="cpk_..."');
+    expect(source).not.toContain('CPK_INTELLIGENCE_API_KEY="cpk-..."');
   }
 });
 
 test("reads the CLI-managed key name in Runtime wiring guides", () => {
+  const oldKeyName = ["INTELLIGENCE", "API", "KEY"].join("_");
   const sources = readSources(MANAGED_RUNTIME_GUIDES);
 
   for (const source of sources) {
     expect(source).toContain("process.env.CPK_INTELLIGENCE_API_KEY");
-    expect(source).not.toContain("process.env.INTELLIGENCE_API_KEY");
+    expect(source).not.toContain(`process.env.${oldKeyName}`);
   }
 
   const connectRuntime = sources[1];
   expect(connectRuntime).toContain("CPK_INTELLIGENCE_API_KEY=cpk_...");
-  expect(connectRuntime).not.toContain("INTELLIGENCE_API_KEY=cpk-...");
+  expect(connectRuntime).not.toContain("CPK_INTELLIGENCE_API_KEY=cpk-...");
 });

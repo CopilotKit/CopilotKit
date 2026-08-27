@@ -29,7 +29,7 @@ const CANONICAL = `  // --- copilotkit:intelligence (remove this block to opt ou
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
         }),
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,

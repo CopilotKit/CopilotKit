@@ -84,7 +84,7 @@ To enable them, set `COPILOTKIT_LICENSE_TOKEN` (and the Intelligence endpoint va
 COPILOTKIT_LICENSE_TOKEN=
 INTELLIGENCE_API_URL=http://localhost:4201
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
-INTELLIGENCE_API_KEY=
+CPK_INTELLIGENCE_API_KEY=
 ```
 
 Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN` is set, `server.ts` wires `CopilotKitIntelligence` (threads + memory); otherwise it falls back to an in-memory runner and the drawer stays locked.
@@ -93,7 +93,7 @@ Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN`
 >
 > - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
 > - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. CopilotKit Intelligence requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
-> - Set `INTELLIGENCE_API_KEY` whenever you set `COPILOTKIT_LICENSE_TOKEN`. The runtime builds `CopilotKitIntelligence` off the license token alone; if the API key is missing, threads/memory fail with an opaque auth error at request time rather than a clear startup error.
+> - Set `CPK_INTELLIGENCE_API_KEY` whenever you set `COPILOTKIT_LICENSE_TOKEN`. The runtime builds `CopilotKitIntelligence` off the license token alone; if the API key is missing, threads/memory fail with an opaque auth error at request time rather than a clear startup error.
 
 ## 📚 Documentation
 

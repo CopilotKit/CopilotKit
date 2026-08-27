@@ -66,7 +66,7 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 ## Running a Channel
 
 `channel-host.mts` mounts the same agent as an Intelligence Channel
-(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+(Slack, Teams). It requires `CPK_INTELLIGENCE_API_KEY` and a declared Channel in
 `.copilotkit/channels.json` — set both up with `copilotkit init` or
 `copilotkit channels add`, which write that file and the credentials your
 `.env` needs, then:

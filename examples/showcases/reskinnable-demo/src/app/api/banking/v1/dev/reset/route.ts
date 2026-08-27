@@ -27,7 +27,7 @@ export const POST = async () => {
   store.reset();
 
   const apiUrl = process.env.INTELLIGENCE_API_URL;
-  const apiKey = process.env.INTELLIGENCE_API_KEY;
+  const apiKey = process.env.CPK_INTELLIGENCE_API_KEY;
   if (!apiUrl || !apiKey) {
     return new Response(JSON.stringify({ ok: true, reset: ["store"] }), {
       status: 200,

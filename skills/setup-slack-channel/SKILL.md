@@ -25,7 +25,7 @@ misconfigured Slack app installs cleanly and answers nothing.
 | Leg                             | Mechanism                                                                                                                                        | What authenticates it                              |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
 | **Slack → Intelligence**        | Slack posts events over **HTTPS** to an Intelligence-hosted Request URL: `https://intelligence.copilotkit.ai/api/channels/adapters/slack/events` | The app's **signing secret**, held by Intelligence |
-| **Intelligence → your runtime** | Your runtime dials **out** to the realtime gateway over a websocket                                                                              | `INTELLIGENCE_API_KEY`                             |
+| **Intelligence → your runtime** | Your runtime dials **out** to the realtime gateway over a websocket                                                                              | `CPK_INTELLIGENCE_API_KEY`                         |
 
 Two consequences:
 
@@ -280,7 +280,7 @@ control.
 
 Full detail in `references/local-runtime.md`.
 
-The developer puts `INTELLIGENCE_API_KEY` into `.env` themselves. Verify by
+The developer puts `CPK_INTELLIGENCE_API_KEY` into `.env` themselves. Verify by
 presence, never by printing. Then start the agent backend, then the runtime — and
 start it with logs turned up, because the runtime's logger defaults to `error`
 while every Channel lifecycle breadcrumb is emitted at `warn`:
