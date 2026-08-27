@@ -1575,15 +1575,32 @@ small.inspector-system-health-detail {
   min-height: 76px;
   align-items: center;
   border-bottom: 1px solid #d5d3e4;
+  /* A wash along the brand's own hue path — white into lilac into mint. The
+     same device the account strip at the top of the panel already uses, so the
+     band reads as premium without inventing a new visual language for one
+     element. Deliberately NOT gradient text: at 18px `background-clip: text`
+     renders muddy, costs contrast, and gradient headlines are the single most
+     over-used "premium" tell right now. */
+  background: linear-gradient(100deg, #fbfaff 0%, #f2eeff 52%, #edfaf5 100%);
   padding: 18px;
 }
 
 .inspector-intelligence-hud[data-mode="install"]
   .inspector-intelligence-hud-heading
   .inspector-home-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #010507;
   font-size: 18px;
   letter-spacing: -0.025em;
+}
+
+.inspector-intelligence-mark {
+  display: block;
+  width: 17px;
+  height: 17px;
+  flex: none;
 }
 
 /* The action column: buttons on one row, and the post-copy line beneath them,
@@ -3799,10 +3816,15 @@ small.inspector-system-health-detail {
 
 /* Same treatment System Health's header band gets, so the two sections keep
    reading as one family in dark mode too. */
+/* Dark keeps the same hue path but at a whisper. The account strip drops its
+   gradient entirely in dark; here a trace of it survives, because this band is
+   the one that has to feel like a paid feature. Any stronger and it reads as a
+   rendering artefact rather than a deliberate surface. */
 .inspector-window[data-color-scheme="dark"]
   .inspector-intelligence-hud[data-mode="install"]
   .inspector-intelligence-hud-header {
   border-bottom-color: #3a3d49;
+  background: linear-gradient(100deg, #1d1e2b 0%, #221f31 54%, #1a2523 100%);
 }
 
 .inspector-window[data-color-scheme="dark"]

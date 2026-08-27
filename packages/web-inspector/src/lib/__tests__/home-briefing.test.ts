@@ -42,8 +42,12 @@ describe("home-briefing", () => {
     // in that chain drops out, assistive tech gets a weaker pitch than sighted
     // users and nothing else in the suite would notice.
     expect(model.hero.body).toContain("thread");
-    expect(model.hero.body).toContain("corrections");
+    expect(model.hero.body).toContain("evidence");
     expect(model.hero.body).toContain("skills");
+    // The approval step is the one claim we must not quietly drop: the
+    // platform does not apply skills at run time, and promising that it does
+    // is a promise the product cannot keep.
+    expect(model.hero.body).toContain("approve");
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);

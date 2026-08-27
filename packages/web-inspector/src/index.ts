@@ -676,32 +676,48 @@ const INTELLIGENCE_STORY_BEATS = [
     // move faster.
     duration: 6_500,
     lead: "You only see this session. Your users had thousands.",
+    // "Rich Threads" is the product's own name for the durable ones, and the
+    // distinction is the sale: the Inspector's Threads tab already lists local
+    // ones that die on reload.
     support:
-      "Intelligence keeps every one, so you can open the thread that broke instead of reproducing it.",
+      "Rich Threads keep every conversation and its state, so you can open the one that broke instead of reproducing it.",
   },
   {
     id: "learning",
     label: "Learning",
     duration: 6_000,
     lead: "Your users already told you what to fix.",
+    // Insights are a first-class concept in the product, and the evidence link
+    // is the credibility hook for a sceptical developer: a claim you can open,
+    // not a model's opinion. Learning's own onboarding leads with "46 evidence
+    // refs" across "12 Threads" for exactly this reason.
     support:
-      "Intelligence reads the corrections across those threads and finds the ones that keep repeating.",
+      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
   },
   {
     id: "skill",
     label: "Skills",
     duration: 5_500,
-    lead: "A pattern that repeats becomes a skill.",
+    lead: "An Insight becomes a proposed skill.",
+    // The review step is real and load-bearing: candidates land at
+    // pending_review and a human approves before anything is published. Saying
+    // so is also the stronger pitch — a developer does not want a platform
+    // silently editing how their agent behaves.
     support:
-      "A readable file you own and can edit — not a black box that changed behind your back.",
+      "A SKILL.md assembled from that evidence. Nothing reaches your agent until you approve it.",
   },
   {
     id: "reuse",
-    label: "Reuse",
+    label: "Better agents",
     duration: 6_000,
-    lead: "Every conversation makes the next one better.",
+    lead: "Every round of real use leaves your agent better.",
+    // Deliberately NOT "Skills apply it for you". The platform does not apply
+    // skills at run time — there is no run-time read of published skills, only
+    // a bundle the developer pulls down with `copilotkit skills download`.
+    // Claiming automatic application would be a promise the product does not
+    // keep, and the first developer to check would stop believing the rest.
     support:
-      "Threads capture it, Learning finds it, Skills apply it — without you writing another prompt.",
+      "Approve a skill, pull it into your project, and the next run starts from what already worked.",
   },
 ] as const;
 
@@ -743,13 +759,23 @@ const INTELLIGENCE_STORY_SIGNALS = [
   "Ask me before you book it.",
 ] as const;
 
-const INTELLIGENCE_STORY_SKILL_FILE = "meeting-scheduling.md";
+// A skill really is a directory holding a SKILL.md, so the path shows both the
+// skill's name and the document the platform actually stores.
+const INTELLIGENCE_STORY_SKILL_FILE = "meeting-scheduling/SKILL.md";
 
+// The real pipeline, named the way the product names it: threads produce
+// evidence-backed Insights, Insights produce Skill candidates, a human
+// approves, and the approved set is what the project pulls in. `Lightbulb` is
+// Learning's own icon for an Insight, so the two surfaces agree.
 const INTELLIGENCE_STORY_CHAIN = [
-  { icon: "MessagesSquare", name: "Threads", detail: "Real corrections" },
-  { icon: "Sparkles", name: "Intelligence", detail: "Finds the pattern" },
-  { icon: "FileText", name: "Skills", detail: "Captures what worked" },
-  { icon: "Wand2", name: "Better agents", detail: "Applies it next time" },
+  {
+    icon: "MessagesSquare",
+    name: "Threads",
+    detail: "Every conversation",
+  },
+  { icon: "Lightbulb", name: "Insights", detail: "Backed by evidence" },
+  { icon: "FileText", name: "Skills", detail: "You approve" },
+  { icon: "Wand2", name: "Your agent", detail: "Starts from what worked" },
 ] as const;
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
@@ -11506,6 +11532,22 @@ export class WebInspectorElement extends LitElement {
         <header class="inspector-intelligence-hud-header">
           <div class="inspector-intelligence-hud-heading">
             <h2 class="inspector-home-section-title">
+              ${
+                // The brand mark makes this read as a product lockup rather
+                // than another status heading. Inside the h2 so it stays on
+                // the same line, with an empty alt so the accessible name is
+                // still just the product's name.
+                installing
+                  ? html`
+                    <img
+                      class="inspector-intelligence-mark"
+                      src=${inspectorLogoKiteUrl}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  `
+                  : nothing
+              }
               ${connected ? "Intelligence" : model.hero.title}
             </h2>
             ${
@@ -12021,22 +12063,11 @@ export class WebInspectorElement extends LitElement {
         data-copy-state=${this.promptCopyState}
       >
         <div class="inspector-intelligence-install-row">
-          <button
-            type="button"
-            class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
-            data-inspector-intelligence-copy-prompt
-            aria-label=${
-              copied
-                ? "Install prompt copied to clipboard"
-                : "Copy the Intelligence install prompt"
-            }
-            style=${INTERACTIVE_FOCUS_BASE_STYLE}
-            @click=${this.handleIntelligencePromptCopy}
-          >
-            ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
-            ${copied ? "Prompt copied" : "Copy setup prompt"}
-          </button>
           ${
+            // Secondary first, primary at the outer edge. In a right-aligned
+            // action group the primary belongs on the outside; with the filled
+            // button in the middle it read as a block wedged between the
+            // heading and the link rather than as the one thing to press.
             action
               ? html`
                 <a
@@ -12054,6 +12085,21 @@ export class WebInspectorElement extends LitElement {
               `
               : nothing
           }
+          <button
+            type="button"
+            class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
+            data-inspector-intelligence-copy-prompt
+            aria-label=${
+              copied
+                ? "Install prompt copied to clipboard"
+                : "Copy the Intelligence install prompt"
+            }
+            style=${INTERACTIVE_FOCUS_BASE_STYLE}
+            @click=${this.handleIntelligencePromptCopy}
+          >
+            ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
+            ${copied ? "Prompt copied" : "Copy setup prompt"}
+          </button>
         </div>
         ${
           // Only after a press, and kept to one short line: it sits in the
@@ -12302,7 +12348,7 @@ export class WebInspectorElement extends LitElement {
           <header>
             ${this.renderIcon("FileText")}
             <strong>${INTELLIGENCE_STORY_SKILL_FILE}</strong>
-            <em>Generated skill</em>
+            <em>Pending review</em>
           </header>
           <div class="inspector-intelligence-skill-code">
             <span data-line="1"
@@ -12357,7 +12403,7 @@ export class WebInspectorElement extends LitElement {
           )}
         </div>
         <span class="inspector-intelligence-chain-proof">
-          ${this.renderIcon("Sparkles")} Next run: using
+          ${this.renderIcon("Sparkles")} Next run starts with
           <code>${INTELLIGENCE_STORY_SKILL_FILE}</code>
         </span>
       </div>

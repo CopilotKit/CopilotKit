@@ -199,7 +199,7 @@ function heroForState(args: {
       // to carry the whole chain on its own.
       body: renewing
         ? "Renew Intelligence to restore persistent Threads and Memory."
-        : "Intelligence keeps every thread your users have, finds the corrections that repeat, and turns them into skills your agent reuses.",
+        : "Intelligence keeps every thread your users have, finds evidence-backed patterns in them, and proposes skills you approve before your agent uses them.",
       action: connectIntelligenceAction(
         args.action,
         args.connectUrl,
