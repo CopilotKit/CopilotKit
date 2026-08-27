@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server";
 
+import { getRuntimeSecurityConfiguration } from "../../../lib/runtimeSecurity";
+
 const AGENT_PROBE_TIMEOUT_MS = 2_000;
 
 export async function GET() {
+  if (getRuntimeSecurityConfiguration().mode === "misconfigured") {
+    return NextResponse.json(
+      {
+        status: "degraded",
+        service: "cloudplot-frontend",
+        agent: "unchecked",
+        accessControl: "misconfigured",
+      },
+      { status: 503 },
+    );
+  }
   const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL;
   if (!deploymentUrl) {
     return unhealthyResponse();

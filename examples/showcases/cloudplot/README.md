@@ -106,16 +106,34 @@ src/
 
 ## Railway deployment
 
-Use two Railway services from the same merged CopilotKit revision:
+Railway no longer lets new services opt into Config as Code, so configure two
+services explicitly in the Railway dashboard. Both services must use the same
+merged CopilotKit revision. See Railway's
+[Config as Code notice](https://docs.railway.com/config-as-code) and
+[monorepo guide](https://docs.railway.com/deployments/monorepo).
 
-| Service  | Source root directory                 | Config-as-code path                                | Required variables                          |
-| -------- | ------------------------------------- | -------------------------------------------------- | ------------------------------------------- |
-| Frontend | `/`                                   | `/examples/showcases/cloudplot/railway.toml`       | `LANGGRAPH_DEPLOYMENT_URL`; platform `PORT` |
-| Agent    | `/examples/showcases/cloudplot/agent` | `/examples/showcases/cloudplot/agent/railway.toml` | `OPENAI_API_KEY`; platform `PORT`           |
+| Setting           | Frontend service                                                                                                           | Agent service                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Root directory    | `/`                                                                                                                        | `/examples/showcases/cloudplot/agent`    |
+| Builder           | Railpack                                                                                                                   | Dockerfile (`Dockerfile`)                |
+| Build command     | `pnpm nx run cloudplot:build`                                                                                              | Dockerfile default                       |
+| Start command     | `pnpm --filter cloudplot start`                                                                                            | Dockerfile default                       |
+| Health-check path | `/api/health`                                                                                                              | `/health`                                |
+| Restart policy    | On Failure, 5 retries                                                                                                      | On Failure, 5 retries                    |
+| Watch paths       | `/examples/showcases/cloudplot/**`, `/packages/**`, `/package.json`, `/pnpm-lock.yaml`, `/pnpm-workspace.yaml`, `/nx.json` | `/examples/showcases/cloudplot/agent/**` |
 
-The frontend uses the repository root because its `workspace:*` CopilotKit dependencies must be built from the monorepo. Set `LANGGRAPH_DEPLOYMENT_URL` to the agent service URL. Do not configure AWS credentials. Do not set `CLOUDPLOT_REQUIRE_DURABLE_THREADS=1` unless the desired outcome is a fail-loud startup check.
+Set these service variables in Railway (the platform supplies `PORT`):
 
-Railway probes the frontend at `GET /api/health` and the agent at `GET /health`. Watch paths are repository-root-relative so changes to CloudPlot, shared CopilotKit packages, or the workspace lock/configuration redeploy the frontend; agent-only changes redeploy the Python service.
+- Frontend: `LANGGRAPH_DEPLOYMENT_URL`, `CLOUDPLOT_ACCESS_CODE`, and a long,
+  random `CLOUDPLOT_SESSION_SECRET`.
+- Agent: `OPENAI_API_KEY`.
+
+The frontend must use the repository root because its `workspace:*`
+CopilotKit dependencies are built from the monorepo. Point
+`LANGGRAPH_DEPLOYMENT_URL` at the agent's private Railway URL. Do not configure
+AWS credentials. Do not set `CLOUDPLOT_REQUIRE_DURABLE_THREADS=1` unless the
+desired outcome is a fail-loud startup check. Both health checks return `503`
+when required configuration or dependencies are unavailable.
 
 ## Manual live smoke
 

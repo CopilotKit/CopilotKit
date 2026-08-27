@@ -4,10 +4,27 @@ import { GET } from "./route";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   delete process.env.LANGGRAPH_DEPLOYMENT_URL;
 });
 
 describe("Cloudplot frontend health", () => {
+  it("returns 503 when production access control is not configured", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    process.env.LANGGRAPH_DEPLOYMENT_URL = "https://agent.example.test";
+    const fetchAgent = vi.fn(async () => Response.json({ status: "ok" }));
+    vi.stubGlobal("fetch", fetchAgent);
+
+    const response = await GET();
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      status: "degraded",
+      accessControl: "misconfigured",
+    });
+    expect(fetchAgent).not.toHaveBeenCalled();
+  });
+
   it("returns 503 when no agent URL is configured", async () => {
     const response = await GET();
 

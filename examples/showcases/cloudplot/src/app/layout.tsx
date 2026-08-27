@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { RuntimeGate } from "../components/RuntimeGate";
 import "./globals.css";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -30,9 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body className="antialiased">
-        <CopilotKitProvider runtimeUrl="/api/copilotkit">
-          {children}
-        </CopilotKitProvider>
+        <RuntimeGate>{children}</RuntimeGate>
       </body>
     </html>
   );

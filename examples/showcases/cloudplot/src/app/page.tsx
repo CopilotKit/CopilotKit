@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
@@ -54,7 +54,7 @@ function CloudPlotWorkspace({
   useFrontendTools();
   useInfraApproval();
 
-  const [restoration, setRestoration] = useState<{
+  const restorationRef = useRef<{
     agent: typeof agent;
     threadId: string;
     expectedState: string | null;
@@ -63,6 +63,7 @@ function CloudPlotWorkspace({
 
   useEffect(() => {
     if (!isReady) return;
+    const restoration = restorationRef.current;
     if (
       restoration?.agent === agent &&
       restoration.threadId === currentBranch.threadId
@@ -74,49 +75,37 @@ function CloudPlotWorkspace({
     if (branchState) {
       const restoredState = structuredClone(branchState.state);
       agent.setState(restoredState);
-      setRestoration({
+      restorationRef.current = {
         agent,
         threadId: currentBranch.threadId,
         expectedState: JSON.stringify(restoredState),
         confirmed: false,
-      });
+      };
       return;
     }
 
-    setRestoration({
+    restorationRef.current = {
       agent,
       threadId: currentBranch.threadId,
       expectedState: null,
       confirmed: true,
-    });
-  }, [
-    currentBranch.threadId,
-    currentBranchId,
-    getBranchState,
-    agent,
-    isReady,
-    restoration,
-  ]);
-
-  useEffect(() => {
-    if (
-      !restoration ||
-      restoration.confirmed ||
-      restoration.agent !== agent ||
-      restoration.threadId !== currentBranch.threadId
-    ) {
-      return;
-    }
-    if (JSON.stringify(state) === restoration.expectedState) {
-      setRestoration({ ...restoration, confirmed: true });
-    }
-  }, [agent, currentBranch.threadId, restoration, state]);
+    };
+  }, [currentBranch.threadId, currentBranchId, getBranchState, agent, isReady]);
 
   // Debounced browser-local backup of the visible workspace.
   useEffect(() => {
+    const restoration = restorationRef.current;
+    if (
+      restoration &&
+      !restoration.confirmed &&
+      restoration.expectedState === JSON.stringify(state)
+    ) {
+      restoration.confirmed = true;
+    }
     if (
       !isReady ||
-      !restoration?.confirmed ||
+      !restoration ||
+      !restoration.confirmed ||
       restoration.agent !== agent ||
       restoration.threadId !== currentBranch.threadId
     ) {
@@ -133,7 +122,6 @@ function CloudPlotWorkspace({
     currentBranch.threadId,
     currentBranchId,
     isReady,
-    restoration,
     saveBranchState,
     state,
   ]);
