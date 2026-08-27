@@ -7,7 +7,7 @@ description: >
   docs that mention Inspector. Don't use for Inspector UI polish that does
   not add a pane, for CLI or agent-prompt copy, or for unshipped Inspector
   ideas.
-version: 1.0.0
+version: 1.0.1
 ---
 
 # Inspector Docs Callouts
@@ -25,7 +25,10 @@ Load this skill when:
 - A PR touches both Inspector source and product docs
 
 Do not load it for icon, ping, layout, or copy-only Inspector changes that
-do not add a pane.
+do not add a pane. Those UI changes use `inspector-workbench`.
+
+If the same change also edits Inspector UI, load `inspector-workbench` as
+well and start the standalone lab.
 
 ## Procedures
 
