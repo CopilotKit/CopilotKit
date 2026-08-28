@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, inject, onBeforeUnmount, ref, watch } from "vue";
 import type { Message, ReasoningMessage } from "@ag-ui/core";
 import { StreamMarkdown } from "streamdown-vue";
-import { IconChevronRight } from "../icons";
+import { IconBookmark, IconChevronRight } from "../icons";
+import { InspectorKey } from "../../providers/keys";
+import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
+import { CopilotChatDefaultLabels } from "../../providers/types";
 
 const props = withDefaults(
   defineProps<{
@@ -139,6 +142,27 @@ function toggleOpen() {
   userToggledDuringStreaming.value = true;
   isOpen.value = !isOpen.value;
 }
+
+const inspector = inject(InspectorKey, null);
+const chatConfiguration = useCopilotChatConfiguration();
+const canSaveReasoning = computed(
+  () => inspector?.isInspectorEnabled.value === true && hasContent.value,
+);
+const saveLabel = computed(
+  () =>
+    chatConfiguration.value?.labels.assistantMessageToolbarSaveSnippetLabel ??
+    CopilotChatDefaultLabels.assistantMessageToolbarSaveSnippetLabel,
+);
+
+function saveReasoningSnippet() {
+  void inspector?.saveEventSnippet({
+    kind: "reasoning",
+    messageId: props.message.id,
+    content: normalizedContent.value,
+    threadId: chatConfiguration.value?.threadId,
+    agentId: chatConfiguration.value?.agentId,
+  });
+}
 </script>
 
 <template>
@@ -169,41 +193,53 @@ function toggleOpen() {
         },
       }"
     >
-      <slot
-        name="header"
-        :is-open="isOpen"
-        :label="label"
-        :has-content="hasContent"
-        :is-streaming="isStreaming"
-        :on-click="hasContent ? toggleOpen : undefined"
-      >
-        <button
-          type="button"
-          class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none"
-          :class="
-            hasContent
-              ? 'cpk:hover:text-foreground cpk:cursor-pointer'
-              : 'cpk:cursor-default'
-          "
-          :aria-expanded="hasContent ? isOpen : undefined"
-          @click="hasContent ? toggleOpen() : undefined"
+      <div class="cpk:flex cpk:items-center cpk:gap-1">
+        <slot
+          name="header"
+          :is-open="isOpen"
+          :label="label"
+          :has-content="hasContent"
+          :is-streaming="isStreaming"
+          :on-click="hasContent ? toggleOpen : undefined"
         >
-          <span class="cpk:font-medium">{{ label }}</span>
-          <span
-            v-if="isStreaming && !hasContent"
-            class="cpk:inline-flex cpk:items-center cpk:ml-1"
+          <button
+            type="button"
+            class="cpk:inline-flex cpk:items-center cpk:gap-1 cpk:py-1 cpk:text-sm cpk:text-muted-foreground cpk:transition-colors cpk:select-none"
+            :class="
+              hasContent
+                ? 'cpk:hover:text-foreground cpk:cursor-pointer'
+                : 'cpk:cursor-default'
+            "
+            :aria-expanded="hasContent ? isOpen : undefined"
+            @click="hasContent ? toggleOpen() : undefined"
           >
+            <span class="cpk:font-medium">{{ label }}</span>
             <span
-              class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
+              v-if="isStreaming && !hasContent"
+              class="cpk:inline-flex cpk:items-center cpk:ml-1"
+            >
+              <span
+                class="cpk:w-1.5 cpk:h-1.5 cpk:rounded-full cpk:bg-muted-foreground cpk:animate-pulse"
+              />
+            </span>
+            <IconChevronRight
+              v-if="hasContent"
+              class="cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200"
+              :class="{ 'cpk:rotate-90': isOpen }"
             />
-          </span>
-          <IconChevronRight
-            v-if="hasContent"
-            class="cpk:size-3.5 cpk:shrink-0 cpk:transition-transform cpk:duration-200"
-            :class="{ 'cpk:rotate-90': isOpen }"
-          />
+          </button>
+        </slot>
+        <button
+          v-if="canSaveReasoning"
+          type="button"
+          class="cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]"
+          data-testid="copilot-save-snippet-button"
+          :aria-label="`${saveLabel} (${chatConfiguration?.labels.assistantMessageToolbarInspectorLocalOnlyLabel ?? CopilotChatDefaultLabels.assistantMessageToolbarInspectorLocalOnlyLabel})`"
+          @click="saveReasoningSnippet"
+        >
+          <IconBookmark class="cpk:size-[18px]" />
         </button>
-      </slot>
+      </div>
 
       <slot
         name="toggle"

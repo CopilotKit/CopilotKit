@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useSlots, watch } from "vue";
+import { computed, inject, ref, useSlots, watch } from "vue";
 import type { Component } from "vue";
 import type {
   ActivityMessage,
@@ -19,6 +19,9 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
+import { InspectorKey } from "../../providers/keys";
+import { IconBookmark } from "../icons";
+import SaveSnippetBeside from "./SaveSnippetBeside.vue";
 
 interface MessageMetaProps {
   message: Message;
@@ -36,6 +39,23 @@ interface ActivitySlotProps {
   content: unknown;
   message: ActivityMessage;
   agent: unknown;
+}
+
+const inspector = inject(InspectorKey, null);
+const canSaveActivity = (message: ActivityMessage) =>
+  inspector?.isInspectorEnabled.value === true &&
+  (message.activityType === "a2ui-surface" ||
+    message.activityType === "open-generative-ui");
+
+function saveActivitySnippet(message: ActivityMessage) {
+  void inspector?.saveEventSnippet({
+    kind: "activity",
+    messageId: message.id,
+    activityType: message.activityType,
+    content: message.content,
+    threadId: config.value?.threadId,
+    agentId: config.value?.agentId,
+  });
 }
 
 type InterruptSlotProps = InterruptRenderProps<unknown, unknown>;
@@ -414,28 +434,42 @@ function resolveToolMessage(
         />
       </slot>
 
-      <slot
-        v-else-if="message.role === 'activity'"
-        :name="getActivitySlotName(message.activityType)"
-        :activity-type="message.activityType"
-        :content="message.content"
-        :message="message"
-        :agent="resolvedThreadAgent"
-      >
-        <slot
-          name="activity-message"
-          :activity-type="message.activityType"
-          :content="message.content"
-          :message="message"
-          :agent="resolvedThreadAgent"
-        >
-          <component
-            v-if="resolveActivityRenderer(message)"
-            :is="resolveActivityRenderer(message)!.renderer"
-            v-bind="resolveActivityRenderer(message)!.props"
-          />
-        </slot>
-      </slot>
+      <div v-else-if="message.role === 'activity'">
+        <SaveSnippetBeside :enabled="canSaveActivity(message)">
+          <slot
+            :name="getActivitySlotName(message.activityType)"
+            :activity-type="message.activityType"
+            :content="message.content"
+            :message="message"
+            :agent="resolvedThreadAgent"
+          >
+            <slot
+              name="activity-message"
+              :activity-type="message.activityType"
+              :content="message.content"
+              :message="message"
+              :agent="resolvedThreadAgent"
+            >
+              <component
+                v-if="resolveActivityRenderer(message)"
+                :is="resolveActivityRenderer(message)!.renderer"
+                v-bind="resolveActivityRenderer(message)!.props"
+              />
+            </slot>
+          </slot>
+          <template #save>
+            <button
+              type="button"
+              class="cpk:inline-flex cpk:h-8 cpk:w-8 cpk:items-center cpk:justify-center cpk:rounded-md cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8] cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]"
+              data-testid="copilot-activity-save-snippet-button"
+              :aria-label="`${config?.labels.assistantMessageToolbarSaveSnippetLabel ?? 'Save as snippet'} (${config?.labels.assistantMessageToolbarInspectorLocalOnlyLabel ?? 'Development Only'})`"
+              @click="saveActivitySnippet(message)"
+            >
+              <IconBookmark class="cpk:size-[18px]" />
+            </button>
+          </template>
+        </SaveSnippetBeside>
+      </div>
 
       <slot
         v-if="componentSlots['message-after']"

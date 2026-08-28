@@ -117,6 +117,8 @@ export const OpenGenerativeUIRenderer = defineComponent({
     const executedExpressionIndex = ref(0);
     const jsFunctionsInjected = ref(false);
     const pendingQueue = ref<string[]>([]);
+    const autoHeight = ref<number | null>(null);
+    const heightMeasured = ref(false);
 
     const localApi = computed(() => {
       const api: Record<string, unknown> = {};
@@ -185,7 +187,8 @@ export const OpenGenerativeUIRenderer = defineComponent({
       () => !!fullHtml.value || hasPreview.value,
     );
     const resolvedHeight = computed(
-      () => `${throttledContent.value.initialHeight ?? 200}px`,
+      () =>
+        `${autoHeight.value ?? throttledContent.value.initialHeight ?? 200}px`,
     );
 
     const destroyPreview = () => {
@@ -205,6 +208,8 @@ export const OpenGenerativeUIRenderer = defineComponent({
       pendingQueue.value = [];
       executedExpressionIndex.value = 0;
       jsFunctionsInjected.value = false;
+      autoHeight.value = null;
+      heightMeasured.value = false;
     };
 
     watch(
@@ -352,6 +357,42 @@ export const OpenGenerativeUIRenderer = defineComponent({
         });
       },
       { immediate: true },
+    );
+
+    const measureOnce = `
+      (function() {
+        var s = document.createElement('style');
+        s.textContent = 'body { height: auto !important; min-height: 0 !important; }';
+        document.head.appendChild(s);
+        var h = document.body.scrollHeight;
+        var cs = getComputedStyle(document.body);
+        h += parseFloat(cs.marginTop) || 0;
+        h += parseFloat(cs.marginBottom) || 0;
+        s.remove();
+        parent.postMessage({ type: "__ck_resize", height: Math.ceil(h) }, "*");
+      })();
+    `;
+
+    watch(
+      [sandboxReady, () => throttledContent.value.generating === false],
+      ([ready, generationDone]) => {
+        const sandbox = sandboxRef.value;
+        if (!ready || !generationDone || heightMeasured.value || !sandbox) {
+          return;
+        }
+        heightMeasured.value = true;
+        const onMessage = (event: MessageEvent) => {
+          if (
+            event.source === sandbox.iframe.contentWindow &&
+            event.data?.type === "__ck_resize"
+          ) {
+            autoHeight.value = event.data.height;
+            window.removeEventListener("message", onMessage);
+          }
+        };
+        window.addEventListener("message", onMessage);
+        void sandbox.run(measureOnce);
+      },
     );
 
     watch(

@@ -1,24 +1,25 @@
-import { signal } from "@angular/core";
 import type { AgentCapabilities } from "@ag-ui/core";
+import type { Signal } from "@angular/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { injectAgentStore, type AgentStore } from "./agent";
+import type { AgentStore } from "./agent";
 import { injectCapabilities } from "./capabilities";
 
-const { defaultAgentId } = vi.hoisted(() => ({
+const { defaultAgentId, mockInjectAgentStore } = vi.hoisted(() => ({
   defaultAgentId: () => "default",
+  mockInjectAgentStore: vi.fn(),
 }));
 
 vi.mock("./agent", () => ({
-  injectAgentStore: vi.fn(),
+  injectAgentStore: mockInjectAgentStore,
 }));
 vi.mock("./chat-configuration", () => ({
   injectChatConfiguration: () => ({ agentId: defaultAgentId }),
 }));
 
-const mockInjectAgentStore = vi.mocked(injectAgentStore);
-
 function mockAgentStore(agent: object | undefined) {
-  const store = signal({ agent } as AgentStore);
+  // A plain function, not Angular signal(). This spec has no TestBed, and
+  // injectCapabilities only needs a callable store that returns `{ agent }`.
+  const store = (() => ({ agent })) as Signal<AgentStore>;
   mockInjectAgentStore.mockReturnValue(store);
   return store;
 }
