@@ -177,11 +177,8 @@ test("React Native and Channels do not tell the reader to click the Inspector bu
   expect(channels).not.toContain("OpenInspectorStep");
 });
 
-// Skipping the Open Inspector step keeps the docs from pointing React Native at a surface
-// it has no way to open, but silence was its own defect: a mobile developer reads the
-// Inspector as the debugging story everywhere else, finds nothing, and concludes the wiring
-// is broken. A run that reached a fully working native app on 2026-08-25 hit exactly this
-// (OSS-977). Both pages now state the absence rather than leaving the reader to infer it.
+// Skipping the Open Inspector step kept the docs from pointing React Native at a surface it
+// cannot open, but it never stated the absence. Both pages now say it (OSS-977).
 test("Inspector states that it needs a browser and React Native has none", () => {
   const inspector = read("docs/inspector.mdx");
 
@@ -191,15 +188,14 @@ test("Inspector states that it needs a browser and React Native has none", () =>
 
   // Naming the gap without naming the substitutes moves the cost rather than removing it.
   expect(inspector).toContain("copilotkit verify --round-trip");
-  expect(inspector).toContain("/troubleshooting/event-inspector");
+  expect(inspector).toContain("/troubleshooting/debug-mode");
   expect(inspector).toContain("/react-native#proving-it-works");
 });
 
 test("the React Native page lists the missing Inspector among its limitations", () => {
   const reactNative = read("docs/frontends/react-native.mdx");
 
-  // The limitations list is where a mobile developer checks what does not carry over, and
-  // it named voice and the web-only hooks while staying silent on the Inspector.
+  // The limitations list is where a mobile developer checks what does not carry over.
   const limitationsAt = reactNative.indexOf("## Known limitations");
   const inspectorAt = reactNative.indexOf("**Inspector**");
   expect(limitationsAt).toBeGreaterThanOrEqual(0);
@@ -207,11 +203,5 @@ test("the React Native page lists the missing Inspector among its limitations", 
 
   expect(reactNative).toContain("no React Native surface");
   expect(reactNative).toContain("[Inspector](/inspector#where-inspector-runs)");
-
-  // `/cpk-debug-events` is a runtime HTTP route, so the AG-UI event stream is the one
-  // Inspector pane a mobile developer can still reach. Saying so is the difference between
-  // a limitation and a dead end.
-  expect(reactNative).toContain(
-    "[AG-UI Event Inspector](/troubleshooting/event-inspector)",
-  );
+  expect(reactNative).toContain("[Proving it works](#proving-it-works)");
 });

@@ -25,9 +25,7 @@ Update this file in the same change that adds or removes a pane.
 
 ## Surfaces that do not get the Open Inspector step
 
-Neither has a browser, so neither can mount the overlay. Skipping the step is not
-enough on its own: a reader who meets Inspector as the debugging story everywhere
-else and then finds nothing reads that as broken wiring. Each surface states the
+Neither has a browser, so neither can mount the overlay. Each surface states the
 absence and names what to use instead.
 
 | Surface      | Where the absence is stated                                                                                      |

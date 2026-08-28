@@ -20,24 +20,20 @@ return to the last pane you used.
 
 ## Where Inspector runs
 
-Inspector is a browser overlay. It mounts a custom element into the page's DOM,
-so it needs a browser: React, Next.js, React SPA, Vue, and Angular all have one.
+Inspector is a browser overlay: it mounts a custom element into the page's DOM.
+It runs on React, Next.js, React SPA, Vue, and Angular.
 
-There is no React Native build of Inspector, and a browser cannot stand in for a
-device — a native app has no DOM to mount into. If you are building with
-`@copilotkit/react-native`, none of the panes below are reachable from your app,
-and their absence is the frontend rather than a fault in your wiring. Debug a
-mobile integration with these instead:
+There is no React Native build of Inspector, and `@copilotkit/react-native` does
+not ship it. Channels — Slack and Teams — have no browser surface either. On
+those surfaces none of the panes below are reachable.
+
+Debug a React Native integration with these instead:
 
 | Instead of this pane | Use |
 | --- | --- |
 | Agent, and whether the runtime answers | `npx copilotkit verify --round-trip`, which sends one request through the runtime and reads the answer back off the thread. See [Proving it works](/react-native#proving-it-works). |
-| AG-UI Events | The [AG-UI Event Inspector](/troubleshooting/event-inspector) in the [VS Code Extension](/vs-code-extension). It reads the runtime's `/cpk-debug-events` route rather than the page, so the event stream stays reachable with no browser involved. |
 | Errors and tool calls | Runtime [Debug Mode](/troubleshooting/debug-mode) beside the device log — `adb logcat` on Android, where a redbox appears that a screen capture never shows. |
 | Threads | The thread view in [CopilotKit Intelligence](/premium/overview). |
-
-Channels — Slack and Teams — have no browser surface either, for the same
-reason.
 
 ## Navigation and Threads
 
