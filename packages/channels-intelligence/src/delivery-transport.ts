@@ -4,6 +4,7 @@ import {
   isChannelDeliveryTerminatedError,
 } from "@copilotkit/channels-core";
 import type { AgentContentPart } from "@copilotkit/channels-ui";
+import type { ChannelAuthoredActor } from "@copilotkit/channels-ui";
 import type { MessageOperation } from "@copilotkit/channels-ui";
 import type {
   RealtimeGatewayDeliveryChannel,
@@ -114,6 +115,13 @@ export interface PreparedChannelDelivery {
       handle?: string;
       email?: string;
     };
+    /**
+     * Application author, set by the Gateway when this delivery came from an
+     * authenticated application caller instead of a provider event. The SDK
+     * only forwards it; it is minted from the caller's verified session inside
+     * Intelligence, so a runtime cannot manufacture one.
+     */
+    authoredBy?: ChannelAuthoredActor;
     raw?: unknown;
   };
 }
@@ -1508,7 +1516,7 @@ function assertPreparedDelivery(
     !hasExactFields(
       prepared.turn,
       ["eventId", "receivedAt", "input"],
-      ["typingDelayMs", "actor", "raw"],
+      ["typingDelayMs", "actor", "authoredBy", "raw"],
     ) ||
     !isEventId(prepared.turn.eventId) ||
     !isIsoDateTime(prepared.turn.receivedAt) ||
@@ -1517,6 +1525,8 @@ function assertPreparedDelivery(
       prepared.turn.typingDelayMs !== 300) ||
     (prepared.turn.actor !== undefined &&
       !isPreparedActor(prepared.turn.actor)) ||
+    (prepared.turn.authoredBy !== undefined &&
+      !isPreparedAuthoredActor(prepared.turn.authoredBy)) ||
     !isRecord(prepared.turn.input) ||
     typeof prepared.turn.input.kind !== "string" ||
     !PREPARED_TURN_KINDS.has(prepared.turn.input.kind) ||
@@ -1699,6 +1709,32 @@ function isPreparedActor(value: unknown): boolean {
         value.displayName.trim().length <= 120)) &&
     (value.handle === undefined || isBoundedString(value.handle, 1, 512)) &&
     (value.email === undefined || isBoundedString(value.email, 1, 512))
+  );
+}
+
+/**
+ * Validate the application author on a prepared delivery.
+ *
+ * Exact-field, like every other join-boundary check here: an unexpected key is
+ * rejected rather than ignored, so a future Gateway field cannot arrive as a
+ * silently-trusted extra. `kind` is pinned to the single literal the SDK knows;
+ * a newer Gateway sending an unknown author class must fail the join loudly
+ * instead of being flattened into "application" by a permissive check.
+ *
+ * `appUserId` is bounded by the same id shape as every other external id here
+ * so it cannot carry a provider reference, a path, or a control character into
+ * a handler that renders it.
+ */
+function isPreparedAuthoredActor(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    hasExactFields(value, ["kind", "surface", "appUserId", "displayName"]) &&
+    value.kind === "application" &&
+    isSafeExternalId(value.surface) &&
+    isSafeAppUserId(value.appUserId) &&
+    typeof value.displayName === "string" &&
+    value.displayName.trim().length >= 1 &&
+    value.displayName.trim().length <= 120
   );
 }
 
