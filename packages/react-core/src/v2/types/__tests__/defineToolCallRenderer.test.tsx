@@ -202,7 +202,7 @@ describe("defineToolCallRenderer", () => {
     });
 
     it("should work with wildcard tool without args definition", () => {
-      // No args field - should default to z.any()
+      // No args field - should default to an any-value Standard Schema
       const wildcardRender = defineToolCallRenderer({
         name: "*",
         render: ({ name, args, status }) => (

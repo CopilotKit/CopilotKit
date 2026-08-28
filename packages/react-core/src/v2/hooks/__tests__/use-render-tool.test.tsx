@@ -90,7 +90,7 @@ describe("useRenderTool", () => {
     expect(typeof renderer?.render).toBe("function");
   });
 
-  it("registers wildcard renderer and defaults parameters schema to z.any", () => {
+  it("registers wildcard renderer with a schema that accepts any value", async () => {
     const core = createMockCore();
     mockUseCopilotKit.mockReturnValue({ copilotkit: core });
 
@@ -113,10 +113,10 @@ describe("useRenderTool", () => {
     expect(renderer).toBeDefined();
     expect(typeof renderer?.render).toBe("function");
     const args = renderer?.args;
-    if (!(args instanceof z.ZodType)) {
-      throw new Error("expected wildcard args to default to a zod schema");
-    }
-    expect(args.safeParse({ arbitrary: true }).success).toBe(true);
+    expect(args?.["~standard"].vendor).toBe("copilotkit");
+    expect(await args?.["~standard"].validate({ arbitrary: true })).toEqual({
+      value: { arbitrary: true },
+    });
   });
 
   it("deduplicates by agentId:name and keeps unrelated entries", () => {

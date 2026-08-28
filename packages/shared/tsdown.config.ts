@@ -2,14 +2,29 @@ import { defineConfig } from "tsdown";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: ["src/index.ts", "src/react-native.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
     unbundle: true,
-    exports: true,
+    exports: {
+      customExports: (generatedExports) => {
+        const { "./react-native": _reactNativeEntry, ...exports } =
+          generatedExports;
+        return {
+          ...exports,
+          ".": {
+            "react-native": {
+              import: "./dist/react-native.mjs",
+              require: "./dist/react-native.cjs",
+            },
+            ...exports["."],
+          },
+        };
+      },
+    },
   },
   {
     entry: ["src/index.ts"],

@@ -1,16 +1,35 @@
 import React from "react";
-import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "./react-tool-call-renderer";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { ReactToolCallRenderer } from "./react-tool-call-renderer";
+import type { ToolCallStatus } from "@copilotkit/core";
 
 /**
  * Helper to define a type-safe tool call renderer entry.
  * - Accepts a single object whose keys match ReactToolCallRenderer's fields: { name, args, render, agentId? }.
  * - Derives `args` type from the provided schema (any Standard Schema V1 compatible library).
  * - Ensures the render function param type exactly matches ReactToolCallRenderer<T>["render"]'s param.
- * - For wildcard tools (name: "*"), args is optional and defaults to z.any()
+ * - For wildcard tools (name: "*"), args is optional and defaults to a
+ *   dependency-free schema that accepts any value
  */
+type AnyArgsSchema = StandardSchemaV1<unknown, unknown> & {
+  "~standard": StandardSchemaV1["~standard"] & {
+    jsonSchema: {
+      input: () => Record<string, unknown>;
+    };
+  };
+};
+
+const anyArgsSchema: AnyArgsSchema = {
+  "~standard": {
+    version: 1,
+    vendor: "copilotkit",
+    validate: (value: unknown) => ({ value }),
+    jsonSchema: {
+      input: () => ({}),
+    },
+  },
+};
+
 type RenderProps<T> =
   | {
       name: string;
@@ -56,8 +75,9 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   render: (props: any) => React.ReactElement;
   agentId?: string;
 }): ReactToolCallRenderer<any> {
-  // For wildcard tools, default to z.any() if no args provided
-  const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
+  // Keep wildcard renderers schema-backed without forcing every headless
+  // consumer to bundle a particular validation library.
+  const argsSchema = def.name === "*" && !def.args ? anyArgsSchema : def.args;
 
   return {
     name: def.name,
