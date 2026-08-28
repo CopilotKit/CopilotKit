@@ -6917,6 +6917,15 @@ export class WebInspectorElement extends LitElement {
    * announcement, which has no tail and therefore behaves exactly as before.
    */
   private gestureSignal: LauncherSignalKey | null = null;
+  /**
+   * Whether a dwell has stopped this gesture's clock.
+   *
+   * The gesture is parked, not cancelled: its signal and its phase both stay,
+   * so the live region keeps its sentence and the held impression still gets
+   * its answer. Only the timers are gone, and they do not come back — the
+   * dwell ending ends the gesture (decision 13).
+   */
+  private gestureHeldByDwell = false;
   /** Where the running gesture's pill is, or null when it has none. */
   private pillPhase: LauncherPillPhase | null = null;
   /**
@@ -11267,71 +11276,163 @@ export class WebInspectorElement extends LitElement {
   }
 
   /**
-   * The island's front half. One capsule, fed by either driver.
+   * Whether the reader is on the launcher right now — pointer or focus.
    *
-   * It is laid out at its full width and clipped in both cases, and in both
-   * cases it renders from the first frame — clipped to the mark's own
+   * This is the dwell driver's whole state: no edge, no clock, no history.
+   * The page-load preview is excluded because nobody is there for it, and the
+   * closing phase is excluded because it plays *after* the pointer has left.
+   * Both of those are "the island is on screen", which is a different
+   * question from "the reader is here", and only the second one may stop a
+   * clock or suppress a beat.
+   */
+  private isLauncherDwelling(): boolean {
+    return (
+      this.launcherHudOpen &&
+      !this.launcherHudIntro &&
+      !this.launcherIslandClosing
+    );
+  }
+
+  /**
+   * Which driver owns the capsule, and everything that follows from it.
+   *
+   * The dwell wins the *presentation* whenever the island is open, because
+   * the island is one surface and a dwelling reader is looking at all of it:
+   * the drawer below is opening on the dwell's clock, so the capsule above it
+   * cannot be running the gesture's. What the capsule *says* is a separate
+   * question, answered by `getCapsuleSignal` — the two slots are arbitrated
+   * apart, which is the whole point of the split.
+   *
+   * A gesture never reaches this branch while a dwell is up. `startSignalPulse`
+   * declines to start one under the pointer (decisions 12 and 13), and a dwell
+   * that begins over a running one parks it in `holdGestureForDwell`.
+   */
+  private getCapsuleDriver():
+    | { driver: "dwell"; placement: LauncherIslandPlacement }
+    | { driver: "signal"; key: LauncherSignalKey; label: string }
+    | null {
+    if (this.launcherHudOpen && this.launcherHudPlacement !== null) {
+      return { driver: "dwell", placement: this.launcherHudPlacement };
+    }
+    const key = this.gestureSignal;
+    if (key === null || this.pillPhase === null) return null;
+    const label = LAUNCHER_SIGNALS[key].pillLabel;
+    if (label === undefined) return null;
+    return { driver: "signal", key, label };
+  }
+
+  /**
+   * The highest-priority armed signal that has words for the capsule, or null.
+   *
+   * `LAUNCHER_SIGNAL_PRIORITY_ORDER` is already sorted, so this is the dot's
+   * own precedence rule with one extra filter: a signal that declares no
+   * `pillLabel` has nothing to put here. That is how `whats-new` stays out of
+   * the capsule without the arbitration having to name it — the registry says
+   * so, not this method.
+   */
+  private getArmedCapsuleSignal(): LauncherSignalKey | null {
+    for (const key of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
+      if (LAUNCHER_SIGNALS[key].pillLabel === undefined) continue;
+      if (this.isSignalArmed(key)) return key;
+    }
+    return null;
+  }
+
+  /**
+   * The signal whose words the capsule is carrying, or null when it carries
+   * the services summary instead — or nothing at all.
+   *
+   * Under a dwell this is a *state* question, not an event one: whichever
+   * signal is armed right now owns the words, so one arming mid-dwell swaps
+   * them in and one healing mid-dwell swaps them back out, both without a
+   * beat and without a second gesture. Off a dwell it is the running gesture,
+   * which is the only other thing that can put words on the launcher.
+   *
+   * The page-load preview is deliberately not a dwell: it previews the
+   * services island, on its own clock, for a reader who did not ask for it.
+   */
+  private getCapsuleSignal(): LauncherSignalKey | null {
+    const owner = this.getCapsuleDriver();
+    if (owner === null) return null;
+    if (owner.driver === "signal") return owner.key;
+    if (this.launcherHudIntro) return null;
+    return this.getArmedCapsuleSignal();
+  }
+
+  /**
+   * The island's front half. One capsule, two slots.
+   *
+   * It is laid out at its full width and clipped in every case, and in every
+   * case it renders from the first frame — clipped to the mark's own
    * footprint, so it shows nothing that is not already the circle — because
    * the side is decided from the room around the launcher, which cannot be
    * read until the launcher is laid out.
    *
-   * **A signal beats a dwell.** An error has a moment and the moment is what
-   * is worth saying; the connection state underneath it has not changed and
-   * comes back the instant the gesture ends. That is arbitration between two
-   * things competing for one slot, not a priority between two features.
+   * **The driver decides how it opens; the armed signal decides what it
+   * says.** Those are two questions and they get two answers. A dwelling
+   * reader with a red dot beside them gets the island's own reveal carrying
+   * the failure's words — not the services summary they already know, and not
+   * a 2.5-second hold that expires under their pointer.
    */
   private renderLauncherCapsule(): TemplateResult | typeof nothing {
-    const gestureKey = this.gestureSignal;
-    const gestureSignal =
-      gestureKey === null ? null : LAUNCHER_SIGNALS[gestureKey];
-    const gestureLabel = gestureSignal?.pillLabel;
+    const owner = this.getCapsuleDriver();
+    if (owner === null) return nothing;
 
-    // Which driver owns the capsule, and therefore what it says.
-    let subject: string;
-    let heading: string;
-    let placement: LauncherIslandPlacement;
+    const signalKey = this.getCapsuleSignal();
+    const signal = signalKey === null ? null : LAUNCHER_SIGNALS[signalKey];
     const styles: Record<string, string> = {};
 
-    if (
-      gestureKey !== null &&
-      gestureSignal !== null &&
-      gestureLabel !== undefined &&
-      this.pillPhase !== null
-    ) {
-      subject = gestureKey;
-      heading = gestureLabel;
-      // Before the measurement the pill is laid out at the island's default
-      // placement, which is size-identical to every other one and shows
-      // nothing whichever it turns out to be while the clip is closed.
-      placement = this.pillPlacement ?? LAUNCHER_ISLAND_DEFAULT_PLACEMENT;
-      styles["--cpk-launcher-signal"] =
-        LAUNCHER_SIGNAL_COLORS[gestureSignal.tone];
-      styles["--cpk-launcher-capsule-open"] = `${ERROR_GESTURE_MS.open}ms`;
-      styles["--cpk-launcher-capsule-close"] = `${ERROR_GESTURE_MS.close}ms`;
-    } else if (this.launcherHudOpen && this.launcherHudPlacement !== null) {
-      // The dwell state. Intelligence is the island's title rather than one of
-      // the rows below it, because the rows are features and this is the
-      // connection they are carried over: a parent listed among its own
-      // children reads as a peer of them.
-      subject = "intelligence";
-      heading =
-        this.getHomeModel().hero.connection === "connected"
-          ? ISLAND_INTELLIGENCE_ON_TITLE
-          : ISLAND_INTELLIGENCE_OFF_TITLE;
-      placement = this.launcherHudPlacement;
+    // How it opens.
+    const placement =
+      owner.driver === "dwell"
+        ? owner.placement
+        : // Before the measurement the pill is laid out at the island's
+          // default placement, which is size-identical to every other one and
+          // shows nothing whichever it turns out to be while the clip is
+          // closed.
+          (this.pillPlacement ?? LAUNCHER_ISLAND_DEFAULT_PLACEMENT);
+    if (owner.driver === "dwell") {
       styles["--cpk-launcher-island-open"] = `${LAUNCHER_ISLAND_MS.open}ms`;
       styles["--cpk-launcher-island-close"] = `${LAUNCHER_ISLAND_MS.close}ms`;
       styles["--cpk-launcher-hud-intro-duration"] =
         `${LAUNCHER_HUD_INTRO_MS.duration}ms`;
     } else {
-      return nothing;
+      styles["--cpk-launcher-capsule-open"] = `${ERROR_GESTURE_MS.open}ms`;
+      styles["--cpk-launcher-capsule-close"] = `${ERROR_GESTURE_MS.close}ms`;
+    }
+
+    // What it says.
+    let subject: string;
+    let heading: string;
+    if (signalKey !== null && signal?.pillLabel !== undefined) {
+      subject = signalKey;
+      heading = signal.pillLabel;
+      styles["--cpk-launcher-signal"] = LAUNCHER_SIGNAL_COLORS[signal.tone];
+    } else {
+      // Intelligence is the island's title rather than one of the rows below
+      // it, because the rows are features and this is the connection they are
+      // carried over: a parent listed among its own children reads as a peer
+      // of them.
+      subject = "intelligence";
+      heading =
+        this.getHomeModel().hero.connection === "connected"
+          ? ISLAND_INTELLIGENCE_ON_TITLE
+          : ISLAND_INTELLIGENCE_OFF_TITLE;
     }
 
     return html`
       <span
         class="cpk-launcher-capsule"
         data-cpk-launcher-capsule=${subject}
-        data-cpk-capsule-phase=${this.pillPhase ?? nothing}
+        data-cpk-capsule-phase=${
+          // The gesture's phase attribute drives the gesture's own reveal and
+          // its hold, so it is emitted only while the gesture is the one
+          // opening the capsule. A parked gesture keeps its phase in the
+          // state — that is what the placement measurement and the held
+          // telemetry impression still read — but must not paint with it,
+          // or the hold's static clip would fight the dwell's animation.
+          owner.driver === "signal" ? this.pillPhase : nothing
+        }
         data-cpk-island-phase=${this.getLauncherIslandPhase()}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-cpk-capsule-direction=${placement.side}
@@ -11354,13 +11455,13 @@ export class WebInspectorElement extends LitElement {
    * The dwell reveal's phase, shared by both halves of the island so the two
    * cannot be told to do different things.
    *
-   * Absent during a running gesture, whose own phase attribute owns the
-   * capsule, and absent during the page-load preview, which fades the island
-   * in and out whole on its own clock rather than opening it.
+   * Absent while the gesture owns the capsule, whose own phase attribute
+   * drives it, and absent during the page-load preview, which fades the
+   * island in and out whole on its own clock rather than opening it.
    */
   private getLauncherIslandPhase(): "open" | "closing" | typeof nothing {
-    if (this.pillPhase !== null) return nothing;
-    if (!this.launcherHudOpen || this.launcherHudIntro) return nothing;
+    if (this.getCapsuleDriver()?.driver !== "dwell") return nothing;
+    if (this.launcherHudIntro) return nothing;
     return this.launcherIslandClosing ? "closing" : "open";
   }
 
@@ -11377,26 +11478,28 @@ export class WebInspectorElement extends LitElement {
    * The gesture ends with the open, because `openInspector` cancels the tail —
    * the panel is over the launcher, so there is nothing left to reveal.
    *
-   * This one click fires for both of `renderLauncherCapsule`'s states, and
-   * they disagree about where to land. A running gesture already declares its
-   * own `landingTarget` — `openInspector` applies it from `activeSignalAtOpen`
-   * — and that must keep winning here; a signal owns the gesture slot exactly
-   * when `gestureSignal` and `pillPhase` are both set (see `beginGestureTail`,
-   * which clears both together for a signal with no pill), so that is the
-   * check that rules this click out of routing at all. Only the dwell state
-   * is left to decide, and only its disconnected reading routes: Home is
-   * where Intelligence gets set up, and connected leaves the destination
-   * alone so the capsule matches the plain launcher mark it sits beside. The
-   * connection test is read from `getHomeModel`, the same source the title
-   * above already reads, so the two can never disagree. Routed the same way
-   * a HUD row does — through `hudLandingMenu`, which `openInspector` already
-   * gives precedence over a signal's landing target.
+   * This one click fires for every state `renderLauncherCapsule` has, and
+   * they disagree about where to land. **The words decide.** A capsule
+   * carrying a signal's failure class lands where that failure is explained —
+   * `openInspector` already applies it from `activeSignalAtOpen` — and that
+   * has to keep winning whether the words got there through a timed gesture
+   * or through a dwell that swapped them in, because the reader is clicking
+   * the sentence in front of them either way. So the check is
+   * `getCapsuleSignal`, the same method the render reads, rather than a
+   * condition on which driver happens to be open.
+   *
+   * Only the summary state is left to decide, and only its disconnected
+   * reading routes: Home is where Intelligence gets set up, and connected
+   * leaves the destination alone so the capsule matches the plain launcher
+   * mark it sits beside. The connection test is read from `getHomeModel`, the
+   * same source the title above already reads, so the two can never disagree.
+   * Routed the same way a HUD row does — through `hudLandingMenu`, which
+   * `openInspector` already gives precedence over a signal's landing target.
    */
   private handlePillClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
-    const signalOwnsCapsule =
-      this.gestureSignal !== null && this.pillPhase !== null;
+    const signalOwnsCapsule = this.getCapsuleSignal() !== null;
     if (
       !signalOwnsCapsule &&
       this.getHomeModel().hero.connection !== "connected"
@@ -11406,7 +11509,15 @@ export class WebInspectorElement extends LitElement {
     this.openInspector("floating_button");
   };
 
-  private isLauncherHudBlocked(): boolean {
+  /**
+   * Whether the one-shot page-load preview has to wait.
+   *
+   * The preview only, never a dwell. A dwell is the reader asking, and an
+   * answer that is refused because a timer elsewhere is running is not an
+   * answer — see `openLauncherHud`. The preview is nobody asking, so it
+   * yields to a gesture and tries again shortly.
+   */
+  private isLauncherIntroBlocked(): boolean {
     return this.gestureSignal !== null;
   }
 
@@ -11419,7 +11530,7 @@ export class WebInspectorElement extends LitElement {
     this.launcherHudIntroStartTimer = setTimeout(() => {
       this.launcherHudIntroStartTimer = null;
       if (!this.isConnected || this.isOpen) return;
-      if (this.isLauncherHudBlocked()) {
+      if (this.isLauncherIntroBlocked()) {
         this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
         return;
       }
@@ -11480,8 +11591,17 @@ export class WebInspectorElement extends LitElement {
     return this.launcherHudPlacement !== null;
   }
 
+  /**
+   * The dwell opens the island. It is never refused for a running gesture.
+   *
+   * It used to be: a hover during the 3.4 seconds after a failure opened
+   * nothing at all, which is the reader looking at a launcher that has just
+   * asked them to look and getting silence back. The gesture is *attention*
+   * and the dwell is *inspection* — the second is what the first was for, so
+   * the first cannot be what blocks it.
+   */
   private openLauncherHud(): void {
-    if (this.isLauncherHudBlocked() || this.isOpen) return;
+    if (this.isOpen) return;
     if (!this.resolveLauncherHudPlacement()) {
       // The room went away under an open drawer. Closing keeps the wrapper's
       // data-cpk-hud, the button's aria-expanded and the rendered drawer
@@ -11489,6 +11609,11 @@ export class WebInspectorElement extends LitElement {
       this.closeLauncherHud();
       return;
     }
+    // Before the early return below: the pointer may be arriving on an island
+    // that is already open — converting the page-load preview into a dwell,
+    // or coming back mid-close — and a gesture running underneath either of
+    // those still has to stop.
+    this.holdGestureForDwell();
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -11513,9 +11638,70 @@ export class WebInspectorElement extends LitElement {
       this.launcherHudCloseTimer = null;
     }
     this.launcherIslandClosing = false;
+    // The one funnel every dwell ends through — pointer out, focus out,
+    // Escape, no room left, the panel opening over it — so a gesture parked
+    // by that dwell cannot be left parked by any of them.
+    this.closeGestureAfterHold();
     if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
     this.requestUpdate();
+  }
+
+  /**
+   * Dwell stops the clock.
+   *
+   * WCAG 2.1 SC 1.4.13 requires hover-triggered content to stay until the
+   * pointer leaves or the reader dismisses it, so a hold that expires under
+   * the pointer is a conformance failure, not a matter of feel. The beat in
+   * flight stops with it: motion under an aiming pointer causes mis-clicks,
+   * which is the same objection decision 12 makes about starting one.
+   *
+   * The gesture is parked rather than dropped. `gestureSignal` stays set, so
+   * the sentence already in the polite live region stays there for as long as
+   * the island does; `pillPhase` stays set, so the placement measurement and
+   * the impression it releases still complete. What stops is only the clock.
+   */
+  private holdGestureForDwell(): void {
+    if (this.gestureSignal === null || this.gestureHeldByDwell) return;
+    this.gestureHeldByDwell = true;
+    this.stopSignalPulse();
+    this.cancelPillTimeout();
+    this.requestUpdate();
+  }
+
+  /**
+   * The parked gesture, released when the reader leaves — and it does not
+   * resume.
+   *
+   * Decision 13: hover counts as shown. The words were on the launcher for
+   * as long as the reader chose, which is more than the 2.5-second hold would
+   * have given them; replaying the gesture on pointer-out is the doubling
+   * OSS-903 decision 5 refuses. What is lost is the announcement, not the
+   * information — the dot stays lit for as long as the signal is armed.
+   */
+  private closeGestureAfterHold(): void {
+    if (!this.gestureHeldByDwell) return;
+    this.gestureHeldByDwell = false;
+    this.endGesture();
+  }
+
+  /**
+   * The reader has gone. Everything the dwell was holding back is released.
+   *
+   * Two things can be held: the parked gesture, which ends rather than resumes
+   * (`closeGestureAfterHold`), and a beat that was deferred because the
+   * pointer was here — the announcement's, typically, which declares no
+   * `pillLabel` and so was never shown in the capsule. That one was deferred
+   * rather than spent precisely so it could run now.
+   *
+   * Deliberately called from the three places a *reader* leaves, and not from
+   * `closeLauncherHud`, which also serves the panel opening over the launcher:
+   * there is no launcher left to beat on at that point, and flushing into it
+   * would start a gesture nobody can see.
+   */
+  private endLauncherDwell(): void {
+    this.closeLauncherHud();
+    this.flushPendingSignalPulse();
   }
 
   private handleLauncherHudEnter = (): void => {
@@ -11543,7 +11729,7 @@ export class WebInspectorElement extends LitElement {
     }
     this.launcherHudCloseTimer = setTimeout(() => {
       this.launcherHudCloseTimer = null;
-      this.closeLauncherHud();
+      this.endLauncherDwell();
     }, LAUNCHER_ISLAND_MS.close);
   };
 
@@ -11562,7 +11748,7 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    this.closeLauncherHud();
+    this.endLauncherDwell();
   };
 
   private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
@@ -11570,7 +11756,7 @@ export class WebInspectorElement extends LitElement {
     if (!this.launcherHudOpen) return;
     event.preventDefault();
     event.stopPropagation();
-    this.closeLauncherHud();
+    this.endLauncherDwell();
     this.activeRoot
       .querySelector<HTMLButtonElement>(".console-button")
       ?.focus();
@@ -20394,8 +20580,40 @@ export class WebInspectorElement extends LitElement {
    * holds this one slot for its full duration. That is not a second scheduling
    * concept: reason 3 already says "another beat is running", and a gesture is
    * simply a longer beat.
+   *
+   * Ahead of all four sits a fifth situation that is *not* "run later": the
+   * reader is already on the launcher. See the dwell branch below.
    */
   private startSignalPulse(key: LauncherSignalKey): void {
+    // Decision 12: no beat when the pointer is already there. Motion exists to
+    // catch an eye that is elsewhere, and a launcher that twitches under an
+    // aiming pointer causes mis-clicks — the same reason an open menu does not
+    // reflow.
+    if (this.isLauncherDwelling()) {
+      if (this.getArmedCapsuleSignal() === key) {
+        // Decision 13: this signal wins the capsule, so its words are on the
+        // launcher from the next render — a swap, not an arrival. The reader
+        // got the information; only the announcement is lost, and the dot
+        // stays lit while the signal is armed. The once-per-subject token is
+        // spent here for exactly that reason: nothing may replay on the way
+        // out.
+        this.spendPulseToken(key);
+        // The words landed, so this outage's pill question is answered. Left
+        // null it would never be, and `maybeTrackErrorSignalViewed` holds the
+        // impression until it is — the dwell counts no impression of its own,
+        // but it must not swallow the signal driver's.
+        this.pillOutcome = "shown";
+        this.requestUpdate();
+        return;
+      }
+      // Nothing of this signal reached the capsule — a lower-priority failure
+      // behind a worse one, or the announcement, which declares no `pillLabel`
+      // and so has no words to swap in. Nothing was shown, so nothing is
+      // spent: the beat waits for the pointer to leave.
+      this.deferSignalPulse(key);
+      return;
+    }
+
     const deferred =
       // 1. The panel is open, so there is no visible launcher. Pop-out is the
       //    same case: the host page renders only a portal anchor.
@@ -20409,33 +20627,14 @@ export class WebInspectorElement extends LitElement {
       this.getActiveLauncherSignal() !== key;
 
     if (deferred) {
-      // One slot, and the more urgent beat keeps it. A lower-priority beat must
-      // not evict a nudge about something worse — and it would fail the
-      // re-check on the way out anyway, because it is not the active signal.
-      // The evicted beat is not lost for good: its once-per-subject token is
-      // still unspent, so it is offered again the next time it arms.
-      const pending = this.pendingPulseSignal;
-      if (
-        pending === null ||
-        LAUNCHER_SIGNALS[key].priority >= LAUNCHER_SIGNALS[pending].priority
-      ) {
-        this.pendingPulseSignal = key;
-      }
-      this.requestUpdate();
+      this.deferSignalPulse(key);
       return;
     }
 
     this.stopSignalPulse();
     this.pendingPulseSignal = null;
     this.pulsingSignal = key;
-    // The once-per-subject token is written HERE, where the beat actually
-    // runs — never when a signal arms. Spending it on arming would burn a
-    // deferred beat unfired.
-    if (isWiringErrorKey(key)) {
-      this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
-      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
-    }
+    this.spendPulseToken(key);
     this.beginGestureTail(key);
     this.requestUpdate();
     if (typeof window === "undefined") return;
@@ -20457,6 +20656,41 @@ export class WebInspectorElement extends LitElement {
       // Reason 3 has just cleared.
       this.flushPendingSignalPulse();
     }, LAUNCHER_SIGNALS[key].cadence);
+  }
+
+  /**
+   * Parks a beat that could not land, keeping the more urgent of the two.
+   *
+   * A lower-priority beat must not evict a nudge about something worse — and
+   * it would fail the re-check on the way out anyway, because it is not the
+   * active signal. The evicted beat is not lost for good: its once-per-subject
+   * token is still unspent, so it is offered again the next time it arms.
+   */
+  private deferSignalPulse(key: LauncherSignalKey): void {
+    const pending = this.pendingPulseSignal;
+    if (
+      pending === null ||
+      LAUNCHER_SIGNALS[key].priority >= LAUNCHER_SIGNALS[pending].priority
+    ) {
+      this.pendingPulseSignal = key;
+    }
+    this.requestUpdate();
+  }
+
+  /**
+   * Marks this subject as having had its one nudge.
+   *
+   * Written where the nudge actually reaches the reader — never when a signal
+   * arms. Spending it on arming would burn a deferred beat unfired. There are
+   * two such places: the beat starting, and a dwelling capsule swapping the
+   * words in without one (decision 13).
+   */
+  private spendPulseToken(key: LauncherSignalKey): void {
+    if (isWiringErrorKey(key)) {
+      this.errorBeatSpent = true;
+    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
+      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    }
   }
 
   private stopSignalPulse(): void {
@@ -20519,6 +20753,19 @@ export class WebInspectorElement extends LitElement {
    */
   private beginGestureTail(key: LauncherSignalKey): void {
     this.cancelPillTimeout();
+    // The one-shot page-load preview yields to a gesture — nobody asked for
+    // it, and it has no business sitting under a failure's words. This also
+    // drops the preview that has not started yet, which is the shipped
+    // behaviour: `cancelLauncherHudIntro` clears the start timer and nothing
+    // re-arms it, so a failure inside the first half-second costs the reader
+    // the preview rather than postponing it.
+    //
+    // A DWELL is exempt, and that is the change. It cannot actually be open
+    // here — `startSignalPulse` never starts a gesture under the pointer — so
+    // this is the guard that keeps it that way if a fourth caller ever
+    // appears. Run before the fields below are written, so releasing a parked
+    // gesture on the way through cannot take this new one with it.
+    if (!this.isLauncherDwelling()) this.closeLauncherHud();
     if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
       this.gestureSignal = null;
       this.pillPhase = null;
@@ -20528,7 +20775,6 @@ export class WebInspectorElement extends LitElement {
     this.gestureSignal = key;
     this.pillPhase = "closed";
     this.pillPlacement = null;
-    this.closeLauncherHud();
   }
 
   /**
@@ -20617,6 +20863,15 @@ export class WebInspectorElement extends LitElement {
    * never cut short.
    */
   private closePillEarly(): void {
+    // Parked under the pointer, so there is no clock to cut short and no
+    // closing animation to play: the dwell owns the capsule, and the words
+    // fall back to the services summary on the next render simply because the
+    // signal has stopped being armed. Starting a 250ms close here would be
+    // motion under an aiming pointer, which is what decision 12 rules out.
+    if (this.gestureHeldByDwell) {
+      this.closeGestureAfterHold();
+      return;
+    }
     // No pill in this gesture — there was no room for one — so the tail is
     // only the spoken sentence, and it ends here.
     if (this.pillPhase === null) {
@@ -20652,6 +20907,7 @@ export class WebInspectorElement extends LitElement {
   private cancelGestureTail(): void {
     this.cancelPillTimeout();
     this.gestureSignal = null;
+    this.gestureHeldByDwell = false;
     this.pillPhase = null;
     this.pillPlacement = null;
   }
