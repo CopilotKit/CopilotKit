@@ -105,6 +105,7 @@ import {
   trackErrorSignalViewed,
   trackHomeCtaClicked,
   trackHomePromptCopied,
+  trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
@@ -12486,6 +12487,16 @@ export class WebInspectorElement extends LitElement {
     this.intelStoryBeat = index;
     this.stopIntelligenceStory();
     this.requestUpdate();
+
+    // Reported here and nowhere else: this is the only path a human can take
+    // to a beat. The auto-advance in syncIntelligenceStory deliberately stays
+    // silent.
+    if (!this.core?.telemetryDisabled) {
+      const beat = INTELLIGENCE_STORY_BEATS[index];
+      if (beat) {
+        trackHomeStoryBeatSelected({ beat: beat.id, beat_index: index });
+      }
+    }
   }
 
   /**
