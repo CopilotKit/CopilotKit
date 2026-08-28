@@ -152,7 +152,9 @@ async function setup(options: Options = {}): Promise<{
   core: IslandTestCore;
   openHud: () => Promise<void>;
   clickHud: (row: string) => Promise<void>;
+  clickCapsule: () => Promise<void>;
   pressLauncher: () => Promise<void>;
+  closeInspector: () => Promise<void>;
 }> {
   document.body.replaceChildren();
   window.localStorage.clear();
@@ -211,6 +213,14 @@ async function setup(options: Options = {}): Promise<{
     await settle(inspector);
   };
 
+  const clickCapsule = async (): Promise<void> => {
+    const pill = requireElement(
+      root(inspector).querySelector<HTMLElement>("[data-cpk-launcher-capsule]"),
+    );
+    pill.click();
+    await settle(inspector);
+  };
+
   const pressLauncher = async (): Promise<void> => {
     const button = launcherButton(inspector);
     const init = { bubbles: true, composed: true, pointerId: 1, button: 0 };
@@ -220,7 +230,25 @@ async function setup(options: Options = {}): Promise<{
     await settle(inspector);
   };
 
-  return { inspector, core, openHud, clickHud, pressLauncher };
+  const closeInspector = async (): Promise<void> => {
+    const button = requireElement(
+      root(inspector).querySelector<HTMLButtonElement>(
+        'button[aria-label="Close Web Inspector"]',
+      ),
+    );
+    button.click();
+    await settle(inspector);
+  };
+
+  return {
+    inspector,
+    core,
+    openHud,
+    clickHud,
+    clickCapsule,
+    pressLauncher,
+    closeInspector,
+  };
 }
 
 /** Every stylesheet this component adopts, as one string. */
@@ -877,4 +905,59 @@ test("the closed island clips to exactly the mark's footprint, and the open isla
     "inset( 0 calc(100% - var(--cpk-launcher-size)) calc(100% - var(--cpk-launcher-size)) 0 round calc(var(--cpk-launcher-size) / 2) )",
   );
   expect(clipPathAtStop(right, "100%")).toBe(openClip);
+});
+
+// `handlePillClick` fires for the capsule in both of its states (see
+// `renderLauncherCapsule`), and the two states disagree about where a click
+// should land: a running gesture already carries its own `landingTarget` and
+// must keep it, while the dwell state — the one under test here — is the
+// capsule reading Intelligence's own connection back to the reader, and only
+// when that reading is "not connected" does the capsule steer the click to
+// Home, because Home is where Intelligence gets set up.
+//
+// A test that opens a fresh Inspector and checks for "home" proves nothing:
+// a brand-new instance defaults to Home regardless of what clicked it, so
+// both the routed and the unrouted outcome look identical. Each test below
+// first drives the reader to a menu that is NOT Home (Threads, via a HUD row
+// — a landing mechanism already covered elsewhere in this suite) and closes
+// the Inspector, leaving `selectedMenu` sitting on that other view exactly as
+// the plain launcher mark would leave it. Only then does it dwell-open the
+// HUD and click the capsule, so a pass can only mean the capsule actually
+// decided the destination one way or the other.
+test("the disconnected dwell capsule routes to Home even off a different starting view", async () => {
+  const { inspector, openHud, clickHud, closeInspector, clickCapsule } =
+    await setup(); // no `intelligence` option: disconnected.
+
+  await openHud();
+  await clickHud("threads");
+  expect(currentMenu(inspector), "setup: expected to land on Threads").toBe(
+    "threads",
+  );
+
+  await closeInspector();
+  await openHud();
+  expect(capsuleHeading(inspector)).toBe("Intelligence not connected");
+
+  await clickCapsule();
+  expect(currentMenu(inspector)).toBe("home");
+});
+
+test("the connected dwell capsule opens without forcing Home, leaving the reader's view alone", async () => {
+  const { inspector, openHud, clickHud, closeInspector, clickCapsule } =
+    await setup({ intelligence: true }); // connected.
+
+  await openHud();
+  await clickHud("threads");
+  expect(currentMenu(inspector), "setup: expected to land on Threads").toBe(
+    "threads",
+  );
+
+  await closeInspector();
+  await openHud();
+  expect(capsuleHeading(inspector)).toBe("Intelligence connected");
+
+  await clickCapsule();
+  // Not Home: the capsule stayed neutral and reopened wherever the reader
+  // already was, exactly as the plain launcher mark does.
+  expect(currentMenu(inspector)).toBe("threads");
 });

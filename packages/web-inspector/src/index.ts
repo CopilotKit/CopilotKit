@@ -11189,10 +11189,33 @@ export class WebInspectorElement extends LitElement {
    *
    * The gesture ends with the open, because `openInspector` cancels the tail —
    * the panel is over the launcher, so there is nothing left to reveal.
+   *
+   * This one click fires for both of `renderLauncherCapsule`'s states, and
+   * they disagree about where to land. A running gesture already declares its
+   * own `landingTarget` — `openInspector` applies it from `activeSignalAtOpen`
+   * — and that must keep winning here; a signal owns the gesture slot exactly
+   * when `gestureSignal` and `pillPhase` are both set (see `beginGestureTail`,
+   * which clears both together for a signal with no pill), so that is the
+   * check that rules this click out of routing at all. Only the dwell state
+   * is left to decide, and only its disconnected reading routes: Home is
+   * where Intelligence gets set up, and connected leaves the destination
+   * alone so the capsule matches the plain launcher mark it sits beside. The
+   * connection test is read from `getHomeModel`, the same source the title
+   * above already reads, so the two can never disagree. Routed the same way
+   * a HUD row does — through `hudLandingMenu`, which `openInspector` already
+   * gives precedence over a signal's landing target.
    */
   private handlePillClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
+    const signalOwnsCapsule =
+      this.gestureSignal !== null && this.pillPhase !== null;
+    if (
+      !signalOwnsCapsule &&
+      this.getHomeModel().hero.connection !== "connected"
+    ) {
+      this.hudLandingMenu = "home";
+    }
     this.openInspector("floating_button");
   };
 
