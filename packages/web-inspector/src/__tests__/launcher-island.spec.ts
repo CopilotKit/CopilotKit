@@ -376,6 +376,30 @@ function clipPathAtStop(body: string, stop: "0%" | "100%"): string {
   return match?.[1]?.replace(/\s+/g, " ").trim() ?? "";
 }
 
+type ClipSide = "top" | "right" | "bottom" | "left";
+
+/**
+ * The `--cpk-island-clip-*` declarations actually present in one rule body,
+ * keyed by side. The island's closed shape is no longer stated once per
+ * direction inside a keyframe; it is composed from whichever of these
+ * declarations apply, on the very rules that pin the island to a corner (see
+ * the comment above the corner test below). A rule that only overrides one
+ * axis — the vertical drop, or the horizontal side — legitimately leaves the
+ * other two keys absent here rather than present-but-wrong, which is what
+ * lets the corner-composing test merge exactly the rules that apply, the
+ * same way the cascade does, instead of re-deriving the cascade itself.
+ */
+function clipProps(body: string): Partial<Record<ClipSide, string>> {
+  const props: Partial<Record<ClipSide, string>> = {};
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    const match = new RegExp(`--cpk-island-clip-${side}:\\s*([^;]+);`).exec(
+      body,
+    );
+    if (match) props[side] = match[1].replace(/\s+/g, " ").trim();
+  }
+  return props;
+}
+
 test("the capsule and the launcher share one surface and one edge", async () => {
   const { inspector } = await setup();
   const css = stylesheetText(inspector);
@@ -872,39 +896,141 @@ test("a disabled row carries the cross, an enabled row carries the check, and th
   expect(crossColor).not.toBe(checkColor);
 });
 
-test("the closed island clips to exactly the mark's footprint, and the open island clips to none of it", async () => {
+test("the closed island clips to exactly the mark's footprint at every corner, and the open island clips to none of it", async () => {
   const { inspector } = await setup();
   const css = stylesheetText(inspector);
 
-  // The open end of both directions is the same shape: nothing held back at
-  // all, rounded by the launcher's own radius rather than a bare pixel that
-  // would agree with the circle only at one clamp width.
+  // The mark can now be at any of four corners (the island flips up as well
+  // as sideways), and the naive way to spell that would be four closed
+  // shapes inside the keyframes — doubling the two this suite used to pin.
+  // Instead the shape moved OUT of the keyframes entirely: each rule that
+  // pins the island to an edge — the base rule (the resting corner), the
+  // vertical override for `drop="up"`, and the horizontal override for
+  // `side="right"` (once per surface, since the capsule reads its own
+  // direction attribute and the drawer its own side attribute for the one
+  // `placement.side` answer) — declares the `--cpk-island-clip-*` properties
+  // for the edge(s) it owns. A shared rule then composes all four into one
+  // property, `--cpk-island-closed`, which the resting `clip-path` and both
+  // keyframes read.
+  //
+  // That is why the shape lives on the corner rules rather than inside the
+  // keyframes: the corner a keyframe closes into is decided by the very same
+  // declaration block that pins the island to that corner, so the two
+  // cannot name different corners the way two independently-written
+  // literals could — and it is what lets four corners share two keyframes
+  // instead of eight.
+
+  const FULL = "calc(100% - var(--cpk-launcher-size))";
+
+  // The base rule: shared by the capsule and the drawer, and the only rule
+  // that gives all four properties an unconditional value — the resting
+  // corner, side="left"/drop="down", mark at the island's top-right. It also
+  // composes them into `--cpk-island-closed` and is what the resting
+  // `clip-path` reads, so this one rule is both a corner declaration and the
+  // shared composition site.
+  const baseRule =
+    /\.cpk-launcher-capsule,\s*\.cpk-launcher-drawer\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  const base = clipProps(baseRule);
+  expect(base.top, "base rule: --cpk-island-clip-top").toBe("0");
+  expect(base.right, "base rule: --cpk-island-clip-right").toBe("0");
+  expect(base.bottom, "base rule: --cpk-island-clip-bottom").toBe(FULL);
+  expect(base.left, "base rule: --cpk-island-clip-left").toBe(FULL);
+  expect(baseRule).toContain("clip-path: var(--cpk-island-closed)");
+
+  // The vertical override: shared by both surfaces, and the only rule that
+  // touches top/bottom for the "up" drop — one of the two NEW corners this
+  // suite never had to cover before. It knows nothing about which side the
+  // island opens toward, so it must leave left/right alone.
+  const dropUpRule =
+    /\.cpk-launcher-capsule\[data-cpk-island-drop="up"\],\s*\.cpk-launcher-drawer\[data-cpk-island-drop="up"\]\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  const dropUp = clipProps(dropUpRule);
+  expect(dropUp.top, "drop=up rule: --cpk-island-clip-top").toBe(FULL);
+  expect(dropUp.bottom, "drop=up rule: --cpk-island-clip-bottom").toBe("0");
+
+  // The horizontal override, once per surface — the capsule and the drawer
+  // read different attributes for the same one `placement.side` answer, so
+  // there are two rules, and the two must still agree: they draw the same
+  // corner of the same object.
+  const capsuleRight = clipProps(
+    ruleBody(
+      css,
+      '.cpk-launcher-capsule[data-cpk-capsule-direction="right"]',
+    ) ?? "",
+  );
+  const drawerRight = clipProps(
+    ruleBody(css, '.cpk-launcher-drawer[data-cpk-drawer-side="right"]') ?? "",
+  );
+  for (const [name, rule] of [
+    ["capsule", capsuleRight],
+    ["drawer", drawerRight],
+  ] as const) {
+    expect(rule.left, `${name} side=right rule: --cpk-island-clip-left`).toBe(
+      "0",
+    );
+    expect(rule.right, `${name} side=right rule: --cpk-island-clip-right`).toBe(
+      FULL,
+    );
+  }
+
+  // Compose the four corners exactly as the cascade does: the base supplies
+  // every property, and each override wins only the two it actually
+  // declares. Built from the values already asserted above, not from a
+  // second, independent set of literals — these are what the rules just
+  // checked actually produce together, the same as a reader's browser would
+  // compose them.
+  const corners = {
+    "top-right (side=left, drop=down, the default)": { ...base },
+    "top-left (side=right, drop=down)": { ...base, ...capsuleRight },
+    "bottom-right (side=left, drop=up)": { ...base, ...dropUp },
+    "bottom-left (side=right, drop=up)": {
+      ...base,
+      ...capsuleRight,
+      ...dropUp,
+    },
+  };
+
+  // The two "up" corners are exactly where a mistake would hide: they are
+  // new, and a copy-paste that carried the "down" rule's values into the
+  // "up" rule (or the reverse) would leave every individual assertion above
+  // satisfied — each declared value would still be "0" or the mark's own
+  // size — while two of these four supposedly different corners were
+  // secretly the same rectangle. Only comparing the composed results catches
+  // that; an island whose closed frame left more than the mark's own corner
+  // visible would not be a circle opening out, it would be a second surface
+  // appearing before the reveal even starts.
+  const shapes = Object.values(corners).map((clip) =>
+    [clip.top, clip.right, clip.bottom, clip.left].join("|"),
+  );
+  expect(
+    new Set(shapes).size,
+    `expected four distinct corners, got: ${Object.keys(corners)
+      .map((name, i) => `${name} = ${shapes[i]}`)
+      .join("; ")}`,
+  ).toBe(4);
+
+  // The composed property is what both the resting clip (asserted above) and
+  // both keyframes read — never a hardcoded corner of their own, which is
+  // the only thing that keeps the shape and the anchor from drifting apart.
+  const openKeyframes = keyframesBody(css, "cpk-launcher-island-open");
+  const closeKeyframes = keyframesBody(css, "cpk-launcher-island-close");
+  expect(openKeyframes, "cpk-launcher-island-open is missing").not.toBe("");
+  expect(closeKeyframes, "cpk-launcher-island-close is missing").not.toBe("");
+
+  expect(clipPathAtStop(openKeyframes, "0%")).toBe("var(--cpk-island-closed)");
+  expect(clipPathAtStop(closeKeyframes, "100%")).toBe(
+    "var(--cpk-island-closed)",
+  );
+
+  // The open end of the reveal is still the whole island, held back on no
+  // side at all, rounded by the launcher's own radius rather than a bare
+  // pixel that would agree with the circle only at one clamp width.
   const openClip = "inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2))";
-
-  const left = keyframesBody(css, "cpk-launcher-island-left");
-  const right = keyframesBody(css, "cpk-launcher-island-right");
-  expect(left, "cpk-launcher-island-left is missing").not.toBe("");
-  expect(right, "cpk-launcher-island-right is missing").not.toBe("");
-
-  // -left opens toward the left, so the mark sits at the island's top-right
-  // corner: the closed (0%) frame must leave exactly that size-by-size
-  // corner visible — nothing taken off the top or the right, and everything
-  // but the mark's own size taken off the bottom and the left — expressed
-  // through `--cpk-launcher-size`, not a literal. An island whose closed
-  // frame left more than that visible would not be a circle opening out, it
-  // would be a second surface appearing outside the mark before the reveal
-  // even starts.
-  expect(clipPathAtStop(left, "0%")).toBe(
-    "inset( 0 0 calc(100% - var(--cpk-launcher-size)) calc(100% - var(--cpk-launcher-size)) round calc(var(--cpk-launcher-size) / 2) )",
-  );
-  expect(clipPathAtStop(left, "100%")).toBe(openClip);
-
-  // -right is the mirror: the mark sits at the top-left corner, so the pair
-  // of insets held at zero moves from (top, right) to (top, left).
-  expect(clipPathAtStop(right, "0%")).toBe(
-    "inset( 0 calc(100% - var(--cpk-launcher-size)) calc(100% - var(--cpk-launcher-size)) 0 round calc(var(--cpk-launcher-size) / 2) )",
-  );
-  expect(clipPathAtStop(right, "100%")).toBe(openClip);
+  expect(clipPathAtStop(openKeyframes, "100%")).toBe(openClip);
+  expect(clipPathAtStop(closeKeyframes, "0%")).toBe(openClip);
 });
 
 // `handlePillClick` fires for the capsule in both of its states (see

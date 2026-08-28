@@ -746,13 +746,14 @@ test("the launcher animates opacity, transform and a clip — nothing that force
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
-  // Two for the halo. Four for the island, which is two per direction:
-  // opening and closing need separate keyframes because the clip runs from
-  // the mark's own circle outward, and reversing that is not the same shape
-  // sequence played backwards. One direction-agnostic HUD intro (it only
-  // fades, so left and right share it). One each for the HUD row and the
-  // connected check stagger.
-  expect(keyframes).toHaveLength(9);
+  // Two for the halo. Two for the island: one open, one close, serving all
+  // four corners. The corner the clip closes into is not baked into the
+  // keyframe any more - it is composed per corner into --cpk-island-closed on
+  // the same rules that pin the island to that corner, so the shape it grows
+  // from cannot disagree with where it is anchored. That is what took this
+  // from four island keyframes to two while adding the up-flip. One
+  // direction-agnostic HUD intro, and one each for the row and check stagger.
+  expect(keyframes).toHaveLength(7);
 
   const animated = new Set(
     keyframes

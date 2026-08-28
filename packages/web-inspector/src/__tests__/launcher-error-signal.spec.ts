@@ -1717,35 +1717,58 @@ test("the reveal animates a rectangular clip, never a width or a scale", async (
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
-  // Four keyframes now, not two: opening and closing are written out
-  // separately per direction rather than one reversed, so the layout
-  // guarantee has to hold for the close as much as for the open — a closing
-  // keyframe that snuck a width or a scale back in would be just as much of
-  // a regression as an opening one.
-  for (const direction of ["left", "right"]) {
-    for (const name of [
-      `cpk-launcher-island-${direction}`,
-      `cpk-launcher-island-close-${direction}`,
-    ]) {
-      const frames =
-        new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
-          css,
-        )?.[1] ?? "";
-      expect(frames).toContain("clip-path: inset(");
-      expect(frames).toContain("opacity");
-      // Animating either of these gives up the layout guarantee — `width` forces
-      // a layout on every frame on someone else's page, and a horizontal scale
-      // squashes the mark itself, so the dot and halo would become ellipses.
-      expect(frames).not.toContain("width");
-      expect(frames).not.toContain("scale");
-    }
+  // Two keyframes now, not four: `cpk-launcher-island-open` and
+  // `cpk-launcher-island-close` are shared by all four corners, because the
+  // closed stop's shape moved out of the keyframe and into
+  // `--cpk-island-closed`, a custom property composed on
+  // `.cpk-launcher-capsule, .cpk-launcher-drawer` from the
+  // `--cpk-island-clip-*` properties each corner overrides. A direction no
+  // longer picks a keyframe name — it only ever picks those four properties
+  // — so the old `for (const direction of ["left", "right"])` loop has
+  // nothing left to vary here and is gone.
+  for (const name of [
+    "cpk-launcher-island-open",
+    "cpk-launcher-island-close",
+  ]) {
+    const frames =
+      new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
+        css,
+      )?.[1] ?? "";
+    // The open stop is still written as a literal `inset(...)` inside the
+    // keyframe; the closed stop now reads `var(--cpk-island-closed)`
+    // instead (its own shape is checked below, where it now lives), so this
+    // covers only the half of the guarantee the keyframe still states
+    // directly.
+    expect(frames).toContain("clip-path: inset(");
+    expect(frames).toContain("opacity");
+    // Animating either of these gives up the layout guarantee — `width` forces
+    // a layout on every frame on someone else's page, and a horizontal scale
+    // squashes the mark itself, so the dot and halo would become ellipses.
+    expect(frames).not.toContain("width");
+    expect(frames).not.toContain("scale");
   }
 
+  // The closed stop's shape lives in `--cpk-island-closed` now, so the
+  // "rectangular clip, never a width or a scale" guarantee has to be
+  // re-checked there too: a regression could swap the keyframe's literal
+  // `inset()` for this property's value and still pass the loop above.
+  const islandRule =
+    /\.cpk-launcher-capsule,\s*\.cpk-launcher-drawer\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  const closedValue =
+    /--cpk-island-closed:\s*([\s\S]*?);/
+      .exec(islandRule)?.[1]
+      ?.replace(/\s+/g, " ") ?? "";
+  expect(closedValue).toContain("inset(");
+  expect(closedValue).not.toContain("width");
+  expect(closedValue).not.toContain("scale");
+
   // Laid out at full width from the start, so only the visible region moves.
-  // The layout guarantee is that no *keyframe* animates width — the four
-  // `expect(frames).not.toContain("width")` assertions above are the real
-  // guard. A static declared width is what makes the capsule and the drawer
-  // flush by construction.
+  // The layout guarantee is that no *keyframe* animates width — the
+  // `not.toContain("width")` assertions above are the real guard. A static
+  // declared width is what makes the capsule and the drawer flush by
+  // construction.
   const pillRule =
     /\.cpk-launcher-capsule\s*\{([\s\S]*?)\}/.exec(css)?.[1] ?? "";
   expect(pillRule).toContain("width: var(--cpk-launcher-island)");
@@ -1757,40 +1780,62 @@ test("the revealing edge is the capsule's own rounded end, not a straight wipe",
   const css = stylesheetText(context.inspector);
 
   // An unrounded inset sweeps a straight vertical line sideways and reads as a
-  // wipe. Rounding BOTH stops of BOTH directions — and now of the closing
-  // keyframe as well as the opening one — makes it read as an opening
-  // whichever way it is travelling: a straight-edged close would be exactly
-  // as wrong as a straight-edged open. A clip-path only interpolates between
-  // shapes of the same kind, so a `round` on one stop alone would stop the
-  // reveal animating at all.
+  // wipe. Rounding BOTH stops of BOTH the open and the close keyframe makes it
+  // read as an opening whichever way it is travelling: a straight-edged close
+  // would be exactly as wrong as a straight-edged open. A clip-path only
+  // interpolates between shapes of the same kind, so a `round` on one stop
+  // alone would stop the reveal animating at all.
+  //
+  // Only one of the two stops is still written out inside the keyframe now —
+  // the other reads `var(--cpk-island-closed)`, because the closed shape is
+  // composed once on `.cpk-launcher-capsule, .cpk-launcher-drawer` from
+  // `--cpk-island-clip-*` and shared across all four corners instead of being
+  // copied into a `close-left`/`close-right` pair. So "both stops rounded" is
+  // now checked in two places: the literal stop right here, and the
+  // `--cpk-island-closed` declaration itself, followed to below. A direction
+  // no longer selects a keyframe name, so the old `["left", "right"]` loop is
+  // gone — the keyframes are the same regardless of which corner is opening.
   //
   // The radius is the island's own token rather than a bare pixel figure,
   // because this one pair of keyframes now also drives the taller drawer:
   // a literal that happened to clamp to a circle at the capsule's height
   // would round the drawer by the wrong amount.
-  for (const direction of ["left", "right"]) {
-    for (const name of [
-      `cpk-launcher-island-${direction}`,
-      `cpk-launcher-island-close-${direction}`,
-    ]) {
-      const frames =
-        new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
-          css,
-        )?.[1] ?? "";
-      const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
-      expect(stops).toHaveLength(2);
-      for (const stop of stops) {
-        // Whitespace collapsed: the declaration wraps "round" onto its own
-        // line from the radius that follows it, which a literal substring
-        // check would otherwise trip over.
-        const normalized = stop.replace(/\s+/g, " ");
-        expect(normalized).toContain("inset(");
-        expect(normalized).toContain(
-          "round calc(var(--cpk-launcher-size) / 2)",
-        );
-      }
-    }
+  for (const name of [
+    "cpk-launcher-island-open",
+    "cpk-launcher-island-close",
+  ]) {
+    const frames =
+      new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
+        css,
+      )?.[1] ?? "";
+    const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
+    expect(stops).toHaveLength(2);
+    const literalStop = stops.find((stop) => stop.includes("inset("));
+    const closedStop = stops.find((stop) =>
+      stop.includes("var(--cpk-island-closed)"),
+    );
+    expect(closedStop).toBeTruthy();
+    // Whitespace collapsed: the declaration wraps "round" onto its own
+    // line from the radius that follows it, which a literal substring
+    // check would otherwise trip over.
+    const normalized = (literalStop ?? "").replace(/\s+/g, " ");
+    expect(normalized).toContain("inset(");
+    expect(normalized).toContain("round calc(var(--cpk-launcher-size) / 2)");
   }
+
+  // Follow the closed stop to where its shape is actually declared, and
+  // check the rounding survived the move: a `--cpk-island-closed` that
+  // dropped its `round` would square off every corner the reveal closes
+  // into, even though the keyframe text above never mentions it.
+  const islandRule =
+    /\.cpk-launcher-capsule,\s*\.cpk-launcher-drawer\s*\{([\s\S]*?)\}/.exec(
+      css,
+    )?.[1] ?? "";
+  const closedValue =
+    /--cpk-island-closed:\s*([\s\S]*?);/
+      .exec(islandRule)?.[1]
+      ?.replace(/\s+/g, " ") ?? "";
+  expect(closedValue).toContain("round calc(var(--cpk-launcher-size) / 2)");
 });
 
 // ── Clicking the pill ─────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 // Launcher island direction — the one spec that drives both surfaces at one
-// stubbed geometry.
+// stubbed geometry, on both of the axes the island can open along.
 //
 // The capsule and the drawer used to decide which side of the mark to open
 // on through two different rules. The drawer measured itself as a card
@@ -22,9 +22,20 @@
 // the only thing that can catch the two rules drifting apart again, so it
 // lives here, in its own file, rather than folded into either suite above.
 //
+// The vertical axis arrived later, and arrived with the same shape of hole:
+// the rule read `viewportWidth` and nothing else, so an island dragged to the
+// foot of the window opened on the correct SIDE and then ran off the bottom
+// of the screen — rows unreachable, and nothing left on screen to say they
+// were there. It is the same defect one axis over, so it is guarded here, in
+// the same file, by the same join: one geometry, both surfaces, compare what
+// each one chose.
+//
 // Same `stubGeometry` idiom as the other launcher suites: jsdom lays nothing
 // out, so `getBoundingClientRect` is mocked to give the mark and the capsule
-// real boxes rather than the all-zero rect jsdom would otherwise return.
+// real boxes rather than the all-zero rect jsdom would otherwise return. The
+// vertical cases stub `window.innerHeight` alongside `innerWidth` for the
+// same reason: jsdom's default 768 is plenty of room, so a rule that never
+// looked down would pass every one of them.
 
 import {
   CopilotKitCore,
@@ -55,6 +66,36 @@ const OVERHANG = ISLAND_WIDTH - LAUNCHER_SIZE; // 220
  * 264. Anything in [236, 264) used to give capsule=left, drawer=right.
  */
 const DIVERGENT_LEFT = 240;
+
+/**
+ * The island's height at this suite's launcher size, and the part of it that
+ * hangs past the mark.
+ *
+ * Written out here as the arithmetic the rule performs rather than as the
+ * number it comes to, so this file states the same relationship
+ * `launcherIslandHeight` does: the capsule's band is the mark itself, and
+ * everything past it is the drawer's chrome plus its rows. If a third row is
+ * ever added, `ISLAND_ROWS` is the one figure here that has to follow it.
+ */
+const ISLAND_CHROME = 16; // two hairlines + the band gap + the room past the last row
+const ISLAND_ROW_HEIGHT = 32;
+const ISLAND_ROWS = 2;
+const ISLAND_HEIGHT =
+  LAUNCHER_SIZE + ISLAND_CHROME + ISLAND_ROWS * ISLAND_ROW_HEIGHT; // 132
+/** What the vertical axis actually has to find room for. */
+const DROP_OVERHANG = ISLAND_HEIGHT - LAUNCHER_SIZE; // 80
+
+/**
+ * A viewport and a `mark.top` that leave the island no room below the mark
+ * and plenty above it.
+ *
+ * `mark.bottom` is 172, so the room below is 200 - 16 - 172 = 12, well short
+ * of the 80 the rows need; the room above is 120 - 16 = 104, comfortably past
+ * it. Downward is the preferred answer, so a rule that reached "up" here can
+ * only have got there by looking.
+ */
+const SHORT_VIEWPORT_HEIGHT = 200;
+const LOW_LAUNCHER_TOP = 120;
 
 // The gesture's four phases, stated once for this suite. Matches
 // launcher-error-signal.spec.ts's own constants; the drawer is only reached
@@ -108,35 +149,52 @@ class DirectionTestCore extends CopilotKitCore {
   }
 }
 
-let restoreViewportWidth: (() => void) | null = null;
+let restoreViewport: (() => void) | null = null;
 
+/** Both viewport dimensions together — the rule reads them as a pair. */
+function setViewport(width: number, height: number): void {
+  for (const [key, value] of [
+    ["innerWidth", width],
+    ["innerHeight", height],
+  ] as const) {
+    Object.defineProperty(window, key, {
+      configurable: true,
+      writable: true,
+      value,
+    });
+  }
+}
+
+/**
+ * The stubbed geometry.
+ *
+ * `launcherTop` and `viewportHeight` default to the values every test in this
+ * file used before the vertical axis existed: the mark at the top of the
+ * window, and jsdom's own 768px viewport. A horizontal test therefore reads
+ * exactly as it did, and any test that says nothing about the vertical axis is
+ * asking for the case with room to spare below.
+ */
 function stubGeometry(options: {
   launcherLeft: number;
   viewportWidth: number;
+  launcherTop?: number;
+  viewportHeight?: number;
 }): void {
+  const launcherTop = options.launcherTop ?? 0;
   const previousWidth = window.innerWidth;
-  Object.defineProperty(window, "innerWidth", {
-    configurable: true,
-    writable: true,
-    value: options.viewportWidth,
-  });
-  restoreViewportWidth = () => {
-    Object.defineProperty(window, "innerWidth", {
-      configurable: true,
-      writable: true,
-      value: previousWidth,
-    });
-  };
+  const previousHeight = window.innerHeight;
+  setViewport(options.viewportWidth, options.viewportHeight ?? previousHeight);
+  restoreViewport = () => setViewport(previousWidth, previousHeight);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function (this: HTMLElement): DOMRect {
       const box = (left: number, width: number): DOMRect =>
         ({
           x: left,
-          y: 0,
+          y: launcherTop,
           left,
           right: left + width,
-          top: 0,
-          bottom: LAUNCHER_SIZE,
+          top: launcherTop,
+          bottom: launcherTop + LAUNCHER_SIZE,
           width,
           height: LAUNCHER_SIZE,
           toJSON: () => ({}),
@@ -157,8 +215,8 @@ let cleanup: (() => void) | null = null;
 afterEach(() => {
   cleanup?.();
   cleanup = null;
-  restoreViewportWidth?.();
-  restoreViewportWidth = null;
+  restoreViewport?.();
+  restoreViewport = null;
   vi.useRealTimers();
 });
 
@@ -184,9 +242,36 @@ function drawerSide(inspector: WebInspectorElement): string | null {
   );
 }
 
+/**
+ * The vertical half of each surface's answer.
+ *
+ * One attribute name for both, unlike the side — which the capsule and the
+ * drawer each spell their own way for historical reasons. Read off each
+ * element separately all the same: the point of this file is to compare what
+ * the two of them are actually carrying, and reading one and assuming the
+ * other would prove nothing.
+ */
+function capsuleDrop(inspector: WebInspectorElement): string | null {
+  return (
+    root(inspector)
+      .querySelector("[data-cpk-launcher-capsule]")
+      ?.getAttribute("data-cpk-island-drop") ?? null
+  );
+}
+
+function drawerDrop(inspector: WebInspectorElement): string | null {
+  return (
+    root(inspector)
+      .querySelector("[data-cpk-launcher-drawer]")
+      ?.getAttribute("data-cpk-island-drop") ?? null
+  );
+}
+
 async function setup(geometry: {
   launcherLeft: number;
   viewportWidth: number;
+  launcherTop?: number;
+  viewportHeight?: number;
 }): Promise<{
   inspector: WebInspectorElement;
   advance: (ms: number) => Promise<void>;
@@ -305,6 +390,143 @@ test("with no room on either side, neither half opens", async () => {
   } drawer=${drawerPresent ? "shown" : "stood down"} dot=${
     dotPresent ? "present" : "gone"
   }`;
+
+  expect(capsulePresent, observed).toBe(false);
+  expect(drawerPresent, observed).toBe(false);
+  expect(dotPresent, observed).toBe(true);
+});
+
+// ── The vertical axis ─────────────────────────────────────────────────────
+//
+// Same three shapes as above, one axis over: the two surfaces agree where
+// the flip is needed, they agree where it is not, and where neither way up
+// fits they both stand down and leave the dot.
+
+test("the capsule and the drawer flip up together when the rows will not fit below", async () => {
+  const context = await setup({
+    launcherLeft: DIVERGENT_LEFT,
+    viewportWidth: 1280,
+    launcherTop: LOW_LAUNCHER_TOP,
+    viewportHeight: SHORT_VIEWPORT_HEIGHT,
+  });
+
+  await context.breakConnection();
+  const capsule = capsuleDrop(context.inspector);
+
+  await context.advance(GESTURE_MS);
+  await context.dwell();
+  const drawer = drawerDrop(context.inspector);
+
+  const roomBelow =
+    SHORT_VIEWPORT_HEIGHT - EDGE_MARGIN - (LOW_LAUNCHER_TOP + LAUNCHER_SIZE);
+  const observed =
+    `mark.top=${LOW_LAUNCHER_TOP} viewportHeight=${SHORT_VIEWPORT_HEIGHT} ` +
+    `roomBelow=${roomBelow} needs=${DROP_OVERHANG} ` +
+    `capsule=${capsule} drawer=${drawer}`;
+  expect(capsule, observed).not.toBeNull();
+  expect(drawer, observed).not.toBeNull();
+  expect(drawer, observed).toBe(capsule);
+  // The drawer's rows hang 80px past the mark and only 12px of window is left
+  // below it, so the island has to hang from the mark's bottom edge instead.
+  expect(capsule, observed).toBe("up");
+});
+
+// The next two tests are one test in two halves, and they are the only thing
+// in this suite that can see the island's HEIGHT.
+//
+// The flip test above passes on any height between 13px and 105px of
+// overhang, so it says the rule looks down but not what it looks for. These
+// two put the window one pixel either side of the exact figure
+// `launcherIslandHeight` computes, so the arithmetic behind that figure — two
+// hairlines, the band that clears the mark, the room past the last row, and
+// the rows themselves — is load-bearing here. Get any term of it wrong, or
+// add a row without the height following, and one of the two fails.
+//
+// Downward is also the island's natural direction, so the first of them is
+// the case that must not change at all.
+
+test("with exactly the room the rows need below it, the island still opens downward", async () => {
+  const viewportHeight =
+    EDGE_MARGIN + LOW_LAUNCHER_TOP + LAUNCHER_SIZE + DROP_OVERHANG;
+  const context = await setup({
+    launcherLeft: DIVERGENT_LEFT,
+    viewportWidth: 1280,
+    launcherTop: LOW_LAUNCHER_TOP,
+    viewportHeight,
+  });
+
+  await context.breakConnection();
+  const capsule = capsuleDrop(context.inspector);
+
+  await context.advance(GESTURE_MS);
+  await context.dwell();
+  const drawer = drawerDrop(context.inspector);
+
+  const observed =
+    `viewportHeight=${viewportHeight} roomBelow=${DROP_OVERHANG} ` +
+    `needs=${DROP_OVERHANG} capsule=${capsule} drawer=${drawer}`;
+  expect(drawer, observed).toBe(capsule);
+  expect(capsule, observed).toBe("down");
+});
+
+test("one pixel short of it, the island flips up", async () => {
+  const viewportHeight =
+    EDGE_MARGIN + LOW_LAUNCHER_TOP + LAUNCHER_SIZE + DROP_OVERHANG - 1;
+  const context = await setup({
+    launcherLeft: DIVERGENT_LEFT,
+    viewportWidth: 1280,
+    launcherTop: LOW_LAUNCHER_TOP,
+    viewportHeight,
+  });
+
+  await context.breakConnection();
+  const capsule = capsuleDrop(context.inspector);
+
+  await context.advance(GESTURE_MS);
+  await context.dwell();
+  const drawer = drawerDrop(context.inspector);
+
+  const observed =
+    `viewportHeight=${viewportHeight} roomBelow=${DROP_OVERHANG - 1} ` +
+    `needs=${DROP_OVERHANG} capsule=${capsule} drawer=${drawer}`;
+  expect(drawer, observed).toBe(capsule);
+  expect(capsule, observed).toBe("up");
+});
+
+test("with no room above or below, neither half opens", async () => {
+  // The vertical mirror of the no-room test above: a window exactly one mark
+  // plus its two margins tall, so the rows have nowhere to go either way.
+  // Horizontally there is room to spare, which is the point — the island is
+  // dropped on the strength of the axis that fails, not because both did.
+  const viewportHeight = EDGE_MARGIN + LAUNCHER_SIZE + EDGE_MARGIN;
+  const context = await setup({
+    launcherLeft: DIVERGENT_LEFT,
+    viewportWidth: 1280,
+    launcherTop: EDGE_MARGIN,
+    viewportHeight,
+  });
+
+  await context.breakConnection();
+  const capsulePresent =
+    root(context.inspector).querySelector("[data-cpk-launcher-capsule]") !==
+    null;
+
+  await context.advance(GESTURE_MS);
+  await context.dwell();
+  const drawerPresent =
+    root(context.inspector).querySelector("[data-cpk-launcher-drawer]") !==
+    null;
+
+  // The signal itself is intact, exactly as it is when the horizontal axis
+  // is the one with no room: the dot survives, only the labels are lost.
+  const dotPresent =
+    root(context.inspector).querySelector("[data-cpk-signal-dot]") !== null;
+
+  const observed =
+    `viewportHeight=${viewportHeight} needs=${DROP_OVERHANG} ` +
+    `capsule=${capsulePresent ? "shown" : "stood down"} ` +
+    `drawer=${drawerPresent ? "shown" : "stood down"} ` +
+    `dot=${dotPresent ? "present" : "gone"}`;
 
   expect(capsulePresent, observed).toBe(false);
   expect(drawerPresent, observed).toBe(false);
