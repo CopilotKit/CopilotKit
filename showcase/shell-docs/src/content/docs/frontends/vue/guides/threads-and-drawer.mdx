@@ -11,8 +11,8 @@ want a thread switcher beside the chat without wiring active-thread state
 yourself.
 
 Threads are persisted by [CopilotKit Intelligence](/premium/managed-intelligence-platform).
-Until a runtime is connected to Intelligence, the drawer renders its locked
-state rather than a thread list.
+The drawer reads the platform's `threads` license feature and renders its
+locked state instead of a thread list when that feature is unavailable.
 
 ## Resume a specific thread
 
