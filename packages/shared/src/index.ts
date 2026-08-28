@@ -67,6 +67,11 @@ function getOwnRecordValue<Value>(
     : undefined;
 }
 
+/** Legacy UI surfaces that remain available for every active entitlement. */
+function isLegacyUiFeature(feature: string): boolean {
+  return feature === "chat" || feature === "popup" || feature === "sidebar";
+}
+
 /**
  * Client-safe license context factory, driven by the license authority the
  * runtime reports via /info.
@@ -121,7 +126,8 @@ export function createLicenseContextValue(
               "threads.max_count",
             )
             ? true
-            : (getOwnRecordValue(activeEntitlement.features, feature) ?? false)
+            : (getOwnRecordValue(activeEntitlement.features, feature) ??
+              isLegacyUiFeature(feature))
           : false
         : featuresEnabled,
     getLimit: (feature) =>

@@ -71,6 +71,61 @@ test.each([0, 25])(
   },
 );
 
+test.each([
+  {
+    source: "managedOrgSubscription" as const,
+    features: {},
+    limits: {
+      "threads.retention_hours": 72,
+      "threads.max_count": 200,
+    },
+  },
+  {
+    source: "selfHostedDeploymentLicense" as const,
+    features: {
+      deployment_via_helm_chart: true,
+      msteams: true,
+    },
+    limits: {
+      "threads.retention_hours": 336,
+      "threads.max_count": 25000,
+    },
+  },
+])(
+  "license context preserves legacy UI features for an active $source payload",
+  (entitlement) => {
+    const ctx = createLicenseContextValue("valid", {
+      status: "ready",
+      entitlement: {
+        active: true,
+        ...entitlement,
+      },
+    });
+
+    for (const feature of ["chat", "popup", "sidebar", "threads"]) {
+      expect(ctx.checkFeature(feature)).toBe(true);
+    }
+    expect(ctx.checkFeature("unknown")).toBe(false);
+  },
+);
+
+test.each(["chat", "popup", "sidebar"])(
+  "license context preserves an explicit %s denial",
+  (feature) => {
+    const ctx = createLicenseContextValue("valid", {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "managedOrgSubscription",
+        features: { [feature]: false },
+        limits: {},
+      },
+    });
+
+    expect(ctx.checkFeature(feature)).toBe(false);
+  },
+);
+
 test.each([true, false])(
   "license context preserves a legacy threads feature value of %s",
   (threads) => {
