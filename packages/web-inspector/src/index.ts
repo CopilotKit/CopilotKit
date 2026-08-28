@@ -7159,7 +7159,11 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    const runtimeFetch =
+      typeof core.ɵruntimeFetch === "function"
+        ? core.ɵruntimeFetch
+        : globalThis.fetch;
+    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,

@@ -85,9 +85,14 @@ class CopilotKitStub {
     vi.fn<(id: string, store: ɵThreadStore) => void>();
   readonly unregisterThreadStore = vi.fn<(id: string) => void>();
 
+  readonly runtimeFetch = vi.fn<typeof fetch>((...args) =>
+    globalThis.fetch(...args),
+  );
+
   readonly core = {
     registerThreadStore: this.registerThreadStore,
     unregisterThreadStore: this.unregisterThreadStore,
+    ɵruntimeFetch: this.runtimeFetch,
     get intelligence() {
       return stub.intelligence();
     },
@@ -276,6 +281,29 @@ describe("injectThreads", () => {
     expect(result.threads().map((t) => t.id)).toEqual(["newer", "older"]);
     expect(result.isLoading()).toBe(false);
     expect(result.error()).toBeNull();
+  });
+
+  it("routes thread requests through the core's instrumented fetch", async () => {
+    active!.fetchMock.mockResolvedValue(jsonResponse({ threads: [] }));
+
+    @Component({ standalone: true, template: "" })
+    class Host {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    active!.connect();
+    fixture.detectChanges();
+    await active!.flush();
+
+    const listCalls = active!.stub.runtimeFetch.mock.calls.filter(([url]) =>
+      String(url).includes("/threads?"),
+    );
+    expect(listCalls.length).toBe(1);
+    expect(active!.stub.runtimeFetch.mock.calls.length).toBe(
+      active!.fetchMock.mock.calls.length,
+    );
   });
 
   it("includes the WebSocket URL in the dispatched context when connected", async () => {
