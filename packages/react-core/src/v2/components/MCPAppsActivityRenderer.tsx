@@ -4,10 +4,11 @@ import React, { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import {
-  AppBridge,
-  PostMessageTransport,
-} from "@modelcontextprotocol/ext-apps/app-bridge";
+// Type-only import: the ext-apps bridge is a heavy dependency (it pulls the MCP
+// SDK Protocol + zod schemas, ~40-50 kB gzipped). It is loaded lazily via a
+// dynamic import() inside Effect 1 so that a `<CopilotKit>` app only pays for it
+// when it actually renders an MCP App, not on every mount.
+import type { AppBridge } from "@modelcontextprotocol/ext-apps/app-bridge";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 
 /**
@@ -453,7 +454,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             "sandbox",
             "allow-scripts allow-same-origin allow-forms",
           );
-          // Cross-frontend surface contract: same testid across frontends.
+          // Cross-frontend MCP-apps surface contract: the host-created sandbox
+          // iframe is the addressable render surface for the MCP app, and every
+          // frontend must expose it under the SAME testid so one shared probe
+          // (harness `d5-mcp-apps`) and one shared e2e spec can assert the
+          // surface mounted without per-frontend selectors. Angular declares
+          // the same pair on its `copilot-mcp-apps-widget` template iframe;
+          // Vue's renderer mirrors this block.
           iframe.setAttribute("data-testid", "mcp-app-iframe");
           iframe.setAttribute("title", "Interactive MCP application");
 
@@ -479,10 +486,25 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             throw new Error("Resource has no text or blob content");
           }
 
+          // Lazily load the ext-apps bridge so it stays out of the base bundle
+          // (see the import-type note at the top of this file).
+          const { AppBridge, PostMessageTransport } =
+            await import("@modelcontextprotocol/ext-apps/app-bridge");
+          if (!mounted) {
+            return;
+          }
+
           bridge = new AppBridge(
             null,
             { name: "CopilotKit MCP Apps Host", version: "1.0.0" },
             { openLinks: {}, logging: {}, message: { text: {} } },
+            // Seed the host context at construction (before connect) so it is
+            // already in place when the widget's ui/initialize is handled. Doing
+            // this via setHostContext after connect would only win the race by
+            // luck (it depends on the notification landing before initialize),
+            // and #6689 relies on this seam to advertise displayMode /
+            // availableDisplayModes at initialize.
+            { hostContext: { theme: "light", platform: "web" } },
           );
 
           // Sandbox handshake: when the proxy is ready, load the widget HTML into
@@ -561,8 +583,13 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           bridge.oncalltool = async (params) => {
             const { serverHash, serverId } = contentRef.current;
             const currentAgent = agentRef.current;
-            if (!serverHash || !currentAgent) {
-              throw new Error("No server hash or agent available for proxying");
+            // Keep these two failures distinct: they point at different setup
+            // problems when debugging the proxy wiring.
+            if (!serverHash) {
+              throw new Error("No server hash available for proxying");
+            }
+            if (!currentAgent) {
+              throw new Error("No agent available for proxying");
             }
             const runResult = await mcpAppsRequestQueue.enqueue(
               currentAgent,
@@ -603,7 +630,8 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             await bridge.close();
             return;
           }
-          bridge.setHostContext({ theme: "light", platform: "web" });
+          // Host context was seeded at construction (see the AppBridge options
+          // above), so it is already advertised by the time ui/initialize runs.
           bridgeRef.current = bridge;
         } catch (err) {
           console.error("[MCPAppsRenderer] Setup error:", err);
