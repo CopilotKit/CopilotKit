@@ -400,8 +400,7 @@ export class RunHandler {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
       // Silently ignore abort errors (e.g. from navigation during active
-      // requests). The same predicate gates the runtime connection health seam
-      // in `AgentRegistry`, so there is one definition of "cancelled".
+      // requests).
       if (!isAbortError(connectError)) {
         const context: Record<string, any> = {};
         if (agent.agentId) {

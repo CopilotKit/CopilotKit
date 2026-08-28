@@ -714,10 +714,6 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
-  /**
-   * Internal pass-through fetch whose outcomes drive `runtimeConnectionStatus`.
-   * Use only for requests to our runtime, never for customer or realtime URLs.
-   */
   get ɵruntimeFetch(): typeof fetch {
     return this.agentRegistry.createRuntimeFetch();
   }

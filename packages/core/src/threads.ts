@@ -777,21 +777,12 @@ function createThreadRequestId(): string {
   return `thread-request-${threadRequestId}`;
 }
 
-/**
- * One thread REST request as an Observable. Owns its timeout so a caller
- * timeout can be marked `timedOut` instead of looking like Stop.
- */
 function threadFromFetch<T>(
   input: string,
   init: RequestInit & {
     selector: (response: Response) => Promise<T>;
     fetch: typeof fetch;
-    /** Give up after this long and fail with "Request timed out". */
     timeoutMs?: number;
-    /**
-     * This request is allowed to fail without saying anything about the
-     * runtime's health — see {@link RuntimeRequestMeta}.
-     */
     nonCritical?: boolean;
   },
 ): Observable<T> {
@@ -931,11 +922,6 @@ function createThreadMetadataCredentialsObservable(
       },
       fetch: environment.fetch,
       timeoutMs: REQUEST_TIMEOUT_MS,
-      // Non-fatal by design: its failure only means the thread list may be
-      // stale until reconnect (see the warning in the realtime effect), and
-      // older runtimes refuse this route outright because they do not offer
-      // realtime metadata. Neither is news about the runtime's health, so it
-      // must not be able to trigger a confirmation check (OSS-904).
       nonCritical: true,
       method: "POST",
       headers: {

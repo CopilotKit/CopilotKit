@@ -1,22 +1,3 @@
-/**
- * Runtime connection health (OSS-904).
- *
- * Before this, `runtimeConnectionStatus` was written once by the startup
- * `/info` handshake and never again: stop the dev server after the page loaded
- * and the status reported "connected" for the rest of the page's life, so
- * System Health, the launcher error signal and customer `onError` handlers all
- * reported healthy while nothing worked.
- *
- * The status now reports the outcome of the most recent ACTUAL contact with the
- * runtime. A failed runtime request asks the runtime once, directly, whether it
- * is there; a successful one puts the status back and re-syncs. Nothing else
- * moves it — no polling, no heartbeat, no retry loop.
- *
- * Request counting is a first-class assertion here rather than an incidental
- * one: several of the decisions are ABSENCES (no background traffic, one probe
- * per burst rather than one per failure, nothing at all while red), and an
- * absence is only testable by counting.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";

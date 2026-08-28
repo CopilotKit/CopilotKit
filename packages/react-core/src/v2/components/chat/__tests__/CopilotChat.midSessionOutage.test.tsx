@@ -13,23 +13,6 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { useCopilotKit } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 
-/**
- * The third leg of the OSS-904 safety argument, in the binding that owns it.
- *
- * Three decisions hold each other up: preserving runtime knowledge on the way
- * into the error state, preserving it again if the recovery re-sync fails, and
- * keeping the submission gate open throughout. Only a successful runtime
- * request restores the status, and submission in the chat view is gated on a
- * real agent being bound — so if the error state closed the gate, no successful
- * request could ever be issued and the application would be stuck red for the
- * rest of the page's life.
- *
- * Core has coverage for the first two. The third had none in any binding, which
- * is why it is here: this drives the REAL provider, the REAL core and the REAL
- * submit path against a runtime that goes away mid-session, and asserts the
- * state can be left through the user interface rather than through an API call.
- */
-
 const RUNTIME_URL = "http://runtime.test/api";
 const INFO_URL = `${RUNTIME_URL}/info`;
 

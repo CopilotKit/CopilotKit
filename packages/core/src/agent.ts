@@ -193,10 +193,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     await super.detachActiveRun();
   }
 
-  /**
-   * Stop uses global fetch, not `this.fetch`. A Stop against a dead runtime
-   * must not turn the connection status red.
-   */
   abortRun(): void {
     if (this.delegate) {
       this.syncDelegate(this.delegate);
@@ -538,7 +534,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
-  /** Re-resolve runtime mode and transport from `/info` via `this.fetch`. */
   private async fetchRuntimeInfo(): Promise<RuntimeInfo> {
     const headers: Record<string, string> = {
       ...this.headers,
@@ -579,8 +574,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private async fetchRuntimeInfoAutoDetect(
     headers: Record<string, string>,
   ): Promise<RuntimeInfo> {
-    // Try REST first (GET /info). Through `this.fetch` for the same reason as
-    // `fetchRuntimeInfo` above.
+    // Try REST first (GET /info)
     try {
       const response = await this.fetch(`${this.runtimeUrl}/info`, {
         headers: { ...headers },
@@ -676,7 +670,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
-      // REST join is runtime traffic. The websocket to wsUrl is not.
       fetch: this.fetch as typeof fetch,
     });
   }

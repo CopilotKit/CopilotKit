@@ -363,10 +363,6 @@ vi.mock("@copilotkit/core", () => {
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
 
-/**
- * Stands in for `CopilotKitCore.ɵruntimeFetch` — see {@link MockCopilotKit}.
- * A distinct function so a regression back to `globalThis.fetch` is visible.
- */
 const runtimeFetchMock = vi.fn((...args: unknown[]) =>
   (fetchMock as (...a: unknown[]) => unknown)(...args),
 );
@@ -404,13 +400,6 @@ type MockCopilotKit = {
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
   unregisterThreadStore: ReturnType<typeof vi.fn>;
-  /**
-   * Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
-   * function whose outcomes drive the runtime connection status (OSS-904).
-   * Thread requests go to `${runtimeUrl}/threads*`, so they are runtime traffic
-   * and the composable must hand THIS to the store rather than the global
-   * `fetch`.
-   */
   ɵruntimeFetch: typeof fetch;
 };
 
@@ -514,11 +503,6 @@ describe("useThreads", () => {
     setupCopilotKit();
   });
 
-  // Thread requests are runtime traffic under the destination rule, so their
-  // outcomes have to reach the runtime connection status. That only happens if
-  // the store is handed the core's instrumented fetch instead of the global one
-  // (OSS-904). This suite substitutes the whole thread store, so the injection
-  // is asserted at the seam where it is made rather than by counting requests.
   it("builds the thread store with the core's instrumented fetch", () => {
     const copilotkit = setupCopilotKit();
     mountHook();

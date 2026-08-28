@@ -68,10 +68,6 @@ interface Channel extends ɵPhoenixChannelLike {
   push(event: string, payload: unknown): ɵPhoenixPushLike;
 }
 
-/**
- * Default request function for the runtime-bound REST join calls. Wrapped
- * rather than referenced bare so the global keeps its own `this` binding.
- */
 const globalFetch: typeof fetch = (...args) => fetch(...args);
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
@@ -155,10 +151,6 @@ export interface IntelligenceAgentConfig {
   headers?: Record<string, string>;
   /** Optional credentials mode for fetch requests */
   credentials?: RequestCredentials;
-  /**
-   * Fetch for REST join calls (`/connect`, `/run`). Not used for the
-   * websocket to {@link url}.
-   */
   fetch?: typeof fetch;
 }
 

@@ -194,18 +194,6 @@ const fetchMock = vi.fn();
 // assignment leaks the mock across test files in the same vitest worker.
 vi.stubGlobal("fetch", fetchMock);
 
-/**
- * Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
- * function whose outcomes drive the runtime connection status (OSS-904).
- * Thread requests go to `${runtimeUrl}/threads*`, so they are runtime traffic
- * and the hook must inject THIS rather than the global `fetch` — otherwise
- * opening the Threads view can neither turn the status red on a dead runtime
- * nor turn it back once the runtime returns.
- *
- * Deliberately a separate spy that delegates to `fetchMock`: every existing
- * assertion on `fetchMock` keeps working, while a regression back to
- * `globalThis.fetch` leaves this one uncalled and is caught below.
- */
 const runtimeFetchMock = vi.fn((...args: unknown[]) =>
   (fetchMock as (...a: unknown[]) => unknown)(...args),
 );
@@ -329,11 +317,6 @@ describe("useThreads", () => {
     expect(socket.channels[0].topic).toBe("user_meta:jc-1");
   });
 
-  // Thread requests are runtime traffic under the destination rule, so their
-  // outcomes have to reach the runtime connection status. That only happens if
-  // the store is handed the core's instrumented fetch instead of the global one
-  // (OSS-904) — assert the injection rather than infer it, because a
-  // regression here is invisible from the hook's own result.
   it("routes thread requests through the core's instrumented fetch", async () => {
     fetchMock
       .mockReturnValueOnce(
@@ -351,7 +334,6 @@ describe("useThreads", () => {
       expect.stringContaining("/threads?agentId=agent-1"),
       expect.objectContaining({ method: "GET" }),
     );
-    // Nothing reached the runtime except through the instrumented fetch.
     expect(runtimeFetchMock.mock.calls.length).toBe(
       fetchMock.mock.calls.length,
     );

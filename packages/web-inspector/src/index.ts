@@ -6596,7 +6596,6 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    // Fall back when an older pinned core has no ɵruntimeFetch.
     const runtimeFetch =
       typeof core.ɵruntimeFetch === "function"
         ? core.ɵruntimeFetch

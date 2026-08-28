@@ -42,25 +42,10 @@ type RuntimeInfoFetchResult = {
 /** Maximum wait for optional Inspector metadata before degrading to absence. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
-/**
- * Per-request bound for `/info` probes and recovery re-syncs. Exported for
- * tests. `ɵ`-prefixed because this module is re-exported from the package index.
- */
 export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
-/**
- * What the instrumented fetch observed about one runtime-bound request.
- *
- * Only `ok` and `failed` carry information about the runtime. `aborted` is a
- * cancellation (Stop pressed, component unmounted) and `ignored` is a failure
- * the caller declared harmless — see {@link RuntimeRequestMeta}.
- */
 type RuntimeRequestOutcome = "ok" | "failed" | "aborted" | "ignored";
 
-/**
- * Classify a rejected runtime request. Stop/unmount is `aborted`. A caller
- * timeout is `failed` because it is marked `timedOut`.
- */
 function classifyRuntimeRequestFailure(
   error: unknown,
   meta: RuntimeRequestMeta | undefined,
@@ -74,14 +59,8 @@ function classifyRuntimeRequestFailure(
   return "failed";
 }
 
-/** How one runtime connection attempt should behave. */
 interface RuntimeConnectionOptions {
-  /** Keep remote agents and capabilities if this attempt fails. */
   preserveOnFailure?: boolean;
-  /**
-   * Recovery re-sync: reconcile the agent set, and do not paint Error over a
-   * success that landed after this attempt started.
-   */
   recovery?: boolean;
 }
 
@@ -131,11 +110,6 @@ export class AgentRegistry {
   private localAgents: Record<string, AbstractAgent> = {};
   private remoteAgents: Record<string, AbstractAgent> = {};
 
-  /**
-   * Thread id each remote agent was minted with. `AbstractAgent` always assigns
-   * one, so presence is not a signal — a different value means a binding
-   * resolved a thread onto the agent.
-   */
   private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
 
   private _runtimeUrl?: string;
@@ -173,42 +147,12 @@ export class AgentRegistry {
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
 
-  // --- Runtime connection health (OSS-904) -------------------------------
-  /** Memoized instrumented fetch, so re-applying it to an agent is a no-op. */
   private runtimeFetch?: typeof fetch;
-  /** A reachability probe is running; further failures must not start another. */
   private runtimeProbeInFlight: boolean = false;
-  /**
-   * Identifies the probe that owns {@link runtimeProbeInFlight}. An abandoned
-   * probe (a runtime url or transport change happened while it was in flight)
-   * must not clear a latch that now belongs to a newer one.
-   */
   private runtimeProbeToken: number = 0;
-  /** Aborts the in-flight probe's `/info` request when it is abandoned. */
   private runtimeProbeAbortController?: AbortController;
-  /**
-   * A recovery re-sync is running. Guards against the window in which the
-   * re-sync has already set the status back to `Error` but is still notifying
-   * subscribers and emitting its error: a success landing there would collapse
-   * onto that already-dying attempt and be lost.
-   */
   private runtimeRecoveryRunning: boolean = false;
-  /**
-   * A successful runtime request arrived while a recovery re-sync was running,
-   * so the running one cannot be the last word. Consumed by the loop in
-   * {@link recoverRuntimeConnection}; each success sets it at most once, so
-   * this is driven purely by observed traffic and is not a retry loop.
-   */
   private runtimeRecoveryPending: boolean = false;
-  /**
-   * Ordering guard for reachability probes. Bumped on every runtime connection
-   * status transition AND on every observed successful runtime request — both
-   * make an older, still-in-flight probe's verdict stale. A probe captures the
-   * value before it starts and only applies an "unreachable" verdict when the
-   * value is unchanged, so a late verdict can never override a success that
-   * happened after it started. Mirrors
-   * `inspectorMetadataConnectionGeneration`.
-   */
   private runtimeHealthGeneration: number = 0;
 
   /**
@@ -384,11 +328,6 @@ export class AgentRegistry {
     });
   }
 
-  /**
-   * True when a failed reconnect would destroy a live conversation.
-   * Guard on remote agents and `!== Connected`, not `=== Error`: recovery
-   * passes through Connecting, and pinning to Error would wipe agents there.
-   */
   private hasLiveRuntimeKnowledgeToProtect(): boolean {
     if (Object.keys(this.remoteAgents).length === 0) {
       return false;
@@ -399,11 +338,6 @@ export class AgentRegistry {
     );
   }
 
-  /**
-   * Merge a recovery `/info` report with the live set. Drop an unreported
-   * agent only when the report is non-empty and that agent has no conversation
-   * state. An empty list is a runtime that has not finished registering.
-   */
   private reconcileRecoveredAgents(
     reported: Record<string, AbstractAgent>,
   ): Record<string, AbstractAgent> {
@@ -423,10 +357,6 @@ export class AgentRegistry {
     return merged;
   }
 
-  /**
-   * True when this agent backs something on screen: messages, or a threadId
-   * that moved off the minted value. Unknown agents are kept.
-   */
   private carriesConversationState(agent: AbstractAgent): boolean {
     if (agent.messages.length > 0) {
       return true;
@@ -435,14 +365,6 @@ export class AgentRegistry {
     return mintedThreadId === undefined || agent.threadId !== mintedThreadId;
   }
 
-  /**
-   * Give up on the in-flight reachability probe: it belongs to a runtime this
-   * application is no longer talking to.
-   *
-   * Bumping the token means the abandoned probe's `finally` will not clear a
-   * latch that by then belongs to a newer probe, and bumping the health
-   * generation means its verdict can no longer be applied.
-   */
   private abandonRuntimeHealthProbe(): void {
     this.runtimeProbeToken += 1;
     this.runtimeProbeInFlight = false;
@@ -632,18 +554,12 @@ export class AgentRegistry {
     });
   }
 
-  /**
-   * Pass-through fetch that reports each runtime-bound request into the
-   * connection status. Memoized so re-applying it is a no-op.
-   */
   createRuntimeFetch(): typeof fetch {
     if (!this.runtimeFetch) {
       this.runtimeFetch = (async (
         input: RequestInfo | URL,
         init?: RequestInit,
       ): Promise<Response> => {
-        // Read on settle, not here: a caller may still be filling this in (a
-        // timeout it has not hit yet). See `RuntimeRequestMeta`.
         const meta = () => runtimeRequestMeta(init);
         const watchdog = this.armRuntimeRequestWatchdog(meta());
         try {
@@ -667,11 +583,6 @@ export class AgentRegistry {
     return this.runtimeFetch;
   }
 
-  /**
-   * Report silence after {@link RUNTIME_REQUEST_WATCHDOG_MS} without aborting
-   * the request. Skip non-critical and self-bounded requests. `checked` is
-   * true only when that report actually started a probe.
-   */
   private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
     clear: () => void;
     checked: () => boolean;
@@ -693,17 +604,12 @@ export class AgentRegistry {
     };
   }
 
-  /**
-   * Route a registry-minted proxied agent's HTTP through the instrumented
-   * fetch. Customer-owned agents are left on global fetch.
-   */
   applyRuntimeFetchToAgent(agent: AbstractAgent): void {
     if (agent instanceof ProxiedCopilotRuntimeAgent) {
       agent.fetch = this.createRuntimeFetch();
     }
   }
 
-  /** Apply the instrumented fetch to all agents. */
   applyRuntimeFetchToAgents(agents: Record<string, AbstractAgent>): void {
     Object.values(agents).forEach((agent) => {
       this.applyRuntimeFetchToAgent(agent);
@@ -939,11 +845,6 @@ export class AgentRegistry {
         });
   }
 
-  /**
-   * The single write path for the runtime connection status. Every transition
-   * bumps `runtimeHealthGeneration` so a reachability probe that started
-   * earlier can tell that its verdict is stale (OSS-904).
-   */
   private setRuntimeConnectionStatus(
     status: CopilotKitCoreRuntimeConnectionStatus,
   ): void {
@@ -951,25 +852,16 @@ export class AgentRegistry {
     this.runtimeHealthGeneration += 1;
   }
 
-  /**
-   * Route one runtime-bound request outcome into the connection status.
-   * `alreadyChecked` is true only when this request's watchdog actually
-   * started a probe — a later success still counts.
-   */
   private handleRuntimeRequestOutcome(
     outcome: RuntimeRequestOutcome,
     alreadyChecked: () => boolean = () => false,
   ): boolean {
-    // A cancelled request is the user pressing Stop (or a component
-    // unmounting), not a connectivity problem. `ignored` is a failure the
-    // caller declared harmless — see `RuntimeRequestMeta`.
     if (outcome === "aborted" || outcome === "ignored") {
       return false;
     }
     if (outcome === "failed" && alreadyChecked()) {
       return false;
     }
-    // Never run during server rendering — same guard as `connectRuntime`.
     if (typeof window === "undefined") {
       return false;
     }
@@ -978,22 +870,14 @@ export class AgentRegistry {
     }
 
     if (outcome === "ok") {
-      // The runtime answered, which makes any in-flight probe's verdict — and
-      // any in-flight re-sync's — stale: a success that lands after one started
-      // must win over it.
       this.runtimeHealthGeneration += 1;
       if (this.runtimeRecoveryRunning) {
-        // A re-sync is already running and this success is newer than it. Its
-        // answer, whatever it turns out to be, is about a moment that has
-        // passed, so queue another rather than letting this success be the one
-        // that is lost.
         this.runtimeRecoveryPending = true;
       }
       if (
         this._runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Error
       ) {
-        // Only way out of Error: agents must stay so Send can fire this.
         void this.recoverRuntimeConnection();
       }
       return false;
@@ -1012,11 +896,6 @@ export class AgentRegistry {
     return true;
   }
 
-  /**
-   * Fetch `/info` and give up after {@link ɵRUNTIME_PROBE_TIMEOUT_MS}.
-   * Attach `.catch` on the request before the race so a late AbortError is
-   * not unhandled.
-   */
   private async fetchRuntimeInfoWithTimeout(
     abortController: AbortController,
   ): Promise<RuntimeInfoFetchResult> {
@@ -1067,10 +946,6 @@ export class AgentRegistry {
     }
   }
 
-  /**
-   * Mid-session loss of contact: set Error, notify, emit. Do not clear agents
-   * — Send is the only way back to Connected.
-   */
   private async markRuntimeUnreachable(error: Error): Promise<void> {
     this.setRuntimeConnectionStatus(
       CopilotKitCoreRuntimeConnectionStatus.Error,
@@ -1079,12 +954,6 @@ export class AgentRegistry {
       CopilotKitCoreRuntimeConnectionStatus.Error,
     );
 
-    // "Did not answer" and "answered, but refused" are the SAME status and
-    // different diagnoses. An expired token, a denied authorisation or an
-    // internal error all mean the application cannot work, so red is correct
-    // and matches the startup path, which classifies the same way. But telling
-    // the reader a runtime that answered is "unreachable" sends them to check
-    // addresses, ports and containers while the real cause is a credential.
     const runtimeStatus = isRuntimeInfoRequestError(error)
       ? error.runtimeInfoStatus
       : undefined;
@@ -1093,27 +962,17 @@ export class AgentRegistry {
         ? `Runtime did not answer the identification request (${this._runtimeUrl}/info): ${error.message}. The runtime appears to be unreachable.`
         : `Runtime answered the identification request with status ${runtimeStatus} (${this._runtimeUrl}/info): ${error.message}. The runtime is reachable but refused the request — check credentials and authorisation before addresses and ports.`,
     );
-    // The same code the startup handshake emits: a customer already handling
-    // startup wiring failures picks up the mid-session case without changing a
-    // line, and the operation that failed genuinely is a runtime info request.
     await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
       error,
       code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
       context: {
         runtimeUrl: this._runtimeUrl,
-        // Additive diagnostic context, not a new status or code: the
-        // distinction is worth telling a handler about, and neither meaning
-        // needs a reader to be taught a new value.
         reason: runtimeStatus === undefined ? "no-answer" : "answered",
         ...(runtimeStatus === undefined ? {} : { runtimeStatus }),
       },
     });
   }
 
-  /**
-   * Re-run `/info` after a successful request ends an outage. Preserve agents
-   * on failure. Queue one follow-up if another success lands while this runs.
-   */
   private async recoverRuntimeConnection(): Promise<void> {
     if (this.runtimeRecoveryRunning) {
       this.runtimeRecoveryPending = true;
@@ -1153,9 +1012,6 @@ export class AgentRegistry {
     // requested transport) is already running, reuse it instead of starting a
     // second `/info` request. A change to a different target supersedes it. See
     // #5801.
-    //
-    // Collapse concurrent connects to the same target. Recovery must not
-    // collapse onto a dying attempt — `recoverRuntimeConnection` queues instead.
     const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
     const inFlight = this._connectionInFlight;
     if (inFlight && inFlight.key === key) {
@@ -1205,11 +1061,6 @@ export class AgentRegistry {
     this.setRuntimeConnectionStatus(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
-    // Captured AFTER the transition above (which bumps it). A successful
-    // runtime request landing while this attempt is in flight moves it, which
-    // is the signal that this attempt's answer is about a moment that has
-    // passed. `inspectorMetadataConnectionGeneration` does NOT move on a
-    // successful runtime request, so it cannot express this on its own.
     const runtimeHealthGeneration = this.runtimeHealthGeneration;
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
@@ -1284,13 +1135,6 @@ export class AgentRegistry {
         ),
       );
 
-      // Ids present in `runtimeInfo.agents` are carried over (reused or freshly
-      // minted above); ids no longer advertised are dropped because they are
-      // absent from this rebuilt map.
-      //
-      // A deliberate configuration change and a fresh page load both ask the
-      // question on purpose and can trust the whole answer, so they replace the
-      // set outright. Recovery cannot — see `reconcileRecoveredAgents`.
       this.remoteAgents = options?.recovery
         ? this.reconcileRecoveredAgents(agents)
         : agents;
@@ -1344,8 +1188,6 @@ export class AgentRegistry {
         return;
       }
       if (options?.preserveOnFailure) {
-        // Keep agents. Recovery skips painting Error if a later success
-        // already moved the generation — it has a follow-up queued.
         if (
           options?.recovery &&
           runtimeHealthGeneration !== this.runtimeHealthGeneration
@@ -1398,11 +1240,6 @@ export class AgentRegistry {
     }
   }
 
-  /**
-   * @param signal - Cancels the request. Supplied by the reachability probe so
-   * its bound actually closes the socket rather than only giving up on the
-   * answer; the startup handshake passes nothing and is unaffected.
-   */
   private async fetchRuntimeInfo(
     signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {

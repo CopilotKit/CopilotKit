@@ -186,10 +186,6 @@ function createTestCore(
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeTransport: "auto",
     runtimeUrl: "https://runtime.example",
-    // Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
-    // function whose outcomes drive the runtime connection status (OSS-904).
-    // The standalone run-activity store's requests go to `${runtimeUrl}/threads*`
-    // and must be issued through this rather than the global `fetch`.
     ɵruntimeFetch: vi.fn() as unknown as typeof fetch,
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
@@ -759,15 +755,6 @@ test("queued thread_run_activity reconnect is discarded on agent change", async 
   ]);
 });
 
-/**
- * OSS-904 made the runtime connection status able to change AFTER page load.
- * Until then it only moved during startup, so nothing in a mounted tree had
- * ever exercised a mid-session transition — and this effect lists the status in
- * its dependencies, so a round trip tears it down and re-establishes it.
- *
- * The PRD flagged the consequence as reasoned rather than measured. These pin
- * what actually happens.
- */
 function setRuntimeStatus(
   rendered: ReturnType<typeof renderChatWithCore>,
   status: CopilotKitCoreRuntimeConnectionStatus,
@@ -816,9 +803,6 @@ test("a mid-session status round trip does not detach an in-flight run or reconn
 
   await roundTripTheRuntimeStatus(rendered);
 
-  // The agent instance is preserved across the transition (OSS-904 keeps it
-  // deliberately), and the teardown only detaches a WAKE reconnect it started
-  // itself — so a user-initiated run in flight is left alone.
   expect(rendered.agent.detachActiveRunCalls).toBe(detachesBeforeRoundTrip);
   // And nothing re-connected off the back of the status moving.
   expect(rendered.connectAgent).not.toHaveBeenCalled();

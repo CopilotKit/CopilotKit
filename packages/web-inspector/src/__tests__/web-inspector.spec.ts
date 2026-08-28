@@ -1996,15 +1996,6 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
-  /**
-   * Stands in for `CopilotKitCore.ɵruntimeFetch`, the instrumented request
-   * function whose outcomes drive the runtime connection status (OSS-904).
-   * The owned thread store's `/threads*` requests go to the runtime, so they
-   * are runtime traffic and must be issued through this rather than the global
-   * `fetch` — that is what lets a dead runtime turn the status red. Detection
-   * only: thread requests are withheld while the status is red, so they never
-   * restore it.
-   */
   ɵruntimeFetch: typeof fetch;
   threadEndpoints: {
     list: boolean;
@@ -2193,11 +2184,6 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
-  // Thread requests are runtime traffic under the destination rule, so their
-  // outcomes have to reach the runtime connection status. That only happens if
-  // the owned store is handed the core's instrumented fetch instead of the
-  // global one (OSS-904) — assert the injection rather than infer it, because a
-  // regression here cannot be seen from the rendered thread list.
   it("routes the owned store's /threads request through the core's instrumented fetch", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, {});

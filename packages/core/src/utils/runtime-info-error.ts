@@ -34,16 +34,6 @@ export async function runtimeInfoError(
   return error;
 }
 
-/**
- * A `/info` failure where the runtime ANSWERED and the answer was a refusal —
- * an expired token, a denied authorisation, an internal error.
- *
- * Carried on the error rather than re-derived from the message so the caller
- * can say "answered with 401" instead of "unreachable". Both mean the
- * application cannot work, so both are the error status; sending the reader to
- * check addresses, ports and containers when the cause is a credential is what
- * costs the debugging time (OSS-904).
- */
 export interface RuntimeInfoRequestError extends Error {
   runtimeInfoStatus: number;
 }

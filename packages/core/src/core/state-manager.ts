@@ -57,10 +57,6 @@ export class StateManager {
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
 
-  // Agent subscriptions for cleanup. The agent instance is kept alongside the
-  // teardown so `subscribeToAgent` can tell "replace the agent behind this id"
-  // apart from "you already have this very agent" — see the revocation
-  // invariant there.
   private agentSubscriptions: Map<
     string,
     { agent: AbstractAgent; unsubscribe: () => void }
@@ -121,8 +117,6 @@ export class StateManager {
 
     const agentId = agent.agentId;
 
-    // Same instance: keep the live subscription. Re-subscribing mid-run
-    // drops events because ag-ui captured subscribers at run start.
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
       if (existing.agent === agent) {

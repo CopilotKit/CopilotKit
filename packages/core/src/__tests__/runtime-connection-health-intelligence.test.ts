@@ -1,22 +1,3 @@
-/**
- * Runtime connection health in Intelligence mode (OSS-904).
- *
- * The destination rule is "a request counts if it goes to the runtime, whatever
- * issued it". Intelligence mode is the case that rule was chosen for: its chat
- * traffic never touches the HTTP run route — it asks the RUNTIME over HTTP for
- * realtime join credentials and then talks to the realtime gateway over a
- * websocket. A rule keyed on the caller rather than on the destination would
- * have left every Intelligence-mode application unable to notice a runtime that
- * went away.
- *
- * The other half is an exclusion, and it matters just as much: the realtime
- * endpoint is a SEPARATE service with its own address and its own reconnection
- * behaviour, and it can fail while the runtime is perfectly healthy. Reporting
- * "runtime unreachable" about a working runtime is a false diagnosis, and a
- * false diagnosis costs more debugging time than no signal at all.
- *
- * Lives in its own file because it has to mock `phoenix` module-wide.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
