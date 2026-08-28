@@ -30,9 +30,9 @@ depend on `CPK_TELEMETRY_ID`.
 The Inspector sends coarse events when trusted project-context modules become
 visible and when a user follows a plan action:
 
-| Event | Feature-specific properties |
-| --- | --- |
-| `oss.inspector.metadata_module_viewed` | `module`, `license_bucket`, and `action_kind` when the visible module is an action |
+| Event                                   | Feature-specific properties                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `oss.inspector.metadata_module_viewed`  | `module`, `license_bucket`, and `action_kind` when the visible module is an action               |
 | `oss.inspector.metadata_action_clicked` | `module: "action"`, `action_kind`, and `license_bucket` for **Manage plan** and **Renew** clicks |
 
 `module` is `identity`, `plan`, or `action`. `action_kind` is `manage_plan`,

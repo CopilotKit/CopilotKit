@@ -4812,8 +4812,8 @@ export class CpkThreadInspector extends PortableLitElement {
       ${
         this.viewInAppError
           ? html`<span class="cpk-td__view-in-app-error" role="alert"
-              >${this.viewInAppError}</span
-            >`
+            >${this.viewInAppError}</span
+          >`
           : nothing
       }
     `;
@@ -4848,11 +4848,9 @@ export class CpkThreadInspector extends PortableLitElement {
       </button>
       ${
         this.tryFromHereError
-          ? html`<span
-              class="cpk-td__try-from-here-error"
-              role="alert"
-              >${this.tryFromHereError}</span
-            >`
+          ? html`<span class="cpk-td__try-from-here-error" role="alert"
+            >${this.tryFromHereError}</span
+          >`
           : nothing
       }
     `;
@@ -4966,9 +4964,7 @@ export class CpkThreadInspector extends PortableLitElement {
       `;
     }
     if (this._eventsError) {
-      return html`<div
-        class="cpk-td__status cpk-td__status--error"
-      >
+      return html`<div class="cpk-td__status cpk-td__status--error">
         ${this._eventsError}
       </div>`;
     }
@@ -5064,14 +5060,14 @@ export class CpkThreadInspector extends PortableLitElement {
           ${
             item.sourceIndex
               ? html`
-                  <button
-                    type="button"
-                    class="cpk-td__source-link"
-                    @click=${() => this.revealSourceEvent(item.sourceIndex)}
-                  >
-                    Source event #${item.sourceIndex}
-                  </button>
-                `
+                <button
+                  type="button"
+                  class="cpk-td__source-link"
+                  @click=${() => this.revealSourceEvent(item.sourceIndex)}
+                >
+                  Source event #${item.sourceIndex}
+                </button>
+              `
               : nothing
           }
           <span class="cpk-td__timeline-time"
@@ -5467,62 +5463,64 @@ export class CpkThreadInspector extends PortableLitElement {
             const eventId = this.rawEventId(event);
             const detailsExpanded = this._expandedRawEvents.has(eventId);
             return html`
-            <div
-              class="cpk-td__event cpk-td__event--${eventCategory(event.type)}"
-              data-source-index=${event.sourceIndex}
-            >
-              <div class="cpk-td__event-header">
-                <span class="cpk-td__event-type" title=${event.type}
-                  >${humanizeEventType(event.type)}</span
-                >
-                <span class="cpk-td__event-time"
-                  >${formatTimestamp(event.timestamp)}</span
-                >
-              </div>
-              <button
-                type="button"
-                class="cpk-td__timeline-details-toggle"
-                aria-expanded=${detailsExpanded ? "true" : "false"}
-                @click=${() => this.toggleRawEventDetails(eventId)}
+              <div
+                class="cpk-td__event cpk-td__event--${eventCategory(
+                  event.type,
+                )}"
+                data-source-index=${event.sourceIndex}
               >
+                <div class="cpk-td__event-header">
+                  <span class="cpk-td__event-type" title=${event.type}
+                    >${humanizeEventType(event.type)}</span
+                  >
+                  <span class="cpk-td__event-time"
+                    >${formatTimestamp(event.timestamp)}</span
+                  >
+                </div>
+                <button
+                  type="button"
+                  class="cpk-td__timeline-details-toggle"
+                  aria-expanded=${detailsExpanded ? "true" : "false"}
+                  @click=${() => this.toggleRawEventDetails(eventId)}
+                >
+                  ${
+                    detailsExpanded
+                      ? html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        `
+                      : html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        `
+                  }
+                  <span
+                    >${detailsExpanded ? "Hide details" : "Show details"}</span
+                  >
+                </button>
                 ${
                   detailsExpanded
-                    ? html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m6 9 6 6 6-6" />
-                        </svg>
-                      `
-                    : html`
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                        >
-                          <path d="m9 18 6-6-6-6" />
-                        </svg>
-                      `
+                    ? renderHighlightedJsonBlock(event.rawEvent ?? event)
+                    : nothing
                 }
-                <span
-                  >${detailsExpanded ? "Hide details" : "Show details"}</span
-                >
-              </button>
-              ${
-                detailsExpanded
-                  ? renderHighlightedJsonBlock(event.rawEvent ?? event)
-                  : nothing
-              }
-            </div>
-          `;
+              </div>
+            `;
           },
         )}`;
       },
@@ -8413,7 +8411,9 @@ export class WebInspectorElement extends LitElement {
               </div>
               ${
                 isFailedCall && toolError?.message
-                  ? html`<p class="mt-2 break-words leading-relaxed text-gray-800">
+                  ? html`<p
+                    class="mt-2 break-words leading-relaxed text-gray-800"
+                  >
                     ${toolError.message}
                   </p>`
                   : nothing
@@ -8734,13 +8734,15 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-playground-composer {
         border: 1px solid #dcdce8;
-        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+        box-shadow:
+          0 8px 22px rgba(31, 23, 57, 0.08),
           0 1px 2px rgba(31, 23, 57, 0.1);
       }
 
       .cpk-playground-composer:focus-within {
         border-color: #aaa4d4;
-        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+        box-shadow:
+          0 10px 26px rgba(86, 53, 155, 0.13),
           0 0 0 3px rgba(190, 194, 255, 0.3);
       }
 
@@ -8757,20 +8759,22 @@ export class WebInspectorElement extends LitElement {
       .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
         border-color: #464957;
         background: #15171e !important;
-        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+        box-shadow:
+          0 8px 22px rgba(0, 0, 0, 0.26),
           0 1px 2px rgba(0, 0, 0, 0.36);
       }
 
       .inspector-window[data-color-scheme="dark"]
         .cpk-playground-composer:focus-within {
         border-color: #777aae;
-        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+        box-shadow:
+          0 10px 26px rgba(0, 0, 0, 0.34),
           0 0 0 3px rgba(102, 106, 158, 0.3);
       }
 
       .cpk-playground-message-enter {
-        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-          both;
+        animation: cpk-playground-message-enter 0.24s
+          cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
       .cpk-playground-thinking-dot {
@@ -8789,8 +8793,7 @@ export class WebInspectorElement extends LitElement {
         display: none;
       }
 
-      .cpk-playground-reasoning[open]
-        .cpk-playground-reasoning-chevron {
+      .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
         transform: rotate(90deg);
       }
 
@@ -9836,8 +9839,10 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
         background: #f0f0f4;
       }
 
@@ -9941,7 +9946,8 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
       .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
+      .cpk-launcher-hud__row[data-cpk-hud-help="open"]
+        .cpk-launcher-hud__detail {
         max-height: 72px;
         padding: 0 8px 7px;
         opacity: 1;
@@ -10016,8 +10022,7 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-launcher-hud[data-cpk-hud-intro="true"] {
-        animation: cpk-launcher-hud-intro
-          var(--cpk-launcher-hud-intro-duration)
+        animation: cpk-launcher-hud-intro var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
@@ -10025,16 +10030,14 @@ export class WebInspectorElement extends LitElement {
         animation-name: cpk-launcher-hud-intro-right;
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__row {
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row {
         animation: cpk-launcher-hud-row-online
-          var(--cpk-launcher-hud-row-duration)
-          cubic-bezier(0.16, 1, 0.3, 1) both;
+          var(--cpk-launcher-hud-row-duration) cubic-bezier(0.16, 1, 0.3, 1)
+          both;
         animation-delay: var(--cpk-hud-row-delay);
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"]
-        .cpk-launcher-hud__check {
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
         animation: cpk-launcher-hud-check-online 220ms
           cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
@@ -10042,10 +10045,8 @@ export class WebInspectorElement extends LitElement {
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud[data-cpk-hud-intro="true"],
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__row,
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__check {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row,
+        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -10212,7 +10213,9 @@ export class WebInspectorElement extends LitElement {
       .inspector-sidebar[data-icon-rail="true"]
         .inspector-context-dropdown-icon
         svg,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder svg {
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-placeholder
+        svg {
         width: 18px !important;
         height: 18px !important;
         overflow: visible !important;
@@ -11343,12 +11346,12 @@ export class WebInspectorElement extends LitElement {
                       ${
                         marker
                           ? html`
-                              <span
-                                class="inspector-nav-signal-dot"
-                                data-cpk-signal-tone=${marker.tone}
-                                aria-hidden="true"
-                              ></span>
-                            `
+                            <span
+                              class="inspector-nav-signal-dot"
+                              data-cpk-signal-tone=${marker.tone}
+                              aria-hidden="true"
+                            ></span>
+                          `
                           : nothing
                       }
                     </button>
@@ -11378,7 +11381,9 @@ export class WebInspectorElement extends LitElement {
                   data-inspector-sidebar-toggle
                   aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
                   aria-expanded=${iconRail ? "false" : "true"}
-                  data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                  data-inspector-tooltip=${
+                    iconRail ? "Expand sidebar" : nothing
+                  }
                   title=${iconRail ? nothing : "Collapse sidebar"}
                   style=${INTERACTIVE_FOCUS_BASE_STYLE}
                   @pointerenter=${
@@ -11396,7 +11401,9 @@ export class WebInspectorElement extends LitElement {
                   @click=${this.handleSidebarToggle}
                 >
                   <span class="inspector-nav-icon" aria-hidden="true">
-                    ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                    ${this.renderIcon(
+                      iconRail ? "ChevronRight" : "ChevronLeft",
+                    )}
                   </span>
                   <span class="inspector-nav-label"
                     >${iconRail ? "Expand" : "Collapse"}</span
@@ -11718,13 +11725,13 @@ export class WebInspectorElement extends LitElement {
                 // still just the product's name.
                 installing
                   ? html`
-                    <img
-                      class="inspector-intelligence-mark"
-                      src=${inspectorLogoKiteUrl}
-                      alt=""
-                      aria-hidden="true"
-                    />
-                  `
+                      <img
+                        class="inspector-intelligence-mark"
+                        src=${inspectorLogoKiteUrl}
+                        alt=""
+                        aria-hidden="true"
+                      />
+                    `
                   : nothing
               }
               ${connected ? "Intelligence" : model.hero.title}
@@ -11777,7 +11784,11 @@ export class WebInspectorElement extends LitElement {
                 `
                 : nothing
             }
-            ${installing ? this.renderIntelligenceInstallActions(action) : nothing}
+            ${
+              installing
+                ? this.renderIntelligenceInstallActions(action)
+                : nothing
+            }
           </div>
         </header>
 
@@ -11786,15 +11797,15 @@ export class WebInspectorElement extends LitElement {
           // bands rather than being squeezed into the header's action column.
           installing && this.promptCopyState === "failed"
             ? html`
-              <code class="inspector-intelligence-install-fallback" tabindex="0"
-                >${createOnboardingPrompt(this.getOnboardingRunId())}</code
-              >
-            `
+                <code
+                  class="inspector-intelligence-install-fallback"
+                  tabindex="0"
+                  >${createOnboardingPrompt(this.getOnboardingRunId())}</code
+                >
+              `
             : nothing
         }
-
         ${installing ? this.renderIntelligenceStory() : nothing}
-
         ${
           connected
             ? html`
@@ -12263,33 +12274,33 @@ export class WebInspectorElement extends LitElement {
           this.promptCopyState === "idle"
             ? action
               ? html`
-                <a
-                  class="inspector-intelligence-install-secondary"
-                  data-inspector-home-intelligence-action=${action.kind}
-                  href=${action.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="Set Intelligence up yourself (opens in a new tab)"
-                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                  @click=${() => this.handleHomeHeroCta(action)}
-                >
-                  Set it up yourself ${this.renderIcon("ArrowUpRight")}
-                </a>
-              `
+                  <a
+                    class="inspector-intelligence-install-secondary"
+                    data-inspector-home-intelligence-action=${action.kind}
+                    href=${action.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Set Intelligence up yourself (opens in a new tab)"
+                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                    @click=${() => this.handleHomeHeroCta(action)}
+                  >
+                    Set it up yourself ${this.renderIcon("ArrowUpRight")}
+                  </a>
+                `
               : nothing
             : html`
-              <p
-                class="inspector-intelligence-install-hint"
-                data-tone=${failed ? "error" : "success"}
-                role="status"
-              >
-                ${
-                  failed
-                    ? "Clipboard blocked — copy the prompt below."
-                    : "Paste it into your coding agent."
-                }
-              </p>
-            `
+                <p
+                  class="inspector-intelligence-install-hint"
+                  data-tone=${failed ? "error" : "success"}
+                  role="status"
+                >
+                  ${
+                    failed
+                      ? "Clipboard blocked — copy the prompt below."
+                      : "Paste it into your coding agent."
+                  }
+                </p>
+              `
         }
         <button
           type="button"
@@ -12573,15 +12584,11 @@ export class WebInspectorElement extends LitElement {
             <em>Pending review</em>
           </header>
           <div class="inspector-intelligence-skill-code">
-            <span data-line="1"
-              ><b># Meeting scheduling</b></span
-            >
+            <span data-line="1"><b># Meeting scheduling</b></span>
             <span data-line="2">When planning a meeting:</span>
             ${INTELLIGENCE_STORY_RULES.map(
               (rule, index) => html`
-                <span
-                  data-line=${index + 3}
-                  style="--rule-index:${index}"
+                <span data-line=${index + 3} style="--rule-index:${index}"
                   >${index + 1}. ${rule}</span
                 >
               `,
@@ -15006,40 +15013,44 @@ export class WebInspectorElement extends LitElement {
 
     return html`
       <form
-        class=${centered ? "cpk-playground-form mt-5 w-full" : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"}
+        class=${
+          centered
+            ? "cpk-playground-form mt-5 w-full"
+            : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"
+        }
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
           this.playgroundError
             ? html`<div
-                class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
-                role="alert"
-                data-playground-error
+              class="mx-auto mb-2 flex max-w-3xl items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-[10px] text-rose-950"
+              role="alert"
+              data-playground-error
+            >
+              <span class="mt-0.5 shrink-0"
+                >${this.renderIcon("TriangleAlert")}</span
               >
-                <span class="mt-0.5 shrink-0"
-                  >${this.renderIcon("TriangleAlert")}</span
-                >
-                <div class="min-w-0 flex-1">
-                  <p class="font-semibold">Agent run failed</p>
-                  <p class="mt-0.5 break-words leading-relaxed">
-                    ${this.playgroundError}
-                  </p>
-                </div>
-                ${
-                  hasRetry
-                    ? html`
-                        <button
-                          type="button"
-                          class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
-                          ?disabled=${busy}
-                          @click=${this.handlePlaygroundRetry}
-                        >
-                          Retry
-                        </button>
-                      `
-                    : nothing
-                }
-              </div>`
+              <div class="min-w-0 flex-1">
+                <p class="font-semibold">Agent run failed</p>
+                <p class="mt-0.5 break-words leading-relaxed">
+                  ${this.playgroundError}
+                </p>
+              </div>
+              ${
+                hasRetry
+                  ? html`
+                    <button
+                      type="button"
+                      class="shrink-0 rounded-md border border-rose-200 bg-white px-2 py-1 font-medium text-rose-700 transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300 focus-visible:ring-offset-1 disabled:opacity-50"
+                      ?disabled=${busy}
+                      @click=${this.handlePlaygroundRetry}
+                    >
+                      Retry
+                    </button>
+                  `
+                  : nothing
+              }
+            </div>`
             : nothing
         }
         <div
@@ -15196,7 +15207,9 @@ export class WebInspectorElement extends LitElement {
                 class="h-3 w-px shrink-0 bg-gray-200"
                 aria-hidden="true"
               ></span>
-              <span class="truncate" title=${runtimeLabel}>${runtimeLabel}</span>
+              <span class="truncate" title=${runtimeLabel}
+                >${runtimeLabel}</span
+              >
             </div>
           </div>
           <div
@@ -15205,39 +15218,39 @@ export class WebInspectorElement extends LitElement {
             ${
               sourceThreads.length > 0
                 ? html`
-                    <label class="sr-only" for="cpk-playground-thread-source"
-                      >Start from a thread</label
+                  <label class="sr-only" for="cpk-playground-thread-source"
+                    >Start from a thread</label
+                  >
+                  <select
+                    id="cpk-playground-thread-source"
+                    class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    .value=${this.playgroundSourceThreadId ?? ""}
+                    ?disabled=${busy}
+                    @change=${this.handlePlaygroundThreadSourceChange}
+                  >
+                    <option
+                      value=""
+                      ?selected=${!this.playgroundSourceThreadId}
                     >
-                    <select
-                      id="cpk-playground-thread-source"
-                      class="cpk-playground-thread-select max-w-[200px] rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] text-gray-700 outline-none transition hover:border-gray-300 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      .value=${this.playgroundSourceThreadId ?? ""}
-                      ?disabled=${busy}
-                      @change=${this.handlePlaygroundThreadSourceChange}
-                    >
-                      <option
-                        value=""
-                        ?selected=${!this.playgroundSourceThreadId}
-                      >
-                        Load a thread...
-                      </option>
-                      ${sourceThreads.map(
-                        (thread) => html`
-                          <option
-                            value=${thread.id}
-                            ?selected=${
-                              this.playgroundSourceThreadId === thread.id
-                            }
-                          >
-                            ${
-                              thread.name?.trim() ||
-                              `Thread ${thread.id.slice(0, 8)}`
-                            }
-                          </option>
-                        `,
-                      )}
-                    </select>
-                  `
+                      Load a thread...
+                    </option>
+                    ${sourceThreads.map(
+                      (thread) => html`
+                        <option
+                          value=${thread.id}
+                          ?selected=${
+                            this.playgroundSourceThreadId === thread.id
+                          }
+                        >
+                          ${
+                            thread.name?.trim() ||
+                            `Thread ${thread.id.slice(0, 8)}`
+                          }
+                        </option>
+                      `,
+                    )}
+                  </select>
+                `
                 : nothing
             }
             <button
@@ -15254,39 +15267,38 @@ export class WebInspectorElement extends LitElement {
         ${
           this.playgroundShowEphemeralNotice && runtimeMode !== "intelligence"
             ? html`
-                <div
-                  role="alert"
-                  class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
-                  data-playground-ephemeral-notice
+              <div
+                role="alert"
+                class="mx-3 mt-2 flex items-start gap-2 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-2 text-[10px] text-violet-950"
+                data-playground-ephemeral-notice
+              >
+                <span class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                  >${this.renderIcon("Clock3")}</span
                 >
-                  <span
-                    class="mt-0.5 text-violet-600 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                    >${this.renderIcon("Clock3")}</span
-                  >
-                  <p class="min-w-0 flex-1 leading-relaxed">
-                    Scratch threads are ephemeral and will be deleted when your
-                    local session ends. Need durable history?
-                    <a
-                      class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                      href=${this.getThreadsIntelligenceSignupUrl()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      >Set up Intelligence</a
-                    >.
-                  </p>
-                  <button
-                    type="button"
-                    class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
-                    aria-label="Dismiss ephemeral thread notice"
-                    @click=${() => {
-                      this.playgroundShowEphemeralNotice = false;
-                      this.requestUpdate();
-                    }}
-                  >
-                    ${this.renderIcon("X")}
-                  </button>
-                </div>
-              `
+                <p class="min-w-0 flex-1 leading-relaxed">
+                  Scratch threads are ephemeral and will be deleted when your
+                  local session ends. Need durable history?
+                  <a
+                    class="font-semibold underline decoration-violet-300 underline-offset-2 hover:decoration-violet-700 focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                    href=${this.getThreadsIntelligenceSignupUrl()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >Set up Intelligence</a
+                  >.
+                </p>
+                <button
+                  type="button"
+                  class="rounded p-0.5 text-violet-500 transition hover:bg-violet-100 hover:text-violet-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-1"
+                  aria-label="Dismiss ephemeral thread notice"
+                  @click=${() => {
+                    this.playgroundShowEphemeralNotice = false;
+                    this.requestUpdate();
+                  }}
+                >
+                  ${this.renderIcon("X")}
+                </button>
+              </div>
+            `
             : nothing
         }
 
@@ -15297,297 +15309,297 @@ export class WebInspectorElement extends LitElement {
           ${
             this.playgroundIsLoadingThread
               ? html`
-                  <div
-                    class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                <div
+                  class="flex h-full items-center justify-center gap-1.5 text-[10px] text-gray-600"
+                >
+                  <span
+                    class="text-gray-500 [&>svg]:animate-spin"
+                    aria-hidden="true"
+                    >${this.renderIcon("LoaderCircle")}</span
                   >
-                    <span
-                      class="text-gray-500 [&>svg]:animate-spin"
-                      aria-hidden="true"
-                      >${this.renderIcon("LoaderCircle")}</span
-                    >
-                    Loading thread into a scratch session...
-                  </div>
-                `
+                  Loading thread into a scratch session...
+                </div>
+              `
               : visibleMessages.length === 0
                 ? html`
-                    <div
-                      class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
-                    >
-                      <p class="cpk-playground-welcome-title">
-                        How can I help you today?
-                      </p>
-                      ${this.renderPlaygroundComposer(
-                        agentId,
-                        busy,
-                        hasRetry,
-                        true,
-                      )}
-                    </div>
-                  `
+                  <div
+                    class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
+                  >
+                    <p class="cpk-playground-welcome-title">
+                      How can I help you today?
+                    </p>
+                    ${this.renderPlaygroundComposer(
+                      agentId,
+                      busy,
+                      hasRetry,
+                      true,
+                    )}
+                  </div>
+                `
                 : html`
-                    <div class="mx-auto flex max-w-3xl flex-col pb-5">
-                      ${visibleMessages.map((message, index) => {
-                        const isUser = message.role === "user";
-                        const isReasoning = message.role === "reasoning";
-                        const isActivity = message.role === "activity";
-                        const content = isActivity
-                          ? (message.activityType ?? "Agent activity")
-                          : message.contentText;
-                        if (
-                          !isReasoning &&
-                          !content &&
-                          message.toolCalls.length === 0
-                        ) {
-                          return nothing;
-                        }
-                        if (isReasoning) {
-                          const isStreaming =
-                            this.playgroundIsRunning &&
-                            index === lastReasoningIndex;
-                          const duration = message.id
-                            ? this.playgroundReasoningDurations.get(message.id)
-                            : undefined;
-                          const durationLabel =
-                            duration === undefined || duration < 1000
-                              ? "a few seconds"
-                              : `${Math.round(duration / 1000)} seconds`;
-                          const label = isStreaming
-                            ? "Thinking…"
-                            : `Thought for ${durationLabel}`;
+                  <div class="mx-auto flex max-w-3xl flex-col pb-5">
+                    ${visibleMessages.map((message, index) => {
+                      const isUser = message.role === "user";
+                      const isReasoning = message.role === "reasoning";
+                      const isActivity = message.role === "activity";
+                      const content = isActivity
+                        ? (message.activityType ?? "Agent activity")
+                        : message.contentText;
+                      if (
+                        !isReasoning &&
+                        !content &&
+                        message.toolCalls.length === 0
+                      ) {
+                        return nothing;
+                      }
+                      if (isReasoning) {
+                        const isStreaming =
+                          this.playgroundIsRunning &&
+                          index === lastReasoningIndex;
+                        const duration = message.id
+                          ? this.playgroundReasoningDurations.get(message.id)
+                          : undefined;
+                        const durationLabel =
+                          duration === undefined || duration < 1000
+                            ? "a few seconds"
+                            : `${Math.round(duration / 1000)} seconds`;
+                        const label = isStreaming
+                          ? "Thinking…"
+                          : `Thought for ${durationLabel}`;
 
-                          if (isStreaming) {
-                            return html`
-                              <section
-                                class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
-                                data-playground-message-role="reasoning"
+                        if (isStreaming) {
+                          return html`
+                            <section
+                              class="cpk-playground-message-enter my-1 text-[11px] text-gray-500"
+                              data-playground-message-role="reasoning"
+                            >
+                              <div
+                                class="inline-flex items-center gap-1 py-1 font-medium"
                               >
-                                <div
-                                  class="inline-flex items-center gap-1 py-1 font-medium"
-                                >
-                                  <span>${label}</span>
-                                  ${
-                                    content
-                                      ? nothing
-                                      : html`
-                                          <span
-                                            class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
-                                            aria-hidden="true"
-                                          ></span>
-                                        `
-                                  }
-                                </div>
+                                <span>${label}</span>
                                 ${
                                   content
-                                    ? html`<div
-                                        class="pb-2 pt-1 leading-5 text-gray-500"
-                                      >
-                                        ${content}
-                                      </div>`
-                                    : nothing
+                                    ? nothing
+                                    : html`
+                                        <span
+                                          class="cpk-playground-thinking-dot ml-1 h-1.5 w-1.5 rounded-full bg-gray-500"
+                                          aria-hidden="true"
+                                        ></span>
+                                      `
                                 }
-                              </section>
-                            `;
-                          }
-
-                          return content
-                            ? html`
-                                <details
-                                  class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
-                                  data-playground-message-role="reasoning"
-                                >
-                                  <summary
-                                    class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                              </div>
+                              ${
+                                content
+                                  ? html`<div
+                                    class="pb-2 pt-1 leading-5 text-gray-500"
                                   >
-                                    <span>${label}</span>
-                                    <span
-                                      class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
-                                      >${this.renderIcon("ChevronRight")}</span
-                                    >
-                                  </summary>
-                                  <div class="pb-2 pt-1 leading-5 text-gray-500">
+                                    ${content}
+                                  </div>`
+                                  : nothing
+                              }
+                            </section>
+                          `;
+                        }
+
+                        return content
+                          ? html`
+                              <details
+                                class="cpk-playground-message-enter cpk-playground-reasoning my-1 text-[11px] text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                <summary
+                                  class="inline-flex cursor-pointer list-none items-center gap-1 py-1 font-medium transition-colors hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1"
+                                >
+                                  <span>${label}</span>
+                                  <span
+                                    class="cpk-playground-reasoning-chevron transition-transform duration-200 [&>svg]:h-3 [&>svg]:w-3"
+                                    >${this.renderIcon("ChevronRight")}</span
+                                  >
+                                </summary>
+                                <div class="pb-2 pt-1 leading-5 text-gray-500">
+                                  ${content}
+                                </div>
+                              </details>
+                            `
+                          : html`
+                              <div
+                                class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
+                                data-playground-message-role="reasoning"
+                              >
+                                ${label}
+                              </div>
+                            `;
+                      }
+                      const isMultiline =
+                        content.includes("\n") || content.length > 72;
+                      const copyKey = `playground-message-${
+                        message.id ?? index
+                      }`;
+                      const showToolbar =
+                        !isUser &&
+                        !isActivity &&
+                        Boolean(content) &&
+                        !(
+                          this.playgroundIsRunning &&
+                          index === lastAssistantIndex
+                        );
+                      return html`
+                        <article
+                          class=${
+                            isActivity
+                              ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
+                              : isUser
+                                ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
+                                : "cpk-playground-message-enter w-full"
+                          }
+                          data-playground-message-role=${message.role}
+                        >
+                          ${
+                            isActivity
+                              ? html`
+                                <span class="text-gray-500"
+                                  >${this.renderIcon("Activity")}</span
+                                >
+                                <span class="font-medium text-gray-700"
+                                  >Activity</span
+                                >
+                                <span class="truncate">${content}</span>
+                              `
+                              : isUser
+                                ? html`
+                                  <div
+                                    class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
+                                      isMultiline ? "py-2.5" : "py-1"
+                                    }`}
+                                  >
                                     ${content}
                                   </div>
-                                </details>
-                              `
-                            : html`
+                                `
+                                : html`
+                                  <div
+                                    class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
+                                  >
+                                    ${content}
+                                  </div>
+                                `
+                          }
+                          ${
+                            !isUser && message.toolCalls.length > 0
+                              ? this.renderToolCallDetails(message.toolCalls)
+                              : nothing
+                          }
+                          ${
+                            showToolbar
+                              ? html`
                                 <div
-                                  class="cpk-playground-message-enter my-1 py-1 text-[11px] font-medium text-gray-500"
-                                  data-playground-message-role="reasoning"
+                                  class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
+                                  data-playground-assistant-toolbar
                                 >
-                                  ${label}
+                                  <button
+                                    type="button"
+                                    class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                    title="Copy message"
+                                    aria-label="Copy message"
+                                    @click=${(event: Event) =>
+                                      this.copyToClipboard(
+                                        content,
+                                        copyKey,
+                                        event,
+                                      )}
+                                  >
+                                    ${
+                                      this.copiedEvents.has(copyKey)
+                                        ? this.renderIcon("Check")
+                                        : this.renderIcon("Copy")
+                                    }
+                                  </button>
+                                  ${
+                                    index === lastAssistantIndex &&
+                                    hasRetry &&
+                                    !busy &&
+                                    !this.playgroundError
+                                      ? html`
+                                        <button
+                                          type="button"
+                                          class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
+                                          title="Retry last prompt"
+                                          aria-label="Retry last prompt"
+                                          @click=${this.handlePlaygroundRetry}
+                                        >
+                                          ${this.renderIcon("RotateCcw")}
+                                        </button>
+                                      `
+                                      : nothing
+                                  }
                                 </div>
-                              `;
-                        }
-                        const isMultiline =
-                          content.includes("\n") || content.length > 72;
-                        const copyKey = `playground-message-${
-                          message.id ?? index
-                        }`;
-                        const showToolbar =
-                          !isUser &&
-                          !isActivity &&
-                          Boolean(content) &&
-                          !(
-                            this.playgroundIsRunning &&
-                            index === lastAssistantIndex
-                          );
-                        return html`
-                          <article
-                            class=${
-                              isActivity
-                                ? "cpk-playground-message-enter mr-auto mt-3 flex max-w-full items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-[10px] text-gray-600"
-                                : isUser
-                                  ? "cpk-playground-message-enter flex w-full flex-col items-end pt-8"
-                                  : "cpk-playground-message-enter w-full"
-                            }
-                            data-playground-message-role=${message.role}
+                              `
+                              : nothing
+                          }
+                        </article>
+                      `;
+                    })}
+                    ${
+                      this.playgroundIsRunning && lastReasoningIndex < 0
+                        ? html`
+                            <div
+                              class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
+                              aria-label="Agent is working"
+                            >
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                              <span
+                                class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                              ></span>
+                            </div>
+                          `
+                        : nothing
+                    }
+                    ${
+                      !busy && lastAssistantIndex >= 0 && suggestions.length > 0
+                        ? html`
+                          <div
+                            class="mt-3 flex flex-wrap items-center gap-1.5"
+                            data-playground-suggestions
                           >
-                            ${
-                              isActivity
-                                ? html`
-                                    <span class="text-gray-500"
-                                      >${this.renderIcon("Activity")}</span
-                                    >
-                                    <span class="font-medium text-gray-700"
-                                      >Activity</span
-                                    >
-                                    <span class="truncate">${content}</span>
-                                  `
-                                : isUser
-                                  ? html`
-                                      <div
-                                        class=${`max-w-[80%] whitespace-pre-wrap break-words rounded-[16px] bg-gray-100 px-3 text-[13px] leading-5 text-gray-900 ${
-                                          isMultiline ? "py-2.5" : "py-1"
-                                        }`}
-                                      >${content}</div>
-                                    `
-                                  : html`
-                                      <div
-                                        class="whitespace-pre-wrap break-words py-3 text-[13px] leading-[22px] text-gray-800"
-                                      >${content}</div>
-                                    `
-                            }
-                            ${
-                              !isUser && message.toolCalls.length > 0
-                                ? this.renderToolCallDetails(message.toolCalls)
-                                : nothing
-                            }
-                            ${
-                              showToolbar
-                                ? html`
-                                    <div
-                                      class="-ml-1 flex min-h-7 w-full items-center gap-1 bg-transparent"
-                                      data-playground-assistant-toolbar
-                                    >
-                                      <button
-                                        type="button"
-                                        class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                                        title="Copy message"
-                                        aria-label="Copy message"
-                                        @click=${(event: Event) =>
-                                          this.copyToClipboard(
-                                            content,
-                                            copyKey,
-                                            event,
-                                          )}
-                                      >
-                                        ${
-                                          this.copiedEvents.has(copyKey)
-                                            ? this.renderIcon("Check")
-                                            : this.renderIcon("Copy")
-                                        }
-                                      </button>
-                                      ${
-                                        index === lastAssistantIndex &&
-                                        hasRetry &&
-                                        !busy &&
-                                        !this.playgroundError
-                                          ? html`
-                                              <button
-                                                type="button"
-                                                class="flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-1 [&>svg]:h-3.5 [&>svg]:w-3.5"
-                                                title="Retry last prompt"
-                                                aria-label="Retry last prompt"
-                                                @click=${
-                                                  this.handlePlaygroundRetry
-                                                }
-                                              >
-                                                ${this.renderIcon("RotateCcw")}
-                                              </button>
-                                            `
-                                          : nothing
-                                      }
-                                    </div>
-                                  `
-                                : nothing
-                            }
-                          </article>
-                        `;
-                      })}
-                      ${
-                        this.playgroundIsRunning && lastReasoningIndex < 0
-                          ? html`
-                              <div
-                                class="cpk-playground-message-enter mt-3 flex items-center gap-1 px-1 py-1"
-                                aria-label="Agent is working"
-                              >
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                                <span
-                                  class="cpk-playground-thinking-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
-                              </div>
-                            `
-                          : nothing
-                      }
-                      ${
-                        !busy &&
-                        lastAssistantIndex >= 0 &&
-                        suggestions.length > 0
-                          ? html`
-                              <div
-                                class="mt-3 flex flex-wrap items-center gap-1.5"
-                                data-playground-suggestions
-                              >
-                                ${suggestions.map(
-                                  (suggestion) => html`
-                                    <button
-                                      type="button"
-                                      class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
-                                      ?disabled=${suggestion.isLoading}
-                                      aria-busy=${
-                                        suggestion.isLoading ? "true" : "false"
-                                      }
-                                      @click=${() =>
-                                        this.handlePlaygroundSuggestion(
-                                          suggestion.message,
-                                        )}
-                                    >
-                                      ${
-                                        suggestion.isLoading
-                                          ? html`<span
-                                              class="[&>svg]:animate-spin"
-                                              aria-hidden="true"
-                                              >${this.renderIcon(
-                                                "LoaderCircle",
-                                              )}</span
-                                            >`
-                                          : nothing
-                                      }
-                                      <span>${suggestion.title}</span>
-                                    </button>
-                                  `,
-                                )}
-                              </div>
-                            `
-                          : nothing
-                      }
-                    </div>
-                  `
+                            ${suggestions.map(
+                              (suggestion) => html`
+                                <button
+                                  type="button"
+                                  class="inline-flex h-7 items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 text-[10px] font-medium leading-none text-gray-900 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:text-gray-500"
+                                  ?disabled=${suggestion.isLoading}
+                                  aria-busy=${
+                                    suggestion.isLoading ? "true" : "false"
+                                  }
+                                  @click=${() =>
+                                    this.handlePlaygroundSuggestion(
+                                      suggestion.message,
+                                    )}
+                                >
+                                  ${
+                                    suggestion.isLoading
+                                      ? html`<span
+                                        class="[&>svg]:animate-spin"
+                                        aria-hidden="true"
+                                        >${this.renderIcon(
+                                          "LoaderCircle",
+                                        )}</span
+                                      >`
+                                      : nothing
+                                  }
+                                  <span>${suggestion.title}</span>
+                                </button>
+                              `,
+                            )}
+                          </div>
+                        `
+                        : nothing
+                    }
+                  </div>
+                `
           }
         </div>
 
@@ -18332,7 +18344,6 @@ export class WebInspectorElement extends LitElement {
                         const hasContent = rawContent.trim().length > 0;
                         const contentFallback =
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
-
                         const toolError = this.eventErrorDetails.tool;
                         const isFailedResult =
                           role === "tool" &&
@@ -18362,9 +18373,10 @@ export class WebInspectorElement extends LitElement {
                             <div class="flex-1 px-4 py-2">
                               ${
                                 hasContent
-                                  ? html`<div
-                                    class="whitespace-pre-wrap break-words text-gray-700"
-                                  >${rawContent}</div>`
+                                  ? html`
+                                    <!-- prettier-ignore -->
+                                    <div class="whitespace-pre-wrap break-words text-gray-700">${rawContent}</div>
+                                  `
                                   : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
@@ -19572,7 +19584,11 @@ export class WebInspectorElement extends LitElement {
                         void this.copyContextValue(id, `${id}:id`, e);
                       }}
                     >
-                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
+                      ${
+                        this.copiedContextItems.has(`${id}:id`)
+                          ? "Copied"
+                          : "Copy"
+                      }
                     </button>
                   </div>
                   <code
