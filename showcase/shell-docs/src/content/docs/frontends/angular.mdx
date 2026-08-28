@@ -5,7 +5,7 @@ icon: "lucide/Triangle"
 hideTOC: true
 ---
 
-import OpenInspectorStepAngular from "@/snippets/shared/inspector/open-inspector-step-angular.mdx";
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
 `@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it; without a selection, the guide uses CopilotKit's `BuiltInAgent`.
 
@@ -107,6 +107,25 @@ headless APIs, and it supports zoneless applications.
           );
         });
         ```
+
+        <Callout type="info" title="Angular runs the runtime as its own process">
+          Angular has no route handler, so Copilot Runtime is a **separate
+          process** from your app — a second terminal here, and a third once you
+          add an agent backend. Nothing proxies it for you, which is why
+          `runtimeUrl` below is an absolute URL rather than a relative path.
+
+          `8200` is only this guide's default. The server above reads `PORT`, so
+          move it without editing any source:
+
+          ```bash
+          PORT=8250 npx tsx server.ts
+          ```
+
+          Set `runtimeUrl` to the matching port when you do. Worth doing
+          deliberately if you run more than one CopilotKit project on the same
+          machine — the default collides, and a runtime that binds a port
+          another project is already using is a confusing failure to diagnose.
+        </Callout>
       </Step>
     </WhenAngularBackend>
     <WhenAngularBackend selected>
@@ -229,7 +248,7 @@ headless APIs, and it supports zoneless applications.
       </Step>
     </WhenAngularBackend>
     <Step>
-        <OpenInspectorStepAngular components={props.components} />
+        <OpenInspectorStep components={props.components} />
     </Step>
 
 </Steps>

@@ -666,10 +666,10 @@ On the web you prove an integration by opening a browser and watching the tool U
 npx copilotkit verify --round-trip
 ```
 
-This sends one request through the runtime and reads the answer back off the thread, so it separates an agent that is *configured* from an agent that *works* — with no browser and no device involved. Run it from the machine hosting the runtime, not from the device. Add `--runtime-url` if the runtime is not at `http://localhost:8200/api/copilotkit`, and `--agent <id>` if the runtime declares more than one.
+This sends one request through the runtime and reads the answer back off the thread, so it separates an agent that is *configured* from an agent that *works* — with no browser and no device involved. Run it from the machine hosting the runtime, not from the device. The CLI probes `http://localhost:3000/api/copilotkit` by default, so pass `--runtime-url http://localhost:8200/api/copilotkit` for the runtime this guide sets up, and `--agent <id>` if the runtime declares more than one.
 
 <Callout type="warn" title="What --round-trip does not prove">
-  It sends a **fixed** prompt and records the answer's length and any tool-call names — never the answer's text. It proves an answer came back; it can never tell you what the answer said. It also proves an agent answered under the declared id, not *which* deployment answered: a runtime pointed at another project's agent responds identically. So this is step one of three, not a green light.
+  It proves an answer came back — never what the answer said, and never *which* deployment answered. See [what `--round-trip` does not prove](/cli#verify-your-setup) for the full boundary. So this is step one of three, not a green light.
 </Callout>
 
 ### 2. The tool UI actually renders on the device
