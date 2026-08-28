@@ -1548,7 +1548,7 @@ Read what shipped.
       root
         .querySelector('button[data-inspector-menu-key="whats-new"]')
         ?.getAttribute("aria-label"),
-    ).toBe("What's New");
+    ).toBe("What's new");
     expect(root.querySelector("[data-inspector-home-band='news']")).toBeNull();
     expectCurrentNavigation(root, "home", "whats-new");
   } finally {

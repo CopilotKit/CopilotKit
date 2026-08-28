@@ -397,7 +397,7 @@ test("What's new remains directly below Home whether or not anything is unread",
 
   expect(navigationLabels(context.inspector)).toEqual([
     "Home",
-    "What's New",
+    "What's new",
     "Playground",
     "Threads",
     "Learning",
@@ -406,7 +406,7 @@ test("What's new remains directly below Home whether or not anything is unread",
     "Context",
   ]);
   expect(navUnreadMarker(context.inspector)).not.toBeNull();
-  expect(navigationLabels(context.inspector)[1]).toBe("What's New");
+  expect(navigationLabels(context.inspector)[1]).toBe("What's new");
 });
 
 test("a fresh developer lands on Home with the What's new preview", async () => {
@@ -1251,7 +1251,7 @@ test("the navigation marker is static, and shares the dot's colour", async () =>
 
   const entry = requireElement(navUnreadMarker(context.inspector));
   expect(entry.querySelector(".inspector-nav-signal-dot")).not.toBeNull();
-  expect(entry.getAttribute("aria-label")).toBe("What's New, new content");
+  expect(entry.getAttribute("aria-label")).toBe("What's new, new content");
 
   const marker = requireElement(
     entry.querySelector<HTMLElement>(".inspector-nav-signal-dot"),

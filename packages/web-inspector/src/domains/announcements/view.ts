@@ -115,9 +115,26 @@ export function synchronizeAnnouncementCopyControls(
 
 export function announcementLinkFromClick(
   event: Event,
-): HTMLAnchorElement | null {
+): AnnouncementLink | null {
   const target = event.target;
-  if (!(target instanceof Element)) return null;
-  const link = target.closest("a");
-  return link instanceof HTMLAnchorElement ? link : null;
+  if (typeof target !== "object" || target === null) return null;
+  const closest = Reflect.get(target, "closest");
+  if (typeof closest !== "function") return null;
+  const link: unknown = Reflect.apply(closest, target, ["a"]);
+  return isAnnouncementLink(link) ? link : null;
+}
+
+type AnnouncementLink = {
+  getAttribute(name: string): string | null;
+  setAttribute(name: string, value: string): void;
+};
+
+function isAnnouncementLink(value: unknown): value is AnnouncementLink {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Reflect.get(value, "localName") === "a" &&
+    typeof Reflect.get(value, "getAttribute") === "function" &&
+    typeof Reflect.get(value, "setAttribute") === "function"
+  );
 }

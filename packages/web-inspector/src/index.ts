@@ -370,7 +370,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * for persistence and telemetry stability, following the `memories`/"Memory"
  * precedent above.
  */
-const WHATS_NEW_VIEW_LABEL = "What's New";
+const WHATS_NEW_VIEW_LABEL = "What's new";
 
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
