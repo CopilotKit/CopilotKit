@@ -1,9 +1,18 @@
 import { expect, test } from "vitest";
 
-import { projectInspectorMetadata } from "../inspector-metadata.js";
-import type { InspectorMetadataProjection } from "../inspector-metadata.js";
+import { projectInspectorMetadata } from "./model.js";
+import type { InspectorMetadataProjection } from "./model.js";
 
-function metadata(overrides: Record<string, unknown> = {}): unknown {
+type MetadataOverrides = Partial<{
+  schemaVersion: unknown;
+  identity: unknown;
+  plan: unknown;
+  license: unknown;
+  action: unknown;
+  usage: unknown;
+}>;
+
+function metadata(overrides: MetadataOverrides = {}) {
   return {
     schemaVersion: 1,
     identity: {

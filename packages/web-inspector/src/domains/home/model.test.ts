@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { projectInspectorMetadata } from "../inspector-metadata.js";
 import {
-  announcementPreview,
   buildHomeModel,
   homeFeatureImplementationPrompt,
   homeHeroActionFromMetadata,
+  projectInspectorMetadata,
   runtimeConnectionNeedsAttention,
-} from "../home-briefing.js";
+} from "./model.js";
 
 describe("home-briefing", () => {
   it("maps trusted metadata actions onto Home hero labels", () => {
@@ -25,7 +24,7 @@ describe("home-briefing", () => {
     ).toBe("Manage plan");
   });
 
-  it("builds a disconnected hero and an empty news state when there is no announcement", () => {
+  it("builds a disconnected Home model", () => {
     const model = buildHomeModel({
       intelligenceConnected: false,
       threadsAvailable: false,
@@ -52,10 +51,6 @@ describe("home-briefing", () => {
     expect(model.hero.connection).toBe("disconnected");
     expect(model.hero.action).toBeUndefined();
     expect(model.projectLinked).toBe(false);
-    expect(model.news).toMatchObject({
-      empty: true,
-      title: "You're all caught up",
-    });
     expect(model.services.map((service) => service.id)).toEqual([
       "threads",
       "memory",
@@ -220,37 +215,6 @@ Implement the smallest complete integration: wire every feature-required client 
 
     expect(model.projectLinked).toBe(false);
     expect(model.project?.usage?.limitLabel).toBe("4 / 200");
-  });
-
-  it("keeps announcement previews free of markdown noise", () => {
-    expect(announcementPreview("## Hello\nRead [docs](https://x.test).")).toBe(
-      "Hello Read docs.",
-    );
-  });
-
-  it("uses the CDN preview text and keeps its announcement document intact", () => {
-    const model = buildHomeModel({
-      intelligenceConnected: false,
-      threadsAvailable: false,
-      metadata: projectInspectorMetadata(undefined, undefined),
-      runtimeConnectionState: "unavailable",
-      memoriesOn: false,
-      a2uiOn: false,
-      openGenUiOn: false,
-      suggestionsOn: false,
-      audioOn: false,
-      announcementPreviewText: "Channels and Angular are live.",
-      announcementMarkdown: "## Now live: Channels\nRead the full update.",
-      announcementHtml:
-        "<h2>Now live: Channels</h2><p>Read the full update.</p>",
-    });
-
-    expect(model.news).toEqual({
-      title: "Now live: Channels",
-      previewText: "Channels and Angular are live.",
-      documentHtml: "<h2>Now live: Channels</h2><p>Read the full update.</p>",
-      empty: false,
-    });
   });
 
   it("summarizes runtime connection, response, and newest event health", () => {

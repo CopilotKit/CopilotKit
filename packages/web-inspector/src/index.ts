@@ -1,6 +1,5 @@
 import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
-import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
@@ -37,14 +36,9 @@ import {
   clampSize as clampSizeToViewport,
 } from "./lib/context-helpers.js";
 import {
-  clearLegacyAnnouncementReadState,
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   loadInspectorDismissedUntil,
-  loadAnnouncementPulsedTimestamp,
-  loadAnnouncementReadTimestamp,
   loadInspectorState,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
   saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
@@ -59,22 +53,48 @@ import {
   openPopOutWindow,
 } from "./lib/pop-out.js";
 import type { PopOutHandle } from "./lib/pop-out.js";
-import { projectInspectorMetadata } from "./lib/inspector-metadata.js";
 import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
-} from "./lib/inspector-metadata.js";
+} from "./domains/home/model.js";
 import {
   buildHomeModel,
-  homeFeatureImplementationPrompt,
+  projectInspectorMetadata,
   runtimeConnectionNeedsAttention,
-} from "./lib/home-briefing.js";
-import type {
-  HomeHeroAction,
-  HomeModel,
-  HomeRuntimeHealthTone,
-  HomeServiceId,
-} from "./lib/home-briefing.js";
+} from "./domains/home/model.js";
+import type { HomeHeroAction, HomeModel } from "./domains/home/model.js";
+import type { HomeServiceId, HomeServiceTile } from "./domains/home/model.js";
+import {
+  copyHomeFeaturePrompt,
+  createHomeFeatureSetupState,
+  disposeHomeFeatureSetupState,
+  homeFeaturePromptCopyState,
+} from "./domains/home/feature-setup.js";
+import {
+  renderFeatureSetupPromptButton,
+  renderHomeView as renderHomeDomainView,
+} from "./domains/home/view.js";
+import { homeViewStyles } from "./domains/home/view.styles.js";
+import {
+  trackHomeAction,
+  trackHomeFeaturePrompt,
+  trackHomeView,
+} from "./domains/home/telemetry.js";
+import {
+  clearLegacyAnnouncementReadState,
+  loadAnnouncementFeed,
+  saveAnnouncementPulsedTimestamp,
+  saveAnnouncementReadTimestamp,
+} from "./domains/announcements/feed.js";
+import type { AnnouncementReady } from "./domains/announcements/feed.js";
+import {
+  announcementLinkFromClick,
+  renderAnnouncementPreview,
+  renderAnnouncementsView,
+  synchronizeAnnouncementCopyControls,
+} from "./domains/announcements/view.js";
+import { announcementViewStyles } from "./domains/announcements/view.styles.js";
+import { AnnouncementTelemetry } from "./domains/announcements/telemetry.js";
 import {
   INSPECTOR_GROUPS,
   INSPECTOR_NAV_SECTIONS,
@@ -90,11 +110,8 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackErrorSignalViewed,
-  trackHomeCtaClicked,
-  trackHomeFeaturePromptClicked,
   trackHomePromptCopied,
   trackHomeStoryBeatSelected,
-  trackHomeViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
   trackMetadataModuleViewed,
@@ -112,9 +129,6 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
-  trackWhatsNewClicked,
-  trackWhatsNewSignalViewed,
-  trackWhatsNewViewed,
 } from "./lib/telemetry.js";
 import {
   createOnboardingPrompt,
@@ -324,8 +338,6 @@ import type {
   InspectorThreadTelemetryProps,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
-  WhatsNewSignalPresentation,
-  WhatsNewSurface,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -358,7 +370,7 @@ export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
  * for persistence and telemetry stability, following the `memories`/"Memory"
  * precedent above.
  */
-const WHATS_NEW_VIEW_LABEL = "What's new";
+const WHATS_NEW_VIEW_LABEL = "What's New";
 
 /** Menu key of the What's new leaf — the news signal's destination. */
 const WHATS_NEW_MENU_KEY = "whats-new";
@@ -562,14 +574,6 @@ const INSPECTOR_DISMISSAL_MS: Readonly<
   day: 24 * 60 * 60 * 1000,
   week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
-
-type HomeFeaturePromptId = HomeServiceId;
-type HomeFeaturePromptTarget = Readonly<{
-  id: HomeFeaturePromptId;
-  label: string;
-  docsUrl: string;
-}>;
-
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
 > = {
@@ -794,7 +798,6 @@ const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
 const MIN_WINDOW_HEIGHT = 480;
 const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 // The launcher keeps its current touch target on compact screens and grows to
 // an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
 const LAUNCHER_MIN_SIZE = 51.84;
@@ -809,7 +812,6 @@ const INTERACTIVE_FOCUS_BASE_STYLE =
   "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
 // Cap on banner impressions held while waiting for the runtime handshake, so a
 // runtime that never connects can't accumulate an unbounded queue.
-const MAX_PENDING_BANNER_VIEWED = 20;
 const INTELLIGENCE_SIGNUP_URL = "https://intelligence.copilotkit.ai";
 const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
 // Label for the Capabilities tab (client-authoritative dev experimentation
@@ -821,9 +823,6 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 function createPlaygroundThreadId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
 }
-const SELF_HOSTED_INTELLIGENCE_URL =
-  "https://docs.copilotkit.ai/premium/self-hosting";
-
 // ── The Intelligence story on Home ────────────────────────────────────────
 //
 // A condensed cut of the six-phase animation on the Intelligence home page
@@ -986,10 +985,6 @@ const INTELLIGENCE_STORY_CHAIN = [
 type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
 
 type SanitizedValue = DisplayValue;
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 
 function coerceJsonValue(value: unknown): unknown {
   if (typeof value !== "string") {
@@ -1254,6 +1249,7 @@ export class WebInspectorElement extends LitElement {
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
   private readonly learning = createLearningState();
+  private readonly homeFeatureSetup = createHomeFeatureSetupState();
   private readonly threads = createThreadsState();
   private readonly playground = createPlaygroundState();
   private contextMenuOpen = false;
@@ -1327,19 +1323,10 @@ export class WebInspectorElement extends LitElement {
     this.live.eventColumnResize = value;
   }
 
-  private announcementHtml: string | null = null;
-  private announcementMarkdown: string | null = null;
-  private announcementTimestamp: string | null = null;
-  private announcementPreviewText: string | null = null;
-  // Forward-compat for an optional `cta_label` field on the announcement
-  // CDN payload (e.g. "Try threads", "New feature"). The current schema
-  // ({timestamp, previewText, announcement}) doesn't carry it, so this is
-  // null in production today; we read it defensively in fetchAnnouncement
-  // so a future CDN-side schema bump lights up `cta_label` on
-  // whats_new_clicked without an inspector release.
-  private announcementCtaLabel: string | null = null;
+  private announcement: AnnouncementReady | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
+  private readonly announcementTelemetry = new AnnouncementTelemetry();
   private newsSignalArmed = false;
   /** Which signal's beat is in flight, or null between beats. */
   private pulsingSignal: LauncherSignalKey | null = null;
@@ -1419,43 +1406,6 @@ export class WebInspectorElement extends LitElement {
    * the reader actually got. Reset with `errorBeatSpent`.
    */
   private pillOutcome: LauncherPillOutcome | null = null;
-  private viewedNewsSignalIds: Set<string> = new Set();
-  private pendingNewsSignalViewed: {
-    banner_id: string;
-    surface: "launcher";
-    presentation: WhatsNewSignalPresentation;
-    cta_label?: string;
-  } | null = null;
-  // Per-instance dedup for `oss.inspector.whats_new_viewed`, keyed by
-  // `${timestamp}:${surface}` so the event fires at most once per
-  // announcement per surface per inspector mount. Plan calls for "de-dup per
-  // timestamp per session"; instance-scoping is closer to per-mount than
-  // per-tab (sessionStorage), but for the inspector the distinction is
-  // academic — inspector instances rarely outlive the page. The surface stays
-  // part of the key so a second announcement surface would get its own
-  // impression rather than being swallowed by the first one's.
-  private viewedBannerSurfaces: Set<string> = new Set();
-  // Impressions wait for the runtime handshake before going out: the runtime's
-  // opt-out arrives in the /info response, and `telemetryDisabled` reads `false`
-  // until then, so sending directly would post on a placeholder. This deferral
-  // predates the surface split — preserved here, widened from a single slot to a
-  // queue because opening the panel reveals the second surface and can happen
-  // before the first impression has flushed.
-  private pendingBannerViewed: Array<{
-    banner_id: string;
-    surface: WhatsNewSurface;
-    cta_label?: string;
-  }> = [];
-  // Per-instance dedup for `oss.inspector.whats_new_clicked` (keyed by
-  // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
-  // don't inflate funnel counts beyond one signal per intent type per banner.
-  private clickedBannerIds: Set<string> = new Set();
-  private homeFeaturePromptCopyState: {
-    serviceId: HomeFeaturePromptId;
-    state: HomeFeaturePromptCopyState;
-  } | null = null;
-  private homeFeaturePromptCopyResetTimeoutId: number | null = null;
-  private homeFeaturePromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -1527,11 +1477,6 @@ export class WebInspectorElement extends LitElement {
     const hasCapabilities = hasCatalog;
     return [
       { key: "home", label: "Home", icon: "Home" as LucideIconName },
-      {
-        key: "whats-new",
-        label: "What's New",
-        icon: "Megaphone" as LucideIconName,
-      },
       {
         key: WHATS_NEW_MENU_KEY,
         label: WHATS_NEW_VIEW_LABEL,
@@ -1973,7 +1918,7 @@ export class WebInspectorElement extends LitElement {
             ensureTelemetryDistinctId();
             maybeShowDisclosure();
           }
-          this.flushPendingWhatsNewTelemetry();
+          this.flushAnnouncementTelemetry();
           if (
             threadCapabilityWasEnabled &&
             this.areThreadEndpointsAvailable()
@@ -2065,7 +2010,7 @@ export class WebInspectorElement extends LitElement {
         ensureTelemetryDistinctId();
         maybeShowDisclosure();
       }
-      this.flushPendingWhatsNewTelemetry();
+      this.flushAnnouncementTelemetry();
     }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
@@ -2508,6 +2453,8 @@ export class WebInspectorElement extends LitElement {
 
   static styles = [
     unsafeCSS(tailwindStyles),
+    homeViewStyles,
+    announcementViewStyles,
     learningViewStyles,
     playgroundViewStyles,
     threadsViewStyles,
@@ -2829,186 +2776,6 @@ export class WebInspectorElement extends LitElement {
       /* Events table column headers */
       table thead th {
         font-weight: 600 !important;
-      }
-
-      .announcement-content {
-        color: #1f2230;
-        font-size: 13px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.55;
-      }
-
-      .announcement-content h1,
-      .announcement-content h2,
-      .announcement-content h3 {
-        color: #010507;
-        font-weight: 700;
-        line-height: 1.3;
-        margin: 0.9rem 0 0.4rem;
-      }
-      .announcement-content > h1:first-child,
-      .announcement-content > h2:first-child,
-      .announcement-content > h3:first-child {
-        margin-top: 0;
-      }
-
-      .announcement-content h1 {
-        font-size: 1.15rem;
-        letter-spacing: -0.01em;
-      }
-      .announcement-content h2 {
-        font-size: 1rem;
-      }
-      .announcement-content h3 {
-        font-size: 0.9rem;
-        text-transform: none;
-      }
-
-      .announcement-content p {
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content strong {
-        color: #010507;
-        font-weight: 700;
-      }
-
-      .announcement-content ul {
-        list-style: disc;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content ol {
-        list-style: decimal;
-        padding-left: 1.25rem;
-        margin: 0.45rem 0;
-      }
-
-      .announcement-content li + li {
-        margin-top: 0.15rem;
-      }
-
-      .announcement-content a {
-        color: #5558b2;
-        text-decoration: underline;
-      }
-
-      .announcement-content :not(pre) > code {
-        background: #f3f3f7;
-        border: 1px solid #e4e4ec;
-        border-radius: 5px;
-        padding: 1px 5px;
-        font-size: 0.85em;
-        color: #4a3a8a;
-      }
-
-      .announcement-code {
-        position: relative;
-        margin: 0.6rem 0;
-      }
-
-      .announcement-code pre {
-        background: #0f1117;
-        color: #e6e8f2;
-        border-radius: 10px;
-        padding: 10px 12px;
-        overflow-x: auto;
-        font-size: 12px;
-        line-height: 1.5;
-        white-space: pre;
-      }
-
-      .announcement-code pre code::after {
-        content: "";
-        display: inline-block;
-        width: 80px;
-      }
-
-      .announcement-code__copy-shield {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        padding: 4px 4px 4px 24px;
-        border-top-right-radius: 10px;
-        background: linear-gradient(
-          to right,
-          rgba(15, 17, 23, 0) 0%,
-          rgba(15, 17, 23, 0.95) 40%,
-          #0f1117 100%
-        );
-        pointer-events: none;
-      }
-
-      .announcement-code pre code {
-        background: transparent;
-        border: none;
-        padding: 0;
-        color: inherit;
-        font-size: inherit;
-      }
-
-      .announcement-code pre::-webkit-scrollbar {
-        height: 6px;
-      }
-      .announcement-code pre::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .announcement-code pre::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-      }
-
-      .announcement-code__copy {
-        position: relative;
-        pointer-events: auto;
-        --cpk-copy-padding: 3px 8px;
-        --cpk-copy-font-size: 0.6875rem;
-        --cpk-copy-color: #e6e8f2;
-        --cpk-copy-background: #1f222d;
-        --cpk-copy-border: rgba(255, 255, 255, 0.15);
-        --cpk-copy-hover-background: #2a2e3c;
-        --cpk-copy-hover-color: #ffffff;
-        --cpk-copy-success-background: #eee6fe;
-        --cpk-copy-success-color: #6430ab;
-        --cpk-copy-success-border: transparent;
-      }
-
-      /* ── What's new ──────────────────────────────────────────────── */
-      .whats-new {
-        display: block;
-        padding: 16px;
-      }
-
-      .whats-new__heading {
-        margin: 0 0 10px;
-        color: #010507;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 15px;
-        font-weight: 700;
-        line-height: 1.35;
-        letter-spacing: -0.01em;
-      }
-
-      .whats-new__status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: #57575b;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        font-size: 13px;
-      }
-
-      .whats-new__status-icon {
-        display: inline-flex;
-        flex: none;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        border-radius: 6px;
-        background: #eee6fe;
-        color: #5558b2;
       }
 
       /* ── Brand typography ────────────────────────────────────────── */
@@ -4541,12 +4308,7 @@ export class WebInspectorElement extends LitElement {
     this.unsubscribeFromInspectorThreadBridge();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
-    this.homeFeaturePromptCopyGeneration += 1;
-    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
-      this.homeFeaturePromptCopyResetTimeoutId = null;
-    }
-    this.homeFeaturePromptCopyState = null;
+    disposeHomeFeatureSetupState(this.homeFeatureSetup);
     this.threads.setupPromptCopyGeneration += 1;
     if (this.threads.setupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threads.setupPromptCopyResetTimeoutId);
@@ -4652,7 +4414,7 @@ export class WebInspectorElement extends LitElement {
 
   protected updated(): void {
     this.syncInspectorPortal();
-    this.syncAnnouncementCopyControls();
+    synchronizeAnnouncementCopyControls(this.activeRoot, this.getClipboard());
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
@@ -5175,7 +4937,7 @@ export class WebInspectorElement extends LitElement {
 
   private getUnreadAnnouncementTitle(): string | null {
     if (!this.newsSignalArmed || !this.announcementLoaded) return null;
-    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const title = this.announcement?.preview.text.trim() || "New in CopilotKit";
     const titleCharacters = Array.from(title);
     return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
       ? `${titleCharacters
@@ -5749,497 +5511,46 @@ export class WebInspectorElement extends LitElement {
       suggestionsOn: this._core?.suggestions === true,
       audioOn: this._core?.audioFileTranscriptionEnabled === true,
       websocketUrl: this._core?.intelligence?.wsUrl,
-      announcementPreviewText: this.announcementPreviewText ?? undefined,
-      announcementMarkdown: this.announcementMarkdown ?? undefined,
-      announcementHtml: this.announcementHtml ?? undefined,
       intelligenceSignupUrl: this.getIntelligenceSignupUrl(),
     });
   }
 
   private renderHomeView() {
     const model = this.getHomeModel();
-    const connected = model.hero.connection === "connected";
-    return html`
-      <div
-        class="inspector-home"
-        data-inspector-home
-        data-inspector-home-state=${connected ? "connected" : "disconnected"}
-      >
-        ${this.renderHomeWhatsNewPreview(model.news)}
-        ${this.renderHomeSystemHealth(model)}
-        ${this.renderHomeIntelligenceHud(model)}
-        ${this.renderHomeFeatures(model)}
-      </div>
-    `;
-  }
-
-  private renderHomeWhatsNewPreview(news: HomeModel["news"]) {
-    const unread = this.newsSignalArmed && this.announcementLoaded;
-    if (news.empty || !unread) {
-      return nothing;
-    }
-
-    return html`
-      <section
-        class="inspector-whats-new-preview"
-        data-inspector-home-band="news"
-        data-unread="true"
-        role="note"
-        aria-label="New CopilotKit update"
-      >
-        <button
-          type="button"
-          class="inspector-whats-new-preview-body"
-          data-inspector-whats-new-preview
-          aria-label="Open What's New"
-          style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${() => this.handleMenuSelect(WHATS_NEW_MENU_KEY)}
-        >
-          <span class="inspector-whats-new-preview-copy">
-            <span class="inspector-whats-new-preview-title">
-              <span class="inspector-home-story-unread">New</span>
-              <strong>${news.title}</strong>
-            </span>
-            <span>${news.previewText}</span>
-          </span>
-          <span class="inspector-whats-new-preview-action">
-            View update ${this.renderIcon("ArrowRight")}
-          </span>
-        </button>
-      </section>
-    `;
+    const announcementPreview =
+      this.newsSignalArmed && this.announcement
+        ? renderAnnouncementPreview(
+            this.announcement,
+            () => this.handleMenuSelect(WHATS_NEW_MENU_KEY),
+            (name) => this.renderIcon(name),
+          )
+        : undefined;
+    return renderHomeDomainView(
+      model,
+      {
+        copyFeaturePrompt: (service, event) => {
+          void this.handleHomeFeaturePromptCopy(service, event);
+        },
+        openHeroAction: (action) => this.handleHomeHeroCta(action),
+        openLastEvent: (eventId, agentId) =>
+          this.handleHomeLastEventSelect(eventId, agentId),
+      },
+      {
+        announcementPreview,
+        appendRefParam: (href, ref) => this.appendRefParam(href, ref),
+        featurePromptCopyState: (serviceId) =>
+          homeFeaturePromptCopyState(this.homeFeatureSetup, serviceId),
+        renderIcon: (name) => this.renderIcon(name),
+      },
+    );
   }
 
   private renderWhatsNewView() {
-    const state = this.getWhatsNewState();
-    const news = this.getHomeModel().news;
-    const updatedAt = this.announcementTimestamp
-      ? new Date(this.announcementTimestamp)
-      : null;
-    const updatedLabel =
-      updatedAt && !Number.isNaN(updatedAt.getTime())
-        ? new Intl.DateTimeFormat(undefined, {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          }).format(updatedAt)
-        : null;
-    return html`
-      <div
-        class="inspector-home inspector-whats-new"
-        data-inspector-whats-new
-        data-cpk-whats-new
-        data-cpk-whats-new-state=${state}
-      >
-        <header class="inspector-whats-new-header">
-          <h1 class="inspector-home-title">What's New</h1>
-          ${
-            updatedLabel
-              ? html`
-                <p class="inspector-whats-new-updated">
-                  Updated
-                  <time datetime=${updatedAt?.toISOString()}
-                    >${updatedLabel}</time
-                  >
-                </p>
-              `
-              : nothing
-          }
-        </header>
-        <section class="inspector-home-news" aria-label="CopilotKit updates">
-          ${
-            news.empty || !news.documentHtml
-              ? html`
-                <article class="inspector-whats-new-empty">
-                  <h2 class="inspector-home-card-title">${news.title}</h2>
-                  <p class="inspector-home-card-copy">${news.previewText}</p>
-                </article>
-              `
-              : html`
-                <article class="inspector-whats-new-document">
-                  <div
-                    class="announcement-content"
-                    @click=${this.handleAnnouncementContentClick}
-                  >
-                    ${unsafeHTML(news.documentHtml)}
-                  </div>
-                </article>
-              `
-          }
-        </section>
-      </div>
-    `;
-  }
-
-  private renderHomeIntelligenceHud(model: HomeModel) {
-    const project = model.project;
-    const connected = model.hero.connection === "connected";
-    const action = model.hero.action;
-    const renewing = action?.kind === "renew";
-    // Three distinct jobs, not two. A lapsed plan needs a renewal link, not an
-    // install prompt and an explainer — that developer already knows what
-    // Intelligence is. Only the never-connected case gets the full pitch.
-    const installing = !connected && !renewing;
-    return html`
-      <section
-        class="inspector-home-section inspector-intelligence-hud"
-        data-inspector-home-card="intelligence"
-        data-state=${connected ? "connected" : "disconnected"}
-        data-mode=${connected ? "connected" : renewing ? "renew" : "install"}
-        aria-label="Intelligence ${
-          connected ? "connected" : renewing ? "plan expired" : "not enabled"
-        }"
-      >
-        <header class="inspector-intelligence-hud-header">
-          <div class="inspector-intelligence-hud-heading">
-            <h2 class="inspector-home-section-title">
-              ${
-                // The brand mark makes this read as a product lockup rather
-                // than another status heading. Inside the h2 so it stays on
-                // the same line, with an empty alt so the accessible name is
-                // still just the product's name.
-                installing
-                  ? html`
-                      <img
-                        class="inspector-intelligence-mark"
-                        src=${inspectorLogoKiteUrl}
-                        alt=""
-                        aria-hidden="true"
-                      />
-                    `
-                  : nothing
-              }
-              ${connected ? "Intelligence" : model.hero.title}
-            </h2>
-            ${
-              connected
-                ? nothing
-                : installing
-                  ? html`
-                    <p class="inspector-intelligence-sr-summary">
-                      ${model.hero.body}
-                    </p>
-                  `
-                  : html`
-                    <p class="inspector-intelligence-hud-description">
-                      ${model.hero.body}
-                    </p>
-                  `
-            }
-          </div>
-          <div class="inspector-intelligence-hud-header-actions">
-            ${
-              connected || renewing
-                ? html`
-                  <span
-                    class="inspector-intelligence-hud-state"
-                    data-tone=${connected ? "success" : "checking"}
-                  >
-                    <span aria-hidden="true"></span>
-                    ${connected ? "Connected" : "Plan expired"}
-                  </span>
-                `
-                : nothing
-            }
-            ${
-              renewing && action
-                ? html`
-                  <a
-                    class="inspector-intelligence-hud-action inspector-intelligence-hud-connect-action"
-                    data-inspector-home-intelligence-action=${action.kind}
-                    href=${action.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="${action.label} (opens in a new tab)"
-                    style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                    @click=${() => this.handleHomeHeroCta(action)}
-                  >
-                    ${action.label} ${this.renderIcon("ArrowUpRight")}
-                  </a>
-                `
-                : nothing
-            }
-            ${
-              installing
-                ? this.renderIntelligenceInstallActions(action)
-                : nothing
-            }
-          </div>
-        </header>
-
-        ${
-          // Exceptional state, so it gets its own full-width strip between the
-          // bands rather than being squeezed into the header's action column.
-          installing && this.promptCopyState === "failed"
-            ? html`
-                <code
-                  class="inspector-intelligence-install-fallback"
-                  tabindex="0"
-                  >${createOnboardingPrompt(this.getOnboardingRunId())}</code
-                >
-              `
-            : nothing
-        }
-        ${installing ? this.renderIntelligenceStory() : nothing}
-        ${
-          connected
-            ? html`
-              <div
-                class="inspector-intelligence-hud-details"
-                role="group"
-                aria-label="Intelligence account details"
-              >
-                <section
-                  class="inspector-intelligence-hud-project"
-                  data-inspector-metadata=${
-                    model.projectLinked && project ? "identity" : nothing
-                  }
-                  aria-label=${
-                    model.projectLinked && project
-                      ? "Inspector account details"
-                      : nothing
-                  }
-                >
-                  <span class="inspector-intelligence-hud-detail-label">
-                    Project
-                  </span>
-                  <strong class="inspector-intelligence-hud-detail-value">
-                    ${
-                      model.projectLinked && project
-                        ? html`<span>${project.projectName}</span>`
-                        : "Not linked"
-                    }
-                  </strong>
-                  ${
-                    model.projectLinked && project
-                      ? html`
-                        <span
-                          class="inspector-intelligence-hud-detail-subvalue"
-                        >
-                          ${project.organizationName}
-                        </span>
-                      `
-                      : nothing
-                  }
-                </section>
-                <section class="inspector-intelligence-hud-plan">
-                  <div class="inspector-intelligence-hud-plan-summary">
-                    <span class="inspector-intelligence-hud-detail-label">
-                      Plan
-                    </span>
-                    <strong class="inspector-intelligence-hud-detail-value">
-                      ${
-                        project?.planLabel
-                          ? html`
-                            <span data-inspector-metadata="plan">
-                              ${project.planLabel}
-                            </span>
-                          `
-                          : "No plan"
-                      }
-                    </strong>
-                    ${
-                      project
-                        ? html`
-                          <span
-                            class="inspector-intelligence-hud-detail-subvalue"
-                          >
-                            License ${project.license}
-                          </span>
-                        `
-                        : nothing
-                    }
-                    ${
-                      action
-                        ? html`
-                          <a
-                            class="inspector-intelligence-hud-action inspector-intelligence-hud-plan-action"
-                            data-inspector-home-intelligence-action=${action.kind}
-                            href=${action.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="${action.label} (opens in a new tab)"
-                            style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                            @click=${() => this.handleHomeHeroCta(action)}
-                          >
-                            ${action.label} ${this.renderIcon("ArrowUpRight")}
-                          </a>
-                        `
-                        : nothing
-                    }
-                  </div>
-                  <div
-                    class="inspector-intelligence-hud-usage"
-                    role="group"
-                    aria-label="Threads usage"
-                  >
-                    <span class="inspector-intelligence-hud-detail-label">
-                      Threads usage
-                    </span>
-                    <strong class="inspector-intelligence-hud-detail-value">
-                      ${project?.usage?.limitLabel ?? "Unavailable"}
-                    </strong>
-                    ${
-                      project?.usage?.ratio !== undefined
-                        ? html`<span
-                          class="inspector-home-usage-bar"
-                          aria-hidden="true"
-                          ><span
-                            style="width:${Math.min(
-                              100,
-                              Math.round(project.usage.ratio * 100),
-                            )}%"
-                          ></span
-                        ></span>`
-                        : nothing
-                    }
-                  </div>
-                </section>
-              </div>
-            `
-            : nothing
-        }
-      </section>
-    `;
-  }
-
-  private renderHomeSystemHealth(model: HomeModel) {
-    const runtime = model.runtime;
-    const health = runtime.health;
-    const runtimeDetail = runtime.url ?? "Runtime URL not configured";
-    const connectionDetail =
-      health.liveUpdates.tone === "success"
-        ? "New events will appear here."
-        : health.lastEvent.timestamp !== undefined
-          ? `Last activity at ${formatTimestamp(health.lastEvent.timestamp)}`
-          : "Waiting for a connection";
-    const signals: Array<{
-      id: "runtime" | "connection" | "last-event";
-      label: string;
-      value: string;
-      detail: string;
-      tone: HomeRuntimeHealthTone;
-      eventId?: string;
-      agentId?: string;
-    }> = [
-      {
-        id: "runtime",
-        label: "Runtime",
-        value: health.runtime.label,
-        detail: runtimeDetail,
-        tone: health.runtime.tone,
-      },
-      {
-        id: "connection",
-        label: "Live updates",
-        value: health.liveUpdates.label,
-        detail: connectionDetail,
-        tone: health.liveUpdates.tone,
-      },
-      {
-        id: "last-event",
-        label: "Recent activity",
-        value: health.lastEvent.type ?? health.lastEvent.label,
-        detail:
-          health.lastEvent.timestamp !== undefined
-            ? formatRelativeTimestamp(health.lastEvent.timestamp)
-            : "Waiting for an agent to run.",
-        tone: health.lastEvent.tone,
-        eventId: health.lastEvent.id,
-        agentId: health.lastEvent.agentId,
-      },
-    ];
-    return html`
-      <section
-        class="inspector-home-section inspector-system-health-section"
-        data-inspector-home-band="health"
-      >
-        <header
-          class="inspector-home-section-header inspector-system-health-header"
-        >
-          <div class="inspector-system-health-heading">
-            <h1 class="inspector-home-section-title">System Health</h1>
-          </div>
-          <span
-            class="inspector-system-health-state"
-            data-tone=${health.state === "healthy" ? "success" : health.state}
-          >
-            <span aria-hidden="true"></span>
-            ${health.label}
-          </span>
-        </header>
-        <dl
-          class="inspector-system-health"
-          aria-label="System Health"
-          data-inspector-home-card="runtime"
-          data-health-state=${health.state}
-        >
-          ${signals.map(
-            (signal) => html`
-              <div
-                class="inspector-system-health-signal"
-                data-runtime-health-signal=${signal.id}
-                data-tone=${signal.tone}
-              >
-                <span class="inspector-system-health-copy">
-                  <dt>${signal.label}</dt>
-                  <dd title=${signal.value}>
-                    ${
-                      signal.eventId
-                        ? html`
-                          <button
-                            type="button"
-                            class="inspector-system-health-event-link"
-                            aria-label="View ${signal.value.toLowerCase()} in AG-UI Events"
-                            @click=${() => {
-                              if (signal.eventId) {
-                                this.handleHomeLastEventSelect(
-                                  signal.eventId,
-                                  signal.agentId,
-                                );
-                              }
-                            }}
-                          >
-                            <span class="inspector-system-health-event-type"
-                              >${signal.value}</span
-                            >
-                            <small class="inspector-system-health-event-meta">
-                              <span>${signal.detail}</span>
-                              <strong>View event</strong>
-                            </small>
-                          </button>
-                        `
-                        : signal.value
-                    }
-                  </dd>
-                  ${
-                    signal.eventId
-                      ? null
-                      : signal.id === "runtime"
-                        ? html`
-                          <small
-                            class="inspector-system-health-url"
-                            data-full-value=${runtime.url ?? signal.detail}
-                            aria-label=${signal.detail}
-                            title=${signal.detail}
-                            tabindex="0"
-                          >
-                            <span>${signal.detail}</span>
-                          </small>
-                        `
-                        : html`<small
-                          class="inspector-system-health-detail"
-                          title=${signal.detail}
-                          >${signal.detail}</small
-                        >`
-                  }
-                </span>
-              </div>
-            `,
-          )}
-        </dl>
-      </section>
-    `;
+    return renderAnnouncementsView(
+      this.announcement,
+      this.announcementLoaded,
+      this.handleAnnouncementContentClick,
+    );
   }
 
   private renderEventErrorBanner(key: InspectorEventErrorSource) {
@@ -6269,7 +5580,9 @@ export class WebInspectorElement extends LitElement {
                 ? html`<span class="block">Tool: ${error.toolName}</span>`
                 : nothing
             }
-            <span class="block break-words leading-relaxed">${error.message}</span>
+            <span class="block break-words leading-relaxed"
+              >${error.message}</span
+            >
             ${
               guide.advice
                 ? html`<span class="block leading-relaxed">${guide.advice}</span>`
@@ -6277,7 +5590,9 @@ export class WebInspectorElement extends LitElement {
             }
             ${
               guide.highlight && this.hasEventErrorHighlight(key)
-                ? html`<span class="block leading-relaxed">${guide.highlight}</span>`
+                ? html`<span class="block leading-relaxed"
+                  >${guide.highlight}</span
+                >`
                 : nothing
             }
           </span>
@@ -6316,290 +5631,54 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
-  private renderHomeFeatures(model: HomeModel) {
-    const enabledServices = model.services.filter((service) => service.enabled);
-    const disabledServices = model.services.filter(
-      (service) => !service.enabled,
-    );
-    const renderService = (service: HomeModel["services"][number]) => {
-      const copyState =
-        this.homeFeaturePromptCopyState?.serviceId === service.id
-          ? this.homeFeaturePromptCopyState.state
-          : "idle";
-      const stateDescription = `${service.label} is ${
-        service.enabled
-          ? "enabled in your runtime"
-          : "not enabled in your runtime"
-      }`;
-      const copyLabel =
-        copyState === "copied"
-          ? "Copied"
-          : copyState === "error"
-            ? "Copy failed"
-            : "Copy prompt";
-      const copyTitle = copyLabel;
-      return html`
-      <div
-        class="inspector-home-feature"
-        data-inspector-service=${service.id}
-        data-state=${service.enabled ? "on" : "off"}
-        role="listitem"
-      >
-        <span
-          class="inspector-home-feature-status"
-          role="img"
-          aria-label=${stateDescription}
-          title=${stateDescription}
-        >
-          <span aria-hidden="true"></span>
-        </span>
-        <a
-          class="inspector-home-feature-label"
-          data-inspector-home-feature-docs=${service.id}
-          href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Open ${service.label} documentation in a new tab"
-        >
-          <span>${service.label}</span>
-          <span class="inspector-home-feature-label-icon" aria-hidden="true"
-            >${this.renderIcon("ArrowUpRight")}</span
-          >
-        </a>
-        <span class="inspector-home-feature-actions">
-          ${
-            service.enabled
-              ? nothing
-              : html`
-                  <button
-                    type="button"
-                    class="inspector-home-feature-action inspector-system-health-url"
-                    data-inspector-home-feature-prompt=${service.id}
-                    data-copy-state=${copyState}
-                    data-full-value=${copyTitle}
-                    aria-label="${copyLabel} for ${service.label}"
-                    @click=${(event: Event) =>
-                      this.handleHomeFeaturePromptCopy(service, event)}
-                  >
-                    <span class="inspector-home-feature-action-icon" aria-hidden="true"
-                      >${this.renderIcon(copyState === "copied" ? "Check" : "Bot")}</span
-                    >
-                    <span class="inspector-home-feature-action-label"
-                      >${copyTitle}</span
-                    >
-                  </button>
-                `
-          }
-          ${
-            service.enabled
-              ? nothing
-              : html`
-                  <span class="sr-only" aria-live="polite">
-                    ${
-                      copyState === "copied"
-                        ? `${service.label} implementation prompt copied.`
-                        : copyState === "error"
-                          ? `Could not copy the ${service.label} implementation prompt.`
-                          : ""
-                    }
-                  </span>
-                `
-          }
-        </span>
-      </div>
-    `;
-    };
-    return html`
-      <section
-        class="inspector-home-section inspector-home-features"
-        data-inspector-home-card="services"
-      >
-        <header class="inspector-home-section-header">
-          <h2 class="inspector-home-section-title">Features</h2>
-          <span>
-            ${enabledServices.length} enabled, ${disabledServices.length} available
-          </span>
-        </header>
-        ${
-          model.services.length === 0
-            ? html`
-                <p class="inspector-home-features-empty">
-                  Feature availability is unavailable for this runtime.
-                </p>
-              `
-            : html`
-              <div class="inspector-home-feature-groups">
-                <section
-                  class="inspector-home-feature-group"
-                  data-feature-state-group="active"
-                  aria-label="Enabled features"
-                >
-                  <header class="inspector-home-feature-group-header">
-                    <strong>Enabled</strong>
-                    <span>${enabledServices.length}</span>
-                  </header>
-                  <div class="inspector-home-feature-list" role="list">
-                    ${
-                      enabledServices.length > 0
-                        ? enabledServices.map(renderService)
-                        : html`
-                            <p class="inspector-home-feature-group-empty">None enabled</p>
-                          `
-                    }
-                  </div>
-                </section>
-                <section
-                  class="inspector-home-feature-group"
-                  data-feature-state-group="available"
-                  aria-label="Features available to add"
-                >
-                  <header class="inspector-home-feature-group-header">
-                    <strong>Available to add</strong>
-                    <span>${disabledServices.length}</span>
-                  </header>
-                  <div class="inspector-home-feature-list" role="list">
-                    ${
-                      disabledServices.length > 0
-                        ? disabledServices.map(renderService)
-                        : html`
-                            <p class="inspector-home-feature-group-empty">Everything is active</p>
-                          `
-                    }
-                  </div>
-                </section>
-              </div>
-            `
-        }
-      </section>
-    `;
-  }
-
-  private showHomeFeaturePromptCopyState(
-    serviceId: HomeFeaturePromptId,
-    state: Exclude<HomeFeaturePromptCopyState, "idle">,
-    generation: number,
-  ): void {
-    if (
-      !this.isConnected ||
-      generation !== this.homeFeaturePromptCopyGeneration
-    )
-      return;
-    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
-    }
-    this.homeFeaturePromptCopyState = { serviceId, state };
-    this.requestUpdate();
-    this.homeFeaturePromptCopyResetTimeoutId = window.setTimeout(() => {
-      if (
-        !this.isConnected ||
-        generation !== this.homeFeaturePromptCopyGeneration
-      )
-        return;
-      this.homeFeaturePromptCopyState = null;
-      this.homeFeaturePromptCopyResetTimeoutId = null;
-      this.requestUpdate();
-    }, 2_000);
-  }
-
   private handleHomeFeaturePromptCopy = async (
-    service: HomeFeaturePromptTarget,
+    service: HomeServiceTile,
     event?: Event,
   ): Promise<void> => {
-    const generation = (this.homeFeaturePromptCopyGeneration += 1);
-    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
-      this.homeFeaturePromptCopyResetTimeoutId = null;
-    }
-    this.homeFeaturePromptCopyState = null;
-    this.requestUpdate();
-
-    const onboardingRunId = createOnboardingRunId();
-    if (!this.core?.telemetryDisabled) {
-      trackHomeFeaturePromptClicked({
-        feature_id: service.id,
-        onboarding_run_id: onboardingRunId,
-      });
-    }
-
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(
-        homeFeatureImplementationPrompt(service, {
+    await copyHomeFeaturePrompt(this.homeFeatureSetup, service, {
+      clipboard: this.getClipboard(event),
+      createRunId: createOnboardingRunId,
+      isConnected: () => this.isConnected,
+      requestUpdate: () => this.requestUpdate(),
+      trackClick: (serviceId, onboardingRunId) =>
+        trackHomeFeaturePrompt(
+          serviceId,
           onboardingRunId,
-        }),
-      );
-      this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
-    } catch {
-      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
-    }
+          this.core?.telemetryDisabled ?? false,
+        ),
+    });
   };
 
   private getHomeFeaturePromptTarget(
-    serviceId: HomeFeaturePromptId,
-  ): HomeFeaturePromptTarget | undefined {
+    serviceId: HomeServiceId,
+  ): HomeServiceTile | undefined {
     return this.getHomeModel().services.find(
       (service) => service.id === serviceId,
     );
   }
 
   private renderFeatureSetupPrompt(
-    serviceId: HomeFeaturePromptId,
+    serviceId: HomeServiceId,
     className: string,
   ): TemplateResult | typeof nothing {
     const service = this.getHomeFeaturePromptTarget(serviceId);
     if (!service) return nothing;
-    const copyState =
-      this.homeFeaturePromptCopyState?.serviceId === service.id
-        ? this.homeFeaturePromptCopyState.state
-        : "idle";
-    const label =
-      copyState === "copied"
-        ? "Copied"
-        : copyState === "error"
-          ? "Copy blocked"
-          : "Copy setup prompt";
-    return html`
-      <button
-        type="button"
-        class=${className}
-        data-inspector-feature-setup-prompt=${service.id}
-        data-inspector-threads-setup-prompt=${
-          service.id === "threads" ? "" : nothing
-        }
-        data-copy-state=${copyState}
-        aria-label=${
-          copyState === "copied"
-            ? `${service.label} setup prompt copied`
-            : copyState === "error"
-              ? `Could not copy the ${service.label} setup prompt. Try again`
-              : `Copy setup prompt for ${service.label}`
-        }
-        @click=${(event: Event) =>
-          this.handleHomeFeaturePromptCopy(service, event)}
-      >
-        ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
-        ${label}
-      </button>
-      <span class="sr-only" aria-live="polite">
-        ${
-          copyState === "copied"
-            ? `${service.label} setup prompt copied.`
-            : copyState === "error"
-              ? `Could not copy the ${service.label} setup prompt.`
-              : ""
-        }
-      </span>
-    `;
+    return renderFeatureSetupPromptButton({
+      service,
+      copyState: homeFeaturePromptCopyState(
+        this.homeFeatureSetup,
+        service.id,
+      ),
+      className,
+      copy: (event) => {
+        void this.handleHomeFeaturePromptCopy(service, event);
+      },
+      renderIcon: (name) => this.renderIcon(name),
+    });
   }
 
   private handleHomeHeroCta(action: HomeHeroAction): void {
-    if (this.core?.telemetryDisabled) return;
-    trackHomeCtaClicked({ action_kind: action.kind });
+    trackHomeAction(action, this.core?.telemetryDisabled ?? false);
   }
 
   /**
@@ -7112,7 +6191,7 @@ export class WebInspectorElement extends LitElement {
     }
     if (!this.homeViewedThisOpen && !this.core?.telemetryDisabled) {
       this.homeViewedThisOpen = true;
-      trackHomeViewed();
+      trackHomeView(false);
     }
   }
 
@@ -9393,28 +8472,6 @@ export class WebInspectorElement extends LitElement {
     }
   };
 
-  // Fires `whats_new_clicked` at most once per `${bannerId}:${cta}` per mount
-  // so copy-button retries and accidental multi-clicks don't inflate funnel
-  // counts. `body` is the only cta left now that dismissal is gone.
-  private trackWhatsNewClickedOnce(opts: { cta: "body" }): void {
-    if (
-      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected ||
-      this.core?.telemetryDisabled
-    ) {
-      return;
-    }
-    const id = this.announcementTimestamp;
-    if (!id) return;
-    const key = `${id}:${opts.cta}`;
-    if (this.clickedBannerIds.has(key)) return;
-    this.clickedBannerIds.add(key);
-    trackWhatsNewClicked({
-      banner_id: id,
-      cta: opts.cta,
-      cta_label: this.announcementCtaLabel ?? undefined,
-    });
-  }
-
   private handleTalkToEngineerClick = (): void => {
     if (this.core?.telemetryDisabled) return;
     trackTalkToEngineerClicked(
@@ -10835,8 +9892,8 @@ export class WebInspectorElement extends LitElement {
   private clearNewsSignal(): void {
     if (!this.newsSignalArmed) return;
     this.newsSignalArmed = false;
-    if (this.announcementTimestamp) {
-      saveAnnouncementReadTimestamp(this.announcementTimestamp);
+    if (this.announcement) {
+      saveAnnouncementReadTimestamp(this.announcement.timestamp);
     }
     this.retireSignal(NEWS_SIGNAL_ID);
     this.requestUpdate();
@@ -10904,8 +9961,8 @@ export class WebInspectorElement extends LitElement {
     // deferred beat unfired.
     if (isWiringErrorKey(key)) {
       this.errorBeatSpent = true;
-    } else if (this.announcementTimestamp && key === NEWS_SIGNAL_ID) {
-      saveAnnouncementPulsedTimestamp(this.announcementTimestamp);
+    } else if (this.announcement && key === NEWS_SIGNAL_ID) {
+      saveAnnouncementPulsedTimestamp(this.announcement.timestamp);
     }
     this.beginGestureTail(key);
     this.requestUpdate();
@@ -11319,114 +10376,38 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    const id = this.announcementTimestamp;
-    if (!id || this.viewedNewsSignalIds.has(id)) return;
-    this.viewedNewsSignalIds.add(id);
-    this.pendingNewsSignalViewed = {
-      banner_id: id,
-      surface: "launcher",
-      presentation:
-        typeof window !== "undefined" &&
+    if (!this.announcement) return;
+    this.announcementTelemetry.recordLauncherPulse(
+      this.announcement,
+      typeof window !== "undefined" &&
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-          ? "reduced_motion"
-          : "animated",
-      cta_label: this.announcementCtaLabel ?? undefined,
-    };
-    this.flushPendingWhatsNewTelemetry();
+        ? "reduced_motion"
+        : "animated",
+    );
+    this.flushAnnouncementTelemetry();
   }
 
-  // ── What's new ─────────────────────────────────────────────────────────
-  //
-  // Built as a self-contained unit — its own render method, its own state,
-  // and no dependency on the shape of today's two-level navigation — so the
-  // planned sidebar restructuring can relocate it rather than rewrite it.
-
-  /** Which of the three What's new states the feed currently supports. */
-  private getWhatsNewState(): "loading" | "empty" | "content" {
-    if (this.announcementHtml) return "content";
-    return this.announcementLoaded ? "empty" : "loading";
+  private isAnnouncementVisible(): boolean {
+    return (
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === WHATS_NEW_MENU_KEY &&
+      Boolean(this.announcement?.documentHtml)
+    );
   }
 
-  /**
-   * Which announcement surface is on screen right now, or null when the
-   * announcement isn't visible. What's new is the only surface: an impression
-   * requires the panel open, that view selected, and content actually
-   * rendered — a loading state is not an impression.
-   */
-  private getVisibleBannerSurface(): WhatsNewSurface | null {
-    if (!this.isOpen || this.settingsOpen) return null;
-    if (this.selectedMenu !== WHATS_NEW_MENU_KEY) return null;
-    return this.announcementHtml ? "whats_new" : null;
-  }
-
-  /**
-   * The single condition that retires the news signal: What's new has
-   * rendered *with content*.
-   *
-   * Deliberately not on panel open — the common reason to open the Inspector
-   * is AG-UI events, and clearing there would burn a whole announcement
-   * silently and turn "viewed" into "opened the Inspector at some point".
-   * Deliberately not behind an acknowledge button, which is a dismiss button
-   * under another name. And a loading state does not count, because the feed
-   * is asynchronous and a reader who arrived early has seen nothing.
-   *
-   * The launcher dot and the navigation marker both read the same signal, so
-   * the two can never disagree about whether something has been read.
-   */
   private maybeCompleteWhatsNewView(): void {
-    if (!this.getVisibleBannerSurface()) return;
-    this.maybeTrackWhatsNewViewed();
+    if (!this.isAnnouncementVisible() || !this.announcement) return;
+    this.announcementTelemetry.recordView(this.announcement);
+    this.flushAnnouncementTelemetry();
     this.clearNewsSignal();
   }
 
-  /**
-   * Records a `whats_new_viewed` impression for whichever surface is
-   * currently visible, once per announcement per surface.
-   */
-  private maybeTrackWhatsNewViewed(): void {
-    const id = this.announcementTimestamp;
-    if (!id) return;
-    const surface = this.getVisibleBannerSurface();
-    if (!surface) return;
-    const key = `${id}:${surface}`;
-    if (this.viewedBannerSurfaces.has(key)) return;
-    if (this.pendingBannerViewed.length >= MAX_PENDING_BANNER_VIEWED) return;
-    this.viewedBannerSurfaces.add(key);
-    this.pendingBannerViewed.push({
-      banner_id: id,
-      surface,
-      cta_label: this.announcementCtaLabel ?? undefined,
-    });
-    this.flushPendingWhatsNewTelemetry();
-  }
-
-  // Releases held notification telemetry once /info has answered, or discards
-  // it when the runtime reports telemetry disabled.
-  private flushPendingWhatsNewTelemetry(): void {
-    if (
-      this.pendingBannerViewed.length === 0 &&
-      !this.pendingNewsSignalViewed
-    ) {
-      return;
-    }
-    if (this.core?.telemetryDisabled) {
-      this.pendingBannerViewed = [];
-      this.pendingNewsSignalViewed = null;
-      return;
-    }
-    if (
-      this.runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
-    ) {
-      return;
-    }
-    const queued = this.pendingBannerViewed;
-    this.pendingBannerViewed = [];
-    for (const props of queued) trackWhatsNewViewed(props);
-    if (this.pendingNewsSignalViewed) {
-      const props = this.pendingNewsSignalViewed;
-      this.pendingNewsSignalViewed = null;
-      trackWhatsNewSignalViewed(props);
-    }
+  private flushAnnouncementTelemetry(): void {
+    this.announcementTelemetry.flush(
+      this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
+      this.core?.telemetryDisabled ?? false,
+    );
   }
 
   private ensureAnnouncementLoading(): void {
@@ -11441,131 +10422,27 @@ export class WebInspectorElement extends LitElement {
   }
 
   private async fetchAnnouncement(): Promise<void> {
-    try {
-      const response = await fetch(ANNOUNCEMENT_URL, { cache: "no-cache" });
-      if (!response.ok) {
-        throw new Error(`Failed to load announcement (${response.status})`);
+    const projection = await loadAnnouncementFeed();
+    this.announcementLoaded = true;
+    if (projection.status === "ready") {
+      this.announcement = projection;
+      if (projection.shouldArm) {
+        this.armNewsSignal({ pulse: projection.shouldPulse });
       }
-
-      const data = (await response.json()) as {
-        timestamp?: unknown;
-        previewText?: unknown;
-        announcement?: unknown;
-        cta_label?: unknown;
-      };
-
-      const timestamp =
-        typeof data?.timestamp === "string" ? data.timestamp : null;
-      const previewText =
-        typeof data?.previewText === "string" ? data.previewText : null;
-      const markdown =
-        typeof data?.announcement === "string" ? data.announcement : null;
-      const ctaLabel =
-        typeof data?.cta_label === "string" ? data.cta_label : null;
-
-      if (!timestamp || !markdown) {
-        throw new Error("Malformed announcement payload");
-      }
-
-      this.announcementTimestamp = timestamp;
-      this.announcementPreviewText = previewText ?? "";
-      this.announcementMarkdown = markdown;
-      this.announcementCtaLabel = ctaLabel;
-      this.announcementHtml = await this.convertMarkdownToHtml(markdown);
-      this.announcementLoaded = true;
-
-      // The signal arms on a timestamp plus a body that actually renders —
-      // anything else would produce a dot that What's new can never clear,
-      // because clearing requires content. `previewText` does NOT gate it:
-      // that was defensible while the text was the bubble's headline, but it
-      // is now just the heading, and gating on it would mean an announcement
-      // without preview text produced no dot at all.
-      if (
-        this.announcementHtml &&
-        loadAnnouncementReadTimestamp() !== timestamp
-      ) {
-        this.armNewsSignal({
-          pulse: loadAnnouncementPulsedTimestamp() !== timestamp,
-        });
-      }
-
-      this.requestUpdate();
-    } catch (error) {
-      // Swallowing here would hide non-network failures (malformed JSON, the
-      // explicit "Malformed announcement payload" throw above, exceptions
-      // from `convertMarkdownToHtml`). At minimum, surface in the console so
-      // a stale announcement is debuggable.
-      console.warn("[CopilotKit Inspector] Failed to load announcement", error);
-      this.announcementLoaded = true;
-      this.requestUpdate();
     }
-  }
-
-  private async convertMarkdownToHtml(
-    markdown: string,
-  ): Promise<string | null> {
-    const renderer = new marked.Renderer();
-    renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(
-        this.isSafeAnnouncementHref(href ?? "")
-          ? this.appendRefParam(href ?? "")
-          : "#",
-      );
-      const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
-      return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
-    };
-    renderer.html = (markup) => escapeHtml(markup);
-    renderer.code = (code, lang) => {
-      const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
-      const langClass = safeLang ? ` class="language-${safeLang}"` : "";
-      const escaped = escapeHtml(code);
-      const value = this.escapeHtmlAttr(code);
-      return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><cpk-inspector-copy-button class="announcement-code__copy" value="${value}" accessible-label="Copy code" copied-label="Copied" reset-delay-ms="1500"></cpk-inspector-copy-button></div></div>`;
-    };
-    return marked.parse(markdown, { renderer, async: false });
-  }
-
-  private isSafeAnnouncementHref(href: string): boolean {
-    try {
-      const url = new URL(
-        href,
-        typeof window !== "undefined"
-          ? window.location.href
-          : "https://copilotkit.ai",
-      );
-      return (
-        url.protocol === "http:" ||
-        url.protocol === "https:" ||
-        url.protocol === "mailto:"
-      );
-    } catch {
-      return false;
-    }
-  }
-
-  private syncAnnouncementCopyControls(): void {
-    const clipboard = this.getClipboard();
-    for (const control of this.activeRoot.querySelectorAll<InspectorCopyButtonElement>(
-      ".announcement-code__copy",
-    )) {
-      control.clipboard = clipboard;
-    }
+    this.requestUpdate();
   }
 
   private handleAnnouncementContentClick = (event: Event): void => {
-    const target = event.target as {
-      closest?: (selector: string) => Element | null;
-    } | null;
-    const link =
-      typeof target?.closest === "function" ? target.closest("a") : null;
-    if (!link) return;
-
+    const link = announcementLinkFromClick(event);
+    if (!link || !this.announcement) return;
     const href = link.getAttribute("href");
     if (href) link.setAttribute("href", this.appendRefParam(href));
-
-    // whats_new_clicked fires once per banner per mount. Dedup prevents
-    // accidental multi-clicks from inflating the link-follow funnel.
-    this.trackWhatsNewClickedOnce({ cta: "body" });
+    this.announcementTelemetry.recordBodyClick(
+      this.announcement,
+      this.runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected,
+      this.core?.telemetryDisabled ?? false,
+    );
   };
 
   private appendRefParam(href: string, ref = "cpk-inspector"): string {
@@ -11609,10 +10486,6 @@ export class WebInspectorElement extends LitElement {
   private isCopilotKitDestination(url: URL): boolean {
     const hostname = url.hostname.toLowerCase();
     return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
-  }
-
-  private escapeHtmlAttr(value: string): string {
-    return escapeHtml(value).replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 }
 

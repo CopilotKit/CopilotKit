@@ -1,4 +1,136 @@
-import type { InspectorMetadataProjection } from "./inspector-metadata.js";
+import { parseInspectorMetadataV1 } from "@copilotkit/shared";
+import type {
+  InspectorMetadataV1,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
+
+export type InspectorLicenseState = "valid" | "none" | "expired" | "unknown";
+
+export type InspectorMetadataAction = Readonly<{
+  kind: "manage_plan" | "renew" | "enable_intelligence";
+  url: string;
+  label: "Manage Your Plan" | "Renew" | "Enable Intelligence";
+}>;
+
+export type InspectorThreadsUsage = Readonly<
+  NonNullable<InspectorMetadataV1["usage"]>
+>;
+
+export type InspectorMetadataProjection = Readonly<{
+  identity?: Readonly<{
+    organizationName: string;
+    projectName: string;
+  }>;
+  plan?: Readonly<{
+    code: string;
+    label: string;
+  }>;
+  usage?: InspectorThreadsUsage;
+  licenseState: InspectorLicenseState;
+  hasLicenseConflict: boolean;
+  threadsFooterAction?: InspectorMetadataAction;
+  lockedAction?: InspectorMetadataAction;
+}>;
+
+export function normalizeRuntimeLicenseState(
+  status: RuntimeLicenseStatus | undefined,
+): InspectorLicenseState {
+  switch (status) {
+    case "valid":
+    case "expiring":
+      return "valid";
+    case "none":
+      return "none";
+    case "expired":
+    case "invalid":
+      return "expired";
+    case "unknown":
+    default:
+      return "unknown";
+  }
+}
+
+function projectAction(
+  state: InspectorLicenseState,
+  action:
+    | {
+        readonly kind: "manage_plan" | "renew" | "enable_intelligence";
+        readonly url: string;
+      }
+    | undefined,
+): Pick<InspectorMetadataProjection, "threadsFooterAction" | "lockedAction"> {
+  if (state === "valid" && action?.kind === "manage_plan") {
+    return {
+      threadsFooterAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Manage Your Plan",
+      },
+    };
+  }
+
+  if (state === "none" && action?.kind === "enable_intelligence") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Enable Intelligence",
+      },
+    };
+  }
+
+  if (state === "expired" && action?.kind === "renew") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Renew",
+      },
+    };
+  }
+
+  if (state === "expired" && action?.kind === "manage_plan") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Manage Your Plan",
+      },
+    };
+  }
+
+  return {};
+}
+
+export function projectInspectorMetadata(
+  value: unknown,
+  runtimeLicenseStatus: RuntimeLicenseStatus | undefined,
+): InspectorMetadataProjection {
+  const metadata = parseInspectorMetadataV1(value);
+  const runtimeState = normalizeRuntimeLicenseState(runtimeLicenseStatus);
+  const metadataState = metadata?.license?.state;
+  const hasLicenseConflict =
+    metadataState !== undefined &&
+    metadataState !== "unknown" &&
+    runtimeState !== "unknown" &&
+    metadataState !== runtimeState;
+  const licenseState = hasLicenseConflict
+    ? runtimeState
+    : (metadataState ?? runtimeState);
+
+  return {
+    ...(metadata?.identity === undefined
+      ? {}
+      : { identity: metadata.identity }),
+    ...(metadata?.plan === undefined ? {} : { plan: metadata.plan }),
+    ...(metadata?.usage === undefined ? {} : { usage: metadata.usage }),
+    licenseState,
+    hasLicenseConflict,
+    ...(hasLicenseConflict
+      ? {}
+      : projectAction(licenseState, metadata?.action)),
+  };
+}
 
 export type HomeHeroActionKind =
   | "enable_intelligence"
@@ -103,12 +235,6 @@ export type HomeModel = {
     };
   };
   services: HomeServiceTile[];
-  news: {
-    title: string;
-    previewText: string;
-    documentHtml?: string;
-    empty: boolean;
-  };
 };
 
 export type HomeBriefingInput = {
@@ -129,9 +255,6 @@ export type HomeBriefingInput = {
   suggestionsOn: boolean;
   audioOn: boolean;
   websocketUrl?: string;
-  announcementPreviewText?: string;
-  announcementMarkdown?: string;
-  announcementHtml?: string;
   intelligenceSignupUrl?: string;
 };
 
@@ -164,20 +287,6 @@ export function homeHeroActionFromMetadata(action: {
     url: action.url,
     label: "Setup Intelligence",
   };
-}
-
-/** Return a short preview from markdown, without links or headings. */
-export function announcementPreview(markdown: string, maxLength = 140): string {
-  const plain = markdown
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/[#*_`]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (plain.length <= maxLength) {
-    return plain;
-  }
-
-  return `${plain.slice(0, maxLength).trimEnd()}…`;
 }
 
 function connectIntelligenceAction(
@@ -269,30 +378,6 @@ function usageFromMetadata(metadata: InspectorMetadataProjection):
   return {
     used: usage.used,
     limitLabel: `${usage.used} used`,
-  };
-}
-
-function newsFromAnnouncement(args: {
-  previewText?: string;
-  markdown?: string;
-  html?: string;
-}): HomeModel["news"] {
-  const markdown = args.markdown?.trim();
-  if (markdown && args.html) {
-    const heading = markdown.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
-    return {
-      title: heading || "The latest from CopilotKit",
-      previewText:
-        args.previewText?.trim() || announcementPreview(markdown, 160),
-      documentHtml: args.html,
-      empty: false,
-    };
-  }
-
-  return {
-    title: "You're all caught up",
-    previewText: "Latest CopilotKit updates will appear here.",
-    empty: true,
   };
 }
 
@@ -511,10 +596,5 @@ export function buildHomeModel(input: HomeBriefingInput): HomeModel {
         docsUrl: SERVICE_DOCS_URL.websocket,
       },
     ],
-    news: newsFromAnnouncement({
-      previewText: input.announcementPreviewText,
-      markdown: input.announcementMarkdown,
-      html: input.announcementHtml ?? undefined,
-    }),
   };
 }

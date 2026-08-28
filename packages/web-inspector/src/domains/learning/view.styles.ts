@@ -198,6 +198,7 @@ export const learningViewStyles = css`
     font-size: 12px;
     font-weight: 600;
     text-decoration: none;
+    cursor: pointer;
   }
 
   .cpk-memory-locked-action:hover {

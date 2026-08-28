@@ -3,7 +3,7 @@ import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
-import type { InspectorMetadataV1 } from "@copilotkit/core";
+import type { InspectorMetadataV1, ɵThread } from "@copilotkit/core";
 import { expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
