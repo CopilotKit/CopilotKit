@@ -6596,19 +6596,7 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
-    // traffic: routing them through the instrumented fetch is what lets a dead
-    // runtime turn the status red (OSS-904). Detection only — it does NOT
-    // recover the status: this store is only created once the thread endpoints
-    // are available and its requests are withheld while the status is red, so
-    // a request that is never sent cannot restore anything. The instrumented
-    // fetch is a pass-through and is memoized per core.
-    //
-    // Guarded like every other internal core accessor read here: the Inspector
-    // ships independently of the core it attaches to, so a newer Inspector can
-    // meet an older pinned core that has no `ɵruntimeFetch` at all. Handing the
-    // thread store `undefined` would break the Threads view outright, which is
-    // a far worse outcome than losing detection through it.
+    // Fall back when an older pinned core has no ɵruntimeFetch.
     const runtimeFetch =
       typeof core.ɵruntimeFetch === "function"
         ? core.ɵruntimeFetch

@@ -56,8 +56,16 @@ copilotkit.subscribe({
   onRuntimeConnectionStatusChanged: ({ status }) => {
     if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
       enableChat();
-    } else if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      return;
+    }
+
+    if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
       showConnectionError();
+      // First-contact Error has no agents. Mid-session Error still has them —
+      // keep send open so the next successful request can restore the status.
+      if (Object.keys(copilotkit.agents).length === 0) {
+        disableChat();
+      }
     }
   },
 });

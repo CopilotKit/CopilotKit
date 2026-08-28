@@ -543,6 +543,79 @@ describe("runtime connection health (OSS-904)", () => {
     expect(core.getAgent("default")).toBe(agent);
   });
 
+  it("bounds recovery /info so a hang cannot leave the status at connecting", async () => {
+    vi.useFakeTimers();
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    const agent = core.getAgent("default")!;
+
+    takeRuntimeDown();
+    void runOnce(core).catch(() => undefined);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    // Run answers, /info hangs: the container is mid-rollout. Recovery must
+    // not wait on that /info forever — connecting would pin Intelligence
+    // realtime down, and later successes could not start a new /info.
+    runHandler = async () => sseResponse();
+    infoHandler = hangs;
+    await runOnce(core);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    await vi.advanceTimersByTimeAsync(ɵRUNTIME_PROBE_TIMEOUT_MS - 100);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    await vi.advanceTimersByTimeAsync(200);
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    expect(core.getAgent("default")).toBe(agent);
+
+    bringRuntimeUp();
+    await runOnce(core);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    expect(core.getAgent("default")).toBe(agent);
+  });
+
+  it("does not emit an unhandled rejection when the probe timeout aborts /info", async () => {
+    vi.useFakeTimers();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+
+    const core = createCore();
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    takeRuntimeDown({ hang: { info: true } });
+    void runOnce(core).catch(() => undefined);
+    await waitForStatusVirtual(
+      core,
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+
+    process.off("unhandledRejection", onUnhandled);
+    expect(unhandled).toEqual([]);
+  });
+
   // --- 7/8/9: the trigger rules ------------------------------------------
 
   it("probes on a non-ok HTTP response and never on an ok one", async () => {

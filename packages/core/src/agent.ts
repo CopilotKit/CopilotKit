@@ -194,20 +194,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   }
 
   /**
-   * The stop requests below deliberately use the GLOBAL fetch rather than
-   * `this.fetch`, keeping them off the connection-health seam (OSS-904).
-   *
-   * Off it BY DESIGN, which is what distinguishes them from the other runtime
-   * destinations that are also still off it — the suggestion route's stateless
-   * path, the memory store, `/inspector-metadata` — where it is a matter of
-   * adoption rather than of principle.
-   *
-   * They exist only because the user pressed Stop, and a user-initiated stop is
-   * explicitly excluded from triggering a confirmation check: a stop against a
-   * runtime that has gone away would otherwise turn the status red as a side
-   * effect of cancelling, which is the one thing cancellation is promised not
-   * to do. They are fire-and-forget, nothing reads their outcome, and the run
-   * request they cancel is already observed at the seam.
+   * Stop uses global fetch, not `this.fetch`. A Stop against a dead runtime
+   * must not turn the connection status red.
    */
   abortRun(): void {
     if (this.delegate) {
@@ -468,11 +456,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
-      // Carry the request function over (HttpAgent.clone does the same). A
-      // clone talks to the same runtime, so it must keep whatever fetch the
-      // original was given — including the registry's instrumented one, which
-      // is how a cloned agent's runtime failures still reach the connection
-      // status (OSS-904).
       fetch: this.fetch,
     });
     cloned.threadId = this.threadId;
@@ -555,16 +538,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
-  /**
-   * Re-resolve this agent's own runtime mode and transport from `/info`.
-   *
-   * Routed through `this.fetch` — the registry's instrumented fetch for any
-   * agent the registry handed out — because this request goes to the RUNTIME
-   * and so counts as runtime traffic under the destination rule (OSS-904).
-   * Skipping the seam here meant an agent registered before the startup
-   * handshake landed resolved its mode through an uninstrumented call, so a
-   * dead runtime kept the status green.
-   */
+  /** Re-resolve runtime mode and transport from `/info` via `this.fetch`. */
   private async fetchRuntimeInfo(): Promise<RuntimeInfo> {
     const headers: Record<string, string> = {
       ...this.headers,
@@ -702,24 +676,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
-      // The delegate's REST join request goes to the RUNTIME, so it counts as
-      // runtime traffic under the destination rule and its outcome must be
-      // observable (OSS-904). For a registry-minted agent `this.fetch` is the
-      // registry's instrumented fetch (`applyRuntimeFetchToAgent`, applied at
-      // construction — long before a delegate is lazily created here) and
-      // otherwise the plain global wrapper; either way the delegate should use
-      // whatever the proxy uses. Passing it once is enough because the
-      // registry's fetch is memoized, so re-applying it to the proxy hands
-      // back the same function.
-      //
-      // The delegate's WEBSOCKET to `intelligence.wsUrl` deliberately does NOT
-      // go through it — a separate service whose failure must never be
-      // reported as an unreachable runtime.
-      //
-      // The cast closes a declared-type gap only: `HttpAgent.fetch` is typed
-      // narrower than the value it always holds (`(url: string, init:
-      // RequestInit)` vs. `fetch`), and both the AG-UI default and the
-      // registry's instrumented function are real `fetch` implementations.
+      // REST join is runtime traffic. The websocket to wsUrl is not.
       fetch: this.fetch as typeof fetch,
     });
   }

@@ -778,16 +778,8 @@ function createThreadRequestId(): string {
 }
 
 /**
- * One thread REST request as an Observable.
- *
- * It owns its own timeout rather than being wrapped in rxjs `timeout()`. The
- * wrapper unsubscribed on expiry, the teardown aborted this controller, and the
- * resulting `AbortError` was indistinguishable from the user pressing Stop — so
- * a caller-initiated timeout against a hung runtime was laundered into "the
- * user cancelled" and its outcome was dropped by the connection-health seam
- * (OSS-904). Owning the timeout is what lets it say which of the two happened,
- * via `timedOut` on the request meta; genuine stop/unmount cancellation, which
- * still arrives through `signal` or through unsubscription, is unaffected.
+ * One thread REST request as an Observable. Owns its timeout so a caller
+ * timeout can be marked `timedOut` instead of looking like Stop.
  */
 function threadFromFetch<T>(
   input: string,
@@ -813,11 +805,6 @@ function threadFromFetch<T>(
       ...requestInit
     } = init;
     const controller = new AbortController();
-    // Shared by reference with the fetch below, which reads it when the request
-    // SETTLES — so `timedOut` set here still reaches it. `selfBounded` is the
-    // exception and is read when the request is issued: it says this request
-    // owns a bound of its own, so the connection-health seam must not put a
-    // shorter one on top of it (OSS-904).
     const runtimeRequest: RuntimeRequestMeta = {
       ...(nonCritical ? { nonCritical: true } : {}),
       ...(timeoutMs === undefined ? {} : { selfBounded: true }),

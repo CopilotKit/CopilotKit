@@ -121,19 +121,8 @@ export class StateManager {
 
     const agentId = agent.agentId;
 
-    // Already subscribed to THIS VERY INSTANCE: leave the live subscription
-    // exactly as it is.
-    //
-    // Revocation below exists for one case — a DIFFERENT instance taking over
-    // an id, where the outgoing pipeline may still be pumping events for the
-    // agent that was replaced. Being handed the same instance again replaces
-    // nothing, so tearing down and re-subscribing has no upside and one sharp
-    // cost: the ag-ui pipeline captured its subscriber list at run start, so the
-    // replacement is silently ignored and a run that is still streaming loses
-    // its state and messages for the rest of the run. Callers re-announce an
-    // unchanged agent routinely (a header change, a transport change, an /info
-    // re-settle, and the OSS-904 recovery re-sync, which by design runs while
-    // the run that triggered it is still open).
+    // Same instance: keep the live subscription. Re-subscribing mid-run
+    // drops events because ag-ui captured subscribers at run start.
     const existing = this.agentSubscriptions.get(agentId);
     if (existing) {
       if (existing.agent === agent) {

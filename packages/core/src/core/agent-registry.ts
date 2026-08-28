@@ -43,36 +43,8 @@ type RuntimeInfoFetchResult = {
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
- * Maximum wait for the reachability probe's `/info` answer before the runtime
- * is treated as unreachable.
- *
- * A server fails two ways: it refuses the connection (fast) or it accepts and
- * never answers. A stopped dev server refuses; a container mid-rollout, a
- * half-switched deploy and a dropped tunnel all HANG — which is the motivating
- * list for this whole feature. Without a bound the probe never settles, its
- * in-flight latch is never released, every later failure short-circuits on that
- * latch, and the status stays green forever: the original bug, restored in full,
- * for exactly the cases the ticket names.
- *
- * Like {@link RUNTIME_REQUEST_WATCHDOG_MS} it is a per-request bound and not a
- * schedule: armed inside the handling of one request, always cleared, and it
- * starts no work of its own. Those two are the only timers this feature has —
- * see the "no polling, no retry loop" decision.
- *
- * Matches {@link INSPECTOR_METADATA_REQUEST_TIMEOUT_MS}: the same runtime, the
- * same kind of optional-at-this-moment question, and a developer watching a
- * dead runtime should not wait longer for the light to turn red than for
- * metadata to degrade to absence.
- *
- * Exported for tests, which must derive their waits from it rather than
- * hardcode a number that silently drifts away from this one.
- *
- * `ɵ`-prefixed because `core/index.ts` re-exports this module wholesale, so
- * anything named here is public API of `@copilotkit/core` whatever its doc
- * comment says. The prefix marks it as internal, matching
- * `ɵTHREAD_REQUEST_TIMEOUT_MS`, which is on the index for the same reason.
- * {@link RUNTIME_REQUEST_WATCHDOG_MS} takes the other route out and lives in a
- * module the index does not re-export.
+ * Per-request bound for `/info` probes and recovery re-syncs. Exported for
+ * tests. `ɵ`-prefixed because this module is re-exported from the package index.
  */
 export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
 
@@ -86,15 +58,8 @@ export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
 type RuntimeRequestOutcome = "ok" | "failed" | "aborted" | "ignored";
 
 /**
- * Classify a rejected runtime request.
- *
- * A cancellation is excluded because pressing Stop is not an outage. A caller
- * that aborted on its OWN timeout is not a cancellation, though it arrives as
- * the same `AbortError`: nothing came back, which is the very thing the status
- * reports. Distinguishing them by the caller's own marker rather than by
- * inspecting the abort reason keeps genuine stop/unmount exclusion working
- * exactly as it does today, and does not depend on `AbortSignal.reason`
- * support.
+ * Classify a rejected runtime request. Stop/unmount is `aborted`. A caller
+ * timeout is `failed` because it is marked `timedOut`.
  */
 function classifyRuntimeRequestFailure(
   error: unknown,
@@ -111,25 +76,11 @@ function classifyRuntimeRequestFailure(
 
 /** How one runtime connection attempt should behave. */
 interface RuntimeConnectionOptions {
-  /**
-   * Keep every piece of runtime knowledge if this attempt FAILS.
-   *
-   * Set by recovery, and by a configuration change made from a mid-session
-   * error state — see `hasLiveRuntimeKnowledgeToProtect`.
-   */
+  /** Keep remote agents and capabilities if this attempt fails. */
   preserveOnFailure?: boolean;
   /**
-   * This attempt IS the recovery re-sync. Two things follow:
-   *
-   * - it reconciles the agent set rather than replacing it, dropping only what
-   *   it is safe to drop (see `reconcileRecoveredAgents`);
-   * - a success that landed after it started overtakes its failure verdict
-   *   rather than being painted over.
-   *
-   * The second is safe ONLY here, because `recoverRuntimeConnection` has a
-   * follow-up attempt queued for that success. A configuration change has no
-   * such follow-up, so declining to paint would leave the status at
-   * `connecting` with nothing to settle it.
+   * Recovery re-sync: reconcile the agent set, and do not paint Error over a
+   * success that landed after this attempt started.
    */
   recovery?: boolean;
 }
@@ -181,19 +132,9 @@ export class AgentRegistry {
   private remoteAgents: Record<string, AbstractAgent> = {};
 
   /**
-   * The `threadId` each remote agent was MINTED with, so that "a thread is
-   * bound to this agent" is answerable later — see
-   * `carriesConversationState`.
-   *
-   * `AbstractAgent`'s constructor always assigns a `threadId`, generating a
-   * random one when none is supplied, and nothing in the run pipeline ever
-   * writes it. So the field is never empty and its mere presence says nothing;
-   * a value DIFFERENT from the one minted here is what says a binding resolved
-   * a thread onto the agent (`use-agent`, `CopilotChat`).
-   *
-   * Keyed by instance rather than by id: an id can be re-minted onto a fresh
-   * instance, whose own minted value is the one that matters. `WeakMap` so a
-   * dropped agent takes its entry with it.
+   * Thread id each remote agent was minted with. `AbstractAgent` always assigns
+   * one, so presence is not a signal — a different value means a binding
+   * resolved a thread onto the agent.
    */
   private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
 
@@ -444,40 +385,9 @@ export class AgentRegistry {
   }
 
   /**
-   * Whether a failed connection attempt starting from HERE would destroy
-   * something a live session is using (OSS-904).
-   *
-   * The PRD's safety argument names three interlocking sites — preserving
-   * runtime knowledge on the way into the error state, preserving it again if
-   * the recovery re-sync fails, and keeping the submission gate open
-   * throughout. A configuration change made while contact is lost is a fourth,
-   * and it is a plausible one: a developer fiddles with configuration precisely
-   * when the indicator is red. Reaching the destructive path from there wipes
-   * the agents, empties the conversation, closes the submission gate — and
-   * because `connectRuntime()` only fires from `Disconnected` and only a
-   * successful request restores the status, the application is stuck red for
-   * the rest of the page's life.
-   *
-   * The question is deliberately asked about the KNOWLEDGE and not about a
-   * status value. Two conditions, and each is load-bearing:
-   *
-   * - Remote agents exist. They are the thing being protected: the conversation
-   *   lives on the agent instance and the submission gate is open exactly while
-   *   one is bound. With none, there is nothing a failure could destroy, and
-   *   preserving would only leave a stale version and stale capabilities behind
-   *   — an invisible wrong state, which is the harder bug.
-   * - Contact is not currently established. From `Connected` a failed
-   *   deliberate change keeps the existing destructive behaviour, and correctly
-   *   so: the developer who just changed the configuration can change it again,
-   *   which is a way out that does not run through the agents.
-   *
-   * Phrasing it as `!== Connected` rather than `=== Error` is the whole point.
-   * Recovery passes through `Connecting` by design, so a guard pinned to
-   * `Error` leaves a window — open for as long as a re-sync's `/info` takes,
-   * against a runtime that is often only part-way back — in which a
-   * configuration change takes the destructive path and strands the
-   * application. `Disconnected` never carries remote agents, so the first
-   * condition covers it.
+   * True when a failed reconnect would destroy a live conversation.
+   * Guard on remote agents and `!== Connected`, not `=== Error`: recovery
+   * passes through Connecting, and pinning to Error would wipe agents there.
    */
   private hasLiveRuntimeKnowledgeToProtect(): boolean {
     if (Object.keys(this.remoteAgents).length === 0) {
@@ -490,48 +400,9 @@ export class AgentRegistry {
   }
 
   /**
-   * The agent set a RECOVERY re-sync should install: everything the recovered
-   * runtime reported, plus the agents it did not report that it is not safe to
-   * drop (OSS-904).
-   *
-   * A recovery re-sync cannot trust the whole of its answer the way a
-   * deliberate configuration change can. It runs in the window where a runtime
-   * is often only part-way back — a container mid-rollout, a tunnel
-   * re-establishing — and such a runtime answers truthfully that it is alive
-   * while listing few or none of its agents. Believing that report empties the
-   * conversation and closes the submission gate with the status reading
-   * `connected` and no error emitted: the exact damage this design exists to
-   * prevent, reached through the success branch instead of the failure branch.
-   *
-   * This was once "never remove", which bought that safety with a permanent
-   * wart — an agent the developer genuinely deleted stayed visible until a page
-   * reload, so the application kept offering something that no longer existed.
-   * But the harm was never removal; it was removing the agent a live
-   * conversation hangs on. So the rule is stated against THAT, with two
-   * conditions that must BOTH hold before anything is dropped:
-   *
-   * - The runtime reported at least one agent. An empty list is the signature
-   *   of a runtime that has not finished registering, and nothing an empty list
-   *   says is worth acting on. A non-empty list that omits an agent is credible
-   *   evidence that agent is gone.
-   * - The agent carries no conversation state (`carriesConversationState`). One
-   *   that does is backing something the user can see, and it stays whatever
-   *   the runtime reports.
-   *
-   * Both are decidable here — the second from the agent instance — so this
-   * needs nothing from the UI layer and adds no coupling to it.
-   *
-   * The residue is small and self-correcting: against a runtime reporting some
-   * but not all of its agents, an unused agent can briefly disappear and come
-   * back on the next re-sync. That is visible only in an agent picker, and it
-   * costs far less than an app offering a deleted agent until someone reloads.
-   *
-   * SAFE ONLY BECAUSE OF THE SUBSCRIPTION FIX. Pruning changes the set, so
-   * recovery announces a change, so core re-subscribes the state manager per
-   * agent — and `state-manager.ts` now leaves a live subscription alone when it
-   * is handed the same instance. Before that, this rule would have cut the
-   * state off the very run whose response proved the runtime was back, since
-   * that run is typically still streaming when recovery fires.
+   * Merge a recovery `/info` report with the live set. Drop an unreported
+   * agent only when the report is non-empty and that agent has no conversation
+   * state. An empty list is a runtime that has not finished registering.
    */
   private reconcileRecoveredAgents(
     reported: Record<string, AbstractAgent>,
@@ -553,25 +424,8 @@ export class AgentRegistry {
   }
 
   /**
-   * Whether this agent is backing something the user can see, and so must
-   * survive a recovery re-sync that stopped reporting it.
-   *
-   * Two signals, both read off the instance:
-   *
-   * - Messages. A conversation on screen.
-   * - A thread bound to it. An empty conversation the user is looking at and
-   *   can submit into. Note that the mere PRESENCE of `threadId` says nothing:
-   *   `AbstractAgent`'s constructor always assigns one, generating a random
-   *   value when none is supplied. What says a binding resolved a thread onto
-   *   this agent is the value having MOVED off the one it was minted with —
-   *   see `mintedThreadIds`.
-   *
-   * An agent this registry did not mint has no recorded value to compare
-   * against, and is kept. Nothing reaches here by that route today
-   * (`remoteAgents` is written only by the connection routine, and
-   * `registerProxiedAgent` registers into `localAgents`), so this is a
-   * deliberate fail-safe: an unrecognised agent is not evidence that dropping
-   * it is safe.
+   * True when this agent backs something on screen: messages, or a threadId
+   * that moved off the minted value. Unknown agents are kept.
    */
   private carriesConversationState(agent: AbstractAgent): boolean {
     if (agent.messages.length > 0) {
@@ -779,30 +633,8 @@ export class AgentRegistry {
   }
 
   /**
-   * The instrumented `fetch` every runtime-bound request should go through —
-   * the single point at which the outcome of a request to the runtime can be
-   * observed (OSS-904).
-   *
-   * The connection status is a report of the last actual contact with the
-   * runtime, and this is where "actual contact" is observed: a response that
-   * came back (`ok`), a request that did not (`failed`), or a cancellation
-   * (`aborted`, ignored — pressing Stop is not an outage).
-   *
-   * It is a pass-through: the original `Response` is returned and the original
-   * error re-thrown, unchanged and un-swallowed. Callers cannot tell it apart
-   * from `fetch` except that the status now tracks what happened.
-   *
-   * The rule is expressed by destination, not by call site: anything routed
-   * through this fetch is runtime traffic, so a runtime route added later
-   * inherits the behaviour without anyone remembering to update a list.
-   *
-   * A request that never SETTLES is observed too, by
-   * {@link armRuntimeRequestWatchdog} — see {@link RUNTIME_REQUEST_WATCHDOG_MS}
-   * for why an outcome-only seam has a hole exactly where this feature's
-   * motivating failures live.
-   *
-   * The returned function is memoized so re-applying it to an agent (headers
-   * change, re-connection) is idempotent.
+   * Pass-through fetch that reports each runtime-bound request into the
+   * connection status. Memoized so re-applying it is a no-op.
    */
   createRuntimeFetch(): typeof fetch {
     if (!this.runtimeFetch) {
@@ -836,42 +668,9 @@ export class AgentRegistry {
   }
 
   /**
-   * Watch ONE runtime request for silence (OSS-904).
-   *
-   * If no response head arrives within {@link RUNTIME_REQUEST_WATCHDOG_MS} the
-   * request's silence is reported as the same "suspected outage" a failure
-   * reports, which runs the ordinary confirmation probe. The request is left
-   * strictly alone: not aborted, not cancelled, not raced. A runtime that is
-   * only slow still finishes the user's run and still reports its own outcome
-   * afterwards.
-   *
-   * Two requests never arm it:
-   *
-   * - one the caller declared non-critical, consistent with every other rule
-   *   keyed on that marker: a request the code itself treats as harmless must
-   *   not be able to trigger anything;
-   * - one the caller already bounds with its own timeout (the thread routes).
-   *   Such a request cannot fail to produce an outcome, which is the ONLY gap
-   *   this exists to fill, and a shorter bound of ours would quietly override
-   *   the budget the caller chose.
-   *
-   * Guarded on `window` like every other side effect here: this package also
-   * runs in React Native and during server rendering, and nothing new may run
-   * on the server.
-   *
-   * The timer is always cleared when the request settles. The package has no
-   * disposal path, so an uncleared timer has no owner to collect it — and would
-   * fire a probe ten seconds after a perfectly good run. It is a `setTimeout`
-   * and must stay one: a repeating timer here would be exactly the recurring
-   * background traffic this design rejects by name, firing a fresh probe every
-   * interval for as long as one request hangs.
-   *
-   * `checked` records whether the watchdog's report actually CAUSED a check,
-   * not whether the timer fired. The report is discarded outright when a probe
-   * is already in flight, when the status is not `Connected`, or when there is
-   * no runtime url — and a flag claiming otherwise makes the request's own
-   * later failure short-circuit on a check that never happened, leaving the
-   * status green against a dead runtime.
+   * Report silence after {@link RUNTIME_REQUEST_WATCHDOG_MS} without aborting
+   * the request. Skip non-critical and self-bounded requests. `checked` is
+   * true only when that report actually started a probe.
    */
   private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
     clear: () => void;
@@ -895,20 +694,8 @@ export class AgentRegistry {
   }
 
   /**
-   * Route an agent's outbound HTTP through the instrumented fetch. Applied
-   * everywhere `applyHeadersToAgent` is, so that "the registry handed you this
-   * agent" and "this agent's runtime traffic is observed" cannot drift apart.
-   *
-   * `HttpAgent.fetch` backs both the single-endpoint transport (called
-   * directly) and the REST transport (via `super.run`), so one assignment
-   * covers both, and `ProxiedCopilotRuntimeAgent` also uses it for the `/info`
-   * request it issues to re-resolve its own runtime mode.
-   *
-   * Agents pointing at a customer's own server are not
-   * `ProxiedCopilotRuntimeAgent`s and are deliberately left alone: their
-   * failures say nothing about our runtime, and one of them failing must not
-   * make a shared status red while other agents are working. That is also why
-   * this is applied by TYPE rather than to every agent in the record.
+   * Route a registry-minted proxied agent's HTTP through the instrumented
+   * fetch. Customer-owned agents are left on global fetch.
    */
   applyRuntimeFetchToAgent(agent: AbstractAgent): void {
     if (agent instanceof ProxiedCopilotRuntimeAgent) {
@@ -1165,29 +952,9 @@ export class AgentRegistry {
   }
 
   /**
-   * React to one runtime-bound request's outcome (OSS-904).
-   *
-   * Detection is reactive in both directions and there is no timer: a failed
-   * runtime request can move the status to error, a successful one can move it
-   * back, and nothing else moves it. Deliberate consequence: while the
-   * application is idle nothing is detected in either direction.
-   *
-   * @param alreadyChecked - This request's watchdog already reported its
-   * silence and that report actually STARTED a check. The failure now arriving
-   * is the same fact about the same request, not a second incident, so it must
-   * not buy a second probe. A SUCCESS still counts: the runtime answered after
-   * all, and that is the evidence that ends an outage. Neither the in-flight
-   * latch nor the "only probe while Connected" guard covers this on its own — a
-   * probe that came back healthy releases both, and the request can fail long
-   * after.
-   *
-   * It is deliberately "did a check happen" and not "did the timer fire". A
-   * report that found the latch held, the status already red, or no runtime url
-   * changed nothing; suppressing the request's real failure on the strength of
-   * it would swallow the only evidence there is. A failure arriving after a
-   * check came back healthy is new information, not part of that burst.
-   *
-   * @returns whether this call started a confirmation check.
+   * Route one runtime-bound request outcome into the connection status.
+   * `alreadyChecked` is true only when this request's watchdog actually
+   * started a probe — a later success still counts.
    */
   private handleRuntimeRequestOutcome(
     outcome: RuntimeRequestOutcome,
@@ -1226,41 +993,18 @@ export class AgentRegistry {
         this._runtimeConnectionStatus ===
         CopilotKitCoreRuntimeConnectionStatus.Error
       ) {
-        // LOAD-BEARING: this is the ONLY way out of the error state. It can
-        // only ever fire because the error state left the user able to send —
-        // which is true only because the transition into it preserved the
-        // agents (see `markRuntimeUnreachable`) and a failed recovery re-sync
-        // preserves them too (see `preserveOnFailure` in
-        // `performRuntimeConnection`). Submission in the chat view is gated on
-        // a real agent being bound; discard the agents at either of those two
-        // sites and that gate closes, no successful request can be issued, and
-        // the application is stuck red for the rest of the page's life.
-        // Anyone removing any one of the three must replace this recovery
-        // mechanism first.
+        // Only way out of Error: agents must stay so Send can fire this.
         void this.recoverRuntimeConnection();
       }
       return false;
     }
 
-    // A failure only means something while we believed we were connected.
-    // While `Error` there is nothing to confirm (and issuing traffic would be
-    // the retry loop this design rejects — one probe and one duplicate error
-    // emission per retry, driven by a user hammering Send at a red indicator);
-    // while `Connecting`/`Disconnected` the connection attempt itself owns the
-    // status.
     if (
       this._runtimeConnectionStatus !==
       CopilotKitCoreRuntimeConnectionStatus.Connected
     ) {
       return false;
     }
-    // Burst collapsing is the in-flight latch's job and only the latch's:
-    // several simultaneous failures against one dead runtime cost exactly one
-    // probe. There is deliberately no window after a probe has SETTLED in which
-    // failures are absorbed. Such a window only ever suppressed a runtime
-    // flapping error -> connected -> failing again inside it, and for that case
-    // it is the window itself that does the damage: the second outage leaves no
-    // trace and the status reads connected while nothing works.
     if (this.runtimeProbeInFlight) {
       return false;
     }
@@ -1269,36 +1013,19 @@ export class AgentRegistry {
   }
 
   /**
-   * Ask the runtime once, directly, whether it is there.
-   *
-   * This is what makes the deliberately generous failure trigger safe: from
-   * inside the browser a server error raised by the runtime is
-   * indistinguishable from one raised by a proxy in front of it, so the trigger
-   * does not have to be right — only cheap. A wrong guess costs exactly one
-   * request and changes nothing.
-   *
-   * It reuses `fetchRuntimeInfo` (the same question asked at startup, on
-   * whichever transport is in use) but deliberately NOT
-   * `updateRuntimeConnection`, whose failure branch discards runtime knowledge.
-   *
-   * It is BOUNDED. A runtime that accepts the connection and never answers is
-   * the second way a server dies and the one this feature's own motivating list
-   * is made of; an unbounded probe against it never settles, never releases its
-   * latch, and restores the original bug in full. See
-   * {@link ɵRUNTIME_PROBE_TIMEOUT_MS}.
+   * Fetch `/info` and give up after {@link ɵRUNTIME_PROBE_TIMEOUT_MS}.
+   * Attach `.catch` on the request before the race so a late AbortError is
+   * not unhandled.
    */
-  private async probeRuntimeReachability(): Promise<void> {
-    const generation = this.runtimeHealthGeneration;
-    const token = ++this.runtimeProbeToken;
-    this.runtimeProbeInFlight = true;
-    const abortController = new AbortController();
-    this.runtimeProbeAbortController = abortController;
+  private async fetchRuntimeInfoWithTimeout(
+    abortController: AbortController,
+  ): Promise<RuntimeInfoFetchResult> {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const request = this.fetchRuntimeInfo(abortController.signal);
+    void request.catch(() => {});
     try {
       const timedOut = new Promise<never>((_resolve, reject) => {
         timeoutId = setTimeout(() => {
-          // Cancel the real request too: a bound that leaves the socket open
-          // is only half a bound.
           abortController.abort();
           reject(
             new Error(
@@ -1307,32 +1034,33 @@ export class AgentRegistry {
           );
         }, ɵRUNTIME_PROBE_TIMEOUT_MS);
       });
-      // `Promise.race` attaches a rejection handler to the loser as well, so a
-      // late failure from the abandoned request cannot surface as unhandled.
-      await Promise.race([
-        this.fetchRuntimeInfo(abortController.signal),
-        timedOut,
-      ]);
-      // The runtime answered: the failure was a blip, not an outage.
-    } catch (error) {
-      // Ordering: only apply the verdict if nothing has moved since. A status
-      // transition, a successful runtime request, or a configuration change in
-      // the meantime means this answer is about a moment that has passed.
-      if (generation !== this.runtimeHealthGeneration) {
-        return;
-      }
-      // Confirmed unreachable.
-      await this.markRuntimeUnreachable(
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      return await Promise.race([request, timedOut]);
     } finally {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  private async probeRuntimeReachability(): Promise<void> {
+    const generation = this.runtimeHealthGeneration;
+    const token = ++this.runtimeProbeToken;
+    this.runtimeProbeInFlight = true;
+    const abortController = new AbortController();
+    this.runtimeProbeAbortController = abortController;
+    try {
+      await this.fetchRuntimeInfoWithTimeout(abortController);
+    } catch (error) {
+      if (generation !== this.runtimeHealthGeneration) {
+        return;
+      }
+      await this.markRuntimeUnreachable(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    } finally {
       if (this.runtimeProbeAbortController === abortController) {
         this.runtimeProbeAbortController = undefined;
       }
-      // Never clear a latch that now belongs to a newer probe.
       if (this.runtimeProbeToken === token) {
         this.runtimeProbeInFlight = false;
       }
@@ -1340,22 +1068,8 @@ export class AgentRegistry {
   }
 
   /**
-   * Mid-session loss of contact: set the status, notify, emit the error, and
-   * touch NOTHING else.
-   *
-   * NARROW ON PURPOSE. The startup failure path (see the catch in
-   * `performRuntimeConnection`) also clears the agent list, the version and
-   * every capability, which is correct at startup — none of it was ever
-   * obtained — and destructive mid-session: conversation state lives on the
-   * agent instance, so clearing `remoteAgents` makes the binding mint an empty
-   * stand-in and the user's open conversation leaves the screen. It would also
-   * close the submission gate, and submission is the only thing that restores
-   * the status (see the recovery comment in `handleRuntimeRequestOutcome`) —
-   * i.e. it would produce an error state the user can never leave.
-   *
-   * "Error with agents present" is a working state, not a new one: every
-   * binding resolves the agent first and consults the status only when no agent
-   * is found. That ordering is what makes preserving the agents safe.
+   * Mid-session loss of contact: set Error, notify, emit. Do not clear agents
+   * — Send is the only way back to Connected.
    */
   private async markRuntimeUnreachable(error: Error): Promise<void> {
     this.setRuntimeConnectionStatus(
@@ -1397,30 +1111,8 @@ export class AgentRegistry {
   }
 
   /**
-   * The runtime answered again after an outage: re-run the full startup contact
-   * rather than only repainting the status.
-   *
-   * Keeping stale knowledge during the outage is defensible only because it is
-   * temporary — flipping the status alone would make it permanent, so a dev
-   * server restarted with a new agent, a removed agent or a new version would
-   * present the pre-outage picture until a page reload. The success branch of
-   * `updateRuntimeConnection` reuses existing agent instances, so an open
-   * conversation survives the re-sync.
-   *
-   * `preserveOnFailure` is what makes it safe to run at the moment the network
-   * is least reliable (a container mid-rollout, a tunnel re-establishing), and
-   * `recovery` is what stops a runtime that is only PART-WAY
-   * back — alive, and listing few or no agents — from destroying the
-   * conversation through the success branch: its report is reconciled against
-   * what is in use rather than believed wholesale (see
-   * `reconcileRecoveredAgents`).
-   *
-   * The loop is not a retry loop. It turns exactly once per successful runtime
-   * request that arrived while an earlier re-sync was still running, so it is
-   * driven by observed traffic and stops the moment traffic does. It exists
-   * because such a success would otherwise be dropped two ways: collapsed onto
-   * an attempt that is already settling into `Error`, or overtaken by that
-   * attempt's stale verdict.
+   * Re-run `/info` after a successful request ends an outage. Preserve agents
+   * on failure. Queue one follow-up if another success lands while this runs.
    */
   private async recoverRuntimeConnection(): Promise<void> {
     if (this.runtimeRecoveryRunning) {
@@ -1462,18 +1154,8 @@ export class AgentRegistry {
     // second `/info` request. A change to a different target supersedes it. See
     // #5801.
     //
-    // The key deliberately ignores the options: collapsing onto an in-flight
-    // attempt is preferable to issuing a second `/info`.
-    //
-    // The two CAN overlap, contrary to what this comment used to claim. A
-    // recovery starts while the status is `Error`, and a failing attempt sets
-    // the status back to `Error` synchronously and then awaits its subscriber
-    // notification and error emission while still holding this key — so a
-    // success landing in that window is handed an attempt that is already
-    // dying, issues no `/info`, and the recovery is lost while the chat
-    // visibly works. `recoverRuntimeConnection` closes that window by queueing
-    // instead of collapsing; this guard is left as it is so ordinary
-    // concurrent connects still collapse.
+    // Collapse concurrent connects to the same target. Recovery must not
+    // collapse onto a dying attempt — `recoverRuntimeConnection` queues instead.
     const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
     const inFlight = this._connectionInFlight;
     if (inFlight && inFlight.key === key) {
@@ -1541,7 +1223,9 @@ export class AgentRegistry {
         return;
       }
       const { runtimeInfo: runtimeInfoResponse, resolvedTransport } =
-        await this.fetchRuntimeInfo();
+        options?.recovery
+          ? await this.fetchRuntimeInfoWithTimeout(new AbortController())
+          : await this.fetchRuntimeInfo();
       if (
         inspectorMetadataConnectionGeneration !==
         this.inspectorMetadataConnectionGeneration
@@ -1639,20 +1323,6 @@ export class AgentRegistry {
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
-      // Recovery announces its agent set like every other connection attempt.
-      //
-      // This used to be skipped for an unchanged set, because core re-subscribes
-      // the state manager per agent on every `onAgentsChanged` and that revoked
-      // the subscription an in-flight run was still reporting through — and the
-      // re-sync runs while that run's stream is open, since the response
-      // arriving is what triggered it. Suppressing the announcement was the
-      // wrong lever: it only helped when the set happened to be unchanged, so a
-      // developer who restarted the runtime BECAUSE they added an agent
-      // (the reason for restarting it) still lost the recovering run's state,
-      // and an unchanged-set check that stopped working would silently swallow a
-      // genuinely new agent. `state-manager.ts` now leaves a live subscription
-      // alone when it is handed the same agent instance, which fixes both
-      // directions at the source and for every caller, not just this one.
       await this.notifyAgentsChanged();
       if (
         inspectorMetadataConnectionGeneration !==
@@ -1674,35 +1344,8 @@ export class AgentRegistry {
         return;
       }
       if (options?.preserveOnFailure) {
-        // RECOVERY RE-SYNC FAILED — and this branch is why recovery is allowed
-        // to run at all.
-        //
-        // The destructive branch below is correct at startup, where a failed
-        // first contact means no runtime knowledge was ever obtained. Here the
-        // knowledge exists and belongs to a live conversation, and this attempt
-        // runs in the window where a runtime is often only part-way back (a
-        // container mid-rollout, a tunnel re-establishing) — so it is MORE
-        // exposed than the inbound transition, not less. Dropping the agents
-        // here would empty the user's chat and close the submission gate, and
-        // because only a successful request restores the status (see
-        // `handleRuntimeRequestOutcome`), the application would be stuck red
-        // for the rest of the page's life.
-        //
-        // So: set the status, notify, emit below — and preserve everything
-        // else, exactly as though the outage had never appeared to end. That
-        // deliberately includes NOT invalidating the inspector metadata
-        // connection and NOT emitting `onAgentsChanged`: the agent set did not
-        // change.
-        //
-        // ORDERING. A success that landed after this attempt started has
-        // already demonstrated the runtime is there, so this answer describes a
-        // moment that has passed and must not paint the status red over it —
-        // the same rule the reachability probe applies.
-        //
-        // Recovery only, because recovery is the only caller with a follow-up
-        // attempt queued for that success (see `recoverRuntimeConnection`). A
-        // configuration change reaching this branch has nothing queued, so
-        // declining to paint would leave the status at `connecting` forever.
+        // Keep agents. Recovery skips painting Error if a later success
+        // already moved the generation — it has a follow-up queued.
         if (
           options?.recovery &&
           runtimeHealthGeneration !== this.runtimeHealthGeneration

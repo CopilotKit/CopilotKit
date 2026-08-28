@@ -242,13 +242,6 @@ export function useThreads({
 
   const [store] = useState(() =>
     ɵcreateThreadStore({
-      // Thread requests go to `${runtimeUrl}/threads*`, so they are runtime
-      // traffic: routing them through the instrumented fetch is what lets a
-      // dead runtime turn the status red (OSS-904). Detection only — it does
-      // NOT recover the status: this hook withholds its requests until the
-      // status is already connected, so while it is red nothing is sent and a
-      // request that is never sent cannot restore anything. The instrumented
-      // fetch is a pass-through and is memoized per core, so this is stable.
       fetch: copilotkit.ɵruntimeFetch,
     }),
   );
