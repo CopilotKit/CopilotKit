@@ -17,8 +17,7 @@ import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import type { AIMessage } from "@langchain/core/messages";
-import { SystemMessage } from "@langchain/core/messages";
+import { AIMessage, SystemMessage } from "@langchain/core/messages";
 import {
   Annotation,
   MemorySaver,
