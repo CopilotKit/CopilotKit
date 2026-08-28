@@ -55,9 +55,11 @@ import {
 } from "./lib/context-helpers.js";
 import {
   clearLegacyAnnouncementReadState,
+  hasLauncherHudIntroPlayed,
   loadAnnouncementPulsedTimestamp,
   loadAnnouncementReadTimestamp,
   loadInspectorState,
+  markLauncherHudIntroPlayed,
   saveAnnouncementPulsedTimestamp,
   saveAnnouncementReadTimestamp,
   saveInspectorState,
@@ -582,8 +584,15 @@ const LAUNCHER_HUD_WIDTH = 248;
  * One page-load preview of the launcher's feature HUD.
  *
  * The card arrives after the host page has had a beat to settle. Its four rows
- * then come online in order, stay readable, and leave together. Nothing is
- * persisted: a new Inspector element means a new preview.
+ * then come online in order, stay readable, and leave together.
+ *
+ * It plays once per browser tab, not once per element: a reload shows nothing,
+ * a new tab introduces itself again. `hasLauncherHudIntroPlayed` carries that
+ * rule, and explains why sessionStorage is the store with the right lifetime.
+ *
+ * "Seen once", not "scheduled once": a mount that never showed the card —
+ * panel already open, element removed inside the delay, reader hovering first
+ * — leaves the next load its turn, and an error pill only delays a preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
@@ -10900,12 +10909,18 @@ export class WebInspectorElement extends LitElement {
     this.launcherHudIntroStartTimer = setTimeout(() => {
       this.launcherHudIntroStartTimer = null;
       if (!this.isConnected || this.isOpen) return;
+      // Inside the timeout so the blocked-retry path below re-checks it, and
+      // ahead of that retry so a tab that has played stops rescheduling.
+      if (hasLauncherHudIntroPlayed()) return;
       if (this.isLauncherHudBlocked()) {
         this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
         return;
       }
 
       this.resolveLauncherHudSide();
+      // Where the preview starts, not where it is scheduled — see
+      // `LAUNCHER_HUD_INTRO_MS`.
+      markLauncherHudIntroPlayed();
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
       this.requestUpdate();

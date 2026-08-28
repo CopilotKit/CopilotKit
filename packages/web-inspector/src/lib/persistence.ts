@@ -236,6 +236,43 @@ export function saveAnnouncementPulsedTimestamp(timestamp: string): void {
   }
 }
 
+// Launcher HUD intro — the launcher plays a one-shot preview of its own hover
+// HUD on page load. It is an introduction, so it must not replay on every
+// reload; but it must still greet a genuinely new tab, and a remount of the
+// element within one page load (StrictMode, a client-side route change, the
+// host toggling the component) is not a new visit either.
+//
+// sessionStorage is the only store with exactly that lifetime: it is scoped to
+// the tab AND survives a reload. An in-memory flag dies with the page, and
+// localStorage would silence the preview forever on the first load.
+const LAUNCHER_HUD_INTRO_SESSION_KEY = "cpk:inspector:hud-intro-played";
+
+/** Whether this browser tab has already played the launcher HUD preview. */
+export function hasLauncherHudIntroPlayed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      window.sessionStorage.getItem(LAUNCHER_HUD_INTRO_SESSION_KEY) === "true"
+    );
+  } catch {
+    // Read as "not played yet": storage we cannot reach costs one extra
+    // preview per load — the behaviour before this rule existed — which is
+    // strictly better than letting a private-mode or sandboxed-iframe host
+    // see a thrown error.
+    return false;
+  }
+}
+
+/** Suppresses the launcher HUD preview for the rest of this browser tab. */
+export function markLauncherHudIntroPlayed(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LAUNCHER_HUD_INTRO_SESSION_KEY, "true");
+  } catch {
+    // No-op — see hasLauncherHudIntroPlayed.
+  }
+}
+
 function parseTimestampPayload(raw: string | null): string | null {
   if (!raw) return null;
   try {

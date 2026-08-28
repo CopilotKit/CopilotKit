@@ -29,10 +29,12 @@ import {
   _resetTelemetryPersistenceForTesting,
   clearLegacyAnnouncementReadState,
   getOrCreateTelemetryDistinctId,
+  hasLauncherHudIntroPlayed,
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   loadAnnouncementPulsedTimestamp,
   loadAnnouncementReadTimestamp,
+  markLauncherHudIntroPlayed,
   markTelemetryDisclosureShown,
   saveAnnouncementPulsedTimestamp,
   saveAnnouncementReadTimestamp,
@@ -689,6 +691,68 @@ describe("announcement pulse suppression", () => {
     expect(() => saveAnnouncementPulsedTimestamp("ts")).not.toThrow();
     // Losing the suppression costs one extra pulse, never correctness.
     expect(loadAnnouncementPulsedTimestamp()).toBeNull();
+  });
+});
+
+// ─── Launcher HUD intro suppression (per browser tab) ───────────────────────
+
+describe("launcher HUD intro suppression", () => {
+  const SESSION_KEY = "cpk:inspector:hud-intro-played";
+
+  beforeEach(() => {
+    // The outer hook only clears localStorage; this state is session-scoped.
+    window.sessionStorage.clear();
+  });
+
+  it("reports nothing played in a fresh tab", () => {
+    expect(hasLauncherHudIntroPlayed()).toBe(false);
+  });
+
+  it("remembers the preview for the rest of the tab", () => {
+    markLauncherHudIntroPlayed();
+
+    expect(hasLauncherHudIntroPlayed()).toBe(true);
+    // sessionStorage, not localStorage: the preview must not replay on a
+    // reload (which rules out an in-memory flag) but must still greet a new
+    // tab (which rules out localStorage).
+    expect(window.sessionStorage.getItem(SESSION_KEY)).toBe("true");
+    expect(window.localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it("is idempotent, so a second mark is not an error", () => {
+    markLauncherHudIntroPlayed();
+    markLauncherHudIntroPlayed();
+
+    expect(hasLauncherHudIntroPlayed()).toBe(true);
+  });
+
+  it("is not shared with the announcement pulse suppression", () => {
+    markLauncherHudIntroPlayed();
+
+    expect(loadAnnouncementPulsedTimestamp()).toBeNull();
+  });
+
+  it("degrades to replaying when sessionStorage throws", () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new DOMException("SecurityError");
+      },
+      setItem: () => {
+        throw new DOMException("QuotaExceededError");
+      },
+    });
+
+    expect(() => markLauncherHudIntroPlayed()).not.toThrow();
+    // A lost mark costs one extra preview — the behaviour before this rule
+    // existed — never a broken host app.
+    expect(hasLauncherHudIntroPlayed()).toBe(false);
+  });
+
+  it("does not throw in SSR (window undefined)", () => {
+    vi.stubGlobal("window", undefined);
+
+    expect(() => markLauncherHudIntroPlayed()).not.toThrow();
+    expect(hasLauncherHudIntroPlayed()).toBe(false);
   });
 });
 

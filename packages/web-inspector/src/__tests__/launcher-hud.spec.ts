@@ -16,6 +16,7 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { markLauncherHudIntroPlayed } from "../lib/persistence.js";
 
 const RUNTIME_URL = "https://runtime.launcher-hud.test";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
@@ -31,6 +32,12 @@ type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  /**
+   * Start from a tab that has already played the page-load preview, i.e. a
+   * reload rather than a first visit. Set through the exported persistence
+   * helper so the spec never has to name the storage key.
+   */
+  introAlreadyPlayed?: boolean;
 }>;
 
 class HudTestCore extends CopilotKitCore {
@@ -137,6 +144,31 @@ async function settle(inspector: WebInspectorElement): Promise<void> {
   }
 }
 
+/**
+ * Mounts one inspector element into the current document, leaving storage
+ * alone. Calling it a second time models a fresh page load in the SAME browser
+ * tab, which is what the once-per-tab preview rule is about.
+ */
+async function mount(options: Options = {}): Promise<WebInspectorElement> {
+  const inspector = new WebInspectorElement();
+  const core = new HudTestCore(options);
+  document.body.append(inspector);
+  inspector.core = core;
+  await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
+  await settle(inspector);
+  return inspector;
+}
+
+async function hoverLauncher(inspector: WebInspectorElement): Promise<void> {
+  const wrapper = requireElement(
+    root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
+  );
+  wrapper.dispatchEvent(
+    new PointerEvent("pointerenter", { bubbles: true, composed: true }),
+  );
+  await settle(inspector);
+}
+
 async function setup(options: Options = {}): Promise<{
   inspector: WebInspectorElement;
   openHud: () => Promise<void>;
@@ -146,6 +178,9 @@ async function setup(options: Options = {}): Promise<{
   document.body.replaceChildren();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  if (options.introAlreadyPlayed === true) {
+    markLauncherHudIntroPlayed();
+  }
   vi.stubGlobal(
     "fetch",
     Object.assign(
@@ -163,12 +198,7 @@ async function setup(options: Options = {}): Promise<{
     ),
   );
 
-  const inspector = new WebInspectorElement();
-  const core = new HudTestCore(options);
-  document.body.append(inspector);
-  inspector.core = core;
-  await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
-  await settle(inspector);
+  const inspector = await mount(options);
 
   const teardown = (): void => {
     inspector.remove();
@@ -180,15 +210,7 @@ async function setup(options: Options = {}): Promise<{
   };
   cleanup = teardown;
 
-  const openHud = async (): Promise<void> => {
-    const wrapper = requireElement(
-      root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
-    );
-    wrapper.dispatchEvent(
-      new PointerEvent("pointerenter", { bubbles: true, composed: true }),
-    );
-    await settle(inspector);
-  };
+  const openHud = (): Promise<void> => hoverLauncher(inspector);
 
   const clickHud = async (row: string): Promise<void> => {
     const control = requireElement(
@@ -260,6 +282,117 @@ test("hovering during the page-load preview keeps the HUD open", async () => {
 
   expect(hudOpen(inspector)).toBe(true);
   expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
+});
+
+test("the preview stays away in a tab that has already seen it", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup({ introAlreadyPlayed: true });
+
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
+
+  // Dropped, not deferred: it must not surface later in the page's life.
+  await vi.advanceTimersByTimeAsync(3400);
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
+});
+
+test("hover still opens the HUD in a tab that has already seen the preview", async () => {
+  const { inspector, openHud } = await setup({ introAlreadyPlayed: true });
+
+  await openHud();
+
+  expect(hudOpen(inspector)).toBe(true);
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
+  expect(hudRowLabels(inspector)).toEqual([
+    "Open Inspector",
+    "Turn on Threads",
+    "Turn on Intelligence",
+    "Turn on Learning",
+  ]);
+});
+
+test("a fresh element in the same tab does not replay the preview", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup();
+
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+  expect(hud(inspector)?.getAttribute("data-cpk-hud-intro")).toBe("true");
+  await vi.advanceTimersByTimeAsync(3400);
+  await settle(inspector);
+
+  // A reload, a client-side route change and a StrictMode double-mount all
+  // look like this: same tab, new element.
+  inspector.remove();
+  const reloaded = await mount();
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(reloaded);
+
+  expect(hud(reloaded)).toBeNull();
+  await hoverLauncher(reloaded);
+  expect(hudOpen(reloaded)).toBe(true);
+});
+
+test("a preview that never started leaves the tab its turn", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup();
+
+  // Gone before the settle delay elapses, so nobody ever saw the card. The
+  // budget is spent when the preview starts, not when it is scheduled.
+  await vi.advanceTimersByTimeAsync(200);
+  inspector.remove();
+
+  const reloaded = await mount();
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(reloaded);
+
+  expect(hud(reloaded)?.getAttribute("data-cpk-hud-intro")).toBe("true");
+});
+
+test("hovering before the preview starts leaves the tab its turn", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup();
+
+  // Hover inside the settle delay cancels the pending preview and opens the
+  // HUD as an ordinary hover. The reader was shown the HUD but never the
+  // introduction, so the tab has not spent its one preview.
+  await vi.advanceTimersByTimeAsync(200);
+  await hoverLauncher(inspector);
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
+
+  inspector.remove();
+  const reloaded = await mount();
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(reloaded);
+
+  expect(hud(reloaded)?.getAttribute("data-cpk-hud-intro")).toBe("true");
+});
+
+test("a sessionStorage that throws still previews, and the throw never escapes", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup();
+  // Private mode, a sandboxed iframe or an exhausted quota. Stubbed after
+  // setup so its own storage reset still runs against the real store.
+  vi.stubGlobal("sessionStorage", {
+    getItem: () => {
+      throw new DOMException("SecurityError");
+    },
+    setItem: () => {
+      throw new DOMException("QuotaExceededError");
+    },
+  });
+
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+  expect(hud(inspector)?.getAttribute("data-cpk-hud-intro")).toBe("true");
+
+  await vi.advanceTimersByTimeAsync(3400);
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
 });
 
 test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Learning", async () => {
