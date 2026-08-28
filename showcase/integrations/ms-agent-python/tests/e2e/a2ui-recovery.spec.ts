@@ -14,10 +14,11 @@ import type { Page } from "@playwright/test";
 // on the first attempt (root references a missing child) then valid on the
 // second; EXHAUST is invalid on every attempt, so the validate->retry loop hits
 // the cap and returns the a2ui_recovery_exhausted envelope. Healing + the loop
-// run live in the backend agent-framework-ag-ui `enable_a2ui` recovery loop
-// (injectA2UITool=false); the failure UI text ("Couldn't generate the UI")
-// comes from @copilotkit/react-core/v2. The recovered surface reuses the
-// declarative-gen-ui catalog, so it carries the `declarative-metric` testid.
+// run live through the adapter's auto-injected `generate_a2ui` path
+// (`injectA2UITool=true`, with backend policy in `a2ui_config`); the failure UI
+// text ("Couldn't generate the UI") comes from @copilotkit/react-core/v2. The
+// recovered surface reuses the declarative-gen-ui catalog, so it carries the
+// `declarative-metric` testid.
 //
 // Requires the stack running with aimock so the malformed renders fire
 // deterministically; against a real LLM the demo would not reliably produce the

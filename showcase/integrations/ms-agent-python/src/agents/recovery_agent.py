@@ -26,7 +26,6 @@ rather than an explicit `enable_a2ui()` wrap.
 from __future__ import annotations
 
 from agent_framework import Agent, BaseChatClient
-from agent_framework_ag_ui import AgentFrameworkAgent
 
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 
@@ -55,7 +54,7 @@ SYSTEM_PROMPT = (
 )
 
 
-def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
+def create_agent(chat_client: BaseChatClient) -> Agent:
     """Instantiate the MS-Agent-backed A2UI error-recovery agent.
 
     The agent binds no A2UI tool: the route forwards `injectA2UITool: true` and
@@ -63,18 +62,14 @@ def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
     + catalog, so the adapter auto-injects `generate_a2ui` and runs the recovery
     loop. `chat_client` is a Chat-Completions client (`OpenAIChatCompletionClient`),
     reused as the render sub-agent so its `render_a2ui` arguments stream progressively.
+
+    Returns a RAW `Agent` (not an `AgentFrameworkAgent`): the endpoint applies
+    `a2ui_config` only while wrapping a raw agent — an already-wrapped agent has
+    its `a2ui_config` dropped, and recovery would silently fall back to toolkit
+    defaults.
     """
-    base_agent = Agent(
+    return Agent(
         client=chat_client,
         name="a2ui_recovery_agent",
         instructions=SYSTEM_PROMPT,
-    )
-
-    return AgentFrameworkAgent(
-        agent=base_agent,
-        name="CopilotKitMicrosoftAgentFrameworkAgent",
-        description=(
-            "A2UI generator with the validate->retry recovery loop made visible."
-        ),
-        require_confirmation=False,
     )

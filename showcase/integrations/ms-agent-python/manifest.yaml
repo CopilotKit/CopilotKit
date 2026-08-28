@@ -372,7 +372,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: a2ui-recovery
     name: A2UI Error Recovery
-    description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via the adapter's native enable_a2ui (injectA2UITool=false); reuses the declarative-gen-ui catalog.
+    description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. The adapter auto-injects the tool from backend a2ui_config (injectA2UITool=true) and reuses the declarative-gen-ui catalog.
     tags:
       - generative-ui
     route: /demos/a2ui-recovery
