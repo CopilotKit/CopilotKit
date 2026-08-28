@@ -9468,6 +9468,18 @@ export class WebInspectorElement extends LitElement {
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
         background-color: var(--cpk-launcher-face) !important;
+        /* Width and style declared here, not left to the Tailwind utility on
+           the element. That utility resolves border-style from a registered
+           custom property, and @property inside an adopted stylesheet does not
+           register document-wide - so the ring only appeared when the HOST page
+           happened to load Tailwind v4 and register it for us. On a plain host
+           it computed to none, which takes the width to zero, and the launcher
+           lost its only outline. Measured: face against a dark host page is
+           1.10:1, so this hairline is the whole contour there. This block is
+           unlayered and the generated sheet is all layered, so it wins without
+           needing to shout. */
+        border-width: 1px;
+        border-style: solid;
         border-color: var(--cpk-launcher-edge) !important;
         /* One hairline, not two. The border above is it; a second ring used to
            sit 1px outside as a box-shadow and hardcoded the lilac instead of
@@ -9504,6 +9516,17 @@ export class WebInspectorElement extends LitElement {
         border-color: rgba(190, 194, 255, 0.45) !important;
       }
       .console-button:focus-visible {
+        /* Declared here for the same reason the resting ring is, and with a
+           worse failure if it is not: the Tailwind focus utilities resolve
+           outline-style from a registered custom property, which an adopted
+           shadow stylesheet does not register, so on a host page without
+           Tailwind v4 the style fell back to none and took the width to zero.
+           A missing resting outline is a contrast problem. A missing FOCUS
+           outline is a keyboard user with no idea where they are, which is
+           what WCAG 2.4.7 exists to prevent. */
+        outline-style: solid;
+        outline-width: 2px;
+        outline-offset: 2px;
         outline-color: #bec2ff !important;
       }
 
