@@ -1289,12 +1289,11 @@ export class AgentRegistry {
               : undefined;
             if (
               existing instanceof ProxiedCopilotRuntimeAgent &&
-              (options?.preserveOnFailure === true ||
-                this.canReuseRuntimeAgent(
-                  existing,
-                  runtimeUrl,
-                  this._runtimeTransport,
-                ))
+              this.canReuseRuntimeAgent(
+                existing,
+                runtimeUrl,
+                this._runtimeTransport,
+              )
             ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
@@ -1315,6 +1314,11 @@ export class AgentRegistry {
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
             this.mintedThreadIds.set(agent, agent.threadId);
+            if (options?.preserveOnFailure === true && existing) {
+              agent.threadId = existing.threadId;
+              agent.setState(existing.state);
+              agent.setMessages([...existing.messages]);
+            }
             this.remoteAgentConnections.set(agent, {
               runtimeUrl,
               transport: this._runtimeTransport,
