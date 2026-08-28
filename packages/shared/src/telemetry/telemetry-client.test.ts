@@ -127,6 +127,7 @@ describe("v1 TelemetryClient", () => {
    *
    * @param expectedIdentity - Identity fields expected only on the Lambda send.
    * @param samplingMeta - Effective sampling metadata for this capture.
+   * @param telemetryIdentified - Whether a license-derived identity bypassed sampling.
    * @param identityValues - Raw identity values that must not leak into payloads.
    */
   function expectBothSinksReceivedEvent(
@@ -139,6 +140,7 @@ describe("v1 TelemetryClient", () => {
       sampleRateAdjustmentFactor: number;
       sampleWeight: number;
     },
+    telemetryIdentified: boolean,
     identityValues: readonly string[],
   ): void {
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
@@ -152,6 +154,10 @@ describe("v1 TelemetryClient", () => {
       "copilotkit.package.name": "@copilotkit/shared",
       "copilotkit.package.version": "1.0.0",
       ...samplingMeta,
+      telemetry_emitter: "v1-shared",
+      telemetry_event_id: expect.any(String),
+      telemetry_identified: telemetryIdentified,
+      telemetry_transport: "lambda",
     });
 
     expect(segmentTrackMock).toHaveBeenCalledTimes(1);
@@ -164,6 +170,10 @@ describe("v1 TelemetryClient", () => {
         "copilotkit.package.name": "@copilotkit/shared",
         "copilotkit.package.version": "1.0.0",
         ...samplingMeta,
+        telemetry_emitter: "v1-shared",
+        telemetry_event_id: expect.any(String),
+        telemetry_identified: telemetryIdentified,
+        telemetry_transport: "segment",
       },
     });
     expect(segmentEvent).not.toHaveProperty("userId");
@@ -246,6 +256,7 @@ describe("v1 TelemetryClient", () => {
         sampleRateAdjustmentFactor: 0.95,
         sampleWeight: 20,
       },
+      false,
       ["standalone-telemetry-id"],
     );
   });
@@ -307,6 +318,7 @@ describe("v1 TelemetryClient", () => {
         sampleRateAdjustmentFactor: 0,
         sampleWeight: 1,
       },
+      true,
       [telemetryId, licenseToken],
     );
   });

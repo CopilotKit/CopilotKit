@@ -92,6 +92,9 @@ test.each([
         sampleRate: 0.05,
         sampleRateAdjustmentFactor: 0.95,
         sampleWeight: 20,
+        telemetry_emitter: "v2-runtime",
+        telemetry_identified: false,
+        telemetry_transport: "lambda",
       });
     } finally {
       teardown();
@@ -120,6 +123,9 @@ test("V2 legacy-authorized send includes full-fidelity sampling metadata", async
       sampleRate: 1,
       sampleRateAdjustmentFactor: 0,
       sampleWeight: 1,
+      telemetry_emitter: "v2-runtime",
+      telemetry_identified: true,
+      telemetry_transport: "lambda",
     });
   } finally {
     teardown();

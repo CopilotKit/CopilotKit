@@ -416,6 +416,9 @@ test.each(runtimeConstructorIdentityCases)(
         sampleRate: effectiveSampleRate,
         sampleRateAdjustmentFactor: 1 - effectiveSampleRate,
         sampleWeight: 1 / effectiveSampleRate,
+        telemetry_emitter: "v2-runtime",
+        telemetry_identified: hasLicenseSamplingAuthority,
+        telemetry_transport: "lambda",
       });
       expect(fetchMock).toHaveBeenCalledTimes(1);
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
@@ -473,6 +476,9 @@ test.each(runtimeConstructorCases)(
         sampleRate: 0.05,
         sampleRateAdjustmentFactor: 0.95,
         sampleWeight: 20,
+        telemetry_emitter: "v2-runtime",
+        telemetry_identified: false,
+        telemetry_transport: "lambda",
       });
       const headers = new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
       expect(headers.get("X-CopilotKit-Telemetry-Id")).toBeNull();
