@@ -169,6 +169,17 @@ Railway injects `PORT`. Next.js, `mcp-server/server.ts`, and
 for local development only. Generate the frontend domain against its detected
 `PORT`, and do not hard-code those local ports into production variables.
 
+Before the first IaC plan against an existing project, remove the legacy
+Railway Config File setting from every service. While the old TOMLs are still
+present, run `railway config migrate --service <service>` and then repeat it
+with `--apply` from each legacy service directory, using the explicit service
+names `frontend`, `a2a-agent`, and `mcp-server`.
+After applying, move or remove the three generated partial
+`.railway/railway.ts` files before checking out the combined definition. If the
+TOMLs are already gone, clear the field in each service's Railway Settings
+instead; do not use `--force`, because it would overwrite the combined
+`.railway/railway.ts`. New projects skip this one-time migration.
+
 Preview and apply the project from the demo directory with `railway config
 plan` and `railway config apply`. The Node runtime contract and Python SDK
 compatibility smoke run in `test / unit / generative-ui`; container builds remain

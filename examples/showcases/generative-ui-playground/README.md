@@ -186,8 +186,44 @@ server, and Python A2A entry point all listen on it; their local fallbacks are
 the Railway variables. Generate the frontend public domain after deployment
 and target the detected frontend `PORT`.
 
-Create or link the target Railway project, then preview and apply from the demo
-directory:
+An existing Railway project whose services still have a legacy Railway Config
+File setting needs a one-time handoff before IaC can manage those services. Use
+one of Railway's documented [Config as Code migration](https://docs.railway.com/infrastructure-as-code#migrating-from-config-as-code)
+paths:
+
+- Before checking out this revision, migrate each service from the directory
+  that still contains its legacy `railway.toml`. Pass the service name
+  explicitly because the frontend directory name does not match its Railway
+  service name:
+
+  ```bash
+  # From examples/showcases/generative-ui-playground
+  railway config migrate --service frontend
+  railway config migrate --service frontend --apply
+
+  cd a2a-agent
+  railway config migrate --service a2a-agent
+  railway config migrate --service a2a-agent --apply
+
+  cd ../mcp-server
+  railway config migrate --service mcp-server
+  railway config migrate --service mcp-server --apply
+  ```
+
+  Review each preview before applying it. After all three applies have cleared
+  the services' Railway Config File settings, move or remove the three generated
+  partial `.railway/railway.ts` files before checking out this revision; the
+  root partial would otherwise conflict with the combined project definition
+  committed here. Then update the checkout and use the committed definition.
+
+- If this revision is already checked out and the old TOML files are gone,
+  clear the Railway Config File field for `frontend`, `a2a-agent`, and
+  `mcp-server` in each service's Settings. Do not pass `--force` to migration,
+  because that would overwrite the combined `.railway/railway.ts` in this repo.
+
+This migration is not needed for a new project. Once no service is still
+managed by Config as Code, create or link the target Railway project, then
+preview and apply from the demo directory:
 
 ```bash
 cd examples/showcases/generative-ui-playground

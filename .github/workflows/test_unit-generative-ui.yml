@@ -81,9 +81,21 @@ jobs:
         run: |
           python - <<'PY'
           from importlib.metadata import version
-          from agent.__main__ import create_agent_card
+          from unittest.mock import patch
 
-          card = create_agent_card("http://a2a-agent.internal")
+          from agent.__main__ import main
+
+          base_url = "http://a2a-agent.internal"
+          with (
+              patch.dict("os.environ", {"A2A_BASE_URL": base_url}),
+              patch("agent.__main__.uvicorn.run") as run_server,
+          ):
+              main.callback(host="127.0.0.1", port=10002)
+
+          run_server.assert_called_once()
+          app = run_server.call_args.args[0]
+          route_paths = {route.path for route in app.routes}
+
           assert version("a2a-sdk") == "0.3.26"
-          assert card.url == "http://a2a-agent.internal"
+          assert "/.well-known/agent.json" in route_paths
           PY
