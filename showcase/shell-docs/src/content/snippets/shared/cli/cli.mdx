@@ -87,7 +87,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     ```bash title=".env"
     INTELLIGENCE_API_URL=https://...
     INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    CPK_INTELLIGENCE_API_KEY=cpk_...
+    CPK_INTELLIGENCE_API_KEY=cpk-...
     CPK_TELEMETRY_ID=...
     SL_ENABLED=true
     ```
@@ -147,7 +147,7 @@ Before the real import, export the destination values from that `.env`:
 
 ```bash title="Terminal"
 export INTELLIGENCE_API_URL="https://..."
-export CPK_INTELLIGENCE_API_KEY="cpk_..."
+export CPK_INTELLIGENCE_API_KEY="cpk-..."
 ```
 
 The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
