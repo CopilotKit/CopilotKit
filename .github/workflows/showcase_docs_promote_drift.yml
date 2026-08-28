@@ -1,0 +1,80 @@
+name: "Showcase: Docs Promote Drift"
+
+# Reports docs content merged to `main` but not promoted to prod.
+#
+# `docs.copilotkit.ai` only moves when a human dispatches showcase_promote.yml
+# ("Humans trigger. No automatic prod promotes."). That gate is deliberate and this
+# workflow does not argue with it — it makes visible what the gate is holding.
+#
+# The failure it prevents: a merged page returns an honest 404 on prod, which nothing
+# distinguishes from a page that was never written. OSS-948 was filed as "written but
+# unpublished"; OSS-1005 was closed by a commit whose page was still not live four days
+# later; OSS-1037 was filed on the wrong diagnosis, reading a 404 as a routing defect and
+# proposing a fix for a route that was never broken. The onboarding graph hits it too — it
+# fetches docs.copilotkit.ai/*.md at run time and treats a failed fetch as an unsupported
+# path, so an un-promoted page fails a run for a gap that does not exist.
+#
+# Needs no secret. The shell renders its own build SHA into every page
+# (shell-docs-commit-label, see showcase/shell-docs/src/app/layout.tsx), so the deployed
+# commit is public and this works on fork PRs like any other check.
+#
+# Drift is the normal state between promotes, so the check reports it and only fails once
+# the oldest unpromoted page is past the age budget (3 days). A check that is always red
+# is a check nobody reads.
+#
+# Triggers: PRs that touch the script or this workflow (so the gate is reviewed with its
+# own changes), a daily schedule (the actual point — catch a forgotten promote), and
+# manual dispatch.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/scripts/check-docs-promote-drift.ts"
+      - "showcase/scripts/check-docs-promote-drift.test.ts"
+      - ".github/workflows/showcase_docs_promote_drift.yml"
+  schedule:
+    # Daily at 09:37 UTC (offset from the other showcase crons to avoid pile-up).
+    - cron: "37 9 * * *"
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "Docs host to read the deployed commit from."
+        required: false
+        default: "docs.copilotkit.ai"
+        type: string
+      max-age-days:
+        description: "Days of unpromoted content tolerated before failing."
+        required: false
+        default: "3"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  check-drift:
+    name: Docs promote drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          # Full history: the deployed commit can be well behind `main`, and a shallow
+          # clone cannot resolve it. The script reports an unresolvable commit as its own
+          # failure rather than as zero drift, so a shallow clone would be loud — but it
+          # would also be useless.
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22.x
+      - name: Report docs promote drift
+        run: |
+          npx --yes tsx@4.21.0 showcase/scripts/check-docs-promote-drift.ts \
+            --host "${HOST}" \
+            --max-age-days "${MAX_AGE_DAYS}"
+        env:
+          HOST: ${{ inputs.host || 'docs.copilotkit.ai' }}
+          MAX_AGE_DAYS: ${{ inputs['max-age-days'] || '3' }}
