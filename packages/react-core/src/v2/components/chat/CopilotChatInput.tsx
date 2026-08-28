@@ -665,6 +665,11 @@ export function CopilotChatInput({
 
     const previousValue = textarea.value;
     const previousHeight = textarea.style.height;
+    // Restoring `.value` below resets the caret to the end of the input.
+    // Capture the selection up front and re-apply it so the measurement
+    // pass never moves the user's cursor (see #6167).
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
 
     textarea.style.height = "auto";
 
@@ -677,6 +682,14 @@ export function CopilotChatInput({
     textarea.value = "";
     const singleLineHeight = textarea.scrollHeight;
     textarea.value = previousValue;
+
+    if (
+      selectionStart !== null &&
+      selectionEnd !== null &&
+      typeof textarea.setSelectionRange === "function"
+    ) {
+      textarea.setSelectionRange(selectionStart, selectionEnd);
+    }
 
     const contentHeight = singleLineHeight - paddingTop - paddingBottom;
     const maxHeight = contentHeight * 5 + paddingTop + paddingBottom;
