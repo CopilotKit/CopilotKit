@@ -116,6 +116,15 @@ function hudRowLabels(inspector: WebInspectorElement): string[] {
   });
 }
 
+function capsuleHeading(inspector: WebInspectorElement): string | null {
+  return (
+    root(inspector)
+      .querySelector("[data-cpk-capsule-heading]")
+      ?.textContent?.replace(/\s+/g, " ")
+      .trim() ?? null
+  );
+}
+
 function currentMenu(inspector: WebInspectorElement): string | null {
   return (
     root(inspector)
@@ -143,6 +152,7 @@ async function setup(options: Options = {}): Promise<{
   inspector: WebInspectorElement;
   openHud: () => Promise<void>;
   clickHud: (row: string) => Promise<void>;
+  clickCapsule: () => Promise<void>;
   pressLauncher: () => Promise<void>;
 }> {
   document.body.replaceChildren();
@@ -202,6 +212,14 @@ async function setup(options: Options = {}): Promise<{
     await settle(inspector);
   };
 
+  const clickCapsule = async (): Promise<void> => {
+    const capsule = requireElement(
+      root(inspector).querySelector<HTMLElement>("[data-cpk-launcher-capsule]"),
+    );
+    capsule.click();
+    await settle(inspector);
+  };
+
   const pressLauncher = async (): Promise<void> => {
     const button = launcherButton(inspector);
     const init = { bubbles: true, composed: true, pointerId: 1, button: 0 };
@@ -211,7 +229,7 @@ async function setup(options: Options = {}): Promise<{
     await settle(inspector);
   };
 
-  return { inspector, openHud, clickHud, pressLauncher };
+  return { inspector, openHud, clickHud, clickCapsule, pressLauncher };
 }
 
 test("the HUD stays closed during the initial page-settle delay", async () => {
@@ -232,16 +250,22 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
 
   const introHud = requireElement(hud(inspector));
   expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
+  // Intelligence previews too, but as the capsule's title rather than a
+  // staggered row — it is the connection the two rows below are carried
+  // over, not a third feature beside them.
+  expect(capsuleHeading(inspector)).toBe("Intelligence connected");
   expect(hudRowLabels(inspector)).toEqual([
-    "Threads on",
-    "Intelligence connected",
-    "Learning on",
+    "Threads enabled",
+    "Learning enabled",
   ]);
+  // Two rows now, so two staggered delays: rowStart (180ms) then
+  // rowStart + rowStagger (180ms + 170ms = 350ms). See
+  // LAUNCHER_HUD_INTRO_MS in src/index.ts.
   expect(
     Array.from(
       root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
     ).map((row) => row.style.getPropertyValue("--cpk-hud-row-delay")),
-  ).toEqual(["180ms", "350ms", "520ms"]);
+  ).toEqual(["180ms", "350ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);
@@ -263,36 +287,32 @@ test("hovering during the page-load preview keeps the HUD open", async () => {
   expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
 });
 
-test("hovering the launcher shows Threads, Intelligence, and Learning", async () => {
+test("hovering the launcher shows Threads and Learning, disabled", async () => {
   const { inspector, openHud } = await setup();
   await openHud();
   expect(hudOpen(inspector)).toBe(true);
   expect(hudRowLabels(inspector)).toEqual([
-    "Turn on Threads",
-    "Turn on Intelligence",
-    "Turn on Learning",
+    "Threads disabled",
+    "Learning disabled",
   ]);
+  // Intelligence is not a row any more; it is the capsule's title.
+  expect(capsuleHeading(inspector)).toBe("Intelligence not connected");
 });
 
-test("connected Intelligence and Threads keep their slots and show a check", async () => {
+test("connected Threads and Learning show a check, and Intelligence titles the capsule", async () => {
   const { inspector, openHud } = await setup({
     intelligence: true,
     endpoints: ENABLED_ENDPOINTS,
   });
   await openHud();
   expect(hudRowLabels(inspector)).toEqual([
-    "Threads on",
-    "Intelligence connected",
-    "Learning on",
+    "Threads enabled",
+    "Learning enabled",
   ]);
+  expect(capsuleHeading(inspector)).toBe("Intelligence connected");
   expect(
     root(inspector).querySelector(
       '[data-cpk-hud-row="threads"] [data-cpk-hud-check]',
-    ),
-  ).not.toBeNull();
-  expect(
-    root(inspector).querySelector(
-      '[data-cpk-hud-row="intelligence"] [data-cpk-hud-check]',
     ),
   ).not.toBeNull();
   expect(
@@ -311,17 +331,24 @@ test("the HUD respects a runtime that is not entitled to Intelligence", async ()
 
   await openHud();
 
+  // The transport flags (intelligence + endpoints) are present, but the
+  // license is not entitled: the title must say so, not just the rows.
+  expect(capsuleHeading(inspector)).toBe("Intelligence not connected");
   expect(hudRowLabels(inspector)).toEqual([
-    "Turn on Threads",
-    "Turn on Intelligence",
-    "Turn on Learning",
+    "Threads disabled",
+    "Learning disabled",
   ]);
-  for (const row of ["threads", "intelligence", "learning"] as const) {
+  for (const row of ["threads", "learning"] as const) {
     expect(
       root(inspector).querySelector(
         `[data-cpk-hud-row="${row}"] [data-cpk-hud-check]`,
       ),
     ).toBeNull();
+    expect(
+      root(inspector).querySelector(
+        `[data-cpk-hud-row="${row}"] [data-cpk-hud-cross]`,
+      ),
+    ).not.toBeNull();
   }
 });
 
@@ -368,18 +395,31 @@ test("Threads on still lands on the Threads view", async () => {
   expect(currentMenu(inspector)).toBe("threads");
 });
 
-test("Turn on Intelligence lands on Home", async () => {
-  const { inspector, openHud, clickHud } = await setup();
+// There is no longer an Intelligence row to click: Intelligence is the
+// capsule's title now, and the capsule itself is clickable — it opens the
+// Inspector exactly as pressing the launcher mark does (see
+// `handlePillClick` in src/index.ts), reusing the same plain-open path
+// rather than a HUD row's `hudLandingMenu` override. A plain open lands on
+// whichever menu was last selected, which for a fresh Inspector is "home".
+// That is the equivalent guarantee to what these two tests checked before:
+// interacting with the Intelligence surface opens the Inspector on Home, in
+// both the connected and not-connected states.
+test("clicking the capsule opens Inspector on Home when Intelligence is not connected", async () => {
+  const { inspector, openHud, clickCapsule } = await setup();
   await openHud();
-  await clickHud("intelligence");
+  await clickCapsule();
   expect(currentMenu(inspector)).toBe("home");
+  expect(hud(inspector)).toBeNull();
 });
 
-test("Intelligence connected lands on Home", async () => {
-  const { inspector, openHud, clickHud } = await setup({ intelligence: true });
+test("clicking the capsule opens Inspector on Home when Intelligence is connected", async () => {
+  const { inspector, openHud, clickCapsule } = await setup({
+    intelligence: true,
+  });
   await openHud();
-  await clickHud("intelligence");
+  await clickCapsule();
   expect(currentMenu(inspector)).toBe("home");
+  expect(hud(inspector)).toBeNull();
 });
 
 test("Turn on Learning lands on the Learning view", async () => {

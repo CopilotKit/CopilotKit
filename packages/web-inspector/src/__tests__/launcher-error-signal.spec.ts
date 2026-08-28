@@ -62,7 +62,7 @@ const THREADS_ERROR_WORDS = "Failed to load threads";
  * The pill's second line: the one string in this feature that appears nowhere
  * else in the product, and the only one that is shown without being spoken.
  */
-const PILL_SUBLINE_WORDS = "Open Inspector for details";
+const PILL_SUBLINE_WORDS = "Click to open Inspector";
 
 /** The launcher's rendered diameter at the suite's viewport. */
 const LAUNCHER_SIZE = 52;
@@ -1717,24 +1717,32 @@ test("the reveal animates a rectangular clip, never a width or a scale", async (
   const context = await setup();
   const css = stylesheetText(context.inspector);
 
-  // The two directions are the same animation with the inset on the other
-  // side, which is what makes choosing a side nearly free.
+  // Four keyframes now, not two: opening and closing are written out
+  // separately per direction rather than one reversed, so the layout
+  // guarantee has to hold for the close as much as for the open — a closing
+  // keyframe that snuck a width or a scale back in would be just as much of
+  // a regression as an opening one.
   for (const direction of ["left", "right"]) {
-    const frames =
-      new RegExp(
-        `@keyframes\\s+cpk-launcher-capsule-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
-      ).exec(css)?.[1] ?? "";
-    expect(frames).toContain("clip-path: inset(");
-    expect(frames).toContain("opacity");
-    // Animating either of these gives up the layout guarantee — `width` forces
-    // a layout on every frame on someone else's page, and a horizontal scale
-    // squashes the mark itself, so the dot and halo would become ellipses.
-    expect(frames).not.toContain("width");
-    expect(frames).not.toContain("scale");
+    for (const name of [
+      `cpk-launcher-island-${direction}`,
+      `cpk-launcher-island-close-${direction}`,
+    ]) {
+      const frames =
+        new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
+          css,
+        )?.[1] ?? "";
+      expect(frames).toContain("clip-path: inset(");
+      expect(frames).toContain("opacity");
+      // Animating either of these gives up the layout guarantee — `width` forces
+      // a layout on every frame on someone else's page, and a horizontal scale
+      // squashes the mark itself, so the dot and halo would become ellipses.
+      expect(frames).not.toContain("width");
+      expect(frames).not.toContain("scale");
+    }
   }
 
   // Laid out at full width from the start, so only the visible region moves.
-  // The layout guarantee is that no *keyframe* animates width — the two
+  // The layout guarantee is that no *keyframe* animates width — the four
   // `expect(frames).not.toContain("width")` assertions above are the real
   // guard. A static declared width is what makes the capsule and the drawer
   // flush by construction.
@@ -1749,19 +1757,38 @@ test("the revealing edge is the capsule's own rounded end, not a straight wipe",
   const css = stylesheetText(context.inspector);
 
   // An unrounded inset sweeps a straight vertical line sideways and reads as a
-  // wipe. Rounding BOTH stops of BOTH directions makes it read as an opening —
-  // and a clip-path only interpolates between shapes of the same kind, so a
-  // `round` on one stop alone would stop the reveal animating at all.
+  // wipe. Rounding BOTH stops of BOTH directions — and now of the closing
+  // keyframe as well as the opening one — makes it read as an opening
+  // whichever way it is travelling: a straight-edged close would be exactly
+  // as wrong as a straight-edged open. A clip-path only interpolates between
+  // shapes of the same kind, so a `round` on one stop alone would stop the
+  // reveal animating at all.
+  //
+  // The radius is the island's own token rather than a bare pixel figure,
+  // because this one pair of keyframes now also drives the taller drawer:
+  // a literal that happened to clamp to a circle at the capsule's height
+  // would round the drawer by the wrong amount.
   for (const direction of ["left", "right"]) {
-    const frames =
-      new RegExp(
-        `@keyframes\\s+cpk-launcher-capsule-${direction}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`,
-      ).exec(css)?.[1] ?? "";
-    const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
-    expect(stops).toHaveLength(2);
-    for (const stop of stops) {
-      expect(stop).toContain("inset(");
-      expect(stop).toContain("round 999px");
+    for (const name of [
+      `cpk-launcher-island-${direction}`,
+      `cpk-launcher-island-close-${direction}`,
+    ]) {
+      const frames =
+        new RegExp(`@keyframes\\s+${name}\\s*\\{([\\s\\S]*?\\}\\s*)\\}`).exec(
+          css,
+        )?.[1] ?? "";
+      const stops = frames.match(/clip-path:[\s\S]*?;/g) ?? [];
+      expect(stops).toHaveLength(2);
+      for (const stop of stops) {
+        // Whitespace collapsed: the declaration wraps "round" onto its own
+        // line from the radius that follows it, which a literal substring
+        // check would otherwise trip over.
+        const normalized = stop.replace(/\s+/g, " ");
+        expect(normalized).toContain("inset(");
+        expect(normalized).toContain(
+          "round calc(var(--cpk-launcher-size) / 2)",
+        );
+      }
     }
   }
 });

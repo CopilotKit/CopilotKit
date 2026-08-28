@@ -242,6 +242,24 @@ function drawerRows(inspector: WebInspectorElement): HTMLElement[] {
   );
 }
 
+function capsuleHeading(inspector: WebInspectorElement): string | null {
+  return (
+    capsule(inspector)
+      ?.querySelector("[data-cpk-capsule-heading]")
+      ?.textContent?.replace(/\s+/g, " ")
+      .trim() ?? null
+  );
+}
+
+function capsuleSubline(inspector: WebInspectorElement): string | null {
+  return (
+    capsule(inspector)
+      ?.querySelector("[data-cpk-capsule-subline]")
+      ?.textContent?.replace(/\s+/g, " ")
+      .trim() ?? null
+  );
+}
+
 /**
  * The body of a rule whose selector is exactly `selector`, not one that merely
  * ends with it. `.cpk-launcher-drawer` also appears inside a descendant
@@ -272,6 +290,42 @@ function ruleBody(css: string, selector: string): string | null {
  */
 function drawerRuleBody(css: string): string {
   return ruleBody(css, ".cpk-launcher-drawer") ?? "";
+}
+
+/**
+ * The full body of a `@keyframes NAME { ... }` rule. Each stop inside it is
+ * itself a `{ ... }` block, so `ruleBody`'s "stop at the first `}`" pattern
+ * would return only the first stop's declarations rather than the whole
+ * rule. This balances braces instead, walking from the rule's own opening
+ * brace to its matching close.
+ */
+function keyframesBody(css: string, name: string): string {
+  const start = css.indexOf(`@keyframes ${name}`);
+  if (start === -1) return "";
+  const braceStart = css.indexOf("{", start);
+  if (braceStart === -1) return "";
+  let depth = 0;
+  for (let i = braceStart; i < css.length; i += 1) {
+    if (css[i] === "{") depth += 1;
+    else if (css[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return css.slice(braceStart + 1, i);
+    }
+  }
+  return "";
+}
+
+/**
+ * The `clip-path` declared on one stop — `"0%"` or `"100%"` — of a keyframes
+ * body, whitespace collapsed to single spaces so a `calc()` expression
+ * wrapped across several source lines compares equal to the same expression
+ * written on one line.
+ */
+function clipPathAtStop(body: string, stop: "0%" | "100%"): string {
+  const match = new RegExp(
+    `${stop}\\s*\\{[\\s\\S]*?clip-path:\\s*([\\s\\S]*?);`,
+  ).exec(body);
+  return match?.[1]?.replace(/\s+/g, " ").trim() ?? "";
 }
 
 test("the capsule and the launcher share one surface and one edge", async () => {
@@ -393,14 +447,13 @@ test("the drawer and the capsule share a top edge and a width", async () => {
   }
 });
 
-test("the drawer names three services and nothing else", async () => {
+test("the drawer names two services and nothing else, Intelligence having left for the capsule's title", async () => {
   const { inspector, openHud } = await setup({ intelligence: true });
   await openHud();
   // A real DOM assertion, not a stylesheet one: jsdom matches selectors even
   // though it lays nothing out, so querySelectorAll and .dataset both work.
   expect(drawerRows(inspector).map((row) => row.dataset.cpkHudRow)).toEqual([
     "threads",
-    "intelligence",
     "learning",
   ]);
 });
@@ -600,6 +653,11 @@ test("every launcher rule reaches an element, and every launcher element has a r
     // Presence marker for the row's checkmark SVG, read by
     // launcher-hud.spec.ts.
     "data-cpk-hud-check",
+    // Presence marker for the row's cross SVG — the disabled-row mirror of
+    // the checkmark above. Styling comes from the `.cpk-launcher-drawer__cross`
+    // class (verified: four rules reference it), not from this attribute; it
+    // is a query hook exactly like its sibling, for the same reason.
+    "data-cpk-hud-cross",
     // Presence marker for the capsule's heading span. No selector — CSS or
     // test — currently addresses it by this attribute.
     "data-cpk-capsule-heading",
@@ -636,4 +694,112 @@ test("the drawer paints behind the capsule, which paints behind the mark", async
   const mark = z(".console-button", "the launcher");
   expect(drawer).toBeLessThan(capsule);
   expect(capsule).toBeLessThan(mark);
+});
+
+test("the capsule shows on dwell, titled with the Intelligence connection it is the parent of", async () => {
+  // Connected: `intelligence: true` makes `CopilotKitCore.intelligence`
+  // truthy, which is what the home briefing falls back to for
+  // `hero.connection` while no metadata has been fetched (licenseState
+  // stays "unknown" in this suite).
+  const connected = await setup({ intelligence: true });
+  await connected.openHud();
+  expect(
+    capsule(connected.inspector),
+    "the capsule does not render on a bare dwell",
+  ).not.toBeNull();
+  expect(capsuleHeading(connected.inspector)).toBe("Intelligence connected");
+  // The subline is the fixed invitation, unrelated to the connection state;
+  // pinned here too so a future edit cannot satisfy the heading assertion by
+  // swapping the two spans' content.
+  expect(capsuleSubline(connected.inspector)).toBe("Click to open Inspector");
+
+  // Not connected: no `intelligence` option at all.
+  const disconnected = await setup();
+  await disconnected.openHud();
+  expect(capsuleHeading(disconnected.inspector)).toBe(
+    "Intelligence not connected",
+  );
+  expect(capsuleSubline(disconnected.inspector)).toBe(
+    "Click to open Inspector",
+  );
+});
+
+test("a disabled row carries the cross, an enabled row carries the check, and the two are not the same colour", async () => {
+  // No `endpoints` option: `areThreadEndpointsAvailable()` reads
+  // `this._core?.threadEndpoints`, which is `undefined` here, so Threads is
+  // disabled. Learning is backed by the component's own
+  // `_memoriesAvailable`, which defaults to `true` and nothing here turns
+  // off — so one setup produces one row of each kind.
+  const { inspector, openHud } = await setup({ intelligence: true });
+  await openHud();
+
+  const rows = drawerRows(inspector);
+  const threadsRow = rows.find((row) => row.dataset.cpkHudRow === "threads");
+  const learningRow = rows.find((row) => row.dataset.cpkHudRow === "learning");
+  if (!threadsRow || !learningRow) {
+    throw new Error(
+      `expected a threads row and a learning row, got ${rows
+        .map((row) => row.dataset.cpkHudRow)
+        .join(", ")}`,
+    );
+  }
+
+  // Each row carries exactly one glyph, and it is the one that matches its
+  // own state.
+  expect(threadsRow.querySelector("[data-cpk-hud-cross]")).not.toBeNull();
+  expect(threadsRow.querySelector("[data-cpk-hud-check]")).toBeNull();
+  expect(learningRow.querySelector("[data-cpk-hud-check]")).not.toBeNull();
+  expect(learningRow.querySelector("[data-cpk-hud-cross]")).toBeNull();
+
+  // What is under test is the SHARING, not the value, same as the rest of
+  // this file: the two glyphs must resolve to different colours, whatever
+  // those colours are, so the on/off pair stays visually distinguishable to
+  // a reader who cannot rely on the row text alone. Asserting a literal hex
+  // would pass today and stay silent the day someone hardcodes the two
+  // glyphs onto the same colour.
+  const css = stylesheetText(inspector);
+  const checkColor = /color:\s*([^;]+);/
+    .exec(ruleBody(css, ".cpk-launcher-drawer__check") ?? "")?.[1]
+    ?.trim();
+  const crossColor = /color:\s*([^;]+);/
+    .exec(ruleBody(css, ".cpk-launcher-drawer__cross") ?? "")?.[1]
+    ?.trim();
+  expect(checkColor, "the check has no colour rule").toBeTruthy();
+  expect(crossColor, "the cross has no colour rule").toBeTruthy();
+  expect(crossColor).not.toBe(checkColor);
+});
+
+test("the closed island clips to exactly the mark's footprint, and the open island clips to none of it", async () => {
+  const { inspector } = await setup();
+  const css = stylesheetText(inspector);
+
+  // The open end of both directions is the same shape: nothing held back at
+  // all, rounded by the launcher's own radius rather than a bare pixel that
+  // would agree with the circle only at one clamp width.
+  const openClip = "inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2))";
+
+  const left = keyframesBody(css, "cpk-launcher-island-left");
+  const right = keyframesBody(css, "cpk-launcher-island-right");
+  expect(left, "cpk-launcher-island-left is missing").not.toBe("");
+  expect(right, "cpk-launcher-island-right is missing").not.toBe("");
+
+  // -left opens toward the left, so the mark sits at the island's top-right
+  // corner: the closed (0%) frame must leave exactly that size-by-size
+  // corner visible — nothing taken off the top or the right, and everything
+  // but the mark's own size taken off the bottom and the left — expressed
+  // through `--cpk-launcher-size`, not a literal. An island whose closed
+  // frame left more than that visible would not be a circle opening out, it
+  // would be a second surface appearing outside the mark before the reveal
+  // even starts.
+  expect(clipPathAtStop(left, "0%")).toBe(
+    "inset( 0 0 calc(100% - var(--cpk-launcher-size)) calc(100% - var(--cpk-launcher-size)) round calc(var(--cpk-launcher-size) / 2) )",
+  );
+  expect(clipPathAtStop(left, "100%")).toBe(openClip);
+
+  // -right is the mirror: the mark sits at the top-left corner, so the pair
+  // of insets held at zero moves from (top, right) to (top, left).
+  expect(clipPathAtStop(right, "0%")).toBe(
+    "inset( 0 calc(100% - var(--cpk-launcher-size)) calc(100% - var(--cpk-launcher-size)) 0 round calc(var(--cpk-launcher-size) / 2) )",
+  );
+  expect(clipPathAtStop(right, "100%")).toBe(openClip);
 });
