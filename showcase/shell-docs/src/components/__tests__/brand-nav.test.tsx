@@ -86,24 +86,21 @@ test("BrandNav renders Clerk's user button in the desktop auth slot", () => {
   expect(markup).not.toContain("Get CopilotKit Intelligence free");
 });
 
-test("BrandNav preserves the current docs URL in the public auth entry URL", () => {
-  const href = buildDocsAuthEntryHref(
-    "https://docs.copilotkit.ai/channels?utm_source=website#install",
-  );
+test("BrandNav sends public auth entry to Intelligence onboarding", () => {
+  const href = buildDocsAuthEntryHref();
 
   expect(href).toBe(
-    "https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=https%3A%2F%2Fdocs.copilotkit.ai%2Fchannels%3Futm_source%3Dwebsite%23install",
+    "https://dashboard.operations.copilotkit.ai/sign-in?post_auth_redirect=ready&utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
   );
 });
 
 test("BrandNav uses the environment-specific Ops origin for auth entry", () => {
   const href = buildDocsAuthEntryHref(
-    "https://docs.staging.copilotkit.ai/react?ref=nav#install",
     "https://dashboard.staging.operations.copilotkit.ai",
   );
 
   expect(href).toBe(
-    "https://dashboard.staging.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar&redirect_url=https%3A%2F%2Fdocs.staging.copilotkit.ai%2Freact%3Fref%3Dnav%23install",
+    "https://dashboard.staging.operations.copilotkit.ai/sign-in?post_auth_redirect=ready&utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=navbar",
   );
 });
 
@@ -124,10 +121,6 @@ test("BrandNav keeps the public auth CTA when Clerk state cannot resolve", () =>
   expect(markup).not.toContain("Account menu");
 });
 
-test("BrandNav refreshes the auth href when its route context changes", () => {
-  expect(docsPublicAuthControlSource).toContain("usePathname()");
-  expect(docsPublicAuthControlSource).toContain("useSearchParams()");
-  expect(docsPublicAuthControlSource).toContain(
-    "[opsPublicUrl, pathname, searchParams]",
-  );
+test("BrandNav does not send public auth back to Docs", () => {
+  expect(docsPublicAuthControlSource).not.toContain("redirect_url");
 });

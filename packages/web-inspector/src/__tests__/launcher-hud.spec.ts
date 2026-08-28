@@ -127,6 +127,7 @@ let cleanup: (() => void) | null = null;
 afterEach(() => {
   cleanup?.();
   cleanup = null;
+  vi.useRealTimers();
 });
 
 async function settle(inspector: WebInspectorElement): Promise<void> {
@@ -211,9 +212,54 @@ async function setup(options: Options = {}): Promise<{
   return { inspector, openHud, clickHud, pressLauncher };
 }
 
-test("the HUD is closed until the launcher is hovered", async () => {
+test("the HUD stays closed during the initial page-settle delay", async () => {
   const { inspector } = await setup();
   expect(hud(inspector)).toBeNull();
+});
+
+test("the HUD previews every feature in sequence on page load, then leaves", async () => {
+  vi.useFakeTimers();
+  const { inspector } = await setup({
+    intelligence: true,
+    endpoints: ENABLED_ENDPOINTS,
+  });
+
+  expect(hud(inspector)).toBeNull();
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+
+  const introHud = requireElement(hud(inspector));
+  expect(introHud.getAttribute("data-cpk-hud-intro")).toBe("true");
+  expect(hudRowLabels(inspector)).toEqual([
+    "Open Inspector",
+    "Threads on",
+    "Intelligence connected",
+    "Learning on",
+  ]);
+  expect(
+    Array.from(
+      root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
+    ).map((row) => row.style.getPropertyValue("--cpk-hud-row-delay")),
+  ).toEqual(["180ms", "350ms", "520ms", "690ms"]);
+
+  await vi.advanceTimersByTimeAsync(3400);
+  await settle(inspector);
+  expect(hud(inspector)).toBeNull();
+});
+
+test("hovering during the page-load preview keeps the HUD open", async () => {
+  vi.useFakeTimers();
+  const { inspector, openHud } = await setup();
+  await vi.advanceTimersByTimeAsync(500);
+  await settle(inspector);
+  expect(hudOpen(inspector)).toBe(true);
+
+  await openHud();
+  await vi.advanceTimersByTimeAsync(3400);
+  await settle(inspector);
+
+  expect(hudOpen(inspector)).toBe(true);
+  expect(hud(inspector)?.hasAttribute("data-cpk-hud-intro")).toBe(false);
 });
 
 test("hovering the launcher shows Open Inspector, Threads, Intelligence, and Learning", async () => {
@@ -286,6 +332,15 @@ test("pressing the circle still opens Inspector", async () => {
   await pressLauncher();
   expect(root(inspector).querySelector(".inspector-window")).not.toBeNull();
   expect(hud(inspector)).toBeNull();
+});
+
+test("the floating window does not cover the sidebar toggle with a SW handle", async () => {
+  const { inspector, pressLauncher } = await setup();
+  await pressLauncher();
+  const tree = root(inspector);
+  expect(tree.querySelector('[data-resize-edge="sw"]')).toBeNull();
+  expect(tree.querySelector('[data-resize-edge="se"]')).not.toBeNull();
+  expect(tree.querySelector("[data-inspector-sidebar-toggle]")).not.toBeNull();
 });
 
 test("Open Inspector in the HUD opens the panel", async () => {

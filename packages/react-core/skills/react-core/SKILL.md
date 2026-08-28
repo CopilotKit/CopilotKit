@@ -13,7 +13,7 @@ description: >
   alias). Load the reference under references/ that matches your task.
 type: framework
 library: copilotkit
-library_version: "1.69.2"
+library_version: "1.69.3"
 requires:
   - copilotkit/runtime
 sources:
@@ -58,7 +58,7 @@ your task — do not try to absorb the whole package from this file.
 
 1. **Provider shell** — the `CopilotKit` provider (from `@copilotkit/react-core/v2`) at or near the root (inside `"use client"` for
    Next.js App Router). Carries `runtimeUrl` (or `publicLicenseKey` for SPA), `headers`,
-   `credentials`, `properties`, `onError`, `debug`, `showDevConsole`.
+   `credentials`, `properties`, `onError`, `debug`, `enableInspector`.
 2. **Chat shell** — `CopilotChat` / `CopilotPopup` / `CopilotSidebar` or a composed
    `CopilotChatView` + slot primitives (`CopilotChatInput`, `CopilotChatMessageView`, etc.).
    All chat components ship from `@copilotkit/react-core/v2`. **`CopilotPanel` does not
@@ -74,7 +74,7 @@ your task — do not try to absorb the whole package from this file.
 | Mount the `CopilotKit` provider, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules              | `references/provider-setup.md`                                                          |
 | Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md`                                                         |
 | File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload                    | `references/attachments.md`                                                             |
-| Client-side debug tooling — `showDevConsole`, `debug` prop, lazy-loaded web inspector                     | `references/debug-mode.md`                                                              |
+| Client-side debug tooling — `enableInspector`, `debug` prop, lazy-loaded web inspector                    | `references/debug-mode.md`                                                              |
 | Read / subscribe to an agent (`useAgent`) and push global context (`useAgentContext`)                     | `references/agent-access.md`                                                            |
 | Feature-gate UI on declared agent capabilities (`useCapabilities`)                                        | `references/capabilities.md`                                                            |
 | Build a multi-agent UI (per-panel `useAgent`, agent-scoped tools, key-remount pattern)                    | `references/switching-agents.md` (+ `switching-agents-recipes.md` for concrete layouts) |
@@ -97,6 +97,8 @@ your task — do not try to absorb the whole package from this file.
 - Tool-call `status` values are camelCase: `'inProgress' | 'executing' | 'complete'`. In-progress args are `Partial<T>`.
 - `useHumanInTheLoop` synthesized handler **MUST** call `respond(result)` (including reject paths), otherwise the agent run hangs. `respond` is `undefined` outside `Executing` status. Unmounting mid-Executing abandons the run.
 - `useThreads` errors with `'Runtime URL is not configured'` outside Intelligence mode.
+- `useAgent` returns `{ agent, isReady }`. While `isReady` is `false`, `agent` is a provisional stand-in that is **swapped** for the real instance when `/info` resolves — `agent` changes reference and every effect depending on it re-runs. Never initialize app state (correlation maps, in-flight request records) inside an effect keyed on `agent`.
+- A React `key` discards **all** state below it. `key={activeAgent}` / `key={threadId}` belongs on the smallest subtree that genuinely owns that state — on a layout-level provider it silently wipes unrelated app state, and with Intelligence wired the thread id changes asynchronously after mount, so it fires mid-interaction.
 - `v1 → v2` migration renames: `useCopilotAction` → `useFrontendTool` + `useHumanInTheLoop`; `imageUploadsEnabled` → `attachments`. See the `v1-to-v2-migration` lifecycle skill.
 
 ## Reading order for a first-time reader

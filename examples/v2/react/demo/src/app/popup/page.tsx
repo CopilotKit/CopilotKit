@@ -30,7 +30,6 @@ export default function PopupDemoPage() {
     <CopilotKitProvider
       runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
     >
       <PopupLayout />
     </CopilotKitProvider>

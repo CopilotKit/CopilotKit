@@ -91,7 +91,6 @@ export default function Home() {
     <CopilotKitProvider
       runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
       openGenerativeUI={{ sandboxFunctions }}
     >
       <div

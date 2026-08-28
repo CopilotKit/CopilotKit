@@ -3,6 +3,7 @@ import {
   CopilotKitProvider,
   CopilotChat,
   CopilotKitCoreErrorCode,
+  useAgentContext,
   useCopilotKit,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
@@ -206,6 +207,24 @@ function InspectorErrorLab() {
   );
 }
 
+function AppContext({
+  theme,
+  agentType,
+}: {
+  theme: "light" | "dark";
+  agentType: AgentType;
+}) {
+  useAgentContext({
+    description: "Current app UI",
+    value: {
+      page: "Inspector lab",
+      theme,
+      selectedAgent: agentType,
+    },
+  });
+  return null;
+}
+
 export default function Index() {
   const [agentType, setAgentType] = useState<AgentType>("tanstack");
   const [chatError, setChatError] = useState<string | null>(null);
@@ -218,7 +237,8 @@ export default function Index() {
   const dark = theme === "dark";
 
   return (
-    <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL} showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl={HEALTHY_RUNTIME_URL}>
+      <AppContext theme={theme} agentType={agentType} />
       <div
         className={`h-screen w-screen flex flex-col transition-colors ${
           dark

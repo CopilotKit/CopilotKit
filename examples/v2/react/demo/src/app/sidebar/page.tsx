@@ -30,7 +30,6 @@ export default function SidebarDemoPage() {
     <CopilotKitProvider
       runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
-      showDevConsole="auto"
     >
       <AppLayout />
     </CopilotKitProvider>
