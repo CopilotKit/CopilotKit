@@ -133,7 +133,7 @@ export function IntelligenceOnboardingPrompt({
 
       {feature === "learning" ? (
         <div className="mt-4 border-t border-[#DBDBE5] pt-3 text-sm leading-[1.55] text-[var(--text-secondary)] dark:border-[#57575B]">
-          <div className="grid gap-3 md:grid-cols-[1.45fr_0.9fr_1fr] md:gap-0">
+          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_1.25fr] md:gap-0">
             {content.points.map((point, index) => (
               <p
                 key={point.body}
@@ -144,7 +144,20 @@ export function IntelligenceOnboardingPrompt({
                     {point.label}{" "}
                   </span>
                 ) : null}
-                {point.body}
+                {index === 2 ? (
+                  <>
+                    <span className="font-semibold text-[var(--text)]">
+                      Build
+                    </span>{" "}
+                    a new agent or{" "}
+                    <span className="font-semibold text-[var(--text)]">
+                      bring
+                    </span>{" "}
+                    one you already have. Any frontend, any backend.
+                  </>
+                ) : (
+                  point.body
+                )}
               </p>
             ))}
           </div>
