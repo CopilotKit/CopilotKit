@@ -2,6 +2,7 @@
   "name": "@copilotkit/agentcore-runner",
   "version": "1.69.3",
   "description": "AWS Bedrock AgentCore-compatible agent runner for CopilotKit2",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"

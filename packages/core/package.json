@@ -2,6 +2,7 @@
   "name": "@copilotkit/core",
   "version": "1.69.3",
   "description": "Core web utilities for CopilotKit2",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
