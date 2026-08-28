@@ -25,6 +25,12 @@ name: "Showcase: Docs Promote Drift"
 # Triggers: PRs that touch the script or this workflow (so the gate is reviewed with its
 # own changes), a daily schedule (the actual point — catch a forgotten promote), and
 # manual dispatch.
+#
+# On a pull request it runs with --report-only. Prod's promote state has nothing to do with
+# an author's change, so failing their PR over it would produce a red check they cannot
+# clear — which gets overridden rather than acted on. The report still prints, and an
+# unreadable or unresolvable commit label still fails, because on a PR touching this script
+# that is the regression worth catching.
 
 on:
   pull_request:
@@ -72,9 +78,14 @@ jobs:
           node-version: 22.x
       - name: Report docs promote drift
         run: |
-          npx --yes tsx@4.21.0 showcase/scripts/check-docs-promote-drift.ts \
-            --host "${HOST}" \
-            --max-age-days "${MAX_AGE_DAYS}"
+          # An array rather than an unquoted expansion: the report-only flag is optional,
+          # and quoting an empty variable would pass an empty argument instead of none.
+          args=(--host "${HOST}" --max-age-days "${MAX_AGE_DAYS}")
+          if [ -n "${REPORT_ONLY}" ]; then
+            args+=("${REPORT_ONLY}")
+          fi
+          npx --yes tsx@4.21.0 showcase/scripts/check-docs-promote-drift.ts "${args[@]}"
         env:
           HOST: ${{ inputs.host || 'docs.copilotkit.ai' }}
           MAX_AGE_DAYS: ${{ inputs['max-age-days'] || '3' }}
+          REPORT_ONLY: ${{ github.event_name == 'pull_request' && '--report-only' || '' }}

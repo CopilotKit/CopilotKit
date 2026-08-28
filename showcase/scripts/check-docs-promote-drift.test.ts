@@ -170,6 +170,56 @@ describe("summarizeDocsDrift", () => {
     expect(summary.lines.join("\n")).toContain("404");
   });
 
+  // On a pull request the budget is not the author's to satisfy: prod's promote state has
+  // nothing to do with their change, and a red check they cannot clear is a check that
+  // gets ignored or overridden. Report-only keeps the report and drops the enforcement.
+  it("reports overdue drift without failing when enforcement is off", () => {
+    const summary = summarizeDocsDrift({
+      ...base,
+      reportOnly: true,
+      drift: {
+        added: ["showcase/shell-docs/src/content/docs/a.mdx"],
+        modified: [],
+        deleted: [],
+      },
+      oldestUnpromotedAgeDays: 9,
+    });
+
+    expect(summary.shouldFail).toBe(false);
+    const text = summary.lines.join("\n");
+    expect(text).toContain("9+ days");
+    expect(text).toContain("not enforced here");
+  });
+
+  // Report-only drops the budget, not the sanity checks. An unreadable label on a PR that
+  // touches the parser is exactly the regression this check exists to catch.
+  it("still fails on an unreadable label even when enforcement is off", () => {
+    const summary = summarizeDocsDrift({
+      ...base,
+      reportOnly: true,
+      deployedSha: null,
+      drift: { added: [], modified: [], deleted: [] },
+      oldestUnpromotedAgeDays: null,
+    });
+
+    expect(summary.shouldFail).toBe(true);
+    expect(summary.lines.join("\n")).toContain("could not read");
+  });
+
+  it("still fails on an unresolvable commit even when enforcement is off", () => {
+    const summary = summarizeDocsDrift({
+      ...base,
+      reportOnly: true,
+      deployedSha: "54567d1",
+      resolved: false,
+      drift: { added: [], modified: [], deleted: [] },
+      oldestUnpromotedAgeDays: null,
+    });
+
+    expect(summary.shouldFail).toBe(true);
+    expect(summary.lines.join("\n")).toContain("does not resolve");
+  });
+
   it("reports an unreadable label as its own failure, not as zero drift", () => {
     const summary = summarizeDocsDrift({
       ...base,

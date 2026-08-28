@@ -30,6 +30,7 @@
  *   npx tsx showcase/scripts/check-docs-promote-drift.ts --host docs.staging.copilotkit.ai
  *   npx tsx showcase/scripts/check-docs-promote-drift.ts --max-age-days 5
  *   npx tsx showcase/scripts/check-docs-promote-drift.ts --json
+ *   npx tsx showcase/scripts/check-docs-promote-drift.ts --report-only
  *
  * Exit: 0 when prod is current, or when the drift is younger than the age budget.
  *       1 when the oldest unpromoted page is past the budget, or when the deployed
@@ -83,6 +84,15 @@ export interface SummarizeDocsDriftInput {
   readonly maxAgeDays: number;
   /** False when the deployed SHA does not resolve in this checkout. Defaults to true. */
   readonly resolved?: boolean;
+  /**
+   * Report the drift without enforcing the age budget.
+   *
+   * Set on pull requests. Prod's promote state has nothing to do with an author's change,
+   * so a red check they cannot clear would be ignored or overridden rather than acted on.
+   * It drops the budget only: an unreadable or unresolvable commit still fails, because on
+   * a PR touching this script that is the regression the check exists to catch.
+   */
+  readonly reportOnly?: boolean;
 }
 
 /**
@@ -206,10 +216,13 @@ export function summarizeDocsDrift(
 
   const age = oldestUnpromotedAgeDays;
   const overdue = age !== null && age > maxAgeDays;
+  const reportOnly = input.reportOnly ?? false;
 
   lines.push(
     overdue
-      ? `✗ docs content has been waiting ${Math.floor(age)}+ days to be promoted, past the ${maxAgeDays}-day budget.`
+      ? reportOnly
+        ? `• docs content has been waiting ${Math.floor(age)}+ days to be promoted, past the ${maxAgeDays}-day budget (not enforced here).`
+        : `✗ docs content has been waiting ${Math.floor(age)}+ days to be promoted, past the ${maxAgeDays}-day budget.`
       : `• docs content is waiting to be promoted, within the ${maxAgeDays}-day budget.`,
   );
   lines.push(
@@ -244,7 +257,7 @@ export function summarizeDocsDrift(
     );
   }
 
-  return { shouldFail: overdue, lines };
+  return { shouldFail: overdue && !reportOnly, lines };
 }
 
 /** Runs git in the repository and returns trimmed stdout. */
@@ -261,6 +274,7 @@ async function main(): Promise<void> {
   const host = readArg("host") ?? DEFAULT_HOST;
   const maxAgeDays = Number(readArg("max-age-days") ?? DEFAULT_MAX_AGE_DAYS);
   const asJson = process.argv.includes("--json");
+  const reportOnly = process.argv.includes("--report-only");
 
   const response = await fetch(`https://${host}/`, {
     headers: { "user-agent": "check-docs-promote-drift" },
@@ -325,6 +339,7 @@ async function main(): Promise<void> {
     oldestUnpromotedAgeDays,
     maxAgeDays,
     resolved,
+    reportOnly,
   });
 
   if (asJson) {
