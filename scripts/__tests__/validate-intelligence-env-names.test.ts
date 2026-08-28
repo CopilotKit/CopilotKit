@@ -3,7 +3,64 @@ import {
   findViolations,
   managedUrlEnvFileAssignment,
   managedUrlFallback,
+  retiredNameReference,
 } from "../validate-intelligence-env-names.js";
+
+/**
+ * The retired-name rule greps a literal and then decides whether the hit is the
+ * retired name itself. That second step is load-bearing and easy to get wrong in
+ * one direction: the canonical `CPK_INTELLIGENCE_API_KEY` *ends with* the
+ * retired name, so a plain substring match reports every correct site in the
+ * repository — 250-odd of them — and a guard that fires on everything is turned
+ * off within a day.
+ *
+ * Unit-tested rather than left to the repo-wide scan, because the scan can only
+ * say "clean". It cannot say the boundary is what made it clean, and it goes
+ * green either way the moment the last old name is gone.
+ */
+describe("retiredNameReference", () => {
+  const RETIRED = ["INTELLIGENCE", "API", "KEY"].join("_");
+
+  it("flags the retired name in a code read", () => {
+    expect(
+      retiredNameReference(
+        RETIRED,
+        "  apiKey: process.env." + RETIRED + ' ?? "",',
+      ),
+    ).toBe(true);
+  });
+
+  it("flags it at the start of a line, as an env example assigns it", () => {
+    expect(retiredNameReference(RETIRED, RETIRED + "=cpk-...")).toBe(true);
+  });
+
+  it("flags it in backticked prose, where a reader copies it from", () => {
+    expect(
+      retiredNameReference(RETIRED, "Set `" + RETIRED + "` in `.env`."),
+    ).toBe(true);
+  });
+
+  it("allows the canonical name, which merely ends with the retired one", () => {
+    expect(
+      retiredNameReference(
+        RETIRED,
+        '  apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",',
+      ),
+    ).toBe(false);
+  });
+
+  it("allows the COPILOTKIT_ form, which its own entry reports", () => {
+    expect(
+      retiredNameReference(RETIRED, "  COPILOTKIT_" + RETIRED + "=cpk-..."),
+    ).toBe(false);
+  });
+
+  it("allows a longer variable that merely starts with the retired name", () => {
+    expect(retiredNameReference(RETIRED, RETIRED + "_LEGACY=cpk-...")).toBe(
+      false,
+    );
+  });
+});
 
 /**
  * `CopilotKitIntelligence` resolves `apiUrl`/`wsUrl` to the managed hosts when

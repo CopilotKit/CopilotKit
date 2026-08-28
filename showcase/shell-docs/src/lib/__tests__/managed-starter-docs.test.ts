@@ -139,6 +139,13 @@ test("documents the managed CLI credential without an offline license token", ()
   }
 });
 
+/**
+ * A provisioned project key is `cpk-<projectId>_<short>_<long>` — see
+ * `keyPrefix: \`cpk-${projectId}\`` in Intelligence's `apps/app-api/src/api-keys.ts`
+ * and the `parseApiKeyToken` fixtures. `cpk_...` matches no key the platform
+ * issues, so a reader comparing the placeholder against their own key sees a
+ * mismatch where there is none.
+ */
 test("uses the managed API key prefix in thread import examples", () => {
   const sources = readSources([
     "docs/integrations/adk/threads-import.mdx",
@@ -148,8 +155,8 @@ test("uses the managed API key prefix in thread import examples", () => {
   ]);
 
   for (const source of sources) {
-    expect(source).toContain('CPK_INTELLIGENCE_API_KEY="cpk_..."');
-    expect(source).not.toContain('CPK_INTELLIGENCE_API_KEY="cpk-..."');
+    expect(source).toContain('CPK_INTELLIGENCE_API_KEY="cpk-..."');
+    expect(source).not.toContain('CPK_INTELLIGENCE_API_KEY="cpk_..."');
   }
 });
 
@@ -163,6 +170,44 @@ test("reads the CLI-managed key name in Runtime wiring guides", () => {
   }
 
   const connectRuntime = sources[1];
-  expect(connectRuntime).toContain("CPK_INTELLIGENCE_API_KEY=cpk_...");
-  expect(connectRuntime).not.toContain("CPK_INTELLIGENCE_API_KEY=cpk-...");
+  expect(connectRuntime).toContain("CPK_INTELLIGENCE_API_KEY=cpk-...");
+  expect(connectRuntime).not.toContain("CPK_INTELLIGENCE_API_KEY=cpk_...");
 });
+
+/**
+ * ENT-1151 removed the license token from managed setup, but twelve integration
+ * quickstarts still handed the reader `CPK_INTELLIGENCE_API_KEY=your_license_key`
+ * under "The runtime reads the license key from step 1" — a license key named as
+ * the value of the project API key, on the credential the PRD exists to isolate
+ * (OSS-1029). The two are different credentials with different lifetimes, and a
+ * reader who goes looking for a license key to paste finds a dead end.
+ *
+ * Scanned rather than listed: a page added next month is covered the day it
+ * lands, not the day someone remembers this test.
+ */
+test("never names a license key as the value of the project API key", () => {
+  const offenders: string[] = [];
+
+  for (const file of mdxFilesIn(CONTENT_DIR)) {
+    const text = fs.readFileSync(file, "utf8");
+    const relative = path.relative(CONTENT_DIR, file);
+
+    for (const [, value] of text.matchAll(/CPK_INTELLIGENCE_API_KEY=(\S+)/g)) {
+      if (/license/i.test(value!)) offenders.push(`${relative} (${value})`);
+    }
+    if (/reads the license key/i.test(text)) {
+      offenders.push(`${relative} (prose: "reads the license key")`);
+    }
+  }
+
+  expect(offenders).toEqual([]);
+});
+
+/** Every MDX page under `dir`, recursively. */
+function mdxFilesIn(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return mdxFilesIn(full);
+    return entry.name.endsWith(".mdx") ? [full] : [];
+  });
+}

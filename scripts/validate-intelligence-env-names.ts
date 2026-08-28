@@ -209,6 +209,25 @@ export function managedUrlEnvFileAssignment(text: string): string | null {
   return null;
 }
 
+/**
+ * Whether a line names `name` itself rather than a longer variable that merely
+ * contains it.
+ *
+ * The grep that finds candidates matches a fixed string, so it also matches
+ * every variable the retired name is a substring of — and the canonical
+ * `CPK_INTELLIGENCE_API_KEY` ends with the retired project-key name, while
+ * `COPILOTKIT_INTELLIGENCE_API_KEY` contains it and has its own {@link RETIRED}
+ * entry. Without this boundary the rule reports every correct site in the
+ * repository, which is the one failure mode that gets a guard switched off.
+ *
+ * @param name - The retired variable name being looked for.
+ * @param text - One line of source, prose, or an env file.
+ * @returns `true` when the line carries that exact name.
+ */
+export function retiredNameReference(name: string, text: string): boolean {
+  return new RegExp(String.raw`(?<![A-Z0-9_])${name}(?![A-Z0-9_])`).test(text);
+}
+
 interface Violation {
   file: string;
   line: number;
@@ -252,12 +271,9 @@ export function findViolations(): Violation[] {
   const violations: Violation[] = [];
 
   for (const name of RETIRED) {
-    const exactName = new RegExp(
-      String.raw`(?<![A-Z0-9_])${name}(?![A-Z0-9_])`,
-    );
     for (const hit of grepRepo(name)) {
       if (hit.file === "scripts/validate-intelligence-env-names.ts") continue;
-      if (!exactName.test(hit.text)) continue;
+      if (!retiredNameReference(name, hit.text)) continue;
       violations.push({
         file: hit.file,
         line: hit.line,
