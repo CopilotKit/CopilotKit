@@ -84,25 +84,25 @@ Use frontend tools when you need your agent to interact with client-side primiti
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
             ```csharp title="Program.cs"
-            using Azure.AI.OpenAI;
-            using Azure.Identity;
             using Microsoft.Agents.AI;
             using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+            using OpenAI;
+            using OpenAI.Chat;
 
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddAGUI();
+            builder.Services.AddAGUIServer();
             var app = builder.Build();
 
-            string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-            string deployment = builder.Configuration["AZURE_OPENAI_CHAT_DEPLOYMENT_NAME"]!;
+            string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+                ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
             // Create the agent - frontend tools are automatically available
-            var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-                .GetChatClient(deployment)
-                .CreateAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
+            var agent = new OpenAIClient(openAiApiKey)
+                .GetChatClient("gpt-5.4-mini")
+                .AsAIAgent(name: "AGUIAssistant", instructions: "You are a helpful assistant.");
 
             // Map the AG-UI endpoint
-            app.MapAGUI("/", agent);
+            app.MapAGUIServer("/", agent);
             await app.RunAsync();
             ```
           </Tab>

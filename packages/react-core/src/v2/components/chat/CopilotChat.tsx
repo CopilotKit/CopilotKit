@@ -285,7 +285,7 @@ export function CopilotChat({
     copilotkit.threadEndpoints?.realtimeMetadata === true;
   const [standaloneRunActivityStore] = useState<ɵThreadStore>(() =>
     ɵcreateThreadStore({
-      fetch: globalThis.fetch,
+      fetch: copilotkit.ɵruntimeFetch,
     }),
   );
 

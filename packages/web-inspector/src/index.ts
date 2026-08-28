@@ -104,6 +104,8 @@ import {
   maybeShowDisclosure,
   trackErrorSignalViewed,
   trackHomeCtaClicked,
+  trackHomePromptCopied,
+  trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
@@ -123,10 +125,15 @@ import {
   trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
 } from "./lib/telemetry.js";
+import {
+  createOnboardingPrompt,
+  createOnboardingRunId,
+} from "./lib/onboarding-prompt.js";
 import type {
   ExampleKind,
   ExampleTourStep,
@@ -634,6 +641,166 @@ const THREADS_RUNTIME_SETUP_PROMPT = [
 ].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
+
+// ── The Intelligence story on Home ────────────────────────────────────────
+//
+// A condensed cut of the six-phase animation on the Intelligence home page
+// (`react-shell/src/home/learning-sample*`). Three beats, not six: the two
+// thread beats there open on the agent booking the wrong meeting, which is a
+// poor first frame for a card whose job is to argue for the product, and the
+// handoff beat only bridges between them.
+//
+// What is kept is the machinery a developer cannot hand-roll — many threads
+// collapsing into one pattern — then the artefact it produces, then the loop.
+// `meeting-scheduling.md` recurs in all three on purpose: the same filename
+// appearing in the last beat's badge is what turns the closing diagram from a
+// claim into something checkable.
+//
+// Durations are the shipped values for the corresponding phases upstream, so
+// the pacing stays recognisable to anyone who has seen the original.
+// Each beat owns its own two sentences, and the card shows exactly the pair
+// that belongs to the picture on screen. An earlier version argued for Threads
+// in prose while the animation showed Learning — two half-claims sitting next
+// to each other, neither supporting the other. Bound together they read as one
+// chain: your users' threads → the pattern in them → the file → it applies
+// itself.
+//
+// `lead` is the sentence that has to land on its own. `support` earns it.
+// Nothing else: a third line here is what makes this card feel crowded.
+const INTELLIGENCE_STORY_BEATS = [
+  {
+    id: "threads",
+    label: "Threads",
+    // Roughly 24 words of copy plus a picture to take in. The upstream timings
+    // were written for a page where the animation carried itself; here it has
+    // to be read, so every beat gets time for two sentences at a comfortable
+    // pace rather than a glance. The rail is there for anyone who wants to
+    // move faster.
+    duration: 6_500,
+    // "Your users" means the end users of the developer's app, not the
+    // developer. That is what the platform means too: `identifyUser` resolves
+    // one `{id, name}` per request from the app, and a thread carries
+    // `end_user_id` — a column renamed from `user_id` precisely because the
+    // old name "caused repeated misdiagnosis" against control-plane users.
+    //
+    // No count in the claim. A developer wiring this up locally has no users
+    // yet, and "thousands" would read as a lie on day one while still being
+    // true at scale. "All the others" holds in both cases.
+    lead: "You only see this session. Your users have all the others.",
+    // "Rich Threads" is the product's own name for the durable ones, and the
+    // distinction is the sale: the Inspector's Threads tab already lists local
+    // ones that die on reload.
+    support:
+      "Rich Threads keep every conversation and its state, so you can open the one that broke instead of reproducing it.",
+  },
+  {
+    id: "learning",
+    label: "Learning",
+    duration: 6_000,
+    lead: "Your users already told you what to fix.",
+    // Insights are a first-class concept in the product, and the evidence link
+    // is the credibility hook for a sceptical developer: a claim you can open,
+    // not a model's opinion. Learning's own onboarding leads with "46 evidence
+    // refs" across "12 Threads" for exactly this reason.
+    support:
+      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+  },
+  {
+    id: "skill",
+    label: "Skills",
+    duration: 5_500,
+    lead: "An Insight becomes a skill you own.",
+    // The review step is real (candidates land at pending_review and a human
+    // approves), but it is sold as control rather than as reassurance. The
+    // earlier wording — "nothing reaches your agent until you approve it" —
+    // answered a fear the reader had not voiced yet, which reads as a defence
+    // and plants the worry it deflects. Ownership is the same fact, stated as
+    // a feature: a readable file you review, edit and ship.
+    support:
+      "A SKILL.md built from that evidence — yours to review, edit and ship with your project.",
+  },
+  {
+    id: "intelligence",
+    // Named after the product, not after the mechanism. The other three tabs
+    // are the parts; this one is the whole, so the rail reads "Threads ·
+    // Learning · Skills · Intelligence" — the pieces, then the thing that
+    // unites them. "Reuse" named neither a surface nor an outcome.
+    label: "Intelligence",
+    duration: 6_000,
+    lead: "Every round of real use leaves your agent better.",
+    // Deliberately NOT "Skills apply it for you". The platform does not apply
+    // skills at run time — there is no run-time read of published skills, only
+    // a bundle the developer pulls down with `copilotkit skills download`.
+    // Claiming automatic application would be a promise the product does not
+    // keep, and the first developer to check would stop believing the rest.
+    support:
+      "Approve a skill, pull it into your project, and the next run starts from what already worked.",
+  },
+] as const;
+
+/**
+ * The threads the first beat shows.
+ *
+ * One of them failed, because that is the row a developer actually wants and
+ * the reason durable threads are worth paying for. It is a user's thread that
+ * went wrong, not a demo of our agent failing — the distinction matters for a
+ * card that has to argue for the product.
+ */
+const INTELLIGENCE_STORY_THREADS = [
+  { title: "Reschedule the Tuesday sync", meta: "2 min ago", failed: false },
+  {
+    title: "Book time with the design team",
+    meta: "18 min ago",
+    failed: false,
+  },
+  { title: "Booked the wrong slot", meta: "Needs a look", failed: true },
+] as const;
+
+/** The three rules the story derives, shown verbatim across all three beats. */
+const INTELLIGENCE_STORY_RULES = [
+  "Check both calendars.",
+  "Propose several times.",
+  "Ask before booking.",
+] as const;
+
+/**
+ * The raw thread signals the first beat collapses into those rules.
+ *
+ * Kept at real-message length and varied on purpose — these have to read as
+ * things people actually typed, not as three tidy bullet points. The longest
+ * one truncates in a narrow panel, which is honest: it is an excerpt.
+ */
+const INTELLIGENCE_STORY_SIGNALS = [
+  "Check our calendars and find a time for both of us.",
+  "Could you share a few options?",
+  "Ask me before you book it.",
+] as const;
+
+// A skill really is a directory holding a SKILL.md, so the path shows both the
+// skill's name and the document the platform actually stores.
+const INTELLIGENCE_STORY_SKILL_FILE = "meeting-scheduling/SKILL.md";
+
+/**
+ * How long the copied confirmation stands before the button invites a second
+ * press. Longer than the 2s the Threads setup prompt uses, because this state
+ * also carries an instruction that has to be read, not just an acknowledgement.
+ */
+const PROMPT_COPY_RESET_MS = 4_000;
+
+// The real pipeline, named the way the product names it: threads produce
+// evidence-backed Insights, Insights produce Skill candidates, a human
+// approves, and the approved set is what the project pulls in. `Lightbulb` is
+// Learning's own icon for an Insight, so the two surfaces agree.
+const INTELLIGENCE_STORY_CHAIN = [
+  {
+    icon: "MessagesSquare",
+    name: "Threads",
+    detail: "Every conversation",
+  },
+  { icon: "Lightbulb", name: "Insights", detail: "Backed by evidence" },
+  { icon: "FileText", name: "Skills", detail: "You approve" },
+  { icon: "Wand2", name: "Your agent", detail: "Starts from what worked" },
+] as const;
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
@@ -1915,6 +2082,9 @@ export class CpkThreadInspector extends PortableLitElement {
     viewInAppError: { attribute: false },
     focusMessageId: { attribute: false },
     focusRequestId: { attribute: false },
+    tryFromHereAvailable: { attribute: false },
+    tryFromHereBusy: { attribute: false },
+    tryFromHereError: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -1962,6 +2132,9 @@ export class CpkThreadInspector extends PortableLitElement {
   viewInAppError: string | null = null;
   focusMessageId: string | null = null;
   focusRequestId = 0;
+  tryFromHereAvailable = false;
+  tryFromHereBusy = false;
+  tryFromHereError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -2100,7 +2273,9 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "timeline") return this.renderTimeline();
+    if (id === "timeline") {
+      return this.withMessagesToolbar(this.renderTimeline());
+    }
     if (id === "state") return this.renderState();
     return this.renderEvents();
   }
@@ -2448,6 +2623,55 @@ export class CpkThreadInspector extends PortableLitElement {
       .cpk-td__view-in-app:active {
         transform: none;
       }
+    }
+
+    .cpk-td__try-from-here {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-inline-start: auto;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #36363a;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .cpk-td__try-from-here-icon {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    :host([dir="rtl"]) .cpk-td__try-from-here-icon {
+      scale: -1 1;
+    }
+
+    .cpk-td__try-from-here:hover:not(:disabled) {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__try-from-here:focus-visible {
+      outline: 2px solid #a78bfa;
+      outline-offset: 1px;
+    }
+
+    .cpk-td__try-from-here:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .cpk-td__try-from-here-error {
+      flex-basis: 100%;
+      color: #c0333a;
+      font-size: 11px;
+      line-height: 1.4;
     }
 
     /*
@@ -2834,6 +3058,8 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__timeline-toolbar {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
     }
 
@@ -3176,6 +3402,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__tool-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-body,
@@ -3193,6 +3420,7 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
@@ -3351,6 +3579,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
     }
@@ -4579,7 +4808,67 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
+  private renderTryFromHereControl() {
+    if (!this.tryFromHereAvailable) return nothing;
+    return html`
+      <button
+        type="button"
+        class="cpk-td__try-from-here"
+        aria-label="Try from here"
+        ?disabled=${this.tryFromHereBusy}
+        @click=${this.onTryFromHere}
+      >
+        ${this.tryFromHereBusy ? "Loading…" : "Try from here"}
+        <svg
+          class="cpk-td__try-from-here-icon"
+          aria-hidden="true"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M7 7h10v10" />
+          <path d="M7 17 17 7" />
+        </svg>
+      </button>
+      ${
+        this.tryFromHereError
+          ? html`<span
+              class="cpk-td__try-from-here-error"
+              role="alert"
+              >${this.tryFromHereError}</span
+            >`
+          : nothing
+      }
+    `;
+  }
+
+  private onTryFromHere = (event: Event): void => {
+    event.preventDefault();
+    if (!this.tryFromHereAvailable || this.tryFromHereBusy) return;
+    this.dispatchEvent(
+      new CustomEvent("tryFromHere", {
+        detail: this.threadId,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
   private renderTimelineBulkControls() {
+    const bulk = this.renderTimelineBulkButtons();
+    const tryFromHere = this.renderTryFromHereControl();
+    if (bulk === nothing && tryFromHere === nothing) return nothing;
+    return html`<div class="cpk-td__timeline-toolbar">
+      ${bulk}${tryFromHere}
+    </div>`;
+  }
+
+  private renderTimelineBulkButtons() {
     if (this._eventsNotAvailable) return nothing;
 
     const detailIds = this.timelineItemsForEvents(this.activeEvents)
@@ -4594,7 +4883,7 @@ export class CpkThreadInspector extends PortableLitElement {
       (id) => !this._expandedTimelineDetails.has(id),
     );
 
-    return html`<div class="cpk-td__timeline-toolbar">
+    return html`
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
@@ -4611,7 +4900,7 @@ export class CpkThreadInspector extends PortableLitElement {
       >
         Collapse all
       </button>
-    </div>`;
+    `;
   }
 
   private renderRawEventBulkControls() {
@@ -4655,6 +4944,10 @@ export class CpkThreadInspector extends PortableLitElement {
     });
   }
 
+  private withMessagesToolbar(content: unknown) {
+    return html`${this.renderTimelineBulkControls()}${content}`;
+  }
+
   private renderTimeline() {
     if (this._loadingEvents) {
       return html`
@@ -4662,13 +4955,19 @@ export class CpkThreadInspector extends PortableLitElement {
       `;
     }
     if (this._eventsError) {
-      return html`<div class="cpk-td__status cpk-td__status--error">
+      return html`<div
+        class="cpk-td__status cpk-td__status--error"
+      >
         ${this._eventsError}
       </div>`;
     }
     if (this._eventsNotAvailable) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>Timeline event history not available</span>
@@ -4691,8 +4990,12 @@ export class CpkThreadInspector extends PortableLitElement {
 
     const timelineItems = this.timelineItemsForEvents(events);
     if (timelineItems.length === 0) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
@@ -4712,10 +5015,7 @@ export class CpkThreadInspector extends PortableLitElement {
         this.agentMessagesInput,
         this._expandedTimelineDetails,
       ],
-      () =>
-        html`${this.renderTimelineBulkControls()}${timelineItems.map((item) =>
-          this.renderTimelineItem(item),
-        )}`,
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
     );
   }
 
@@ -6142,6 +6442,36 @@ export class WebInspectorElement extends LitElement {
   private systemColorSchemeMediaQuery: MediaQueryList | null = null;
   private briefingRestoreMenu: MenuKey | null = null;
   private homeViewedThisOpen = false;
+
+  // ── Intelligence install prompt (Home) ──────────────────────────────────
+  //
+  // One run id per element lifetime, minted on first copy. The CLI treats the
+  // id as one onboarding journey, so a developer who copies twice because they
+  // switched editors must not look like two journeys.
+  private onboardingRunId: string | null = null;
+  /**
+   * `copied` reverts after {@link PROMPT_COPY_RESET_MS}; `failed` does not.
+   *
+   * The instruction only has to survive long enough to be read. Keeping it
+   * forever left a button wearing a checkmark and reading as spent, which is
+   * the wrong signal for the likeliest reason someone comes back to this card:
+   * to copy again. A failed copy is the opposite case — the prompt itself is
+   * on screen to be selected by hand, so it stays until acted on.
+   */
+  private promptCopyState: "idle" | "copied" | "failed" = "idle";
+  private promptCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Intelligence story (Home) ───────────────────────────────────────────
+  //
+  // Three beats condensed from the six-phase animation on the Intelligence
+  // home page. Runs only while Home is the visible tab AND the document is
+  // visible: this is a debugging tool, and a permanent timer behind a closed
+  // panel is exactly the kind of thing a developer would find in a profile and
+  // rightly complain about.
+  private intelStoryBeat = 0;
+  private intelStoryUserPinned = false;
+  private intelStoryTimer: ReturnType<typeof setTimeout> | null = null;
+  private intelStoryReducedMotion: MediaQueryList | null = null;
   private hasResolvedCore = false;
   private settingsOpen = false;
   private readonly lastSelectedMenuByGroup: Record<
@@ -6195,6 +6525,8 @@ export class WebInspectorElement extends LitElement {
   private playgroundError: string | null = null;
   private playgroundSourceThreadId: string | null = null;
   private playgroundShowEphemeralNotice = false;
+  private tryFromHereBusy = false;
+  private tryFromHereError: string | null = null;
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
@@ -6963,7 +7295,11 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    const runtimeFetch =
+      typeof core.ɵruntimeFetch === "function"
+        ? core.ɵruntimeFetch
+        : globalThis.fetch;
+    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
@@ -10182,6 +10518,8 @@ export class WebInspectorElement extends LitElement {
     }
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.stopIntelligenceStory();
+    this.clearIntelligencePromptReset();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
@@ -10291,6 +10629,7 @@ export class WebInspectorElement extends LitElement {
     this.maybeCompleteEventErrorView();
     this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
+    this.syncIntelligenceStory();
 
     if (!this.isOpen) {
       this.lastScrolledAgentNavigationLayout = null;
@@ -11344,11 +11683,16 @@ export class WebInspectorElement extends LitElement {
     const connected = model.hero.connection === "connected";
     const action = model.hero.action;
     const renewing = action?.kind === "renew";
+    // Three distinct jobs, not two. A lapsed plan needs a renewal link, not an
+    // install prompt and an explainer — that developer already knows what
+    // Intelligence is. Only the never-connected case gets the full pitch.
+    const installing = !connected && !renewing;
     return html`
       <section
         class="inspector-home-section inspector-intelligence-hud"
         data-inspector-home-card="intelligence"
         data-state=${connected ? "connected" : "disconnected"}
+        data-mode=${connected ? "connected" : renewing ? "renew" : "install"}
         aria-label="Intelligence ${
           connected ? "connected" : renewing ? "plan expired" : "not enabled"
         }"
@@ -11356,16 +11700,38 @@ export class WebInspectorElement extends LitElement {
         <header class="inspector-intelligence-hud-header">
           <div class="inspector-intelligence-hud-heading">
             <h2 class="inspector-home-section-title">
+              ${
+                // The brand mark makes this read as a product lockup rather
+                // than another status heading. Inside the h2 so it stays on
+                // the same line, with an empty alt so the accessible name is
+                // still just the product's name.
+                installing
+                  ? html`
+                    <img
+                      class="inspector-intelligence-mark"
+                      src=${inspectorLogoKiteUrl}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  `
+                  : nothing
+              }
               ${connected ? "Intelligence" : model.hero.title}
             </h2>
             ${
               connected
                 ? nothing
-                : html`
-                  <p class="inspector-intelligence-hud-description">
-                    ${model.hero.body}
-                  </p>
-                `
+                : installing
+                  ? html`
+                    <p class="inspector-intelligence-sr-summary">
+                      ${model.hero.body}
+                    </p>
+                  `
+                  : html`
+                    <p class="inspector-intelligence-hud-description">
+                      ${model.hero.body}
+                    </p>
+                  `
             }
           </div>
           <div class="inspector-intelligence-hud-header-actions">
@@ -11383,7 +11749,7 @@ export class WebInspectorElement extends LitElement {
                 : nothing
             }
             ${
-              !connected && action
+              renewing && action
                 ? html`
                   <a
                     class="inspector-intelligence-hud-action inspector-intelligence-hud-connect-action"
@@ -11400,8 +11766,23 @@ export class WebInspectorElement extends LitElement {
                 `
                 : nothing
             }
+            ${installing ? this.renderIntelligenceInstallActions(action) : nothing}
           </div>
         </header>
+
+        ${
+          // Exceptional state, so it gets its own full-width strip between the
+          // bands rather than being squeezed into the header's action column.
+          installing && this.promptCopyState === "failed"
+            ? html`
+              <code class="inspector-intelligence-install-fallback" tabindex="0"
+                >${createOnboardingPrompt(this.getOnboardingRunId())}</code
+              >
+            `
+            : nothing
+        }
+
+        ${installing ? this.renderIntelligenceStory() : nothing}
 
         ${
           connected
@@ -11826,6 +12207,514 @@ export class WebInspectorElement extends LitElement {
   private handleHomeHeroCta(action: HomeHeroAction): void {
     if (this.core?.telemetryDisabled) return;
     trackHomeCtaClicked({ action_kind: action.kind });
+  }
+
+  /**
+   * The install row: copy the prompt, or fall back to the signup page.
+   *
+   * The prompt is primary and the link is secondary, which is the inversion
+   * this card exists for. Leaving for a signup page is where developers drop
+   * out; pasting into the editor they are already in is not.
+   *
+   * No third-party coding-agent logos here, unlike the Intelligence app. That
+   * app is a private hosted surface; this one is a published npm package
+   * embedded in other people's sites, and shipping Anthropic's and OpenAI's
+   * marks inside it is a trademark call that is not ours to make quietly. The
+   * helper line names the agents in text instead.
+   */
+  private renderIntelligenceInstallActions(action?: HomeHeroAction) {
+    const copied = this.promptCopyState === "copied";
+    const failed = this.promptCopyState === "failed";
+    return html`
+      <div
+        class="inspector-intelligence-install"
+        data-copy-state=${this.promptCopyState}
+      >
+        ${
+          // The two actions are two routes to the same outcome — let the coding
+          // agent wire it up, or go and do it in the browser — so the
+          // secondary names the alternative path rather than promising an
+          // explainer. It used to read "What Intelligence does", which pointed
+          // at intelligence.copilotkit.ai: a product and signup page, not an
+          // explanation. Mis-promising a destination is a poor trade right at
+          // the moment the card is asking to be trusted.
+          //
+          // One slot for the secondary message, and its content follows the
+          // state: before the press the useful aside is the other route, after
+          // it is "where to put it". Adding the instruction as a second row
+          // instead pushed the action column past the band's 76px and shoved
+          // the whole story down at the moment the developer had just acted.
+          // Both are single lines, so swapping them cannot change the height.
+          //
+          // Secondary sits inside the row and the primary at the outer edge:
+          // in a right-aligned group the filled button belongs on the outside,
+          // not wedged between the heading and a link.
+          this.promptCopyState === "idle"
+            ? action
+              ? html`
+                <a
+                  class="inspector-intelligence-install-secondary"
+                  data-inspector-home-intelligence-action=${action.kind}
+                  href=${action.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Set Intelligence up yourself (opens in a new tab)"
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @click=${() => this.handleHomeHeroCta(action)}
+                >
+                  Set it up yourself ${this.renderIcon("ArrowUpRight")}
+                </a>
+              `
+              : nothing
+            : html`
+              <p
+                class="inspector-intelligence-install-hint"
+                data-tone=${failed ? "error" : "success"}
+                role="status"
+              >
+                ${
+                  failed
+                    ? "Clipboard blocked — copy the prompt below."
+                    : "Paste it into your coding agent."
+                }
+              </p>
+            `
+        }
+        <button
+          type="button"
+          class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
+          data-inspector-intelligence-copy-prompt
+          aria-label=${
+            copied
+              ? "Install prompt copied to clipboard. Paste it into your coding agent."
+              : "Copy the Intelligence install prompt"
+          }
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+          @click=${this.handleIntelligencePromptCopy}
+        >
+          ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
+          ${copied ? "Prompt copied" : "Copy setup prompt"}
+        </button>
+      </div>
+    `;
+  }
+
+  /** One run id per element lifetime; minted on first use, never rotated. */
+  private getOnboardingRunId(): string {
+    this.onboardingRunId ??= createOnboardingRunId();
+    return this.onboardingRunId;
+  }
+
+  private handleIntelligencePromptCopy = async (
+    event?: Event,
+  ): Promise<void> => {
+    // A second press restarts the clock rather than inheriting the first
+    // press's countdown.
+    this.clearIntelligencePromptReset();
+    const runId = this.getOnboardingRunId();
+    const clipboard = this.getClipboard(event);
+    let outcome: "copied" | "failed" = "failed";
+
+    if (clipboard?.writeText) {
+      try {
+        await clipboard.writeText(createOnboardingPrompt(runId));
+        outcome = "copied";
+      } catch {
+        outcome = "failed";
+      }
+    }
+
+    if (!this.isConnected) {
+      return;
+    }
+
+    this.promptCopyState = outcome;
+    this.requestUpdate();
+
+    if (outcome === "copied") {
+      this.scheduleIntelligencePromptReset();
+    }
+
+    if (!this.core?.telemetryDisabled) {
+      trackHomePromptCopied({ onboarding_run_id: runId, outcome });
+    }
+  };
+
+  /**
+   * Return the button and its secondary line to the idle state.
+   *
+   * Long enough to read six words, short enough that a developer who went to
+   * their editor and came back — because the paste went somewhere wrong, or
+   * the terminal is gone — finds a button that plainly invites a second press
+   * rather than a spent one wearing a checkmark.
+   *
+   * Only the copied state resets. A failed copy has the prompt on screen for
+   * manual selection, and yanking that away mid-drag would be worse than the
+   * clipboard failing in the first place.
+   */
+  private scheduleIntelligencePromptReset(): void {
+    this.clearIntelligencePromptReset();
+    this.promptCopyResetTimer = setTimeout(() => {
+      this.promptCopyResetTimer = null;
+      if (!this.isConnected || this.promptCopyState !== "copied") {
+        return;
+      }
+      this.promptCopyState = "idle";
+      this.requestUpdate();
+    }, PROMPT_COPY_RESET_MS);
+  }
+
+  private clearIntelligencePromptReset(): void {
+    if (this.promptCopyResetTimer !== null) {
+      clearTimeout(this.promptCopyResetTimer);
+      this.promptCopyResetTimer = null;
+    }
+  }
+
+  /**
+   * The three-beat Intelligence story.
+   *
+   * Every beat is in the DOM at all times and switched by opacity, so the
+   * strip never reflows and screen readers get one stable structure. The
+   * caption is the live text; the beats themselves are decorative and hidden
+   * from assistive tech, because reading out a mocked code listing helps
+   * nobody.
+   */
+  /**
+   * The rotating argument, paired to whatever the picture below is showing.
+   *
+   * Hidden from assistive tech: a sentence that replaces itself every few
+   * seconds is noise in a screen reader, so the stable summary above carries
+   * the message there instead. Both sentences are always in the DOM and only
+   * their opacity changes, so the block cannot reflow and the card never jumps
+   * height mid-loop.
+   */
+  /**
+   * Where a slide sits relative to the one on screen.
+   *
+   * This is what makes the motion agree with the rail: the rail reads left to
+   * right, so a slide that has not been reached yet waits to the right, and one
+   * already passed leaves to the left. Deriving it from the indices rather than
+   * remembering a direction means clicking backwards through the tabs animates
+   * backwards for free, with no state to keep in sync. The loop's wrap from the
+   * last tab to the first therefore reads as a rewind, which is what it is.
+   */
+  private intelligenceSlidePosition(index: number): string {
+    if (index === this.intelStoryBeat) return "active";
+    return index < this.intelStoryBeat ? "before" : "after";
+  }
+
+  /** Same rule, addressed by beat id, for the picture halves. */
+  private intelligenceBeatPosition(beatId: string): string {
+    return this.intelligenceSlidePosition(
+      INTELLIGENCE_STORY_BEATS.findIndex((beat) => beat.id === beatId),
+    );
+  }
+
+  private renderIntelligenceStoryCopy() {
+    return html`
+      <div
+        class="inspector-intelligence-copy"
+        data-inspector-intelligence-copy
+        data-beat=${
+          INTELLIGENCE_STORY_BEATS[this.intelStoryBeat]?.id ?? "threads"
+        }
+        aria-hidden="true"
+      >
+        ${INTELLIGENCE_STORY_BEATS.map(
+          (beat, index) => html`
+            <div
+              class="inspector-intelligence-copy-slide"
+              data-beat-id=${beat.id}
+              data-active=${index === this.intelStoryBeat}
+              data-position=${this.intelligenceSlidePosition(index)}
+            >
+              <strong>${beat.lead}</strong>
+              <span>${beat.support}</span>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStory() {
+    const activeBeat = INTELLIGENCE_STORY_BEATS[this.intelStoryBeat];
+    return html`
+      <section
+        class="inspector-intelligence-story"
+        data-inspector-intelligence-story
+        data-beat=${activeBeat?.id ?? "threads"}
+      >
+        ${this.renderIntelligenceStoryCopy()}
+        <div class="inspector-intelligence-story-stage" aria-hidden="true">
+          ${this.renderIntelligenceStoryThreads()}
+          ${this.renderIntelligenceStoryLearning()}
+          ${this.renderIntelligenceStorySkill()}
+          ${this.renderIntelligenceStoryReuse()}
+        </div>
+        <div
+          class="inspector-intelligence-story-rail"
+          role="tablist"
+          aria-label="What Intelligence adds"
+        >
+          ${INTELLIGENCE_STORY_BEATS.map(
+            (beat, index) => html`
+              <button
+                type="button"
+                role="tab"
+                class="inspector-intelligence-story-tab"
+                aria-selected=${index === this.intelStoryBeat}
+                data-active=${index === this.intelStoryBeat}
+                style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                @click=${() => this.pinIntelligenceStoryBeat(index)}
+              >
+                ${beat.label}
+              </button>
+            `,
+          )}
+        </div>
+      </section>
+    `;
+  }
+
+  /** Beat 1 — the developer's own users' conversations, one of them broken. */
+  private renderIntelligenceStoryThreads() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="threads"
+        data-position=${this.intelligenceBeatPosition("threads")}
+      >
+        <div class="inspector-intelligence-threads">
+          ${INTELLIGENCE_STORY_THREADS.map(
+            (thread, index) => html`
+              <span
+                class="inspector-intelligence-thread"
+                data-failed=${thread.failed}
+                style="--thread-index:${index}"
+              >
+                <i></i>
+                <strong>${thread.title}</strong>
+                <small>${thread.meta}</small>
+              </span>
+            `,
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStoryLearning() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="learning"
+        data-position=${this.intelligenceBeatPosition("learning")}
+      >
+        <div class="inspector-intelligence-beat-col">
+          <span class="inspector-intelligence-beat-label">
+            Signals from ${INTELLIGENCE_STORY_SIGNALS.length} threads
+          </span>
+          ${INTELLIGENCE_STORY_SIGNALS.map(
+            (signal, index) => html`
+              <span
+                class="inspector-intelligence-signal"
+                style="--signal-index:${index}"
+                >${signal}</span
+              >
+            `,
+          )}
+        </div>
+        <div class="inspector-intelligence-beat-flow">
+          ${this.renderIcon("ArrowRight")}
+        </div>
+        <div class="inspector-intelligence-beat-col">
+          <span class="inspector-intelligence-beat-label">
+            Reusable pattern
+          </span>
+          ${INTELLIGENCE_STORY_RULES.map(
+            (rule, index) => html`
+              <span
+                class="inspector-intelligence-rule"
+                style="--rule-index:${index}"
+              >
+                <i>${this.renderIcon("Check")}</i>${rule}
+              </span>
+            `,
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStorySkill() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="skill"
+        data-position=${this.intelligenceBeatPosition("skill")}
+      >
+        <div class="inspector-intelligence-skill-file">
+          <header>
+            ${this.renderIcon("FileText")}
+            <strong>${INTELLIGENCE_STORY_SKILL_FILE}</strong>
+            <em>Pending review</em>
+          </header>
+          <div class="inspector-intelligence-skill-code">
+            <span data-line="1"
+              ><b># Meeting scheduling</b></span
+            >
+            <span data-line="2">When planning a meeting:</span>
+            ${INTELLIGENCE_STORY_RULES.map(
+              (rule, index) => html`
+                <span
+                  data-line=${index + 3}
+                  style="--rule-index:${index}"
+                  >${index + 1}. ${rule}</span
+                >
+              `,
+            )}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStoryReuse() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="intelligence"
+        data-position=${this.intelligenceBeatPosition("intelligence")}
+      >
+        <div class="inspector-intelligence-chain">
+          ${INTELLIGENCE_STORY_CHAIN.map(
+            (step, index) => html`
+              <span
+                class="inspector-intelligence-chain-step"
+                style="--step-index:${index}"
+              >
+                <i>${this.renderIcon(step.icon as LucideIconName)}</i>
+                <strong>${step.name}</strong>
+                <small>${step.detail}</small>
+              </span>
+              ${
+                index === INTELLIGENCE_STORY_CHAIN.length - 1
+                  ? nothing
+                  : html`
+                    <span
+                      class="inspector-intelligence-chain-arrow"
+                      style="--step-index:${index}"
+                      >${this.renderIcon("ChevronRight")}</span
+                    >
+                  `
+              }
+            `,
+          )}
+        </div>
+        <span class="inspector-intelligence-chain-proof">
+          ${this.renderIcon("Sparkles")} Next run starts with
+          <code>${INTELLIGENCE_STORY_SKILL_FILE}</code>
+        </span>
+      </div>
+    `;
+  }
+
+  /** A press pins that beat and stops the loop; the developer is now driving. */
+  private pinIntelligenceStoryBeat(index: number): void {
+    this.intelStoryUserPinned = true;
+    this.intelStoryBeat = index;
+    this.stopIntelligenceStory();
+    this.requestUpdate();
+
+    // Reported here and nowhere else: this is the only path a human can take
+    // to a beat. The auto-advance in syncIntelligenceStory deliberately stays
+    // silent.
+    if (!this.core?.telemetryDisabled) {
+      const beat = INTELLIGENCE_STORY_BEATS[index];
+      if (beat) {
+        trackHomeStoryBeatSelected({ beat: beat.id, beat_index: index });
+      }
+    }
+  }
+
+  /**
+   * Advance the story only while it is actually on screen.
+   *
+   * Gated on the panel being open, Home being the visible tab, settings being
+   * closed and the document being visible. Anything less and a debugging tool
+   * would be holding a repeating timer behind a closed panel.
+   */
+  private syncIntelligenceStory(): void {
+    const visible =
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === "home" &&
+      !this._core?.intelligence &&
+      typeof document !== "undefined" &&
+      document.visibilityState !== "hidden";
+
+    if (!visible) {
+      // Leaving Home also releases a pinned beat, so coming back later shows a
+      // running story rather than a frozen one that reads as broken.
+      this.intelStoryUserPinned = false;
+      this.stopIntelligenceStory();
+      return;
+    }
+
+    if (this.intelStoryUserPinned || this.prefersReducedMotion()) {
+      this.stopIntelligenceStory();
+      return;
+    }
+
+    if (this.intelStoryTimer !== null) {
+      return;
+    }
+
+    const advance = (): void => {
+      const current = INTELLIGENCE_STORY_BEATS[this.intelStoryBeat];
+      this.intelStoryTimer = setTimeout(() => {
+        this.intelStoryTimer = null;
+        if (!this.isConnected) {
+          return;
+        }
+        this.intelStoryBeat =
+          (this.intelStoryBeat + 1) % INTELLIGENCE_STORY_BEATS.length;
+        this.requestUpdate();
+        advance();
+      }, current?.duration ?? 3_800);
+    };
+
+    advance();
+  }
+
+  private stopIntelligenceStory(): void {
+    if (this.intelStoryTimer !== null) {
+      clearTimeout(this.intelStoryTimer);
+      this.intelStoryTimer = null;
+    }
+  }
+
+  /**
+   * Reduced motion parks the story on the closing beat.
+   *
+   * That beat is the whole argument in one static frame, so a developer who
+   * asked their OS for less motion still gets the point rather than a
+   * fragment of it.
+   */
+  private prefersReducedMotion(): boolean {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+    this.intelStoryReducedMotion ??= window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
+    if (this.intelStoryReducedMotion.matches) {
+      this.intelStoryBeat = INTELLIGENCE_STORY_BEATS.length - 1;
+      return true;
+    }
+    return false;
   }
 
   private maybeTrackHomeViewed(): void {
@@ -13858,6 +14747,54 @@ export class WebInspectorElement extends LitElement {
     return mapped;
   }
 
+  private async loadThreadSnapshot(thread: ɵThread): Promise<{
+    messages: Message[];
+    state: unknown;
+  }> {
+    const core = this._core;
+    if (!core?.runtimeUrl) {
+      throw new Error("Failed to load thread.");
+    }
+    const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
+    const encodedThreadId = encodeURIComponent(thread.id);
+    const [messagesResponse, stateResponse] = await Promise.all([
+      fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+        headers: { ...core.headers },
+      }),
+      fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+        headers: { ...core.headers },
+      }),
+    ]);
+    if (!messagesResponse.ok) {
+      throw new Error(
+        `Failed to load thread (HTTP ${messagesResponse.status}).`,
+      );
+    }
+    const messagesBody = (await messagesResponse.json()) as {
+      messages?: ThreadDebuggerMessage[];
+    };
+    const stateBody = stateResponse.ok
+      ? ((await stateResponse.json()) as { state?: unknown })
+      : { state: {} };
+    return {
+      messages: this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
+      state: stateBody.state ?? {},
+    };
+  }
+
+  private applyThreadSnapshotToPlayground(
+    thread: ɵThread,
+    snapshot: { messages: Message[]; state: unknown },
+  ): void {
+    this.startPlaygroundSession(
+      false,
+      snapshot.messages,
+      snapshot.state,
+      thread.agentId,
+    );
+    this.playgroundSourceThreadId = thread.id;
+  }
+
   private handlePlaygroundThreadSourceChange = async (
     event: Event,
   ): Promise<void> => {
@@ -13867,48 +14804,67 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
-    const core = this._core;
     const thread = this._threads.find((candidate) => candidate.id === threadId);
-    if (!core?.runtimeUrl || !thread) return;
+    if (!thread) return;
 
     this.playgroundIsLoadingThread = true;
     this.playgroundError = null;
     this.requestUpdate();
 
     try {
-      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
-      const encodedThreadId = encodeURIComponent(threadId);
-      const [messagesResponse, stateResponse] = await Promise.all([
-        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-          headers: { ...core.headers },
-        }),
-        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-          headers: { ...core.headers },
-        }),
-      ]);
-      if (!messagesResponse.ok) {
-        throw new Error(
-          `Failed to load thread (HTTP ${messagesResponse.status}).`,
-        );
-      }
-      const messagesBody = (await messagesResponse.json()) as {
-        messages?: ThreadDebuggerMessage[];
-      };
-      const stateBody = stateResponse.ok
-        ? ((await stateResponse.json()) as { state?: unknown })
-        : { state: {} };
-      this.startPlaygroundSession(
-        false,
-        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
-        stateBody.state ?? {},
-        thread.agentId,
-      );
-      this.playgroundSourceThreadId = threadId;
+      const snapshot = await this.loadThreadSnapshot(thread);
+      this.applyThreadSnapshotToPlayground(thread, snapshot);
     } catch (error) {
       this.playgroundError =
         error instanceof Error ? error.message : "Failed to load thread.";
     } finally {
       this.playgroundIsLoadingThread = false;
+      this.requestUpdate();
+    }
+  };
+
+  private handleTryFromHere = async (
+    threadId: string | null,
+  ): Promise<void> => {
+    if (!threadId || this.tryFromHereBusy) return;
+    const thread =
+      this._threads.find((candidate) => candidate.id === threadId) ?? null;
+    if (!thread) return;
+
+    this.tryFromHereBusy = true;
+    this.tryFromHereError = null;
+    this.requestUpdate();
+
+    const isCurrentTryFromHereRequest = (): boolean =>
+      this.selectedThreadId === threadId && this.selectedMenu === "threads";
+
+    try {
+      const snapshot = await this.loadThreadSnapshot(thread);
+      // A later thread or pane change owns the UI. Keep the fetch outcome
+      // for telemetry, but do not replace Playground or leave Threads.
+      if (isCurrentTryFromHereRequest()) {
+        this.applyThreadSnapshotToPlayground(thread, snapshot);
+        this.handleMenuSelect("playground");
+      }
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "success",
+        });
+      }
+    } catch (error) {
+      if (isCurrentTryFromHereRequest()) {
+        this.tryFromHereError =
+          error instanceof Error ? error.message : "Failed to load thread.";
+      }
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "failure",
+        });
+      }
+    } finally {
+      this.tryFromHereBusy = false;
       this.requestUpdate();
     }
   };
@@ -14248,10 +15204,20 @@ export class WebInspectorElement extends LitElement {
                       ?disabled=${busy}
                       @change=${this.handlePlaygroundThreadSourceChange}
                     >
-                      <option value="">Load a thread...</option>
+                      <option
+                        value=""
+                        ?selected=${!this.playgroundSourceThreadId}
+                      >
+                        Load a thread...
+                      </option>
                       ${sourceThreads.map(
                         (thread) => html`
-                          <option value=${thread.id}>
+                          <option
+                            value=${thread.id}
+                            ?selected=${
+                              this.playgroundSourceThreadId === thread.id
+                            }
+                          >
                             ${
                               thread.name?.trim() ||
                               `Thread ${thread.id.slice(0, 8)}`
@@ -15295,6 +16261,7 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
+    this.tryFromHereError = null;
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
       this.selectedRealThreadIsExplicit = false;
@@ -16611,6 +17578,16 @@ export class WebInspectorElement extends LitElement {
                             ? EMPTY_INSPECTOR_MESSAGES
                             : this.getLiveAgentMessagesForThread(selectedThread)
                         }
+                        .tryFromHereAvailable=${
+                          !selectedThreadIsLocalExample &&
+                          this.areThreadEndpointsAvailable() &&
+                          this._core?.threadEndpoints?.inspect !== false
+                        }
+                        .tryFromHereBusy=${this.tryFromHereBusy}
+                        .tryFromHereError=${this.tryFromHereError}
+                        @tryFromHere=${(event: CustomEvent<string | null>) => {
+                          void this.handleTryFromHere(event.detail);
+                        }}
                       ></cpk-thread-details>
                       ${
                         selectedThreadIsLocalExample

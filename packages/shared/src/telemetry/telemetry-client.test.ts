@@ -262,6 +262,90 @@ describe("v1 TelemetryClient", () => {
       }
     }
   });
+
+  test("both copies of one capture share a telemetry_event_id and differ only by transport", async () => {
+    // The dual-write is the whole of OSS-1019: one request, two rows, and
+    // before this nothing on either row said they were the same event.
+    // Consumers had to infer it from $lib, which is incidental.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    const lambdaGlobals = lambdaSpy.mock.calls[0][0].globalProperties as Record<
+      string,
+      unknown
+    >;
+    const segmentProps = segmentTrackMock.mock.calls[0][0].properties as Record<
+      string,
+      unknown
+    >;
+
+    expect(lambdaGlobals.telemetry_event_id).toEqual(expect.any(String));
+    expect(segmentProps.telemetry_event_id).toBe(
+      lambdaGlobals.telemetry_event_id,
+    );
+    expect(lambdaGlobals.telemetry_transport).toBe("lambda");
+    expect(segmentProps.telemetry_transport).toBe("segment");
+  });
+
+  test("each capture gets its own telemetry_event_id", async () => {
+    // A per-client id would collapse every event from one process into a
+    // single row under a dedupe-by-id rule.
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    const first = (
+      lambdaSpy.mock.calls[0][0].globalProperties as Record<string, unknown>
+    ).telemetry_event_id;
+    const second = (
+      lambdaSpy.mock.calls[1][0].globalProperties as Record<string, unknown>
+    ).telemetry_event_id;
+
+    expect(first).not.toBe(second);
+  });
+
+  test("both copies are stamped as emitted by the v1 client", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const client = makeClient({ sampleRate: 0.05 });
+
+    await client.capture("oss.runtime.instance_created", baseInstanceEvent);
+
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_emitter: "v1-shared",
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ telemetry_emitter: "v1-shared" }),
+    });
+  });
+
+  test("telemetry_identified rides on both copies and tracks the gate branch", async () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    const anonClient = makeClient({ sampleRate: 0.05 });
+    await anonClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: false,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ telemetry_identified: false }),
+    });
+
+    lambdaSpy.mockClear();
+    segmentTrackMock.mockReset();
+
+    const idClient = makeClient({ sampleRate: 0.05 });
+    idClient.setLicenseToken(jwtWith({ telemetry_id: "abc-123" }));
+    await idClient.capture("oss.runtime.instance_created", baseInstanceEvent);
+    expect(lambdaSpy.mock.calls[0][0].globalProperties).toMatchObject({
+      telemetry_identified: true,
+    });
+    expect(segmentTrackMock.mock.calls[0][0]).toMatchObject({
+      properties: expect.objectContaining({ telemetry_identified: true }),
+    });
+  });
 });
 
 describe("isTelemetryDisabled", () => {

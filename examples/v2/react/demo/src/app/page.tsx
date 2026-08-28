@@ -12,6 +12,7 @@ import {
 import type { ToolsMenuItem, SandboxFunction } from "@copilotkit/react-core/v2";
 import { useCallback, useMemo, useState } from "react";
 import { z } from "zod";
+import { DEMO_RUNTIME_URL } from "./runtime-url";
 
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
@@ -88,7 +89,7 @@ export default function Home() {
 
   return (
     <CopilotKitProvider
-      runtimeUrl="/api/copilotkit"
+      runtimeUrl={DEMO_RUNTIME_URL}
       renderToolCalls={[wildcardRenderer]}
       openGenerativeUI={{ sandboxFunctions }}
     >

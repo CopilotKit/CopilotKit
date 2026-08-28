@@ -57,8 +57,10 @@ export class StateManager {
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
 
-  // Agent subscriptions for cleanup
-  private agentSubscriptions: Map<string, () => void> = new Map();
+  private agentSubscriptions: Map<
+    string,
+    { agent: AbstractAgent; unsubscribe: () => void }
+  > = new Map();
 
   // Internal follow-ups are marked in memory so the marker never reaches a
   // runtime or becomes user-controlled forwardedProps data.
@@ -115,10 +117,12 @@ export class StateManager {
 
     const agentId = agent.agentId;
 
-    // Unsubscribe existing subscription for this agent only
-    const existingUnsubscribe = this.agentSubscriptions.get(agentId);
-    if (existingUnsubscribe) {
-      existingUnsubscribe();
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      if (existing.agent === agent) {
+        return;
+      }
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
 
@@ -130,7 +134,8 @@ export class StateManager {
     //    runAgent() start. If this subscription is replaced by a newer one before
     //    the pipeline finishes, the old pipeline may still call these callbacks
     //    with the old input.runId. `revoked = true` turns them into no-ops once
-    //    the replacement subscription is in place.
+    //    the replacement subscription is in place. Only a replacement revokes —
+    //    see the same-instance guard above.
     //
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
@@ -359,10 +364,13 @@ export class StateManager {
       },
     });
 
-    this.agentSubscriptions.set(agentId, () => {
-      revoked = true;
-      this.pendingContinuations.delete(agent);
-      unsubscribe();
+    this.agentSubscriptions.set(agentId, {
+      agent,
+      unsubscribe: () => {
+        revoked = true;
+        this.pendingContinuations.delete(agent);
+        unsubscribe();
+      },
     });
   }
 
@@ -370,9 +378,9 @@ export class StateManager {
    * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
-    const unsubscribe = this.agentSubscriptions.get(agentId);
-    if (unsubscribe) {
-      unsubscribe();
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
     this.rawEventByMessage.delete(agentId);

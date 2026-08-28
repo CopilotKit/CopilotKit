@@ -279,7 +279,16 @@ test.each(usageDisplayCases)("$name", async (case_) => {
       );
     }
     if (case_.usage.used === 241) {
-      expect(footer.outerHTML).not.toContain("241");
+      // Comments stripped before the substring check. lit builds its part
+      // marker as `lit$` + nine digits from Math.random(), regenerated per
+      // process, and writes it into the DOM as a comment — so roughly one run
+      // in a hundred produced a marker containing "241" and failed this
+      // assertion with no relation to what the footer showed. What the
+      // assertion is actually about is that the unclamped count never reaches
+      // the user, and lit's internal bookkeeping is not that.
+      const rendered = footer.outerHTML.replace(/<!--[\s\S]*?-->/g, "");
+      expect(rendered).not.toContain("<!--");
+      expect(rendered).not.toContain("241");
       expect(context.core.inspectorMetadata?.usage?.used).toBe(241);
     }
   } finally {

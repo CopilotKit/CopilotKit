@@ -1,7 +1,8 @@
 {
   "name": "@copilotkit/web-inspector",
-  "version": "1.69.2",
+  "version": "1.69.3",
   "description": "Lit-based web component for the CopilotKit web inspector",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"

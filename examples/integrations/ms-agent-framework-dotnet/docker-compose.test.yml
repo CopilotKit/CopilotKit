@@ -1,7 +1,7 @@
 # Docker Compose stack for e2e smoke testing with aimock.
 # Mirrors the user experience: Next.js frontend + .NET agent + aimock as LLM.
-# The .NET agent uses GitHubToken + models.inference.ai.azure.com endpoint,
-# but for testing we redirect to aimock via OPENAI_BASE_URL override.
+# The .NET agent uses OpenAI by default. Tests redirect it to aimock with
+# OPENAI_BASE_URL while keeping the same OPENAI_API_KEY contract.
 # Usage: docker compose -f docker-compose.test.yml up -d
 services:
   aimock:
@@ -16,7 +16,7 @@ services:
       context: ./agent
       dockerfile: ../docker/Dockerfile.agent
     environment:
-      - GitHubToken=test-key-for-aimock
+      - OPENAI_API_KEY=test-key-for-aimock
       - OPENAI_BASE_URL=http://aimock:4010/v1
     depends_on:
       aimock:
