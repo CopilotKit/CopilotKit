@@ -1,0 +1,15 @@
+[project]
+name = "channels-a2ui-market-agent"
+version = "0.1.0"
+description = "Minimal Google ADK live-market agent for the Channels A2UI example"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "python-dotenv",
+  "google-adk",
+  "ag-ui-adk==0.7.0",
+  "ag-ui-protocol==0.1.18",
+  # uv skips transitive prereleases, and the only stable release was yanked.
+  "opentelemetry-resourcedetector-gcp==1.12.0a0",
+]

@@ -1,0 +1,5 @@
+.env
+agent/.env
+agent/.venv/
+agent/__pycache__/
+agent/.ruff_cache/

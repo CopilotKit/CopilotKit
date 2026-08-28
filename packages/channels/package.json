@@ -36,6 +36,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./a2ui": {
+      "types": "./dist/a2ui/index.d.ts",
+      "import": "./dist/a2ui/index.js"
+    },
     "./testing": {
       "types": "./dist/testing.d.ts",
       "import": "./dist/testing.js"
@@ -97,13 +101,15 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
+    "@a2ui/web_core": "0.10.4",
     "@copilotkit/channels-core": "workspace:*",
     "@copilotkit/channels-ui": "workspace:*",
     "@copilotkit/channels-slack": "workspace:*",
     "@copilotkit/channels-teams": "workspace:*",
     "@copilotkit/channels-discord": "workspace:*",
     "@copilotkit/channels-telegram": "workspace:*",
-    "@copilotkit/channels-whatsapp": "workspace:*"
+    "@copilotkit/channels-whatsapp": "workspace:*",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@copilotkit/typescript-config": "workspace:^",
