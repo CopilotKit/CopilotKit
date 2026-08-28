@@ -59,29 +59,27 @@ agent = AgentFrameworkAgent(agent=base_agent)
 
 The system prompt can be used to tell the model *when* to draw; the adapter supplies and runs the tool.
 
-## Backend — owning the tool
+## Backend — recovery and other policy
 
-To own `generate_a2ui` yourself — for example to make the validate→retry recovery loop visible — wrap the agent with `enable_a2ui` and set `injectA2UITool: false` so the runtime does not inject a second copy:
+The auto-inject path takes an optional `a2ui_config` on the endpoint — a backend
+policy dict the adapter reads when it injects the tool. This is where the
+error-recovery demo pins the validate→retry loop's attempt cap (and where MAF's
+upstream recovery example puts its config). The agent stays a plain agent; only
+the endpoint config changes:
 
-```python title="src/agents/recovery_agent.py"
-from agent_framework import Agent
-from agent_framework_ag_ui import AgentFrameworkAgent, enable_a2ui
-
-base_agent = Agent(client=chat_client, name="a2ui_recovery_agent", instructions=SYSTEM_PROMPT)
-
-a2ui_runner = enable_a2ui(
-    base_agent,
-    chat_client,
-    params={
+```python title="src/agents/agent_server.py"
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=a2ui_recovery_agent,
+    path="/a2ui_recovery",
+    a2ui_config={
         "recovery": {"maxAttempts": 3},
         "default_catalog_id": "declarative-gen-ui-catalog",
     },
 )
-
-agent = AgentFrameworkAgent(agent=a2ui_runner)
 ```
 
-`enable_a2ui(agent, subagent_client, params)` takes an `A2UIToolParams` object — the same params the adapter uses under the hood:
+`a2ui_config` accepts the same params the adapter uses under the hood:
 
 - **`recovery`** — the validate→retry loop config, e.g. `{"maxAttempts": 3}`. When every attempt is invalid the tool returns a graceful `a2ui_recovery_exhausted` fallback.
 - **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.

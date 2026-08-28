@@ -53,7 +53,10 @@ from agents.agent import create_agent
 from agents.voice_agent import create_voice_agent
 from agents.a2ui_dynamic import create_agent as create_a2ui_dynamic_agent
 from agents.a2ui_fixed import create_agent as create_a2ui_fixed_agent
-from agents.recovery_agent import create_agent as create_a2ui_recovery_agent
+from agents.recovery_agent import (
+    A2UI_RECOVERY_CONFIG,
+    create_agent as create_a2ui_recovery_agent,
+)
 from agents.agent_config_agent import create_agent_config_agent
 from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.byoc_hashbrown_agent import create_byoc_hashbrown_agent
@@ -213,7 +216,10 @@ add_agent_framework_fastapi_endpoint(
     app=app, agent=a2ui_fixed_agent, path="/a2ui_fixed"
 )
 add_agent_framework_fastapi_endpoint(
-    app=app, agent=a2ui_recovery_agent, path="/a2ui_recovery"
+    app=app,
+    agent=a2ui_recovery_agent,
+    path="/a2ui_recovery",
+    a2ui_config=A2UI_RECOVERY_CONFIG,
 )
 add_agent_framework_fastapi_endpoint(
     app=app, agent=open_gen_ui_agent, path="/open-gen-ui"
