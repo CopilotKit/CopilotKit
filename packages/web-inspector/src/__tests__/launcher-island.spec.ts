@@ -16,6 +16,7 @@
 
 import {
   CopilotKitCore,
+  CopilotKitCoreErrorCode,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type {
@@ -26,9 +27,32 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
 
 const RUNTIME_URL = "https://runtime.launcher-hud.test";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
+const ANNOUNCEMENT_TIMESTAMP = "2026-08-01T09:00:00.000Z";
+/** The announcement's own cadence, which is slower than an error's. */
+const NEWS_BEAT_MS = 2100;
+
+/**
+ * The gesture, stated once, mirroring `ERROR_GESTURE_MS` in the
+ * implementation — 3400ms end to end, not the 4500 a stale note once claimed.
+ */
+const ERROR_BEAT_MS = 400;
+const PILL_OPEN_MS = 250;
+const PILL_HOLD_MS = 2500;
+const PILL_CLOSE_MS = 250;
+const GESTURE_MS = ERROR_BEAT_MS + PILL_OPEN_MS + PILL_HOLD_MS + PILL_CLOSE_MS;
+
+/** The dwell reveal's own durations, mirroring `LAUNCHER_ISLAND_MS`. */
+const ISLAND_CLOSE_MS = 220;
+
+/** Words the capsule can carry, each owned by the panel it comes from. */
+const RUNTIME_ERROR_WORDS = "Runtime error";
+const RUN_ERROR_WORDS = "Agent run failed";
+const INTELLIGENCE_OFF_WORDS = "Intelligence not connected";
+const INTELLIGENCE_ON_WORDS = "Intelligence connected";
 
 const ENABLED_ENDPOINTS = {
   list: true,
@@ -41,6 +65,23 @@ type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
   intelligence?: boolean;
   licenseStatus?: RuntimeLicenseStatus;
+  /**
+   * Install the fake clock before the element mounts, for the arbitration
+   * suite at the foot of this file. A timer started during mount would
+   * otherwise stay on the real one and never be reached.
+   */
+  fakeTimers?: boolean;
+  /**
+   * Hold the announcement feed until `releaseAnnouncement()` is called, so
+   * the news signal can be armed at a chosen moment mid-test rather than
+   * during mount.
+   */
+  announcementPending?: boolean;
+}>;
+
+type TelemetryBody = Readonly<{
+  event: string;
+  properties: Readonly<Record<string, unknown>>;
 }>;
 
 class IslandTestCore extends CopilotKitCore {
@@ -86,6 +127,24 @@ class IslandTestCore extends CopilotKitCore {
       "HUD test runtime subscriber failed",
     );
   }
+
+  /**
+   * Arms one of the event-error signals — the second armed subject the
+   * priority row of the case table needs, reached without standing up a
+   * thread store. Same idiom as launcher-error-signal.spec.ts.
+   */
+  async emitAppError(code: CopilotKitCoreErrorCode): Promise<void> {
+    await this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onError?.({
+          copilotkit: this,
+          error: new Error("island lab failure"),
+          code,
+          context: {},
+        }),
+      "HUD test onError subscriber failed",
+    );
+  }
 }
 
 function requireElement<T extends Node>(element: T | null | undefined): T {
@@ -108,9 +167,12 @@ function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
 }
 
 function hud(inspector: WebInspectorElement): HTMLElement | null {
-  return root(inspector).querySelector<HTMLElement>("[data-cpk-launcher-hud]");
+  return root(inspector).querySelector<HTMLElement>(
+    "[data-cpk-launcher-drawer]",
+  );
 }
 
+/** Whether the drawer — the island's list half — is on the page. */
 function hudOpen(inspector: WebInspectorElement): boolean {
   return hud(inspector) !== null;
 }
@@ -140,11 +202,34 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/**
+ * Let renders and resolved fetches land without moving the clock.
+ *
+ * Both branches drain microtasks and zero-delay timers, so which clock is
+ * installed does not change what a caller has to write.
+ */
 async function settle(inspector: WebInspectorElement): Promise<void> {
   for (let turn = 0; turn < 6; turn += 1) {
+    if (vi.isFakeTimers()) await vi.advanceTimersByTimeAsync(0);
     await inspector.updateComplete;
     await Promise.resolve();
   }
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseTelemetryBody(raw: string): TelemetryBody {
+  const parsed: unknown = JSON.parse(raw);
+  if (
+    !isRecord(parsed) ||
+    typeof parsed.event !== "string" ||
+    !isRecord(parsed.properties)
+  ) {
+    throw new Error("Telemetry request body had an unexpected shape");
+  }
+  return { event: parsed.event, properties: parsed.properties };
 }
 
 async function setup(options: Options = {}): Promise<{
@@ -155,26 +240,67 @@ async function setup(options: Options = {}): Promise<{
   clickCapsule: () => Promise<void>;
   pressLauncher: () => Promise<void>;
   closeInspector: () => Promise<void>;
+  /** Move the clock and settle. Requires `fakeTimers`. */
+  advance: (ms: number) => Promise<void>;
+  /** The pointer leaves the launcher. The island plays its exit. */
+  leaveHud: () => Promise<void>;
+  /** Keyboard dwell: focus arrives on, then departs, the launcher. */
+  focusHud: () => Promise<void>;
+  blurHud: () => Promise<void>;
+  breakConnection: () => Promise<void>;
+  healConnection: () => Promise<void>;
+  fireRunError: () => Promise<void>;
+  /** Publish the held announcement feed, arming the news signal mid-test. */
+  releaseAnnouncement: () => Promise<void>;
+  /** Every telemetry payload this component has posted, in order. */
+  telemetryBodies: TelemetryBody[];
 }> {
   document.body.replaceChildren();
   window.localStorage.clear();
   window.sessionStorage.clear();
+  const telemetryBodies: TelemetryBody[] = [];
+  let releaseAnnouncementFeed: (() => void) | null = null;
   vi.stubGlobal(
     "fetch",
     Object.assign(
-      vi.fn(async (input: RequestInfo | URL) => {
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
         const href = new URL(
           input instanceof Request ? input.url : String(input),
           window.location.href,
         ).href;
+        if (href === TELEMETRY_INGEST_URL) {
+          if (typeof init?.body === "string") {
+            telemetryBodies.push(parseTelemetryBody(init.body));
+          }
+          return new Response(null, { status: 204 });
+        }
         if (href === ANNOUNCEMENT_URL) {
-          return new Response(null, { status: 404 });
+          if (!options.announcementPending) {
+            return new Response(null, { status: 404 });
+          }
+          await new Promise<void>((resolve) => {
+            releaseAnnouncementFeed = resolve;
+          });
+          return new Response(
+            JSON.stringify({
+              timestamp: ANNOUNCEMENT_TIMESTAMP,
+              previewText: "Channels are here",
+              announcement: "## Channels\n\nRead the release notes.",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
         }
         return new Response(null, { status: 404 });
       }),
       globalThis.fetch,
     ),
   );
+
+  if (options.fakeTimers) {
+    // Limited to the two timer functions the launcher uses, so the
+    // announcement's date handling is untouched.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  }
 
   const inspector = new WebInspectorElement();
   const core = new IslandTestCore(options);
@@ -184,6 +310,7 @@ async function setup(options: Options = {}): Promise<{
   await settle(inspector);
 
   const teardown = (): void => {
+    vi.useRealTimers();
     inspector.remove();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -193,13 +320,41 @@ async function setup(options: Options = {}): Promise<{
   };
   cleanup = teardown;
 
-  const openHud = async (): Promise<void> => {
-    const wrapper = requireElement(
+  const wrapper = (): HTMLElement =>
+    requireElement(
       root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
     );
-    wrapper.dispatchEvent(
+
+  const openHud = async (): Promise<void> => {
+    wrapper().dispatchEvent(
       new PointerEvent("pointerenter", { bubbles: true, composed: true }),
     );
+    await settle(inspector);
+  };
+
+  const leaveHud = async (): Promise<void> => {
+    wrapper().dispatchEvent(
+      new PointerEvent("pointerleave", { bubbles: true, composed: true }),
+    );
+    await settle(inspector);
+  };
+
+  const focusHud = async (): Promise<void> => {
+    wrapper().dispatchEvent(
+      new FocusEvent("focusin", { bubbles: true, composed: true }),
+    );
+    await settle(inspector);
+  };
+
+  const blurHud = async (): Promise<void> => {
+    wrapper().dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true, composed: true }),
+    );
+    await settle(inspector);
+  };
+
+  const advance = async (ms: number): Promise<void> => {
+    await vi.advanceTimersByTimeAsync(ms);
     await settle(inspector);
   };
 
@@ -248,6 +403,30 @@ async function setup(options: Options = {}): Promise<{
     clickCapsule,
     pressLauncher,
     closeInspector,
+    advance,
+    leaveHud,
+    focusHud,
+    blurHud,
+    telemetryBodies,
+    breakConnection: async () => {
+      await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Error);
+      await settle(inspector);
+    },
+    healConnection: async () => {
+      await core.emitStatus(CopilotKitCoreRuntimeConnectionStatus.Connected);
+      await settle(inspector);
+    },
+    fireRunError: async () => {
+      await core.emitAppError(CopilotKitCoreErrorCode.AGENT_RUN_FAILED);
+      await settle(inspector);
+    },
+    releaseAnnouncement: async () => {
+      if (releaseAnnouncementFeed === null) {
+        throw new Error("This scenario has no held announcement feed");
+      }
+      releaseAnnouncementFeed();
+      await settle(inspector);
+    },
   };
 }
 
@@ -597,7 +776,8 @@ test("every launcher rule reaches an element, and every launcher element has a r
   //   about a bare hover does. It needs an armed runtime error.
   // - The drawer is a dwell surface: `renderLauncherDrawer` only returns
   //   markup while `launcherHudOpen` is true, which a pointerenter dwell sets
-  //   but an armed error does not (arming a signal closes the hud).
+  //   but a timed gesture never does — the drawer opens on dwell and on
+  //   nothing else, which is arbitration rule 2.
   //
   // A guard that checked only one of these would quietly stop covering
   // whichever surface that state does not render — which is exactly how
@@ -1086,4 +1266,470 @@ test("the connected dwell capsule opens without forcing Home, leaving the reader
   // Not Home: the capsule stayed neutral and reopened wherever the reader
   // already was, exactly as the plain launcher mark does.
   expect(currentMenu(inspector)).toBe("threads");
+});
+
+// ── Arbitration: two drivers, one island ──────────────────────────────────
+//
+// One test per row of the spec's case table, plus the two silences the dwell
+// driver owes.
+//
+// The split under test: a SIGNAL is event-shaped (it has a moment, so it beats,
+// speaks and self-closes) and a DWELL is state-shaped (it has no moment, so it
+// announces nothing, counts nothing, and ends only when the reader leaves).
+// Capsule and drawer are two slots arbitrated apart — the driver decides how
+// the island opens, the armed signal decides what the capsule says.
+//
+// Every assertion below reads rendered attributes and text, never a private
+// field, so the shape of the state machine behind them stays free to change.
+
+/** Which subject the capsule names, or null when there is no capsule. */
+function capsuleSubject(inspector: WebInspectorElement): string | null {
+  return capsule(inspector)?.getAttribute("data-cpk-launcher-capsule") ?? null;
+}
+
+/**
+ * The gesture's phase attribute, which drives the timed reveal and its static
+ * hold. Absent whenever the dwell is the one opening the capsule.
+ */
+function capsulePhase(inspector: WebInspectorElement): string | null {
+  return capsule(inspector)?.getAttribute("data-cpk-capsule-phase") ?? null;
+}
+
+/** The dwell reveal's phase, shared by both halves of the island. */
+function islandPhase(inspector: WebInspectorElement): string | null {
+  return capsule(inspector)?.getAttribute("data-cpk-island-phase") ?? null;
+}
+
+/** Whether a beat is in flight on the launcher right now. */
+function beating(inspector: WebInspectorElement): boolean {
+  return (
+    launcherButton(inspector).getAttribute("data-cpk-signal-pulsing") === "true"
+  );
+}
+
+/** Which subject owns the resting dot, or null when the launcher is quiet. */
+function dotSubject(inspector: WebInspectorElement): string | null {
+  return (
+    root(inspector)
+      .querySelector("[data-cpk-signal-dot]")
+      ?.getAttribute("data-cpk-signal-dot") ?? null
+  );
+}
+
+/** What the launcher has put into its polite live region, if anything. */
+function spoken(inspector: WebInspectorElement): string {
+  return (
+    root(inspector)
+      .querySelector("[data-cpk-launcher-announcement]")
+      ?.textContent?.trim() ?? ""
+  );
+}
+
+function errorImpressions(bodies: TelemetryBody[]): TelemetryBody[] {
+  return bodies.filter(
+    (body) => body.event === TELEMETRY_EVENTS.errorSignalViewed,
+  );
+}
+
+/**
+ * Advances `total` in slices, asserting no beat is in flight after any of them.
+ *
+ * The slice is deliberately shorter than the 400ms error cadence: a single
+ * long advance runs a whole beat start-to-finish inside itself and comes back
+ * to a quiet launcher, so it cannot tell "never beat" from "beat while nobody
+ * was looking" — and "the launcher never twitched" is precisely the claim
+ * decisions 12 and 13 make.
+ */
+const BEAT_SAMPLE_MS = 200;
+
+async function advanceWithoutBeating(
+  context: {
+    inspector: WebInspectorElement;
+    advance: (ms: number) => Promise<void>;
+  },
+  total: number,
+): Promise<void> {
+  const steps = Math.ceil(total / BEAT_SAMPLE_MS);
+  for (let step = 0; step < steps; step += 1) {
+    await context.advance(BEAT_SAMPLE_MS);
+    expect(
+      beating(context.inspector),
+      `a beat ran ${(step + 1) * BEAT_SAMPLE_MS}ms into a window that must stay still`,
+    ).toBe(false);
+  }
+}
+
+// Row 1 — Nothing armed, no dwell: capsule —, drawer —, beat —.
+test("case table: with nothing armed and nobody hovering, the launcher shows neither half", async () => {
+  const { inspector } = await setup({ intelligence: true });
+
+  expect(capsule(inspector), "a capsule with nothing to say").toBeNull();
+  expect(hudOpen(inspector), "a drawer nobody asked for").toBe(false);
+  expect(beating(inspector)).toBe(false);
+  expect(dotSubject(inspector)).toBeNull();
+});
+
+// Row 2 — Signal fires, no dwell: capsule = the signal's pillLabel, drawer —,
+// beat yes, then the whole thing self-closes.
+test("case table: a signal firing with nobody hovering beats, shows its words alone, and closes itself", async () => {
+  const context = await setup({ fakeTimers: true });
+  await context.breakConnection();
+
+  // The beat says *here*.
+  expect(beating(context.inspector)).toBe(true);
+  expect(hudOpen(context.inspector), "a timed gesture opened the drawer").toBe(
+    false,
+  );
+
+  // Then the pill says *this*.
+  await context.advance(ERROR_BEAT_MS + PILL_OPEN_MS);
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(capsuleSubject(context.inspector)).toBe("connection");
+  expect(capsulePhase(context.inspector)).toBe("holding");
+  expect(
+    hudOpen(context.inspector),
+    "arbitration rule 2: the drawer opens only on dwell",
+  ).toBe(false);
+
+  // And it ends on its own clock, leaving the dot behind.
+  await context.advance(PILL_HOLD_MS + PILL_CLOSE_MS);
+  expect(capsule(context.inspector)).toBeNull();
+  expect(dotSubject(context.inspector)).toBe("connection");
+});
+
+// Row 3 — Dwell, nothing armed: capsule = the services summary, drawer = the
+// services, no beat.
+test("case table: a dwell with nothing armed opens the summary over the services", async () => {
+  const { inspector, openHud } = await setup({ intelligence: true });
+  await openHud();
+
+  expect(capsuleHeading(inspector)).toBe(INTELLIGENCE_ON_WORDS);
+  expect(capsuleSubject(inspector)).toBe("intelligence");
+  expect(islandPhase(inspector)).toBe("open");
+  expect(hudRowLabels(inspector)).toEqual([
+    "Threads disabled",
+    "Learning enabled",
+  ]);
+  expect(beating(inspector)).toBe(false);
+});
+
+// Row 4 — Dwell begins during a running gesture: capsule keeps the signal's
+// pillLabel, the drawer opens, and the clock stops.
+//
+// This is the first of the two defects. `openLauncherHud` used to refuse
+// outright while `gestureSignal` was set, so a hover during the 3.4 seconds
+// after a failure opened nothing at all — the reader looking where the
+// launcher just asked them to look, and getting silence.
+test("case table: hovering during a running gesture opens the drawer and keeps the signal's words", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.breakConnection();
+  await context.advance(ERROR_BEAT_MS + PILL_OPEN_MS);
+  expect(capsulePhase(context.inspector), "setup: mid-gesture").toBe("holding");
+
+  await context.openHud();
+
+  expect(
+    hudOpen(context.inspector),
+    "the drawer stayed shut under a hover because a gesture was running",
+  ).toBe(true);
+  expect(hudRowLabels(context.inspector)).toEqual([
+    "Threads disabled",
+    "Learning enabled",
+  ]);
+  // The words are the failure's, not the summary's: the reader hovered
+  // *because* of the signal.
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(capsuleSubject(context.inspector)).toBe("connection");
+  // And the island is opening on the dwell's reveal, not holding on the
+  // gesture's — one surface, one animation.
+  expect(islandPhase(context.inspector)).toBe("open");
+  expect(capsulePhase(context.inspector)).toBeNull();
+});
+
+// Row 4, second half — the clock stops.
+//
+// WCAG 2.1 SC 1.4.13 requires hover-triggered content to stay until the
+// pointer leaves or the reader dismisses it. `beginGestureTail` used to end
+// with `closeLauncherHud()`, and the hold used to expire on its own timer, so
+// the island vanished from under the pointer either way.
+test("case table: nothing times out under a dwelling pointer, however long it stays", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.breakConnection();
+  await context.advance(ERROR_BEAT_MS);
+  await context.openHud();
+
+  // Well past the whole 3400ms gesture, and past its hold several times over.
+  await advanceWithoutBeating(context, GESTURE_MS * 3);
+
+  expect(
+    capsuleHeading(context.inspector),
+    "the capsule timed out under the pointer",
+  ).toBe(RUNTIME_ERROR_WORDS);
+  expect(
+    hudOpen(context.inspector),
+    "the drawer timed out under the pointer",
+  ).toBe(true);
+  expect(islandPhase(context.inspector)).toBe("open");
+  // The sentence is the third thing on the gesture's clock, and it is the one
+  // that shows the clock really stopped rather than merely going unseen:
+  // the capsule's words survive a gesture that ends underneath them, because
+  // the dwell would go on supplying them from the armed signal. The live
+  // region would not. A screen-reader user who focused the launcher as the
+  // failure arrived must not have the announcement retracted while they are
+  // still standing on it.
+  expect(
+    spoken(context.inspector),
+    "the gesture ended under the pointer and took its sentence with it",
+  ).toBe(RUNTIME_ERROR_WORDS);
+
+  // And it ends when the reader does, not before.
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+  expect(spoken(context.inspector)).toBe("");
+});
+
+// Row 5 — Signal fires during dwell: the capsule swaps to the pillLabel, the
+// drawer is unchanged, and there is NO beat (decision 12).
+test("case table: a signal arriving during a dwell swaps the words in without beating", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.openHud();
+  expect(capsuleHeading(context.inspector)).toBe(INTELLIGENCE_ON_WORDS);
+  const rowsBefore = hudRowLabels(context.inspector);
+
+  await context.breakConnection();
+
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(capsuleSubject(context.inspector)).toBe("connection");
+  expect(
+    beating(context.inspector),
+    "decision 12: the launcher twitched under an aiming pointer",
+  ).toBe(false);
+  expect(
+    hudOpen(context.inspector),
+    "the drawer closed under the pointer when the signal arrived",
+  ).toBe(true);
+  expect(hudRowLabels(context.inspector), "the drawer's list changed").toEqual(
+    rowsBefore,
+  );
+  expect(islandPhase(context.inspector)).toBe("open");
+
+  // Not one beat, at any point in the window a gesture would have occupied.
+  await advanceWithoutBeating(context, GESTURE_MS);
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+
+  // And the gesture it never ran does not run on the way out either.
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+  expect(capsule(context.inspector)).toBeNull();
+  await advanceWithoutBeating(context, GESTURE_MS);
+  expect(capsule(context.inspector)).toBeNull();
+  expect(dotSubject(context.inspector)).toBe("connection");
+});
+
+// Row 6 — Signal resolves during dwell: the capsule falls back to the summary,
+// the drawer is unchanged, and no beat.
+test("case table: a signal healing during a dwell falls back to the summary in place", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.openHud();
+  await context.breakConnection();
+  expect(capsuleHeading(context.inspector), "setup: showing the failure").toBe(
+    RUNTIME_ERROR_WORDS,
+  );
+  const rowsBefore = hudRowLabels(context.inspector);
+
+  await context.healConnection();
+
+  expect(capsuleHeading(context.inspector)).toBe(INTELLIGENCE_ON_WORDS);
+  expect(capsuleSubject(context.inspector)).toBe("intelligence");
+  expect(hudOpen(context.inspector)).toBe(true);
+  expect(hudRowLabels(context.inspector)).toEqual(rowsBefore);
+  // OSS-903 decision 5: a recovery is not announced, and it does not close
+  // the island the reader is still reading.
+  expect(beating(context.inspector)).toBe(false);
+  expect(spoken(context.inspector)).toBe("");
+  expect(dotSubject(context.inspector)).toBeNull();
+  await advanceWithoutBeating(context, GESTURE_MS);
+  expect(hudOpen(context.inspector)).toBe(true);
+});
+
+// Row 7 — Dwell ends after a signal was shown in it: capsule —, drawer —, and
+// NO beat at all (decision 13). The dot stays lit, because the signal is
+// still armed: what is lost is the announcement, not the information.
+test("case table: a dwell that showed a signal does not replay the gesture when the pointer leaves", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  // A real gesture, parked mid-flight by the pointer arriving on it. This is
+  // the case decision 13 is actually about: there IS a suspended sequence,
+  // and the temptation is to let it finish once the reader steps away.
+  await context.breakConnection();
+  await context.advance(ERROR_BEAT_MS);
+  await context.openHud();
+  expect(
+    capsuleHeading(context.inspector),
+    "setup: parked under the pointer",
+  ).toBe(RUNTIME_ERROR_WORDS);
+
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+
+  // The island leaves once and stays gone. It does not hand back to the
+  // gesture it interrupted.
+  expect(
+    capsule(context.inspector),
+    "decision 13: the parked gesture resumed as the island left",
+  ).toBeNull();
+  expect(hudOpen(context.inspector)).toBe(false);
+  expect(spoken(context.inspector)).toBe("");
+  // The whole gesture's worth of clock, twice over, and nothing runs.
+  await advanceWithoutBeating(context, GESTURE_MS * 2);
+  expect(
+    capsule(context.inspector),
+    "decision 13: the timed gesture replayed after the pointer left",
+  ).toBeNull();
+  // The information did not go anywhere.
+  expect(dotSubject(context.inspector)).toBe("connection");
+});
+
+// The same row through the keyboard, because focus is the other half of the
+// dwell driver and SC 1.4.13 covers both.
+test("case table: focus dwells and blur ends it, on the same terms as the pointer", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.breakConnection();
+  await context.advance(ERROR_BEAT_MS);
+
+  await context.focusHud();
+  expect(hudOpen(context.inspector)).toBe(true);
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  await advanceWithoutBeating(context, GESTURE_MS * 2);
+  expect(hudOpen(context.inspector), "focus did not hold the clock").toBe(true);
+
+  await context.blurHud();
+  expect(hudOpen(context.inspector)).toBe(false);
+  expect(
+    capsule(context.inspector),
+    "decision 13: the parked gesture resumed the moment focus left",
+  ).toBeNull();
+  await advanceWithoutBeating(context, GESTURE_MS);
+  expect(capsule(context.inspector)).toBeNull();
+  expect(dotSubject(context.inspector)).toBe("connection");
+});
+
+// Row 8 — Two signals armed: the higher `priority` wins the capsule.
+test("case table: with two signals armed the higher priority owns the capsule, whichever armed first", async () => {
+  // `run` (priority 3) first, then `connection` (priority 5) over the top.
+  const rising = await setup({ intelligence: true, fakeTimers: true });
+  await rising.openHud();
+  await rising.fireRunError();
+  expect(capsuleHeading(rising.inspector), "setup: the lesser failure").toBe(
+    RUN_ERROR_WORDS,
+  );
+  await rising.breakConnection();
+  expect(capsuleHeading(rising.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(capsuleSubject(rising.inspector)).toBe("connection");
+  rising.inspector.remove();
+
+  // And the other order: the worse failure keeps the capsule when a lesser one
+  // arms behind it.
+  const falling = await setup({ intelligence: true, fakeTimers: true });
+  await falling.openHud();
+  await falling.breakConnection();
+  await falling.fireRunError();
+  expect(capsuleHeading(falling.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(capsuleSubject(falling.inspector)).toBe("connection");
+});
+
+// The registry, not the arbitration, is what keeps the announcement out of the
+// capsule: `whats-new` declares no `pillLabel`. Pinned here because the
+// arbitration would otherwise be free to acquire a special case for it.
+test("case table: a dwell never shows a signal that declares no capsule words", async () => {
+  const { inspector, openHud } = await setup({ intelligence: true });
+  await openHud();
+  expect(capsuleSubject(inspector)).toBe("intelligence");
+  expect(capsuleSubject(inspector)).not.toBe("whats-new");
+});
+
+// ── The two silences ──────────────────────────────────────────────────────
+
+test("the dwell driver puts nothing into the live region, because nothing changed", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  expect(spoken(context.inspector)).toBe("");
+
+  await context.openHud();
+  expect(
+    spoken(context.inspector),
+    "a hover spoke into the polite live region",
+  ).toBe("");
+
+  // Including the case where the dwell is carrying a signal's words: the
+  // signal arrived under the pointer, so it was shown rather than announced
+  // (decision 13). A screen-reader user who is focused here is reading the
+  // capsule, not waiting to be told about it.
+  await context.breakConnection();
+  expect(capsuleHeading(context.inspector)).toBe(RUNTIME_ERROR_WORDS);
+  expect(spoken(context.inspector)).toBe("");
+
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+  expect(spoken(context.inspector)).toBe("");
+});
+
+test("the dwell driver counts no impression, because a state has no occurrences", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+
+  await context.openHud();
+  await context.advance(GESTURE_MS);
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+  await context.openHud();
+  await context.advance(GESTURE_MS);
+
+  expect(
+    context.telemetryBodies.map((body) => body.event),
+    "hovering was counted, which would make the metric measure mouse movement",
+  ).toEqual([]);
+});
+
+// The mirror of the silence above, and the reason it is not a licence to drop
+// the signal driver's own impression: `maybeTrackErrorSignalViewed` holds the
+// event until this outage's pill question is answered, and a signal shown in
+// a dwelling capsule never runs a pill. Left unanswered, the impression for
+// every failure that arrives under the pointer is silently lost.
+test("a signal shown in a dwelling capsule still reports its one impression", async () => {
+  const context = await setup({ intelligence: true, fakeTimers: true });
+  await context.openHud();
+  await context.breakConnection();
+  await context.advance(GESTURE_MS);
+
+  const impressions = errorImpressions(context.telemetryBodies);
+  expect(impressions).toHaveLength(1);
+  expect(impressions[0]?.properties.source).toBe("connection");
+  expect(impressions[0]?.properties.label).toBe("shown");
+});
+
+// Decision 12 without decision 13: a signal that declares no `pillLabel` has
+// no words to swap in, so a dwell shows the reader nothing about it. Its beat
+// is therefore DEFERRED rather than spent — the launcher still must not twitch
+// under an aiming pointer, but the nudge is owed and gets paid when the reader
+// leaves. Spending it here would silently drop the announcement's one nudge.
+test("a beat with no words to show is held while the pointer is there, then runs", async () => {
+  const context = await setup({
+    intelligence: true,
+    fakeTimers: true,
+    announcementPending: true,
+  });
+
+  await context.openHud();
+  await context.releaseAnnouncement();
+
+  // Armed, dotted, and silent — the announcement never reaches the capsule.
+  expect(dotSubject(context.inspector)).toBe("whats-new");
+  expect(capsuleSubject(context.inspector)).toBe("intelligence");
+  await advanceWithoutBeating(context, NEWS_BEAT_MS * 2);
+
+  await context.leaveHud();
+  await context.advance(ISLAND_CLOSE_MS);
+
+  expect(
+    beating(context.inspector),
+    "the held beat was dropped rather than deferred",
+  ).toBe(true);
 });
