@@ -3,6 +3,12 @@ import { normalizeDisplayValue } from "../../shared/display/display-value.js";
 import type { ThreadDebuggerMessage } from "../../shared/thread-debugger/types.js";
 import type { PlaygroundMessage } from "./state.js";
 
+type UserMessageContent = Extract<Message, { role: "user" }>["content"];
+
+export type PlaygroundThreadMessage = Omit<ThreadDebuggerMessage, "content"> & {
+  content?: UserMessageContent;
+};
+
 function parseToolArguments(
   args: string | Record<string, unknown>,
 ): ReturnType<typeof normalizeDisplayValue> {
@@ -18,12 +24,17 @@ function parseToolArguments(
 }
 
 export function mapThreadMessagesToPlayground(
-  messages: readonly ThreadDebuggerMessage[],
+  messages: readonly PlaygroundThreadMessage[],
 ): PlaygroundMessage[] {
   return messages.map((message) => ({
     id: message.id,
     role: message.role,
-    contentText: message.content ?? "",
+    contentText:
+      typeof message.content === "string"
+        ? message.content
+        : (message.content
+            ?.flatMap((part) => (part.type === "text" ? [part.text] : []))
+            .join("\n") ?? ""),
     toolCalls: (message.toolCalls ?? []).map((toolCall) => ({
       id: toolCall.id,
       toolName: toolCall.name,
@@ -34,46 +45,35 @@ export function mapThreadMessagesToPlayground(
   }));
 }
 
-export function mapPlaygroundMessagesToAgent(
-  messages: readonly PlaygroundMessage[],
+export function mapThreadMessagesToAgent(
+  messages: readonly PlaygroundThreadMessage[],
 ): Message[] {
   const mapped: Message[] = [];
   for (const message of messages) {
     if (message.role === "user") {
       mapped.push({
-        id: message.id ?? "",
+        id: message.id,
         role: "user",
-        content: message.contentText,
+        content: message.content ?? "",
       });
       continue;
     }
     if (message.role === "assistant") {
       mapped.push({
-        id: message.id ?? "",
+        id: message.id,
         role: "assistant",
-        content: message.contentText,
-        ...(message.toolCalls.length > 0
+        content: typeof message.content === "string" ? message.content : "",
+        ...(message.toolCalls?.length
           ? {
               toolCalls: message.toolCalls.map((toolCall) => ({
-                id: toolCall.id ?? "",
+                id: toolCall.id,
                 type: "function" as const,
                 function: {
-                  name:
-                    toolCall.function?.name ??
-                    toolCall.toolName ??
-                    "Unknown function",
+                  name: toolCall.name,
                   arguments:
-                    typeof (
-                      toolCall.function?.arguments ?? toolCall.arguments
-                    ) === "string"
-                      ? String(
-                          toolCall.function?.arguments ?? toolCall.arguments,
-                        )
-                      : JSON.stringify(
-                          toolCall.function?.arguments ??
-                            toolCall.arguments ??
-                            {},
-                        ),
+                    typeof toolCall.args === "string"
+                      ? toolCall.args
+                      : JSON.stringify(toolCall.args),
                 },
               })),
             }
@@ -83,9 +83,9 @@ export function mapPlaygroundMessagesToAgent(
     }
     if (message.role === "tool" && message.toolCallId) {
       mapped.push({
-        id: message.id ?? "",
+        id: message.id,
         role: "tool",
-        content: message.contentText,
+        content: typeof message.content === "string" ? message.content : "",
         toolCallId: message.toolCallId,
       });
     }

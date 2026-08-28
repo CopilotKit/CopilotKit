@@ -13,7 +13,10 @@ import type {
 } from "../index.js";
 import type { Anchor as InternalAnchor } from "../shell/contracts.js";
 import { CpkThreadInspector as InternalCpkThreadInspector } from "../domains/threads/detail/thread-inspector.js";
-import { defineWebInspector } from "../register.js";
+import {
+  configureWebInspectorElement,
+  defineWebInspector,
+} from "../register.js";
 import { WebInspectorElement } from "../shell/web-inspector-element.js";
 import type { InspectorOpenOptions as InternalInspectorOpenOptions } from "../shell/web-inspector-element.js";
 import type {
@@ -101,6 +104,9 @@ describe("web inspector public API", () => {
       "ɵrelevanceBarWidth",
     ]);
     expect(inspectorApi.defineWebInspector).toBe(defineWebInspector);
+    expect(inspectorApi.configureWebInspectorElement).toBe(
+      configureWebInspectorElement,
+    );
     expect(inspectorApi.WebInspectorElement).toBe(WebInspectorElement);
   });
 

@@ -224,12 +224,13 @@ export function renderMetadataStrip(
 }
 
 export function renderViewInAppAction(options: {
-  mode: "hidden" | "view" | "stop";
-  error: string | null;
-  onAction: (action: "viewInApp" | "stopViewing") => void;
+  viewInAppMode: "hidden" | "view" | "stop";
+  viewInAppError: string | null;
+  dispatchEvent: (event: Event) => boolean;
 }): TemplateResult | typeof nothing {
-  if (options.mode === "hidden") return nothing;
-  const isStop = options.mode === "stop";
+  if (options.viewInAppMode === "hidden") return nothing;
+  const isStop = options.viewInAppMode === "stop";
+  const action = isStop ? "stopViewing" : "viewInApp";
   return html`
     <button
       type="button"
@@ -240,14 +241,70 @@ export function renderViewInAppAction(options: {
           ? "Stop viewing this thread in the app"
           : "View this thread in your app"
       }
-      @click=${() => options.onAction(isStop ? "stopViewing" : "viewInApp")}
+      @click=${() =>
+        options.dispatchEvent(
+          new CustomEvent(action, { bubbles: true, composed: true }),
+        )}
     >
       ${isStop ? "Stop viewing" : "View in your app"}
     </button>
     ${
-      options.error
+      options.viewInAppError
         ? html`<span class="cpk-td__view-in-app-error" role="alert"
-          >${options.error}</span
+          >${options.viewInAppError}</span
+        >`
+        : nothing
+    }
+  `;
+}
+
+export function renderTryFromHereAction(options: {
+  tryFromHereAvailable: boolean;
+  tryFromHereBusy: boolean;
+  tryFromHereError: string | null;
+  threadId: string | null;
+  dispatchEvent: (event: Event) => boolean;
+}): TemplateResult | typeof nothing {
+  if (!options.tryFromHereAvailable) return nothing;
+  return html`
+    <button
+      type="button"
+      class="cpk-td__try-from-here"
+      aria-label=${options.tryFromHereBusy ? "Loading thread" : "Try from here"}
+      aria-busy=${options.tryFromHereBusy}
+      ?disabled=${options.tryFromHereBusy}
+      @click=${() => {
+        if (options.tryFromHereBusy) return;
+        options.dispatchEvent(
+          new CustomEvent("tryFromHere", {
+            detail: options.threadId,
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      }}
+    >
+      ${options.tryFromHereBusy ? "Loading…" : "Try from here"}
+      <svg
+        class="cpk-td__try-from-here-icon"
+        aria-hidden="true"
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M7 7h10v10" />
+        <path d="M7 17 17 7" />
+      </svg>
+    </button>
+    ${
+      options.tryFromHereError
+        ? html`<span class="cpk-td__try-from-here-error" role="alert"
+          >${options.tryFromHereError}</span
         >`
         : nothing
     }
@@ -353,8 +410,6 @@ export function renderTimelinePanel(options: {
   getTimelineItems: (events: ApiAgentEvent[]) => TimelineItem[];
   renderConversation: () => TemplateResult;
   cache: PanelTemplateCache;
-  onExpandAll: (ids: string[]) => void;
-  onCollapseAll: (ids: string[]) => void;
   onToggleDetails: (id: string) => void;
   onRevealSourceEvent: (sourceIndex: number) => void;
 }): TemplateResult {
@@ -411,8 +466,6 @@ export function renderTimelinePanel(options: {
     renderTimelineItems({
       items,
       expandedDetails: options.expandedDetails,
-      onExpandAll: options.onExpandAll,
-      onCollapseAll: options.onCollapseAll,
       onToggleDetails: options.onToggleDetails,
       onRevealSourceEvent: options.onRevealSourceEvent,
     }),

@@ -29,6 +29,7 @@ type InspectorNavigationContext = {
 };
 
 type SetupOptions = {
+  agent?: boolean;
   agentIds?: string[];
   appendBeforeCore?: boolean;
   catalog?: boolean;
@@ -139,12 +140,14 @@ async function setup(
       if (url.endsWith("/info")) {
         return jsonResponse({
           version: "1.0.0",
-          agents: {},
+          agents: options.agent
+            ? { default: { description: "assistant", capabilities: {} } }
+            : {},
           audioFileTranscriptionEnabled: false,
-          mode: "sse",
+          mode: options.runtimeMode ?? "sse",
           threadEndpoints: {
-            list: false,
-            inspect: false,
+            list: Boolean(options.threads),
+            inspect: Boolean(options.threads),
             mutations: false,
             realtimeMetadata: false,
           },
@@ -160,6 +163,27 @@ async function setup(
       }
       if (url.endsWith("/memories")) {
         return jsonResponse({ memories: [] });
+      }
+      if (url.includes("/threads?")) {
+        return jsonResponse({ threads: options.threads ?? [], joinCode: null });
+      }
+      if (url.endsWith("/threads/thread-1/messages")) {
+        if (options.failThreadMessages) {
+          return new Response("missing thread", { status: 500 });
+        }
+        return jsonResponse({
+          messages: [
+            { id: "message-1", role: "user", content: "Earlier question" },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: "Earlier answer",
+            },
+          ],
+        });
+      }
+      if (url.endsWith("/threads/thread-1/state")) {
+        return jsonResponse({ state: { topic: "billing" } });
       }
       throw new Error(`Unexpected inspector request: ${url}`);
     },
@@ -365,6 +389,52 @@ function expectVisibleFocus(root: ShadowRoot, control: HTMLElement): void {
   const styles = getComputedStyle(control);
   expect(styles.outlineStyle).toBe("solid");
   expect(Number.parseFloat(styles.outlineWidth)).toBeGreaterThanOrEqual(2);
+}
+
+const SAVED_THREAD: ɵThread = {
+  id: "thread-1",
+  organizationId: "organization-1",
+  agentId: "default",
+  createdById: "user-1",
+  name: "Saved conversation",
+  archived: false,
+  createdAt: "2026-08-19T12:00:00.000Z",
+  updatedAt: "2026-08-19T12:01:00.000Z",
+};
+
+async function selectSavedThread(inspector: WebInspectorElement) {
+  const root = requireElement(
+    inspector.shadowRoot,
+    "Web Inspector shadow root was not rendered",
+  );
+  await waitFor(() => {
+    const list = root.querySelector("cpk-thread-list");
+    return Boolean(list?.shadowRoot?.querySelector(".cpk-tl__item"));
+  }, "saved thread row");
+  const list = requireElement(
+    root.querySelector("cpk-thread-list"),
+    "Thread list was not rendered",
+  );
+  const row = requireElement(
+    list.shadowRoot?.querySelector<HTMLButtonElement>(".cpk-tl__item"),
+    "Saved thread row was not rendered",
+  );
+  row.click();
+  await inspector.updateComplete;
+  await waitFor(
+    () => root.querySelector("cpk-thread-details") !== null,
+    "thread details",
+  );
+}
+
+function tryFromHereButton(root: ShadowRoot) {
+  return (
+    root
+      .querySelector("cpk-thread-details")
+      ?.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Try from here"]',
+      ) ?? null
+  );
 }
 
 function sidebarLeaves(root: ShadowRoot): string[] {
@@ -1622,5 +1692,173 @@ Read what shipped.
     expect(root.textContent).not.toContain("You're all caught up");
   } finally {
     withoutAnnouncement.teardown();
+  }
+});
+
+test("Try from here copies a stored thread without changing the app agent", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+
+    expect(button.closest(".cpk-td__timeline-toolbar")).not.toBeNull();
+    expect(button.querySelector("svg")).not.toBeNull();
+    button.click();
+    await waitFor(
+      () => root.textContent?.includes("Earlier answer") === true,
+      "copied thread messages",
+    );
+
+    expectCurrentNavigation(root, "workbench", "playground");
+    expect(root.textContent).toContain("Earlier question");
+    expect(context.core.getAgent("default")?.messages).toEqual([]);
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value,
+    ).toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here discards a stale copy after leaving Threads", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+    const pendingFetch = globalThis.fetch;
+    let releaseMessages = () => {};
+    let messagesResolved = false;
+    const messagesGate = new Promise<void>((resolve) => {
+      releaseMessages = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const isMessages = url.endsWith("/threads/thread-1/messages");
+        if (isMessages) await messagesGate;
+        const response = await pendingFetch(input, init);
+        if (isMessages) messagesResolved = true;
+        return response;
+      },
+    );
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    ).click();
+    await context.selectLeaf("home");
+
+    releaseMessages();
+    await waitFor(() => messagesResolved, "stale Try from here load");
+    await context.inspector.updateComplete;
+
+    expectCurrentNavigation(root, "home", "home");
+    await context.selectLeaf("playground");
+    expect(root.textContent).not.toContain("Earlier answer");
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value ?? "",
+    ).not.toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here stays on Threads when messages fail", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+    failThreadMessages: true,
+  });
+  try {
+    await context.open();
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await context.selectLeaf("playground");
+    const draft = requireElement(
+      root.querySelector<HTMLTextAreaElement>(".cpk-playground-input"),
+      "Playground composer was not rendered",
+    );
+    draft.value = "Keep this draft";
+    draft.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
+    await context.inspector.updateComplete;
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+    requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    ).click();
+    await waitFor(() => {
+      const details = root.querySelector("cpk-thread-details");
+      return (
+        details?.shadowRoot?.textContent?.includes("Failed to load thread") ===
+        true
+      );
+    }, "Try from here error");
+    expectCurrentNavigation(root, "workbench", "threads");
+    await context.selectLeaf("playground");
+    expect(
+      root.querySelector<HTMLTextAreaElement>(".cpk-playground-input")?.value,
+    ).toBe("Keep this draft");
+  } finally {
+    context.teardown();
+  }
+});
+
+test("Try from here is hidden on example tour threads", async () => {
+  const context = await setup({ agent: true, threads: [] });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    await waitFor(() => {
+      const list = root.querySelector("cpk-thread-list");
+      return Boolean(list?.shadowRoot?.querySelector(".cpk-tl__item"));
+    }, "example thread row");
+    const list = requireElement(
+      root.querySelector("cpk-thread-list"),
+      "Thread list was not rendered",
+    );
+    requireElement(
+      list.shadowRoot?.querySelector<HTMLButtonElement>(".cpk-tl__item"),
+      "Example thread row was not rendered",
+    ).click();
+    await context.inspector.updateComplete;
+    await waitFor(
+      () => root.querySelector("cpk-thread-details") !== null,
+      "example thread details",
+    );
+    expect(tryFromHereButton(root)).toBeNull();
+  } finally {
+    context.teardown();
   }
 });

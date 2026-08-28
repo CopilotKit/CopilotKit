@@ -21,6 +21,7 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
 } from "../../../shared/telemetry/privacy.js";
 import type {
   InspectorMetadataActionClickedTelemetryProps,
@@ -61,7 +62,8 @@ type ThreadEventKey =
   | "example_kind"
   | "tour_step"
   | "tour_tab"
-  | "dismiss_method";
+  | "dismiss_method"
+  | "outcome";
 
 type ThreadEventFields = Required<
   Pick<InspectorThreadTelemetryProps, ThreadEventKey>
@@ -233,6 +235,7 @@ function createThreadFixture(
     tour_step: overrides.tour_step ?? 1,
     tour_tab: overrides.tour_tab ?? "timeline",
     dismiss_method: overrides.dismiss_method ?? "skip",
+    outcome: overrides.outcome ?? "success",
     ...forbidden,
   };
 
@@ -346,6 +349,13 @@ test.each<ThreadHelperCase>([
     invoke: trackThreadsEnabledViewed,
     expectedEvent: "oss.inspector.threads_enabled_viewed",
     expectedProperties: {},
+  },
+  {
+    name: "threads try from here clicked",
+    invoke: trackThreadsTryFromHereClicked,
+    expectedEvent: "oss.inspector.threads_try_from_here_clicked",
+    eventOverrides: { outcome: "success" },
+    expectedProperties: { outcome: "success" },
   },
   {
     name: "realtime sync example viewed",

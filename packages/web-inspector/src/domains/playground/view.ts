@@ -127,9 +127,14 @@ export function renderPlaygroundView(
                   ?disabled=${busy}
                   @change=${actions.loadThread}
                 >
-                  <option value="">Load a thread...</option>
+                  <option value="" ?selected=${state.sourceThreadId === null}>
+                    Load a thread...
+                  </option>
                   ${sourceThreads.map(
-                    (thread) => html`<option value=${thread.id}>
+                    (thread) => html`<option
+                      value=${thread.id}
+                      ?selected=${state.sourceThreadId === thread.id}
+                    >
                       ${
                         thread.name?.trim() || `Thread ${thread.id.slice(0, 8)}`
                       }

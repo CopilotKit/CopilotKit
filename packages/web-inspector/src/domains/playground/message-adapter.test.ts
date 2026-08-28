@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ThreadDebuggerMessage } from "../../shared/thread-debugger/types.js";
 import {
-  mapPlaygroundMessagesToAgent,
+  mapThreadMessagesToAgent,
   mapThreadMessagesToPlayground,
 } from "./message-adapter.js";
 
-describe("mapThreadMessagesToPlayground", () => {
+describe("Playground message adapters", () => {
   it("preserves message ids, roles, text, and parsed tool arguments", () => {
     const messages: ThreadDebuggerMessage[] = [
       { id: "user-1", role: "user", content: "Hello" },
@@ -30,17 +30,24 @@ describe("mapThreadMessagesToPlayground", () => {
     ]);
   });
 
-  it("converts imported messages back to AG-UI messages for clone seeding", () => {
-    const playgroundMessages = mapThreadMessagesToPlayground([
+  it("preserves persisted tool arguments when seeding an agent", () => {
+    const messages: ThreadDebuggerMessage[] = [
       {
         id: "assistant-1",
         role: "assistant",
         content: "Checking",
-        toolCalls: [{ id: "call-1", name: "search", args: { q: "docs" } }],
+        toolCalls: [
+          {
+            id: "call-1",
+            name: "search",
+            args: { one: { two: { three: { four: { value: 1 } } } } },
+          },
+          { id: "call-2", name: "echo", args: '"literal"' },
+        ],
       },
-    ]);
+    ];
 
-    expect(mapPlaygroundMessagesToAgent(playgroundMessages)).toEqual([
+    expect(mapThreadMessagesToAgent(messages)).toEqual([
       {
         id: "assistant-1",
         role: "assistant",
@@ -49,7 +56,15 @@ describe("mapThreadMessagesToPlayground", () => {
           {
             id: "call-1",
             type: "function",
-            function: { name: "search", arguments: '{"q":"docs"}' },
+            function: {
+              name: "search",
+              arguments: '{"one":{"two":{"three":{"four":{"value":1}}}}}',
+            },
+          },
+          {
+            id: "call-2",
+            type: "function",
+            function: { name: "echo", arguments: '"literal"' },
           },
         ],
       },

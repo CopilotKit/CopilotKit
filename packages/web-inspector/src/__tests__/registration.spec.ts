@@ -1,3 +1,4 @@
+import { CopilotKitCore } from "@copilotkit/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CpkMemoryList } from "../domains/learning/memory-list.js";
@@ -6,7 +7,10 @@ import {
   ɵCpkThreadDetails,
 } from "../domains/threads/detail/thread-inspector.js";
 import { CpkThreadList } from "../domains/threads/list/thread-list.js";
-import { defineWebInspector } from "../register.js";
+import {
+  configureWebInspectorElement,
+  defineWebInspector,
+} from "../register.js";
 import { WebInspectorElement } from "../shell/web-inspector-element.js";
 import { createSameOriginFrame } from "../testing/same-origin-frame.js";
 import {
@@ -25,6 +29,23 @@ afterEach(() => {
 });
 
 describe("defineWebInspector", () => {
+  it("configures a host core before the element connects", () => {
+    defineWebInspector();
+    const inspector = new WebInspectorElement();
+    const core = new CopilotKitCore({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      deferInitialConnection: true,
+    });
+
+    try {
+      expect(configureWebInspectorElement(inspector, core)).toBe(inspector);
+      expect(inspector.autoAttachCore).toBe(false);
+      expect(inspector.core).toBe(core);
+    } finally {
+      core.setRuntimeUrl(undefined);
+    }
+  });
+
   it("registers every inspector element in an isolated registry", () => {
     const frame = createSameOriginFrame();
     frames.push(frame);

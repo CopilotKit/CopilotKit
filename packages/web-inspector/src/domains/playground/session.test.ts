@@ -6,6 +6,7 @@ import {
   createPlaygroundSession,
   createPlaygroundSubscriber,
   loadPlaygroundThread,
+  loadPlaygroundThreadSnapshot,
   runPlaygroundAgent,
 } from "./session.js";
 import { createPlaygroundState } from "./state.js";
@@ -129,6 +130,44 @@ describe("Playground sessions", () => {
 });
 
 describe("Playground thread loading", () => {
+  it("loads an encoded snapshot without mutating Playground state", async () => {
+    const fetchThread = vi.fn<typeof globalThis.fetch>((input) => {
+      const url = String(input);
+      return Promise.resolve(
+        url.endsWith("/messages")
+          ? jsonResponse({
+              messages: [
+                { id: "message-1", role: "user", content: "Earlier question" },
+              ],
+            })
+          : jsonResponse({}, 503),
+      );
+    });
+
+    const result = await loadPlaygroundThreadSnapshot({
+      thread: { id: "thread/with spaces", agentId: "default" },
+      runtimeUrl: "http://localhost/runtime/",
+      headers: { Authorization: "Bearer test" },
+      fetch: fetchThread,
+    });
+
+    expect(fetchThread.mock.calls.map(([input]) => String(input))).toEqual([
+      "http://localhost/runtime/threads/thread%2Fwith%20spaces/messages",
+      "http://localhost/runtime/threads/thread%2Fwith%20spaces/state",
+    ]);
+    expect(fetchThread.mock.calls[0]?.[1]?.headers).toEqual({
+      Authorization: "Bearer test",
+    });
+    expect(result).toMatchObject({
+      threadId: "thread/with spaces",
+      agentId: "default",
+      messages: [
+        { id: "message-1", role: "user", contentText: "Earlier question" },
+      ],
+      threadState: {},
+    });
+  });
+
   it("reports a failed persisted thread load", async () => {
     const state = createPlaygroundState();
     const fetchThread: typeof globalThis.fetch = (input) =>
@@ -177,5 +216,49 @@ describe("Playground thread loading", () => {
     await expect(pending).resolves.toBeNull();
     expect(state.error).toBe("New session state");
     expect(state.messages).toEqual([]);
+  });
+
+  it("preserves multimodal user content when seeding an agent", async () => {
+    const content = [
+      { type: "text" as const, text: "Describe this image" },
+      {
+        type: "image" as const,
+        source: {
+          type: "url" as const,
+          value: "https://example.com/image.png",
+        },
+      },
+      {
+        type: "binary" as const,
+        mimeType: "application/octet-stream",
+        id: "attachment-1",
+      },
+    ];
+    const result = await loadPlaygroundThreadSnapshot({
+      thread: { id: "thread-1", agentId: "default" },
+      runtimeUrl: "http://localhost/runtime",
+      headers: {},
+      fetch: vi.fn<typeof globalThis.fetch>((input) =>
+        Promise.resolve(
+          String(input).endsWith("/messages")
+            ? jsonResponse({
+                messages: [{ id: "message-1", role: "user", content }],
+              })
+            : jsonResponse({ state: {} }),
+        ),
+      ),
+    });
+
+    expect(result.agentMessages).toEqual([
+      { id: "message-1", role: "user", content },
+    ]);
+    expect(result.messages).toEqual([
+      {
+        id: "message-1",
+        role: "user",
+        contentText: "Describe this image",
+        toolCalls: [],
+      },
+    ]);
   });
 });

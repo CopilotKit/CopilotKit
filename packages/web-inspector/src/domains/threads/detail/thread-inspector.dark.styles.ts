@@ -22,6 +22,7 @@ export const threadInspectorDarkStyles = css`
   :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
   :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
   :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+  :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
   :host([data-color-scheme="dark"]) .cpk-td__tool-block,
   :host([data-color-scheme="dark"]) .cpk-td__tool-header,
   :host([data-color-scheme="dark"]) .cpk-td__tool-body,
@@ -39,6 +40,7 @@ export const threadInspectorDarkStyles = css`
   }
 
   :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+  :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
   :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
   :host([data-color-scheme="dark"]) .cpk-td__tool-block,
   :host([data-color-scheme="dark"]) .cpk-td__event,
@@ -63,6 +65,7 @@ export const threadInspectorDarkStyles = css`
   :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
   :host([data-color-scheme="dark"]) .cpk-td__tool-header:hover,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle:hover,
+  :host([data-color-scheme="dark"]) .cpk-td__try-from-here:hover,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle:hover {
     background: #20232d;
   }
@@ -197,6 +200,7 @@ export const threadInspectorDarkStyles = css`
   :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
   :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
+  :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
   :host([data-color-scheme="dark"]) .cpk-tdp__value {
     color: #f3f4f8;
   }

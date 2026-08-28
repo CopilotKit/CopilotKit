@@ -55,6 +55,7 @@ export function selectThread(
 ): ThreadSelectionResult {
   state.requestedThreadId = null;
   state.focusedThreadMessageId = null;
+  state.tryFromHereError = null;
   if (
     input.showingExamples &&
     state.selectedThreadId === input.threadId &&
@@ -258,6 +259,9 @@ export interface ThreadsViewModel {
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   viewInAppMode: "hidden" | "view" | "stop";
+  tryFromHereAvailable: boolean;
+  tryFromHereBusy: boolean;
+  tryFromHereError: string | null;
   provider: ThreadDebuggerProvider | null;
   agentStateInput: unknown;
   agentEventsInput: unknown;
@@ -274,6 +278,7 @@ export interface ThreadsViewActions {
   resizeEnd: (event: PointerEvent) => void;
   viewInApp: () => void;
   stopViewing: () => void;
+  tryFromHere: (threadId: string | null) => void;
 }
 
 export function renderThreadsView(
@@ -352,8 +357,13 @@ export function renderThreadsView(
                       .liveMessageVersion=${model.liveMessageVersion}
                       .viewInAppMode=${model.viewInAppMode}
                       .viewInAppError=${state.viewInAppError}
+                      .tryFromHereAvailable=${model.tryFromHereAvailable}
+                      .tryFromHereBusy=${model.tryFromHereBusy}
+                      .tryFromHereError=${model.tryFromHereError}
                       @viewInApp=${actions.viewInApp}
                       @stopViewing=${actions.stopViewing}
+                      @tryFromHere=${(event: CustomEvent<string | null>) =>
+                        actions.tryFromHere(event.detail)}
                       .focusMessageId=${state.focusedThreadMessageId}
                       .focusRequestId=${state.threadFocusRequestId}
                       .agentStateInput=${model.agentStateInput}

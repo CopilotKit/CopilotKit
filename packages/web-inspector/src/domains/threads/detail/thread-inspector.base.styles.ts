@@ -647,6 +647,8 @@ export const threadInspectorBaseStyles = css`
 
   .cpk-td__timeline-toolbar {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
   }
 
@@ -673,6 +675,55 @@ export const threadInspectorBaseStyles = css`
   .cpk-td__timeline-bulk-toggle:disabled {
     cursor: not-allowed;
     opacity: 0.45;
+  }
+
+  .cpk-td__try-from-here {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-inline-start: auto;
+    padding: 6px 10px;
+    border: 1px solid #dbdbe5;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #36363a;
+    font-family: "Spline Sans Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+
+  .cpk-td__try-from-here-icon {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  :host([dir="rtl"]) .cpk-td__try-from-here-icon {
+    scale: -1 1;
+  }
+
+  .cpk-td__try-from-here:hover:not(:disabled) {
+    border-color: rgba(85, 88, 178, 0.38);
+    background: #f7f7ff;
+    color: #010507;
+  }
+
+  .cpk-td__try-from-here:focus-visible {
+    outline: 2px solid #6430ab;
+    outline-offset: 1px;
+  }
+
+  .cpk-td__try-from-here:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  .cpk-td__try-from-here-error {
+    flex-basis: 100%;
+    color: #c0333a;
+    font-size: 11px;
+    line-height: 1.4;
   }
 
   .cpk-td__source-link {

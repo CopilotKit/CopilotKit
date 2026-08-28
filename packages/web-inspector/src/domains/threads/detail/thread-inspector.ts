@@ -1,4 +1,5 @@
 import type { ɵThread } from "@copilotkit/core";
+import { html } from "lit";
 import type { TemplateResult } from "lit";
 import type {
   ThreadDebuggerMetadata,
@@ -41,6 +42,7 @@ import {
   renderStatePanel,
   renderThreadInspectorView,
   renderTimelinePanel,
+  renderTryFromHereAction,
   renderViewInAppAction,
 } from "./thread-inspector-view.js";
 import type { PanelTemplateCacheEntries } from "./thread-inspector-view.js";
@@ -51,6 +53,7 @@ import {
 } from "./thread-runtime.js";
 import { createTimelineItems } from "./timeline-model.js";
 import type { TimelineItem } from "./timeline-model.js";
+import { renderTimelineToolbar } from "./timeline-view.js";
 import { threadInspectorStyles } from "./thread-inspector.styles.js";
 
 export type { ThreadDetailsTab } from "./thread-inspector-model.js";
@@ -69,6 +72,9 @@ export class CpkThreadInspector extends PortableLitElement {
     liveMessageVersion: { attribute: false },
     viewInAppMode: { attribute: false },
     viewInAppError: { attribute: false },
+    tryFromHereAvailable: { attribute: false },
+    tryFromHereBusy: { attribute: false },
+    tryFromHereError: { attribute: false },
     focusMessageId: { attribute: false },
     focusRequestId: { attribute: false },
     _tab: { state: true },
@@ -93,7 +99,6 @@ export class CpkThreadInspector extends PortableLitElement {
     _panelInitializing: { state: true },
     _activatedTabs: { state: true },
   };
-
   threadId: string | null = null;
   provider: ThreadDebuggerProvider | null = null;
   thread: ThreadDebuggerMetadata | ɵThread | null = null;
@@ -110,9 +115,11 @@ export class CpkThreadInspector extends PortableLitElement {
   liveMessageVersion = 0;
   viewInAppMode: "hidden" | "view" | "stop" = "hidden";
   viewInAppError: string | null = null;
+  tryFromHereAvailable = false;
+  tryFromHereBusy = false;
+  tryFromHereError: string | null = null;
   focusMessageId: string | null = null;
   focusRequestId = 0;
-
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
@@ -164,13 +171,20 @@ export class CpkThreadInspector extends PortableLitElement {
   private readonly domIdPrefix = `cpk-thread-detail-${CpkThreadInspector.nextDomId++}`;
 
   static readonly COLLAPSE_THRESHOLD = 800;
-  static readonly TAB_LIST: ReadonlyArray<{
-    id: ThreadDetailsTab;
-    label: string;
-  }> = THREAD_DETAILS_TABS;
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "timeline") return this.renderTimeline();
+    if (id === "timeline") {
+      const items = this._eventsNotAvailable
+        ? []
+        : this.timelineItemsForEvents(this.activeEvents);
+      return html`${renderTimelineToolbar({
+        items,
+        expandedDetails: this._expandedTimelineDetails,
+        action: renderTryFromHereAction(this),
+        onExpandAll: (ids) => this.expandTimelineDetails(ids),
+        onCollapseAll: (ids) => this.collapseTimelineDetails(ids),
+      })}${this.renderTimeline()}`;
+    }
     if (id === "state") return this.renderState();
     return this.renderEvents();
   }
@@ -187,26 +201,26 @@ export class CpkThreadInspector extends PortableLitElement {
     event: KeyboardEvent,
     currentId: ThreadDetailsTab,
   ): void {
-    const currentIndex = CpkThreadInspector.TAB_LIST.findIndex(
+    const currentIndex = THREAD_DETAILS_TABS.findIndex(
       (tab) => tab.id === currentId,
     );
     if (currentIndex < 0) return;
 
     let targetIndex: number | null = null;
     if (event.key === "ArrowRight") {
-      targetIndex = (currentIndex + 1) % CpkThreadInspector.TAB_LIST.length;
+      targetIndex = (currentIndex + 1) % THREAD_DETAILS_TABS.length;
     } else if (event.key === "ArrowLeft") {
       targetIndex =
-        (currentIndex - 1 + CpkThreadInspector.TAB_LIST.length) %
-        CpkThreadInspector.TAB_LIST.length;
+        (currentIndex - 1 + THREAD_DETAILS_TABS.length) %
+        THREAD_DETAILS_TABS.length;
     } else if (event.key === "Home") {
       targetIndex = 0;
     } else if (event.key === "End") {
-      targetIndex = CpkThreadInspector.TAB_LIST.length - 1;
+      targetIndex = THREAD_DETAILS_TABS.length - 1;
     }
     if (targetIndex === null) return;
 
-    const target = CpkThreadInspector.TAB_LIST[targetIndex];
+    const target = THREAD_DETAILS_TABS[targetIndex];
     if (!target) return;
     event.preventDefault();
     this.activateTab(target.id);
@@ -671,7 +685,7 @@ export class CpkThreadInspector extends PortableLitElement {
       onDetailDividerMove: this.onDetailDividerMove,
       onDetailDividerUp: this.onDetailDividerUp,
       metadataStrip: this.renderMetadataStrip(),
-      viewInAppAction: this.renderViewInAppAction(),
+      viewInAppAction: renderViewInAppAction(this),
       panelToggle: this.renderPanelToggle(),
       detailPanel: this.renderDetailPanel(),
       renderTabContent: (id) => this.renderTabContent(id),
@@ -686,18 +700,6 @@ export class CpkThreadInspector extends PortableLitElement {
         threadId: this.threadId,
       }),
     );
-  }
-
-  private renderViewInAppAction() {
-    return renderViewInAppAction({
-      mode: this.viewInAppMode,
-      error: this.viewInAppError,
-      onAction: (action) => {
-        this.dispatchEvent(
-          new CustomEvent(action, { bubbles: true, composed: true }),
-        );
-      },
-    });
   }
 
   private revealSourceEvent(sourceIndex: number): void {
@@ -725,8 +727,6 @@ export class CpkThreadInspector extends PortableLitElement {
       getTimelineItems: (events) => this.timelineItemsForEvents(events),
       renderConversation: () => this.renderConversation(),
       cache: this.panelTemplateCache,
-      onExpandAll: (ids) => this.expandTimelineDetails(ids),
-      onCollapseAll: (ids) => this.collapseTimelineDetails(ids),
       onToggleDetails: (id) => this.toggleTimelineDetails(id),
       onRevealSourceEvent: (sourceIndex) => this.revealSourceEvent(sourceIndex),
     });

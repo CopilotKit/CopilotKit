@@ -26,41 +26,10 @@ function timelineItemClass(item: TimelineItem): string {
 export function renderTimelineItems(options: {
   items: TimelineItem[];
   expandedDetails: Set<string>;
-  onExpandAll: (ids: string[]) => void;
-  onCollapseAll: (ids: string[]) => void;
   onToggleDetails: (id: string) => void;
   onRevealSourceEvent: (sourceIndex: number) => void;
 }): TemplateResult {
-  const detailIds = options.items
-    .filter((item) => item.details)
-    .map((item) => item.id);
-  const allExpanded = detailIds.every((id) => options.expandedDetails.has(id));
-  const allCollapsed = detailIds.every(
-    (id) => !options.expandedDetails.has(id),
-  );
-  const controls =
-    detailIds.length > 1
-      ? html`<div class="cpk-td__timeline-toolbar">
-          <button
-            type="button"
-            class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allExpanded}
-            @click=${() => options.onExpandAll(detailIds)}
-          >
-            Expand all
-          </button>
-          <button
-            type="button"
-            class="cpk-td__timeline-bulk-toggle"
-            ?disabled=${allCollapsed}
-            @click=${() => options.onCollapseAll(detailIds)}
-          >
-            Collapse all
-          </button>
-        </div>`
-      : nothing;
-
-  return html`${controls}${options.items.map((item) => {
+  return html`${options.items.map((item) => {
     const detailsExpanded = options.expandedDetails.has(item.id);
     return html`
       <div
@@ -141,4 +110,48 @@ export function renderTimelineItems(options: {
       </div>
     `;
   })}`;
+}
+
+export function renderTimelineToolbar(options: {
+  items: TimelineItem[];
+  expandedDetails: Set<string>;
+  action: TemplateResult | typeof nothing;
+  onExpandAll: (ids: string[]) => void;
+  onCollapseAll: (ids: string[]) => void;
+}) {
+  const detailIds = options.items
+    .filter((item) => item.details)
+    .map((item) => item.id);
+  const showBulkActions = detailIds.length > 1;
+  if (!showBulkActions && options.action === nothing) return nothing;
+  const allExpanded = detailIds.every((id) => options.expandedDetails.has(id));
+  const allCollapsed = detailIds.every(
+    (id) => !options.expandedDetails.has(id),
+  );
+
+  return html`<div class="cpk-td__timeline-toolbar">
+    ${
+      showBulkActions
+        ? html`
+          <button
+            type="button"
+            class="cpk-td__timeline-bulk-toggle"
+            ?disabled=${allExpanded}
+            @click=${() => options.onExpandAll(detailIds)}
+          >
+            Expand all
+          </button>
+          <button
+            type="button"
+            class="cpk-td__timeline-bulk-toggle"
+            ?disabled=${allCollapsed}
+            @click=${() => options.onCollapseAll(detailIds)}
+          >
+            Collapse all
+          </button>
+        `
+        : nothing
+    }
+    ${options.action}
+  </div>`;
 }

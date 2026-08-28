@@ -25,6 +25,8 @@ export interface ThreadsState {
   inAppSource: "app" | "override" | null;
   activeViewInAppRequestId: string | null;
   viewInAppError: string | null;
+  tryFromHereBusy: boolean;
+  tryFromHereError: string | null;
   inspectorBridgeUnsubscribers: Array<() => void>;
   selectedRealThreadIsExplicit: boolean;
   selectedLocalExampleThreadId: string | null;
@@ -81,6 +83,8 @@ export function createThreadsState(): ThreadsState {
     inAppSource: null,
     activeViewInAppRequestId: null,
     viewInAppError: null,
+    tryFromHereBusy: false,
+    tryFromHereError: null,
     inspectorBridgeUnsubscribers: [],
     selectedRealThreadIsExplicit: false,
     selectedLocalExampleThreadId: null,

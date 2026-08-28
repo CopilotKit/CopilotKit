@@ -1,6 +1,9 @@
 import type { AbstractAgent, AgentSubscriber, Message } from "@ag-ui/client";
-import type { ThreadDebuggerMessage } from "../../shared/thread-debugger/types.js";
-import { mapThreadMessagesToPlayground } from "./message-adapter.js";
+import {
+  mapThreadMessagesToAgent,
+  mapThreadMessagesToPlayground,
+} from "./message-adapter.js";
+import type { PlaygroundThreadMessage } from "./message-adapter.js";
 import type { PlaygroundMessage, PlaygroundState } from "./state.js";
 
 export interface PlaygroundSessionCleanup {
@@ -34,7 +37,15 @@ export interface PlaygroundThreadLoadResult {
   threadId: string;
   agentId: string;
   messages: PlaygroundMessage[];
+  agentMessages: Message[];
   threadState: unknown;
+}
+
+export interface PlaygroundThreadLoadInput {
+  thread: PlaygroundThreadSource;
+  runtimeUrl: string;
+  headers: Readonly<Record<string, string>>;
+  fetch: typeof globalThis.fetch;
 }
 
 export function resolvePlaygroundAgentId(
@@ -219,9 +230,52 @@ function isThreadDebuggerToolCall(value: unknown): boolean {
   );
 }
 
+function isInputContentSource(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const type = Reflect.get(value, "type");
+  const mimeType = Reflect.get(value, "mimeType");
+  return (
+    (type === "url" || type === "data") &&
+    typeof Reflect.get(value, "value") === "string" &&
+    (type === "url"
+      ? mimeType === undefined || typeof mimeType === "string"
+      : typeof mimeType === "string")
+  );
+}
+
+function isInputContentPart(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return false;
+  const type = Reflect.get(value, "type");
+  if (type === "text") return typeof Reflect.get(value, "text") === "string";
+  if (type === "binary") {
+    return (
+      typeof Reflect.get(value, "mimeType") === "string" &&
+      ["id", "url", "data"].some(
+        (key) => typeof Reflect.get(value, key) === "string",
+      )
+    );
+  }
+  return (
+    (type === "image" ||
+      type === "audio" ||
+      type === "video" ||
+      type === "document") &&
+    isInputContentSource(Reflect.get(value, "source"))
+  );
+}
+
+function isUserMessageContent(
+  value: unknown,
+): value is Extract<Message, { role: "user" }>["content"] {
+  return (
+    typeof value === "string" ||
+    (Array.isArray(value) && value.every(isInputContentPart))
+  );
+}
+
 function isThreadDebuggerMessage(
   value: unknown,
-): value is ThreadDebuggerMessage {
+): value is PlaygroundThreadMessage {
   if (typeof value !== "object" || value === null) return false;
   const id = Reflect.get(value, "id");
   const role = Reflect.get(value, "role");
@@ -230,13 +284,15 @@ function isThreadDebuggerMessage(
   return (
     typeof id === "string" &&
     typeof role === "string" &&
-    (content === undefined || typeof content === "string") &&
+    (content === undefined ||
+      typeof content === "string" ||
+      (role === "user" && isUserMessageContent(content))) &&
     (toolCalls === undefined ||
       (Array.isArray(toolCalls) && toolCalls.every(isThreadDebuggerToolCall)))
   );
 }
 
-function readThreadMessages(body: unknown): ThreadDebuggerMessage[] {
+function readThreadMessages(body: unknown): PlaygroundThreadMessage[] {
   if (typeof body !== "object" || body === null) return [];
   const messages = Reflect.get(body, "messages");
   return Array.isArray(messages)
@@ -252,11 +308,7 @@ function readThreadState(body: unknown): unknown {
 
 export async function loadPlaygroundThread(
   state: PlaygroundState,
-  input: {
-    thread: PlaygroundThreadSource;
-    runtimeUrl: string;
-    headers: Readonly<Record<string, string>>;
-    fetch: typeof globalThis.fetch;
+  input: PlaygroundThreadLoadInput & {
     requestUpdate: () => void;
   },
 ): Promise<PlaygroundThreadLoadResult | null> {
@@ -270,32 +322,9 @@ export async function loadPlaygroundThread(
   input.requestUpdate();
 
   try {
-    const baseUrl = input.runtimeUrl.replace(/\/+$/, "");
-    const encodedThreadId = encodeURIComponent(input.thread.id);
-    const [messagesResponse, stateResponse] = await Promise.all([
-      input.fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-        headers: { ...input.headers },
-      }),
-      input.fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-        headers: { ...input.headers },
-      }),
-    ]);
-    if (!messagesResponse.ok) {
-      throw new Error(
-        `Failed to load thread (HTTP ${messagesResponse.status}).`,
-      );
-    }
-    const messagesBody: unknown = await messagesResponse.json();
-    const stateBody: unknown = stateResponse.ok
-      ? await stateResponse.json()
-      : { state: {} };
+    const loaded = await loadPlaygroundThreadSnapshot(input);
     if (!isCurrent()) return null;
-    return {
-      threadId: input.thread.id,
-      agentId: input.thread.agentId,
-      messages: mapThreadMessagesToPlayground(readThreadMessages(messagesBody)),
-      threadState: readThreadState(stateBody),
-    };
+    return loaded;
   } catch (error) {
     if (isCurrent()) {
       state.error =
@@ -308,4 +337,34 @@ export async function loadPlaygroundThread(
       input.requestUpdate();
     }
   }
+}
+
+export async function loadPlaygroundThreadSnapshot(
+  input: PlaygroundThreadLoadInput,
+) {
+  const baseUrl = input.runtimeUrl.replace(/\/+$/, "");
+  const encodedThreadId = encodeURIComponent(input.thread.id);
+  const [messagesResponse, stateResponse] = await Promise.all([
+    input.fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+      headers: { ...input.headers },
+    }),
+    input.fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+      headers: { ...input.headers },
+    }),
+  ]);
+  if (!messagesResponse.ok) {
+    throw new Error(`Failed to load thread (HTTP ${messagesResponse.status}).`);
+  }
+  const messagesBody: unknown = await messagesResponse.json();
+  const stateBody: unknown = stateResponse.ok
+    ? await stateResponse.json()
+    : { state: {} };
+  const threadMessages = readThreadMessages(messagesBody);
+  return {
+    threadId: input.thread.id,
+    agentId: input.thread.agentId,
+    messages: mapThreadMessagesToPlayground(threadMessages),
+    agentMessages: mapThreadMessagesToAgent(threadMessages),
+    threadState: readThreadState(stateBody),
+  };
 }
