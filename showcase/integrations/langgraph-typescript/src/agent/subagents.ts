@@ -255,9 +255,7 @@ function createSubAgentTool(
   );
 }
 
-function createSubAgentTools(
-  modelFactory: ModelFactory = defaultModelFactory,
-) {
+function createSubAgentTools(modelFactory: ModelFactory = defaultModelFactory) {
   return [
     createSubAgentTool(
       "research_agent",

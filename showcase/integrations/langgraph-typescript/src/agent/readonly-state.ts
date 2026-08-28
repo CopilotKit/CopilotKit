@@ -77,10 +77,7 @@ export async function chatNode(state: AgentState, config: RunnableConfig) {
 
 // Keep the executable showcase graph on the header-forwarding model while the
 // extracted chat node above uses only the public ChatOpenAI constructor.
-async function chatNodeWithHeaders(
-  state: AgentState,
-  config: RunnableConfig,
-) {
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
   return runChatNode(
     state,
     config,

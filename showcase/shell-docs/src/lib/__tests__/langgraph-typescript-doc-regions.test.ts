@@ -93,7 +93,9 @@ describe("LangGraph TypeScript public code regions", () => {
       "readonly-state.ts",
       "subagents.ts",
     ]) {
-      expect(agentSource(filename), filename).toContain("makeChatOpenAI(config");
+      expect(agentSource(filename), filename).toContain(
+        "makeChatOpenAI(config",
+      );
     }
   });
 });

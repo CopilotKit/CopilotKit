@@ -67,10 +67,7 @@ export const graph = compileGraph(chatNode);
 
 // The LangGraph CLI targets this export so showcase probes retain inbound
 // x-* header forwarding; the public `graph` above stays copy-pasteable.
-async function chatNodeWithHeaders(
-  state: AgentState,
-  config: RunnableConfig,
-) {
+async function chatNodeWithHeaders(state: AgentState, config: RunnableConfig) {
   return runChatNode(
     state,
     config,
