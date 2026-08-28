@@ -300,6 +300,14 @@ export class CopilotKit {
   ): FrontendTool {
     const { injector, handler, ...frontendCandidate } = clientToolWithInjector;
 
+    // A display-only registration declares no handler, and core has its own path
+    // for that: it inserts an empty tool result and completes the turn. Binding a
+    // wrapper here regardless would call `undefined` on the first tool call, and
+    // substituting a stub would put an invented result into the thread instead.
+    if (!handler) {
+      return frontendCandidate;
+    }
+
     return {
       ...frontendCandidate,
       handler: (args, context) =>
