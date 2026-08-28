@@ -877,21 +877,79 @@ test("disabled Intelligence becomes a setup action in the sidebar and on Home", 
       "Disconnected Intelligence module was not rendered",
     );
     expect(intelligenceHud.dataset.state).toBe("disconnected");
-    expect(intelligenceHud.textContent).toContain("Intelligence is not setup");
-    expect(intelligenceHud.textContent).toContain(
-      "persistent Threads, Learning and Analytics",
-    );
+    expect(intelligenceHud.dataset.mode).toBe("install");
+    expect(intelligenceHud.textContent).toContain("CopilotKit Intelligence");
     expect(
       intelligenceHud.querySelector(".inspector-intelligence-hud-details"),
     ).toBeNull();
+
+    // The install prompt is the primary action; the signup page is demoted to
+    // a secondary link. Assert both, because the whole point of this card is
+    // that leaving for a signup page is no longer the only way forward.
+    const copyPrompt = requireElement(
+      intelligenceHud.querySelector<HTMLButtonElement>(
+        "[data-inspector-intelligence-copy-prompt]",
+      ),
+      "Home Intelligence copy-prompt button was not rendered",
+    );
+    expect(copyPrompt.textContent).toContain("Copy setup prompt");
+
     const homeSetup = requireElement(
       intelligenceHud.querySelector<HTMLAnchorElement>(
         '[data-inspector-home-intelligence-action="enable_intelligence"]',
       ),
       "Home Intelligence setup action was not rendered",
     );
-    expect(homeSetup.textContent).toContain("Setup Intelligence");
+    // Names the alternative route, not an explainer: this href is the
+    // Intelligence product page, so promising an explanation would mislead.
+    expect(homeSetup.textContent).toContain("Set it up yourself");
     expect(homeSetup.href).toBe(setupUrl);
+
+    // The condensed story only belongs to the never-connected state.
+    const story = requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        "[data-inspector-intelligence-story]",
+      ),
+      "Intelligence story was not rendered",
+    );
+    expect(story.querySelectorAll(".inspector-intelligence-beat")).toHaveLength(
+      4,
+    );
+    expect(story.dataset.beat).toBe("threads");
+
+    // Copy and picture must stay paired — one slide of prose per beat, and the
+    // same beat marked active in both. This is the whole point of the section:
+    // an earlier version sold Threads in prose while showing Learning.
+    const copy = requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        "[data-inspector-intelligence-copy]",
+      ),
+      "Intelligence rotating copy was not rendered",
+    );
+    expect(
+      copy.querySelectorAll(".inspector-intelligence-copy-slide"),
+    ).toHaveLength(4);
+    expect(copy.dataset.beat).toBe(story.dataset.beat);
+    const activeCopy = requireElement(
+      copy.querySelector<HTMLElement>('[data-active="true"]'),
+      "No active copy slide",
+    );
+    expect(activeCopy.dataset.beatId).toBe("threads");
+
+    // The rotating text is hidden from assistive tech, so one stable sentence
+    // has to be exposed in its place.
+    expect(copy.getAttribute("aria-hidden")).toBe("true");
+    requireElement(
+      intelligenceHud.querySelector<HTMLElement>(
+        ".inspector-intelligence-sr-summary",
+      ),
+      "Screen-reader summary was not rendered",
+    );
+
+    // Tabs let a developer go back to a slide that already passed.
+    expect(
+      story.querySelectorAll(".inspector-intelligence-story-tab"),
+    ).toHaveLength(4);
     const features = requireElement(
       home.querySelector<HTMLElement>('[data-inspector-home-card="services"]'),
       "Features section was not rendered",
