@@ -86,6 +86,7 @@ import type {
   HomeHeroAction,
   HomeModel,
   HomeRuntimeHealthTone,
+  HomeServiceId,
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
@@ -392,10 +393,19 @@ const PILL_SUBLINE_LABEL = "Click to open Inspector";
 const ISLAND_INTELLIGENCE_ON_TITLE = "Intelligence connected";
 const ISLAND_INTELLIGENCE_OFF_TITLE = "Intelligence not connected";
 
-type LauncherHudRowId = "threads" | "learning";
-
 /**
- * The two feature rows, each in both of its states.
+ * The drawer's feature rows, in the order they appear, each in both of its
+ * states and each naming the Home service it reads its state from.
+ *
+ * ONE list, read twice: `renderLauncherDrawer` renders it, and
+ * `launcherIslandHeight` counts it. The island's width is a constant that
+ * also generates its own token, so the geometry rule and the stylesheet
+ * cannot come apart; its HEIGHT has no such constant available, because it is
+ * the capsule's band plus however many rows there are. Making the row count a
+ * fact of the program rather than a figure written down beside it gives the
+ * height the same property: add a row here and the island grows, the rule
+ * that picks the island's corner grows with it, and nothing else has to be
+ * told.
  *
  * `enabled`/`disabled` rather than `on`/`Turn on`: the row is a statement of
  * what the runtime currently offers, not an instruction. The old off-state
@@ -403,10 +413,27 @@ type LauncherHudRowId = "threads" | "learning";
  * done — every row opens the view that explains the feature, and for a
  * feature that is off that view is the one carrying the Enable action.
  */
-const HUD_THREADS_ON_LABEL = "Threads enabled";
-const HUD_THREADS_OFF_LABEL = "Threads disabled";
-const HUD_LEARNING_ON_LABEL = "Learning enabled";
-const HUD_LEARNING_OFF_LABEL = "Learning disabled";
+const LAUNCHER_HUD_ROWS = [
+  {
+    id: "threads",
+    service: "threads",
+    onLabel: "Threads enabled",
+    offLabel: "Threads disabled",
+  },
+  {
+    id: "learning",
+    service: "memory",
+    onLabel: "Learning enabled",
+    offLabel: "Learning disabled",
+  },
+] as const satisfies readonly {
+  id: string;
+  service: HomeServiceId;
+  onLabel: string;
+  offLabel: string;
+}[];
+
+type LauncherHudRowId = (typeof LAUNCHER_HUD_ROWS)[number]["id"];
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -589,9 +616,51 @@ type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
  *
  * One type for both of the island's surfaces, because they are two halves of
  * one object and there is exactly one answer for the pair. See
- * `resolveLauncherIslandSide`.
+ * `resolveLauncherIslandPlacement`.
  */
 type LauncherIslandSide = "left" | "right";
+
+/**
+ * Which way the island grows from the mark's own band: downward from the
+ * mark's top edge, or upward from its bottom edge.
+ *
+ * The same argument as the side, on the other axis. The launcher is dragged
+ * and its position persists, so a reader who parked it near the bottom of the
+ * window would otherwise get an island whose rows are off the screen — and
+ * unlike a truncated pill there is nothing left on screen to say they exist.
+ */
+type LauncherIslandDrop = "down" | "up";
+
+/**
+ * Where the island opens: one answer, both axes, for both surfaces.
+ *
+ * A pair rather than four cases of one string, because the two axes are
+ * genuinely independent — the capsule's padding and the drawer's left/right
+ * anchor read the side and nothing else, the padding band and the vertical
+ * anchor read the drop and nothing else — and a `"left-up"` string would have
+ * every one of those places splitting it back apart. What makes this ONE
+ * answer is not that it is one word but that it is one value, resolved once
+ * by `resolveLauncherIslandPlacement`, stored once, and rendered onto both
+ * surfaces from that single field. Nothing downstream re-measures anything,
+ * which is the property the horizontal fix was about.
+ */
+type LauncherIslandPlacement = Readonly<{
+  side: LauncherIslandSide;
+  drop: LauncherIslandDrop;
+}>;
+
+/**
+ * Where the island is laid out before the room around the mark has been read.
+ *
+ * The launcher's own anchor is the top right of the window, so this is the
+ * overwhelmingly common answer as well as the historical one. It is only ever
+ * on screen while the clip still covers nothing but the mark, so it shows
+ * nothing either way.
+ */
+const LAUNCHER_ISLAND_DEFAULT_PLACEMENT: LauncherIslandPlacement = {
+  side: "left",
+  drop: "down",
+};
 
 /**
  * Whether the reader actually got a pill. `suppressed` is the honest-degrade
@@ -684,37 +753,140 @@ const LAUNCHER_MAX_SIZE = 62.208;
 const LAUNCHER_ISLAND_WIDTH = 272;
 
 /**
- * Which side of the mark the island opens on, or null when neither side has
- * room for it.
+ * The drawer's own chrome, in the same relationship to the stylesheet that
+ * `LAUNCHER_ISLAND_WIDTH` has: every one of these numbers is interpolated into
+ * the drawer's rules below AND read by `launcherIslandHeight`, so the shape
+ * the reader sees and the shape the placement rule reasons about cannot come
+ * apart. A second literal for the geometry is what let the drawer go on
+ * choosing its side from a stale 248 long after the capsule had stopped
+ * agreeing with it.
+ */
+const LAUNCHER_ISLAND_DRAWER = {
+  /** The hairline the island is drawn with, top and bottom. */
+  border: 1,
+  /** Space between the band the capsule covers and the first row. */
+  markClearance: 6,
+  /** Room past the last row, and inline on both sides. */
+  pad: 8,
+  /** One row. */
+  rowHeight: 32,
+} as const;
+
+/**
+ * The same four numbers as the lengths the stylesheet writes.
  *
- * ONE rule for the whole island. Its two surfaces are pinned to the same
- * width and anchored to the same edge of the same mark, so a pair that
- * answered this question apart could end up pointing away from each other —
- * which is exactly what happened while the drawer still measured itself as a
+ * Aliased rather than interpolated inline purely so the rules that use them
+ * stay one declaration to a line, which is what the suite reads them as.
+ */
+const ISLAND_HAIRLINE = unsafeCSS(`${LAUNCHER_ISLAND_DRAWER.border}px`);
+const ISLAND_PAD = unsafeCSS(`${LAUNCHER_ISLAND_DRAWER.pad}px`);
+const ISLAND_ROW_HEIGHT = unsafeCSS(`${LAUNCHER_ISLAND_DRAWER.rowHeight}px`);
+/** The band the capsule covers: the mark, plus the gap past it. */
+const ISLAND_BAND = unsafeCSS(
+  `calc(var(--cpk-launcher-size) + ${LAUNCHER_ISLAND_DRAWER.markClearance}px)`,
+);
+
+/**
+ * How tall the island stands at this mark.
+ *
+ * Computed, not measured and not a constant. Not measured, because the number
+ * is needed at a moment when there is nothing to measure: the capsule resolves
+ * its placement during a gesture, and the drawer — the taller half, and
+ * therefore the half that decides the answer — is not on the page at all then.
+ * A rule that could only answer once one surface existed would be two rules
+ * again. Not a constant either, because the island's height is not constant:
+ * its top band is the launcher itself, whose size is a clamp on the viewport,
+ * so the only honest source for that part is the mark actually in front of us.
+ *
+ * Everything else is arithmetic over the same numbers the stylesheet is
+ * generated from: two hairlines, the band that clears the mark, the room past
+ * the last row, and the rows themselves counted from `LAUNCHER_HUD_ROWS`. A
+ * third row changes exactly one thing — the length of that list — and this
+ * number, the corner the island opens into, and the drawer on screen all
+ * follow it together.
+ */
+function launcherIslandHeight(mark: DOMRect): number {
+  return (
+    mark.height +
+    2 * LAUNCHER_ISLAND_DRAWER.border +
+    LAUNCHER_ISLAND_DRAWER.markClearance +
+    LAUNCHER_ISLAND_DRAWER.pad +
+    LAUNCHER_HUD_ROWS.length * LAUNCHER_ISLAND_DRAWER.rowHeight
+  );
+}
+
+/**
+ * One axis of the placement: the preferred answer if its room takes the
+ * overhang, the other answer if that one does, and null when neither does.
+ *
+ * The two axes ask an identical question about different numbers, so they ask
+ * it through the same function rather than through two rules written out
+ * separately — which is how the vertical axis came to have no rule at all
+ * while the horizontal one had a careful one.
+ *
+ * The rooms are passed in preference order rather than in coordinate order,
+ * because the preferred direction is not the same way along both axes: the
+ * launcher's own anchor is the top right of the window, so the island's
+ * natural directions are leftwards and downwards — away from its own edge on
+ * one axis and along it on the other.
+ */
+function resolveIslandAxis<T>(
+  overhang: number,
+  preferred: { room: number; answer: T },
+  fallback: { room: number; answer: T },
+): T | null {
+  // Nothing extends past the mark, so there is nothing to fit.
+  if (overhang <= 0) return preferred.answer;
+  if (preferred.room >= overhang) return preferred.answer;
+  if (fallback.room >= overhang) return fallback.answer;
+  return null;
+}
+
+/**
+ * Where the island opens, or null when it does not fit anywhere.
+ *
+ * ONE rule for the whole island, on both axes. Its two surfaces are pinned to
+ * the same width and anchored to the same band of the same mark, so a pair
+ * that answered this question apart could end up pointing away from each other
+ * — which is exactly what happened while the drawer still measured itself as a
  * card standing beside the mark instead of an island drawn over it.
  *
- * What has to fit is therefore the overhang, not the whole island: the part
- * that hangs past the mark is the only part needing room it does not already
- * have.
+ * What has to fit is the overhang, not the whole island: the part that hangs
+ * past the mark is the only part needing room it does not already have. On the
+ * horizontal axis that is the width past a mark the island is drawn over; on
+ * the vertical it is the rows past the band the capsule covers.
  *
- * Leftwards is the natural direction, away from the launcher's own edge.
- * Where neither side has room there is no island at all rather than a cut-off
- * one — for the capsule the dot and the beat still fire, so the signal is
- * intact and only the label is lost, and for the drawer there is simply
- * nothing to reveal on dwell. Constraining where the reader may drag the
- * control to protect these surfaces was considered and rejected: the page is
- * theirs.
+ * The capsule is exactly the mark's own height, so the vertical answer moves
+ * it nowhere at all — its top edge on the mark's top edge and its bottom edge
+ * on the mark's bottom edge are the same line. It still follows the same
+ * answer rather than being exempted from the axis, because "the surface that
+ * happens not to care re-derives its own" is the shape of the bug this rule
+ * exists to prevent, and an exemption is a second rule however small.
+ *
+ * Where neither answer fits on either axis there is no island at all rather
+ * than a cut-off one — the same standing-down the horizontal axis has always
+ * done, now for the whole question rather than half of it. For the capsule the
+ * dot and the beat still fire, so the signal is intact and only the label is
+ * lost; for the drawer there is simply nothing to reveal on dwell.
+ * Constraining where the reader may drag the control to protect these surfaces
+ * was considered and rejected: the page is theirs.
  */
-function resolveLauncherIslandSide(
+function resolveLauncherIslandPlacement(
   mark: DOMRect,
-  viewportWidth: number,
-): LauncherIslandSide | null {
-  const overhang = Math.max(0, LAUNCHER_ISLAND_WIDTH - mark.width);
-  // Nothing extends past the mark, so there is nothing to fit.
-  if (overhang === 0) return "left";
-  if (mark.left - overhang >= EDGE_MARGIN) return "left";
-  if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) return "right";
-  return null;
+  viewport: { width: number; height: number },
+): LauncherIslandPlacement | null {
+  const side = resolveIslandAxis<LauncherIslandSide>(
+    Math.max(0, LAUNCHER_ISLAND_WIDTH - mark.width),
+    { room: mark.left - EDGE_MARGIN, answer: "left" },
+    { room: viewport.width - EDGE_MARGIN - mark.right, answer: "right" },
+  );
+  const drop = resolveIslandAxis<LauncherIslandDrop>(
+    Math.max(0, launcherIslandHeight(mark) - mark.height),
+    { room: viewport.height - EDGE_MARGIN - mark.bottom, answer: "down" },
+    { room: mark.top - EDGE_MARGIN, answer: "up" },
+  );
+  if (side === null || drop === null) return null;
+  return { side, drop };
 }
 
 const DEFAULT_BUTTON_SIZE: Size = {
@@ -6748,20 +6920,20 @@ export class WebInspectorElement extends LitElement {
   /** Where the running gesture's pill is, or null when it has none. */
   private pillPhase: LauncherPillPhase | null = null;
   /**
-   * Which side the pill opens from, or null before the room has been measured.
-   * Decided once, at gesture start, and never revisited mid-gesture.
+   * Where the pill opens, or null before the room has been measured. Decided
+   * once, at gesture start, and never revisited mid-gesture.
    */
-  private pillDirection: LauncherIslandSide | null = null;
+  private pillPlacement: LauncherIslandPlacement | null = null;
   private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
   /** Hover/focus menu on the closed launcher. */
   private launcherHudOpen = false;
   /**
-   * Which side the drawer opens from — the same answer the pill gets, from the
-   * same rule. Null means nothing has been measured yet, or that the last
-   * measurement found no room on either side, and in both cases there is no
-   * drawer to show.
+   * Where the drawer opens — the same answer the pill gets, from the same
+   * rule. Null means nothing has been measured yet, or that the last
+   * measurement found no room on one of the two axes, and in every one of
+   * those cases there is no drawer to show.
    */
-  private launcherHudSide: LauncherIslandSide | null = null;
+  private launcherHudPlacement: LauncherIslandPlacement | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * The island is playing its reveal in reverse, on its way back into the
@@ -9716,7 +9888,10 @@ export class WebInspectorElement extends LitElement {
         gap: 1px;
         box-sizing: border-box;
         /* One radius for every shape: a circle at 62x62, a capsule at
-           272x62, a rounded rectangle at 272x174. See spec decision 10. */
+           272x62, a rounded rectangle at 272x142 - the height
+           launcherIslandHeight computes, which is where the figure comes
+           from rather than from a measurement taken once. See spec
+           decision 10. */
         border-radius: calc(var(--cpk-launcher-size) / 2);
         border: 1px solid var(--cpk-launcher-edge);
         background: var(--cpk-launcher-face);
@@ -9773,6 +9948,67 @@ export class WebInspectorElement extends LitElement {
       }
 
       /*
+       * The island's closed shape: the mark's own circle, in whichever of the
+       * four corners the mark occupies.
+       *
+       * The mark can be at any corner because the island answers on two axes
+       * now, and the naive spelling of that is eight hard-coded insets - four
+       * resting values and four more inside the keyframes - each of which has
+       * to agree with a position rule stated somewhere else. That is the same
+       * arrangement, one axis over, that let the capsule and the drawer point
+       * away from each other.
+       *
+       * So the corner is stated once per axis, as a pair of custom
+       * properties, and composed here into one value. The rule that anchors
+       * the island to an edge is the same rule that sets the property for that
+       * edge, so the corner the clip closes into cannot disagree with the
+       * corner the island is actually pinned to. Every surface and every
+       * keyframe below reads this one composed value.
+       *
+       * The defaults are the historical island: leftwards and downwards, so
+       * the mark is at the top right.
+       *
+       * The radius is the island's own, which at the capsule's height is a
+       * circle exactly covering the mark. It is also the value every close
+       * travels back to, so an unrounded corner here would square off the last
+       * frame of every one of them.
+       */
+      .cpk-launcher-capsule,
+      .cpk-launcher-drawer {
+        --cpk-island-clip-top: 0;
+        --cpk-island-clip-right: 0;
+        --cpk-island-clip-bottom: calc(100% - var(--cpk-launcher-size));
+        --cpk-island-clip-left: calc(100% - var(--cpk-launcher-size));
+        --cpk-island-closed: inset(
+          var(--cpk-island-clip-top) var(--cpk-island-clip-right)
+            var(--cpk-island-clip-bottom) var(--cpk-island-clip-left) round
+            calc(var(--cpk-launcher-size) / 2)
+        );
+        clip-path: var(--cpk-island-closed);
+      }
+
+      /*
+       * The island opening upward, for a launcher parked too near the foot of
+       * the window for the rows to fit below it.
+       *
+       * The mark does not move, so what changes is which of its edges the
+       * island hangs from: the bottom one, with the surface above it. Both
+       * halves flip together, from the one answer, and the capsule's flip is a
+       * no-op by construction - its height IS the mark's, so its two edges are
+       * the same line - which is exactly why it can follow the same answer
+       * without needing a rule of its own.
+       */
+      .cpk-launcher-capsule[data-cpk-island-drop="up"],
+      .cpk-launcher-drawer[data-cpk-island-drop="up"] {
+        top: auto;
+        margin-top: 0;
+        bottom: 50%;
+        margin-bottom: calc(var(--cpk-launcher-size) / -2);
+        --cpk-island-clip-top: calc(100% - var(--cpk-launcher-size));
+        --cpk-island-clip-bottom: 0;
+      }
+
+      /*
        * Two directions, one animation with the inset on the other side. The
        * padding on the launcher's side clears the mark, so the words never sit
        * under it. The text-side padding is derived from the capsule's radius
@@ -9782,82 +10018,59 @@ export class WebInspectorElement extends LitElement {
        * straight edge begins. A literal 14px put it 16px inside the curve at the
        * production launcher size, which is itself a clamp on the viewport.
        */
-      /*
-       * The closed clip carries the island's own radius, which at this size
-       * is a circle exactly covering the mark. It is also the value the
-       * closing transition travels back to, so an unrounded corner here would
-       * square off the last frame of every close.
-       */
       .cpk-launcher-capsule[data-cpk-capsule-direction="left"] {
         right: 0;
         padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
           calc(var(--cpk-launcher-size) / 2);
-        clip-path: inset(
-          0 0 0 calc(100% - var(--cpk-launcher-size)) round
-            calc(var(--cpk-launcher-size) / 2)
-        );
       }
       .cpk-launcher-capsule[data-cpk-capsule-direction="right"] {
         left: 0;
         padding: 0 calc(var(--cpk-launcher-size) / 2) 0
           calc(var(--cpk-launcher-size) + 12px);
-        clip-path: inset(
-          0 calc(100% - var(--cpk-launcher-size)) 0 0 round
-            calc(var(--cpk-launcher-size) / 2)
-        );
+        --cpk-island-clip-left: 0;
+        --cpk-island-clip-right: calc(100% - var(--cpk-launcher-size));
       }
 
       /*
-       * ONE reveal for the whole island, in each of the two directions.
+       * ONE reveal for the whole island, in every direction it can open.
        *
-       * The 0% stop is the mark's own footprint: a square of the launcher's
-       * size in the island's top corner on the launcher's side, rounded by
-       * half that size, which is a circle exactly covering the mark. So the
-       * island is never smaller or larger than the circle before it opens —
-       * it IS the circle, and what follows is that circle opening out.
+       * The 0% stop is the mark's own footprint, read from the composed
+       * property above rather than written out per corner: a square of the
+       * launcher's size in whichever corner the mark occupies, rounded by half
+       * that size, which is a circle exactly covering it. So the island is
+       * never smaller or larger than the circle before it opens - it IS the
+       * circle, and what follows is that circle opening out.
        *
-       * The bottom inset is what makes one pair of keyframes serve both
-       * halves. On the capsule, whose height is exactly the launcher size,
-       * "100% - size" resolves to 0 and the clip only travels sideways, which
-       * is the pill's original behaviour unchanged. On the drawer, which is
-       * taller, the same expression holds the reveal back to the top band
-       * until it opens downward as well. Capsule and drawer therefore arrive
-       * as one surface rather than as two things that happen to be animated
-       * at the same time.
+       * That indirection is what collapses eight keyframes into two. The
+       * corner used to be spelled into the keyframe itself, so every direction
+       * needed its own pair and every pair had to be kept in step with a
+       * position rule elsewhere; now the keyframe asks the element where its
+       * mark is and the element answers from the same properties that pinned
+       * it there.
+       *
+       * The property also carries the vertical inset that makes one reveal
+       * serve both halves. On the capsule, whose height is exactly the
+       * launcher size, "100% - size" resolves to 0 and the clip only travels
+       * sideways, which is the pill's original behaviour unchanged. On the
+       * drawer, which is taller, the same expression holds the reveal back to
+       * the mark's own band until it opens along the other axis as well.
+       * Capsule and drawer therefore arrive as one surface rather than as two
+       * things that happen to be animated at the same time.
        *
        * "round" is on BOTH stops, so the revealing edge is the island's own
        * rounded corner travelling rather than a straight line wiping across
-       * it — and because a clip-path only interpolates between shapes of the
+       * it - and because a clip-path only interpolates between shapes of the
        * same kind, a "round" on one stop alone would stop it animating at
        * all. The radius is the island's own, not a 999px that happens to
        * clamp to the right number on a 62px-tall capsule and to the wrong one
-       * on a 174px-tall drawer.
+       * on a 142px-tall drawer.
        *
        * It adds no animated property: the clip is still the clip.
        */
-      @keyframes cpk-launcher-island-left {
+      @keyframes cpk-launcher-island-open {
         0% {
           opacity: 0;
-          clip-path: inset(
-            0 0 calc(100% - var(--cpk-launcher-size))
-              calc(100% - var(--cpk-launcher-size)) round
-              calc(var(--cpk-launcher-size) / 2)
-          );
-        }
-        100% {
-          opacity: 1;
-          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
-        }
-      }
-
-      @keyframes cpk-launcher-island-right {
-        0% {
-          opacity: 0;
-          clip-path: inset(
-            0 calc(100% - var(--cpk-launcher-size))
-              calc(100% - var(--cpk-launcher-size)) 0 round
-              calc(var(--cpk-launcher-size) / 2)
-          );
+          clip-path: var(--cpk-island-closed);
         }
         100% {
           opacity: 1;
@@ -9866,7 +10079,7 @@ export class WebInspectorElement extends LitElement {
       }
 
       /*
-       * The way back, written out rather than expressed as the two above with
+       * The way back, written out rather than expressed as the one above with
        * "animation-direction: reverse".
        *
        * That was the first attempt and it is measurably wrong: a CSS
@@ -9877,38 +10090,24 @@ export class WebInspectorElement extends LitElement {
        * not start at all — verified in the browser, where the element's
        * getAnimations() came back empty and the clip snapped to the closed
        * value. A second name is what actually restarts, so a second name is
-       * what these are.
+       * what this is.
        *
-       * They are the stops of their opposite number in the other order, and
-       * nothing else. Any edit to the shape above belongs here too.
+       * It is the stops of the reveal in the other order, and nothing else.
+       * Any edit to the shape above belongs here too.
+       *
+       * The gesture's own close is the exception that proves the rule: its
+       * capsule passes through a "holding" phase that carries no
+       * animation-name at all, so the name genuinely changes there and it can
+       * and does reuse the reveal in reverse.
        */
-      @keyframes cpk-launcher-island-close-left {
+      @keyframes cpk-launcher-island-close {
         0% {
           opacity: 1;
           clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
         }
         100% {
           opacity: 0;
-          clip-path: inset(
-            0 0 calc(100% - var(--cpk-launcher-size))
-              calc(100% - var(--cpk-launcher-size)) round
-              calc(var(--cpk-launcher-size) / 2)
-          );
-        }
-      }
-
-      @keyframes cpk-launcher-island-close-right {
-        0% {
-          opacity: 1;
-          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
-        }
-        100% {
-          opacity: 0;
-          clip-path: inset(
-            0 calc(100% - var(--cpk-launcher-size))
-              calc(100% - var(--cpk-launcher-size)) 0 round
-              calc(var(--cpk-launcher-size) / 2)
-          );
+          clip-path: var(--cpk-island-closed);
         }
       }
 
@@ -9934,6 +10133,7 @@ export class WebInspectorElement extends LitElement {
          never drift apart. */
       .cpk-launcher-capsule[data-cpk-capsule-phase="opening"],
       .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
+        animation-name: cpk-launcher-island-open;
         animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
         animation-iteration-count: 1;
         animation-fill-mode: forwards;
@@ -9944,14 +10144,6 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-capsule[data-cpk-capsule-phase="closing"] {
         animation-duration: var(--cpk-launcher-capsule-close);
         animation-direction: reverse;
-      }
-      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="left"],
-      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="left"] {
-        animation-name: cpk-launcher-island-left;
-      }
-      .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="right"],
-      .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="right"] {
-        animation-name: cpk-launcher-island-right;
       }
 
       /* The hold is the end state of the reveal, held. */
@@ -10006,13 +10198,14 @@ export class WebInspectorElement extends LitElement {
       }
 
       /*
-       * The drawer sits BEHIND the capsule and shares its top edge, so it can
-       * only ever be seen below it. The row/mark overlap is not fixed here,
-       * it is made impossible: the top of this box is covered by the capsule,
-       * which is covered in turn by the mark.
+       * The drawer sits BEHIND the capsule and shares the mark's own band, so
+       * it can only ever be seen past it. The row/mark overlap is not fixed
+       * here, it is made impossible: the band of this box the capsule covers
+       * is reserved as padding, and the capsule is covered in turn by the
+       * mark.
        *
-       * It grows downward from behind a capsule that never moves, so once it
-       * has more than one state, height will be the only thing that changes
+       * It grows away from behind a capsule that never moves, so once it has
+       * more than one state, height will be the only thing that changes
        * between them. Nothing will morph and no edge will travel.
        *
        * No shadow, no second surface token, no blur. The capsule's own bottom
@@ -10028,38 +10221,43 @@ export class WebInspectorElement extends LitElement {
         z-index: 1;
         width: var(--cpk-launcher-island);
         box-sizing: border-box;
-        /* Top padding clears the capsule that covers this band. */
-        padding: calc(var(--cpk-launcher-size) + 6px) 8px 8px;
+        /* The leading padding clears the capsule that covers that band. Every
+           number here is interpolated from LAUNCHER_ISLAND_DRAWER, which
+           launcherIslandHeight adds up to decide whether the island fits past
+           the mark or has to open the other way - so the height the rule
+           reasons about is the height this rule draws. */
+        padding: ${ISLAND_BAND} ${ISLAND_PAD} ${ISLAND_PAD};
         border-radius: calc(var(--cpk-launcher-size) / 2);
-        border: 1px solid var(--cpk-launcher-edge);
+        border: ${ISLAND_HAIRLINE} solid var(--cpk-launcher-edge);
         background: var(--cpk-launcher-face);
         color: #fff;
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        /* The resting state is the mark's own footprint, so the first frame
-           of the drawer's life shows nothing that is not already the circle.
-           The launcher's side is the corner the clip closes toward: the
-           default here is the left-opening island, whose mark is at the top
-           right. */
-        clip-path: inset(
-          0 0 calc(100% - var(--cpk-launcher-size))
-            calc(100% - var(--cpk-launcher-size)) round
-            calc(var(--cpk-launcher-size) / 2)
-        );
         transition: opacity 160ms ease;
       }
 
+      /*
+       * Mirrored: the mark is on the other side, so the island hangs from that
+       * edge and the closed clip keeps that corner. The corner comes from the
+       * same two properties that do the hanging - see the composed footprint
+       * above.
+       */
       .cpk-launcher-drawer[data-cpk-drawer-side="right"] {
         right: auto;
         left: 0;
-        /* Mirrored: the mark is at the top left, so that is the corner the
-           closed clip keeps. */
-        clip-path: inset(
-          0 calc(100% - var(--cpk-launcher-size))
-            calc(100% - var(--cpk-launcher-size)) 0 round
-            calc(var(--cpk-launcher-size) / 2)
-        );
+        --cpk-island-clip-left: 0;
+        --cpk-island-clip-right: calc(100% - var(--cpk-launcher-size));
+      }
+
+      /*
+       * Opening upward puts the mark at the FOOT of the drawer, so the band
+       * the capsule covers is the one at the bottom and the padding that
+       * reserves it swaps ends with the room past the last row. The rows
+       * themselves keep their order and their reading direction.
+       */
+      .cpk-launcher-drawer[data-cpk-island-drop="up"] {
+        padding: ${ISLAND_PAD} ${ISLAND_PAD} ${ISLAND_BAND};
       }
 
       /*
@@ -10079,34 +10277,20 @@ export class WebInspectorElement extends LitElement {
        */
       .cpk-launcher-capsule[data-cpk-island-phase="open"],
       .cpk-launcher-drawer[data-cpk-island-phase="open"] {
+        animation-name: cpk-launcher-island-open;
         animation-duration: var(--cpk-launcher-island-open);
         animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
         animation-iteration-count: 1;
         animation-fill-mode: forwards;
       }
-      .cpk-launcher-capsule[data-cpk-island-phase="open"][data-cpk-capsule-direction="left"],
-      .cpk-launcher-drawer[data-cpk-island-phase="open"][data-cpk-drawer-side="left"] {
-        animation-name: cpk-launcher-island-left;
-      }
-      .cpk-launcher-capsule[data-cpk-island-phase="open"][data-cpk-capsule-direction="right"],
-      .cpk-launcher-drawer[data-cpk-island-phase="open"][data-cpk-drawer-side="right"] {
-        animation-name: cpk-launcher-island-right;
-      }
 
       .cpk-launcher-capsule[data-cpk-island-phase="closing"],
       .cpk-launcher-drawer[data-cpk-island-phase="closing"] {
+        animation-name: cpk-launcher-island-close;
         animation-duration: var(--cpk-launcher-island-close);
         animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
         animation-iteration-count: 1;
         animation-fill-mode: forwards;
-      }
-      .cpk-launcher-capsule[data-cpk-island-phase="closing"][data-cpk-capsule-direction="left"],
-      .cpk-launcher-drawer[data-cpk-island-phase="closing"][data-cpk-drawer-side="left"] {
-        animation-name: cpk-launcher-island-close-left;
-      }
-      .cpk-launcher-capsule[data-cpk-island-phase="closing"][data-cpk-capsule-direction="right"],
-      .cpk-launcher-drawer[data-cpk-island-phase="closing"][data-cpk-drawer-side="right"] {
-        animation-name: cpk-launcher-island-close-right;
       }
 
       /*
@@ -10131,7 +10315,9 @@ export class WebInspectorElement extends LitElement {
         display: flex;
         align-items: center;
         gap: 9px;
-        height: 32px;
+        /* Counted by launcherIslandHeight, so a taller row moves the point at
+           which the island has to open the other way. */
+        height: ${ISLAND_ROW_HEIGHT};
         padding: 0 20px;
         border-radius: 999px;
         font-size: 12px;
@@ -10873,9 +11059,9 @@ export class WebInspectorElement extends LitElement {
     this.maybeTrackInspectorMetadataViews();
     this.maybeTrackNewsSignalViewed();
     // The room around the launcher is only measurable once it has been laid
-    // out, and the answer decides both the direction and the telemetry label
+    // out, and the answer decides both the placement and the telemetry label
     // below, so this runs before the visibility event rather than after it.
-    this.resolvePillDirection();
+    this.resolvePillPlacement();
     this.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
@@ -11103,7 +11289,7 @@ export class WebInspectorElement extends LitElement {
     // Which driver owns the capsule, and therefore what it says.
     let subject: string;
     let heading: string;
-    let direction: LauncherIslandSide;
+    let placement: LauncherIslandPlacement;
     const styles: Record<string, string> = {};
 
     if (
@@ -11114,15 +11300,15 @@ export class WebInspectorElement extends LitElement {
     ) {
       subject = gestureKey;
       heading = gestureLabel;
-      // Before the measurement the pill is laid out as if it were opening
-      // left, which is width-identical to the other side and shows nothing
-      // either way while the clip is closed.
-      direction = this.pillDirection ?? "left";
+      // Before the measurement the pill is laid out at the island's default
+      // placement, which is size-identical to every other one and shows
+      // nothing whichever it turns out to be while the clip is closed.
+      placement = this.pillPlacement ?? LAUNCHER_ISLAND_DEFAULT_PLACEMENT;
       styles["--cpk-launcher-signal"] =
         LAUNCHER_SIGNAL_COLORS[gestureSignal.tone];
       styles["--cpk-launcher-capsule-open"] = `${ERROR_GESTURE_MS.open}ms`;
       styles["--cpk-launcher-capsule-close"] = `${ERROR_GESTURE_MS.close}ms`;
-    } else if (this.launcherHudOpen && this.launcherHudSide !== null) {
+    } else if (this.launcherHudOpen && this.launcherHudPlacement !== null) {
       // The dwell state. Intelligence is the island's title rather than one of
       // the rows below it, because the rows are features and this is the
       // connection they are carried over: a parent listed among its own
@@ -11132,7 +11318,7 @@ export class WebInspectorElement extends LitElement {
         this.getHomeModel().hero.connection === "connected"
           ? ISLAND_INTELLIGENCE_ON_TITLE
           : ISLAND_INTELLIGENCE_OFF_TITLE;
-      direction = this.launcherHudSide;
+      placement = this.launcherHudPlacement;
       styles["--cpk-launcher-island-open"] = `${LAUNCHER_ISLAND_MS.open}ms`;
       styles["--cpk-launcher-island-close"] = `${LAUNCHER_ISLAND_MS.close}ms`;
       styles["--cpk-launcher-hud-intro-duration"] =
@@ -11148,7 +11334,8 @@ export class WebInspectorElement extends LitElement {
         data-cpk-capsule-phase=${this.pillPhase ?? nothing}
         data-cpk-island-phase=${this.getLauncherIslandPhase()}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
-        data-cpk-capsule-direction=${direction}
+        data-cpk-capsule-direction=${placement.side}
+        data-cpk-island-drop=${placement.drop}
         style=${styleMap(styles)}
         aria-hidden="true"
         @click=${this.handlePillClick}
@@ -11240,7 +11427,7 @@ export class WebInspectorElement extends LitElement {
       // No room for the island on either side, so there is nothing to preview.
       // The preview is a one-shot page-load courtesy; it is dropped rather
       // than retried, exactly as a blocked gesture's pill is.
-      if (!this.resolveLauncherHudSide()) return;
+      if (!this.resolveLauncherHudPlacement()) return;
       this.launcherHudIntro = true;
       this.launcherHudOpen = true;
       this.requestUpdate();
@@ -11273,28 +11460,29 @@ export class WebInspectorElement extends LitElement {
    * Measures the room around the mark for the drawer, and reports whether it
    * has any.
    *
-   * The measurement is `resolveLauncherIslandSide` — the pill's rule, and the
-   * only one — so the two halves of the island cannot open on opposite sides.
-   * A false answer means neither side fits, and the drawer then does what the
-   * capsule does in the same position: it stays away, rather than opening over
-   * the edge of the window and being clipped by it.
+   * The measurement is `resolveLauncherIslandPlacement` — the pill's rule, and
+   * the only one — so the two halves of the island cannot open away from each
+   * other on either axis. A false answer means the island does not fit, and
+   * the drawer then does what the capsule does in the same position: it stays
+   * away, rather than opening over the edge of the window and being clipped by
+   * it.
    */
-  private resolveLauncherHudSide(): boolean {
+  private resolveLauncherHudPlacement(): boolean {
     const button =
       this.activeRoot.querySelector<HTMLElement>(".console-button");
-    this.launcherHudSide =
+    this.launcherHudPlacement =
       button && typeof window !== "undefined"
-        ? resolveLauncherIslandSide(
-            button.getBoundingClientRect(),
-            window.innerWidth,
-          )
+        ? resolveLauncherIslandPlacement(button.getBoundingClientRect(), {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          })
         : null;
-    return this.launcherHudSide !== null;
+    return this.launcherHudPlacement !== null;
   }
 
   private openLauncherHud(): void {
     if (this.isLauncherHudBlocked() || this.isOpen) return;
-    if (!this.resolveLauncherHudSide()) {
+    if (!this.resolveLauncherHudPlacement()) {
       // The room went away under an open drawer. Closing keeps the wrapper's
       // data-cpk-hud, the button's aria-expanded and the rendered drawer
       // agreeing; returning early leaves the first two claiming the third.
@@ -11494,26 +11682,22 @@ export class WebInspectorElement extends LitElement {
     if (!this.launcherHudOpen) return nothing;
     // Last line of defence, not where the degrade happens: room is resolved
     // and the state is kept consistent at the open path (openLauncherHud
-    // closes rather than leaving launcherHudOpen true with no side). This
-    // guard only covers a state this render should never actually observe.
-    const side = this.launcherHudSide;
-    if (side === null) return nothing;
+    // closes rather than leaving launcherHudOpen true with no placement).
+    // This guard only covers a state this render should never actually
+    // observe.
+    const placement = this.launcherHudPlacement;
+    if (placement === null) return nothing;
     // The launcher must agree with Home about feature availability. Raw
     // transport flags can be present for a runtime that is not entitled to use
     // Intelligence, which previously made the HUD show every service as on.
     const homeModel = this.getHomeModel();
-    const threadsOn = homeModel.services.some(
-      (service) => service.id === "threads" && service.enabled,
-    );
-    const learningOn = homeModel.services.some(
-      (service) => service.id === "memory" && service.enabled,
-    );
     return html`
       <div
         class="cpk-launcher-drawer"
         id="cpk-launcher-hud"
         data-cpk-launcher-drawer
-        data-cpk-drawer-side=${side}
+        data-cpk-drawer-side=${placement.side}
+        data-cpk-island-drop=${placement.drop}
         data-cpk-island-phase=${this.getLauncherIslandPhase()}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         style=${styleMap({
@@ -11528,19 +11712,22 @@ export class WebInspectorElement extends LitElement {
             // Two features, and Intelligence is not among them: it is the
             // capsule's title above, because it is the connection these two
             // are carried over rather than a third thing beside them.
-            this.renderHudRow({
-              id: "threads",
-              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-              enabled: threadsOn,
-              introIndex: 0,
+            //
+            // Rendered FROM the list the island's height is counted from, so
+            // a third row cannot arrive on screen without the rule that places
+            // the island knowing it is there.
+            LAUNCHER_HUD_ROWS.map((row, introIndex) => {
+              const enabled = homeModel.services.some(
+                (service) => service.id === row.service && service.enabled,
+              );
+              return this.renderHudRow({
+                id: row.id,
+                label: enabled ? row.onLabel : row.offLabel,
+                enabled,
+                introIndex,
+              });
             })
           }
-          ${this.renderHudRow({
-            id: "learning",
-            label: learningOn ? HUD_LEARNING_ON_LABEL : HUD_LEARNING_OFF_LABEL,
-            enabled: learningOn,
-            introIndex: 1,
-          })}
         </ul>
       </div>
     `;
@@ -20335,32 +20522,32 @@ export class WebInspectorElement extends LitElement {
     if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
       this.gestureSignal = null;
       this.pillPhase = null;
-      this.pillDirection = null;
+      this.pillPlacement = null;
       return;
     }
     this.gestureSignal = key;
     this.pillPhase = "closed";
-    this.pillDirection = null;
+    this.pillPlacement = null;
     this.closeLauncherHud();
   }
 
   /**
-   * Chooses the side, or suppresses the pill, from the room actually available
-   * at gesture start. Measured once, from the DOM, because the launcher is
-   * draggable and its position persists: a reader who parked it near the left
-   * edge would otherwise get a permanently truncated pill.
+   * Chooses the placement, or suppresses the pill, from the room actually
+   * available at gesture start. Measured once, from the DOM, because the
+   * launcher is draggable and its position persists: a reader who parked it
+   * near the left edge would otherwise get a permanently truncated pill.
    *
-   * The rule itself is `resolveLauncherIslandSide`, which the drawer follows
-   * too — including its verdict that neither side has room, which drops both
-   * surfaces rather than one.
+   * The rule itself is `resolveLauncherIslandPlacement`, which the drawer
+   * follows too — including its verdict that the island does not fit, which
+   * drops both surfaces rather than one.
    *
-   * The capsule still has to be on the page before the side is chosen. Not to
-   * be measured — its width is the island's, a constant — but because a
-   * gesture that has not rendered yet is a gesture whose telemetry has no
-   * answer to report, and `pillOutcome` IS that answer.
+   * The capsule still has to be on the page before the placement is chosen.
+   * Not to be measured — its size is the island's, and the island's is
+   * arithmetic — but because a gesture that has not rendered yet is a gesture
+   * whose telemetry has no answer to report, and `pillOutcome` IS that answer.
    */
-  private resolvePillDirection(): void {
-    if (this.pillDirection !== null || this.pillPhase === null) return;
+  private resolvePillPlacement(): void {
+    if (this.pillPlacement !== null || this.pillPhase === null) return;
     const wrapper = this.activeRoot.querySelector<HTMLElement>(
       ".console-button-wrapper",
     );
@@ -20369,23 +20556,23 @@ export class WebInspectorElement extends LitElement {
     if (!button || !pill || typeof window === "undefined") return;
 
     this.setPillOutcome(
-      resolveLauncherIslandSide(
-        button.getBoundingClientRect(),
-        window.innerWidth,
-      ),
+      resolveLauncherIslandPlacement(button.getBoundingClientRect(), {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      }),
     );
   }
 
   /** Records the measurement's verdict, and drops the pill when it is null. */
-  private setPillOutcome(direction: LauncherIslandSide | null): void {
-    if (direction === null) {
+  private setPillOutcome(placement: LauncherIslandPlacement | null): void {
+    if (placement === null) {
       this.pillPhase = null;
-      this.pillDirection = null;
+      this.pillPlacement = null;
       this.pillOutcome = "suppressed";
       this.requestUpdate();
       return;
     }
-    this.pillDirection = direction;
+    this.pillPlacement = placement;
     this.pillOutcome = "shown";
     this.requestUpdate();
   }
@@ -20394,7 +20581,7 @@ export class WebInspectorElement extends LitElement {
   private openPill(): void {
     // Normally already measured during the beat; measured here too so the
     // gesture cannot depend on a render having happened in between.
-    this.resolvePillDirection();
+    this.resolvePillPlacement();
     if (this.pillPhase === null) {
       // The measurement found no room after all.
       this.endGesture();
@@ -20466,7 +20653,7 @@ export class WebInspectorElement extends LitElement {
     this.cancelPillTimeout();
     this.gestureSignal = null;
     this.pillPhase = null;
-    this.pillDirection = null;
+    this.pillPlacement = null;
   }
 
   private cancelPillTimeout(): void {
