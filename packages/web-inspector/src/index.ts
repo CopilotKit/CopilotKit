@@ -14779,19 +14779,28 @@ export class WebInspectorElement extends LitElement {
     this.tryFromHereError = null;
     this.requestUpdate();
 
+    const isCurrentTryFromHereRequest = (): boolean =>
+      this.selectedThreadId === threadId && this.selectedMenu === "threads";
+
     try {
       const snapshot = await this.loadThreadSnapshot(thread);
-      this.applyThreadSnapshotToPlayground(thread, snapshot);
+      // A later thread or pane change owns the UI. Keep the fetch outcome
+      // for telemetry, but do not replace Playground or leave Threads.
+      if (isCurrentTryFromHereRequest()) {
+        this.applyThreadSnapshotToPlayground(thread, snapshot);
+        this.handleMenuSelect("playground");
+      }
       if (!this.core?.telemetryDisabled) {
         trackThreadsTryFromHereClicked({
           ...this.getThreadsTelemetryProps(),
           outcome: "success",
         });
       }
-      this.handleMenuSelect("playground");
     } catch (error) {
-      this.tryFromHereError =
-        error instanceof Error ? error.message : "Failed to load thread.";
+      if (isCurrentTryFromHereRequest()) {
+        this.tryFromHereError =
+          error instanceof Error ? error.message : "Failed to load thread.";
+      }
       if (!this.core?.telemetryDisabled) {
         trackThreadsTryFromHereClicked({
           ...this.getThreadsTelemetryProps(),

@@ -625,6 +625,67 @@ test("Try from here copies a stored thread into Playground without changing the 
   }
 });
 
+test("Try from here discards a stale copy after leaving Threads", async () => {
+  const context = await setup({
+    agent: true,
+    agentIds: ["default"],
+    threads: [SAVED_THREAD],
+  });
+  try {
+    await context.open();
+    await context.selectLeaf("threads");
+    await selectSavedThread(context.inspector);
+
+    const pendingFetch = globalThis.fetch;
+    let releaseMessages!: () => void;
+    let messagesResolved = false;
+    const messagesGate = new Promise<void>((resolve) => {
+      releaseMessages = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = input instanceof Request ? input.url : String(input);
+        const isMessages = url.endsWith("/threads/thread-1/messages");
+        if (isMessages) {
+          await messagesGate;
+        }
+        const response = await pendingFetch(input, init);
+        if (isMessages) {
+          messagesResolved = true;
+        }
+        return response;
+      },
+    );
+
+    const root = requireElement(
+      context.inspector.shadowRoot,
+      "Web Inspector shadow root was not rendered",
+    );
+    const button = requireElement(
+      tryFromHereButton(root),
+      "Try from here was not rendered",
+    );
+    button.click();
+    await context.selectLeaf("home");
+    expectCurrentNavigation(root, "home", "home");
+
+    releaseMessages();
+    await waitFor(() => messagesResolved, "stale Try from here load");
+    await context.inspector.updateComplete;
+
+    expectCurrentNavigation(root, "home", "home");
+    await context.selectLeaf("playground");
+    expect(root.textContent).not.toContain("Earlier answer");
+    expect(
+      root.querySelector<HTMLSelectElement>("#cpk-playground-thread-source")
+        ?.value ?? "",
+    ).not.toBe("thread-1");
+  } finally {
+    context.teardown();
+  }
+});
+
 test("Try from here stays on Threads when messages fail", async () => {
   const context = await setup({
     agent: true,

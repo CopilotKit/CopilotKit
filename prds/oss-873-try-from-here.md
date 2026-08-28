@@ -82,7 +82,7 @@ The button is hidden on example tour threads and when thread inspect cannot load
   - Map stored thread messages onto Playground agent messages (user, assistant, tool), then `clone()` the source agent, assign a new Playground thread id, `setMessages`, `setState`.
 - Fetch the snapshot first. Replace the scratch session only after a successful messages load. This is the control flow from the grill (not a demo):
 
-```
+```text
 snapshot = loadThread(threadId)
 if snapshot.messagesFailed:
   showErrorOnThreads(error)
