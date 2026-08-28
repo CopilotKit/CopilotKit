@@ -27,7 +27,7 @@ const AuthorityProbe = defineComponent({
 });
 
 function managedRuntimeInfo(
-  enabled: boolean,
+  active: boolean,
   licenseStatus: RuntimeInfo["licenseStatus"],
 ): RuntimeInfo {
   return {
@@ -39,16 +39,53 @@ function managedRuntimeInfo(
     runtimeEntitlements: {
       status: "ready",
       entitlement: {
-        active: true,
+        active,
         source: "managedOrgSubscription",
-        planCode: "pro",
-        features: {
-          chat: enabled,
-          sidebar: enabled,
-          popup: enabled,
-          threads: enabled,
+        // Mirrors the active/inactive free-plan payload emitted by Intelligence.
+        ...(active
+          ? {
+              planCode: "free",
+              entitlementSource: "clerk_free_default",
+              features: {
+                "sdk.angular": false,
+                deployment_via_helm_chart: false,
+                analytics: true,
+                self_learning: true,
+                msteams: false,
+                memory: false,
+                managed_channels: true,
+                "managed_channels.slack": true,
+                "managed_channels.teams": true,
+              },
+              limits: {
+                "threads.retention_hours": 72,
+                "threads.max_count": 200,
+              },
+            }
+          : { features: {}, limits: {} }),
+      },
+    },
+  };
+}
+
+/** Build Runtime info mirroring the active self-hosted producer payload. */
+function selfHostedRuntimeInfo(
+  licenseStatus: RuntimeInfo["licenseStatus"],
+): RuntimeInfo {
+  return {
+    ...managedRuntimeInfo(true, licenseStatus),
+    runtimeEntitlements: {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "selfHostedDeploymentLicense",
+        features: { deployment_via_helm_chart: true, msteams: true },
+        limits: {
+          "threads.retention_hours": 336,
+          "threads.max_count": 25_000,
         },
-        limits: {},
+        planCode: "team_self_hosted",
+        entitlementSource: "enterprise_override",
       },
     },
   };
@@ -135,15 +172,31 @@ test("a ready managed grant drives every Vue feature gate and overrides a stale 
   }
 });
 
-test("a ready managed denial drives every Vue feature gate despite a valid legacy status", async () => {
+test("a ready managed denial drives every Vue feature gate", async () => {
   const { dispose, readAuthority } = setupRuntimeAuthority(
-    managedRuntimeInfo(false, "valid"),
+    managedRuntimeInfo(false, "none"),
   );
 
   try {
     await waitFor(() => {
       expect(readAuthority()).toBe(
-        "status:valid chat:false sidebar:false popup:false threads:false",
+        "status:none chat:false sidebar:false popup:false threads:false",
+      );
+    });
+  } finally {
+    dispose();
+  }
+});
+
+test("an active self-hosted producer entitlement drives every Vue feature gate", async () => {
+  const { dispose, readAuthority } = setupRuntimeAuthority(
+    selfHostedRuntimeInfo("invalid"),
+  );
+
+  try {
+    await waitFor(() => {
+      expect(readAuthority()).toBe(
+        "status:valid chat:true sidebar:true popup:true threads:true",
       );
     });
   } finally {
@@ -218,12 +271,7 @@ test("an inactive self-hosted entitlement keeps Vue's valid legacy fallback", as
       entitlement: {
         active: false,
         source: "selfHostedDeploymentLicense",
-        features: {
-          chat: false,
-          sidebar: false,
-          popup: false,
-          threads: false,
-        },
+        features: {},
         limits: {},
       },
     },

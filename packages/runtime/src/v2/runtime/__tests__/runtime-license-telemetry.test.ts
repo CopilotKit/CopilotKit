@@ -182,6 +182,24 @@ describe("runtime construction — telemetry license token", () => {
       });
       expect(setLicenseTokenSpy).not.toHaveBeenCalled();
     });
+
+    it("treats blank option and environment license tokens as unconfigured", () => {
+      process.env.COPILOTKIT_LICENSE_TOKEN = " \t ";
+
+      const runtime = new CopilotIntelligenceRuntime({
+        agents: AGENTS,
+        intelligence: createIntelligenceClient(),
+        identifyUser: IDENTIFY_USER,
+        licenseToken: "",
+      });
+
+      expect(runtime.licenseChecker?.getStatus()).toMatchObject({
+        error: null,
+        license: null,
+        valid: false,
+      });
+      expect(createScopeSpy).toHaveBeenCalledWith({});
+    });
   });
 
   describe("CopilotRuntime shim — Intelligence delegate", () => {
@@ -208,6 +226,7 @@ interface RuntimeTelemetryIdentityCase {
   telemetryId?: string;
   environmentTelemetryId?: string;
   licenseToken?: string;
+  environmentLicenseToken?: string;
   expectedIdentity: {
     telemetryId?: string;
     licenseToken?: string;
@@ -304,6 +323,18 @@ const runtimeTelemetryIdentityCases: readonly RuntimeTelemetryIdentityCase[] = [
     expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
   },
   {
+    label: "environment license when the explicit license is blank",
+    licenseToken: " \t ",
+    environmentLicenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
+  },
+  {
+    label: "anonymous identity when every license source is blank",
+    licenseToken: "",
+    environmentLicenseToken: " \t ",
+    expectedIdentity: {},
+  },
+  {
     label: "anonymous identity when no identity source exists",
     expectedIdentity: {},
   },
@@ -381,7 +412,10 @@ test.each(runtimeConstructorIdentityCases)(
       installRuntimeTelemetryIdentitySpies();
     vi.stubEnv("CPK_TELEMETRY_ID", identityCase.environmentTelemetryId);
     vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
-    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+    vi.stubEnv(
+      "COPILOTKIT_LICENSE_TOKEN",
+      identityCase.environmentLicenseToken,
+    );
 
     try {
       const runtime = constructorCase.construct({

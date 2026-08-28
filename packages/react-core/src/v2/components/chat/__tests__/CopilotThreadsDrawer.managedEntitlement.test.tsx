@@ -32,24 +32,61 @@ vi.mock("../../../hooks/use-threads", () => ({
   useThreads: (input: UseThreadsInput) => useThreadsMock(input),
 }));
 
-/**
- * Build Runtime info with an active managed entitlement and thread grant.
- */
-function managedRuntimeInfo(threadsEnabled: boolean): RuntimeInfo {
+/** Build Runtime info mirroring the Intelligence free-plan producer payload. */
+function managedRuntimeInfo(active: boolean): RuntimeInfo {
   return {
     version: "1.0.0",
     agents: {},
     audioFileTranscriptionEnabled: false,
     mode: "intelligence",
-    licenseStatus: "valid",
+    licenseStatus: active ? "valid" : "none",
+    runtimeEntitlements: {
+      status: "ready",
+      entitlement: {
+        active,
+        source: "managedOrgSubscription",
+        ...(active
+          ? {
+              planCode: "free",
+              entitlementSource: "clerk_free_default",
+              features: {
+                "sdk.angular": false,
+                deployment_via_helm_chart: false,
+                analytics: true,
+                self_learning: true,
+                msteams: false,
+                memory: false,
+                managed_channels: true,
+                "managed_channels.slack": true,
+                "managed_channels.teams": true,
+              },
+              limits: {
+                "threads.retention_hours": 72,
+                "threads.max_count": 200,
+              },
+            }
+          : { features: {}, limits: {} }),
+      },
+    },
+  };
+}
+
+/** Build Runtime info mirroring the active self-hosted producer payload. */
+function selfHostedRuntimeInfo(): RuntimeInfo {
+  return {
+    ...managedRuntimeInfo(true),
     runtimeEntitlements: {
       status: "ready",
       entitlement: {
         active: true,
-        source: "managedOrgSubscription",
-        planCode: "pro",
-        features: { threads: threadsEnabled },
-        limits: {},
+        source: "selfHostedDeploymentLicense",
+        features: { deployment_via_helm_chart: true, msteams: true },
+        limits: {
+          "threads.retention_hours": 336,
+          "threads.max_count": 25_000,
+        },
+        planCode: "team_self_hosted",
+        entitlementSource: "enterprise_override",
       },
     },
   };
@@ -178,8 +215,7 @@ test("a ready inactive entitlement denies feature-only React consumers", async (
       entitlement: {
         active: false,
         source: "managedOrgSubscription",
-        planCode: "pro",
-        features: { chat: true },
+        features: {},
         limits: {},
       },
     },
@@ -278,11 +314,7 @@ test("managed entitlements keep the drawer locked when threads are denied", asyn
       expect(drawer?.licensed).toBe(false);
     });
 
-    expect(
-      screen.queryByText(
-        /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
-      ),
-    ).toBeNull();
+    expect(screen.getByText("Powered by CopilotKit")).toBeDefined();
   } finally {
     dispose();
   }
@@ -315,6 +347,32 @@ test("managed entitlements load the drawer when threads are granted", async () =
         /Powered by CopilotKit|CopilotKit license (?:expired|expires)|Invalid CopilotKit license token/i,
       ),
     ).toBeNull();
+  } finally {
+    dispose();
+  }
+});
+
+test("an active self-hosted entitlement loads the drawer from the producer thread limit", async () => {
+  const { dispose } = setupDrawerTest(selfHostedRuntimeInfo());
+
+  try {
+    render(
+      <CopilotKitProvider runtimeUrl="/api">
+        <CopilotChatConfigurationProvider>
+          <CopilotThreadsDrawer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(useThreadsMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: true }),
+      );
+      const drawer = document.querySelector<CopilotKitThreadsDrawerElement>(
+        COPILOTKIT_THREADS_DRAWER_TAG,
+      );
+      expect(drawer?.licensed).toBe(true);
+    });
   } finally {
     dispose();
   }
@@ -377,7 +435,7 @@ test.each(["valid", "expiring"] as const)(
         entitlement: {
           active: false,
           source: "selfHostedDeploymentLicense",
-          features: { threads: false },
+          features: {},
           limits: {},
         },
       },
@@ -466,7 +524,7 @@ test("changing Runtime targets removes the previous thread grant while the next 
 
     await waitFor(() => {
       expect(screen.getByTestId("threads-feature-authority").textContent).toBe(
-        "status:valid threads:false",
+        "status:none threads:false",
       );
     });
   } finally {

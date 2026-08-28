@@ -148,35 +148,70 @@ const RETRYABLE_MANAGED_ENTITLEMENT: RuntimeEntitlementResponse = {
   },
 };
 
-function readyManagedEntitlement(threads: boolean): RuntimeEntitlementResponse {
+/** Mirror the active/inactive managed shapes emitted by Intelligence. */
+function readyManagedEntitlement(active: boolean): RuntimeEntitlementResponse {
   return {
     status: "ready",
     entitlement: {
-      active: true,
+      active,
       source: "managedOrgSubscription",
-      planCode: "pro",
-      features: { threads },
-      limits: {},
+      ...(active
+        ? {
+            planCode: "free",
+            entitlementSource: "clerk_free_default",
+            features: {
+              "sdk.angular": false,
+              deployment_via_helm_chart: false,
+              analytics: true,
+              self_learning: true,
+              msteams: false,
+              memory: false,
+              managed_channels: true,
+              "managed_channels.slack": true,
+              "managed_channels.teams": true,
+            },
+            limits: {
+              "threads.retention_hours": 72,
+              "threads.max_count": 200,
+            },
+          }
+        : { features: {}, limits: {} }),
     },
   };
 }
+
+/** Mirror the active self-hosted shape emitted by Intelligence. */
+const READY_SELF_HOSTED_ENTITLEMENT = {
+  status: "ready",
+  entitlement: {
+    active: true,
+    source: "selfHostedDeploymentLicense",
+    features: { deployment_via_helm_chart: true, msteams: true },
+    limits: {
+      "threads.retention_hours": 336,
+      "threads.max_count": 25_000,
+    },
+    planCode: "team_self_hosted",
+    entitlementSource: "enterprise_override",
+  },
+} as const satisfies RuntimeEntitlementResponse;
 
 test.each([
   {
     expectedLicensed: true,
     label: "grant",
     legacyStatus: "none" as const,
-    threads: true,
+    active: true,
   },
   {
     expectedLicensed: false,
     label: "denial",
-    legacyStatus: "valid" as const,
-    threads: false,
+    legacyStatus: "none" as const,
+    active: false,
   },
 ])(
   "a retry-pending Angular drawer reacts after mount to a managed $label",
-  async ({ expectedLicensed, legacyStatus, threads }) => {
+  async ({ active, expectedLicensed, legacyStatus }) => {
     const { authority, dispose, drawer, fixture, threadsEnabled } =
       setupManagedEntitlement("unknown", RETRYABLE_MANAGED_ENTITLEMENT, true);
 
@@ -188,12 +223,12 @@ test.each([
       expect(drawer.loading).toBe(true);
 
       authority.licenseStatus.set(legacyStatus);
-      authority.runtimeEntitlements.set(readyManagedEntitlement(threads));
+      authority.runtimeEntitlements.set(readyManagedEntitlement(active));
       authority.retryPending.set(false);
       fixture.detectChanges();
       await fixture.whenStable();
 
-      expect(threadsEnabled()).toBe(threads);
+      expect(threadsEnabled()).toBe(active);
       expect(drawer.licensed).toBe(expectedLicensed);
       expect(drawer.loading).toBe(false);
     } finally {
@@ -201,6 +236,22 @@ test.each([
     }
   },
 );
+
+test("an active self-hosted producer entitlement grants Angular threads", async () => {
+  const { dispose, drawer, fixture, threadsEnabled } = setupManagedEntitlement(
+    "invalid",
+    READY_SELF_HOSTED_ENTITLEMENT,
+  );
+
+  try {
+    await fixture.whenStable();
+
+    expect(threadsEnabled()).toBe(true);
+    expect(drawer.licensed).toBe(true);
+  } finally {
+    dispose();
+  }
+});
 
 test("a settled non-ready entitlement denies Angular threads without a legacy fallback", async () => {
   const { dispose, drawer, fixture, threadsEnabled } = setupManagedEntitlement(
@@ -227,7 +278,7 @@ test("an inactive self-hosted entitlement keeps Angular's valid legacy fallback"
       entitlement: {
         active: false,
         source: "selfHostedDeploymentLicense",
-        features: { threads: false },
+        features: {},
         limits: {},
       },
     },

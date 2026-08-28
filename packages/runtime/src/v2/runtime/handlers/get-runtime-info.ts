@@ -114,6 +114,7 @@ export async function handleGetRuntimeInfo({
   threadEndpointsEnabled = true,
 }: HandleGetRuntimeInfoParameters) {
   try {
+    const runtimeEntitlementsPromise = resolveRuntimeEntitlements(runtime);
     const webEnabled =
       !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
     const agents = webEnabled
@@ -150,7 +151,7 @@ export async function handleGetRuntimeInfo({
 
     const agentsDict: Record<string, AgentDescription> =
       Object.fromEntries(agentEntries);
-    const runtimeEntitlements = await resolveRuntimeEntitlements(runtime);
+    const runtimeEntitlements = await runtimeEntitlementsPromise;
 
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,

@@ -30,7 +30,7 @@ const INACTIVE_ENTITLEMENTS_TRANSPORT = {
 
 /** Install a private fetch mock and return an entitlement client plus cleanup. */
 function setup() {
-  const fetchMock = vi.fn(() =>
+  const fetchMock = vi.fn((..._args: Parameters<typeof globalThis.fetch>) =>
     Promise.resolve(Response.json(ACTIVE_ENTITLEMENTS_TRANSPORT)),
   );
   vi.stubGlobal("fetch", fetchMock);
@@ -174,6 +174,44 @@ test("backs off repeated failed Runtime entitlement lookups", async () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   } finally {
+    teardown();
+    vi.useRealTimers();
+  }
+});
+
+test("bounds a stalled Runtime entitlement lookup below the Core info timeout", async () => {
+  vi.useFakeTimers();
+  const { client, fetchMock, teardown } = setup();
+  fetchMock.mockImplementation(
+    (_input: string | URL | Request, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      }),
+  );
+
+  let outcome: unknown;
+  const request = client.getRuntimeEntitlements().then(
+    (response) => {
+      outcome = response;
+    },
+    (error: unknown) => {
+      outcome = error;
+    },
+  );
+
+  try {
+    await vi.advanceTimersByTimeAsync(1_500);
+
+    expect(outcome).toMatchObject({
+      message: "Runtime entitlement request timed out",
+      status: 504,
+      retryable: true,
+    });
+  } finally {
+    await vi.runAllTimersAsync();
+    await request;
     teardown();
     vi.useRealTimers();
   }

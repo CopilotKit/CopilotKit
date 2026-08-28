@@ -244,6 +244,32 @@ test("keeps `/info` successful when Runtime entitlement lookup fails", async () 
   expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
 });
 
+test("starts Runtime entitlement lookup before agent discovery finishes", async () => {
+  let finishAgentDiscovery: ((agents: {}) => void) | undefined;
+  const getRuntimeEntitlements = vi
+    .fn()
+    .mockResolvedValue(READY_RUNTIME_ENTITLEMENTS);
+  const runtime = createIntelligenceRuntimeLike({
+    agents: () =>
+      new Promise((resolve) => {
+        finishAgentDiscovery = resolve;
+      }),
+  });
+  installRuntimeEntitlementsLookup(runtime, getRuntimeEntitlements);
+
+  const responsePromise = handleGetRuntimeInfo({
+    runtime,
+    request: mockRequest,
+  });
+  await vi.waitFor(() => expect(finishAgentDiscovery).toBeDefined());
+
+  expect(getRuntimeEntitlements).toHaveBeenCalledOnce();
+
+  finishAgentDiscovery?.({});
+  const response = await responsePromise;
+  expect(response.status).toBe(200);
+});
+
 test.each([
   {
     expectedCode: "runtime_entitlements_misconfigured",

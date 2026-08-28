@@ -96,6 +96,7 @@ interface RootRuntimeTelemetryIdentityCase {
   telemetryId?: string;
   environmentTelemetryId?: string;
   licenseToken?: string;
+  environmentLicenseToken?: string;
   expectedIdentity: TelemetryIdentity;
 }
 
@@ -202,6 +203,18 @@ const rootRuntimeTelemetryIdentityCases = [
     expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
   },
   {
+    label: "environment license when the explicit license is blank",
+    licenseToken: " \t ",
+    environmentLicenseToken: LEGACY_IDENTITY_TOKEN,
+    expectedIdentity: { licenseToken: LEGACY_IDENTITY_TOKEN },
+  },
+  {
+    label: "anonymous identity when every license source is blank",
+    licenseToken: "",
+    environmentLicenseToken: " \t ",
+    expectedIdentity: {},
+  },
+  {
     label: "anonymous identity when no identity source exists",
     expectedIdentity: {},
   },
@@ -228,6 +241,7 @@ test.each(rootRuntimeTelemetryIdentityCases)(
     telemetryId,
     environmentTelemetryId,
     licenseToken,
+    environmentLicenseToken,
     expectedIdentity,
   }) => {
     const { createScope, setLicenseToken, restore } =
@@ -242,7 +256,7 @@ test.each(rootRuntimeTelemetryIdentityCases)(
     } = installDelegatedTelemetryIdentitySpies();
     vi.stubEnv("CPK_TELEMETRY_ID", environmentTelemetryId);
     vi.stubEnv("COPILOTKIT_TELEMETRY_ID", "unsupported-alias");
-    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", undefined);
+    vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", environmentLicenseToken);
 
     try {
       const runtime = new CopilotRuntime({

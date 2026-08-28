@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 import { z } from "zod";
 import type { GetLearningContainerId } from "../core/learning";
 
-const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 5_000;
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
 const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
 const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
 

@@ -40,7 +40,10 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
 import type { TelemetryCapture } from "../telemetry/telemetry-client";
-import { firstNonBlankTelemetryId } from "../telemetry/telemetry-identity";
+import {
+  firstNonBlankLicenseToken,
+  firstNonBlankTelemetryId,
+} from "../telemetry/telemetry-identity";
 import {
   attachRuntimeErrorReporter,
   getRuntimeErrorReporterFromOptions,
@@ -415,8 +418,10 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // Resolve the license token once (matching the license-verifier's env
     // fallback) so telemetry attribution and subclass feature gating share
     // one value.
-    this.resolvedLicenseToken =
-      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    this.resolvedLicenseToken = firstNonBlankLicenseToken(
+      options.licenseToken,
+      process.env.COPILOTKIT_LICENSE_TOKEN,
+    );
 
     // Snapshot identity and sampling authority for this runtime. Capture
     // scopes share process-level telemetry settings but cannot be rewritten by
@@ -623,7 +628,7 @@ export class CopilotIntelligenceRuntime
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
     // value so gating and attribution can never disagree.
-    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken);
+    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken ?? "");
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,

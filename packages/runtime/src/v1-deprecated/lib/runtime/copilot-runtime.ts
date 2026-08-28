@@ -123,7 +123,10 @@ import type {
   LLMResponseData,
 } from "../observability";
 import type { AbstractAgent } from "@ag-ui/client";
-import { firstNonBlankTelemetryId } from "../../../v2/runtime/telemetry/telemetry-identity";
+import {
+  firstNonBlankLicenseToken,
+  firstNonBlankTelemetryId,
+} from "../../../v2/runtime/telemetry/telemetry-identity";
 
 // +++ MCP Imports +++
 import { extractParametersFromSchema } from "./mcp-tools-utils";
@@ -454,8 +457,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     // Resolve identity once and bind it to this compatibility Runtime. The
     // capture scope shares process-level sinks and settings without exposing
     // mutable identity to other live runtimes.
-    const resolvedLicenseToken =
-      params?.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    const resolvedLicenseToken = firstNonBlankLicenseToken(
+      params?.licenseToken,
+      process.env.COPILOTKIT_LICENSE_TOKEN,
+    );
     const resolvedTelemetryId = firstNonBlankTelemetryId(
       params?.telemetryId,
       process.env.CPK_TELEMETRY_ID,

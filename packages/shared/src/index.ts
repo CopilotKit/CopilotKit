@@ -53,7 +53,7 @@ export interface LicenseContextValue {
   license: LicensePayload | null;
   /** Whether a feature is licensed. Ready entitlements override legacy status behavior. */
   checkFeature: (feature: string) => boolean;
-  /** Get a numeric feature limit. Returns null if not applicable. */
+  /** Get a numeric feature limit. Zero means unlimited; null means not applicable. */
   getLimit: (feature: string) => number | null;
 }
 
