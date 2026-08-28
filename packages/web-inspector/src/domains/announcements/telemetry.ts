@@ -2,8 +2,8 @@ import {
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
-} from "../../lib/telemetry.js";
-import type { WhatsNewSignalPresentation } from "../../lib/telemetry.js";
+} from "../../shared/telemetry/privacy.js";
+import type { WhatsNewSignalPresentation } from "../../shared/telemetry/privacy.js";
 import type { AnnouncementReady } from "./feed.js";
 
 const MAX_PENDING_VIEWED = 20;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CpkMemoryList } from "../domains/learning/memory-list.js";
 import {
@@ -28,8 +28,19 @@ describe("defineWebInspector", () => {
   it("registers every inspector element in an isolated registry", () => {
     const frame = createSameOriginFrame();
     frames.push(frame);
+    const define = vi.spyOn(frame.window.customElements, "define");
 
     defineWebInspector(frame.window.customElements);
+
+    expect(define.mock.calls.map(([tag]) => tag)).toEqual([
+      "cpk-inspector-copy-button",
+      "cpk-inspector-json-viewer",
+      "cpk-thread-list",
+      "cpk-thread-inspector",
+      "cpk-thread-details",
+      "cpk-memory-list",
+      "cpk-web-inspector",
+    ]);
 
     expect(frame.window.customElements.get(INSPECTOR_COPY_BUTTON_TAG)).toBe(
       InspectorCopyButtonElement,
@@ -57,11 +68,13 @@ describe("defineWebInspector", () => {
   it("is idempotent for repeated registration", () => {
     const frame = createSameOriginFrame();
     frames.push(frame);
+    const define = vi.spyOn(frame.window.customElements, "define");
 
     expect(() => {
       defineWebInspector(frame.window.customElements);
       defineWebInspector(frame.window.customElements);
     }).not.toThrow();
+    expect(define).toHaveBeenCalledTimes(7);
   });
 
   it("does nothing when no registry is available during SSR", () => {

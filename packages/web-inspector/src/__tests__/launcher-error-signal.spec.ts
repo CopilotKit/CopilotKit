@@ -30,7 +30,10 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 import { textContentIncludingJson } from "../testing/inspector-elements.js";
 import { WebInspectorElement } from "../index.js";
-import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
+import {
+  TELEMETRY_EVENTS,
+  TELEMETRY_INGEST_URL,
+} from "../shared/telemetry/transport.js";
 
 const RUNTIME_URL = "https://runtime.error-signal.test";
 const AGENT_ID = "error-signal-agent";

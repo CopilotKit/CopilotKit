@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTelemetryEgressGuard } from "../lib/testing/telemetry-egress-guard.js";
+import { createTelemetryEgressGuard } from "../testing/telemetry-egress-guard.js";
 
 // The inspector's telemetry is browser-side and fire-and-forget, and jsdom has a
 // real `fetch`. The setup-file guard is what keeps unit runs — local and CI —

@@ -9,7 +9,7 @@ import {
   createLiveInspectionState,
   liveInspectionPanelId,
 } from "./state.js";
-import { mount, requireElement } from "./test-helpers.js";
+import { mount, requireElement } from "../../testing/lit.js";
 import { renderToolsView } from "./tools/view.js";
 
 const renderIcon = (name: string) => html`<span>${name}</span>`;

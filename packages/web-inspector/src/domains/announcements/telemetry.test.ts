@@ -6,7 +6,7 @@ const telemetry = vi.hoisted(() => ({
   viewed: vi.fn(),
 }));
 
-vi.mock("../../lib/telemetry.js", () => ({
+vi.mock("../../shared/telemetry/privacy.js", () => ({
   trackWhatsNewClicked: telemetry.clicked,
   trackWhatsNewSignalViewed: telemetry.signalViewed,
   trackWhatsNewViewed: telemetry.viewed,

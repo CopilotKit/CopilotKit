@@ -2,15 +2,15 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 // Type-only, so it survives vitest hoisting the factory above the imports —
 // it is erased before the factory ever runs.
-import type * as TelemetryModule from "../lib/telemetry.js";
+import type * as TelemetryModule from "../shared/telemetry/privacy.js";
 
-vi.mock("../lib/telemetry.js", async (importOriginal) => {
+vi.mock("../shared/telemetry/privacy.js", async (importOriginal) => {
   const actual = await importOriginal<typeof TelemetryModule>();
   return { ...actual, trackHomeStoryBeatSelected: vi.fn() };
 });
 
 import { WebInspectorElement } from "../index.js";
-import { trackHomeStoryBeatSelected } from "../lib/telemetry.js";
+import { trackHomeStoryBeatSelected } from "../shared/telemetry/privacy.js";
 
 /**
  * The story advances on its own every few seconds. Only a press is intent, so

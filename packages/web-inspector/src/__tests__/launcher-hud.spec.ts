@@ -521,3 +521,23 @@ test("focusing the launcher opens the HUD; Escape closes it", async () => {
   await settle(inspector);
   expect(hudOpen(inspector)).toBe(false);
 });
+
+test("pointer leave keeps the HUD open while an action has focus", async () => {
+  const { inspector, openHud } = await setup();
+  await openHud();
+  const wrapper = requireElement(
+    root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
+  );
+  const action = requireElement(
+    wrapper.querySelector<HTMLButtonElement>("[data-cpk-hud-action]"),
+  );
+  action.focus();
+  vi.useFakeTimers();
+
+  wrapper.dispatchEvent(new PointerEvent("pointerleave"));
+  await vi.advanceTimersByTimeAsync(160);
+  await settle(inspector);
+
+  expect(root(inspector).activeElement).toBe(action);
+  expect(hudOpen(inspector)).toBe(true);
+});

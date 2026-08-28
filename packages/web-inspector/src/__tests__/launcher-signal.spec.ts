@@ -305,7 +305,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
           inspectorMetadata: false,
           licenseStatus: "unknown",
           // No telemetry from this suite: the funnel is asserted in
-          // web-inspector.spec.ts, behind the egress guard.
+          // web-inspector.integration.spec.ts, behind the egress guard.
           telemetryDisabled: true,
         });
       }
@@ -693,6 +693,20 @@ test("the launcher beats once per tab, and again for a new announcement", async 
   expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(
     NEXT_TIMESTAMP,
   );
+});
+
+test("a feed resolved after unmount cannot consume the announcement beat", async () => {
+  const context = await setup({ feed: "pending" });
+
+  context.inspector.remove();
+  context.resolveFeed();
+  await settle(context.inspector);
+
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBeNull();
+
+  const reloaded = await context.remount();
+  expect(pulsing(reloaded)).toBe(true);
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
 });
 
 test("an unread announcement waits to beat until the launcher is visible", async () => {
@@ -1235,6 +1249,9 @@ test("the launcher uses a stable product title while the dot carries unread stat
 
   expect(launcherButton(context.inspector).getAttribute("title")).toBe(
     "CopilotKit Inspector",
+  );
+  expect(launcherButton(context.inspector).getAttribute("aria-label")).toBe(
+    "Web Inspector, What's new unread",
   );
   expect(
     requireElement(launcherDot(context.inspector)).getAttribute("title"),

@@ -1,4 +1,4 @@
-export type { Anchor } from "./lib/types.js";
+export type { Anchor } from "./shell/contracts.js";
 export type {
   ThreadDebuggerEvent,
   ThreadDebuggerMessage,

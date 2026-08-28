@@ -1,55 +1,63 @@
-import { LitElement, css, html, nothing, render, unsafeCSS } from "lit";
+import { LitElement, html, nothing, unsafeCSS } from "lit";
 import type { TemplateResult } from "lit";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "../styles/generated.css";
 import inspectorLogoUrl from "../assets/inspector-logo.svg";
-import inspectorLogoKiteUrl from "../assets/inspector-logo-kite.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
-import type { CopilotKitCore } from "@copilotkit/core";
-import {
-  CopilotKitCoreErrorCode,
-  CopilotKitCoreRuntimeConnectionStatus,
-} from "@copilotkit/core";
+import type { CopilotKitCore, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   ɵThreadStore,
   ɵThread,
-  RuntimeLicenseStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, Message } from "@ag-ui/client";
 import type {
-  Anchor,
   ContextKey,
-  ContextState,
   DockMode,
-  Position,
-  Size,
-} from "../lib/types.js";
+  InspectorColorScheme,
+  InspectorOpenOptions,
+} from "./contracts.js";
 import {
-  applyAnchorPosition as applyAnchorPositionHelper,
-  centerContext as centerContextHelper,
-  constrainToViewport,
-  keepPositionWithinViewport,
-  updateAnchorFromPosition as updateAnchorFromPositionHelper,
-  updateSizeFromElement,
-  clampSize as clampSizeToViewport,
-} from "../lib/context-helpers.js";
+  coreSupportsInspectorMetadata,
+  getCoreStatusSummary as buildCoreStatusSummary,
+  readCoreInspectorMetadata,
+  readRuntimeLicense,
+} from "./core-bridge.js";
+import type { CoreStatusSummary } from "./core-bridge.js";
+import {
+  getSystemColorScheme,
+  resolveColorSchemePreference,
+} from "./settings/theme.js";
+import { renderSettingsPanel as renderShellSettingsPanel } from "./settings/view.js";
+import { buildPersistedShellState, INSPECTOR_STORAGE_KEY } from "./state.js";
+import { LAUNCHER_MAX_SIZE, LAUNCHER_MIN_SIZE, shellStyles } from "./styles.js";
+import { LauncherController } from "./launcher/controller.js";
+import {
+  EVENT_ERROR_GUIDANCE,
+  LAUNCHER_SIGNALS,
+  NEWS_SIGNAL_ID,
+  isErrorSignalKey,
+  isEventErrorKey,
+} from "./launcher/model.js";
+import type { LauncherSignalKey } from "./launcher/model.js";
+import type { InspectorEventErrorDetails } from "./launcher/state.js";
+import { renderLauncherView } from "./launcher/view.js";
 import {
   loadInspectorState,
   saveInspectorState,
-  isValidAnchor,
-  isValidPosition,
-  isValidSize,
-  isValidDockMode,
-} from "../lib/persistence.js";
-import type { PersistedState } from "../lib/persistence.js";
+} from "../shared/persistence/inspector-state.js";
+import type { PersistedState } from "../shared/persistence/inspector-state.js";
+import { WindowController } from "./window/controller.js";
 import {
-  buildPopOutFeatures,
-  ensureBrandFont,
-  openPopOutWindow,
-} from "../lib/pop-out.js";
-import type { PopOutHandle } from "../lib/pop-out.js";
+  MIN_WINDOW_HEIGHT,
+  MIN_WINDOW_WIDTH,
+  getDockedWindowStyles,
+  renderDockResizeHandle,
+  renderFloatingResizeHandles,
+  renderWindowLayoutMenu,
+} from "./window/view.js";
 import type {
   InspectorMetadataAction,
   InspectorMetadataProjection,
@@ -80,8 +88,6 @@ import {
 import {
   clearLegacyAnnouncementReadState,
   loadAnnouncementFeed,
-  saveAnnouncementPulsedTimestamp,
-  saveAnnouncementReadTimestamp,
 } from "../domains/announcements/feed.js";
 import type { AnnouncementReady } from "../domains/announcements/feed.js";
 import {
@@ -98,15 +104,14 @@ import {
   getGroupForMenu,
   isInspectorMenuKey,
   shouldUseIconRail,
-} from "../lib/inspector-nav.js";
-import type { InspectorNavGroupKey, MenuKey } from "../lib/inspector-nav.js";
+} from "./navigation/model.js";
+import type { InspectorNavGroupKey, MenuKey } from "./navigation/model.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
-  trackErrorSignalViewed,
   trackHomePromptCopied,
   trackHomeStoryBeatSelected,
   trackInspectorOpened,
@@ -126,11 +131,11 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
-} from "../lib/telemetry.js";
+} from "../shared/telemetry/privacy.js";
 import {
   createOnboardingPrompt,
   createOnboardingRunId,
-} from "../lib/onboarding-prompt.js";
+} from "./window/onboarding-prompt.js";
 import type { DisplayValue } from "../shared/display/types.js";
 import type {
   ThreadDebuggerMessage,
@@ -148,7 +153,6 @@ import { ensureLearningSubscription } from "../domains/learning/subscription.js"
 import { trackLearningTabClicked } from "../domains/learning/telemetry.js";
 import {
   LEARNING_VIEW_LABEL,
-  MEMORY_LOAD_ERROR_LABEL,
   renderLearningView,
 } from "../domains/learning/view.js";
 import { learningViewStyles } from "../domains/learning/view.styles.js";
@@ -311,24 +315,15 @@ import type {
   InspectorMetadataLicenseBucket,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorMetadataTelemetryModule,
-  InspectorErrorSignalSource,
   InspectorEventErrorSource,
   InspectorWiringErrorSource,
   InspectorOpenSource,
   InspectorThreadTelemetryProps,
   ThreadsExpiryBucket,
   ThreadsUsageBucket,
-} from "../lib/telemetry.js";
-import { defineWebInspector } from "../register.js";
+} from "../shared/telemetry/privacy.js";
 
-export type InspectorOpenOptions = {
-  /** Select the thread that contains the message. */
-  threadId?: string;
-  /** Narrow the Threads view to the agent that owns the thread. */
-  agentId?: string;
-  /** Scroll the selected thread timeline to this message when available. */
-  messageId?: string;
-};
+export type { InspectorOpenOptions } from "./contracts.js";
 
 /**
  * User-facing label for the What's new view. Its menu key stays `whats-new`
@@ -338,7 +333,7 @@ export type InspectorOpenOptions = {
 const WHATS_NEW_VIEW_LABEL = "What's new";
 
 /** Menu key of the What's new leaf — the news signal's destination. */
-const WHATS_NEW_MENU_KEY = "whats-new";
+const WHATS_NEW_MENU_KEY = NEWS_SIGNAL_ID;
 
 interface RuntimeEntitlementDisplayDiagnostic {
   status: "ready" | "degraded" | "misconfigured" | "unavailable";
@@ -359,294 +354,6 @@ type MenuItem = {
   icon: LucideIconName;
 };
 
-// ── Launcher signals ──────────────────────────────────────────────────────
-//
-// There is one dot on the closed launcher and more than one thing that can
-// claim it, so each subject is described once, here, and every call site reads
-// the description rather than hardcoding a subject.
-//
-// The rule for this table is **no field without a second consumer**. That is
-// why there is no lifecycle field (one value was ever used, and "never
-// persisted" is expressed by not persisting) and why the two destinations are
-// separate: the news signal genuinely marks one entry and lands on another.
-//
-// This reintroduces a small shared shape where an earlier generic version was
-// removed as speculative. That removal was correct at the time — the
-// abstraction had exactly one user. A second user now exists.
-//
-// **The two subjects beat by different rules, deliberately**: an error beats
-// once per outage, an announcement once per tab per announcement. That follows
-// from a recurring condition versus a one-time publication. Do not harmonise
-// them; harmonising breaks one of them.
-
-/** Tone drives colour only. The launcher treatment is shared by every tone. */
-type LauncherSignalTone = "news" | "error";
-
-/**
- * The error keys ARE the telemetry enum, so a source can never be reported
- * under a name the signal table does not describe.
- */
-type LauncherSignalKey = "whats-new" | InspectorErrorSignalSource;
-
-type LauncherSignalDefinition = Readonly<{
-  tone: LauncherSignalTone;
-  /** Which navigation entry carries the marker while this signal is armed. */
-  markerTarget: MenuKey;
-  /** Where a press on the launcher opens while this signal owns the dot. */
-  landingTarget: MenuKey;
-  /** One beat's duration. Errors beat faster than product news. */
-  cadence: number;
-  /** Higher wins the single dot. Errors outrank news. */
-  priority: number;
-  /**
-   * Suffix appended to the marked navigation entry's accessible name, and —
-   * for error tones only — to the launcher's own accessible name. Never
-   * rendered as visible text: the dot says there is something to look at, and
-   * the panel says what.
-   */
-  accessibleLabel: string;
-  /**
-   * The words the launcher opens sideways to show, and the words spoken once
-   * into the polite live region. Absent means this subject opens no pill.
-   *
-   * Read from the signal rather than from a condition on the tone, so a third
-   * signal can carry a pill by declaring one — and whoever declares it owns
-   * the width problem that keeps the announcement out. The announcement's feed
-   * preview measures 54 characters against a 36-pixel launcher, and the width
-   * would be set by a feed we do not control.
-   *
-   * These are the words the panel already uses, never a paraphrase, so a
-   * reader who sees the pill and then opens the panel has nothing to
-   * reconcile. The failure *message* is never carried here — for width, and
-   * because it can contain prompts, URLs and identifiers.
-   */
-  pillLabel?: string;
-}>;
-
-const NEWS_SIGNAL_ID = "whats-new" as const;
-const NEWS_SIGNAL_COLOR = "#A78BFA";
-/**
- * The error tone's red. Bright enough to read against the launcher's dark
- * face at the same perceived weight as the news lilac, and in the same family
- * as System Health's error tone (#b32d3b light / #ff9aa0 dark), which is too
- * dark and too pale respectively to use directly on the launcher.
- */
-const ERROR_SIGNAL_COLOR = "#F87171";
-
-const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
-  news: NEWS_SIGNAL_COLOR,
-  error: ERROR_SIGNAL_COLOR,
-};
-
-/**
- * The failure gesture, four phases in series:
- *
- * ```
- * beat 400ms  →  open 250ms  →  hold 2500ms  →  close 250ms   (3400ms total)
- * ```
- *
- * Sequential rather than simultaneous, deliberately: the beat says *here*, the
- * pill says *this*. The beat is short so the words arrive quickly.
- *
- * **All four durations live here and nowhere else.** The stylesheet reads the
- * two animated phases as custom properties injected from these numbers rather
- * than restating them, because they are taste and will be tuned by eye after
- * the first live look — tuning the feel must be a number, not a refactor.
- */
-const ERROR_GESTURE_MS = {
-  /** Phase 1: one beat, which is also the error signals' cadence. */
-  beat: 400,
-  /** Phase 2: the sideways reveal. */
-  open: 250,
-  /** Phase 3: long enough to read three words without hurrying. */
-  hold: 2500,
-  /** Phase 4: back to the plain mark with its dot. */
-  close: 250,
-} as const;
-
-/**
- * The words the pill carries, which are the words the panel already carries.
- *
- * `Runtime error` is the System Health runtime tile's own label, and
- * `Failed to load threads` is the Threads view's own heading. The outside and
- * the inside must agree, so these are shared rather than paraphrased.
- */
-const RUNTIME_ERROR_LABEL = "Runtime error";
-const THREADS_LOAD_ERROR_LABEL = "Failed to load threads";
-const AGENT_RUN_FAILED_LABEL = "Agent run failed";
-const TOOL_ERROR_LABEL = "Tool error";
-
-/**
- * Copy on the landing view. Titles match the pill.
- *
- * The two fields differ in what they can promise. `advice` is about the
- * reader's next move and is always true. `highlight` is a claim about *this
- * view* — that the failed item is visible below — and the error carries no
- * guarantee of that: a code mapped to `run` can arrive with no run in the
- * buffer at all, and a tool error can arrive without the call id the
- * highlight needs. So it is rendered only once the item is actually there.
- * A card pointing at something the reader cannot find is worse than a card
- * that stays quiet, because it sends them looking.
- */
-const EVENT_ERROR_GUIDANCE: Readonly<
-  Record<
-    InspectorEventErrorSource,
-    Readonly<{ title: string; advice?: string; highlight?: string }>
-  >
-> = {
-  run: {
-    title: AGENT_RUN_FAILED_LABEL,
-    highlight: "The failed run event is highlighted below.",
-  },
-  tool: {
-    title: TOOL_ERROR_LABEL,
-    highlight: "The failed tool call is highlighted below.",
-  },
-  memory: {
-    title: MEMORY_LOAD_ERROR_LABEL,
-    advice:
-      "Confirm CopilotKit Intelligence is connected, then retry Learning.",
-  },
-};
-
-/**
- * The pill's second line, shared by every subject that carries a pill.
- *
- * **This is the one string in the feature that exists nowhere else in the
- * product.** Every other word the launcher shows is word-identical to the
- * panel, which is the standing rule; this line is a deliberate, owner-approved
- * exception to it, because the pill became clickable and an invitation that
- * says nothing is not an invitation.
- *
- * It is shown, never spoken: the polite live region carries the failure class
- * alone. A screen-reader user cannot act on an instruction delivered through
- * an announcement, and it would double the spoken length.
- */
-const PILL_SUBLINE_LABEL = "Open Inspector for details";
-
-type LauncherHudRowId = "threads" | "learning";
-
-const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
-const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
-const HUD_THREADS_LABEL = "Rich Threads";
-const HUD_LEARNING_LABEL = "Automatic Learning";
-const HUD_LEARN_MORE_LABEL = "Click to learn more";
-
-const LAUNCHER_SIGNALS: Readonly<
-  Record<LauncherSignalKey, LauncherSignalDefinition>
-> = {
-  // Marks What's new, lands on Home: Home carries the preview band that is
-  // the way onward. Unchanged from before this table existed.
-  "whats-new": {
-    tone: "news",
-    markerTarget: WHATS_NEW_MENU_KEY,
-    landingTarget: "home",
-    cadence: 2100,
-    priority: 0,
-    accessibleLabel: "new content",
-  },
-  // Errors mark and land on the same place, because the place that carries
-  // the marker is the place that explains the failure.
-  connection: {
-    tone: "error",
-    markerTarget: "home",
-    landingTarget: "home",
-    cadence: ERROR_GESTURE_MS.beat,
-    priority: 5,
-    accessibleLabel: "runtime error",
-    pillLabel: RUNTIME_ERROR_LABEL,
-  },
-  threads: {
-    tone: "error",
-    markerTarget: "threads",
-    landingTarget: "threads",
-    cadence: ERROR_GESTURE_MS.beat,
-    // Below the connection signal: a connection failure cascades into thread
-    // failures, so when both could be armed the root cause owns the dot.
-    priority: 4,
-    accessibleLabel: "thread loading error",
-    pillLabel: THREADS_LOAD_ERROR_LABEL,
-  },
-  // Unread *events*. They beat and name the failure, then clear when the
-  // landing view is read. They lose the launcher dot to wiring state.
-  run: {
-    tone: "error",
-    markerTarget: "ag-ui-events",
-    landingTarget: "ag-ui-events",
-    cadence: ERROR_GESTURE_MS.beat,
-    priority: 3,
-    accessibleLabel: "agent run failed",
-    pillLabel: AGENT_RUN_FAILED_LABEL,
-  },
-  tool: {
-    tone: "error",
-    markerTarget: "agents",
-    landingTarget: "agents",
-    cadence: ERROR_GESTURE_MS.beat,
-    priority: 2,
-    accessibleLabel: "tool error",
-    pillLabel: TOOL_ERROR_LABEL,
-  },
-  memory: {
-    tone: "error",
-    markerTarget: "memories",
-    landingTarget: "memories",
-    cadence: ERROR_GESTURE_MS.beat,
-    priority: 1,
-    accessibleLabel: "learning error",
-    pillLabel: MEMORY_LOAD_ERROR_LABEL,
-  },
-};
-
-/** Highest priority first, so the winner of the single dot is the head. */
-const LAUNCHER_SIGNAL_PRIORITY_ORDER: ReadonlyArray<LauncherSignalKey> = (
-  Object.keys(LAUNCHER_SIGNALS) as LauncherSignalKey[]
-).sort((a, b) => LAUNCHER_SIGNALS[b].priority - LAUNCHER_SIGNALS[a].priority);
-
-/** Wiring *state* — red until the problem heals. */
-const WIRING_ERROR_KEYS = [
-  "connection",
-  "threads",
-] as const satisfies ReadonlyArray<InspectorWiringErrorSource>;
-
-/** Unread *events* — red until the landing view is read. */
-const EVENT_ERROR_KEYS = [
-  "run",
-  "tool",
-  "memory",
-] as const satisfies ReadonlyArray<InspectorEventErrorSource>;
-
-type InspectorEventErrorDetails = Readonly<{
-  message: string;
-  agentId?: string;
-  toolName?: string;
-  toolCallId?: string;
-}>;
-
-function isWiringErrorKey(
-  key: LauncherSignalKey,
-): key is InspectorWiringErrorSource {
-  return (WIRING_ERROR_KEYS as readonly string[]).includes(key);
-}
-
-/**
- * Takes a plain string rather than a `LauncherSignalKey`, because one caller
- * reads the subject back out of a `data-` attribute, where the DOM can only
- * offer `string | undefined`. Narrowing untrusted input is what a guard is
- * for; `LauncherSignalKey` still satisfies the parameter, so the callers that
- * already hold one are unaffected.
- */
-function isEventErrorKey(key: string): key is InspectorEventErrorSource {
-  return (EVENT_ERROR_KEYS as readonly string[]).includes(key);
-}
-
-/** Narrows a signal key to an error source, excluding the announcement. */
-function isErrorSignalKey(
-  key: LauncherSignalKey,
-): key is InspectorErrorSignalSource {
-  return isWiringErrorKey(key) || isEventErrorKey(key);
-}
-
 /**
  * The control range is the point, not an oversight: an attribute selector has
  * to escape those characters too, and CSS.escape — which the fallback below
@@ -666,99 +373,12 @@ function escapeSelectorValue(value: string): string {
   return value.replace(SELECTOR_ESCAPE_PATTERN, "\\$&");
 }
 
-function eventErrorKeyForCode(
-  code: CopilotKitCoreErrorCode,
-): InspectorEventErrorSource | null {
-  switch (code) {
-    case CopilotKitCoreErrorCode.TOOL_NOT_FOUND:
-    case CopilotKitCoreErrorCode.TOOL_HANDLER_FAILED:
-    case CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED:
-    case CopilotKitCoreErrorCode.AGENT_NOT_FOUND:
-      return "tool";
-    case CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED:
-    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED:
-    case CopilotKitCoreErrorCode.AGENT_RUN_FAILED_EVENT:
-    case CopilotKitCoreErrorCode.AGENT_RUN_ERROR_EVENT:
-      return "run";
-    default:
-      return null;
-  }
-}
-
 /**
  * Coalesce inspector-owned GET /threads sends. The first refresh goes out
  * at once. Further calls in this window share one trailing request, so a
  * flaky network does not fire a burst of list fetches and error cards.
  */
 
-/** The launcher's accessible name with nothing wrong. */
-const LAUNCHER_BASE_LABEL = "Web Inspector";
-
-/**
- * Where the pill is in the gesture.
- *
- * `closed` covers the whole beat: the pill is laid out at its full width and
- * clipped to nothing from the first frame, so the room it needs can be
- * measured before anything is shown and the reveal has nothing left to
- * compute.
- */
-type LauncherPillPhase = "closed" | "opening" | "holding" | "closing";
-
-/**
- * Which side the pill grows towards. The launcher is anchored top-right, so
- * the natural direction is leftwards, away from its own edge — but it is
- * draggable and its position persists, so a reader who parked it near the left
- * edge would otherwise get a permanently truncated pill.
- */
-type LauncherPillDirection = "left" | "right";
-
-/**
- * Whether the reader actually got a pill. `suppressed` is the honest-degrade
- * case: neither side had room, so the dot and the beat fire alone.
- */
-type LauncherPillOutcome = "shown" | "suppressed";
-
-type CoreStatusSummary = Readonly<{
-  label: string;
-  state: "connected" | "connecting" | "disconnected" | "error" | "unavailable";
-  description: string;
-}>;
-
-type InspectorColorScheme = "light" | "dark";
-
-const EDGE_MARGIN = 16;
-/** HUD card plus the hover bridge. Used to pick left vs right. */
-const LAUNCHER_HUD_WIDTH = 258;
-/**
- * One page-load preview of the launcher's feature HUD.
- *
- * The card arrives after the host page has had a beat to settle. Its feature
- * rows then come online in order, stay readable, and leave together. Nothing
- * is persisted: a new Inspector element means a new preview.
- */
-const LAUNCHER_HUD_INTRO_MS = {
-  delay: 500,
-  duration: 3400,
-  rowStart: 180,
-  rowStagger: 170,
-  rowDuration: 300,
-  blockedRetry: 250,
-} as const;
-const DRAG_THRESHOLD = 6;
-const MIN_WINDOW_WIDTH = 880;
-const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
-const MIN_WINDOW_HEIGHT = 480;
-const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
-// The launcher keeps its current touch target on compact screens and grows to
-// an exactly 20% larger desktop cap. `box-sizing` makes these OUTER sizes.
-const LAUNCHER_MIN_SIZE = 51.84;
-const LAUNCHER_MAX_SIZE = 62.208;
-const DEFAULT_BUTTON_SIZE: Size = {
-  width: LAUNCHER_MIN_SIZE,
-  height: LAUNCHER_MIN_SIZE,
-};
-const DEFAULT_WINDOW_SIZE: Size = { width: 960, height: 740 };
-const DOCKED_LEFT_WIDTH = 720;
 const INTERACTIVE_FOCUS_BASE_STYLE =
   "outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;";
 // Cap on banner impressions held while waiting for the runtime handshake, so a
@@ -1120,15 +740,25 @@ export class WebInspectorElement extends LitElement {
   // watches this prop and re-fetches `/threads/:id/messages` when it changes,
   // which is how live updates flow into the conversation view without
   // duplicating the runtime's message-shape conversion in the inspector.
-  private pointerId: number | null = null;
-  private dragStart: Position | null = null;
-  private dragOffset: Position = { x: 0, y: 0 };
-  private isDragging = false;
-  private pointerContext: ContextKey | null = null;
-  private isOpen = false;
+  private readonly windowShell: WindowController = new WindowController({
+    element: this,
+    renderHost: this,
+    getRenderRoot: () => this.renderRoot,
+    getOwnerDocument: () => this.ownerDocument ?? document,
+    getUpdateComplete: () => this.updateComplete,
+    getStyles: () => WebInspectorElement.styles,
+    renderWindow: () => this.renderWindow(),
+    requestUpdate: () => this.requestUpdate(),
+    persistState: () => this.persistState(),
+    openInspector: () => this.openInspector("floating_button"),
+    onLauncherReadyAfterClose: () => this.launcher.flushPendingSignalPulse(),
+    closeContextMenu: () => {
+      this.contextMenuOpen = false;
+    },
+    onGlobalPointerDown: (event) => this.handleGlobalPointerDown(event),
+    isConnected: () => this.isConnected,
+  });
   private accountCtaMotionPaused = false;
-  private draggedDuringInteraction = false;
-  private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "home";
   private pendingPersistedMenu: MenuKey | null = null;
   private hasOpenedInspector = false;
@@ -1187,15 +817,6 @@ export class WebInspectorElement extends LitElement {
   private contextMenuOpen = false;
   private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
     null;
-  private layoutMenuOpen = false;
-  private dockMode: DockMode = "floating";
-  private popOut: PopOutHandle | null = null;
-  private inspectorPortal: HTMLDivElement | null = null;
-  private previousBodyMargins: { left: string; bottom: string } | null = null;
-  private previousHtmlOverflowX: string | null = null;
-  private transitionTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
-    new Set();
   private pendingSelectedContext: string | null = null;
   public autoAttachCore = true;
   private attemptedAutoAttach = false;
@@ -1258,83 +879,40 @@ export class WebInspectorElement extends LitElement {
   private announcement: AnnouncementReady | null = null;
   private announcementLoaded = false;
   private announcementPromise: Promise<void> | null = null;
+  private announcementLoadGeneration = 0;
+  private hasCompletedFirstUpdate = false;
   private readonly announcementTelemetry = new AnnouncementTelemetry();
-  private newsSignalArmed = false;
-  /** Which signal's beat is in flight, or null between beats. */
-  private pulsingSignal: LauncherSignalKey | null = null;
-  /**
-   * The single pending-beat slot. A beat that cannot land is deferred, never
-   * discarded — see `startSignalPulse` for the four reasons it cannot land.
-   */
-  private pendingPulseSignal: LauncherSignalKey | null = null;
-  private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  /**
-   * Per-source latches for the error signal, fed from the subscriptions that
-   * already exist rather than from the event history: the event buffer is
-   * bounded per agent and in total and evicts entries, so counting events
-   * could silently lose a live failure.
-   */
-  private readonly errorSignalArmed: Record<
-    InspectorWiringErrorSource,
-    boolean
-  > = { connection: false, threads: false };
-  /** Unread app errors. Cleared when the landing view is read. */
-  private readonly eventErrorArmed: Record<InspectorEventErrorSource, boolean> =
-    { run: false, tool: false, memory: false };
-  /** Latest detail for each event source, retained after that source is read. */
-  private readonly eventErrorDetails: Record<
-    InspectorEventErrorSource,
-    InspectorEventErrorDetails | null
-  > = { run: null, tool: null, memory: null };
+  private readonly launcher = new LauncherController({
+    requestUpdate: () => this.requestUpdate(),
+    isOpen: () => this.isOpen,
+    isConnected: () => this.isConnected,
+    activeRoot: () => this.activeRoot,
+    announcement: () => this.announcement,
+    telemetryDisabled: () => this.core?.telemetryDisabled ?? false,
+    isWiringErrorBroken: (source, currentlyArmed) =>
+      this.isErrorSourceBroken(source, currentlyArmed),
+    isEventErrorLandingVisible: (key) =>
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget,
+    applyEventErrorLanding: (key) => this.applyEventErrorLanding(key),
+    openInspector: () => this.openInspector("floating_button"),
+    recordNewsPulse: (announcement, presentation) => {
+      this.announcementTelemetry.recordLauncherPulse(
+        announcement,
+        presentation,
+      );
+      this.flushAnnouncementTelemetry();
+    },
+  });
+  private get newsSignalArmed(): boolean {
+    return this.launcher.state.newsSignalArmed;
+  }
+  private get eventErrorDetails() {
+    return this.launcher.state.eventErrorDetails;
+  }
   private pendingScrollToEventId: string | null = null;
   private pendingScrollToToolCallId: string | null = null;
-  /**
-   * Whether this outage has already had its beat. Global rather than
-   * per-source: a connection failure cascades into thread failures, so one
-   * root cause must not produce two nudges. Reset when nothing is red, which
-   * is what makes a resolved-then-recurring failure beat again.
-   */
-  private errorBeatSpent = false;
-  /** Per-outage dedup for `oss.inspector.error_signal_viewed`. */
-  private readonly errorSignalViewedSources: Set<InspectorErrorSignalSource> =
-    new Set();
-  /**
-   * The signal whose gesture is running its tail — the pill on screen and the
-   * sentence in the live region, both of which outlive the beat.
-   *
-   * Together with `pulsingSignal` this IS the single pending-beat slot, not a
-   * second scheduling concept: `startSignalPulse` defers while either is set,
-   * so the third deferral reason simply covers a longer beat. Null for the
-   * announcement, which has no tail and therefore behaves exactly as before.
-   */
-  private gestureSignal: LauncherSignalKey | null = null;
-  /** Where the running gesture's pill is, or null when it has none. */
-  private pillPhase: LauncherPillPhase | null = null;
-  /**
-   * Which side the pill opens from, or null before the room has been measured.
-   * Decided once, at gesture start, and never revisited mid-gesture.
-   */
-  private pillDirection: LauncherPillDirection | null = null;
-  private pillTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  /** Hover/focus menu on the closed launcher. */
-  private launcherHudOpen = false;
-  private launcherHudSide: "left" | "right" = "left";
-  private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
-  private launcherHudIntro = false;
-  private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
-    null;
-  private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
-  /**
-   * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
-   * the circle cannot steal "Turn on Threads". Not a public open option.
-   */
-  private hudLandingMenu: MenuKey | null = null;
-  /**
-   * Whether this outage's pill actually opened. Per outage rather than per
-   * phase, so a second source arming behind the first reports the same answer
-   * the reader actually got. Reset with `errorBeatSpent`.
-   */
-  private pillOutcome: LauncherPillOutcome | null = null;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -1366,32 +944,41 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private readonly contextState: Record<ContextKey, ContextState> = {
-    button: {
-      position: { x: EDGE_MARGIN, y: EDGE_MARGIN },
-      size: { ...DEFAULT_BUTTON_SIZE },
-      anchor: { horizontal: "right", vertical: "top" },
-      anchorOffset: { x: EDGE_MARGIN, y: EDGE_MARGIN },
-    },
-    window: {
-      position: { x: EDGE_MARGIN, y: EDGE_MARGIN },
-      size: { ...DEFAULT_WINDOW_SIZE },
-      anchor: { horizontal: "right", vertical: "top" },
-      anchorOffset: { x: EDGE_MARGIN, y: EDGE_MARGIN },
-    },
-  };
+  private get contextState() {
+    return this.windowShell.contextState;
+  }
 
-  private hasCustomPosition: Record<ContextKey, boolean> = {
-    button: false,
-    window: false,
-  };
+  private get hasCustomPosition() {
+    return this.windowShell.hasCustomPosition;
+  }
 
-  private resizePointerId: number | null = null;
-  private resizeStart: Position | null = null;
-  private resizeInitialSize: { width: number; height: number } | null = null;
-  private resizeInitialPosition: Position | null = null;
-  private resizeEdge: "e" | "w" | "s" | "se" | "sw" = "se";
-  private isResizing = false;
+  private get isOpen(): boolean {
+    return this.windowShell.isOpen;
+  }
+
+  private set isOpen(value: boolean) {
+    this.windowShell.isOpen = value;
+  }
+
+  private get dockMode(): DockMode {
+    return this.windowShell.dockMode;
+  }
+
+  private get layoutMenuOpen(): boolean {
+    return this.windowShell.layoutMenuOpen;
+  }
+
+  private set layoutMenuOpen(value: boolean) {
+    this.windowShell.layoutMenuOpen = value;
+  }
+
+  private get isDragging(): boolean {
+    return this.windowShell.isDragging;
+  }
+
+  private get pointerContext(): ContextKey | null {
+    return this.windowShell.pointerContext;
+  }
 
   private readonly customTabIcons: Record<string, string> = {
     threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
@@ -1791,37 +1378,11 @@ export class WebInspectorElement extends LitElement {
     teardownOwnedStores(this.threads, this.core);
   }
 
-  private coreSupportsInspectorMetadata(core: CopilotKitCore): boolean {
-    try {
-      return "inspectorMetadata" in core;
-    } catch {
-      return false;
-    }
-  }
-
-  private readCoreInspectorMetadata(core: CopilotKitCore): unknown {
-    if (!this.coreSupportsInspectorMetadata(core)) {
-      return undefined;
-    }
-
-    try {
-      return core.inspectorMetadata;
-    } catch {
-      return undefined;
-    }
-  }
-
   private updateInspectorMetadataProjection(value: unknown): void {
     this.inspectorMetadataValue = value;
-    let runtimeLicense: RuntimeLicenseStatus | undefined;
-    try {
-      runtimeLicense = this._core?.licenseStatus;
-    } catch {
-      runtimeLicense = undefined;
-    }
     this.inspectorMetadataProjection = projectInspectorMetadata(
       value,
-      runtimeLicense,
+      readRuntimeLicense(this._core),
     );
   }
 
@@ -1829,11 +1390,9 @@ export class WebInspectorElement extends LitElement {
     this.runtimeStatus = core.runtimeConnectionStatus;
     this.coreProperties = core.properties;
     this.lastCoreError = null;
-    this.clearAllEventErrors();
-    const supportsInspectorMetadata = this.coreSupportsInspectorMetadata(core);
-    this.updateInspectorMetadataProjection(
-      this.readCoreInspectorMetadata(core),
-    );
+    this.launcher.clearAllEventErrors();
+    const supportsInspectorMetadata = coreSupportsInspectorMetadata(core);
+    this.updateInspectorMetadataProjection(readCoreInspectorMetadata(core));
 
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
@@ -1885,7 +1444,7 @@ export class WebInspectorElement extends LitElement {
         : {}),
       onError: ({ code, error, context }) => {
         this.lastCoreError = { code, message: error.message };
-        this.armEventErrorFromCode(code, error.message, context);
+        this.launcher.armEventErrorFromCode(code, error.message, context);
         this.requestUpdate();
       },
       onAgentsChanged: ({ agents }) => {
@@ -1989,7 +1548,8 @@ export class WebInspectorElement extends LitElement {
    */
   private ensureMemorySubscription(): void {
     ensureLearningSubscription(this.learning, this._core, {
-      projectError: (error) => this.armEventError("memory", error.message),
+      projectError: (error) =>
+        this.launcher.armEventError("memory", error.message),
       requestUpdate: () => this.requestUpdate(),
     });
   }
@@ -2038,7 +1598,7 @@ export class WebInspectorElement extends LitElement {
     );
     this.metadataTelemetryFingerprints.clear();
     this.lastCoreError = null;
-    this.clearAllEventErrors();
+    this.launcher.clearAllEventErrors();
     this.coreProperties = {};
     this.cachedTools = [];
     this.toolSignature = "";
@@ -2360,24 +1920,8 @@ export class WebInspectorElement extends LitElement {
     return String(args);
   }
 
-  /** Prefer the window that owns the UI: the popup while popped out. */
   private getClipboard(event?: Event): Clipboard | undefined {
-    if (this.isPoppedOut) {
-      const popped = this.popOut?.win.navigator.clipboard;
-      if (popped) {
-        return popped;
-      }
-    }
-    const view = event && "view" in event ? (event as UIEvent).view : null;
-    const viewClipboard = view?.navigator.clipboard;
-    if (viewClipboard) {
-      return viewClipboard;
-    }
-    // Clipboard is required on Navigator in lib.dom, but missing in some runtimes.
-    if (typeof navigator !== "undefined" && "clipboard" in navigator) {
-      return navigator.clipboard;
-    }
-    return undefined;
+    return this.windowShell.getClipboard(event);
   }
 
   static styles = [
@@ -2387,1696 +1931,7 @@ export class WebInspectorElement extends LitElement {
     learningViewStyles,
     playgroundViewStyles,
     threadsViewStyles,
-    css`
-      :host {
-        --cpk-inspector-shell-radius: 5px;
-        --cpk-inspector-surface-dark: #111319;
-        --cpk-json-key: #3d408f;
-        --cpk-json-str: #0b6b4c;
-        --cpk-json-num: #8a5900;
-        --cpk-json-bool: #c0333a;
-        --cpk-json-nil: #57575b;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 2147483646;
-        display: block;
-        will-change: transform;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-      }
-
-      :host([data-color-scheme="dark"]),
-      .inspector-window[data-color-scheme="dark"] {
-        --cpk-json-key: #bec2ff;
-        --cpk-json-str: #85ecce;
-        --cpk-json-num: #ffac4d;
-        --cpk-json-bool: #fa5f67;
-        --cpk-json-nil: #afafb7;
-        --cpk-json-background: #111319;
-        --cpk-json-color: #f3f4f8;
-        --cpk-json-border: 1px solid #343742;
-        --cpk-copy-border: #454956;
-        --cpk-copy-background: #1d2028;
-        --cpk-copy-color: #d5d7df;
-        --cpk-copy-hover-background: #292d37;
-        --cpk-copy-hover-color: #ffffff;
-      }
-
-      .rounded-sm {
-        border-radius: 3px;
-      }
-
-      .rounded-md {
-        border-radius: 7px;
-      }
-
-      .rounded-lg {
-        border-radius: 10px;
-      }
-
-      .rounded-xl {
-        border-radius: 14px;
-      }
-
-      :host([data-docked="true"]) {
-        top: 0;
-        left: 0;
-        bottom: 0;
-        transform: none !important;
-        will-change: auto;
-      }
-
-      :host([data-transitioning="true"]) {
-        transition: transform 300ms ease;
-      }
-
-      .console-button-wrapper {
-        position: relative;
-        display: inline-flex;
-        /* The launcher's surface and edge, shared by the button and the pill so
-           the two cannot drift apart. A dark grey rather than near-black: the
-           launcher sits on a customer's page, and 1,5,7 against white is a
-           harder edge than this surface needs. */
-        --cpk-launcher-face: rgba(24, 28, 31, 0.95);
-        --cpk-launcher-face-solid: rgb(24, 28, 31);
-        --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
-        /* The launcher's own size, exposed so the signal dot can be placed
-           against the OUTER rim with a length rather than a percentage.
-           Percentages resolve against the padding box, which the 1px border
-           insets, and the dot would land inside the rim.
-
-           Declared on the wrapper rather than on the button so the pill, which
-           is the button's sibling, can clear the mark by the same length. */
-        --cpk-launcher-size: clamp(
-          ${LAUNCHER_MIN_SIZE}px,
-          7vw,
-          ${LAUNCHER_MAX_SIZE}px
-        );
-      }
-
-      .console-button {
-        width: var(--cpk-launcher-size);
-        height: var(--cpk-launcher-size);
-        /* Keep the 1px border inside the declared outer size. */
-        box-sizing: border-box;
-        transition:
-          transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-          background-color 200ms ease,
-          border-color 200ms ease,
-          box-shadow 200ms ease,
-          opacity 160ms ease;
-      }
-
-      .console-button[data-dragging="true"] {
-        transition: opacity 160ms ease;
-      }
-
-      .inspector-window[data-transitioning="true"] {
-        transition:
-          width 300ms ease,
-          height 300ms ease;
-      }
-
-      .inspector-window[data-docked="true"] {
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        top: 0 !important;
-        left: 0 !important;
-        bottom: 0 !important;
-        height: auto !important;
-        max-height: none !important;
-      }
-
-      .resize-handle {
-        touch-action: none;
-        user-select: none;
-        z-index: 60;
-        background: transparent;
-      }
-
-      .edge-resize-handle {
-        position: absolute;
-        z-index: 55;
-        touch-action: none;
-        user-select: none;
-        background: transparent;
-      }
-
-      .edge-resize-handle-e {
-        top: 48px;
-        right: 0;
-        width: 8px;
-        height: calc(100% - 48px);
-        cursor: ew-resize;
-      }
-
-      .edge-resize-handle-w {
-        top: 48px;
-        left: 0;
-        width: 8px;
-        height: calc(100% - 48px);
-        cursor: ew-resize;
-      }
-
-      .edge-resize-handle-s {
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        height: 8px;
-        cursor: ns-resize;
-      }
-
-      .dock-resize-handle {
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 10px;
-        height: 100%;
-        cursor: ew-resize;
-        touch-action: none;
-        z-index: 50;
-        background: transparent;
-      }
-
-      .tooltip-target {
-        position: relative;
-      }
-
-      .tooltip-target::after {
-        content: attr(data-tooltip);
-        position: absolute;
-        top: calc(100% + 6px);
-        left: 50%;
-        transform: translateX(-50%) translateY(-4px);
-        white-space: nowrap;
-        background: rgba(1, 5, 7, 0.95);
-        color: white;
-        padding: 4px 8px;
-        border-radius: 7px;
-        font-size: 10px;
-        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-        line-height: 1.2;
-        box-shadow: 0 4px 10px rgba(1, 5, 7, 0.18);
-        opacity: 0;
-        pointer-events: none;
-        transition:
-          opacity 120ms ease,
-          transform 120ms ease;
-        z-index: 4000;
-      }
-
-      .tooltip-target:hover::after {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0);
-      }
-
-      /* ── Circle chevron (Frontend Tools + Context) ──────────────────── */
-      .cpk-chevron-circle {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background-color: #f0f0f4;
-        color: #68686e;
-        flex-shrink: 0;
-        transition: transform 0.2s;
-      }
-      .cpk-chevron-circle svg {
-        width: 14px !important;
-        height: 14px !important;
-      }
-      .cpk-chevron-circle--open {
-        transform: rotate(180deg);
-      }
-
-      /* ── Inline copy button ─────────────────────────────────────────── */
-      .cpk-copy-btn {
-        flex-shrink: 0;
-        --cpk-copy-font-size: 0.625rem;
-        --cpk-copy-font-weight: 500;
-        --cpk-copy-color: #57575b;
-        --cpk-copy-background: #ffffff;
-        --cpk-copy-border: #dbdbe5;
-        --cpk-copy-hover-background: #f0f0f4;
-        --cpk-copy-hover-border: #afafb7;
-        --cpk-copy-padding: 2px 8px;
-        --cpk-copy-radius: 5px;
-      }
-
-      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn {
-        --cpk-copy-background: #191c24;
-        --cpk-copy-border: #3a3d49;
-        --cpk-copy-color: #f3f4f8;
-        --cpk-copy-hover-background: #20232d;
-        --cpk-copy-hover-border: #57575b;
-      }
-
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-sidebar-agent-scope
-        [data-context-dropdown-root="true"]
-        > div {
-        left: 100%;
-        margin-inline-start: 8px;
-      }
-
-      .inspector-icon-rail-menu {
-        transform-origin: left center;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        transform: translateX(-8px) scale(0.96);
-        transition:
-          opacity 180ms ease,
-          transform 180ms ease,
-          visibility 180ms ease;
-      }
-
-      .inspector-icon-rail-menu[data-open="true"] {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        transform: translateX(0) scale(1);
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .inspector-icon-rail-menu {
-          transition: none;
-        }
-      }
-
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-sidebar-agent-scope
-        [data-context-dropdown-root="true"]
-        > div::before {
-        content: "";
-        position: absolute;
-        inset-block: 0;
-        inset-inline-end: 100%;
-        width: 12px;
-      }
-
-      .cpk-section-header {
-        background: #e8edf5;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-        padding: 10px 16px;
-      }
-      .inspector-window[data-color-scheme="dark"] .cpk-section-header {
-        border-bottom-color: #3a3d49;
-      }
-      .cpk-section-header h4 {
-        font-size: 11px;
-        font-weight: 600;
-        color: #181c1f;
-        margin: 0;
-      }
-
-      /* Inputs/selects inside the lavender header need an explicit white bg */
-      .cpk-section-header input,
-      .cpk-section-header select {
-        background-color: #ffffff !important;
-        box-shadow: none !important;
-      }
-      .cpk-section-header select {
-        padding-right: 24px !important;
-      }
-      /* Events table column headers */
-      table thead th {
-        font-weight: 600 !important;
-      }
-
-      /* ── Brand typography ────────────────────────────────────────── */
-      /* Override Tailwind font-mono stack → Spline Sans Mono */
-      .font-mono,
-      pre,
-      code {
-        font-family:
-          "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
-      }
-
-      /* ── Floating button ─────────────────────────────────────────── */
-      .console-button {
-        background-color: var(--cpk-launcher-face) !important;
-        border-color: var(--cpk-launcher-edge) !important;
-        /* One hairline, not two. The border above is it; a second ring used to
-           sit 1px outside as a box-shadow and hardcoded the lilac instead of
-           reading the --cpk-launcher-edge token, so it could not follow it.
-           What replaces it is a one-pixel light edge along the top, which is
-           what keeps the face from reading flat without drawing a frame.
-
-           The border is not decoration: the face is #181C1F, which against a
-           dark host page (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) is
-           indistinguishable from the page. It is the only thing that gives the
-           launcher an outline there, so it stays. */
-        box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.07),
-          0 4px 14px rgba(1, 5, 7, 0.28) !important;
-        /* Promotes the launcher to its own compositing layer, which the
-           backdrop-filter this replaces used to do as a side effect. Without
-           a layer the hover scale re-rasterises the mark every frame and it
-           visibly jitters; with one, the compositor scales it as a texture. */
-        will-change: transform;
-      }
-      .console-button:hover {
-        background-color: var(--cpk-launcher-face-solid) !important;
-        border-color: rgba(190, 194, 255, 0.45) !important;
-        transform: scale(1.05);
-      }
-      .console-button:focus-visible {
-        outline-color: #bec2ff !important;
-      }
-
-      /* ── Launcher signal: water ripple + internal wash + dot ────── */
-      /*
-       * Two rings leave the rim in sequence, like ripples spreading from a
-       * drop's point of impact. They share one keyframe but the second begins
-       * 180ms later, so the first is already farther from the source.
-       *
-       * ONLY opacity and transform animate. This component is permanently
-       * mounted on top of a customer's application, so animating anything
-       * that forces a repaint every frame is not acceptable.
-       */
-      .console-button[data-cpk-signal] {
-        isolation: isolate;
-      }
-
-      /*
-       * The mark sits above the ripples. Both ring layers are absolutely
-       * positioned, so without a stacking position of its own the mark — an
-       * ordinary in-flow child — would paint under them. Keeping the centre
-       * readable is the reason the motion begins at the rim.
-       */
-      .cpk-launcher-mark {
-        position: relative;
-        z-index: 2;
-        width: auto;
-        height: calc(var(--cpk-launcher-size) / 1.8);
-      }
-
-      .console-button[data-cpk-signal]::before,
-      .console-button[data-cpk-signal]::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 0;
-        box-sizing: border-box;
-        border-radius: 50%;
-        border: 2px solid
-          color-mix(in srgb, var(--cpk-launcher-signal) 68%, transparent);
-        box-shadow: 0 0 8px
-          color-mix(in srgb, var(--cpk-launcher-signal) 38%, transparent);
-        pointer-events: none;
-        opacity: 0;
-        transform: scale(1);
-      }
-
-      .cpk-launcher-signal-wash {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        overflow: hidden;
-        border-radius: 50%;
-        pointer-events: none;
-        opacity: 0;
-        background: radial-gradient(
-          circle at 50% 50%,
-          transparent 26%,
-          color-mix(in srgb, var(--cpk-launcher-signal) 78%, transparent) 63%,
-          color-mix(in srgb, var(--cpk-launcher-signal) 30%, transparent) 84%,
-          transparent 100%
-        );
-      }
-
-      @keyframes cpk-launcher-ripple {
-        0% {
-          opacity: 0.95;
-          transform: scale(1);
-        }
-        100% {
-          opacity: 0;
-          transform: scale(1.5);
-        }
-      }
-
-      @keyframes cpk-launcher-wash {
-        0%,
-        100% {
-          opacity: 0;
-        }
-        45% {
-          opacity: 1;
-        }
-      }
-
-      /* Both ripples finish inside the existing one-beat pulse window. */
-      .console-button[data-cpk-signal-pulsing="true"]::before,
-      .console-button[data-cpk-signal-pulsing="true"]::after {
-        animation: cpk-launcher-ripple calc(var(--cpk-launcher-cadence) - 180ms)
-          cubic-bezier(0.16, 1, 0.3, 1) 1 forwards;
-      }
-      .console-button[data-cpk-signal-pulsing="true"]::after {
-        animation-delay: 180ms;
-      }
-      .console-button[data-cpk-signal-pulsing="true"]
-        .cpk-launcher-signal-wash {
-        animation: cpk-launcher-wash var(--cpk-launcher-cadence) ease-in-out 1
-          both;
-      }
-
-      /*
-       * The dot's centre sits exactly ON the button's outer rim at 45°, where
-       * 0.35355 is 0.5 x cos45. Lengths rather than percentage offsets:
-       * percentages resolve against the padding box, which the border insets,
-       * and the dot would land a pixel inside the rim.
-       */
-      .cpk-launcher-signal-dot {
-        position: absolute;
-        z-index: 3;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%)
-          translate(
-            calc(var(--cpk-launcher-size) * 0.35355),
-            calc(var(--cpk-launcher-size) * -0.35355)
-          );
-        width: 19%;
-        height: 19%;
-        border-radius: 50%;
-        /* Lit from the upper left and shaded at the lower right, so the dot
-           reads as a lens rather than a flat disc. Both stops are derived from
-           the signal colour, so a new tone needs no new values. */
-        background: radial-gradient(
-          circle at 32% 28%,
-          color-mix(in srgb, var(--cpk-launcher-signal), white 40%) 0%,
-          var(--cpk-launcher-signal) 60%,
-          color-mix(in srgb, var(--cpk-launcher-signal), black 20%) 100%
-        );
-        /* Replaces an opaque 1.5px collar in the launcher's own face. That
-           collar was 21% of the dot's footprint, and because the dot's centre
-           sits *on* the rim, its outer half painted a hard dark crescent onto
-           the host page rather than onto the launcher. A hairline plus a soft
-           drop does the same separating job without the hard edge. */
-        box-shadow:
-          0 0 0 0.5px rgba(1, 5, 7, 0.4),
-          0 1px 2.5px rgba(1, 5, 7, 0.5);
-      }
-
-      /* ── Launcher pill: the launcher opens sideways and says what ─── */
-      /*
-       * The pill is laid out at its FULL width from the first frame and
-       * revealed by animating a rectangular clip. Nothing is scaled and
-       * nothing is resized.
-       *
-       * That is not a stylistic choice. This component is permanently mounted
-       * on top of a customer's application, so no property that forces a
-       * layout on every frame is acceptable — and animating "width" does
-       * exactly that, sixty times a second, on someone else's page. A clip
-       * leaves the element's geometry constant and changes only the visible
-       * region, which the compositor handles. Animating a horizontal scale
-       * was the other candidate and squashes the mark itself, not merely the
-       * rounded end, so the logo would need counter-scaling and the dot and
-       * halo would become ellipses.
-       *
-       * The launcher's own face and border are repeated here so the two form
-       * one capsule: the button paints last and therefore on top, with no
-       * z-index needed. The mark's own ring and shadow are deliberately left
-       * alone for the whole gesture — the circle's outline staying visible
-       * inside the open pill was looked at against the alternative and kept.
-       *
-       * A column, not a row: the pill carries a heading and a subline stacked,
-       * centred against a height that does not change. "justify-content"
-       * centres the pair vertically and "align-items" keeps both lines flush
-       * left, so the pill never grows taller than the launcher it opens from.
-       */
-      .cpk-launcher-pill {
-        position: absolute;
-        top: 50%;
-        margin-top: calc(var(--cpk-launcher-size) / -2);
-        height: var(--cpk-launcher-size);
-        display: inline-flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: flex-start;
-        gap: 1px;
-        box-sizing: border-box;
-        border-radius: 999px;
-        border: 1px solid var(--cpk-launcher-edge);
-        background: var(--cpk-launcher-face);
-        color: #ffffff;
-        white-space: nowrap;
-        pointer-events: none;
-        opacity: 0;
-      }
-
-      /* The failure class, word-identical to the panel's own wording. */
-      .cpk-launcher-pill__heading {
-        font-size: 12px;
-        font-weight: 600;
-        line-height: 1.2;
-      }
-
-      /*
-       * The one line of copy in this feature that exists nowhere else in the
-       * product. The heading above is word-identical to the panel, which is
-       * the standing rule; this line is a deliberate, owner-approved exception
-       * to it, because the pill is now clickable and has to say so.
-       *
-       * It is NOT spoken. A screen-reader user cannot act on an instruction
-       * delivered through an announcement, and it would double the spoken
-       * length — so the live region carries the failure class alone.
-       */
-      .cpk-launcher-pill__subline {
-        font-size: 10.5px;
-        font-weight: 500;
-        line-height: 1.2;
-        opacity: 0.72;
-      }
-
-      /*
-       * Two directions, one animation with the inset on the other side. The
-       * padding on the launcher's side clears the mark, so the words never sit
-       * under it. The text-side padding is derived from the capsule's radius
-       * (half the launcher size), NOT a bare literal: padding is measured from
-       * the bounding box, but the first half-height of that side is the rounded
-       * cap. Half the size lands the text exactly where the cap ends and the
-       * straight edge begins. A literal 14px put it 16px inside the curve at the
-       * production launcher size, which is itself a clamp on the viewport.
-       */
-      .cpk-launcher-pill[data-cpk-pill-direction="left"] {
-        right: 0;
-        padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
-          calc(var(--cpk-launcher-size) / 2);
-        clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
-      }
-      .cpk-launcher-pill[data-cpk-pill-direction="right"] {
-        left: 0;
-        padding: 0 calc(var(--cpk-launcher-size) / 2) 0
-          calc(var(--cpk-launcher-size) + 12px);
-        clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
-      }
-
-      /*
-       * "round" on both stops, so the revealing edge is the capsule's own
-       * rounded end travelling sideways rather than a straight vertical line
-       * wiping across it. An unrounded inset reads as a wipe; this reads as an
-       * opening. It adds no animated property: the clip is still the clip.
-       */
-      @keyframes cpk-launcher-pill-left {
-        0% {
-          opacity: 0;
-          clip-path: inset(
-            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
-          );
-        }
-        100% {
-          opacity: 1;
-          clip-path: inset(0 0 0 0 round 999px);
-        }
-      }
-
-      @keyframes cpk-launcher-pill-right {
-        0% {
-          opacity: 0;
-          clip-path: inset(
-            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
-          );
-        }
-        100% {
-          opacity: 1;
-          clip-path: inset(0 0 0 0 round 999px);
-        }
-      }
-
-      /*
-       * The pill takes the pointer exactly while it is on screen, so the
-       * instruction it now carries is honest: a click on it opens the
-       * Inspector, the same action as pressing the mark. During the beat the
-       * clip covers only the mark itself, and a click target nobody can see
-       * over someone else's page is not something to ship — so the base rule
-       * keeps "pointer-events: none" and only the three visible phases take it
-       * back.
-       * The button paints last and therefore wins the pointer where the two
-       * overlap, so dragging the launcher is unaffected throughout.
-       */
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-      .cpk-launcher-pill[data-cpk-pill-phase="holding"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
-        pointer-events: auto;
-        cursor: pointer;
-      }
-
-      /* Closing is the same animation played backwards, so the two phases can
-         never drift apart. */
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
-        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-        animation-iteration-count: 1;
-        animation-fill-mode: forwards;
-      }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"] {
-        animation-duration: var(--cpk-launcher-pill-open);
-      }
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
-        animation-duration: var(--cpk-launcher-pill-close);
-        animation-direction: reverse;
-      }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="left"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="left"] {
-        animation-name: cpk-launcher-pill-left;
-      }
-      .cpk-launcher-pill[data-cpk-pill-phase="opening"][data-cpk-pill-direction="right"],
-      .cpk-launcher-pill[data-cpk-pill-phase="closing"][data-cpk-pill-direction="right"] {
-        animation-name: cpk-launcher-pill-right;
-      }
-
-      /* The hold is the end state of the reveal, held. */
-      .cpk-launcher-pill[data-cpk-pill-phase="holding"] {
-        opacity: 1;
-        clip-path: inset(0 0 0 0);
-      }
-
-      /*
-       * Reduced motion: the halo is held statically rather than animated, so
-       * the information arrives without the movement.
-       */
-      @media (prefers-reduced-motion: reduce) {
-        /*
-         * The pill is shown by opacity alone, with no clip animation and the
-         * same hold. The instruction is to reduce motion, not to withhold
-         * information, and this reader needs the label as much as anyone.
-         */
-        .cpk-launcher-pill[data-cpk-pill-phase="opening"],
-        .cpk-launcher-pill[data-cpk-pill-phase="holding"],
-        .cpk-launcher-pill[data-cpk-pill-phase="closing"] {
-          animation: none !important;
-          opacity: 1;
-          clip-path: inset(0 0 0 0);
-        }
-        .cpk-launcher-signal-wash {
-          opacity: 0.85;
-        }
-        .console-button[data-cpk-signal]::before {
-          opacity: 0.5;
-        }
-        .console-button[data-cpk-signal]::after {
-          opacity: 0;
-        }
-        .console-button[data-cpk-signal-pulsing="true"]::before,
-        .console-button[data-cpk-signal-pulsing="true"]::after {
-          animation: none !important;
-        }
-        .console-button[data-cpk-signal-pulsing="true"]
-          .cpk-launcher-signal-wash {
-          animation: none !important;
-        }
-        .console-button {
-          transition: opacity 160ms ease;
-        }
-        .console-button:hover {
-          transform: none;
-        }
-      }
-
-      /* ── Launcher HUD: hover menu, quieter than the error island ── */
-      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
-        pointer-events: auto;
-        opacity: 1;
-        transform: none;
-        visibility: visible;
-      }
-
-      .cpk-launcher-hud {
-        --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.38);
-        --hud-accent: #b8adf5;
-        --hud-accent-soft: rgb(184 173 245 / 0.13);
-        --hud-hover-fill: #252231;
-        --hud-blur: blur(12px) saturate(1.2);
-        position: absolute;
-        z-index: 4;
-        width: 258px;
-        pointer-events: none;
-        opacity: 0;
-        visibility: hidden;
-        transition:
-          opacity 160ms ease,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-vertical="top"] {
-        top: 0;
-        bottom: auto;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"] {
-        top: auto;
-        bottom: 0;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="left"] {
-        right: 100%;
-        left: auto;
-        padding-right: 14px;
-        transform: translateX(8px);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"] {
-        left: 100%;
-        right: auto;
-        padding-left: 14px;
-        transform: translateX(-8px);
-      }
-
-      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
-        transform: none;
-      }
-
-      .cpk-launcher-hud__card {
-        position: relative;
-        display: grid;
-        width: 244px;
-        gap: 8px;
-        color: #fff;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] {
-        --hud-fill: #fff;
-        --hud-line: #ddd6f4;
-        --hud-accent: #6757b0;
-        --hud-accent-soft: #f1edff;
-        --hud-hover-fill: #f1edff;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
-        color: #010507;
-      }
-
-      .cpk-launcher-hud__arrow {
-        position: absolute;
-        top: calc(var(--cpk-launcher-size) / 2);
-        z-index: 2;
-        width: 10px;
-        height: 10px;
-        border: 0;
-        background: var(--hud-fill);
-        transform: rotate(45deg);
-        transition: background 120ms ease;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
-        right: 9px;
-        border-top: 1px solid var(--hud-line);
-        border-right: 1px solid var(--hud-line);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
-        left: 9px;
-        border-bottom: 1px solid var(--hud-line);
-        border-left: 1px solid var(--hud-line);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-vertical="top"] .cpk-launcher-hud__arrow {
-        top: calc(var(--cpk-launcher-size) / 2 - 5px);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]
-        .cpk-launcher-hud__arrow {
-        top: auto;
-        bottom: calc(var(--cpk-launcher-size) / 2 - 5px);
-      }
-
-      .cpk-launcher-hud__list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .cpk-launcher-hud__masthead {
-        position: relative;
-        z-index: 1;
-        margin-top: 6px;
-        padding: 0;
-        border: 1px solid var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
-        transition: background 120ms ease;
-      }
-
-      .cpk-launcher-hud__news-wrap {
-        position: relative;
-        margin: 0;
-      }
-
-      .cpk-launcher-hud__news {
-        position: relative;
-        display: flex;
-        width: 100%;
-        min-width: 0;
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 18px 12px 11px;
-        border: 0;
-        border-radius: calc(var(--cpk-inspector-shell-radius) - 1px);
-        background: transparent;
-        color: #fff;
-        font-family: inherit;
-        line-height: 1;
-        text-align: start;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__news:hover,
-      .cpk-launcher-hud__news:focus-visible {
-        background: transparent;
-      }
-
-      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:hover),
-      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:focus-visible),
-      .cpk-launcher-hud:has(.cpk-launcher-hud__news:hover)
-        .cpk-launcher-hud__arrow,
-      .cpk-launcher-hud:has(.cpk-launcher-hud__news:focus-visible)
-        .cpk-launcher-hud__arrow {
-        background: var(--hud-hover-fill);
-      }
-
-      .cpk-launcher-hud__news:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .cpk-launcher-hud__news-title {
-        display: block;
-        font-size: 12px;
-        font-weight: 650;
-        line-height: 1.32;
-        overflow-wrap: anywhere;
-        white-space: normal;
-      }
-
-      .cpk-launcher-hud__news-label {
-        position: absolute;
-        top: -9px;
-        left: 12px;
-        display: inline-flex;
-        min-height: 20px;
-        align-items: center;
-        padding: 3px 8px;
-        border-radius: 6px;
-        background: #7563c7;
-        color: #fff;
-        box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
-        font-size: 9px;
-        font-weight: 700;
-        line-height: 1;
-      }
-
-      .cpk-launcher-hud__news-dismiss {
-        position: absolute;
-        top: -1px;
-        right: 2px;
-        z-index: 2;
-        display: inline-flex;
-        width: 20px;
-        height: 20px;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: 0;
-        border-radius: 4px;
-        background: transparent;
-        color: rgb(255 255 255 / 0.68);
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__news-dismiss:hover,
-      .cpk-launcher-hud__news-dismiss:focus-visible {
-        background: var(--hud-accent-soft);
-        color: #fff;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__news-dismiss {
-        color: #6e697c;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__news-dismiss:hover,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__news-dismiss:focus-visible {
-        color: #27233a;
-      }
-
-      .cpk-launcher-hud__news-dismiss:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .cpk-launcher-hud__news-dismiss svg {
-        width: 7px;
-        height: 7px;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__news {
-        color: #17131f;
-      }
-
-      .cpk-launcher-hud__feature-list {
-        position: relative;
-        z-index: 1;
-        padding: 5px;
-        border: 1px solid var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
-      }
-
-      .cpk-launcher-hud__row {
-        position: relative;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
-        min-height: 54px;
-        border-radius: 9px;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__row + .cpk-launcher-hud__row {
-        border-top: 1px solid var(--hud-line);
-        border-radius: 0 0 9px 9px;
-      }
-
-      .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud__row:focus-within {
-        background: rgb(255 255 255 / 0.06);
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within {
-        background: #f7f5ff;
-      }
-
-      .cpk-launcher-hud__primary {
-        position: relative;
-        display: flex;
-        min-width: 0;
-      }
-
-      .cpk-launcher-hud__action {
-        display: flex;
-        width: 100%;
-        gap: 8px;
-        min-height: 52px;
-        align-items: center;
-        padding: 7px 4px;
-        border: 0;
-        border-radius: 9px;
-        background: transparent;
-        color: #fff;
-        font-family: inherit;
-        font-size: 12px;
-        font-weight: 600;
-        text-align: start;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__label {
-        min-width: 0;
-      }
-
-      .cpk-launcher-hud__feature-icon {
-        display: inline-flex;
-        width: 28px;
-        height: 32px;
-        flex: none;
-        align-items: center;
-        justify-content: center;
-        background: transparent;
-        color: var(--hud-accent);
-      }
-
-      .cpk-launcher-hud__feature-icon svg {
-        width: 17px;
-        height: 17px;
-        stroke-width: 1.8;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
-        color: #010507;
-      }
-
-      /* Stretch the row action over the whole tab. The icon controls sit
-         above this layer and keep their own focused interactions. */
-      .cpk-launcher-hud__action::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-      }
-
-      .cpk-launcher-hud__controls {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        gap: 0;
-        align-items: center;
-        padding-right: 5px;
-      }
-
-      .cpk-launcher-hud__learn-more {
-        display: inline-flex;
-        width: 24px;
-        height: 44px;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: rgb(190 194 255 / 0.72);
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__learn-more:hover,
-      .cpk-launcher-hud__learn-more:focus-visible {
-        color: #fff;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__learn-more {
-        color: #777080;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__learn-more:hover,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__learn-more:focus-visible {
-        color: #4b416b;
-      }
-
-      .cpk-launcher-hud__learn-more svg {
-        width: 16px;
-        height: 16px;
-        stroke-width: 1.8;
-      }
-
-      .cpk-launcher-hud__toggle {
-        display: inline-flex;
-        width: 38px;
-        height: 44px;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: 0;
-        background: transparent;
-        color: rgb(255 255 255 / 0.78);
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .cpk-launcher-hud__toggle:disabled {
-        cursor: not-allowed;
-        opacity: 1;
-      }
-
-      .cpk-launcher-hud__toggle-track {
-        position: relative;
-        display: block;
-        width: 34px;
-        height: 20px;
-        border: 1px solid rgb(190 194 255 / 0.38);
-        border-radius: 999px;
-        background: rgb(255 255 255 / 0.08);
-        transition:
-          border-color 120ms ease,
-          background 120ms ease;
-      }
-
-      .cpk-launcher-hud__toggle-track::after {
-        content: "";
-        position: absolute;
-        top: 2px;
-        left: 2px;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: #8c8e99;
-        transition:
-          background 120ms ease,
-          transform 120ms ease;
-      }
-
-      .cpk-launcher-hud__toggle[data-enabled="true"]
-        .cpk-launcher-hud__toggle-track {
-        border-color: var(--hud-accent);
-        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
-      }
-
-      .cpk-launcher-hud__toggle[data-enabled="true"]
-        .cpk-launcher-hud__toggle-track::after {
-        background: #fff;
-        transform: translateX(14px);
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__toggle-track {
-        border-color: #c9c9d2;
-        background: #e7e7ec;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__toggle-track::after {
-        background: #777780;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__toggle[data-enabled="true"]
-        .cpk-launcher-hud__toggle-track {
-        border-color: #6757b0;
-        background: #7563c7;
-      }
-
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__toggle[data-enabled="true"]
-        .cpk-launcher-hud__toggle-track::after {
-        background: #fff;
-      }
-
-      .cpk-launcher-hud__toggle:focus-visible,
-      .cpk-launcher-hud__learn-more:focus-visible,
-      .cpk-launcher-hud__action:focus-visible {
-        outline: 2px solid #bec2ff;
-        outline-offset: 1px;
-      }
-
-      .cpk-launcher-hud__tooltip {
-        position: absolute;
-        top: 50%;
-        z-index: 30;
-        width: max-content;
-        max-width: min(220px, 52vw);
-        padding: 7px 9px;
-        border: 1px solid #3a3d49;
-        border-radius: 4px;
-        background: #15171e;
-        color: #f3f4f8;
-        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
-        font-size: 10px;
-        font-weight: 500;
-        line-height: 1.45;
-        opacity: 0;
-        pointer-events: none;
-        transform: translate(3px, -50%);
-        white-space: normal;
-        transition:
-          opacity 120ms ease,
-          transform 120ms ease;
-      }
-
-      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
-        .cpk-launcher-hud__tooltip,
-      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
-        .cpk-launcher-hud__tooltip {
-        opacity: 1;
-        transform: translate(0, -50%);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__tooltip {
-        right: calc(100% + 8px);
-        left: auto;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__tooltip {
-        right: auto;
-        left: calc(100% + 8px);
-        transform: translate(-3px, -50%);
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-side="right"]
-        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
-        .cpk-launcher-hud__tooltip,
-      .cpk-launcher-hud[data-cpk-hud-side="right"]
-        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
-        .cpk-launcher-hud__tooltip {
-        transform: translate(0, -50%);
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .cpk-launcher-hud,
-        .cpk-launcher-hud__tooltip {
-          transition: none;
-        }
-      }
-
-      /*
-       * On mount, borrow the hover HUD for one short introduction. The card
-       * establishes the destination first; its rows then resolve in order so
-       * the eye can count the available features instead of receiving one
-       * undifferentiated block. Only opacity and transform move.
-       */
-      @keyframes cpk-launcher-hud-intro {
-        0% {
-          opacity: 0;
-          transform: translateX(8px);
-        }
-        8%,
-        88% {
-          opacity: 1;
-          transform: none;
-        }
-        100% {
-          opacity: 0;
-          transform: translateX(4px);
-        }
-      }
-
-      @keyframes cpk-launcher-hud-intro-right {
-        0% {
-          opacity: 0;
-          transform: translateX(-8px);
-        }
-        8%,
-        88% {
-          opacity: 1;
-          transform: none;
-        }
-        100% {
-          opacity: 0;
-          transform: translateX(-4px);
-        }
-      }
-
-      @keyframes cpk-launcher-hud-row-online {
-        from {
-          opacity: 0;
-          transform: translateY(4px);
-        }
-        to {
-          opacity: 1;
-          transform: none;
-        }
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
-        animation: cpk-launcher-hud-intro var(--cpk-launcher-hud-intro-duration)
-          cubic-bezier(0.16, 1, 0.3, 1) both;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
-        animation-name: cpk-launcher-hud-intro-right;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row {
-        animation: cpk-launcher-hud-row-online
-          var(--cpk-launcher-hud-row-duration) cubic-bezier(0.16, 1, 0.3, 1)
-          both;
-        animation-delay: var(--cpk-hud-row-delay);
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .cpk-launcher-hud[data-cpk-hud-intro="true"],
-        .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__row {
-          animation: none !important;
-          opacity: 1;
-          transform: none;
-        }
-      }
-
-      /*
-       * Marker on the navigation entry, which is what keeps a signal alive
-       * once the panel is open and the launcher is hidden. Static by design:
-       * the beat belongs to the launcher, and movement here would compete with
-       * the live event stream a developer is actually watching.
-       *
-       * Tone-selected rather than tone-agnostic, because the marker has to
-       * agree with the dot that sent the reader here. Same shape, same
-       * placement, one declaration different — as on the launcher, where the
-       * treatment is shared and only the injected colour changes.
-       */
-      .inspector-nav-signal-dot {
-        display: inline-block;
-        flex: none;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.news)};
-      }
-      .inspector-nav-signal-dot[data-cpk-signal-tone="error"] {
-        background: ${unsafeCSS(LAUNCHER_SIGNAL_COLORS.error)};
-      }
-
-      /* ── Inspector window ────────────────────────────────────────── */
-      .inspector-window {
-        border: 1px solid #d8d8e8 !important;
-        border-radius: var(--cpk-inspector-shell-radius) !important;
-        box-shadow: none !important;
-      }
-
-      /* ── Header drag area ────────────────────────────────────────── */
-      .drag-handle {
-        border-bottom-color: #d8d8e8 !important;
-        background-color: #f7f6fd !important;
-      }
-
-      .inspector-account-strip {
-        background: #f7f6fd !important;
-        color: #010507 !important;
-      }
-
-      .inspector-window[data-color-scheme="dark"] .drag-handle,
-      .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
-        background: #15171e !important;
-      }
-
-      /* ── Tab buttons ─────────────────────────────────────────────── */
-      /*
-       * Named classes owned by this component — no Tailwind conflict.
-       * Active: brand surface/surfaceContainerActive (lilac tint) +
-       *         border/borderActionEnabled underline.
-       * Dark fill is for primary action buttons only, not nav tabs.
-       */
-      .cpk-tab-active {
-        background-color: rgba(190, 194, 255, 0.18);
-        color: #010507;
-        font-weight: 600;
-      }
-      .cpk-tab-icon {
-        display: inline-flex;
-        flex-shrink: 0;
-        align-items: center;
-      }
-      .cpk-tab-active .cpk-tab-icon {
-        color: #5558b2;
-      }
-      .cpk-tab-inactive {
-        background-color: transparent;
-        color: #2b2b2b;
-      }
-      .cpk-tab-inactive .cpk-tab-icon {
-        color: #68686e;
-      }
-      .cpk-tab-inactive:hover {
-        background-color: rgba(190, 194, 255, 0.08);
-        color: #010507;
-        cursor: pointer;
-      }
-      .cpk-tab-active {
-        cursor: pointer;
-      }
-      /* ── Header controls on the branded account strip ──────────── */
-      .drag-handle > div[data-inspector-account-strip] button {
-        color: #57575b !important;
-        cursor: pointer;
-      }
-      .drag-handle > div[data-inspector-account-strip] button,
-      .inspector-nav-control,
-      [data-inspector-thread-cta] {
-        outline: 2px solid transparent;
-        outline-offset: 2px;
-      }
-      .drag-handle > div[data-inspector-account-strip] button:hover {
-        background-color: rgba(100, 48, 171, 0.09) !important;
-        color: #3f176f !important;
-      }
-      .drag-handle > div[data-inspector-account-strip] button:focus-visible {
-        outline: 2px solid #bec2ff !important;
-        outline-offset: 2px;
-      }
-      .inspector-nav-control:focus-visible,
-      [data-inspector-thread-cta]:focus-visible,
-      [data-inspector-action-placement="threads-footer"]:focus-visible {
-        outline: 2px solid #6430ab !important;
-        outline-offset: 2px;
-      }
-      .inspector-sidebar .inspector-nav-control,
-      .inspector-sidebar .inspector-sidebar-control,
-      .inspector-sidebar .inspector-sidebar-label {
-        display: flex !important;
-        justify-content: flex-start !important;
-        text-align: left !important;
-        outline-offset: -2px;
-      }
-      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle {
-        box-sizing: border-box !important;
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        min-height: 36px !important;
-        justify-content: center !important;
-        align-items: center !important;
-        gap: 0 !important;
-        padding: 0 !important;
-        overflow: visible !important;
-      }
-      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon svg,
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-context-dropdown-icon,
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-context-dropdown-icon
-        svg,
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-agent-placeholder
-        svg {
-        width: 18px !important;
-        height: 18px !important;
-        overflow: visible !important;
-      }
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-agent-selector
-        > [data-context-dropdown-root="true"] {
-        display: flex !important;
-        flex: none !important;
-        width: 36px !important;
-        min-width: 36px !important;
-        max-width: 36px !important;
-        justify-content: center !important;
-        align-items: center !important;
-      }
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-agent-selector
-        > [data-context-dropdown-root="true"]
-        > button,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder {
-        display: flex !important;
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        min-height: 36px !important;
-        max-width: 36px !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 0 !important;
-        padding: 0 !important;
-        transition:
-          background-color 180ms ease,
-          border-color 180ms ease,
-          color 180ms ease !important;
-      }
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-context-dropdown-label,
-      .inspector-sidebar[data-icon-rail="true"]
-        .inspector-context-dropdown-chevron {
-        display: none !important;
-        width: 0 !important;
-        min-width: 0 !important;
-        flex: none !important;
-        overflow: hidden !important;
-      }
-      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-label,
-      .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-label {
-        display: none !important;
-      }
-      .inspector-sidebar .inspector-nav-control:focus-visible,
-      .inspector-sidebar .inspector-sidebar-label:focus-visible,
-      .inspector-sidebar .inspector-sidebar-toggle:focus-visible {
-        outline-offset: -2px !important;
-      }
-
-      /* ── Agent/context dropdown ──────────────────────────────────── */
-      [data-context-dropdown-root="true"] > button {
-        border-color: #dbdbe5 !important;
-        color: #010507 !important;
-      }
-      [data-context-dropdown-root="true"] > button:hover {
-        border-color: #bec2ff !important;
-        background-color: #f7f7f9 !important;
-      }
-      [data-context-dropdown-root="true"] > button > span:last-child {
-        color: #68686e !important;
-      }
-      [data-context-dropdown-root="true"] > div {
-        border-color: #dbdbe5 !important;
-        box-shadow: 0 4px 12px rgba(1, 5, 7, 0.08) !important;
-      }
-      [data-context-dropdown-root="true"] > div button:hover,
-      [data-context-dropdown-root="true"] > div button:focus {
-        background-color: #eceafa !important;
-        color: #2f1664 !important;
-      }
-      .inspector-sidebar
-        .inspector-agent-selector
-        > [data-context-dropdown-root="true"]
-        > button {
-        border-color: #d8d8e8 !important;
-        background-color: rgba(255, 255, 255, 0.7) !important;
-        color: #010507 !important;
-      }
-      .inspector-sidebar
-        .inspector-agent-selector
-        > [data-context-dropdown-root="true"]
-        > button:hover {
-        border-color: #a5a9ee !important;
-        background-color: #ffffff !important;
-      }
-      .inspector-sidebar
-        .inspector-agent-selector
-        > [data-context-dropdown-root="true"]
-        > button
-        > span:last-child {
-        color: #68686e !important;
-      }
-
-      /* ── Resize handle ───────────────────────────────────────────── */
-      .resize-handle {
-        color: #68686e !important;
-      }
-      .resize-handle:hover {
-        color: #57575b !important;
-      }
-
-      /* ── AG-UI Events tab ────────────────────────────────────────── */
-      /* Row hover: replace blue tint with brand lilac */
-      tr:hover td {
-        background-color: rgba(190, 194, 255, 0.08) !important;
-      }
-      /* Reset/dark action button */
-      button[class*="bg-gray-900"] {
-        background-color: #010507 !important;
-      }
-      button[class*="bg-gray-800"] {
-        background-color: #2b2b2b !important;
-      }
-      /* Copy "copied" state: generic green → brand mint */
-      button[class*="bg-green-100"] {
-        background-color: rgba(133, 236, 206, 0.2) !important;
-        color: #087653 !important;
-      }
-
-      /* ── Agents tab ──────────────────────────────────────────────── */
-      /* Agent icon bubble: blue → lilac */
-      span[class*="bg-blue-100"]:not([class*="text-blue-800"]) {
-        background-color: rgba(190, 194, 255, 0.15) !important;
-      }
-      span[class*="text-blue-600"] {
-        color: #5558b2 !important;
-      }
-      /* Running badge: emerald → mint */
-      span[class*="bg-emerald-50"] {
-        background-color: rgba(133, 236, 206, 0.15) !important;
-      }
-      span[class*="text-emerald-700"] {
-        color: #087653 !important;
-      }
-      /* Running status dot */
-      span[class*="bg-emerald-500"] {
-        background-color: #85ecce !important;
-      }
-      /* Idle dot */
-      span[class*="bg-gray-400"] {
-        background-color: #afafb7 !important;
-      }
-      /* User role badge (blue → lilac) */
-      span[class*="bg-blue-100"][class*="text-blue-800"] {
-        background-color: rgba(190, 194, 255, 0.22) !important;
-        border: 1px solid rgba(190, 194, 255, 0.45) !important;
-        color: #57575b !important;
-      }
-      /* Assistant role badge (green → mint) */
-      span[class*="bg-green-100"][class*="text-green-800"] {
-        background-color: rgba(133, 236, 206, 0.18) !important;
-        border: 1px solid rgba(133, 236, 206, 0.4) !important;
-        color: #087653 !important;
-      }
-      /* Tool role badge (amber → orange brand) */
-      span[class*="bg-amber-100"][class*="text-amber-800"] {
-        background-color: rgba(255, 172, 77, 0.15) !important;
-        color: #57575b !important;
-      }
-
-      /* ── Frontend Tools tab ──────────────────────────────────────── */
-      /* Handler badge (blue → lilac) */
-      span[class*="bg-blue-50"][class*="text-blue-700"] {
-        background-color: rgba(190, 194, 255, 0.12) !important;
-        border-color: rgba(190, 194, 255, 0.3) !important;
-        color: #010507 !important;
-      }
-      /* Renderer badge (purple → lilac-adjacent) */
-      span[class*="bg-purple-50"][class*="text-purple-700"] {
-        background-color: rgba(190, 194, 255, 0.12) !important;
-        border-color: rgba(190, 194, 255, 0.3) !important;
-        color: #57575b !important;
-      }
-      /* Required badge (rose → brand red) */
-      span[class*="bg-rose-50"][class*="text-rose-700"] {
-        background-color: rgba(250, 95, 103, 0.1) !important;
-        border-color: rgba(250, 95, 103, 0.25) !important;
-        color: #fa5f67 !important;
-      }
-      /* Code/default value blocks */
-      code[class*="bg-gray-100"],
-      span[class*="bg-gray-100"] {
-        background-color: #f0f0f4 !important;
-      }
-
-      /* ── Connected status bar: match threads header mint (#5BE4BB) ──── */
-      /* Outer strip bg + top border + text when connected badge is present */
-      .inspector-window
-        > div
-        > div:last-child
-        > div:last-child:has(div[class*="bg-emerald-50"]) {
-        background-color: rgba(91, 228, 187, 0.08) !important;
-        border-top-color: rgba(91, 228, 187, 0.3) !important;
-        color: #087653 !important;
-      }
-      /* Inner badge — slightly more opaque on the mint bg */
-      div[class*="bg-emerald-50"][class*="border-emerald-200"] {
-        background-color: rgba(91, 228, 187, 0.12) !important;
-        border-color: rgba(91, 228, 187, 0.4) !important;
-        color: #087653 !important;
-      }
-      div[class*="bg-emerald-50"][class*="border-emerald-200"]
-        span[class*="opacity-80"] {
-        opacity: 1 !important;
-      }
-      /* Icon bubble inside connected badge → mint tint */
-      div[class*="bg-emerald-50"] span[class*="bg-white"] {
-        background-color: rgba(91, 228, 187, 0.3) !important;
-      }
-
-      /* ── Announcement panel ──────────────────────────────────────── */
-      div[class*="border-slate-200"][class*="bg-white"] {
-        border-color: #dbdbe5 !important;
-      }
-      /* Announcement icon bubble: black → brand light lavender + lilac icon */
-      span[class*="bg-slate-900"],
-      div[class*="bg-slate-900"] {
-        background-color: #eee6fe !important;
-        color: #5558b2 !important;
-      }
-      span[class*="text-slate-800"],
-      div[class*="text-slate-800"] {
-        color: #010507 !important;
-      }
-    `,
+    shellStyles,
     liveInspectionViewStyles,
   ];
 
@@ -4087,8 +1942,8 @@ export class WebInspectorElement extends LitElement {
       this.threads.exampleOverviewVideoReducedMotion =
         window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
         false;
-      this.ensureBrandFonts();
-      window.addEventListener("resize", this.handleResize);
+      this.windowShell.ensureBrandFonts();
+      window.addEventListener("resize", this.windowShell.handleResize);
       window.addEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
@@ -4109,6 +1964,13 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      if (
+        this.hasCompletedFirstUpdate &&
+        this.isOpen &&
+        this.dockMode !== "floating"
+      ) {
+        this.windowShell.applyInitialPlacement();
+      }
       this.subscribeToSystemColorScheme();
       this.threads.exampleTourDismissed =
         this.readThreadsExampleTourDismissed();
@@ -4124,25 +1986,21 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private ensureBrandFonts(): void {
-    ensureBrandFont(document);
-  }
-
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
     // Flush point for defer reason 2: somebody is looking again.
     if (document.visibilityState === "visible" && !this.isOpen) {
-      this.flushPendingSignalPulse();
+      this.launcher.flushPendingSignalPulse();
     }
     this.requestUpdate();
   };
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.closePopOut();
+    this.windowShell.closePopOut();
     if (typeof window !== "undefined") {
       this.unsubscribeFromSystemColorScheme();
-      window.removeEventListener("resize", this.handleResize);
+      window.removeEventListener("resize", this.windowShell.handleResize);
       window.removeEventListener(
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
@@ -4153,15 +2011,7 @@ export class WebInspectorElement extends LitElement {
         this.handleDocumentVisibilityChange,
       );
     }
-    // Clear pending body-transition timers to prevent post-teardown errors
-    for (const id of this.bodyTransitionTimeoutIds) {
-      clearTimeout(id);
-    }
-    this.bodyTransitionTimeoutIds.clear();
-    if (this.transitionTimeoutId !== null) {
-      clearTimeout(this.transitionTimeoutId);
-      this.transitionTimeoutId = null;
-    }
+    this.windowShell.clearTransitionTimers();
     this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
     this.stopIntelligenceStory();
@@ -4173,17 +2023,20 @@ export class WebInspectorElement extends LitElement {
       this.threads.setupPromptCopyResetTimeoutId = null;
     }
     this.threads.setupPromptCopyState = "idle";
-    this.stopSignalPulse();
-    this.cancelGestureTail();
-    this.cancelLauncherHudIntro();
+    this.launcher.dispose();
+    if (!this.announcementLoaded) {
+      this.announcementLoadGeneration += 1;
+      this.announcementPromise = null;
+    }
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
-    this.removeDockStyles(true); // Clean up any docking styles, skip transition
+    this.windowShell.removeDockStyles(true);
     this.detachFromCore();
   }
 
   firstUpdated(): void {
+    this.hasCompletedFirstUpdate = true;
     if (typeof window === "undefined") {
       return;
     }
@@ -4192,19 +2045,9 @@ export class WebInspectorElement extends LitElement {
       this.tryAutoAttachCore();
     }
 
-    this.measureContext("button");
-    this.measureContext("window");
-
-    this.contextState.button.anchor = { horizontal: "right", vertical: "top" };
-    this.contextState.button.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
-
-    this.contextState.window.anchor = { horizontal: "right", vertical: "top" };
-    this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
-
+    this.windowShell.measureInitialContexts();
     this.hydrateStateFromStorage();
-    this.contextState.window.size = this.clampWindowSize(
-      this.contextState.window.size,
-    );
+    this.windowShell.clampInitialWindowSize();
 
     // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
     // The memory subscription is normally created on a Memories-tab CLICK via
@@ -4218,25 +2061,12 @@ export class WebInspectorElement extends LitElement {
       this.ensureMemorySubscription();
     }
 
-    // Apply docking styles if open and docked (skip transition on initial load)
-    if (this.isOpen && this.dockMode !== "floating") {
-      this.applyDockStyles(true);
-    }
-
-    this.applyAnchorPosition("button");
-
-    if (this.dockMode === "floating") {
-      if (this.hasCustomPosition.window) {
-        this.applyAnchorPosition("window");
-      } else {
-        this.centerContext("window");
-      }
-    }
+    this.windowShell.applyInitialPlacement();
 
     this.ensureAnnouncementLoading();
 
-    this.updateHostTransform(this.isOpen ? "window" : "button");
-    this.scheduleLauncherHudIntro();
+    this.windowShell.updateInitialHostTransform();
+    this.launcher.scheduleHudIntro();
   }
 
   render() {
@@ -4251,30 +2081,26 @@ export class WebInspectorElement extends LitElement {
     // Before the render that paints the dot: every mutation of the underlying
     // connection / thread state already requests an update, so mirroring the
     // latches here keeps the resting dot in step with the state it reports.
-    this.evaluateErrorSignals();
+    this.launcher.evaluateErrorSignals();
     this.reconcileSelectedMenuVisibility();
-    if (this.isOpen && this.dockMode === "docked-left") {
-      this.setAttribute("data-docked", "true");
-    } else {
-      this.removeAttribute("data-docked");
-    }
+    this.windowShell.syncDockAttribute();
   }
 
   protected updated(): void {
-    this.syncInspectorPortal();
+    this.windowShell.syncPortal();
     synchronizeAnnouncementCopyControls(this.activeRoot, this.getClipboard());
     this.syncThreadsExampleOverviewVideo();
     this.maybeTrackInspectorMetadataViews();
-    this.maybeTrackNewsSignalViewed();
+    this.launcher.maybeTrackNewsSignalViewed();
     // The pill's full width is only measurable once it has been laid out, and
     // the answer decides both the direction and the telemetry label below, so
     // this runs before the visibility event rather than after it.
-    this.resolvePillDirection();
-    this.maybeTrackErrorSignalViewed();
+    this.launcher.resolvePillDirection();
+    this.launcher.maybeTrackErrorSignalViewed();
     // "Rendered with content" is a property of the finished render, so the
     // news signal is retired here rather than from a render method.
     this.maybeCompleteWhatsNewView();
-    this.maybeCompleteEventErrorView();
+    this.launcher.maybeCompleteEventErrorView();
     this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
     this.syncIntelligenceStory();
@@ -4316,576 +2142,31 @@ export class WebInspectorElement extends LitElement {
     this.lastScrolledAgentNavigationLayout = layoutKey;
   }
 
-  private renderButton() {
-    // `.console-button` owns the launcher dimensions and publishes the same
-    // number as `--cpk-launcher-size` for the signal dot's rim placement.
-    // Tailwind scan tokens retained for generated-sheet stability: ease-in-out
-    // ease-out
-    const buttonClasses = [
-      "console-button",
-      "group",
-      "relative",
-      "pointer-events-auto",
-      "inline-flex",
-      // Kept as Tailwind scan tokens so the generated sheet stays stable;
-      // the later `.console-button` rule owns the responsive dimensions.
-      "h-9",
-      "w-9",
-      "items-center",
-      "justify-center",
-      "rounded-full",
-      "border",
-      "text-xs",
-      "font-medium",
-      "text-white",
-      "focus-visible:outline",
-      "focus-visible:outline-2",
-      "focus-visible:outline-offset-2",
-      "focus-visible:outline-[#BEC2FF]",
-      "touch-none",
-      "select-none",
-      this.isDragging ? "cursor-grabbing" : "cursor-pointer",
-    ].join(" ");
-
-    // One dot, and the highest-priority armed signal owns it. Everything the
-    // launcher paints comes from that signal's description.
-    const activeSignal = this.getActiveLauncherSignal();
-    const signal = activeSignal ? LAUNCHER_SIGNALS[activeSignal] : null;
-    const signalStyles = signal
-      ? {
-          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
-          "--cpk-launcher-cadence": `${signal.cadence}ms`,
-        }
-      : {};
-
-    return html`
-      <div
-        class="console-button-wrapper"
-        data-cpk-hud=${this.launcherHudOpen ? "open" : "closed"}
-        @pointerenter=${this.handleLauncherHudEnter}
-        @pointerleave=${this.handleLauncherHudLeave}
-        @focusin=${this.handleLauncherHudFocusIn}
-        @focusout=${this.handleLauncherHudFocusOut}
-        @keydown=${this.handleLauncherHudKeydown}
-      >
-        ${this.renderLauncherPill()}
-        <button
-          class=${buttonClasses}
-          type="button"
-          aria-expanded=${this.launcherHudOpen ? "true" : "false"}
-          aria-controls=${this.launcherHudOpen ? "cpk-launcher-hud" : nothing}
-          aria-label=${
-            // The dot is decorative and hidden from assistive technology, and
-            // the accessible signal for an announcement lives on its
-            // navigation entry. A broken setup has no such entry until the
-            // panel is open, so the launcher itself has to name the failure
-            // class — otherwise a screen-reader user is the only user with no
-            // signal outside the panel.
-            signal && signal.tone === "error"
-              ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
-              : LAUNCHER_BASE_LABEL
-          }
-          title=${HUD_INSPECTOR_LABEL}
-          data-drag-context="button"
-          data-cpk-signal=${signal ? signal.tone : nothing}
-          data-cpk-signal-pulsing=${
-            activeSignal !== null && this.pulsingSignal === activeSignal
-              ? "true"
-              : nothing
-          }
-          style=${styleMap(signalStyles)}
-          data-dragging=${
-            this.isDragging && this.pointerContext === "button"
-              ? "true"
-              : "false"
-          }
-          @pointerdown=${this.handlePointerDown}
-          @pointermove=${this.handlePointerMove}
-          @pointerup=${this.handlePointerUp}
-          @pointercancel=${this.handlePointerCancel}
-          @click=${this.handleButtonClick}
-        >
-          <img
-            src=${inspectorLogoKiteUrl}
-            alt="Inspector logo"
-            class="cpk-launcher-mark h-6 w-auto"
-            loading="lazy"
-          />
-          ${
-            // Purely decorative: the button is the target, it carries the
-            // stable hover hint and the accessible name, and an unread
-            // announcement is announced by its navigation entry, which is
-            // where a keyboard user arrives.
-            activeSignal !== null
-              ? html`<span
-                    class="cpk-launcher-signal-wash"
-                    aria-hidden="true"
-                  ></span>
-                  <span
-                    class="cpk-launcher-signal-dot"
-                    data-cpk-signal-dot=${activeSignal}
-                    aria-hidden="true"
-                  ></span>`
-              : nothing
-          }
-        </button>
-        ${
-          // The pill is a sighted-only surface, so the failure is also spoken
-          // once per outage — otherwise the reader who was given the failure
-          // class in the launcher's accessible name in the companion change is
-          // excluded again, since a changed name is only read on focus.
-          //
-          // POLITE, never assertive. Speech is serial: it occupies the channel
-          // the reader is using to operate their own software, and interrupting
-          // that mid-sentence is out of the question for a development tool.
-          //
-          // It is rendered whenever the launcher is, empty and with no visual
-          // footprint, because a live region has to exist on the page before
-          // its content lands to be announced reliably.
-          html`<span
-            class="sr-only"
-            data-cpk-launcher-announcement
-            role="status"
-            aria-live="polite"
-            >${this.getGestureLabel() ?? ""}</span
-          >`
-        }
-        ${this.renderLauncherHud()}
-      </div>
-    `;
-  }
-
-  /**
-   * The words the running gesture carries, or null when the launcher is quiet.
-   *
-   * Read from the signal's own description rather than from a condition on the
-   * tone, so a third signal can carry a pill by declaring a label.
-   */
-  private getGestureLabel(): string | null {
-    if (this.gestureSignal === null) return null;
-    return LAUNCHER_SIGNALS[this.gestureSignal].pillLabel ?? null;
-  }
-
-  /**
-   * The pill, laid out at its full width and clipped, for the whole gesture.
-   *
-   * It renders from the first frame of the beat — clipped to nothing, so it
-   * shows nothing — because the room it needs cannot be measured until it has
-   * been laid out, and the direction is decided at gesture start.
-   */
-  private renderLauncherPill(): TemplateResult | typeof nothing {
-    const key = this.gestureSignal;
-    if (key === null || this.pillPhase === null) return nothing;
-    const signal = LAUNCHER_SIGNALS[key];
-    const label = signal.pillLabel;
-    if (label === undefined) return nothing;
-    return html`
-      <span
-        class="cpk-launcher-pill"
-        data-cpk-launcher-pill=${key}
-        data-cpk-pill-phase=${this.pillPhase}
-        data-cpk-pill-direction=${
-          // Before the measurement the pill is laid out as if it were opening
-          // left, which is width-identical to the other side and shows nothing
-          // either way while the clip is closed.
-          this.pillDirection ?? "left"
-        }
-        style=${styleMap({
-          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
-          "--cpk-launcher-pill-open": `${ERROR_GESTURE_MS.open}ms`,
-          "--cpk-launcher-pill-close": `${ERROR_GESTURE_MS.close}ms`,
-        })}
-        aria-hidden="true"
-        @click=${this.handlePillClick}
-      >
-        <span class="cpk-launcher-pill__heading" data-cpk-pill-heading
-          >${label}</span
-        >
-        <span class="cpk-launcher-pill__subline" data-cpk-pill-subline
-          >${PILL_SUBLINE_LABEL}</span
-        >
-      </span>
-    `;
-  }
-
-  /**
-   * A click on the pill opens the Inspector, exactly as pressing the mark
-   * does — reusing the launcher's own open source, so the telemetry catalogue
-   * is untouched and the two paths cannot be told apart downstream.
-   *
-   * Deliberately NOT focusable and deliberately not in the tab order: the
-   * launcher beside it is already a focusable control for this same action,
-   * and a second tab stop for one action is a regression. The pill stays
-   * `aria-hidden` and this handler is a pointer affordance only.
-   *
-   * The gesture ends with the open, because `openInspector` cancels the tail —
-   * the panel is over the launcher, so there is nothing left to reveal.
-   */
-  private handlePillClick = (event: Event): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.openInspector("floating_button");
-  };
-
-  private isLauncherHudBlocked(): boolean {
-    return this.gestureSignal !== null;
-  }
-
-  private scheduleLauncherHudIntro(
-    delay: number = LAUNCHER_HUD_INTRO_MS.delay,
-  ): void {
-    if (this.launcherHudIntroStartTimer !== null) {
-      clearTimeout(this.launcherHudIntroStartTimer);
-    }
-    this.launcherHudIntroStartTimer = setTimeout(() => {
-      this.launcherHudIntroStartTimer = null;
-      if (!this.isConnected || this.isOpen) return;
-      if (this.isLauncherHudBlocked()) {
-        this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
-        return;
-      }
-
-      this.resolveLauncherHudSide();
-      this.launcherHudIntro = true;
-      this.launcherHudOpen = true;
-      this.requestUpdate();
-      this.launcherHudIntroEndTimer = setTimeout(() => {
-        this.launcherHudIntroEndTimer = null;
-        this.launcherHudIntro = false;
-        this.launcherHudOpen = false;
-        this.requestUpdate();
-      }, LAUNCHER_HUD_INTRO_MS.duration);
-    }, delay);
-  }
-
-  private cancelLauncherHudIntro(): void {
-    if (this.launcherHudIntroStartTimer !== null) {
-      clearTimeout(this.launcherHudIntroStartTimer);
-      this.launcherHudIntroStartTimer = null;
-    }
-    if (this.launcherHudIntroEndTimer !== null) {
-      clearTimeout(this.launcherHudIntroEndTimer);
-      this.launcherHudIntroEndTimer = null;
-    }
-    if (!this.launcherHudIntro) return;
-    this.launcherHudIntro = false;
-    if (this.isConnected) {
-      this.requestUpdate();
-    }
-  }
-
-  private resolveLauncherHudSide(): void {
-    if (typeof window === "undefined") {
-      this.launcherHudSide = "left";
-      return;
-    }
-    const button =
-      this.activeRoot.querySelector<HTMLElement>(".console-button");
-    if (!button) {
-      this.launcherHudSide = "left";
-      return;
-    }
-    const mark = button.getBoundingClientRect();
-    if (mark.left - LAUNCHER_HUD_WIDTH >= EDGE_MARGIN) {
-      this.launcherHudSide = "left";
-      return;
-    }
-    this.launcherHudSide = "right";
-  }
-
-  private openLauncherHud(): void {
-    if (this.isLauncherHudBlocked() || this.isOpen) return;
-    this.resolveLauncherHudSide();
-    if (this.launcherHudCloseTimer !== null) {
-      clearTimeout(this.launcherHudCloseTimer);
-      this.launcherHudCloseTimer = null;
-    }
-    if (this.launcherHudOpen) return;
-    this.launcherHudOpen = true;
-    this.requestUpdate();
-  }
-
-  private closeLauncherHud(): void {
-    this.cancelLauncherHudIntro();
-    if (this.launcherHudCloseTimer !== null) {
-      clearTimeout(this.launcherHudCloseTimer);
-      this.launcherHudCloseTimer = null;
-    }
-    if (!this.launcherHudOpen) return;
-    this.launcherHudOpen = false;
-    this.requestUpdate();
-  }
-
-  private handleLauncherHudEnter = (): void => {
-    this.cancelLauncherHudIntro();
-    this.openLauncherHud();
-  };
-
-  private handleLauncherHudLeave = (): void => {
-    if (this.launcherHudCloseTimer !== null) {
-      clearTimeout(this.launcherHudCloseTimer);
-    }
-    this.launcherHudCloseTimer = setTimeout(() => {
-      this.launcherHudCloseTimer = null;
-      this.closeLauncherHud();
-    }, 160);
-  };
-
-  private handleLauncherHudFocusIn = (): void => {
-    this.cancelLauncherHudIntro();
-    this.openLauncherHud();
-  };
-
-  private handleLauncherHudFocusOut = (event: FocusEvent): void => {
-    const next = event.relatedTarget;
-    const wrapper = event.currentTarget;
-    if (
-      next instanceof Node &&
-      wrapper instanceof Node &&
-      wrapper.contains(next)
-    ) {
-      return;
-    }
-    this.closeLauncherHud();
-  };
-
-  private handleLauncherHudKeydown = (event: KeyboardEvent): void => {
-    if (event.key !== "Escape") return;
-    if (!this.launcherHudOpen) return;
-    event.preventDefault();
-    event.stopPropagation();
-    this.closeLauncherHud();
-    this.activeRoot
-      .querySelector<HTMLButtonElement>(".console-button")
-      ?.focus();
-  };
-
-  private handleHudActionClick = (
-    event: Event,
-    row: LauncherHudRowId,
-  ): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.hudLandingMenu =
-      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
-    this.closeLauncherHud();
-    this.openInspector("floating_button");
-  };
-
-  private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
-    const target = event.target;
-    if (
-      target instanceof Element &&
-      target.closest(".cpk-launcher-hud__controls, [data-cpk-hud-action]")
-    ) {
-      return;
-    }
-    this.handleHudActionClick(event, row);
-  };
-
-  private handleHudNewsClick = (event: Event): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.hudLandingMenu = WHATS_NEW_MENU_KEY;
-    this.closeLauncherHud();
-    this.openInspector("floating_button");
-  };
-
-  private handleHudNewsDismissClick = (event: Event): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.clearNewsSignal();
-    this.activeRoot
-      .querySelector<HTMLButtonElement>(".console-button")
-      ?.focus({ preventScroll: true });
-  };
-
-  private getUnreadAnnouncementTitle(): string | null {
-    if (!this.newsSignalArmed || !this.announcementLoaded) return null;
-    const title = this.announcement?.preview.text.trim() || "New in CopilotKit";
-    const titleCharacters = Array.from(title);
-    return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
-      ? `${titleCharacters
-          .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
-          .join("")
-          .trimEnd()}...`
-      : title;
-  }
-
-  private renderHudRow(args: {
-    id: LauncherHudRowId;
-    label: string;
-    icon: LucideIconName;
-    connected?: boolean;
-    introIndex: number;
-  }): TemplateResult {
-    const detailId = `cpk-hud-detail-${args.id}`;
-    return html`
-      <li
-        class="cpk-launcher-hud__row"
-        data-cpk-hud-row=${args.id}
-        data-cpk-hud-action-kind="navigate"
-        style=${styleMap({
-          "--cpk-hud-row-index": `${args.introIndex}`,
-          "--cpk-hud-row-delay": `${
-            LAUNCHER_HUD_INTRO_MS.rowStart +
-            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
-          }ms`,
-        })}
-        @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
-      >
-        <span class="cpk-launcher-hud__primary">
-          <button
-            type="button"
-            class="cpk-launcher-hud__action"
-            data-cpk-hud-action
-            aria-label=${`Open ${args.label} in Inspector`}
-            @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
-            @pointerdown=${(event: Event) => event.stopPropagation()}
-          >
-            <span
-              class="cpk-launcher-hud__feature-icon"
-              data-cpk-hud-icon=${args.id}
-              aria-hidden="true"
-              >${this.renderIcon(args.icon)}</span
-            >
-            <span class="cpk-launcher-hud__label">${args.label}</span>
-          </button>
-          <span
-            class="cpk-launcher-hud__tooltip"
-            id=${detailId}
-            role="tooltip"
-            >${HUD_LEARN_MORE_LABEL}</span
-          >
-        </span>
-        <span class="cpk-launcher-hud__controls">
-          <button
-            type="button"
-            class="cpk-launcher-hud__learn-more"
-            data-cpk-hud-learn-more=${args.id}
-            aria-label=${`Learn more about ${args.label}`}
-            aria-describedby=${detailId}
-            @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
-            @pointerdown=${(event: Event) => event.stopPropagation()}
-          >
-            ${this.renderIcon("CircleHelp")}
-          </button>
-          <button
-            type="button"
-            class="cpk-launcher-hud__toggle"
-            data-cpk-hud-toggle=${args.id}
-            data-enabled=${args.connected ? "true" : "false"}
-            aria-label=${
-              args.connected
-                ? `${args.label} is enabled`
-                : `Open ${args.label} in Inspector`
-            }
-            ?disabled=${args.connected}
-            @click=${(event: Event) =>
-              this.handleHudActionClick(event, args.id)}
-            @pointerdown=${(event: Event) => event.stopPropagation()}
-          >
-            <span
-              class="cpk-launcher-hud__toggle-track"
-              aria-hidden="true"
-            ></span>
-          </button>
-        </span>
-      </li>
-    `;
-  }
-
-  private renderLauncherHud(): TemplateResult | typeof nothing {
-    if (!this.launcherHudOpen) return nothing;
-    // The launcher must agree with Home about feature availability. Raw
-    // transport flags can be present for a runtime that is not entitled to use
-    // Intelligence, which previously made the HUD show every service as on.
-    const homeModel = this.getHomeModel();
-    const threadsOn = homeModel.services.some(
-      (service) => service.id === "threads" && service.enabled,
-    );
-    const learningOn = homeModel.services.some(
-      (service) => service.id === "memory" && service.enabled,
-    );
-    const announcementTitle = this.getUnreadAnnouncementTitle();
-    return html`
-      <div
-        class="cpk-launcher-hud"
-        id="cpk-launcher-hud"
-        data-cpk-launcher-hud
-        data-cpk-hud-side=${this.launcherHudSide}
-        data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
-        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
-        data-color-scheme=${this.colorScheme}
-        style=${styleMap({
-          "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
-          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
-        })}
-      >
-        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
-        <div class="cpk-launcher-hud__card">
-          ${
-            announcementTitle
-              ? html`
-                  <div class="cpk-launcher-hud__masthead">
-                    <div class="cpk-launcher-hud__news-wrap">
-                      <button
-                        type="button"
-                        class="cpk-launcher-hud__news"
-                        data-cpk-hud-news
-                        aria-label=${`Open new notification: ${announcementTitle}`}
-                        @click=${this.handleHudNewsClick}
-                        @pointerdown=${(event: Event) => event.stopPropagation()}
-                      >
-                        <span
-                          class="cpk-launcher-hud__news-label"
-                          data-cpk-hud-news-label
-                          aria-hidden="true"
-                          >New</span
-                        >
-                        <span class="cpk-launcher-hud__news-title"
-                          >${announcementTitle}</span
-                        >
-                      </button>
-                      <button
-                        type="button"
-                        class="cpk-launcher-hud__news-dismiss"
-                        data-cpk-hud-news-dismiss
-                        aria-label="Dismiss notification"
-                        @click=${this.handleHudNewsDismissClick}
-                        @pointerdown=${(event: Event) => event.stopPropagation()}
-                      >
-                        ${this.renderIcon("X")}
-                      </button>
-                    </div>
-                  </div>
-                `
-              : nothing
-          }
-          <ul
-            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
-            role="list"
-          >
-            ${this.renderHudRow({
-              id: "threads",
-              label: HUD_THREADS_LABEL,
-              icon: "MessageSquare",
-              connected: threadsOn,
-              introIndex: 0,
-            })}
-            ${this.renderHudRow({
-              id: "learning",
-              label: HUD_LEARNING_LABEL,
-              icon: "Brain",
-              connected: learningOn,
-              introIndex: 1,
-            })}
-          </ul>
-        </div>
-      </div>
-    `;
+  private renderButton(): TemplateResult {
+    return renderLauncherView({
+      controller: this.launcher,
+      colorScheme: this.colorScheme,
+      anchorVertical: this.contextState.button.anchor.vertical,
+      isDragging: this.isDragging,
+      pointerContextIsButton: this.pointerContext === "button",
+      getHudAvailability: () => {
+        const homeModel = this.getHomeModel();
+        return {
+          threads: homeModel.services.some(
+            (service) => service.id === "threads" && service.enabled,
+          ),
+          learning: homeModel.services.some(
+            (service) => service.id === "memory" && service.enabled,
+          ),
+        };
+      },
+      renderIcon: (name) => this.renderIcon(name),
+      onPointerDown: this.windowShell.handlePointerDown,
+      onPointerMove: this.windowShell.handlePointerMove,
+      onPointerUp: this.windowShell.handlePointerUp,
+      onPointerCancel: this.windowShell.handlePointerCancel,
+      onClick: this.windowShell.handleButtonClick,
+    });
   }
 
   /** Render a trusted action with optional context-specific copy. */
@@ -4975,7 +2256,7 @@ export class WebInspectorElement extends LitElement {
                 }
                 ${items.map((item) => {
                   const isSelected = this.selectedMenu === item.key;
-                  const marker = this.getNavigationSignalFor(item.key);
+                  const marker = this.launcher.getNavigationSignalFor(item.key);
                   return html`
                     <button
                       type="button"
@@ -5936,14 +3217,14 @@ export class WebInspectorElement extends LitElement {
     }
   }
 
-  private renderWindow() {
+  private renderWindow(): TemplateResult {
     const windowState = this.contextState.window;
     const isDocked = this.dockMode !== "floating";
     const isPoppedOut = this.isPoppedOut;
     const isTransitioning = this.hasAttribute("data-transitioning");
     const disableDrag = isDocked || isPoppedOut;
 
-    const windowStyles = isPoppedOut
+    const windowStyles: Record<string, string> = isPoppedOut
       ? {
           position: "fixed",
           inset: "0",
@@ -5955,7 +3236,10 @@ export class WebInspectorElement extends LitElement {
           overflowX: "hidden",
         }
       : isDocked
-        ? { ...this.getDockedWindowStyles(), overflowX: "hidden" }
+        ? {
+            ...getDockedWindowStyles(this.dockMode, windowState.size),
+            overflowX: "hidden",
+          }
         : {
             width: `${Math.round(windowState.size.width)}px`,
             height: `${Math.round(windowState.size.height)}px`,
@@ -5968,7 +3252,7 @@ export class WebInspectorElement extends LitElement {
       (option) => option.key !== "all-agents",
     );
     const viewportWidth = isPoppedOut
-      ? (this.popOut?.win.innerWidth ?? windowState.size.width)
+      ? (this.windowShell.popOutViewportWidth ?? windowState.size.width)
       : typeof window === "undefined"
         ? windowState.size.width
         : window.innerWidth;
@@ -6001,18 +3285,13 @@ export class WebInspectorElement extends LitElement {
       >
         ${
           isDocked && !isPoppedOut
-            ? html`
-              <div
-                class="dock-resize-handle pointer-events-auto"
-                data-resize-edge="e"
-                role="presentation"
-                aria-hidden="true"
-                @pointerdown=${this.handleResizePointerDown}
-                @pointermove=${this.handleResizePointerMove}
-                @pointerup=${this.handleResizePointerUp}
-                @pointercancel=${this.handleResizePointerCancel}
-              ></div>
-            `
+            ? renderDockResizeHandle({
+                onPointerDown: this.windowShell.handleResizePointerDown,
+                onPointerMove: this.windowShell.handleResizePointerMove,
+                onPointerUp: this.windowShell.handleResizePointerUp,
+                onPointerCancel: this.windowShell.handleResizePointerCancel,
+                onKeyDown: this.windowShell.handleResizeKeyDown,
+              })
             : nothing
         }
         <div
@@ -6027,10 +3306,18 @@ export class WebInspectorElement extends LitElement {
                   : "cursor-grab"
             }"
             data-drag-context="window"
-            @pointerdown=${disableDrag ? undefined : this.handlePointerDown}
-            @pointermove=${disableDrag ? undefined : this.handlePointerMove}
-            @pointerup=${disableDrag ? undefined : this.handlePointerUp}
-            @pointercancel=${disableDrag ? undefined : this.handlePointerCancel}
+            @pointerdown=${
+              disableDrag ? undefined : this.windowShell.handlePointerDown
+            }
+            @pointermove=${
+              disableDrag ? undefined : this.windowShell.handlePointerMove
+            }
+            @pointerup=${
+              disableDrag ? undefined : this.windowShell.handlePointerUp
+            }
+            @pointercancel=${
+              disableDrag ? undefined : this.windowShell.handlePointerCancel
+            }
           >
             <div
               class="inspector-account-strip flex flex-wrap items-center gap-3 px-3 py-2"
@@ -6158,66 +3445,13 @@ export class WebInspectorElement extends LitElement {
         ${
           isPoppedOut
             ? nothing
-            : html`
-              ${
-                isDocked
-                  ? nothing
-                  : html`
-                    <div
-                      class="edge-resize-handle edge-resize-handle-w pointer-events-auto"
-                      data-resize-edge="w"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="edge-resize-handle edge-resize-handle-e pointer-events-auto"
-                      data-resize-edge="e"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
-                      data-resize-edge="s"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                  `
-              }
-              <div
-                class="resize-handle pointer-events-auto absolute bottom-0 right-0 flex h-7 w-7 cursor-nwse-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
-                data-resize-edge="se"
-                role="presentation"
-                aria-hidden="true"
-                @pointerdown=${this.handleResizePointerDown}
-                @pointermove=${this.handleResizePointerMove}
-                @pointerup=${this.handleResizePointerUp}
-                @pointercancel=${this.handleResizePointerCancel}
-              >
-                <svg
-                  class="h-3 w-3"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-width="1.5"
-                >
-                  <path d="M5 15L15 5" />
-                  <path d="M9 15L15 9" />
-                </svg>
-              </div>
-            `
+            : renderFloatingResizeHandles(isDocked, {
+                onPointerDown: this.windowShell.handleResizePointerDown,
+                onPointerMove: this.windowShell.handleResizePointerMove,
+                onPointerUp: this.windowShell.handleResizePointerUp,
+                onPointerCancel: this.windowShell.handleResizePointerCancel,
+                onKeyDown: this.windowShell.handleResizeKeyDown,
+              })
         }
       </section>
     `;
@@ -6230,18 +3464,9 @@ export class WebInspectorElement extends LitElement {
 
     const persisted = loadInspectorState(INSPECTOR_STORAGE_KEY);
     this.hydrateColorSchemePreference(persisted);
+    this.windowShell.hydrateEarly(persisted);
     if (!persisted) {
       return;
-    }
-
-    // Restore the open/closed state
-    if (typeof persisted.isOpen === "boolean") {
-      this.isOpen = persisted.isOpen;
-    }
-
-    // Restore the dock mode
-    if (isValidDockMode(persisted.dockMode)) {
-      this.dockMode = persisted.dockMode;
     }
 
     this.restorePersistedMenu(
@@ -6280,42 +3505,7 @@ export class WebInspectorElement extends LitElement {
       this.hasOpenedInspector = true;
     }
 
-    const persistedButton = persisted.button;
-    if (persistedButton) {
-      if (isValidAnchor(persistedButton.anchor)) {
-        this.contextState.button.anchor = persistedButton.anchor;
-      }
-
-      if (isValidPosition(persistedButton.anchorOffset)) {
-        this.contextState.button.anchorOffset = persistedButton.anchorOffset;
-      }
-
-      if (typeof persistedButton.hasCustomPosition === "boolean") {
-        this.hasCustomPosition.button = persistedButton.hasCustomPosition;
-      }
-    }
-
-    const persistedWindow = persisted.window;
-    if (persistedWindow) {
-      if (isValidAnchor(persistedWindow.anchor)) {
-        this.contextState.window.anchor = persistedWindow.anchor;
-      }
-
-      if (isValidPosition(persistedWindow.anchorOffset)) {
-        this.contextState.window.anchorOffset = persistedWindow.anchorOffset;
-      }
-
-      if (isValidSize(persistedWindow.size)) {
-        // Now clampWindowSize will use the correct minimum based on dockMode
-        this.contextState.window.size = this.clampWindowSize(
-          persistedWindow.size,
-        );
-      }
-
-      if (typeof persistedWindow.hasCustomPosition === "boolean") {
-        this.hasCustomPosition.window = persistedWindow.hasCustomPosition;
-      }
-    }
+    this.windowShell.hydrateGeometry(persisted);
 
     if (typeof persisted.selectedContext === "string") {
       this.selectedContext = persisted.selectedContext;
@@ -6328,21 +3518,16 @@ export class WebInspectorElement extends LitElement {
 
   /** Follow the OS preference until a person deliberately picks a theme. */
   private hydrateColorSchemePreference(persisted: PersistedState | null): void {
-    const preference = persisted?.colorSchemePreference;
-    if (preference === "light" || preference === "dark") {
-      this.hasExplicitColorScheme = true;
-      this.colorScheme = preference;
-      return;
-    }
-
-    this.hasExplicitColorScheme = false;
-    this.colorScheme = this.getSystemColorScheme();
+    const preference = resolveColorSchemePreference(
+      persisted,
+      this.getSystemColorScheme(),
+    );
+    this.hasExplicitColorScheme = preference.hasExplicitColorScheme;
+    this.colorScheme = preference.colorScheme;
   }
 
   private getSystemColorScheme(): InspectorColorScheme {
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return getSystemColorScheme(window.matchMedia?.bind(window));
   }
 
   private readonly handleSystemColorSchemeChange = (
@@ -6430,148 +3615,6 @@ export class WebInspectorElement extends LitElement {
     this.persistState();
   }
 
-  private get activeContext(): ContextKey {
-    return this.isOpen ? "window" : "button";
-  }
-
-  private handlePointerDown = (event: PointerEvent) => {
-    // Don't allow dragging when docked
-    if (this.dockMode !== "floating" && this.isOpen) {
-      return;
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    const contextAttr = target?.dataset.dragContext;
-    const context: ContextKey = contextAttr === "window" ? "window" : "button";
-
-    const eventTarget = event.target as HTMLElement | null;
-    if (context === "window" && eventTarget?.closest("button, a, nav")) {
-      return;
-    }
-
-    this.pointerContext = context;
-    this.measureContext(context);
-
-    event.preventDefault();
-
-    this.pointerId = event.pointerId;
-    this.dragStart = { x: event.clientX, y: event.clientY };
-    const state = this.contextState[context];
-    this.dragOffset = {
-      x: event.clientX - state.position.x,
-      y: event.clientY - state.position.y,
-    };
-    this.isDragging = false;
-    this.draggedDuringInteraction = false;
-    this.ignoreNextButtonClick = false;
-
-    target?.setPointerCapture?.(this.pointerId);
-  };
-
-  private handlePointerMove = (event: PointerEvent) => {
-    if (
-      this.pointerId !== event.pointerId ||
-      !this.dragStart ||
-      !this.pointerContext
-    ) {
-      return;
-    }
-
-    const distance = Math.hypot(
-      event.clientX - this.dragStart.x,
-      event.clientY - this.dragStart.y,
-    );
-    if (!this.isDragging && distance < DRAG_THRESHOLD) {
-      return;
-    }
-
-    event.preventDefault();
-    this.setDragging(true);
-    this.draggedDuringInteraction = true;
-
-    const desired: Position = {
-      x: event.clientX - this.dragOffset.x,
-      y: event.clientY - this.dragOffset.y,
-    };
-
-    const constrained = this.constrainToViewport(desired, this.pointerContext);
-    this.contextState[this.pointerContext].position = constrained;
-    this.updateHostTransform(this.pointerContext);
-  };
-
-  private handlePointerUp = (event: PointerEvent) => {
-    if (this.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    if (target?.hasPointerCapture(this.pointerId)) {
-      target.releasePointerCapture(this.pointerId);
-    }
-
-    const context = this.pointerContext ?? this.activeContext;
-
-    if (this.isDragging && this.pointerContext) {
-      event.preventDefault();
-      this.setDragging(false);
-      if (this.pointerContext === "window") {
-        this.updateAnchorFromPosition(this.pointerContext);
-        this.hasCustomPosition.window = true;
-        this.applyAnchorPosition(this.pointerContext);
-      } else if (this.pointerContext === "button") {
-        // Snap button to nearest corner
-        this.snapButtonToCorner();
-        this.hasCustomPosition.button = true;
-        if (this.draggedDuringInteraction) {
-          this.ignoreNextButtonClick = true;
-        }
-      }
-    } else if (
-      context === "button" &&
-      !this.isOpen &&
-      !this.draggedDuringInteraction
-    ) {
-      // Pointer events fire before `click`, so a mouse press opens from here
-      // and never reaches handleButtonClick. Both paths must behave the same.
-      this.openInspector("floating_button");
-    }
-
-    this.resetPointerTracking();
-  };
-
-  private handlePointerCancel = (event: PointerEvent) => {
-    if (this.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    if (target?.hasPointerCapture(this.pointerId)) {
-      target.releasePointerCapture(this.pointerId);
-    }
-
-    this.resetPointerTracking();
-  };
-
-  private handleButtonClick = (event: Event) => {
-    if (this.isDragging) {
-      event.preventDefault();
-      return;
-    }
-
-    if (this.ignoreNextButtonClick) {
-      event.preventDefault();
-      this.ignoreNextButtonClick = false;
-      return;
-    }
-
-    if (!this.isOpen) {
-      event.preventDefault();
-      // Reached by keyboard activation, which fires `click` with no pointer
-      // events. A mouse press has already opened from handlePointerUp.
-      this.openInspector("floating_button");
-    }
-  };
-
   private handleClosePointerDown = (event: PointerEvent) => {
     event.stopPropagation();
     event.preventDefault();
@@ -6582,684 +3625,33 @@ export class WebInspectorElement extends LitElement {
   };
 
   private get isPoppedOut(): boolean {
-    return this.popOut !== null && !this.popOut.win.closed;
+    return this.windowShell.isPoppedOut;
   }
 
   private get activeRoot(): ParentNode {
-    if (this.isPoppedOut) {
-      return this.popOut!.win.document;
-    }
-    return this.renderRoot;
-  }
-
-  private getPopOutCssTexts(): string[] {
-    const fromStatic = WebInspectorElement.styles.map((sheet) =>
-      "cssText" in sheet ? String(sheet.cssText) : "",
-    );
-    const overlay = `
-    html, body { margin: 0; height: 100%; background: #ffffff; }
-    .inspector-window {
-      position: fixed !important;
-      inset: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-      min-width: 0 !important;
-      min-height: 0 !important;
-      border-radius: 0 !important;
-    }
-  `;
-    return [...fromStatic.filter(Boolean), overlay];
-  }
-
-  // Also bound as button.click so a blocked popup throws out of element.click().
-  // jsdom swallows errors from click event listeners.
-  private getRenderedInspectorWindowSize(): Size {
-    const inspectorWindow =
-      this.shadowRoot?.querySelector<HTMLElement>(".inspector-window");
-    if (inspectorWindow) {
-      const width = Math.round(Number.parseFloat(inspectorWindow.style.width));
-      const height = Math.round(
-        Number.parseFloat(inspectorWindow.style.height),
-      );
-      if (Number.isFinite(width) && Number.isFinite(height)) {
-        return { width, height };
-      }
-    }
-    return this.clampWindowSize(this.contextState.window.size);
-  }
-
-  private requestPopOut = (): void => {
-    if (this.isPoppedOut) return;
-    this.layoutMenuOpen = false;
-    this.requestUpdate();
-    const size = this.getRenderedInspectorWindowSize();
-    const handle = openPopOutWindow({
-      open: window.open.bind(window),
-      features: buildPopOutFeatures(size),
-      title: "CopilotKit Inspector",
-      cssTexts: this.getPopOutCssTexts(),
-      sourceDocument: document,
-      onClose: () => this.handlePopOutClosed(),
-    });
-    this.popOut = handle;
-    try {
-      defineWebInspector(handle.win.customElements);
-      if (this.dockMode !== "floating") {
-        this.removeDockStyles();
-      }
-      handle.win.addEventListener(
-        "pointerdown",
-        this.handleGlobalPointerDown as EventListener,
-      );
-      this.syncInspectorPortal();
-      this.requestUpdate();
-    } catch (error) {
-      this.popOut = null;
-      this.unbindPopOutPointerDown(handle.win);
-      handle.close();
-      if (this.isConnected && this.isOpen && this.dockMode !== "floating") {
-        this.applyDockStyles();
-      }
-      this.requestUpdate();
-      throw error;
-    }
-  };
-
-  private unbindPopOutPointerDown(win: Window): void {
-    try {
-      win.removeEventListener(
-        "pointerdown",
-        this.handleGlobalPointerDown as EventListener,
-      );
-    } catch {
-      // Popup window may already be gone.
-    }
-  }
-
-  private handlePopOutClosed = (): void => {
-    const handle = this.popOut;
-    if (!handle) return;
-    this.popOut = null;
-    this.unbindPopOutPointerDown(handle.win);
-    this.syncInspectorPortal();
-    if (this.isConnected && this.isOpen && this.dockMode !== "floating") {
-      this.applyDockStyles();
-    }
-    this.requestUpdate();
-  };
-
-  private closePopOut(): void {
-    const handle = this.popOut;
-    if (!handle) return;
-    this.handlePopOutClosed();
-    handle.close();
+    return this.windowShell.activeRoot;
   }
 
   private handleAppBeforeUnload = (): void => {
-    this.closePopOut();
+    this.windowShell.closePopOut();
   };
-
-  private syncInspectorPortal(): void {
-    if (!this.inspectorPortal) {
-      const portal = (this.ownerDocument ?? document).createElement("div");
-      portal.dataset.inspectorPortal = "true";
-      portal.style.display = "contents";
-      this.inspectorPortal = portal;
-    }
-
-    if (!this.isOpen) {
-      render(nothing, this.inspectorPortal, {
-        host: this,
-        creationScope: this.ownerDocument ?? document,
-      });
-      this.inspectorPortal.remove();
-      return;
-    }
-
-    render(this.renderWindow(), this.inspectorPortal, {
-      host: this,
-      creationScope: this.ownerDocument ?? document,
-    });
-
-    const target = this.isPoppedOut
-      ? this.popOut!.win.document.body
-      : this.renderRoot.querySelector<HTMLElement>(
-          "[data-inspector-portal-anchor]",
-        );
-    if (target && this.inspectorPortal.parentNode !== target) {
-      target.appendChild(this.inspectorPortal);
-    }
-  }
-
-  private handleResizePointerDown = (event: PointerEvent) => {
-    event.stopPropagation();
-    event.preventDefault();
-
-    this.hasCustomPosition.window = true;
-    this.isResizing = true;
-    this.resizePointerId = event.pointerId;
-    this.resizeStart = { x: event.clientX, y: event.clientY };
-    this.resizeInitialSize = { ...this.contextState.window.size };
-    this.resizeInitialPosition = { ...this.contextState.window.position };
-    const edge = (event.currentTarget as HTMLElement | null)?.dataset
-      .resizeEdge;
-    this.resizeEdge =
-      edge === "w" ||
-      edge === "e" ||
-      edge === "s" ||
-      edge === "se" ||
-      edge === "sw"
-        ? edge
-        : "se";
-
-    // Remove transition from body during resize to prevent lag
-    if (document.body && this.dockMode !== "floating") {
-      document.body.style.transition = "";
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    target?.setPointerCapture?.(event.pointerId);
-  };
-
-  private handleResizePointerMove = (event: PointerEvent) => {
-    if (
-      !this.isResizing ||
-      this.resizePointerId !== event.pointerId ||
-      !this.resizeStart ||
-      !this.resizeInitialSize
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const deltaX = event.clientX - this.resizeStart.x;
-    const deltaY = event.clientY - this.resizeStart.y;
-    const state = this.contextState.window;
-    const edge = this.resizeEdge;
-    const growWest = edge === "w" || edge === "sw";
-    const growEast =
-      edge === "e" || edge === "se" || this.dockMode === "docked-left";
-    const growSouth = edge === "s" || edge === "se" || edge === "sw";
-
-    // For docked states, only resize in the appropriate dimension
-    if (this.dockMode === "docked-left") {
-      // Only resize width for left dock
-      state.size = this.clampWindowSize({
-        width: this.resizeInitialSize.width + deltaX,
-        height: state.size.height,
-      });
-      // Update the body margin
-      if (document.body) {
-        document.body.style.marginLeft = `${state.size.width}px`;
-      }
-    } else {
-      const initialSize = this.resizeInitialSize;
-      const initialPos = this.resizeInitialPosition ?? { ...state.position };
-      let nextWidth = initialSize.width;
-      let nextHeight = initialSize.height;
-
-      if (growEast) {
-        nextWidth = initialSize.width + deltaX;
-      } else if (growWest) {
-        nextWidth = initialSize.width - deltaX;
-      }
-      if (growSouth) {
-        nextHeight = initialSize.height + deltaY;
-      }
-
-      state.size = this.clampWindowSize({
-        width: nextWidth,
-        height: nextHeight,
-      });
-
-      if (growWest) {
-        const right = initialPos.x + initialSize.width;
-        state.position = {
-          x: right - state.size.width,
-          y: initialPos.y,
-        };
-      }
-
-      this.keepPositionWithinViewport("window");
-      this.updateAnchorFromPosition("window");
-    }
-
-    this.requestUpdate();
-    this.updateHostTransform("window");
-  };
-
-  private handleResizePointerUp = (event: PointerEvent) => {
-    if (this.resizePointerId !== event.pointerId) {
-      return;
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    if (target?.hasPointerCapture(this.resizePointerId)) {
-      target.releasePointerCapture(this.resizePointerId);
-    }
-
-    // Only update anchor position for floating mode
-    if (this.dockMode === "floating") {
-      this.updateAnchorFromPosition("window");
-      this.applyAnchorPosition("window");
-    }
-
-    // Persist the new size after resize completes
-    this.persistState();
-    this.resetResizeTracking();
-  };
-
-  private handleResizePointerCancel = (event: PointerEvent) => {
-    if (this.resizePointerId !== event.pointerId) {
-      return;
-    }
-
-    const target = event.currentTarget as HTMLElement | null;
-    if (target?.hasPointerCapture(this.resizePointerId)) {
-      target.releasePointerCapture(this.resizePointerId);
-    }
-
-    // Only update anchor position for floating mode
-    if (this.dockMode === "floating") {
-      this.updateAnchorFromPosition("window");
-      this.applyAnchorPosition("window");
-    }
-
-    // Persist the new size after resize completes
-    this.persistState();
-    this.resetResizeTracking();
-  };
-
-  private handleResize = () => {
-    if (this.isPoppedOut) {
-      return;
-    }
-    this.measureContext("button");
-    this.applyAnchorPosition("button");
-
-    this.measureContext("window");
-    this.contextState.window.size = this.clampWindowSize(
-      this.contextState.window.size,
-    );
-    if (this.hasCustomPosition.window) {
-      this.applyAnchorPosition("window");
-    } else {
-      this.centerContext("window");
-    }
-
-    this.requestUpdate();
-    this.updateHostTransform();
-  };
-
-  private measureContext(context: ContextKey): void {
-    const selector =
-      context === "window" ? ".inspector-window" : ".console-button";
-    const element = this.renderRoot?.querySelector(
-      selector,
-    ) as HTMLElement | null;
-    if (!element) {
-      return;
-    }
-    const fallback =
-      context === "window" ? DEFAULT_WINDOW_SIZE : DEFAULT_BUTTON_SIZE;
-    updateSizeFromElement(this.contextState[context], element, fallback);
-  }
-
-  private centerContext(context: ContextKey): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const viewport = this.getViewportSize();
-    centerContextHelper(this.contextState[context], viewport, EDGE_MARGIN);
-
-    if (context === this.activeContext) {
-      this.updateHostTransform(context);
-    }
-
-    this.hasCustomPosition[context] = false;
-    this.persistState();
-  }
-
-  private ensureWindowPlacement(): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (!this.hasCustomPosition.window) {
-      this.centerContext("window");
-      return;
-    }
-
-    const viewport = this.getViewportSize();
-    keepPositionWithinViewport(this.contextState.window, viewport, EDGE_MARGIN);
-    updateAnchorFromPositionHelper(
-      this.contextState.window,
-      viewport,
-      EDGE_MARGIN,
-    );
-    this.updateHostTransform("window");
-    this.persistState();
-  }
-
-  private constrainToViewport(
-    position: Position,
-    context: ContextKey,
-  ): Position {
-    if (typeof window === "undefined") {
-      return position;
-    }
-
-    const viewport = this.getViewportSize();
-    return constrainToViewport(
-      this.contextState[context],
-      position,
-      viewport,
-      EDGE_MARGIN,
-    );
-  }
-
-  private keepPositionWithinViewport(context: ContextKey): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const viewport = this.getViewportSize();
-    keepPositionWithinViewport(
-      this.contextState[context],
-      viewport,
-      EDGE_MARGIN,
-    );
-  }
-
-  private getViewportSize(): Size {
-    if (typeof window === "undefined") {
-      return { ...DEFAULT_WINDOW_SIZE };
-    }
-
-    return { width: window.innerWidth, height: window.innerHeight };
-  }
-
   private persistState(): void {
-    const state: PersistedState = {
-      button: {
-        anchor: this.contextState.button.anchor,
-        anchorOffset: this.contextState.button.anchorOffset,
-        hasCustomPosition: this.hasCustomPosition.button,
-      },
-      window: {
-        anchor: this.contextState.window.anchor,
-        anchorOffset: this.contextState.window.anchorOffset,
-        size: {
-          width: Math.round(this.contextState.window.size.width),
-          height: Math.round(this.contextState.window.size.height),
-        },
-        hasCustomPosition: this.hasCustomPosition.window,
-      },
+    const state = buildPersistedShellState({
+      contextState: this.contextState,
+      hasCustomPosition: this.hasCustomPosition,
       isOpen: this.isOpen,
       dockMode: this.dockMode,
-      selectedMenu:
-        this.pendingPersistedMenu ??
-        (this.briefingRestoreMenu && this.selectedMenu === "home"
-          ? this.briefingRestoreMenu
-          : this.selectedMenu),
+      selectedMenu: this.selectedMenu,
+      pendingPersistedMenu: this.pendingPersistedMenu,
+      briefingRestoreMenu: this.briefingRestoreMenu,
       selectedContext: this.selectedContext,
       hasOpenedInspector: this.hasOpenedInspector,
       sidebarCollapsed: this.sidebarCollapsed,
-      colorSchemePreference: this.hasExplicitColorScheme
-        ? this.colorScheme
-        : undefined,
-    };
+      hasExplicitColorScheme: this.hasExplicitColorScheme,
+      colorScheme: this.colorScheme,
+    });
     saveInspectorState(INSPECTOR_STORAGE_KEY, state);
     this.pendingSelectedContext = state.selectedContext ?? null;
-  }
-
-  private clampWindowSize(size: Size): Size {
-    // Use smaller minimum width when docked left
-    const minWidth =
-      this.dockMode === "docked-left"
-        ? MIN_WINDOW_WIDTH_DOCKED_LEFT
-        : MIN_WINDOW_WIDTH;
-
-    if (typeof window === "undefined") {
-      return {
-        width: Math.max(minWidth, size.width),
-        height: Math.max(MIN_WINDOW_HEIGHT, size.height),
-      };
-    }
-
-    const viewport = this.getViewportSize();
-    return clampSizeToViewport(
-      size,
-      viewport,
-      EDGE_MARGIN,
-      minWidth,
-      MIN_WINDOW_HEIGHT,
-    );
-  }
-
-  private setDockMode(mode: DockMode): void {
-    if (this.dockMode === mode) {
-      return;
-    }
-
-    // Add transition class for smooth dock mode changes
-    this.startHostTransition();
-
-    // Clean up previous dock state
-    this.removeDockStyles();
-
-    this.dockMode = mode;
-
-    if (mode !== "floating") {
-      // For docking, set the target size immediately so body margins are correct
-      if (mode === "docked-left") {
-        this.contextState.window.size.width = DOCKED_LEFT_WIDTH;
-      }
-
-      // Then apply dock styles with correct sizes
-      this.applyDockStyles();
-    } else {
-      // When floating, set size first then center
-      this.contextState.window.size = this.clampWindowSize(DEFAULT_WINDOW_SIZE);
-      this.centerContext("window");
-    }
-
-    this.persistState();
-    this.requestUpdate();
-    this.updateHostTransform("window");
-  }
-
-  private startHostTransition(duration = 300): void {
-    this.setAttribute("data-transitioning", "true");
-
-    if (this.transitionTimeoutId !== null) {
-      clearTimeout(this.transitionTimeoutId);
-    }
-
-    this.transitionTimeoutId = setTimeout(() => {
-      this.removeAttribute("data-transitioning");
-      this.transitionTimeoutId = null;
-    }, duration);
-  }
-
-  private applyDockStyles(skipTransition = false): void {
-    if (typeof document === "undefined" || !document.body) {
-      return;
-    }
-
-    // Save original body margins
-    const computedStyle = window.getComputedStyle(document.body);
-    this.previousBodyMargins = {
-      left: computedStyle.marginLeft,
-      bottom: computedStyle.marginBottom,
-    };
-
-    // Apply transition to body for smooth animation (only when docking, not during resize or initial load)
-    if (!this.isResizing && !skipTransition) {
-      document.body.style.transition = "margin 300ms ease";
-    }
-
-    // Apply body margins with the actual window sizes
-    if (this.dockMode === "docked-left") {
-      document.body.style.marginLeft = `${this.contextState.window.size.width}px`;
-      if (this.previousHtmlOverflowX === null) {
-        this.previousHtmlOverflowX = document.documentElement.style.overflowX;
-      }
-      document.documentElement.style.overflowX = "hidden";
-    }
-
-    // Remove transition after animation completes
-    if (!this.isResizing && !skipTransition) {
-      const id = setTimeout(() => {
-        this.bodyTransitionTimeoutIds.delete(id);
-        if (typeof document !== "undefined" && document.body) {
-          document.body.style.transition = "";
-        }
-      }, 300);
-      this.bodyTransitionTimeoutIds.add(id);
-    }
-  }
-
-  private removeDockStyles(skipTransition = false): void {
-    if (typeof document === "undefined" || !document.body) {
-      return;
-    }
-
-    // Only add transition if not resizing and not skipping
-    if (!this.isResizing && !skipTransition) {
-      document.body.style.transition = "margin 300ms ease";
-    }
-
-    // Restore original margins if saved
-    if (this.previousBodyMargins) {
-      document.body.style.marginLeft = this.previousBodyMargins.left;
-      document.body.style.marginBottom = this.previousBodyMargins.bottom;
-      this.previousBodyMargins = null;
-    } else {
-      // Reset to default if no previous values
-      document.body.style.marginLeft = "";
-      document.body.style.marginBottom = "";
-    }
-
-    if (this.previousHtmlOverflowX !== null) {
-      document.documentElement.style.overflowX = this.previousHtmlOverflowX;
-      this.previousHtmlOverflowX = null;
-    }
-
-    // Clean up transition after animation completes
-    if (!skipTransition) {
-      const id = setTimeout(() => {
-        this.bodyTransitionTimeoutIds.delete(id);
-        if (typeof document !== "undefined" && document.body) {
-          document.body.style.transition = "";
-        }
-      }, 300);
-      this.bodyTransitionTimeoutIds.add(id);
-    } else {
-      document.body.style.transition = "";
-    }
-  }
-
-  private updateHostTransform(context: ContextKey = this.activeContext): void {
-    if (this.isPoppedOut) {
-      return;
-    }
-    if (context !== this.activeContext) {
-      return;
-    }
-
-    // For docked states, CSS handles positioning with fixed positioning
-    if (this.isOpen && this.dockMode === "docked-left") {
-      this.setAttribute("data-docked", "true");
-      this.style.transform = "none";
-    } else {
-      this.removeAttribute("data-docked");
-      const { position } = this.contextState[context];
-      this.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
-    }
-  }
-
-  private setDragging(value: boolean): void {
-    if (this.isDragging !== value) {
-      this.isDragging = value;
-      this.requestUpdate();
-    }
-  }
-
-  private updateAnchorFromPosition(context: ContextKey): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const viewport = this.getViewportSize();
-    updateAnchorFromPositionHelper(
-      this.contextState[context],
-      viewport,
-      EDGE_MARGIN,
-    );
-  }
-
-  private snapButtonToCorner(): void {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const viewport = this.getViewportSize();
-    const state = this.contextState.button;
-
-    // Determine which corner is closest based on center of button
-    const centerX = state.position.x + state.size.width / 2;
-    const centerY = state.position.y + state.size.height / 2;
-
-    const horizontal: Anchor["horizontal"] =
-      centerX < viewport.width / 2 ? "left" : "right";
-    const vertical: Anchor["vertical"] =
-      centerY < viewport.height / 2 ? "top" : "bottom";
-
-    // Set anchor to nearest corner
-    state.anchor = { horizontal, vertical };
-
-    // Always use EDGE_MARGIN as offset (pinned to corner)
-    state.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
-
-    // Apply the anchor position to snap to corner
-    this.startHostTransition();
-    this.applyAnchorPosition("button");
-  }
-
-  private applyAnchorPosition(context: ContextKey): void {
-    if (this.isPoppedOut) {
-      return;
-    }
-    if (typeof window === "undefined") {
-      return;
-    }
-    const viewport = this.getViewportSize();
-    applyAnchorPositionHelper(
-      this.contextState[context],
-      viewport,
-      EDGE_MARGIN,
-    );
-    this.updateHostTransform(context);
-    this.persistState();
-  }
-
-  private resetResizeTracking(): void {
-    this.resizePointerId = null;
-    this.resizeStart = null;
-    this.resizeInitialSize = null;
-    this.resizeInitialPosition = null;
-    this.resizeEdge = "se";
-    this.isResizing = false;
-  }
-
-  private resetPointerTracking(): void {
-    this.pointerId = null;
-    this.dragStart = null;
-    this.pointerContext = null;
-    this.setDragging(false);
-    this.draggedDuringInteraction = false;
   }
 
   public openInspector(
@@ -7281,19 +3673,18 @@ export class WebInspectorElement extends LitElement {
     // Captured from the pre-open state, exactly as the unread-announcement
     // property is: after `isOpen` flips there is no launcher, so the question
     // "was a signal on the launcher when this open happened" has no answer.
-    const activeSignalAtOpen = this.getActiveLauncherSignal();
+    const activeSignalAtOpen = this.launcher.activeSignal;
     const firstOpen = !this.hasOpenedInspector;
     this.hasOpenedInspector = true;
     this.homeViewedThisOpen = false;
-    this.closeLauncherHud();
+    this.launcher.closeHud();
 
     // A press on the launcher is a gesture towards whatever the dot is about,
     // so it lands where that subject is explained. Restoring a persisted-open
     // panel is not a gesture and deliberately does not route through here.
     // A HUD row sets `hudLandingMenu` and wins, so a red dot cannot steal
     // "Turn on Threads".
-    const hudMenu = this.hudLandingMenu;
-    this.hudLandingMenu = null;
+    const hudMenu = this.launcher.takeHudLandingMenu();
     if (hudMenu) {
       // Use the same activation path as sidebar navigation. In particular,
       // Learning must initialize its lazy memory subscription before deciding
@@ -7312,69 +3703,20 @@ export class WebInspectorElement extends LitElement {
 
     this.ensureAnnouncementLoading();
 
-    this.isOpen = true;
-    // The launcher is gone, so its gesture is gone with it — and the slot it
-    // was holding is free again for whatever beats after the panel closes.
-    this.cancelGestureTail();
-    this.persistState(); // Save the open state
-
-    this.trackOpened(
-      source,
-      hadUnseenAnnouncement,
-      firstOpen,
-      activeSignalAtOpen,
-    );
-
-    // Apply docking styles if in docked mode
-    if (this.dockMode !== "floating") {
-      this.applyDockStyles();
-    }
-
-    this.ensureWindowPlacement();
-    this.requestUpdate();
-    void this.updateComplete.then(() => {
-      this.measureContext("window");
-      if (this.dockMode === "floating") {
-        if (this.hasCustomPosition.window) {
-          this.applyAnchorPosition("window");
-        } else {
-          this.centerContext("window");
-        }
-      } else {
-        // Update transform for docked position
-        this.updateHostTransform("window");
-      }
+    this.windowShell.open({
+      beforePersist: () => this.launcher.cancelGestureTail(),
+      afterPersist: () =>
+        this.trackOpened(
+          source,
+          hadUnseenAnnouncement,
+          firstOpen,
+          activeSignalAtOpen,
+        ),
     });
   }
 
   private closeInspector(): void {
-    if (this.isPoppedOut) {
-      return;
-    }
-    if (!this.isOpen) {
-      return;
-    }
-
-    this.isOpen = false;
-
-    // Remove docking styles when closing
-    if (this.dockMode !== "floating") {
-      this.removeDockStyles();
-    }
-
-    this.persistState(); // Save the closed state
-    this.updateHostTransform("button");
-    this.requestUpdate();
-    void this.updateComplete.then(() => {
-      this.measureContext("button");
-      this.applyAnchorPosition("button");
-      // Flush point for defer reason 1: there is a launcher again — and only
-      // now is it where it belongs. The anchor is applied after the render that
-      // would mount the pill, so flushing any earlier makes the pill measure
-      // the room around a launcher that has not moved into place yet, and a
-      // stale measurement can suppress a pill that had room all along.
-      this.flushPendingSignalPulse();
-    });
+    this.windowShell.close();
   }
 
   private renderIcon(name: LucideIconName) {
@@ -7401,114 +3743,17 @@ export class WebInspectorElement extends LitElement {
     return unsafeHTML(svgMarkup);
   }
 
-  private renderWindowLayoutMenu() {
-    const dockAction =
-      this.dockMode === "floating"
-        ? {
-            label: "Dock to left",
-            icon: "PanelLeft" as LucideIconName,
-            mode: "docked-left" as DockMode,
-          }
-        : {
-            label: "Float window",
-            icon: "Maximize2" as LucideIconName,
-            mode: "floating" as DockMode,
-          };
-
-    return html`
-      <div
-        class="inspector-window-layout"
-        data-inspector-window-layout-root="true"
-      >
-        <button
-          class="inspector-account-control inspector-window-layout-trigger flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-          type="button"
-          aria-label="Window layout"
-          aria-haspopup="menu"
-          aria-expanded=${this.layoutMenuOpen}
-          title="Window layout"
-          style=${INTERACTIVE_FOCUS_BASE_STYLE}
-          @click=${this.handleLayoutMenuToggle}
-        >
-          ${this.renderIcon("PanelsTopLeft")}
-        </button>
-        ${
-          this.layoutMenuOpen
-            ? html`
-              <div
-                class="inspector-window-layout-menu"
-                role="menu"
-                aria-label="Window layout"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  aria-label=${dockAction.label}
-                  @click=${() => this.handleDockClick(dockAction.mode)}
-                >
-                  <span aria-hidden="true"
-                    >${this.renderIcon(dockAction.icon)}</span
-                  >
-                  <span>${dockAction.label}</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  aria-label="Detach Inspector into its own window"
-                  data-testid="cpk-inspector-pop-out"
-                  .click=${this.requestPopOut}
-                  @click=${this.requestPopOut}
-                >
-                  <span aria-hidden="true"
-                    >${this.renderIcon("PictureInPicture2")}</span
-                  >
-                  <span>Open in new window</span>
-                </button>
-              </div>
-            `
-            : nothing
-        }
-      </div>
-    `;
+  private renderWindowLayoutMenu(): TemplateResult {
+    return renderWindowLayoutMenu({
+      dockMode: this.dockMode,
+      open: this.layoutMenuOpen,
+      focusStyle: INTERACTIVE_FOCUS_BASE_STYLE,
+      renderIcon: (name) => this.renderIcon(name),
+      onToggle: this.windowShell.handleLayoutMenuToggle,
+      onDock: (mode) => this.windowShell.handleDockClick(mode),
+      onPopOut: this.windowShell.requestPopOut,
+    });
   }
-
-  private handleLayoutMenuToggle = (event: Event): void => {
-    event.stopPropagation();
-    this.contextMenuOpen = false;
-    if (!this.layoutMenuOpen && this.dockMode === "floating") {
-      this.contextState.window.size = this.getRenderedInspectorWindowSize();
-    }
-    this.layoutMenuOpen = !this.layoutMenuOpen;
-    this.requestUpdate();
-  };
-
-  private getDockedWindowStyles(): Record<string, string> {
-    if (this.dockMode === "docked-left") {
-      return {
-        position: "fixed",
-        top: "0",
-        left: "0",
-        bottom: "0",
-        width: `${Math.round(this.contextState.window.size.width)}px`,
-        height: "auto",
-        minWidth: `${MIN_WINDOW_WIDTH_DOCKED_LEFT}px`,
-        borderRadius: "0",
-      };
-    }
-    // Default to floating styles
-    return {
-      width: `${Math.round(this.contextState.window.size.width)}px`,
-      height: `${Math.round(this.contextState.window.size.height)}px`,
-      minWidth: `${MIN_WINDOW_WIDTH}px`,
-      minHeight: `${MIN_WINDOW_HEIGHT}px`,
-    };
-  }
-
-  private handleDockClick(mode: DockMode): void {
-    this.layoutMenuOpen = false;
-    this.setDockMode(mode);
-  }
-
   private serializeAttributes(
     attributes: Record<string, string | number | undefined>,
   ): string {
@@ -7581,50 +3826,11 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getCoreStatusSummary(): CoreStatusSummary {
-    if (!this._core) {
-      return {
-        label: "Core not attached",
-        state: "unavailable",
-        description:
-          "Pass a CopilotKitCore instance to <cpk-web-inspector> or enable auto-attach.",
-      };
-    }
-
-    const status =
-      this.runtimeStatus ?? CopilotKitCoreRuntimeConnectionStatus.Disconnected;
-    const lastErrorMessage = this.lastCoreError?.message;
-
-    if (status === CopilotKitCoreRuntimeConnectionStatus.Error) {
-      return {
-        label: "Runtime error",
-        state: "error",
-        description:
-          lastErrorMessage ?? "CopilotKit runtime reported an error.",
-      };
-    }
-
-    if (status === CopilotKitCoreRuntimeConnectionStatus.Connecting) {
-      return {
-        label: "Connecting",
-        state: "connecting",
-        description: "Waiting for CopilotKit runtime to finish connecting.",
-      };
-    }
-
-    if (status === CopilotKitCoreRuntimeConnectionStatus.Connected) {
-      return {
-        label: "Connected",
-        state: "connected",
-        description: "Live runtime connection established.",
-      };
-    }
-
-    return {
-      label: "Disconnected",
-      state: "disconnected",
-      description:
-        lastErrorMessage ?? "Waiting for CopilotKit runtime to connect.",
-    };
+    return buildCoreStatusSummary({
+      hasCore: this._core !== null,
+      runtimeStatus: this.runtimeStatus,
+      lastErrorMessage: this.lastCoreError?.message,
+    });
   }
 
   private resolvePlaygroundAgentId(preferredAgentId?: string): string | null {
@@ -7881,90 +4087,11 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderSettingsPanel() {
-    const optedOut = this.core?.telemetryDisabled ?? false;
-    const privateContent = [
-      "Message content",
-      "Agent state",
-      "Prompts",
-      "Completions",
-    ];
-    return html`
-      <div
-        class="inspector-settings"
-        data-inspector-settings
-        data-state=${optedOut ? "disabled" : "enabled"}
-      >
-        <header class="inspector-settings-header">
-          <h1 class="inspector-settings-title">Settings</h1>
-          <p class="inspector-settings-subtitle">
-            Understand how the Inspector handles analytics and private content.
-          </p>
-        </header>
-
-        <section
-          class="inspector-settings-section"
-          aria-labelledby="inspector-settings-privacy-title"
-        >
-          <div class="inspector-settings-section-heading">
-            <span class="inspector-settings-section-icon" aria-hidden="true">
-              ${this.renderIcon(optedOut ? "ShieldOff" : "ShieldCheck")}
-            </span>
-            <div>
-              <h2 id="inspector-settings-privacy-title">Privacy</h2>
-              <p>Analytics without access to your agent content.</p>
-            </div>
-          </div>
-
-          <div
-            class="inspector-settings-privacy"
-            data-state=${optedOut ? "disabled" : "enabled"}
-          >
-            <div class="inspector-settings-status-row">
-              <div>
-                <h3>Anonymous usage analytics</h3>
-                <p>
-                  ${
-                    optedOut
-                      ? "Anonymous Inspector interaction data collection is disabled for this runtime."
-                      : "CopilotKit collects anonymous Inspector interactions to understand which features people use."
-                  }
-                </p>
-              </div>
-              <span class="inspector-settings-status">
-                ${optedOut ? "Analytics off" : "Analytics on"}
-              </span>
-            </div>
-
-            <div class="inspector-settings-private-content">
-              <strong>Content stays private</strong>
-              <p>CopilotKit never collects:</p>
-              <ul aria-label="Content CopilotKit never collects">
-                ${privateContent.map(
-                  (item) => html`
-                    <li>
-                      <span aria-hidden="true"
-                        >${this.renderIcon("Check")}</span
-                      >
-                      ${item}
-                    </li>
-                  `,
-                )}
-              </ul>
-            </div>
-
-            <a
-              class="inspector-settings-policy-link"
-              href=${TELEMETRY_DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Read the telemetry policy
-              <span aria-hidden="true">${this.renderIcon("ArrowUpRight")}</span>
-            </a>
-          </div>
-        </section>
-      </div>
-    `;
+    return renderShellSettingsPanel({
+      optedOut: this.core?.telemetryDisabled ?? false,
+      telemetryDocsUrl: TELEMETRY_DOCS_URL,
+      renderIcon: (name) => this.renderIcon(name),
+    });
   }
 
   // Fires `oss.inspector.opened` for a user-initiated open (OSS-566).
@@ -9447,648 +5574,17 @@ export class WebInspectorElement extends LitElement {
 
   // ── Launcher signals ────────────────────────────────────────────────────
 
-  /** Whether a given subject currently has something to say. */
-  private isSignalArmed(key: LauncherSignalKey): boolean {
-    if (isWiringErrorKey(key)) return this.errorSignalArmed[key];
-    if (isEventErrorKey(key)) return this.eventErrorArmed[key];
-    return this.newsSignalArmed;
-  }
-
-  /**
-   * The signal that owns the single launcher dot, or null when the launcher is
-   * quiet. Precedence rather than replacement: a suppressed signal stays armed
-   * and takes the dot as soon as the higher-priority one clears, and its own
-   * navigation marker is visible the whole time.
-   */
-  private getActiveLauncherSignal(): LauncherSignalKey | null {
-    for (const key of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
-      if (this.isSignalArmed(key)) return key;
-    }
-    return null;
-  }
-
-  /**
-   * The marker a navigation entry carries, or null for an unmarked entry.
-   *
-   * Markers are independent of the launcher's single dot, so a suppressed
-   * signal is never actually hidden once the panel is open. They also render
-   * on the entry that is *currently selected*: for the news signal that never
-   * mattered, because its marker clears as soon as the view renders, but a
-   * state mirror stays true while it is being read and suppressing it on the
-   * active entry would make it reappear on navigating away.
-   */
-  private getNavigationSignalFor(
-    key: MenuKey,
-  ): LauncherSignalDefinition | null {
-    for (const signalKey of LAUNCHER_SIGNAL_PRIORITY_ORDER) {
-      const signal = LAUNCHER_SIGNALS[signalKey];
-      if (signal.markerTarget !== key) continue;
-      if (!this.isSignalArmed(signalKey)) continue;
-      // The announcement's marker waits for the feed, so a still-loading feed
-      // cannot mark an entry that has nothing to show yet.
-      if (signalKey === NEWS_SIGNAL_ID && !this.announcementLoaded) continue;
-      return signal;
-    }
-    return null;
-  }
-
-  /** Whether a wiring error source is currently red. */
-  private hasArmedErrorSignal(): boolean {
-    return WIRING_ERROR_KEYS.some((source) => this.errorSignalArmed[source]);
-  }
-
-  private armEventErrorFromCode(
-    code: CopilotKitCoreErrorCode,
-    message: string,
-    context?: Record<string, unknown>,
-  ): void {
-    const key = eventErrorKeyForCode(code);
-    if (key === null) return;
-    const agentId =
-      typeof context?.agentId === "string" && context.agentId.length > 0
-        ? context.agentId
-        : undefined;
-    const toolName =
-      typeof context?.toolName === "string" && context.toolName.length > 0
-        ? context.toolName
-        : undefined;
-    const toolCallId =
-      typeof context?.toolCallId === "string" && context.toolCallId.length > 0
-        ? context.toolCallId
-        : undefined;
-    this.armEventError(key, message, { agentId, toolName, toolCallId });
-  }
-
-  private armEventError(
-    key: InspectorEventErrorSource,
-    message: string,
-    extras: {
-      agentId?: string;
-      toolName?: string;
-      toolCallId?: string;
-    } = {},
-  ): void {
-    this.eventErrorDetails[key] = { message, ...extras };
-    const wasArmed = this.eventErrorArmed[key];
-    this.eventErrorArmed[key] = true;
-    if (!wasArmed) {
-      this.startSignalPulse(key);
-    }
-    if (
-      this.isOpen &&
-      !this.settingsOpen &&
-      this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget
-    ) {
-      this.applyEventErrorLanding(key);
-    }
-    this.requestUpdate();
-  }
-
-  private clearEventError(key: InspectorEventErrorSource): void {
-    if (!this.eventErrorArmed[key]) return;
-    this.eventErrorArmed[key] = false;
-    this.errorSignalViewedSources.delete(key);
-    this.retireSignal(key);
-    this.requestUpdate();
-  }
-
-  private clearAllEventErrors(): void {
-    for (const key of EVENT_ERROR_KEYS) {
-      this.eventErrorDetails[key] = null;
-      if (!this.eventErrorArmed[key]) continue;
-      this.eventErrorArmed[key] = false;
-      this.retireSignal(key);
-    }
-  }
-
-  /**
-   * An event error is unread until its landing view is actually on screen.
-   * Opening the Inspector for a different leaf must not burn it.
-   */
-  private maybeCompleteEventErrorView(): void {
-    if (!this.isOpen || this.settingsOpen) return;
-    for (const key of EVENT_ERROR_KEYS) {
-      if (!this.eventErrorArmed[key]) continue;
-      if (this.selectedMenu !== LAUNCHER_SIGNALS[key].landingTarget) continue;
-      this.clearEventError(key);
-    }
-  }
-
-  private isReducedMotionPreferred(): boolean {
-    return (
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
-    );
-  }
-
-  // ── What's new launcher signal ──────────────────────────────────────────
-
-  private armNewsSignal(options: { pulse: boolean }): void {
-    const wasArmed = this.newsSignalArmed;
-    this.newsSignalArmed = true;
-    if (options.pulse) {
-      this.startSignalPulse(NEWS_SIGNAL_ID);
-    } else if (!wasArmed) {
-      this.requestUpdate();
-    }
-  }
-
-  private clearNewsSignal(): void {
-    if (!this.newsSignalArmed) return;
-    this.newsSignalArmed = false;
-    if (this.announcement) {
-      saveAnnouncementReadTimestamp(this.announcement.timestamp);
-    }
-    this.retireSignal(NEWS_SIGNAL_ID);
-    this.requestUpdate();
-  }
-
-  // ── The beat ────────────────────────────────────────────────────────────
-
-  /**
-   * Requests one beat for a signal, running it now or deferring it.
-   *
-   * There is a single pending slot and four reasons a beat cannot land. All
-   * four are the same situation — "cannot land now, run later" — and treating
-   * them alike is the point: three separate behaviours for one situation would
-   * not survive a third signal.
-   *
-   * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
-   * the animation, because the attribute it binds to does not change value and
-   * the pseudo-element selectors match on attribute *presence*; the running
-   * beat would merely change colour mid-flight. A failure that arms during an
-   * announcement beat must wait for that beat to end, or it would run only as
-   * its final fraction.
-   *
-   * A failure's beat is followed by a pill, and the whole 3.4-second gesture
-   * holds this one slot for its full duration. That is not a second scheduling
-   * concept: reason 3 already says "another beat is running", and a gesture is
-   * simply a longer beat.
-   */
-  private startSignalPulse(key: LauncherSignalKey): void {
-    const deferred =
-      // 1. The panel is open, so there is no visible launcher. Pop-out is the
-      //    same case: the host page renders only a portal anchor.
-      this.isOpen ||
-      // 2. Nobody is looking.
-      (typeof document !== "undefined" &&
-        document.visibilityState !== "visible") ||
-      // 3. Another beat — or the pill that follows it — is already running.
-      (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
-      // 4. Another signal currently owns the dot.
-      this.getActiveLauncherSignal() !== key;
-
-    if (deferred) {
-      // One slot, and the more urgent beat keeps it. A lower-priority beat must
-      // not evict a nudge about something worse — and it would fail the
-      // re-check on the way out anyway, because it is not the active signal.
-      // The evicted beat is not lost for good: its once-per-subject token is
-      // still unspent, so it is offered again the next time it arms.
-      const pending = this.pendingPulseSignal;
-      if (
-        pending === null ||
-        LAUNCHER_SIGNALS[key].priority >= LAUNCHER_SIGNALS[pending].priority
-      ) {
-        this.pendingPulseSignal = key;
-      }
-      this.requestUpdate();
-      return;
-    }
-
-    this.stopSignalPulse();
-    this.pendingPulseSignal = null;
-    this.pulsingSignal = key;
-    // The once-per-subject token is written HERE, where the beat actually
-    // runs — never when a signal arms. Spending it on arming would burn a
-    // deferred beat unfired.
-    if (isWiringErrorKey(key)) {
-      this.errorBeatSpent = true;
-    } else if (this.announcement && key === NEWS_SIGNAL_ID) {
-      saveAnnouncementPulsedTimestamp(this.announcement.timestamp);
-    }
-    this.beginGestureTail(key);
-    this.requestUpdate();
-    if (typeof window === "undefined") return;
-    this.pulseTimeoutId = setTimeout(() => {
-      this.pulseTimeoutId = null;
-      this.pulsingSignal = null;
-      this.requestUpdate();
-      // The beat says *here*; now the pill says *this*.
-      if (this.gestureSignal === key && this.pillPhase === "closed") {
-        this.openPill();
-        return;
-      }
-      // Nothing follows the beat: either this signal opens no pill, or there
-      // was no room for one, so the gesture ends with it.
-      if (this.gestureSignal === key) {
-        this.endGesture();
-        return;
-      }
-      // Reason 3 has just cleared.
-      this.flushPendingSignalPulse();
-    }, LAUNCHER_SIGNALS[key].cadence);
-  }
-
-  private stopSignalPulse(): void {
-    if (this.pulseTimeoutId !== null) {
-      clearTimeout(this.pulseTimeoutId);
-      this.pulseTimeoutId = null;
-    }
-    this.pulsingSignal = null;
-  }
-
-  /**
-   * Runs a deferred beat if it can land now, and drops it if its reason to
-   * exist has gone: a nudge about a problem that no longer exists is worse
-   * than no nudge at all.
-   */
-  private flushPendingSignalPulse(): void {
-    const key = this.pendingPulseSignal;
-    if (key === null) return;
-    if (!this.isSignalArmed(key)) {
-      this.pendingPulseSignal = null;
-      this.requestUpdate();
-      return;
-    }
-    this.startSignalPulse(key);
-  }
-
-  /**
-   * Drops a signal's gesture, pending or running, when the signal goes quiet.
-   *
-   * The pill closes early: it states a condition, and the condition has
-   * stopped being true. The beat is left to finish, because a beat asserts
-   * nothing — it says *here*, and "here" is still true.
-   */
-  private retireSignal(key: LauncherSignalKey): void {
-    if (this.pendingPulseSignal === key) this.pendingPulseSignal = null;
-    if (this.gestureSignal === key) this.closePillEarly();
-    // A suppressed signal may now own the dot.
-    this.flushPendingSignalPulse();
-  }
-
-  // ── The pill ────────────────────────────────────────────────────────────
-
-  /**
-   * The signal holding the single gesture slot: a beat in flight, or the pill
-   * and spoken sentence that follow it. One slot, not two — see reason 3 in
-   * `startSignalPulse`.
-   */
-  private get gestureSlotSignal(): LauncherSignalKey | null {
-    return this.pulsingSignal ?? this.gestureSignal;
-  }
-
-  /**
-   * Opens the gesture's tail alongside the beat, for a signal that carries a
-   * pill. The pill is rendered immediately — clipped to nothing, so it shows
-   * nothing — because its full width has to be on the page before the room
-   * either side of the launcher can be measured.
-   *
-   * A signal with no pill label gets no tail at all, so the announcement's
-   * gesture is exactly the beat it has always been.
-   */
-  private beginGestureTail(key: LauncherSignalKey): void {
-    this.cancelPillTimeout();
-    if (LAUNCHER_SIGNALS[key].pillLabel === undefined) {
-      this.gestureSignal = null;
-      this.pillPhase = null;
-      this.pillDirection = null;
-      return;
-    }
-    this.gestureSignal = key;
-    this.pillPhase = "closed";
-    this.pillDirection = null;
-    this.closeLauncherHud();
-  }
-
-  /**
-   * Chooses the side, or suppresses the pill, from the room actually available
-   * at gesture start. Measured once, from the DOM, because the launcher is
-   * draggable and its position persists: a reader who parked it near the left
-   * edge would otherwise get a permanently truncated pill.
-   *
-   * Where neither side has room there is no pill at all rather than a cut-off
-   * one — the dot and the beat still fire, so the signal is intact and only
-   * the label is lost. Constraining where the reader may drag the control to
-   * protect this animation was considered and rejected: the page is theirs.
-   */
-  private resolvePillDirection(): void {
-    if (this.pillDirection !== null || this.pillPhase === null) return;
-    const wrapper = this.activeRoot.querySelector<HTMLElement>(
-      ".console-button-wrapper",
-    );
-    const button = wrapper?.querySelector<HTMLElement>(".console-button");
-    const pill = wrapper?.querySelector<HTMLElement>(".cpk-launcher-pill");
-    if (!button || !pill || typeof window === "undefined") return;
-
-    const mark = button.getBoundingClientRect();
-    // A clip changes what is painted, never the layout box, so this is the
-    // pill's full width whichever phase it is in.
-    const overhang = Math.max(
-      0,
-      pill.getBoundingClientRect().width - mark.width,
-    );
-    const viewportWidth = window.innerWidth;
-
-    if (overhang === 0) {
-      // Nothing extends past the mark, so there is nothing to fit.
-      this.setPillOutcome("left");
-      return;
-    }
-    if (mark.left - overhang >= EDGE_MARGIN) {
-      // Leftwards is the natural direction: away from the launcher's own edge.
-      this.setPillOutcome("left");
-      return;
-    }
-    if (mark.right + overhang <= viewportWidth - EDGE_MARGIN) {
-      this.setPillOutcome("right");
-      return;
-    }
-    this.setPillOutcome(null);
-  }
-
-  /** Records the measurement's verdict, and drops the pill when it is null. */
-  private setPillOutcome(direction: LauncherPillDirection | null): void {
-    if (direction === null) {
-      this.pillPhase = null;
-      this.pillDirection = null;
-      this.pillOutcome = "suppressed";
-      this.requestUpdate();
-      return;
-    }
-    this.pillDirection = direction;
-    this.pillOutcome = "shown";
-    this.requestUpdate();
-  }
-
-  /** Runs the pill's three phases in series once the beat has finished. */
-  private openPill(): void {
-    // Normally already measured during the beat; measured here too so the
-    // gesture cannot depend on a render having happened in between.
-    this.resolvePillDirection();
-    if (this.pillPhase === null) {
-      // The measurement found no room after all.
-      this.endGesture();
-      return;
-    }
-    this.advancePill("opening", ERROR_GESTURE_MS.open, () => {
-      this.advancePill("holding", ERROR_GESTURE_MS.hold, () => {
-        this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
-          this.endGesture();
-        });
-      });
-    });
-  }
-
-  private advancePill(
-    phase: LauncherPillPhase,
-    duration: number,
-    next: () => void,
-  ): void {
-    this.cancelPillTimeout();
-    this.pillPhase = phase;
-    this.requestUpdate();
-    if (typeof window === "undefined") return;
-    this.pillTimeoutId = setTimeout(() => {
-      this.pillTimeoutId = null;
-      next();
-    }, duration);
-  }
-
-  /**
-   * Closes the pill before its hold is out, because the failure it names has
-   * been fixed. A pill that has not opened yet is simply dropped; the beat is
-   * never cut short.
-   */
-  private closePillEarly(): void {
-    // No pill in this gesture — there was no room for one — so the tail is
-    // only the spoken sentence, and it ends here.
-    if (this.pillPhase === null) {
-      this.endGesture();
-      return;
-    }
-    // Already on its way out.
-    if (this.pillPhase === "closing") return;
-    // Still inside the beat, so nothing has been asserted on screen yet: the
-    // pill is dropped rather than closed, and the beat runs on to its end.
-    if (this.pillPhase === "closed") {
-      this.pillPhase = null;
-      this.requestUpdate();
-      return;
-    }
-    this.advancePill("closing", ERROR_GESTURE_MS.close, () => {
-      this.endGesture();
-    });
-  }
-
-  /** Releases the slot and leaves the plain mark with its dot behind. */
-  private endGesture(): void {
-    this.cancelGestureTail();
-    this.requestUpdate();
-    this.flushPendingSignalPulse();
-  }
-
-  /**
-   * Drops the gesture's tail outright, with no closing animation, for the
-   * cases where the launcher itself has gone: the panel opened over it, or the
-   * element was removed from the page.
-   */
-  private cancelGestureTail(): void {
-    this.cancelPillTimeout();
-    this.gestureSignal = null;
-    this.pillPhase = null;
-    this.pillDirection = null;
-  }
-
-  private cancelPillTimeout(): void {
-    if (this.pillTimeoutId !== null) {
-      clearTimeout(this.pillTimeoutId);
-      this.pillTimeoutId = null;
-    }
-  }
-
-  // ── Error signal ────────────────────────────────────────────────────────
-
-  /**
-   * Whether each error source is currently broken.
-   *
-   * Only two *wiring* conditions qualify. App errors (runs, tools, memory)
-   * are unread events on a different latch — they name themselves on the pill
-   * and clear when their landing view is read. Notably absent from *this*
-   * latch:
-   *
-   * - **A failed agent run.** A run is an event. It arms `run`, not this
-   *   state. The resting wiring dot must not stay red for the rest of a debug
-   *   hour.
-   * - **The core error channel as a wiring source.** Handshake failure already
-   *   sets the connection state. Other codes arm `run` or `tool`.
-   * - **Memory failures before Learning is live.** The memory store is lazy
-   *   because creating it opens a realtime connection. Once it exists, a load
-   *   failure arms `memory`.
-   * - **Product states.** An unconfigured Intelligence and an unentitled
-   *   Memory plan are not defects. The signal fires only where wiring is
-   *   present and the call still fails — which for threads is guaranteed by
-   *   `_threadsErrorByAgent` only ever being written while the thread
-   *   endpoints are available.
-   *
-   * Known limitation: the runtime handshake runs once, on connect. A server
-   * that dies *after* the page loaded leaves the connection state at connected
-   * and raises nothing; the next page load re-runs the handshake and the
-   * signal appears then. The signal reports the wiring state as last
-   * established. Closing that gap means a re-probe in the core, which is a
-   * runtime concern.
-   */
-  private isErrorSourceBroken(source: InspectorWiringErrorSource): boolean {
+  private isErrorSourceBroken(
+    source: InspectorWiringErrorSource,
+    currentlyArmed: boolean,
+  ): boolean {
     if (source === "connection") {
       const state = this.getCoreStatusSummary().state;
-      // The same derivation System Health reads, so the launcher dot is red
-      // exactly when System Health says the runtime needs attention.
       if (runtimeConnectionNeedsAttention(state)) return true;
-      // A reconnect is not a heal. Stay red through `connecting` so the
-      // cards do not flash off between retries.
-      return this.errorSignalArmed.connection && state === "connecting";
+      return currentlyArmed && state === "connecting";
     }
     return this.threads.threadsErrorByAgent.size > 0;
   }
-
-  /**
-   * Mirrors both error latches onto the live state. Called from `willUpdate`,
-   * because every mutation of the underlying state already requests an update,
-   * so the resting dot follows the state within the same render.
-   */
-  private evaluateErrorSignals(): void {
-    const wasArmed = this.hasArmedErrorSignal();
-
-    for (const source of WIRING_ERROR_KEYS) {
-      const broken = this.isErrorSourceBroken(source);
-      if (broken) {
-        if (this.errorSignalArmed[source]) continue;
-        // Arming is immediate, with no window a short failure has to outlive
-        // first. That is a decision, not an omission, so here is what it costs
-        // and what would change it.
-        //
-        // `threads` can genuinely flap: the list is refetched on events, at up
-        // to one request per debounce interval, so a failure followed
-        // by a success plays a whole gesture for a blip that is already over.
-        // The damage is bounded by machinery that is already here — one
-        // pending-beat slot, and a running gesture defers the next — so the
-        // ceiling is one gesture per gesture length, never a strobe. And the
-        // dot is not lying while it is up: the fetch really did fail.
-        //
-        // `connection` cannot flap on its own today, because nothing retries
-        // the handshake: it goes connecting → connected | error and then waits
-        // for something to call connect() again. If a fix for the mid-session
-        // gap above adds polling, re-read this: the `connecting` branch in
-        // `isErrorSourceBroken` already holds the dot steady across retries,
-        // so only genuinely intermittent connectivity would flap, which is
-        // exactly what the dot is for.
-        //
-        // So: revisit if someone reports the launcher going red without a
-        // lasting cause, and start with `threads`.
-        this.errorSignalArmed[source] = true;
-        continue;
-      }
-      if (!this.errorSignalArmed[source]) continue;
-      this.errorSignalArmed[source] = false;
-      this.errorSignalViewedSources.delete(source);
-      this.retireSignal(source);
-    }
-
-    this.onErrorSignalsChanged(wasArmed);
-  }
-
-  /**
-   * Applies the rising-edge rule after a latch changed.
-   *
-   * The beat fires on the transition from "no failure" to "at least one
-   * failure", evaluated globally across the sources and never again while
-   * anything is red — one root cause, one nudge.
-   */
-  private onErrorSignalsChanged(wasArmed: boolean): void {
-    const isArmed = this.hasArmedErrorSignal();
-    if (!isArmed) {
-      // Nothing is red, so the next outage is a new outage — and gets its own
-      // beat, its own pill and its own answer about whether there was room.
-      this.errorBeatSpent = false;
-      this.pillOutcome = null;
-      return;
-    }
-    if (wasArmed || this.errorBeatSpent) return;
-    const active = this.getActiveLauncherSignal();
-    if (active !== null && isErrorSignalKey(active)) {
-      this.startSignalPulse(active);
-    }
-  }
-
-  /**
-   * Records `oss.inspector.error_signal_viewed` once per source per outage,
-   * when the dot is actually on screen.
-   *
-   * Unlike the announcement's launcher event this fires immediately rather
-   * than waiting for the runtime handshake to report `telemetryDisabled`.
-   * The held-queue would never drain for the connection source — a connection
-   * failure means the handshake did not complete — so queuing would guarantee
-   * zero data for the case this event exists to measure. `trackOpened` already
-   * sends on the same terms. Both opt-out layers still gate it: the local
-   * opt-out inside `track`, and the runtime's flag once it is known.
-   */
-  private maybeTrackErrorSignalViewed(): void {
-    if (
-      this.isOpen ||
-      typeof document === "undefined" ||
-      document.visibilityState !== "visible"
-    ) {
-      return;
-    }
-    const active = this.getActiveLauncherSignal();
-    if (active === null || !isErrorSignalKey(active)) return;
-    if (this.errorSignalViewedSources.has(active)) return;
-    // Held until this outage's pill has either opened or been suppressed,
-    // because `label` IS that answer and the launcher can be on screen a frame
-    // before the room around it has been measured. A signal that declares no
-    // pill has no answer to wait for.
-    if (
-      this.pillOutcome === null &&
-      LAUNCHER_SIGNALS[active].pillLabel !== undefined
-    ) {
-      return;
-    }
-    if (this.core?.telemetryDisabled) return;
-    this.errorSignalViewedSources.add(active);
-    trackErrorSignalViewed({
-      source: active,
-      presentation: this.isReducedMotionPreferred()
-        ? "reduced_motion"
-        : "animated",
-      // Whether this outage's pill actually opened. The design deliberately
-      // leaves the no-room case silent, and a degradation whose frequency is
-      // unknown is a degradation that gets argued about later. Two fixed
-      // values, never free text.
-      label: this.pillOutcome ?? "suppressed",
-    });
-  }
-
-  private maybeTrackNewsSignalViewed(): void {
-    if (
-      !this.newsSignalArmed ||
-      this.pulsingSignal !== NEWS_SIGNAL_ID ||
-      this.isOpen ||
-      typeof document === "undefined" ||
-      document.visibilityState !== "visible"
-    ) {
-      return;
-    }
-    if (!this.announcement) return;
-    this.announcementTelemetry.recordLauncherPulse(
-      this.announcement,
-      typeof window !== "undefined" &&
-        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        ? "reduced_motion"
-        : "animated",
-    );
-    this.flushAnnouncementTelemetry();
-  }
-
   private isAnnouncementVisible(): boolean {
     return (
       this.isOpen &&
@@ -10102,7 +5598,7 @@ export class WebInspectorElement extends LitElement {
     if (!this.isAnnouncementVisible() || !this.announcement) return;
     this.announcementTelemetry.recordView(this.announcement);
     this.flushAnnouncementTelemetry();
-    this.clearNewsSignal();
+    this.launcher.clearNewsSignal();
   }
 
   private flushAnnouncementTelemetry(): void {
@@ -10120,16 +5616,20 @@ export class WebInspectorElement extends LitElement {
     ) {
       return;
     }
-    this.announcementPromise = this.fetchAnnouncement();
+    const generation = ++this.announcementLoadGeneration;
+    this.announcementPromise = this.fetchAnnouncement(generation);
   }
 
-  private async fetchAnnouncement(): Promise<void> {
+  private async fetchAnnouncement(generation: number): Promise<void> {
     const projection = await loadAnnouncementFeed();
+    if (generation !== this.announcementLoadGeneration || !this.isConnected) {
+      return;
+    }
     this.announcementLoaded = true;
     if (projection.status === "ready") {
       this.announcement = projection;
       if (projection.shouldArm) {
-        this.armNewsSignal({ pulse: projection.shouldPulse });
+        this.launcher.armNewsSignal({ pulse: projection.shouldPulse });
       }
     }
     this.requestUpdate();

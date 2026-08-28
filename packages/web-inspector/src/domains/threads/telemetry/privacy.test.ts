@@ -21,17 +21,17 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
-} from "../../../lib/telemetry.js";
+} from "../../../shared/telemetry/privacy.js";
 import type {
   InspectorMetadataActionClickedTelemetryProps,
   InspectorMetadataModuleViewedTelemetryProps,
   InspectorThreadTelemetryProps,
-  TelemetryEvent,
-} from "../../../lib/telemetry.js";
+} from "../../../shared/telemetry/privacy.js";
+import type { TelemetryEvent } from "../../../shared/telemetry/transport.js";
 import {
   _resetTelemetryPersistenceForTesting,
   setTelemetryOptOut,
-} from "../../../lib/persistence.js";
+} from "../../../shared/persistence/telemetry.js";
 
 const TEST_UUID = "00000000-0000-4000-8000-000000000001";
 const PACKAGE_PROPERTY_KEYS = Object.freeze([

@@ -32,6 +32,22 @@ export function createHeadersLoadKey(headers: Record<string, string>): string {
   );
 }
 
+export function createThreadLoadKey(input: {
+  threadId: string | null;
+  provider: ThreadDebuggerProvider | null;
+  runtimeUrl: string;
+  headers: Record<string, string>;
+  threadInspectionAvailable: boolean;
+}): string {
+  return [
+    input.threadId ?? "thread:none",
+    createProviderLoadKey(input.provider),
+    `runtime:${input.runtimeUrl}`,
+    `headers:${createHeadersLoadKey(input.headers)}`,
+    `inspect:${input.threadInspectionAvailable ? "1" : "0"}`,
+  ].join("||");
+}
+
 export function canLoadThreadResource(
   provider: ThreadDebuggerProvider | null,
   resource: ThreadDebuggerResource,
@@ -47,6 +63,19 @@ export function canLoadThreadResource(
   return (
     typeof providerMethod === "function" ||
     (!!runtimeUrl && threadInspectionAvailable)
+  );
+}
+
+export function isCurrentThreadLoad(
+  controller: AbortController,
+  activeController: AbortController | null,
+  loadKey: string,
+  currentLoadKey: string,
+): boolean {
+  return (
+    !controller.signal.aborted &&
+    controller === activeController &&
+    loadKey === currentLoadKey
   );
 }
 

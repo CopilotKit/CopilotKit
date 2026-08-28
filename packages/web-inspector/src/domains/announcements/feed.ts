@@ -17,6 +17,7 @@ export type AnnouncementReady = Readonly<{
   preview: Readonly<{
     title: string;
     text: string;
+    curatedText?: string;
   }>;
   ctaLabel?: string;
   shouldArm: boolean;
@@ -60,7 +61,7 @@ export function projectAnnouncementFeed(
   const markdown = stringProperty(value, "announcement");
   if (!timestamp || !markdown) return { status: "invalid" };
 
-  const previewText = stringProperty(value, "previewText");
+  const previewText = stringProperty(value, "previewText")?.trim();
   const ctaLabel = stringProperty(value, "cta_label");
   const documentHtml = renderAnnouncementDocument(markdown);
   const heading = markdown.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim();
@@ -71,7 +72,8 @@ export function projectAnnouncementFeed(
     documentHtml,
     preview: {
       title: heading || "The latest from CopilotKit",
-      text: previewText?.trim() || announcementPreview(markdown, 160),
+      text: previewText || announcementPreview(markdown, 160),
+      ...(previewText ? { curatedText: previewText } : {}),
     },
     ...(ctaLabel === undefined ? {} : { ctaLabel }),
     shouldArm:

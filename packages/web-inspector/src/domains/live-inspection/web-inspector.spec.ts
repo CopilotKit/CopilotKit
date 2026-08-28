@@ -1,10 +1,10 @@
 import { CopilotKitCore } from "@copilotkit/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { requireElement } from "./test-helpers.js";
+import { requireElement } from "../../testing/lit.js";
 import {
   mountLiveInspector,
   openInspectorMenu,
-} from "./web-inspector.test-helpers.js";
+} from "../../testing/live-inspection.js";
 
 function createCapabilitiesCore(includeCatalog = true): CopilotKitCore {
   const core = new CopilotKitCore({

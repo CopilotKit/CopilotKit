@@ -2,7 +2,7 @@ import {
   trackHomeCtaClicked,
   trackHomeFeaturePromptClicked,
   trackHomeViewed,
-} from "../../lib/telemetry.js";
+} from "../../shared/telemetry/privacy.js";
 import type { HomeHeroAction } from "./model.js";
 import type { HomeServiceId } from "./model.js";
 

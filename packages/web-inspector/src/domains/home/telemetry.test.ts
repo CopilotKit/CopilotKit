@@ -6,7 +6,7 @@ const telemetry = vi.hoisted(() => ({
   viewed: vi.fn(),
 }));
 
-vi.mock("../../lib/telemetry.js", () => ({
+vi.mock("../../shared/telemetry/privacy.js", () => ({
   trackHomeCtaClicked: telemetry.action,
   trackHomeFeaturePromptClicked: telemetry.featurePrompt,
   trackHomeViewed: telemetry.viewed,

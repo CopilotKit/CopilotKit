@@ -1,8 +1,8 @@
 import {
   getTelemetryDistinctIdForUrl,
   trackMemoriesTabClicked,
-} from "../../lib/telemetry.js";
-import type { InspectorMemoryTelemetryProps } from "../../lib/telemetry.js";
+} from "../../shared/telemetry/privacy.js";
+import type { InspectorMemoryTelemetryProps } from "../../shared/telemetry/privacy.js";
 import type { LearningState } from "./state.js";
 
 export function getLearningTelemetryProps(

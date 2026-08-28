@@ -21,7 +21,7 @@ import { WebInspectorElement } from "../../../index.js";
 import {
   TELEMETRY_EVENTS,
   TELEMETRY_INGEST_URL,
-} from "../../../lib/telemetry.js";
+} from "../../../shared/telemetry/transport.js";
 
 const RUNTIME_URL = "https://runtime.example.test/api/copilotkit";
 const TELEMETRY_DISCLOSURE_KEY = "cpk:inspector:telemetry:disclosure_shown";

@@ -10,7 +10,7 @@ import { findInspectorCopyControl } from "../testing/inspector-elements.js";
 import {
   INSPECTOR_POP_OUT_NAME,
   POP_OUT_BLOCKED_MESSAGE,
-} from "../lib/pop-out.js";
+} from "../shell/window/pop-out.js";
 
 type PopOutWindowStub = {
   document: Document;
@@ -200,7 +200,7 @@ async function openWindowLayoutMenu(
   inspector: WebInspectorElement,
 ): Promise<ShadowRoot> {
   let root = requireShadow(inspector);
-  if (root.querySelector('[role="menu"][aria-label="Window layout"]')) {
+  if (root.querySelector("#cpk-inspector-layout-options")) {
     return root;
   }
   const trigger = requireElement(
@@ -212,7 +212,10 @@ async function openWindowLayoutMenu(
   trigger.click();
   await inspector.updateComplete;
   root = requireShadow(inspector);
-  expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(trigger.getAttribute("aria-controls")).toBe(
+    "cpk-inspector-layout-options",
+  );
   return root;
 }
 
@@ -223,7 +226,7 @@ async function requireWindowLayoutAction(
   const root = await openWindowLayoutMenu(inspector);
   return requireElement(
     root.querySelector<HTMLButtonElement>(
-      `[role="menuitem"][aria-label="${label}"]`,
+      `#cpk-inspector-layout-options button[aria-label="${label}"]`,
     ),
     `Window layout action was not rendered: ${label}`,
   );
