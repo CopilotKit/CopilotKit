@@ -574,7 +574,8 @@ function clipProps(body: string): Partial<Record<ClipSide, string>> {
     const match = new RegExp(`--cpk-island-clip-${side}:\\s*([^;]+);`).exec(
       body,
     );
-    if (match) props[side] = match[1].replace(/\s+/g, " ").trim();
+    const value = match?.[1];
+    if (value !== undefined) props[side] = value.replace(/\s+/g, " ").trim();
   }
   return props;
 }
