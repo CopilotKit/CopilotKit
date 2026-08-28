@@ -65,17 +65,22 @@ function BoundInspectorButton({
   inspectorButton,
   messageId,
   openInspector,
+  ...props
 }: {
   inspectorButton: CopilotChatAssistantMessageProps["inspectorButton"];
   messageId: string;
   openInspector: (request: CopilotKitInspectorOpenRequest) => void;
-}): React.ReactElement {
+} & Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "onClick"
+>): React.ReactElement {
   const chatConfiguration = useCopilotChatConfiguration();
 
   return renderSlot(
     inspectorButton,
     CopilotChatAssistantMessage.InspectorButton,
     {
+      ...props,
       onClick: () =>
         openInspector({
           messageId,
