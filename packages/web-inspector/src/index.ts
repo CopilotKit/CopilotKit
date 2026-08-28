@@ -2273,7 +2273,9 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "timeline") return this.renderTimeline();
+    if (id === "timeline") {
+      return this.withMessagesToolbar(this.renderTimeline());
+    }
     if (id === "state") return this.renderState();
     return this.renderEvents();
   }
@@ -2626,20 +2628,33 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__try-from-here {
       display: inline-flex;
       align-items: center;
-      margin-left: auto;
-      padding: 4px 8px;
-      border: 1px solid #d8d9e3;
-      border-radius: 6px;
+      gap: 4px;
+      margin-inline-start: auto;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
       background: #ffffff;
-      color: #3f3f46;
+      color: #36363a;
+      font-family: "Spline Sans Mono", monospace;
       font-size: 11px;
       font-weight: 600;
+      line-height: 1.2;
       cursor: pointer;
     }
 
+    .cpk-td__try-from-here-icon {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    :host([dir="rtl"]) .cpk-td__try-from-here-icon {
+      scale: -1 1;
+    }
+
     .cpk-td__try-from-here:hover:not(:disabled) {
-      border-color: #c4c5d4;
-      background: #f7f7fb;
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
     }
 
     .cpk-td__try-from-here:focus-visible {
@@ -2653,6 +2668,7 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__try-from-here-error {
+      flex-basis: 100%;
       color: #c0333a;
       font-size: 11px;
       line-height: 1.4;
@@ -3042,6 +3058,8 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__timeline-toolbar {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
     }
 
@@ -4752,7 +4770,6 @@ export class CpkThreadInspector extends PortableLitElement {
             `,
           )}
         </div>
-        ${this.renderTryFromHereControl()}
       </div>
     `;
   }
@@ -4802,6 +4819,21 @@ export class CpkThreadInspector extends PortableLitElement {
         @click=${this.onTryFromHere}
       >
         ${this.tryFromHereBusy ? "Loading…" : "Try from here"}
+        <svg
+          class="cpk-td__try-from-here-icon"
+          aria-hidden="true"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M7 7h10v10" />
+          <path d="M7 17 17 7" />
+        </svg>
       </button>
       ${
         this.tryFromHereError
@@ -4828,6 +4860,15 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   private renderTimelineBulkControls() {
+    const bulk = this.renderTimelineBulkButtons();
+    const tryFromHere = this.renderTryFromHereControl();
+    if (bulk === nothing && tryFromHere === nothing) return nothing;
+    return html`<div class="cpk-td__timeline-toolbar">
+      ${bulk}${tryFromHere}
+    </div>`;
+  }
+
+  private renderTimelineBulkButtons() {
     if (this._eventsNotAvailable) return nothing;
 
     const detailIds = this.timelineItemsForEvents(this.activeEvents)
@@ -4842,7 +4883,7 @@ export class CpkThreadInspector extends PortableLitElement {
       (id) => !this._expandedTimelineDetails.has(id),
     );
 
-    return html`<div class="cpk-td__timeline-toolbar">
+    return html`
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
@@ -4859,7 +4900,7 @@ export class CpkThreadInspector extends PortableLitElement {
       >
         Collapse all
       </button>
-    </div>`;
+    `;
   }
 
   private renderRawEventBulkControls() {
@@ -4903,6 +4944,10 @@ export class CpkThreadInspector extends PortableLitElement {
     });
   }
 
+  private withMessagesToolbar(content: unknown) {
+    return html`${this.renderTimelineBulkControls()}${content}`;
+  }
+
   private renderTimeline() {
     if (this._loadingEvents) {
       return html`
@@ -4910,13 +4955,19 @@ export class CpkThreadInspector extends PortableLitElement {
       `;
     }
     if (this._eventsError) {
-      return html`<div class="cpk-td__status cpk-td__status--error">
+      return html`<div
+        class="cpk-td__status cpk-td__status--error"
+      >
         ${this._eventsError}
       </div>`;
     }
     if (this._eventsNotAvailable) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>Timeline event history not available</span>
@@ -4939,8 +4990,12 @@ export class CpkThreadInspector extends PortableLitElement {
 
     const timelineItems = this.timelineItemsForEvents(events);
     if (timelineItems.length === 0) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
@@ -4960,10 +5015,7 @@ export class CpkThreadInspector extends PortableLitElement {
         this.agentMessagesInput,
         this._expandedTimelineDetails,
       ],
-      () =>
-        html`${this.renderTimelineBulkControls()}${timelineItems.map((item) =>
-          this.renderTimelineItem(item),
-        )}`,
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
     );
   }
 

@@ -607,6 +607,8 @@ test("Try from here copies a stored thread into Playground without changing the 
       tryFromHereButton(root),
       "Try from here was not rendered",
     );
+    expect(button.closest(".cpk-td__timeline-toolbar")).not.toBeNull();
+    expect(button.querySelector("svg")).not.toBeNull();
     button.click();
 
     await waitFor(
