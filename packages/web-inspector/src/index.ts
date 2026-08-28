@@ -275,6 +275,20 @@ const LAUNCHER_SIGNAL_COLORS: Readonly<Record<LauncherSignalTone, string>> = {
 };
 
 /**
+ * The two row glyphs' colours, named rather than written into the stylesheet,
+ * so the pair reads as one decision made once.
+ *
+ * The off tone is the launcher's own error red rather than a second red: a
+ * disabled feature and a failed one are the same news to the eye, and two
+ * near-identical reds a few pixels apart would be a difference that means
+ * nothing. The on tone has no such twin to reuse — nothing else on the
+ * launcher is ever green — so it is declared here beside its opposite instead
+ * of sitting alone in the sheet, which is where it used to drift.
+ */
+const HUD_ENABLED_COLOR = "#6EE7A8";
+const HUD_DISABLED_COLOR = ERROR_SIGNAL_COLOR;
+
+/**
  * The failure gesture, four phases in series:
  *
  * ```
@@ -347,7 +361,8 @@ const EVENT_ERROR_GUIDANCE: Readonly<
 };
 
 /**
- * The pill's second line, shared by every subject that carries a pill.
+ * The island's second line, under whichever title the capsule is carrying -
+ * a signal's failure class, or the Intelligence state on a plain dwell.
  *
  * **This is the one string in the feature that exists nowhere else in the
  * product.** Every other word the launcher shows is word-identical to the
@@ -359,16 +374,39 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  * alone. A screen-reader user cannot act on an instruction delivered through
  * an announcement, and it would double the spoken length.
  */
-const PILL_SUBLINE_LABEL = "Open Inspector for details";
+const PILL_SUBLINE_LABEL = "Click to open Inspector";
 
-type LauncherHudRowId = "threads" | "intelligence" | "learning";
+/**
+ * The island's title, which is the state every row beneath it depends on.
+ *
+ * Intelligence is deliberately NOT one of the rows. The rows are features;
+ * Intelligence is the parent connection those features are carried over, and a
+ * parent listed among its own children reads as a peer of them. Putting it in
+ * the capsule says the same thing the layout does: this is what the island is
+ * about, and the list below is what it currently gives you.
+ *
+ * Product-authored constants, exactly as the pill's labels are, and for the
+ * same two reasons: a fixed width budget, and a surface that renders over a
+ * customer's production page in front of their end users.
+ */
+const ISLAND_INTELLIGENCE_ON_TITLE = "Intelligence connected";
+const ISLAND_INTELLIGENCE_OFF_TITLE = "Intelligence not connected";
 
-const HUD_THREADS_OFF_LABEL = "Turn on Threads";
-const HUD_THREADS_ON_LABEL = "Threads on";
-const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
-const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
-const HUD_LEARNING_ON_LABEL = "Learning on";
+type LauncherHudRowId = "threads" | "learning";
+
+/**
+ * The two feature rows, each in both of its states.
+ *
+ * `enabled`/`disabled` rather than `on`/`Turn on`: the row is a statement of
+ * what the runtime currently offers, not an instruction. The old off-state
+ * copy read as a button that turns the feature on, which no row has ever
+ * done — every row opens the view that explains the feature, and for a
+ * feature that is off that view is the one carrying the Enable action.
+ */
+const HUD_THREADS_ON_LABEL = "Threads enabled";
+const HUD_THREADS_OFF_LABEL = "Threads disabled";
+const HUD_LEARNING_ON_LABEL = "Learning enabled";
+const HUD_LEARNING_OFF_LABEL = "Learning disabled";
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -573,8 +611,8 @@ const EDGE_MARGIN = 16;
 /**
  * One page-load preview of the launcher's feature HUD.
  *
- * The card arrives after the host page has had a beat to settle. Its four rows
- * then come online in order, stay readable, and leave together. Nothing is
+ * The card arrives after the host page has had a beat to settle. Its rows then
+ * come online in order, stay readable, and leave together. Nothing is
  * persisted: a new Inspector element means a new preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
@@ -584,6 +622,26 @@ const LAUNCHER_HUD_INTRO_MS = {
   rowStagger: 170,
   rowDuration: 300,
   blockedRetry: 250,
+} as const;
+
+/**
+ * The dwell reveal: the mark opening out into the island, and closing back
+ * into it.
+ *
+ * Deliberately slower than the pill's 250ms. The pill's reveal is one beat
+ * inside a longer timed sequence and has to get out of the way; this is the
+ * whole event, and at a tooltip's pace a 272px surface arriving from a 62px
+ * circle reads as a card appearing rather than as the circle itself opening.
+ * The return is quicker than the departure, which is the usual asymmetry: the
+ * reader has already left, and the only thing left to say is that it is over.
+ *
+ * Both live here and nowhere else. The stylesheet reads them as custom
+ * properties injected from these numbers, exactly as the gesture's two
+ * animated phases are, because they are taste and will be tuned by eye.
+ */
+const LAUNCHER_ISLAND_MS = {
+  open: 320,
+  close: 220,
 } as const;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
@@ -6705,6 +6763,16 @@ export class WebInspectorElement extends LitElement {
    */
   private launcherHudSide: LauncherIslandSide | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * The island is playing its reveal in reverse, on its way back into the
+   * mark.
+   *
+   * The drawer's markup is dropped the moment the dwell ends, so without a
+   * state that outlives the pointer there is nothing left on the page to
+   * close: the island would arrive as a gesture and leave as a disappearance.
+   * This is what the pointer-out timer now waits for.
+   */
+  private launcherIslandClosing = false;
   private launcherHudIntro = false;
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
     null;
@@ -8935,9 +9003,12 @@ export class WebInspectorElement extends LitElement {
            a stacking context, which is harmless: its own pseudo-elements
            and children (mark, signal dot) keep their relative order. */
         z-index: 4;
+        /* Colour only. The transform and scale entries this list used to open
+           with were here for a hover scale that no longer exists — the mark
+           holds its size and the island is the thing that moves — and a
+           transition on a property nothing ever sets is a rule that reads as
+           an intention while doing nothing. */
         transition:
-          transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
           background-color 200ms ease,
           border-color 200ms ease,
           box-shadow 200ms ease,
@@ -9411,16 +9482,26 @@ export class WebInspectorElement extends LitElement {
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
-        /* Promotes the launcher to its own compositing layer, which the
-           backdrop-filter this replaces used to do as a side effect. Without
-           a layer the hover scale re-rasterises the mark every frame and it
-           visibly jitters; with one, the compositor scales it as a texture. */
+        /* Keeps the launcher on its own compositing layer, which the
+           backdrop-filter this replaces used to do as a side effect. It is
+           retained now that the hover scale it was first added for is gone:
+           the ripple rings and the wash are this element's own descendants
+           and animate every frame while a signal beats, and the mark is what
+           has to stay legible underneath them. */
         will-change: transform;
       }
+      /*
+       * Hover changes the launcher's COLOUR and nothing else. It used to also
+       * carry "transform: scale(1.05)", and that scale was the third thing
+       * happening on hover: the mark stepped up, the island arrived beside it,
+       * and the two motions disagreed about what was opening. The island's own
+       * reveal starts from the mark's exact footprint, so a mark that is no
+       * longer that size while it opens breaks the one thing the reveal is
+       * for. One motion, and it belongs to the island.
+       */
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
-        transform: scale(1.05);
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
@@ -9678,48 +9759,133 @@ export class WebInspectorElement extends LitElement {
        * straight edge begins. A literal 14px put it 16px inside the curve at the
        * production launcher size, which is itself a clamp on the viewport.
        */
+      /*
+       * The closed clip carries the island's own radius, which at this size
+       * is a circle exactly covering the mark. It is also the value the
+       * closing transition travels back to, so an unrounded corner here would
+       * square off the last frame of every close.
+       */
       .cpk-launcher-capsule[data-cpk-capsule-direction="left"] {
         right: 0;
         padding: 0 calc(var(--cpk-launcher-size) + 12px) 0
           calc(var(--cpk-launcher-size) / 2);
-        clip-path: inset(0 0 0 calc(100% - var(--cpk-launcher-size)));
+        clip-path: inset(
+          0 0 0 calc(100% - var(--cpk-launcher-size)) round
+            calc(var(--cpk-launcher-size) / 2)
+        );
       }
       .cpk-launcher-capsule[data-cpk-capsule-direction="right"] {
         left: 0;
         padding: 0 calc(var(--cpk-launcher-size) / 2) 0
           calc(var(--cpk-launcher-size) + 12px);
-        clip-path: inset(0 calc(100% - var(--cpk-launcher-size)) 0 0);
+        clip-path: inset(
+          0 calc(100% - var(--cpk-launcher-size)) 0 0 round
+            calc(var(--cpk-launcher-size) / 2)
+        );
       }
 
       /*
-       * "round" on both stops, so the revealing edge is the capsule's own
-       * rounded end travelling sideways rather than a straight vertical line
-       * wiping across it. An unrounded inset reads as a wipe; this reads as an
-       * opening. It adds no animated property: the clip is still the clip.
+       * ONE reveal for the whole island, in each of the two directions.
+       *
+       * The 0% stop is the mark's own footprint: a square of the launcher's
+       * size in the island's top corner on the launcher's side, rounded by
+       * half that size, which is a circle exactly covering the mark. So the
+       * island is never smaller or larger than the circle before it opens —
+       * it IS the circle, and what follows is that circle opening out.
+       *
+       * The bottom inset is what makes one pair of keyframes serve both
+       * halves. On the capsule, whose height is exactly the launcher size,
+       * "100% - size" resolves to 0 and the clip only travels sideways, which
+       * is the pill's original behaviour unchanged. On the drawer, which is
+       * taller, the same expression holds the reveal back to the top band
+       * until it opens downward as well. Capsule and drawer therefore arrive
+       * as one surface rather than as two things that happen to be animated
+       * at the same time.
+       *
+       * "round" is on BOTH stops, so the revealing edge is the island's own
+       * rounded corner travelling rather than a straight line wiping across
+       * it — and because a clip-path only interpolates between shapes of the
+       * same kind, a "round" on one stop alone would stop it animating at
+       * all. The radius is the island's own, not a 999px that happens to
+       * clamp to the right number on a 62px-tall capsule and to the wrong one
+       * on a 174px-tall drawer.
+       *
+       * It adds no animated property: the clip is still the clip.
        */
-      @keyframes cpk-launcher-capsule-left {
+      @keyframes cpk-launcher-island-left {
         0% {
           opacity: 0;
           clip-path: inset(
-            0 0 0 calc(100% - var(--cpk-launcher-size)) round 999px
+            0 0 calc(100% - var(--cpk-launcher-size))
+              calc(100% - var(--cpk-launcher-size)) round
+              calc(var(--cpk-launcher-size) / 2)
           );
         }
         100% {
           opacity: 1;
-          clip-path: inset(0 0 0 0 round 999px);
+          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
         }
       }
 
-      @keyframes cpk-launcher-capsule-right {
+      @keyframes cpk-launcher-island-right {
         0% {
           opacity: 0;
           clip-path: inset(
-            0 calc(100% - var(--cpk-launcher-size)) 0 0 round 999px
+            0 calc(100% - var(--cpk-launcher-size))
+              calc(100% - var(--cpk-launcher-size)) 0 round
+              calc(var(--cpk-launcher-size) / 2)
           );
         }
         100% {
           opacity: 1;
-          clip-path: inset(0 0 0 0 round 999px);
+          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
+        }
+      }
+
+      /*
+       * The way back, written out rather than expressed as the two above with
+       * "animation-direction: reverse".
+       *
+       * That was the first attempt and it is measurably wrong: a CSS
+       * animation only restarts when its NAME changes, so flipping the
+       * direction on an animation that has already finished leaves it
+       * finished, and the island disappeared in a single frame. Handing the
+       * clip back to a transition instead was the second attempt, and it does
+       * not start at all — verified in the browser, where the element's
+       * getAnimations() came back empty and the clip snapped to the closed
+       * value. A second name is what actually restarts, so a second name is
+       * what these are.
+       *
+       * They are the stops of their opposite number in the other order, and
+       * nothing else. Any edit to the shape above belongs here too.
+       */
+      @keyframes cpk-launcher-island-close-left {
+        0% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
+        }
+        100% {
+          opacity: 0;
+          clip-path: inset(
+            0 0 calc(100% - var(--cpk-launcher-size))
+              calc(100% - var(--cpk-launcher-size)) round
+              calc(var(--cpk-launcher-size) / 2)
+          );
+        }
+      }
+
+      @keyframes cpk-launcher-island-close-right {
+        0% {
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
+        }
+        100% {
+          opacity: 0;
+          clip-path: inset(
+            0 calc(100% - var(--cpk-launcher-size))
+              calc(100% - var(--cpk-launcher-size)) 0 round
+              calc(var(--cpk-launcher-size) / 2)
+          );
         }
       }
 
@@ -9758,11 +9924,11 @@ export class WebInspectorElement extends LitElement {
       }
       .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="left"],
       .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="left"] {
-        animation-name: cpk-launcher-capsule-left;
+        animation-name: cpk-launcher-island-left;
       }
       .cpk-launcher-capsule[data-cpk-capsule-phase="opening"][data-cpk-capsule-direction="right"],
       .cpk-launcher-capsule[data-cpk-capsule-phase="closing"][data-cpk-capsule-direction="right"] {
-        animation-name: cpk-launcher-capsule-right;
+        animation-name: cpk-launcher-island-right;
       }
 
       /* The hold is the end state of the reveal, held. */
@@ -9808,9 +9974,6 @@ export class WebInspectorElement extends LitElement {
         .console-button {
           transition: opacity 160ms ease;
         }
-        .console-button:hover {
-          transform: none;
-        }
       }
 
       .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-drawer {
@@ -9851,12 +10014,88 @@ export class WebInspectorElement extends LitElement {
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
+        /* The resting state is the mark's own footprint, so the first frame
+           of the drawer's life shows nothing that is not already the circle.
+           The launcher's side is the corner the clip closes toward: the
+           default here is the left-opening island, whose mark is at the top
+           right. */
+        clip-path: inset(
+          0 0 calc(100% - var(--cpk-launcher-size))
+            calc(100% - var(--cpk-launcher-size)) round
+            calc(var(--cpk-launcher-size) / 2)
+        );
         transition: opacity 160ms ease;
       }
 
       .cpk-launcher-drawer[data-cpk-drawer-side="right"] {
         right: auto;
         left: 0;
+        /* Mirrored: the mark is at the top left, so that is the corner the
+           closed clip keeps. */
+        clip-path: inset(
+          0 calc(100% - var(--cpk-launcher-size))
+            calc(100% - var(--cpk-launcher-size)) 0 round
+            calc(var(--cpk-launcher-size) / 2)
+        );
+      }
+
+      /*
+       * The dwell reveal, applied to the capsule and the drawer together.
+       *
+       * Both halves are laid out at full size from their first frame and are
+       * revealed by the clip alone, exactly as the pill is, and for the same
+       * reason: this component is mounted permanently on top of a customer's
+       * application, so a property that forces a layout every frame — a width
+       * or a height — is not something to put on someone else's page. The two
+       * halves share one animation and one pair of durations, so what the
+       * reader sees is the mark itself opening out into the island rather
+       * than a capsule and a list arriving separately and meeting.
+       *
+       * Closing is the same animation played in reverse, so the two
+       * directions of the one gesture cannot drift apart.
+       */
+      .cpk-launcher-capsule[data-cpk-island-phase="open"],
+      .cpk-launcher-drawer[data-cpk-island-phase="open"] {
+        animation-duration: var(--cpk-launcher-island-open);
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      .cpk-launcher-capsule[data-cpk-island-phase="open"][data-cpk-capsule-direction="left"],
+      .cpk-launcher-drawer[data-cpk-island-phase="open"][data-cpk-drawer-side="left"] {
+        animation-name: cpk-launcher-island-left;
+      }
+      .cpk-launcher-capsule[data-cpk-island-phase="open"][data-cpk-capsule-direction="right"],
+      .cpk-launcher-drawer[data-cpk-island-phase="open"][data-cpk-drawer-side="right"] {
+        animation-name: cpk-launcher-island-right;
+      }
+
+      .cpk-launcher-capsule[data-cpk-island-phase="closing"],
+      .cpk-launcher-drawer[data-cpk-island-phase="closing"] {
+        animation-duration: var(--cpk-launcher-island-close);
+        animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+        animation-iteration-count: 1;
+        animation-fill-mode: forwards;
+      }
+      .cpk-launcher-capsule[data-cpk-island-phase="closing"][data-cpk-capsule-direction="left"],
+      .cpk-launcher-drawer[data-cpk-island-phase="closing"][data-cpk-drawer-side="left"] {
+        animation-name: cpk-launcher-island-close-left;
+      }
+      .cpk-launcher-capsule[data-cpk-island-phase="closing"][data-cpk-capsule-direction="right"],
+      .cpk-launcher-drawer[data-cpk-island-phase="closing"][data-cpk-drawer-side="right"] {
+        animation-name: cpk-launcher-island-close-right;
+      }
+
+      /*
+       * The dwell capsule carries the same subline the pill does, and that
+       * subline is an invitation, so it takes the pointer while it is up —
+       * the same honesty rule the gesture's three visible phases follow. The
+       * button paints last and wins the pointer where the two overlap, so
+       * dragging the launcher is unaffected.
+       */
+      .cpk-launcher-capsule[data-cpk-island-phase="open"] {
+        pointer-events: auto;
+        cursor: pointer;
       }
 
       .cpk-launcher-drawer__list {
@@ -9900,16 +10139,48 @@ export class WebInspectorElement extends LitElement {
         outline-offset: 2px;
       }
 
-      .cpk-launcher-drawer__check {
+      /*
+       * The two row glyphs, one shape each way. Same box, same weight, same
+       * 12px square, so the row's text starts in the same place whichever
+       * state it is in and a column of rows has one text edge rather than
+       * two. Only the mark inside and its colour differ.
+       *
+       * Both colours come from named constants beside each other in this file
+       * rather than from two literals a few hundred lines apart, and the off
+       * one is the launcher's own error red rather than a second red of its
+       * own.
+       */
+      .cpk-launcher-drawer__check,
+      .cpk-launcher-drawer__cross {
         flex: none;
         width: 12px;
         height: 12px;
-        color: #6ee7a8;
+      }
+
+      .cpk-launcher-drawer__check {
+        color: ${unsafeCSS(HUD_ENABLED_COLOR)};
+      }
+
+      .cpk-launcher-drawer__cross {
+        color: ${unsafeCSS(HUD_DISABLED_COLOR)};
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-drawer {
           transition: none;
+        }
+        /*
+         * The island arrives at its final size instead of opening out to it.
+         * The instruction is to reduce motion, not to withhold information:
+         * the title and the rows are exactly what this reader came for, and
+         * the pill's own treatment a few rules above does the same thing.
+         */
+        .cpk-launcher-capsule[data-cpk-island-phase],
+        .cpk-launcher-drawer[data-cpk-island-phase] {
+          animation: none;
+          transition: none;
+          opacity: 1;
+          clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
         }
       }
 
@@ -9954,10 +10225,19 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
+      /*
+       * The preview is the island fading in and out whole, not the dwell
+       * reveal on a timer, so the clip is simply held open for it. Both
+       * halves carry the same declaration: a preview that showed the list
+       * without the title it belongs to would be the empty top band this
+       * change exists to close.
+       */
+      .cpk-launcher-capsule[data-cpk-hud-intro="true"],
       .cpk-launcher-drawer[data-cpk-hud-intro="true"] {
         animation: cpk-launcher-hud-intro
           var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
+        clip-path: inset(0 0 0 0 round calc(var(--cpk-launcher-size) / 2));
       }
 
       .cpk-launcher-drawer[data-cpk-hud-intro="true"]
@@ -9969,18 +10249,23 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-launcher-drawer[data-cpk-hud-intro="true"]
-        .cpk-launcher-drawer__check {
+        .cpk-launcher-drawer__check,
+      .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+        .cpk-launcher-drawer__cross {
         animation: cpk-launcher-hud-check-online 220ms
           cubic-bezier(0.16, 1, 0.3, 1) both;
         animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
       }
 
       @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-capsule[data-cpk-hud-intro="true"],
         .cpk-launcher-drawer[data-cpk-hud-intro="true"],
         .cpk-launcher-drawer[data-cpk-hud-intro="true"]
           .cpk-launcher-drawer__row,
         .cpk-launcher-drawer[data-cpk-hud-intro="true"]
-          .cpk-launcher-drawer__check {
+          .cpk-launcher-drawer__check,
+        .cpk-launcher-drawer[data-cpk-hud-intro="true"]
+          .cpk-launcher-drawer__cross {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -10773,45 +11058,100 @@ export class WebInspectorElement extends LitElement {
   }
 
   /**
-   * The pill, laid out at its full width and clipped, for the whole gesture.
+   * The island's front half. One capsule, fed by either driver.
    *
-   * It renders from the first frame of the beat — clipped to nothing, so it
-   * shows nothing — because the direction is decided at gesture start, and the
-   * room around the launcher cannot be read until the launcher is laid out.
+   * It is laid out at its full width and clipped in both cases, and in both
+   * cases it renders from the first frame — clipped to the mark's own
+   * footprint, so it shows nothing that is not already the circle — because
+   * the side is decided from the room around the launcher, which cannot be
+   * read until the launcher is laid out.
+   *
+   * **A signal beats a dwell.** An error has a moment and the moment is what
+   * is worth saying; the connection state underneath it has not changed and
+   * comes back the instant the gesture ends. That is arbitration between two
+   * things competing for one slot, not a priority between two features.
    */
   private renderLauncherCapsule(): TemplateResult | typeof nothing {
-    const key = this.gestureSignal;
-    if (key === null || this.pillPhase === null) return nothing;
-    const signal = LAUNCHER_SIGNALS[key];
-    const label = signal.pillLabel;
-    if (label === undefined) return nothing;
+    const gestureKey = this.gestureSignal;
+    const gestureSignal =
+      gestureKey === null ? null : LAUNCHER_SIGNALS[gestureKey];
+    const gestureLabel = gestureSignal?.pillLabel;
+
+    // Which driver owns the capsule, and therefore what it says.
+    let subject: string;
+    let heading: string;
+    let direction: LauncherIslandSide;
+    const styles: Record<string, string> = {};
+
+    if (
+      gestureKey !== null &&
+      gestureSignal !== null &&
+      gestureLabel !== undefined &&
+      this.pillPhase !== null
+    ) {
+      subject = gestureKey;
+      heading = gestureLabel;
+      // Before the measurement the pill is laid out as if it were opening
+      // left, which is width-identical to the other side and shows nothing
+      // either way while the clip is closed.
+      direction = this.pillDirection ?? "left";
+      styles["--cpk-launcher-signal"] =
+        LAUNCHER_SIGNAL_COLORS[gestureSignal.tone];
+      styles["--cpk-launcher-capsule-open"] = `${ERROR_GESTURE_MS.open}ms`;
+      styles["--cpk-launcher-capsule-close"] = `${ERROR_GESTURE_MS.close}ms`;
+    } else if (this.launcherHudOpen && this.launcherHudSide !== null) {
+      // The dwell state. Intelligence is the island's title rather than one of
+      // the rows below it, because the rows are features and this is the
+      // connection they are carried over: a parent listed among its own
+      // children reads as a peer of them.
+      subject = "intelligence";
+      heading =
+        this.getHomeModel().hero.connection === "connected"
+          ? ISLAND_INTELLIGENCE_ON_TITLE
+          : ISLAND_INTELLIGENCE_OFF_TITLE;
+      direction = this.launcherHudSide;
+      styles["--cpk-launcher-island-open"] = `${LAUNCHER_ISLAND_MS.open}ms`;
+      styles["--cpk-launcher-island-close"] = `${LAUNCHER_ISLAND_MS.close}ms`;
+      styles["--cpk-launcher-hud-intro-duration"] =
+        `${LAUNCHER_HUD_INTRO_MS.duration}ms`;
+    } else {
+      return nothing;
+    }
+
     return html`
       <span
         class="cpk-launcher-capsule"
-        data-cpk-launcher-capsule=${key}
-        data-cpk-capsule-phase=${this.pillPhase}
-        data-cpk-capsule-direction=${
-          // Before the measurement the pill is laid out as if it were opening
-          // left, which is width-identical to the other side and shows nothing
-          // either way while the clip is closed.
-          this.pillDirection ?? "left"
-        }
-        style=${styleMap({
-          "--cpk-launcher-signal": LAUNCHER_SIGNAL_COLORS[signal.tone],
-          "--cpk-launcher-capsule-open": `${ERROR_GESTURE_MS.open}ms`,
-          "--cpk-launcher-capsule-close": `${ERROR_GESTURE_MS.close}ms`,
-        })}
+        data-cpk-launcher-capsule=${subject}
+        data-cpk-capsule-phase=${this.pillPhase ?? nothing}
+        data-cpk-island-phase=${this.getLauncherIslandPhase()}
+        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
+        data-cpk-capsule-direction=${direction}
+        style=${styleMap(styles)}
         aria-hidden="true"
         @click=${this.handlePillClick}
       >
         <span class="cpk-launcher-capsule__heading" data-cpk-capsule-heading
-          >${label}</span
+          >${heading}</span
         >
         <span class="cpk-launcher-capsule__subline" data-cpk-capsule-subline
           >${PILL_SUBLINE_LABEL}</span
         >
       </span>
     `;
+  }
+
+  /**
+   * The dwell reveal's phase, shared by both halves of the island so the two
+   * cannot be told to do different things.
+   *
+   * Absent during a running gesture, whose own phase attribute owns the
+   * capsule, and absent during the page-load preview, which fades the island
+   * in and out whole on its own clock rather than opening it.
+   */
+  private getLauncherIslandPhase(): "open" | "closing" | typeof nothing {
+    if (this.pillPhase !== null) return nothing;
+    if (!this.launcherHudOpen || this.launcherHudIntro) return nothing;
+    return this.launcherIslandClosing ? "closing" : "open";
   }
 
   /**
@@ -10919,6 +11259,14 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
+    // A pointer that comes back mid-close takes the island back off its way
+    // out. Cleared before the early return below, because the island is still
+    // open at that point and the flag would otherwise survive the re-entry and
+    // leave a reopened island playing its own departure.
+    if (this.launcherIslandClosing) {
+      this.launcherIslandClosing = false;
+      this.requestUpdate();
+    }
     if (this.launcherHudOpen) return;
     this.launcherHudOpen = true;
     this.requestUpdate();
@@ -10930,6 +11278,7 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
+    this.launcherIslandClosing = false;
     if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
     this.requestUpdate();
@@ -10940,14 +11289,28 @@ export class WebInspectorElement extends LitElement {
     this.openLauncherHud();
   };
 
+  /**
+   * The pointer left: play the reveal backwards, then drop the markup.
+   *
+   * The wait is the closing animation's own duration rather than a separate
+   * grace period, so the island is on screen for exactly as long as it is
+   * still saying something. A pointer that returns inside it is caught by
+   * `openLauncherHud`, which cancels both the timer and the phase.
+   */
   private handleLauncherHudLeave = (): void => {
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
+      this.launcherHudCloseTimer = null;
+    }
+    if (!this.launcherHudOpen) return;
+    if (!this.launcherIslandClosing) {
+      this.launcherIslandClosing = true;
+      this.requestUpdate();
     }
     this.launcherHudCloseTimer = setTimeout(() => {
       this.launcherHudCloseTimer = null;
       this.closeLauncherHud();
-    }, 160);
+    }, LAUNCHER_ISLAND_MS.close);
   };
 
   private handleLauncherHudFocusIn = (): void => {
@@ -10985,8 +11348,7 @@ export class WebInspectorElement extends LitElement {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
-    this.hudLandingMenu =
-      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
+    this.hudLandingMenu = row === "threads" ? "threads" : "memories";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -11020,10 +11382,41 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
+  /**
+   * The off state's glyph, drawn exactly as the tick beside it: the same 16
+   * viewBox, the same stroked path with no fill, the same round joins and the
+   * same 12px box, so the pair reads as one family and the row's text starts
+   * in the same place either way.
+   *
+   * Decorative, like the tick: the row's own words already say which state it
+   * is in, and a screen reader that also announced the glyph would say it
+   * twice.
+   */
+  private renderHudCross(): TemplateResult {
+    return html`
+      <svg
+        class="cpk-launcher-drawer__cross"
+        viewBox="0 0 16 16"
+        aria-hidden="true"
+        focusable="false"
+        data-cpk-hud-cross
+      >
+        <path
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M4 4 12 12 M12 4 4 12"
+        />
+      </svg>
+    `;
+  }
+
   private renderHudRow(args: {
     id: LauncherHudRowId;
     label: string;
-    connected: boolean;
+    enabled: boolean;
     introIndex: number;
   }): TemplateResult {
     return html`
@@ -11038,7 +11431,7 @@ export class WebInspectorElement extends LitElement {
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
-        ${args.connected ? this.renderHudCheck() : nothing}
+        ${args.enabled ? this.renderHudCheck() : this.renderHudCross()}
         <button
           class="cpk-launcher-drawer__action"
           type="button"
@@ -11069,39 +11462,38 @@ export class WebInspectorElement extends LitElement {
     const learningOn = homeModel.services.some(
       (service) => service.id === "memory" && service.enabled,
     );
-    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-drawer"
         id="cpk-launcher-hud"
         data-cpk-launcher-drawer
         data-cpk-drawer-side=${side}
+        data-cpk-island-phase=${this.getLauncherIslandPhase()}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         style=${styleMap({
+          "--cpk-launcher-island-open": `${LAUNCHER_ISLAND_MS.open}ms`,
+          "--cpk-launcher-island-close": `${LAUNCHER_ISLAND_MS.close}ms`,
           "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
           "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
         })}
       >
         <ul class="cpk-launcher-drawer__list" role="list">
-          ${this.renderHudRow({
-            id: "threads",
-            label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-            connected: threadsOn,
-            introIndex: 0,
-          })}
-          ${this.renderHudRow({
-            id: "intelligence",
-            label: intelligenceOn
-              ? HUD_INTELLIGENCE_ON_LABEL
-              : HUD_INTELLIGENCE_OFF_LABEL,
-            connected: intelligenceOn,
-            introIndex: 1,
-          })}
+          ${
+            // Two features, and Intelligence is not among them: it is the
+            // capsule's title above, because it is the connection these two
+            // are carried over rather than a third thing beside them.
+            this.renderHudRow({
+              id: "threads",
+              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
+              enabled: threadsOn,
+              introIndex: 0,
+            })
+          }
           ${this.renderHudRow({
             id: "learning",
             label: learningOn ? HUD_LEARNING_ON_LABEL : HUD_LEARNING_OFF_LABEL,
-            connected: learningOn,
-            introIndex: 2,
+            enabled: learningOn,
+            introIndex: 1,
           })}
         </ul>
       </div>
