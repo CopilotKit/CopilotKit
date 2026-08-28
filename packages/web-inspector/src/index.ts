@@ -11578,6 +11578,27 @@ export class WebInspectorElement extends LitElement {
    * away, rather than opening over the edge of the window and being clipped by
    * it.
    */
+  /**
+   * Re-answer the placement question for an island that is already open.
+   *
+   * The placement is resolved on pointerenter. A drag captures the pointer, so
+   * dragging the mark to another corner fires no re-entry and the island keeps
+   * pointing the way it did before - downward off the foot of the window, in
+   * the case that made this visible. It self-corrects on the next dwell, which
+   * is why it went unnoticed on the horizontal axis for as long as it did.
+   *
+   * If the new corner has room for neither direction the resolver reports so,
+   * and the island closes rather than staying open in a place it does not fit.
+   */
+  private rePlaceOpenIsland(): void {
+    if (!this.launcherHudOpen) return;
+    if (!this.resolveLauncherHudPlacement()) {
+      this.closeLauncherHud();
+      return;
+    }
+    this.requestUpdate();
+  }
+
   private resolveLauncherHudPlacement(): boolean {
     const button =
       this.activeRoot.querySelector<HTMLElement>(".console-button");
@@ -14030,6 +14051,7 @@ export class WebInspectorElement extends LitElement {
         // Snap button to nearest corner
         this.snapButtonToCorner();
         this.hasCustomPosition.button = true;
+        this.rePlaceOpenIsland();
         if (this.draggedDuringInteraction) {
           this.ignoreNextButtonClick = true;
         }
