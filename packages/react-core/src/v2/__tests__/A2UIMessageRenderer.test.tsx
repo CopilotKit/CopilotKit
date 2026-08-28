@@ -2,6 +2,10 @@ import { describe, it, expect, vi } from "vitest";
 import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
+import {
+  createA2UIMessageRenderer,
+  runA2UIAction,
+} from "../a2ui/A2UIMessageRenderer";
 
 vi.mock("../providers", () => ({
   useCopilotKit: vi.fn(() => ({
@@ -15,8 +19,6 @@ vi.mock("../providers", () => ({
 
 describe("A2UIMessageRenderer rendering integration", () => {
   it("should render A2UI surface content via React renderer", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -62,8 +64,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should update surface when operations change", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -146,8 +146,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should return null when no operations are provided", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -163,8 +161,6 @@ describe("A2UIMessageRenderer rendering integration", () => {
   });
 
   it("should render multiple surfaces independently", async () => {
-    const { createA2UIMessageRenderer } =
-      await import("../a2ui/A2UIMessageRenderer.js");
     const renderer = createA2UIMessageRenderer({
       theme: {} as Theme,
     });
@@ -248,7 +244,6 @@ describe("runA2UIAction onAction interceptor", () => {
   };
 
   it("does NOT run the agent when onAction returns null", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const onAction = vi.fn().mockReturnValue(null);
 
@@ -261,7 +256,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards the modified action when onAction returns one", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const modified = { ...message.userAction, name: "navigate_handled" };
     const onAction = vi.fn().mockReturnValue(modified);
@@ -277,7 +271,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards the original message unchanged when no onAction is supplied", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
 
     await runA2UIAction({ message, agent: "my-agent", copilotkit });
@@ -288,7 +281,6 @@ describe("runA2UIAction onAction interceptor", () => {
   });
 
   it("forwards unchanged when onAction returns undefined", async () => {
-    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
     const copilotkit = makeCopilotkit();
     const onAction = vi.fn().mockReturnValue(undefined);
 

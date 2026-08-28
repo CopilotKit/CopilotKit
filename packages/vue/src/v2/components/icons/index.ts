@@ -5,6 +5,7 @@ export {
   Plus as IconPlus,
   Mic as IconMic,
   ArrowUp as IconArrowUp,
+  Bookmark as IconBookmark,
   Check as IconCheck,
   Square as IconSquare,
   Loader2 as IconLoader2,
