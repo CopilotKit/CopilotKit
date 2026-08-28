@@ -279,6 +279,26 @@ function ruleBody(css: string, selector: string): string | null {
 }
 
 /**
+ * Every rule body whose selector is exactly `selector`, in source order —
+ * the `ruleBody` above returns only the first. `.console-button` itself is
+ * declared twice in this stylesheet: an early rule carries layout only
+ * (width/height/z-index/transition), and a second, later rule under the
+ * "Floating button" comment carries paint (background, border, box-shadow).
+ * A helper that stopped at the first occurrence would read the layout rule
+ * and never see the paint one at all — silently checking nothing about the
+ * declarations under test regardless of what they say.
+ */
+function allRuleBodies(css: string, selector: string): string[] {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const gap = "(?:\\s|/\\*[\\s\\S]*?\\*/)*";
+  const re = new RegExp(
+    `(?:^|\\})${gap}${escaped}${gap}\\{([\\s\\S]*?)\\}`,
+    "g",
+  );
+  return Array.from(css.matchAll(re)).map((m) => m[1] ?? "");
+}
+
+/**
  * The plain substring pattern `/\.cpk-launcher-drawer\s*\{.../` also matches
  * inside `.console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-drawer`
  * — a compound rule that toggles visibility and sits earlier in the
@@ -694,6 +714,61 @@ test("the drawer paints behind the capsule, which paints behind the mark", async
   const mark = z(".console-button", "the launcher");
   expect(drawer).toBeLessThan(capsule);
   expect(capsule).toBeLessThan(mark);
+});
+
+test("the launcher declares its own ring instead of trusting the Tailwind border utility", async () => {
+  const { inspector } = await setup();
+  const css = stylesheetText(inspector);
+
+  // The button's class list still carries Tailwind's `border` utility (it
+  // also supplies unrelated resets), so a reader skimming the markup could
+  // reasonably assume that utility is what draws the launcher's 1px ring.
+  // It cannot be relied on for that: the generated utility is
+  // `.border { border-style: var(--tw-border-style); border-width: 1px }`,
+  // and `--tw-border-style` is registered by a Tailwind `@property` rule.
+  // `@property` inside a stylesheet ADOPTED into a shadow root does not
+  // register document-wide, so inside this component's shadow root the
+  // variable was unresolved: `border-style` fell back to `none`, and CSS
+  // then computes `border-width` to 0 regardless of the declared 1px. The
+  // ring therefore rendered only when the HOST page happened to load
+  // Tailwind v4 itself and register the property for us — on a plain host
+  // page it silently vanished, with the same stylesheet bytes either way.
+  // Measured live: the launcher's face against a dark host page is 1.10:1
+  // (GitHub dark), indistinguishable from the page on its own, so this
+  // hairline is not decoration — on that host it was the launcher's only
+  // contour.
+  //
+  // The fix is the hand-written `.console-button` rule declaring
+  // `border-width` and `border-style` itself, so the ring no longer
+  // depends on what the host page happens to have loaded. That declaration
+  // lives on the SECOND `.console-button` rule in this sheet — the first,
+  // earlier one only carries layout (width/height/z-index/transition) — so
+  // this reads every `.console-button` rule rather than just the first,
+  // the same trap `ruleBody`'s own doc comment above calls out for
+  // `.cpk-launcher-capsule`.
+  //
+  // A computed-style assertion cannot see any of this: jsdom resolves no
+  // CSS off a shadow-root stylesheet, so the broken state (no declaration)
+  // and the fixed state (1px solid) read back an identical computed 0px /
+  // "" — only the declaration text tells them apart, which is why this
+  // whole suite reads stylesheet text instead. And the assertion has to be
+  // for PRESENCE, not a value: the bug was a missing declaration, not a
+  // wrong one, exactly like the z-index guard just above.
+  const consoleButtonRules = allRuleBodies(css, ".console-button");
+  expect(
+    consoleButtonRules.length,
+    "expected two .console-button rules (layout, then paint)",
+  ).toBeGreaterThanOrEqual(2);
+  const declaresOwnRing = consoleButtonRules.some(
+    (rule) =>
+      /border-width:\s*1px/.test(rule) && /border-style:\s*solid/.test(rule),
+  );
+  expect(
+    declaresOwnRing,
+    "no .console-button rule declares border-width and border-style; the " +
+      "ring is back to depending on the host page registering " +
+      "--tw-border-style for the Tailwind `border` utility",
+  ).toBe(true);
 });
 
 test("the capsule shows on dwell, titled with the Intelligence connection it is the parent of", async () => {
