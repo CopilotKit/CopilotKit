@@ -41,7 +41,6 @@ import {
   anyActivityContentSchema,
 } from "./activity-renderer";
 import { injectCopilotKitConfig } from "./config";
-import { CopilotInspector } from "./inspector";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
 import { CopilotA2UIActivityRenderer } from "./components/a2ui/a2ui-activity-renderer";
@@ -62,6 +61,7 @@ import {
 import { CopilotOpenGenerativeUIActivityRenderer } from "./components/open-generative-ui/open-generative-ui-activity-renderer";
 import { CopilotOpenGenerativeUIToolRenderer } from "./components/open-generative-ui/open-generative-ui-tool-renderer";
 import { standardSchemaZodToJsonSchema } from "./standard-schema-zod";
+import { CopilotInspector } from "./inspector";
 
 /**
  * Advertise a client-provided A2UI catalog to the runtime without mutating the
@@ -81,12 +81,12 @@ function withA2UICatalogCapability(
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
   readonly #config = injectCopilotKitConfig();
-  readonly #inspector = inject(CopilotInspector);
   readonly #extensionActivityMessageRenderers = inject(
     ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS,
   );
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #inspector = inject(CopilotInspector);
   /** Whether unknown tools may use the built-in text-only fallback renderer. */
   readonly defaultToolRenderingEnabled =
     this.#config.defaultToolRendering === true;
@@ -203,7 +203,7 @@ export class CopilotKit {
   #a2UIContextIds: string[] = [];
 
   constructor() {
-    void this.#inspector.isLocalInspectorEnabled;
+    void this.#inspector.isInspectorEnabled;
     ensureLicenseWatermark(this.#config.headers);
 
     this.#runtimeConnectionStatus.set(this.core.runtimeConnectionStatus);

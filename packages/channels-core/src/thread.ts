@@ -796,6 +796,7 @@ export class Thread implements ThreadInterface {
               tools: toolDescriptors,
               context,
               isResume: initialResume !== undefined,
+              user: this.deps.user,
               memory: extra?.memory,
               execute: (subscriber, canonicalRun) =>
                 runAgentLoop({

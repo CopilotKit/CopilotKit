@@ -25,17 +25,28 @@ vi.mock("@/lib/frontend-options", () => ({
     (value: string) => value === "slack" || value === "teams",
   ),
   isFrontendId: vi.fn((value: string | undefined) =>
-    ["react", "vue", "react-native", "angular", "slack", "teams"].includes(
-      value ?? "",
-    ),
+    [
+      "react",
+      "react-spa",
+      "vue",
+      "react-native",
+      "angular",
+      "slack",
+      "teams",
+    ].includes(value ?? ""),
   ),
   parseFrontendRoutePath: vi.fn(
     (pathname: string, backendFrameworkSlugs: readonly string[] = []) => {
       const [first, ...rest] = pathname.split("/").filter(Boolean);
       if (
-        !["vue", "react-native", "angular", "slack", "teams"].includes(
-          first ?? "",
-        )
+        ![
+          "react-spa",
+          "vue",
+          "react-native",
+          "angular",
+          "slack",
+          "teams",
+        ].includes(first ?? "")
       ) {
         return null;
       }

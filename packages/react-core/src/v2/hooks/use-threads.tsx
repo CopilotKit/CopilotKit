@@ -242,7 +242,7 @@ export function useThreads({
 
   const [store] = useState(() =>
     ɵcreateThreadStore({
-      fetch: globalThis.fetch,
+      fetch: copilotkit.ɵruntimeFetch,
     }),
   );
 

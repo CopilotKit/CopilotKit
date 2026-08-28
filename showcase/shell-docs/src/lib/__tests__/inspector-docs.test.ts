@@ -42,16 +42,29 @@ test("shared Open Inspector step names the three sanity checks", () => {
   expect(step).toContain("[Inspector](/inspector)");
 });
 
-test("Angular Open Inspector step links the Angular install page first", () => {
-  const step = read(
-    "snippets/shared/inspector/open-inspector-step-angular.mdx",
-  );
+test("Angular uses the shared Open Inspector step, not a manual-mount variant", () => {
+  // @copilotkit/angular >= 0.4.0 depends on @copilotkit/web-inspector and mounts
+  // cpk-web-inspector itself, so Angular is no longer a special case here.
+  expect(
+    existsSync(join(SNIPPETS_DIR, "open-inspector-step-angular.mdx")),
+    "the Angular Open Inspector variant should stay deleted: Angular auto-mounts",
+  ).toBe(false);
+});
 
-  expect(step).toContain("[Inspector for Angular](/angular/inspector)");
-  expect(step).toContain("Open **Agents**, then **Agent**");
-  expect(step).toContain("AG-UI Events");
-  expect(step).toContain("Enable Intelligence");
-  expect(step).not.toContain("/frontends/angular");
+test("the Angular Inspector page does not teach a manual mount", () => {
+  const page = read("docs/frontends/angular/inspector.mdx");
+
+  // The claims that made this page a trap once Angular started auto-mounting.
+  expect(page).not.toContain("does not depend on that package");
+  expect(page).not.toContain(
+    "npm install --save-dev @copilotkit/web-inspector",
+  );
+  expect(page).not.toContain("auto-attach-core");
+  expect(page).not.toContain("document.createElement(WEB_INSPECTOR_TAG)");
+
+  // What it must say instead.
+  expect(page).toContain("mounts the Inspector for you");
+  expect(page).toContain("[Inspector](/inspector)");
 });
 
 test("every web integration quickstart imports the Open Inspector step", () => {
@@ -93,8 +106,9 @@ test("Vue and Angular getting-started pages include the Open Inspector step", ()
   expect(vue).toContain("open-inspector-step.mdx");
   expect(vue).toContain("<OpenInspectorStep");
   expect(vue).toContain('show-dev-console="auto"');
-  expect(angular).toContain("open-inspector-step-angular.mdx");
-  expect(angular).toContain("<OpenInspectorStepAngular");
+  expect(angular).toContain("open-inspector-step.mdx");
+  expect(angular).toContain("<OpenInspectorStep");
+  expect(angular).not.toContain("open-inspector-step-angular");
 });
 
 test("mapped feature pages import the matching Inspector Callout", () => {
@@ -103,15 +117,6 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   );
   expect(read("docs/frontend-tools.mdx")).toContain(
     "open-inspector-pane-frontend-tools.mdx",
-  );
-  expect(read("docs/frontend-tools.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
-  );
-  expect(read("docs/generative-ui/open-generative-ui.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
-  );
-  expect(read("docs/generative-ui/a2ui/index.mdx")).toContain(
-    "open-inspector-pane-event-snippets.mdx",
   );
   expect(read("docs/shared-state.mdx")).toContain(
     "open-inspector-pane-state.mdx",
@@ -153,9 +158,6 @@ test("Inspector Callout snippets name the shipped pane and skip unshipped work",
   expect(
     read("snippets/shared/inspector/open-inspector-pane-threads.mdx"),
   ).toContain("**Threads**");
-  expect(
-    read("snippets/shared/inspector/open-inspector-pane-event-snippets.mdx"),
-  ).toContain("**Event Snippets**");
 });
 
 test("pane map lists each shipped pane with a Callout or no page yet", () => {
@@ -170,7 +172,6 @@ test("pane map lists each shipped pane with a Callout or no page yet", () => {
     "Context",
     "Learning",
     "Capabilities",
-    "Event Snippets",
   ]) {
     expect(paneMap).toMatch(new RegExp(`\\|\\s*${pane}\\s*\\|`));
   }

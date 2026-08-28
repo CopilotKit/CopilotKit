@@ -1,19 +1,11 @@
 import React from "react";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
-import { z } from "zod";
 import { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import type { AssistantMessage } from "@ag-ui/core";
 import { CopilotKitInspectorContextProvider } from "../../CopilotKitInspectorContext";
-import { defineToolCallRenderer } from "../../../types/defineToolCallRenderer";
-
-const sayHelloRenderer = defineToolCallRenderer({
-  name: "sayHello",
-  args: z.object({ name: z.string() }),
-  render: () => <div>Hello card</div>,
-});
 
 // No mocks needed - Vitest handles ES modules natively!
 
@@ -110,28 +102,39 @@ describe("CopilotChatAssistantMessage", () => {
       ).toBeNull();
     });
 
-    it("renders the local Inspector action and opens it from the toolbar", () => {
+    it("renders the local Inspector button and opens it from the toolbar", async () => {
       const openInspector = vi.fn();
-      const saveEventSnippet = vi.fn();
 
       renderWithProvider(
         <CopilotKitInspectorContextProvider
-          value={{
-            isLocalInspectorEnabled: true,
-            openInspector,
-            saveEventSnippet,
-          }}
+          value={{ isInspectorEnabled: true, openInspector }}
         >
           <CopilotChatAssistantMessage message={basicMessage} />
         </CopilotKitInspectorContextProvider>,
       );
 
       const inspectorButton = screen.getByRole("button", {
-        name: "View in Inspector (Local Only)",
+        name: "View in Inspector (local only)",
       });
       const inspectorIcon = screen.getByTestId("copilot-inspector-icon");
 
       expect(inspectorIcon.querySelectorAll("linearGradient")).toHaveLength(4);
+      expect(inspectorButton.textContent).toContain("View in Inspector");
+      expect(inspectorButton.textContent).toContain("(local only)");
+      expect(screen.queryByRole("menu")).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: /save as snippet/i }),
+      ).toBeNull();
+
+      fireEvent.mouseEnter(inspectorButton);
+      await waitFor(() =>
+        expect(
+          screen.getByText(
+            "View this message in the Inspector to get more information. This button and the inspector only display during local development (localhost, dev env).",
+          ),
+        ).toBeDefined(),
+      );
+
       fireEvent.click(inspectorButton);
 
       expect(openInspector).toHaveBeenCalledWith({
@@ -139,139 +142,6 @@ describe("CopilotChatAssistantMessage", () => {
         threadId: TEST_THREAD_ID,
         agentId: "default",
       });
-
-      fireEvent.click(
-        screen.getByRole("button", {
-          name: "Save as snippet (Local Only)",
-        }),
-      );
-      expect(saveEventSnippet).toHaveBeenCalledWith({
-        kind: "text",
-        messageId: basicMessage.id,
-        content: basicMessage.content ?? "",
-        threadId: TEST_THREAD_ID,
-        agentId: "default",
-      });
-    });
-
-    it("does not put Save as snippet on the toolbar for a tool-only message", () => {
-      const openInspector = vi.fn();
-      const saveEventSnippet = vi.fn();
-      const toolMessage: AssistantMessage = {
-        role: "assistant",
-        content: "",
-        id: "tool-message-1",
-        toolCalls: [
-          {
-            id: "call-1",
-            type: "function",
-            function: { name: "sayHello", arguments: '{"name":"Alem"}' },
-          },
-        ],
-      };
-
-      renderWithProvider(
-        <CopilotKitInspectorContextProvider
-          value={{
-            isLocalInspectorEnabled: true,
-            openInspector,
-            saveEventSnippet,
-          }}
-        >
-          <CopilotChatAssistantMessage message={toolMessage} />
-        </CopilotKitInspectorContextProvider>,
-      );
-
-      expect(screen.queryByTestId("copilot-save-snippet-button")).toBeNull();
-      expect(
-        screen.queryByTestId("copilot-tool-save-snippet-button"),
-      ).toBeNull();
-    });
-
-    it("saves a rendered tool from the tool overlay, not the toolbar", () => {
-      const openInspector = vi.fn();
-      const saveEventSnippet = vi.fn();
-      const toolMessage: AssistantMessage = {
-        role: "assistant",
-        content: "",
-        id: "tool-message-2",
-        toolCalls: [
-          {
-            id: "call-2",
-            type: "function",
-            function: { name: "sayHello", arguments: '{"name":"Alem"}' },
-          },
-        ],
-      };
-
-      render(
-        <CopilotKitProvider renderToolCalls={[sayHelloRenderer]}>
-          <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
-            <CopilotKitInspectorContextProvider
-              value={{
-                isLocalInspectorEnabled: true,
-                openInspector,
-                saveEventSnippet,
-              }}
-            >
-              <CopilotChatAssistantMessage message={toolMessage} />
-            </CopilotKitInspectorContextProvider>
-          </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>,
-      );
-
-      expect(screen.queryByTestId("copilot-save-snippet-button")).toBeNull();
-      const overlay = screen.getByTestId("copilot-tool-save-snippet-button");
-      expect(
-        overlay
-          .closest("[data-save-snippet-side]")
-          ?.getAttribute("data-save-snippet-side"),
-      ).toBe("right");
-      fireEvent.click(overlay);
-      expect(saveEventSnippet).toHaveBeenCalledWith({
-        kind: "tool-call",
-        messageId: toolMessage.id,
-        toolCallId: "call-2",
-        toolName: "sayHello",
-        argsJson: '{"name":"Alem"}',
-        threadId: TEST_THREAD_ID,
-        agentId: "default",
-      });
-    });
-
-    it("hides the tool bookmark while the arguments are still streaming", () => {
-      const streamingMessage: AssistantMessage = {
-        role: "assistant",
-        content: "",
-        id: "tool-message-3",
-        toolCalls: [
-          {
-            id: "call-3",
-            type: "function",
-            function: { name: "sayHello", arguments: '{"name":"Al' },
-          },
-        ],
-      };
-
-      render(
-        <CopilotKitProvider renderToolCalls={[sayHelloRenderer]}>
-          <CopilotChatConfigurationProvider threadId={TEST_THREAD_ID}>
-            <CopilotKitInspectorContextProvider
-              value={{
-                isLocalInspectorEnabled: true,
-                openInspector: vi.fn(),
-                saveEventSnippet: vi.fn(),
-              }}
-            >
-              <CopilotChatAssistantMessage message={streamingMessage} />
-            </CopilotKitInspectorContextProvider>
-          </CopilotChatConfigurationProvider>
-        </CopilotKitProvider>,
-      );
-
-      expect(
-        screen.queryByTestId("copilot-tool-save-snippet-button"),
-      ).toBeNull();
     });
 
     it("renders all buttons when all callbacks provided", () => {

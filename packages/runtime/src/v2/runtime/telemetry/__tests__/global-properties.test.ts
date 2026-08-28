@@ -135,9 +135,18 @@ describe("telemetry global properties", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("adds nothing when none are set", async () => {
+  it("adds nothing of the caller's when none are set", async () => {
     await client().capture("oss.runtime.agent_execution_stream_started", {});
 
-    expect(sent().globalProperties).toEqual({});
+    // Sampling metadata and the emitter markers always ride in this slot
+    // (OSS-1017); what this pins is that nothing else joins them.
+    expect(Object.keys(sent().globalProperties).sort()).toEqual([
+      "sampleRate",
+      "sampleRateAdjustmentFactor",
+      "sampleWeight",
+      "telemetry_emitter",
+      "telemetry_identified",
+      "telemetry_transport",
+    ]);
   });
 });

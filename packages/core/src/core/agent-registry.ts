@@ -21,7 +21,16 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
-import { runtimeInfoError } from "../utils/runtime-info-error";
+import {
+  isRuntimeInfoRequestError,
+  runtimeInfoError,
+} from "../utils/runtime-info-error";
+import { isAbortError } from "../utils/abort-error";
+import type { RuntimeRequestMeta } from "../utils/runtime-request";
+import {
+  RUNTIME_REQUEST_WATCHDOG_MS,
+  runtimeRequestMeta,
+} from "../utils/runtime-request";
 
 type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
 
@@ -32,6 +41,28 @@ type RuntimeInfoFetchResult = {
 
 /** Maximum wait for optional Inspector metadata before degrading to absence. */
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+
+export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
+
+type RuntimeRequestOutcome = "ok" | "failed" | "aborted" | "ignored";
+
+function classifyRuntimeRequestFailure(
+  error: unknown,
+  meta: RuntimeRequestMeta | undefined,
+): RuntimeRequestOutcome {
+  if (meta?.nonCritical) {
+    return "ignored";
+  }
+  if (isAbortError(error) && !meta?.timedOut) {
+    return "aborted";
+  }
+  return "failed";
+}
+
+interface RuntimeConnectionOptions {
+  preserveOnFailure?: boolean;
+  recovery?: boolean;
+}
 
 /** Build case-insensitive JSON headers without mutating the Core snapshot. */
 function withJsonContentType(headers: Record<string, string>): Headers {
@@ -79,6 +110,8 @@ export class AgentRegistry {
   private localAgents: Record<string, AbstractAgent> = {};
   private remoteAgents: Record<string, AbstractAgent> = {};
 
+  private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
+
   private _runtimeUrl?: string;
   // Tracks an in-flight `/info` connection so concurrent calls targeting the
   // same runtime (url + requested transport) collapse to a single request
@@ -113,6 +146,14 @@ export class AgentRegistry {
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
+
+  private runtimeFetch?: typeof fetch;
+  private runtimeProbeInFlight: boolean = false;
+  private runtimeProbeToken: number = 0;
+  private runtimeProbeAbortController?: AbortController;
+  private runtimeRecoveryRunning: boolean = false;
+  private runtimeRecoveryPending: boolean = false;
+  private runtimeHealthGeneration: number = 0;
 
   /**
    * The headers each HttpAgent was constructed with, captured on the first
@@ -206,6 +247,7 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
 
@@ -225,6 +267,7 @@ export class AgentRegistry {
     }
 
     this.invalidateInspectorMetadataConnection();
+    this.abandonRuntimeHealthProbe();
     this._runtimeUrl = normalizedRuntimeUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
@@ -235,7 +278,9 @@ export class AgentRegistry {
       return;
     }
 
-    void this.updateRuntimeConnection();
+    void this.updateRuntimeConnection({
+      preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
+    });
   }
 
   /**
@@ -275,9 +320,57 @@ export class AgentRegistry {
     }
 
     this.invalidateInspectorMetadataConnection();
+    this.abandonRuntimeHealthProbe();
     this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
-    void this.updateRuntimeConnection();
+    void this.updateRuntimeConnection({
+      preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
+    });
+  }
+
+  private hasLiveRuntimeKnowledgeToProtect(): boolean {
+    if (Object.keys(this.remoteAgents).length === 0) {
+      return false;
+    }
+    return (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    );
+  }
+
+  private reconcileRecoveredAgents(
+    reported: Record<string, AbstractAgent>,
+  ): Record<string, AbstractAgent> {
+    const merged = { ...this.remoteAgents, ...reported };
+    if (Object.keys(reported).length === 0) {
+      return merged;
+    }
+    for (const [id, agent] of Object.entries(merged)) {
+      if (Object.prototype.hasOwnProperty.call(reported, id)) {
+        continue;
+      }
+      if (this.carriesConversationState(agent)) {
+        continue;
+      }
+      delete merged[id];
+    }
+    return merged;
+  }
+
+  private carriesConversationState(agent: AbstractAgent): boolean {
+    if (agent.messages.length > 0) {
+      return true;
+    }
+    const mintedThreadId = this.mintedThreadIds.get(agent);
+    return mintedThreadId === undefined || agent.threadId !== mintedThreadId;
+  }
+
+  private abandonRuntimeHealthProbe(): void {
+    this.runtimeProbeToken += 1;
+    this.runtimeProbeInFlight = false;
+    this.runtimeHealthGeneration += 1;
+    this.runtimeProbeAbortController?.abort();
+    this.runtimeProbeAbortController = undefined;
   }
 
   /**
@@ -294,6 +387,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
 
@@ -305,6 +399,7 @@ export class AgentRegistry {
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
     this.applyCredentialsToAgent(agent);
+    this.applyRuntimeFetchToAgent(agent);
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     void this.notifyAgentsChanged();
   }
@@ -364,6 +459,7 @@ export class AgentRegistry {
       debug: debug ? resolveDebugConfig(debug) : undefined,
     });
     this.applyHeadersToAgent(agent);
+    this.applyRuntimeFetchToAgent(agent);
 
     this.localAgents[agentId] = agent;
     this._agents = { ...this.localAgents, ...this.remoteAgents };
@@ -455,6 +551,68 @@ export class AgentRegistry {
   applyCredentialsToAgents(agents: Record<string, AbstractAgent>): void {
     Object.values(agents).forEach((agent) => {
       this.applyCredentialsToAgent(agent);
+    });
+  }
+
+  createRuntimeFetch(): typeof fetch {
+    if (!this.runtimeFetch) {
+      this.runtimeFetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const meta = () => runtimeRequestMeta(init);
+        const watchdog = this.armRuntimeRequestWatchdog(meta());
+        try {
+          const response = await fetch(input, init);
+          watchdog.clear();
+          this.handleRuntimeRequestOutcome(
+            response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
+            watchdog.checked,
+          );
+          return response;
+        } catch (error) {
+          watchdog.clear();
+          this.handleRuntimeRequestOutcome(
+            classifyRuntimeRequestFailure(error, meta()),
+            watchdog.checked,
+          );
+          throw error;
+        }
+      }) as typeof fetch;
+    }
+    return this.runtimeFetch;
+  }
+
+  private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
+    clear: () => void;
+    checked: () => boolean;
+  } {
+    if (
+      typeof window === "undefined" ||
+      meta?.nonCritical ||
+      meta?.selfBounded
+    ) {
+      return { clear: () => {}, checked: () => false };
+    }
+    let checked = false;
+    const timeoutId = setTimeout(() => {
+      checked = this.handleRuntimeRequestOutcome("failed");
+    }, RUNTIME_REQUEST_WATCHDOG_MS);
+    return {
+      clear: () => clearTimeout(timeoutId),
+      checked: () => checked,
+    };
+  }
+
+  applyRuntimeFetchToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.fetch = this.createRuntimeFetch();
+    }
+  }
+
+  applyRuntimeFetchToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyRuntimeFetchToAgent(agent);
     });
   }
 
@@ -687,10 +845,164 @@ export class AgentRegistry {
         });
   }
 
+  private setRuntimeConnectionStatus(
+    status: CopilotKitCoreRuntimeConnectionStatus,
+  ): void {
+    this._runtimeConnectionStatus = status;
+    this.runtimeHealthGeneration += 1;
+  }
+
+  private handleRuntimeRequestOutcome(
+    outcome: RuntimeRequestOutcome,
+    alreadyChecked: () => boolean = () => false,
+  ): boolean {
+    if (outcome === "aborted" || outcome === "ignored") {
+      return false;
+    }
+    if (outcome === "failed" && alreadyChecked()) {
+      return false;
+    }
+    if (typeof window === "undefined") {
+      return false;
+    }
+    if (!this._runtimeUrl) {
+      return false;
+    }
+
+    if (outcome === "ok") {
+      this.runtimeHealthGeneration += 1;
+      if (this.runtimeRecoveryRunning) {
+        this.runtimeRecoveryPending = true;
+      }
+      if (
+        this._runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Error
+      ) {
+        void this.recoverRuntimeConnection();
+      }
+      return false;
+    }
+
+    if (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return false;
+    }
+    if (this.runtimeProbeInFlight) {
+      return false;
+    }
+    void this.probeRuntimeReachability();
+    return true;
+  }
+
+  private async fetchRuntimeInfoWithTimeout(
+    abortController: AbortController,
+  ): Promise<RuntimeInfoFetchResult> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const request = this.fetchRuntimeInfo(abortController.signal);
+    void request.catch(() => {});
+    try {
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          abortController.abort();
+          reject(
+            new Error(
+              `Runtime did not answer within ${ɵRUNTIME_PROBE_TIMEOUT_MS}ms`,
+            ),
+          );
+        }, ɵRUNTIME_PROBE_TIMEOUT_MS);
+      });
+      return await Promise.race([request, timedOut]);
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  private async probeRuntimeReachability(): Promise<void> {
+    const generation = this.runtimeHealthGeneration;
+    const token = ++this.runtimeProbeToken;
+    this.runtimeProbeInFlight = true;
+    const abortController = new AbortController();
+    this.runtimeProbeAbortController = abortController;
+    try {
+      await this.fetchRuntimeInfoWithTimeout(abortController);
+    } catch (error) {
+      if (generation !== this.runtimeHealthGeneration) {
+        return;
+      }
+      await this.markRuntimeUnreachable(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    } finally {
+      if (this.runtimeProbeAbortController === abortController) {
+        this.runtimeProbeAbortController = undefined;
+      }
+      if (this.runtimeProbeToken === token) {
+        this.runtimeProbeInFlight = false;
+      }
+    }
+  }
+
+  private async markRuntimeUnreachable(error: Error): Promise<void> {
+    this.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    await this.notifyRuntimeStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    const runtimeStatus = isRuntimeInfoRequestError(error)
+      ? error.runtimeInfoStatus
+      : undefined;
+    logger.warn(
+      runtimeStatus === undefined
+        ? `Runtime did not answer the identification request (${this._runtimeUrl}/info): ${error.message}. The runtime appears to be unreachable.`
+        : `Runtime answered the identification request with status ${runtimeStatus} (${this._runtimeUrl}/info): ${error.message}. The runtime is reachable but refused the request — check credentials and authorisation before addresses and ports.`,
+    );
+    await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      error,
+      code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
+      context: {
+        runtimeUrl: this._runtimeUrl,
+        reason: runtimeStatus === undefined ? "no-answer" : "answered",
+        ...(runtimeStatus === undefined ? {} : { runtimeStatus }),
+      },
+    });
+  }
+
+  private async recoverRuntimeConnection(): Promise<void> {
+    if (this.runtimeRecoveryRunning) {
+      this.runtimeRecoveryPending = true;
+      return;
+    }
+    this.runtimeRecoveryRunning = true;
+    try {
+      do {
+        this.runtimeRecoveryPending = false;
+        await this.updateRuntimeConnection({
+          preserveOnFailure: true,
+          recovery: true,
+        });
+      } while (
+        this.runtimeRecoveryPending &&
+        this._runtimeConnectionStatus !==
+          CopilotKitCoreRuntimeConnectionStatus.Connected
+      );
+    } finally {
+      this.runtimeRecoveryRunning = false;
+      this.runtimeRecoveryPending = false;
+    }
+  }
+
   /**
    * Update runtime connection and fetch remote agents
    */
-  private async updateRuntimeConnection(): Promise<void> {
+  private async updateRuntimeConnection(
+    options?: RuntimeConnectionOptions,
+  ): Promise<void> {
     // Skip fetching on the server (SSR)
     if (typeof window === "undefined") {
       return;
@@ -706,7 +1018,7 @@ export class AgentRegistry {
       return inFlight.promise;
     }
 
-    const promise = this.performRuntimeConnection();
+    const promise = this.performRuntimeConnection(options);
     this._connectionInFlight = { key, promise };
     void promise.finally(() => {
       if (this._connectionInFlight?.promise === promise) {
@@ -716,11 +1028,14 @@ export class AgentRegistry {
     return promise;
   }
 
-  private async performRuntimeConnection(): Promise<void> {
+  private async performRuntimeConnection(
+    options?: RuntimeConnectionOptions,
+  ): Promise<void> {
     if (!this.runtimeUrl) {
       this.invalidateInspectorMetadataConnection();
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+      this.setRuntimeConnectionStatus(
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      );
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = RUNTIME_MODE_SSE;
@@ -743,8 +1058,10 @@ export class AgentRegistry {
     const inspectorMetadataConnectionGeneration =
       this.inspectorMetadataConnectionGeneration;
 
-    this._runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    this.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    const runtimeHealthGeneration = this.runtimeHealthGeneration;
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
@@ -757,7 +1074,9 @@ export class AgentRegistry {
         return;
       }
       const { runtimeInfo: runtimeInfoResponse, resolvedTransport } =
-        await this.fetchRuntimeInfo();
+        options?.recovery
+          ? await this.fetchRuntimeInfoWithTimeout(new AbortController())
+          : await this.fetchRuntimeInfo();
       if (
         inspectorMetadataConnectionGeneration !==
         this.inspectorMetadataConnectionGeneration
@@ -794,6 +1113,7 @@ export class AgentRegistry {
             if (existing instanceof ProxiedCopilotRuntimeAgent) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
+              this.applyRuntimeFetchToAgent(existing);
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
@@ -808,18 +1128,20 @@ export class AgentRegistry {
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
             });
             this.applyHeadersToAgent(agent);
+            this.applyRuntimeFetchToAgent(agent);
+            this.mintedThreadIds.set(agent, agent.threadId);
             return [id, agent];
           },
         ),
       );
 
-      // Reassign the full set: ids present in `runtimeInfo.agents` are carried
-      // over (reused or freshly minted above); ids no longer advertised are
-      // dropped because they are absent from this rebuilt map.
-      this.remoteAgents = agents;
+      this.remoteAgents = options?.recovery
+        ? this.reconcileRecoveredAgents(agents)
+        : agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Connected;
+      this.setRuntimeConnectionStatus(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
       this._runtimeVersion = version;
       this._audioFileTranscriptionEnabled =
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
@@ -865,25 +1187,41 @@ export class AgentRegistry {
       ) {
         return;
       }
-      this.invalidateInspectorMetadataConnection();
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Error;
-      this._runtimeVersion = undefined;
-      this._audioFileTranscriptionEnabled = false;
-      this._runtimeMode = RUNTIME_MODE_SSE;
-      this._intelligence = undefined;
-      this._threadEndpoints = undefined;
-      this._suggestions = undefined;
-      this._a2uiEnabled = false;
-      this._a2uiAgents = undefined;
-      this._openGenerativeUIEnabled = false;
-      this.remoteAgents = {};
-      this._agents = this.localAgents;
+      if (options?.preserveOnFailure) {
+        if (
+          options?.recovery &&
+          runtimeHealthGeneration !== this.runtimeHealthGeneration
+        ) {
+          return;
+        }
+        this.setRuntimeConnectionStatus(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        await this.notifyRuntimeStatusChanged(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+      } else {
+        this.invalidateInspectorMetadataConnection();
+        this.setRuntimeConnectionStatus(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        this._runtimeVersion = undefined;
+        this._audioFileTranscriptionEnabled = false;
+        this._runtimeMode = RUNTIME_MODE_SSE;
+        this._intelligence = undefined;
+        this._threadEndpoints = undefined;
+        this._suggestions = undefined;
+        this._a2uiEnabled = false;
+        this._a2uiAgents = undefined;
+        this._openGenerativeUIEnabled = false;
+        this.remoteAgents = {};
+        this._agents = this.localAgents;
 
-      await this.notifyRuntimeStatusChanged(
-        CopilotKitCoreRuntimeConnectionStatus.Error,
-      );
-      await this.notifyAgentsChanged();
+        await this.notifyRuntimeStatusChanged(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        await this.notifyAgentsChanged();
+      }
 
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
@@ -902,7 +1240,9 @@ export class AgentRegistry {
     }
   }
 
-  private async fetchRuntimeInfo(): Promise<RuntimeInfoFetchResult> {
+  private async fetchRuntimeInfo(
+    signal?: AbortSignal,
+  ): Promise<RuntimeInfoFetchResult> {
     const runtimeUrl = this.runtimeUrl;
     if (!runtimeUrl) {
       throw new Error("Runtime URL is not set");
@@ -923,19 +1263,26 @@ export class AgentRegistry {
           runtimeUrl,
           headers,
           credentials,
+          signal,
         ),
         resolvedTransport: "single",
       };
     }
 
     if (runtimeTransport === "auto") {
-      return this.fetchRuntimeInfoAutoDetect(runtimeUrl, headers, credentials);
+      return this.fetchRuntimeInfoAutoDetect(
+        runtimeUrl,
+        headers,
+        credentials,
+        signal,
+      );
     }
 
     // REST transport
     const response = await fetch(`${runtimeUrl}/info`, {
       headers,
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
       throw await runtimeInfoError(response);
@@ -950,12 +1297,14 @@ export class AgentRegistry {
     runtimeUrl: string,
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
+    signal?: AbortSignal,
   ): Promise<RuntimeInfo> {
     const response = await fetch(runtimeUrl, {
       method: "POST",
       headers: withJsonContentType(headers),
       body: JSON.stringify({ method: "info" }),
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
       throw await runtimeInfoError(response);
@@ -972,12 +1321,14 @@ export class AgentRegistry {
     runtimeUrl: string,
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
+    signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {
     // Try REST first (GET /info)
     try {
       const response = await fetch(`${runtimeUrl}/info`, {
         headers: { ...headers },
         ...(credentials ? { credentials } : {}),
+        ...(signal ? { signal } : {}),
       });
       // Only treat a successful (2xx) response as a valid REST runtime.
       // 404/405 means the endpoint doesn't exist; other non-2xx errors
@@ -997,6 +1348,7 @@ export class AgentRegistry {
       runtimeUrl,
       { ...headers },
       credentials,
+      signal,
     );
     return { runtimeInfo, resolvedTransport: "single" };
   }

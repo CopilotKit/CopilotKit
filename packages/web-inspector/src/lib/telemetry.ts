@@ -34,6 +34,7 @@ export const TELEMETRY_EVENTS = {
   errorSignalViewed: "oss.inspector.error_signal_viewed",
   whatsNewClicked: "oss.inspector.whats_new_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
+  threadsTryFromHereClicked: "oss.inspector.threads_try_from_here_clicked",
   threadsLockedViewed: "oss.inspector.threads_locked_viewed",
   threadsIntelligenceSignupClicked:
     "oss.inspector.threads_intelligence_signup_clicked",
@@ -53,10 +54,18 @@ export const TELEMETRY_EVENTS = {
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
   homeViewed: "oss.inspector.home_viewed",
   homeCtaClicked: "oss.inspector.home_cta_clicked",
+  // Carries the CLI's own `onboarding_run_id`, which is the whole point: it is
+  // the first event that can be joined to `cli.onboarding.completed` on the
+  // Intelligence side. `home_cta_clicked` only ever proved someone clicked a
+  // link, never that an install followed.
+  homePromptCopied: "oss.inspector.home_prompt_copied",
+  // Which step of the Intelligence story a developer opened by hand. Carries
+  // the beat as a property rather than splitting into one event per label,
+  // because the labels are expected to change as the story is iterated and a
+  // per-label event would retire with them.
+  homeStoryBeatSelected: "oss.inspector.home_story_beat_selected",
   metadataModuleViewed: "oss.inspector.metadata_module_viewed",
   metadataActionClicked: "oss.inspector.metadata_action_clicked",
-  eventSnippetsRun: "oss.inspector.event_snippets_run",
-  eventSnippetsSaved: "oss.inspector.event_snippets_saved",
 } as const;
 
 export type TelemetryEvent =
@@ -325,7 +334,6 @@ export type InspectorLeafKey =
   | "playground"
   | "threads"
   | "ag-ui-events"
-  | "event-snippets"
   | "agents"
   | "frontend-tools"
   | "capabilities"
@@ -368,6 +376,7 @@ export type InspectorThreadTelemetryProps = Readonly<{
   tour_step?: ExampleTourStep;
   tour_tab?: ExampleTourTab;
   dismiss_method?: "skip" | "done";
+  outcome?: "success" | "failure";
 }>;
 
 /** Rebuild the common Thread payload from its closed coarse allowlist. */
@@ -452,6 +461,15 @@ export function trackThreadsTabClicked(
   props: InspectorThreadTelemetryProps = {},
 ): void {
   track(TELEMETRY_EVENTS.threadsTabClicked, threadCommonProperties(props));
+}
+
+export function trackThreadsTryFromHereClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsTryFromHereClicked, {
+    ...threadCommonProperties(props),
+    ...(props.outcome === undefined ? {} : { outcome: props.outcome }),
+  });
 }
 
 export function trackThreadsLockedViewed(
@@ -606,6 +624,56 @@ export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
   });
 }
 
+export type InspectorHomePromptCopiedTelemetryProps = Readonly<{
+  /** The id minted for this session and substituted into the copied prompt. */
+  onboarding_run_id: string;
+  /** Whether the clipboard write actually landed. */
+  outcome: "copied" | "failed";
+}>;
+
+/**
+ * Report a copy of the Intelligence install prompt.
+ *
+ * `outcome` is reported rather than only emitting on success, because a
+ * clipboard that refuses is indistinguishable from a developer who never
+ * pressed the button — and the two call for opposite fixes.
+ */
+export function trackHomePromptCopied(
+  props: InspectorHomePromptCopiedTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.homePromptCopied, {
+    onboarding_run_id: props.onboarding_run_id,
+    outcome: props.outcome,
+    group_key: "home",
+    leaf_key: "home",
+  });
+}
+
+export type InspectorHomeStoryBeatTelemetryProps = Readonly<{
+  /** Stable id of the step, e.g. "threads". Survives a label rename. */
+  beat: string;
+  /** Its position in the rail, so a reorder can be evaluated against clicks. */
+  beat_index: number;
+}>;
+
+/**
+ * Report a step of the Intelligence story that a developer opened themselves.
+ *
+ * Only a press reports. The story also advances on its own every few seconds,
+ * and reporting that would bury the handful of real interactions under a
+ * metronome — one event per idle developer per six seconds, none of it intent.
+ */
+export function trackHomeStoryBeatSelected(
+  props: InspectorHomeStoryBeatTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.homeStoryBeatSelected, {
+    beat: props.beat,
+    beat_index: props.beat_index,
+    group_key: "home",
+    leaf_key: "home",
+  });
+}
+
 export type InspectorMetadataModuleViewedTelemetryProps = Readonly<{
   module: InspectorMetadataTelemetryModule;
   license_bucket: InspectorMetadataLicenseBucket;
@@ -676,39 +744,6 @@ export function trackMetadataActionClicked(
     module: "action",
     action_kind: props.action_kind,
     ...metadataCoarseProperties(props),
-  });
-}
-
-export type EventSnippetRecipeKind =
-  | "tool-call"
-  | "reasoning"
-  | "text"
-  | "activity"
-  | "raw";
-
-export type EventSnippetSource = "chat" | "pane";
-
-export function trackEventSnippetsRun(props: {
-  recipe: EventSnippetRecipeKind;
-  source: EventSnippetSource;
-  success: boolean;
-}): void {
-  track(TELEMETRY_EVENTS.eventSnippetsRun, {
-    recipe: props.recipe,
-    source: props.source,
-    success: props.success,
-  });
-}
-
-export function trackEventSnippetsSaved(props: {
-  recipe: EventSnippetRecipeKind;
-  source: EventSnippetSource;
-  success: boolean;
-}): void {
-  track(TELEMETRY_EVENTS.eventSnippetsSaved, {
-    recipe: props.recipe,
-    source: props.source,
-    success: props.success,
   });
 }
 

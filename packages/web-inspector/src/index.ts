@@ -26,8 +26,6 @@ import {
   ɵselectMemoriesError,
   ɵselectMemoriesAvailable,
   ɵselectMemoriesRealtimeStatus,
-  ɵinjectInspectorEvents,
-  ɵresetInspectorInject,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
@@ -99,33 +97,6 @@ import {
 import type { InspectorNavGroupKey, MenuKey } from "./lib/inspector-nav.js";
 import { selectVisibleRealThreadId } from "./lib/thread-selection.js";
 import {
-  ACTIVITY_STARTERS,
-  compileActivityRecipe,
-  compileReasoningRecipe,
-  compileTextRecipe,
-  compileToolCallRecipe,
-  createSnippetId,
-  deleteEventSnippet,
-  expandSnippetEventsForRun,
-  exportEventSnippetsJson,
-  groupEventSnippets,
-  importEventSnippets,
-  loadEventSnippets,
-  parseSnippetEvents,
-  editorStateFromSnippet,
-  recipeIconName,
-  recipeIconWrapClass,
-  recipeLabel,
-  snippetContainsToolCall,
-  snippetJsonIsRunnable,
-  upsertEventSnippet,
-} from "./lib/event-snippets.js";
-import type {
-  EventSnippet,
-  LastInject,
-  SnippetRecipe,
-} from "./lib/event-snippets.js";
-import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
   getRuntimeUrlType,
@@ -133,6 +104,8 @@ import {
   maybeShowDisclosure,
   trackErrorSignalViewed,
   trackHomeCtaClicked,
+  trackHomePromptCopied,
+  trackHomeStoryBeatSelected,
   trackHomeViewed,
   trackInspectorOpened,
   trackMetadataActionClicked,
@@ -152,12 +125,15 @@ import {
   trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
-  trackEventSnippetsRun,
-  trackEventSnippetsSaved,
 } from "./lib/telemetry.js";
+import {
+  createOnboardingPrompt,
+  createOnboardingRunId,
+} from "./lib/onboarding-prompt.js";
 import type {
   ExampleKind,
   ExampleTourStep,
@@ -182,16 +158,6 @@ import type {
 export type { Anchor } from "./lib/types.js";
 export { buildCapabilityRows as ɵbuildCapabilityRows };
 export type { CapabilityToolRow as ɵCapabilityToolRow };
-export {
-  compileChatSnippet,
-  compileFromActivityMessage,
-  upsertEventSnippet,
-} from "./lib/event-snippets.js";
-export type {
-  ActivitySnippetMessage,
-  ChatSnippetCapture,
-  EventSnippet,
-} from "./lib/event-snippets.js";
 
 export type InspectorOpenOptions = {
   /** Select the thread that contains the message. */
@@ -200,10 +166,6 @@ export type InspectorOpenOptions = {
   agentId?: string;
   /** Scroll the selected thread timeline to this message when available. */
   messageId?: string;
-  /** Open this Inspect leaf instead of Threads. */
-  menu?: MenuKey;
-  /** Select this Event Snippet after open. */
-  snippetId?: string;
 };
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
@@ -616,6 +578,21 @@ type InspectorColorScheme = "light" | "dark";
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
 const LAUNCHER_HUD_WIDTH = 248;
+/**
+ * One page-load preview of the launcher's feature HUD.
+ *
+ * The card arrives after the host page has had a beat to settle. Its four rows
+ * then come online in order, stay readable, and leave together. Nothing is
+ * persisted: a new Inspector element means a new preview.
+ */
+const LAUNCHER_HUD_INTRO_MS = {
+  delay: 500,
+  duration: 3400,
+  rowStart: 180,
+  rowStagger: 170,
+  rowDuration: 300,
+  blockedRetry: 250,
+} as const;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -664,6 +641,166 @@ const THREADS_RUNTIME_SETUP_PROMPT = [
 ].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
+
+// ── The Intelligence story on Home ────────────────────────────────────────
+//
+// A condensed cut of the six-phase animation on the Intelligence home page
+// (`react-shell/src/home/learning-sample*`). Three beats, not six: the two
+// thread beats there open on the agent booking the wrong meeting, which is a
+// poor first frame for a card whose job is to argue for the product, and the
+// handoff beat only bridges between them.
+//
+// What is kept is the machinery a developer cannot hand-roll — many threads
+// collapsing into one pattern — then the artefact it produces, then the loop.
+// `meeting-scheduling.md` recurs in all three on purpose: the same filename
+// appearing in the last beat's badge is what turns the closing diagram from a
+// claim into something checkable.
+//
+// Durations are the shipped values for the corresponding phases upstream, so
+// the pacing stays recognisable to anyone who has seen the original.
+// Each beat owns its own two sentences, and the card shows exactly the pair
+// that belongs to the picture on screen. An earlier version argued for Threads
+// in prose while the animation showed Learning — two half-claims sitting next
+// to each other, neither supporting the other. Bound together they read as one
+// chain: your users' threads → the pattern in them → the file → it applies
+// itself.
+//
+// `lead` is the sentence that has to land on its own. `support` earns it.
+// Nothing else: a third line here is what makes this card feel crowded.
+const INTELLIGENCE_STORY_BEATS = [
+  {
+    id: "threads",
+    label: "Threads",
+    // Roughly 24 words of copy plus a picture to take in. The upstream timings
+    // were written for a page where the animation carried itself; here it has
+    // to be read, so every beat gets time for two sentences at a comfortable
+    // pace rather than a glance. The rail is there for anyone who wants to
+    // move faster.
+    duration: 6_500,
+    // "Your users" means the end users of the developer's app, not the
+    // developer. That is what the platform means too: `identifyUser` resolves
+    // one `{id, name}` per request from the app, and a thread carries
+    // `end_user_id` — a column renamed from `user_id` precisely because the
+    // old name "caused repeated misdiagnosis" against control-plane users.
+    //
+    // No count in the claim. A developer wiring this up locally has no users
+    // yet, and "thousands" would read as a lie on day one while still being
+    // true at scale. "All the others" holds in both cases.
+    lead: "You only see this session. Your users have all the others.",
+    // "Rich Threads" is the product's own name for the durable ones, and the
+    // distinction is the sale: the Inspector's Threads tab already lists local
+    // ones that die on reload.
+    support:
+      "Rich Threads keep every conversation and its state, so you can open the one that broke instead of reproducing it.",
+  },
+  {
+    id: "learning",
+    label: "Learning",
+    duration: 6_000,
+    lead: "Your users already told you what to fix.",
+    // Insights are a first-class concept in the product, and the evidence link
+    // is the credibility hook for a sceptical developer: a claim you can open,
+    // not a model's opinion. Learning's own onboarding leads with "46 evidence
+    // refs" across "12 Threads" for exactly this reason.
+    support:
+      "Learning reads the runs behind those threads and finds the patterns — every Insight linked to the messages that back it.",
+  },
+  {
+    id: "skill",
+    label: "Skills",
+    duration: 5_500,
+    lead: "An Insight becomes a skill you own.",
+    // The review step is real (candidates land at pending_review and a human
+    // approves), but it is sold as control rather than as reassurance. The
+    // earlier wording — "nothing reaches your agent until you approve it" —
+    // answered a fear the reader had not voiced yet, which reads as a defence
+    // and plants the worry it deflects. Ownership is the same fact, stated as
+    // a feature: a readable file you review, edit and ship.
+    support:
+      "A SKILL.md built from that evidence — yours to review, edit and ship with your project.",
+  },
+  {
+    id: "intelligence",
+    // Named after the product, not after the mechanism. The other three tabs
+    // are the parts; this one is the whole, so the rail reads "Threads ·
+    // Learning · Skills · Intelligence" — the pieces, then the thing that
+    // unites them. "Reuse" named neither a surface nor an outcome.
+    label: "Intelligence",
+    duration: 6_000,
+    lead: "Every round of real use leaves your agent better.",
+    // Deliberately NOT "Skills apply it for you". The platform does not apply
+    // skills at run time — there is no run-time read of published skills, only
+    // a bundle the developer pulls down with `copilotkit skills download`.
+    // Claiming automatic application would be a promise the product does not
+    // keep, and the first developer to check would stop believing the rest.
+    support:
+      "Approve a skill, pull it into your project, and the next run starts from what already worked.",
+  },
+] as const;
+
+/**
+ * The threads the first beat shows.
+ *
+ * One of them failed, because that is the row a developer actually wants and
+ * the reason durable threads are worth paying for. It is a user's thread that
+ * went wrong, not a demo of our agent failing — the distinction matters for a
+ * card that has to argue for the product.
+ */
+const INTELLIGENCE_STORY_THREADS = [
+  { title: "Reschedule the Tuesday sync", meta: "2 min ago", failed: false },
+  {
+    title: "Book time with the design team",
+    meta: "18 min ago",
+    failed: false,
+  },
+  { title: "Booked the wrong slot", meta: "Needs a look", failed: true },
+] as const;
+
+/** The three rules the story derives, shown verbatim across all three beats. */
+const INTELLIGENCE_STORY_RULES = [
+  "Check both calendars.",
+  "Propose several times.",
+  "Ask before booking.",
+] as const;
+
+/**
+ * The raw thread signals the first beat collapses into those rules.
+ *
+ * Kept at real-message length and varied on purpose — these have to read as
+ * things people actually typed, not as three tidy bullet points. The longest
+ * one truncates in a narrow panel, which is honest: it is an excerpt.
+ */
+const INTELLIGENCE_STORY_SIGNALS = [
+  "Check our calendars and find a time for both of us.",
+  "Could you share a few options?",
+  "Ask me before you book it.",
+] as const;
+
+// A skill really is a directory holding a SKILL.md, so the path shows both the
+// skill's name and the document the platform actually stores.
+const INTELLIGENCE_STORY_SKILL_FILE = "meeting-scheduling/SKILL.md";
+
+/**
+ * How long the copied confirmation stands before the button invites a second
+ * press. Longer than the 2s the Threads setup prompt uses, because this state
+ * also carries an instruction that has to be read, not just an acknowledgement.
+ */
+const PROMPT_COPY_RESET_MS = 4_000;
+
+// The real pipeline, named the way the product names it: threads produce
+// evidence-backed Insights, Insights produce Skill candidates, a human
+// approves, and the approved set is what the project pulls in. `Lightbulb` is
+// Learning's own icon for an Insight, so the two surfaces agree.
+const INTELLIGENCE_STORY_CHAIN = [
+  {
+    icon: "MessagesSquare",
+    name: "Threads",
+    detail: "Every conversation",
+  },
+  { icon: "Lightbulb", name: "Insights", detail: "Backed by evidence" },
+  { icon: "FileText", name: "Skills", detail: "You approve" },
+  { icon: "Wand2", name: "Your agent", detail: "Starts from what worked" },
+] as const;
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_URL =
   "https://cdn.copilotkit.ai/corp-site/videos/copilotkit-generative-ui-agentic-frontend-demo.webm";
 const THREADS_EXAMPLE_OVERVIEW_VIDEO_FALLBACK =
@@ -823,6 +960,31 @@ type InspectorMessage = {
   /** Populated for role="activity" messages (Generative UI). */
   activityType?: string;
 };
+
+const EMPTY_INSPECTOR_MESSAGES: InspectorMessage[] = [];
+
+function textFromUnknownContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const part of content) {
+      if (typeof part === "string") {
+        parts.push(part);
+        continue;
+      }
+      if (typeof part === "object" && part !== null && "text" in part) {
+        const text = part.text;
+        if (typeof text === "string") parts.push(text);
+      }
+    }
+    return parts.join("");
+  }
+  if (typeof content === "object" && content !== null && "text" in content) {
+    const text = content.text;
+    if (typeof text === "string") return text;
+  }
+  return "";
+}
 
 type InspectorToolDefinition = {
   agentId: string;
@@ -1346,13 +1508,6 @@ function highlightedJson(obj: unknown): string {
     const cached = highlightedJsonCache.get(obj);
     if (cached !== undefined) return cached;
   }
-  const colors = {
-    key: "#5558B2",
-    str: "#087653",
-    num: "#8a5900",
-    bool: "#c0333a",
-    nil: "#68686e",
-  };
   const json = JSON.stringify(obj, null, 2);
   if (!json) return "";
   const parts: string[] = [];
@@ -1363,15 +1518,17 @@ function highlightedJson(obj: unknown): string {
   while ((match = re.exec(json)) !== null) {
     parts.push(escapeHtml(json.slice(lastIndex, match.index)));
     const m = match[0];
-    let color = colors.num;
+    let token = "num";
     if (m.startsWith('"')) {
-      color = m.trimEnd().endsWith(":") ? colors.key : colors.str;
+      token = m.trimEnd().endsWith(":") ? "key" : "str";
     } else if (m === "true" || m === "false") {
-      color = colors.bool;
+      token = "bool";
     } else if (m === "null") {
-      color = colors.nil;
+      token = "nil";
     }
-    parts.push(`<span style="color:${color}">${escapeHtml(m)}</span>`);
+    parts.push(
+      `<span class="cpk-json-token cpk-json-token--${token}">${escapeHtml(m)}</span>`,
+    );
     lastIndex = match.index + m.length;
   }
   parts.push(escapeHtml(json.slice(lastIndex)));
@@ -1419,17 +1576,34 @@ ${unsafeHTML(highlightedJson(parsed))}</pre
   >`;
 }
 
-function eventColors(type: string): { bg: string; fg: string } {
-  if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
-  if (type.startsWith("TOOL_CALL"))
-    return { bg: "rgba(133,236,206,0.15)", fg: "#087653" };
-  if (type.startsWith("STATE"))
-    return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
-  if (type === "RUN_ERROR" || type === "ERROR")
-    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
-  if (type.startsWith("RUN_") || type.startsWith("STEP_"))
-    return { bg: "rgba(255,172,77,0.2)", fg: "#8a5900" };
-  return { bg: "#F7F7F9", fg: "#68686e" };
+function humanizeEventType(type: string): string {
+  const words = type
+    .trim()
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.toLowerCase());
+  if (words.length === 0) return "Event";
+  const [first = "event", ...rest] = words;
+  return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...rest].join(
+    " ",
+  );
+}
+
+function messageTitle(role: string): string {
+  const normalized = role.trim() || "message";
+  const label = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1).toLowerCase()}`;
+  return `${label} message`;
+}
+
+function eventCategory(
+  type: string,
+): "message" | "tool" | "state" | "run" | "error" | "event" {
+  if (type === "RUN_ERROR" || type === "ERROR") return "error";
+  if (type.startsWith("TEXT_MESSAGE")) return "message";
+  if (type.startsWith("TOOL_CALL")) return "tool";
+  if (type.startsWith("STATE") || type.startsWith("MESSAGES")) return "state";
+  if (type.startsWith("RUN_") || type.startsWith("STEP_")) return "run";
+  return "event";
 }
 
 function formatTimestamp(ts: string | number): string {
@@ -1902,11 +2076,15 @@ export class CpkThreadInspector extends PortableLitElement {
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
+    agentMessagesInput: { attribute: false },
     liveMessageVersion: { attribute: false },
     viewInAppMode: { attribute: false },
     viewInAppError: { attribute: false },
     focusMessageId: { attribute: false },
     focusRequestId: { attribute: false },
+    tryFromHereAvailable: { attribute: false },
+    tryFromHereBusy: { attribute: false },
+    tryFromHereError: { attribute: false },
     _tab: { state: true },
     _fetchedMetadata: { state: true },
     _conversation: { state: true },
@@ -1938,6 +2116,11 @@ export class CpkThreadInspector extends PortableLitElement {
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
+  agentMessagesInput: ReadonlyArray<{
+    id?: string;
+    role: string;
+    contentText: string;
+  }> = EMPTY_INSPECTOR_MESSAGES;
   /**
    * Monotonic per-thread counter the parent inspector ticks every time the
    * agent currently running on this thread emits a message change. When this
@@ -1949,6 +2132,9 @@ export class CpkThreadInspector extends PortableLitElement {
   viewInAppError: string | null = null;
   focusMessageId: string | null = null;
   focusRequestId = 0;
+  tryFromHereAvailable = false;
+  tryFromHereBusy = false;
+  tryFromHereError: string | null = null;
 
   private _tab: ThreadDetailsTab = "timeline";
   private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
@@ -2007,6 +2193,8 @@ export class CpkThreadInspector extends PortableLitElement {
   > = new Map();
   private _timelineItemsCache: {
     events: ApiAgentEvent[];
+    conversation: ConversationItem[];
+    agentMessages: CpkThreadInspector["agentMessagesInput"];
     items: TimelineItem[];
   } | null = null;
   private _liveEventsWithSourceIndexCache: {
@@ -2085,7 +2273,9 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "timeline") return this.renderTimeline();
+    if (id === "timeline") {
+      return this.withMessagesToolbar(this.renderTimeline());
+    }
     if (id === "state") return this.renderState();
     return this.renderEvents();
   }
@@ -2183,6 +2373,11 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       flex-direction: row;
       overflow: hidden;
+      --cpk-json-key: #3d408f;
+      --cpk-json-str: #0b6b4c;
+      --cpk-json-num: #8a5900;
+      --cpk-json-bool: #c0333a;
+      --cpk-json-nil: #57575b;
     }
 
     .cpk-td {
@@ -2307,11 +2502,25 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-shrink: 0;
     }
 
+    .cpk-td__chrome-actions {
+      margin-inline-start: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      padding-inline: 8px;
+      min-width: 0;
+    }
+
+    .cpk-td__chrome-actions + .cpk-td__panel-toggle {
+      margin-inline-start: 0;
+    }
+
     .cpk-td__metadata-strip {
       display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 8px;
       padding: 10px 16px;
       border-bottom: 1px solid #e9e9ef;
       background: #fbfbfd;
@@ -2320,19 +2529,22 @@ export class CpkThreadInspector extends PortableLitElement {
 
     .cpk-td__metadata-pills {
       display: flex;
+      align-items: center;
       gap: 6px;
-      flex: 1;
-      flex-wrap: wrap;
+      width: 100%;
       min-width: 0;
+      flex-wrap: nowrap;
     }
 
     .cpk-td__metadata-pill {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      max-width: 220px;
-      padding: 3px 7px;
-      border: 1px solid #e9e9ef;
+      gap: 6px;
+      flex: 1 1 0;
+      min-width: 0;
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid #dbdbe5;
       border-radius: 6px;
       background: #ffffff;
       color: #57575b;
@@ -2348,20 +2560,17 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     .cpk-td__metadata-value {
+      min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
+    .cpk-td__metadata-value--wrap,
     .cpk-td__metadata-pill--wrap {
-      max-width: 100%;
-      white-space: normal;
-    }
-
-    .cpk-td__metadata-value--wrap {
-      overflow: visible;
-      text-overflow: clip;
-      white-space: normal;
-      overflow-wrap: anywhere;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .cpk-td__view-in-app {
@@ -2372,16 +2581,27 @@ export class CpkThreadInspector extends PortableLitElement {
       border-radius: 6px;
       background: #5558b2;
       color: #ffffff;
-      font-family: "Plus Jakarta Sans", sans-serif;
-      font-size: 11px;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
       font-weight: 600;
-      padding: 5px 10px;
+      line-height: 1.2;
+      min-height: 24px;
+      padding: 3px 8px;
       cursor: pointer;
+      transition:
+        transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+        background 120ms ease,
+        color 120ms ease,
+        border-color 120ms ease;
     }
 
     .cpk-td__view-in-app:focus-visible {
       outline: 2px solid #010507;
       outline-offset: 2px;
+    }
+
+    .cpk-td__view-in-app:active {
+      transform: scale(0.96);
     }
 
     .cpk-td__view-in-app--stop {
@@ -2393,6 +2613,65 @@ export class CpkThreadInspector extends PortableLitElement {
       flex-basis: 100%;
       color: #c0333a;
       font-size: 11px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cpk-td__view-in-app {
+        transition: none;
+      }
+
+      .cpk-td__view-in-app:active {
+        transform: none;
+      }
+    }
+
+    .cpk-td__try-from-here {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-inline-start: auto;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
+      background: #ffffff;
+      color: #36363a;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .cpk-td__try-from-here-icon {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    :host([dir="rtl"]) .cpk-td__try-from-here-icon {
+      scale: -1 1;
+    }
+
+    .cpk-td__try-from-here:hover:not(:disabled) {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__try-from-here:focus-visible {
+      outline: 2px solid #a78bfa;
+      outline-offset: 1px;
+    }
+
+    .cpk-td__try-from-here:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .cpk-td__try-from-here-error {
+      flex-basis: 100%;
+      color: #c0333a;
+      font-size: 11px;
+      line-height: 1.4;
     }
 
     /*
@@ -2591,15 +2870,16 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__tool-pre {
       margin: 0;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
+      font-size: 12px;
       background: #f7f7f9;
-      padding: 6px 8px;
-      border-radius: 5px;
+      padding: 10px 12px;
+      border-radius: 6px;
       overflow-x: auto;
       white-space: pre-wrap;
-      word-break: break-all;
+      overflow-wrap: anywhere;
+      word-break: normal;
       color: #010507;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     /* ── Tool call group ─────────────────────────────────────────────── */
@@ -2652,10 +2932,29 @@ export class CpkThreadInspector extends PortableLitElement {
 
     /* ── Interaction timeline ───────────────────────────────────────── */
     .cpk-td__timeline-item {
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
-      background: #ffffff;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
       overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--run,
+    .cpk-td__timeline-item--state,
+    .cpk-td__timeline-item--event,
+    .cpk-td__timeline-item--tool,
+    .cpk-td__event--run,
+    .cpk-td__event--event,
+    .cpk-td__event--state,
+    .cpk-td__event--message,
+    .cpk-td__event--tool {
+      border-color: #dbdbe5;
+      background: #ffffff;
+    }
+
+    .cpk-td__timeline-item--message {
+      border-color: #dbdbe5;
+      background: #ffffff;
+      box-shadow: 0 1px 2px #0105070d;
     }
 
     .cpk-td__timeline-item--warning {
@@ -2667,27 +2966,70 @@ export class CpkThreadInspector extends PortableLitElement {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 7px 10px;
+      padding: 6px 10px;
+      background: transparent;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-header {
+      padding: 10px 12px;
       background: #f7f7f9;
     }
 
+    .cpk-td__timeline-item--user .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
     .cpk-td__timeline-kind {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #57575b;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
+      letter-spacing: 0.04em;
+      line-height: 1.2;
       text-transform: uppercase;
-      color: #5558b2;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-kind {
+      background: #bec2ff33;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--assistant .cpk-td__timeline-kind {
+      background: #85ecce4d;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-item--warning .cpk-td__timeline-kind {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__timeline-title {
       flex: 1;
       min-width: 0;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       font-weight: 500;
-      color: #010507;
+      color: #57575b;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .cpk-td__timeline-item--message .cpk-td__timeline-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #010507;
     }
 
     .cpk-td__timeline-time {
@@ -2700,6 +3042,7 @@ export class CpkThreadInspector extends PortableLitElement {
     .cpk-td__timeline-body {
       margin: 0;
       padding: 0 10px 9px;
+      font-family: "Plus Jakarta Sans", sans-serif;
       font-size: 12px;
       line-height: 1.55;
       color: #57575b;
@@ -2707,21 +3050,28 @@ export class CpkThreadInspector extends PortableLitElement {
       word-break: break-word;
     }
 
+    .cpk-td__timeline-item--message .cpk-td__timeline-body {
+      padding: 0 12px 12px;
+      font-size: 13px;
+      color: #010507;
+    }
+
     .cpk-td__timeline-toolbar {
       display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
-      margin-left: auto;
     }
 
     .cpk-td__timeline-bulk-toggle {
       margin: 0;
-      padding: 4px 8px;
-      border: 1px solid #dcdce8;
-      border-radius: 7px;
+      padding: 6px 10px;
+      border: 1px solid #dbdbe5;
+      border-radius: 8px;
       background: #ffffff;
       color: #36363a;
       cursor: pointer;
-      font-family: "Inter", sans-serif;
+      font-family: "Spline Sans Mono", monospace;
       font-size: 11px;
       font-weight: 600;
       line-height: 1.2;
@@ -2796,84 +3146,6 @@ export class CpkThreadInspector extends PortableLitElement {
       }
     }
 
-    @keyframes cpk-playground-message-enter {
-      from {
-        opacity: 0;
-        filter: blur(2px);
-        transform: translateY(4px);
-      }
-      to {
-        opacity: 1;
-        filter: blur(0);
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes cpk-playground-thinking {
-      0%,
-      60%,
-      100% {
-        opacity: 0.28;
-        transform: translateY(0);
-      }
-      30% {
-        opacity: 1;
-        transform: translateY(-2px);
-      }
-    }
-
-    .cpk-playground-root {
-      container-type: inline-size;
-    }
-
-    .cpk-playground-message-enter {
-      animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
-        both;
-    }
-
-    .cpk-playground-thinking-dot {
-      animation: cpk-playground-thinking 1.2s ease-in-out infinite;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(2) {
-      animation-delay: 0.12s;
-    }
-
-    .cpk-playground-thinking-dot:nth-child(3) {
-      animation-delay: 0.24s;
-    }
-
-    .cpk-playground-reasoning summary::-webkit-details-marker {
-      display: none;
-    }
-
-    .cpk-playground-reasoning[open] .cpk-playground-reasoning-chevron {
-      transform: rotate(90deg);
-    }
-
-    @container (max-width: 560px) {
-      .cpk-playground-header {
-        align-items: stretch;
-      }
-
-      .cpk-playground-actions {
-        width: 100%;
-      }
-
-      .cpk-playground-thread-select {
-        min-width: 0;
-        max-width: none;
-        flex: 1;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .cpk-playground-message-enter,
-      .cpk-playground-thinking-dot {
-        animation: none;
-      }
-    }
-
     .cpk-td__genui {
       display: flex;
       flex-direction: column;
@@ -2915,8 +3187,9 @@ export class CpkThreadInspector extends PortableLitElement {
     /* ── AG-UI Events ────────────────────────────────────────────────── */
     .cpk-td__event {
       flex-shrink: 0;
-      border: 1px solid #e9e9ef;
-      border-radius: 7px;
+      border: 1px solid #dbdbe5;
+      border-radius: 10px;
+      background: #ffffff;
       overflow: hidden;
       /*
        * content-visibility: auto lets the browser skip layout + paint for
@@ -2932,48 +3205,89 @@ export class CpkThreadInspector extends PortableLitElement {
       contain-intrinsic-size: 0 80px;
     }
 
+    .cpk-td__event--error {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
     .cpk-td__event-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 5px 10px;
+      gap: 8px;
+      padding: 6px 10px;
+      background: transparent;
     }
 
     .cpk-td__event-type {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #f0f0f4;
+      color: #010507;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      font-weight: 500;
-      text-transform: uppercase;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      line-height: 1.2;
+    }
+
+    .cpk-td__event--message .cpk-td__event-type {
+      background: #bec2ff33;
+    }
+
+    .cpk-td__event--tool .cpk-td__event-type {
+      background: #85ecce4d;
+    }
+
+    .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.16);
+      color: #c0333a;
     }
 
     .cpk-td__event-time {
+      margin-inline-start: auto;
       font-family: "Spline Sans Mono", monospace;
       font-size: 9px;
       color: #68686e;
+      flex-shrink: 0;
     }
 
-    .cpk-td__event-payload {
-      margin: 0;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 10px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
-      padding: 8px 10px;
-      border-top: 1px solid #e9e9ef;
-    }
-
-    /* ── JSON block (agent state) ────────────────────────────────────── */
+    .cpk-td__event-payload,
     .cpk-td__json-block,
     .cpk-json-block {
       margin: 0;
+      padding: 10px 12px;
+      border-top: 1px solid #dbdbe5;
+      background: #f7f7f9;
       font-family: "Spline Sans Mono", monospace;
-      font-size: 11px;
-      line-height: 1.8;
+      font-size: 12px;
+      line-height: 1.65;
       white-space: pre-wrap;
-      word-break: break-all;
-      color: #57575b;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      color: #010507;
+      overflow: auto;
+    }
+
+    .cpk-json-token--key {
+      color: var(--cpk-json-key);
+    }
+
+    .cpk-json-token--str {
+      color: var(--cpk-json-str);
+    }
+
+    .cpk-json-token--num {
+      color: var(--cpk-json-num);
+    }
+
+    .cpk-json-token--bool {
+      color: var(--cpk-json-bool);
+    }
+
+    .cpk-json-token--nil {
+      color: var(--cpk-json-nil);
     }
 
     /* ── Resize divider ──────────────────────────────────────────────── */
@@ -3072,6 +3386,11 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) {
       color-scheme: dark;
+      --cpk-json-key: #bec2ff;
+      --cpk-json-str: #85ecce;
+      --cpk-json-num: #ffac4d;
+      --cpk-json-bool: #fa5f67;
+      --cpk-json-nil: #afafb7;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td {
@@ -3083,6 +3402,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-strip,
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__tool-header,
     :host([data-color-scheme="dark"]) .cpk-td__tool-body,
@@ -3100,6 +3420,7 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__metadata-pill,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-td__bubble-inner--assistant,
     :host([data-color-scheme="dark"]) .cpk-td__tool-block,
     :host([data-color-scheme="dark"]) .cpk-td__event,
@@ -3112,9 +3433,13 @@ export class CpkThreadInspector extends PortableLitElement {
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__timeline-header,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-body,
-    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+    :host([data-color-scheme="dark"]) .cpk-td__tool-body {
       background: #171a22;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__tool-pre {
+      background: #111319;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle:hover,
@@ -3126,10 +3451,113 @@ export class CpkThreadInspector extends PortableLitElement {
 
     :host([data-color-scheme="dark"]) .cpk-td__panel-toggle--active,
     :host([data-color-scheme="dark"]) .cpk-td__inline-chip,
-    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind,
     :host([data-color-scheme="dark"]) .cpk-td__genui-badge {
       background: #302b43;
       color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--message {
+      background: #191c24;
+      border-color: #343742;
+      box-shadow: none;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--user
+      .cpk-td__timeline-header {
+      background: #bec2ff1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-header {
+      background: #85ecce1a;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-kind {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--assistant
+      .cpk-td__timeline-kind {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--run,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--event,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--state,
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-item--tool,
+    :host([data-color-scheme="dark"]) .cpk-td__event--run,
+    :host([data-color-scheme="dark"]) .cpk-td__event--event,
+    :host([data-color-scheme="dark"]) .cpk-td__event--state,
+    :host([data-color-scheme="dark"]) .cpk-td__event--message,
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool {
+      background: #191c24;
+      border-color: #343742;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-header,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__timeline-kind {
+      background: #20232d;
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--run
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--event
+      .cpk-td__timeline-title,
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--state
+      .cpk-td__timeline-title {
+      color: #aeb1bd;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-header {
+      background: transparent;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event-type {
+      background: #20232d;
+      color: #f3f4f8;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--message .cpk-td__event-type {
+      background: #302b43;
+      color: #d8d9ff;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--tool .cpk-td__event-type {
+      background: #1a3a32;
+      color: #85ecce;
+    }
+
+    :host([data-color-scheme="dark"]) .cpk-td__event--error .cpk-td__event-type {
+      background: rgba(250, 95, 103, 0.2);
+      color: #fa5f67;
+    }
+
+    :host([data-color-scheme="dark"])
+      .cpk-td__timeline-item--message
+      .cpk-td__timeline-body {
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-td__tab,
@@ -3151,6 +3579,7 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__timeline-title,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-bulk-toggle,
     :host([data-color-scheme="dark"]) .cpk-td__timeline-details-toggle,
+    :host([data-color-scheme="dark"]) .cpk-td__try-from-here,
     :host([data-color-scheme="dark"]) .cpk-tdp__value {
       color: #f3f4f8;
     }
@@ -3158,7 +3587,9 @@ export class CpkThreadInspector extends PortableLitElement {
     :host([data-color-scheme="dark"]) .cpk-td__event-payload,
     :host([data-color-scheme="dark"]) .cpk-td__json-block,
     :host([data-color-scheme="dark"]) .cpk-json-block {
-      color: #c7c9d2;
+      background: #111319;
+      border-top-color: #343742;
+      color: #f3f4f8;
     }
 
     :host([data-color-scheme="dark"]) .cpk-tdp__divider {
@@ -3177,14 +3608,14 @@ export class CpkThreadInspector extends PortableLitElement {
       if (this.threadId) {
         // Timeline is the default tab and should be event-derived. Fetch
         // events eagerly; the raw tab reuses the same response when opened.
+        // User messages often never appear as TEXT_MESSAGE events (they are
+        // added locally before RUN_STARTED), so also load the conversation.
         void this.fetchMetadata(this.threadId);
         if (this.canFetchEvents()) {
           this._eventsFetched = true;
           void this.fetchEvents(this.threadId);
-        } else {
-          // Last-resort compatibility path for consumers that only implement
-          // messages. New integrations should provide events so Timeline can
-          // expose source references and decode warnings.
+        }
+        if (this.canFetchMessages()) {
           void this.fetchMessages(this.threadId);
         }
       } else {
@@ -3211,6 +3642,7 @@ export class CpkThreadInspector extends PortableLitElement {
     const focusedContentChanged =
       _changed.has("_fetchedEvents") ||
       _changed.has("agentEventsInput") ||
+      _changed.has("agentMessagesInput") ||
       _changed.has("_conversation");
     if (
       this.focusMessageId &&
@@ -3426,25 +3858,16 @@ export class CpkThreadInspector extends PortableLitElement {
       if (result.status === "not-available") {
         this._eventsNotAvailable = true;
         this._fetchedEvents = [];
-        if (this.canFetchMessages()) {
-          void this.fetchMessages(threadId);
-        }
         return;
       }
       const mappedEvents = this.mapApiEvents(result.events);
       this._fetchedEvents = mappedEvents;
-      if (mappedEvents.length === 0 && this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
-      if (this.canFetchMessages()) {
-        void this.fetchMessages(threadId);
-      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -3551,13 +3974,16 @@ export class CpkThreadInspector extends PortableLitElement {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
-      if (msg.role === "user" && msg.content) {
-        items.push({
-          id: msg.id,
-          type: "user",
-          content: msg.content,
-          createdAt: "",
-        });
+      if (msg.role === "user") {
+        const content = textFromUnknownContent(msg.content);
+        if (content) {
+          items.push({
+            id: msg.id,
+            type: "user",
+            content,
+            createdAt: "",
+          });
+        }
       } else if (msg.role === "assistant") {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
@@ -3590,11 +4016,12 @@ export class CpkThreadInspector extends PortableLitElement {
             items.push(item);
           }
         }
-        if (msg.content) {
+        const assistantContent = textFromUnknownContent(msg.content);
+        if (assistantContent) {
           items.push({
             id: msg.id,
             type: "assistant",
-            content: msg.content,
+            content: assistantContent,
             createdAt: "",
           });
         }
@@ -3658,12 +4085,105 @@ export class CpkThreadInspector extends PortableLitElement {
   }
 
   private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
-    if (this._timelineItemsCache?.events === events) {
+    const conversation = this._conversation;
+    const agentMessages = this.agentMessagesInput;
+    if (
+      this._timelineItemsCache?.events === events &&
+      this._timelineItemsCache.conversation === conversation &&
+      this._timelineItemsCache.agentMessages === agentMessages
+    ) {
       return this._timelineItemsCache.items;
     }
-    const items = this.timelineItemsFromEvents(events);
-    this._timelineItemsCache = { events, items };
+    const items = this.mergeUserMessagesIntoTimeline(
+      this.timelineItemsFromEvents(events),
+    );
+    this._timelineItemsCache = { events, conversation, agentMessages, items };
     return items;
+  }
+
+  private conversationUsers(): ConversationUser[] {
+    const users: ConversationUser[] = [];
+    const seenIds = new Set<string>();
+    const seenBodies = new Set<string>();
+    const push = (user: ConversationUser) => {
+      const body = user.content.trim();
+      if (!body) return;
+      if (seenIds.has(user.id) || seenBodies.has(body)) return;
+      seenIds.add(user.id);
+      seenBodies.add(body);
+      users.push(user);
+    };
+    for (const item of this._conversation) {
+      if (item.type === "user") push(item);
+    }
+    this.agentMessagesInput.forEach((message, index) => {
+      if (message.role !== "user") return;
+      push({
+        id: message.id ?? `live-user-${index}`,
+        type: "user",
+        content: message.contentText,
+        createdAt: "",
+      });
+    });
+    return users;
+  }
+
+  private mergeUserMessagesIntoTimeline(items: TimelineItem[]): TimelineItem[] {
+    if (items.length === 0) return items;
+    const users = this.conversationUsers();
+    if (users.length === 0) return items;
+
+    const shownIds = new Set<string>();
+    const shownBodies = new Set<string>();
+    for (const item of items) {
+      if (item.kind !== "message") continue;
+      if (!item.title.toLowerCase().startsWith("user")) continue;
+      if (item.messageId) shownIds.add(item.messageId);
+      const body = item.body?.trim();
+      if (body) shownBodies.add(body);
+    }
+
+    const missing = users.filter((user) => {
+      if (shownIds.has(user.id)) return false;
+      if (shownBodies.has(user.content.trim())) return false;
+      return true;
+    });
+    if (missing.length === 0) return items;
+
+    const insertAt: number[] = [];
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]!;
+      if (item.kind === "run" && item.title === "Run started") {
+        insertAt.push(index);
+      }
+    }
+    if (insertAt.length === 0) {
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index]!;
+        if (
+          item.kind === "message" &&
+          item.title.toLowerCase().includes("assistant")
+        ) {
+          insertAt.push(index);
+        }
+      }
+    }
+
+    const merged = [...items];
+    for (let index = missing.length - 1; index >= 0; index--) {
+      const user = missing[index]!;
+      const row: TimelineItem = {
+        id: `conversation-user-${user.id}`,
+        messageId: user.id,
+        kind: "message",
+        title: "User message",
+        body: user.content,
+        timestamp: user.createdAt || 0,
+        sourceIndex: 0,
+      };
+      merged.splice(insertAt[index] ?? 0, 0, row);
+    }
+    return merged;
   }
 
   private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
@@ -3719,7 +4239,7 @@ export class CpkThreadInspector extends PortableLitElement {
           id: `message-${key}`,
           messageId: key,
           kind: "message",
-          title: `${role || "message"} message`,
+          title: messageTitle(role || "message"),
           body: "",
           timestamp: event.timestamp,
           sourceIndex,
@@ -3892,10 +4412,7 @@ export class CpkThreadInspector extends PortableLitElement {
         items.push({
           id: `${type}-${sourceIndex}`,
           kind: "state",
-          title:
-            type === "STATE_SNAPSHOT"
-              ? "State snapshot captured"
-              : "State delta captured",
+          title: type === "STATE_SNAPSHOT" ? "State snapshot" : "State delta",
           timestamp: event.timestamp,
           sourceIndex,
           details: payload,
@@ -3906,7 +4423,7 @@ export class CpkThreadInspector extends PortableLitElement {
       items.push({
         id: `event-${sourceIndex}`,
         kind: "event",
-        title: type,
+        title: humanizeEventType(type),
         timestamp: event.timestamp,
         sourceIndex,
         details: payload,
@@ -4104,6 +4621,7 @@ export class CpkThreadInspector extends PortableLitElement {
   };
 
   render() {
+    const viewInApp = this.renderViewInAppAction();
     return html`
       <div class="cpk-td">
         <!-- ── Left area: tabs + content ─────────────────────────────────── -->
@@ -4136,6 +4654,11 @@ export class CpkThreadInspector extends PortableLitElement {
                 `,
               )}
             </div>
+            ${
+              viewInApp !== nothing
+                ? html`<div class="cpk-td__chrome-actions">${viewInApp}</div>`
+                : nothing
+            }
             ${this.renderPanelToggle()}
           </div>
           ${this.renderMetadataStrip()}
@@ -4203,7 +4726,7 @@ export class CpkThreadInspector extends PortableLitElement {
         label: "Name",
         value: metadata?.name ?? this.thread?.name ?? "Untitled",
       },
-      { label: "ID", value: metadata?.id ?? this.threadId ?? "—", wrap: true },
+      { label: "ID", value: metadata?.id ?? this.threadId ?? "—" },
     ];
     for (const fact of [
       { label: "Agent", value: metadata?.agentId },
@@ -4219,8 +4742,6 @@ export class CpkThreadInspector extends PortableLitElement {
             : fact.value,
       });
     }
-    const bulkControls = this.renderActiveBulkControls();
-
     return html`
       <div
         class="cpk-td__metadata-strip"
@@ -4249,8 +4770,6 @@ export class CpkThreadInspector extends PortableLitElement {
             `,
           )}
         </div>
-        ${this.renderViewInAppAction()}
-        ${bulkControls}
       </div>
     `;
   }
@@ -4289,10 +4808,68 @@ export class CpkThreadInspector extends PortableLitElement {
     `;
   }
 
-  private renderActiveBulkControls() {
+  private renderTryFromHereControl() {
+    if (!this.tryFromHereAvailable) return nothing;
+    return html`
+      <button
+        type="button"
+        class="cpk-td__try-from-here"
+        aria-label="Try from here"
+        ?disabled=${this.tryFromHereBusy}
+        @click=${this.onTryFromHere}
+      >
+        ${this.tryFromHereBusy ? "Loading…" : "Try from here"}
+        <svg
+          class="cpk-td__try-from-here-icon"
+          aria-hidden="true"
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M7 7h10v10" />
+          <path d="M7 17 17 7" />
+        </svg>
+      </button>
+      ${
+        this.tryFromHereError
+          ? html`<span
+              class="cpk-td__try-from-here-error"
+              role="alert"
+              >${this.tryFromHereError}</span
+            >`
+          : nothing
+      }
+    `;
+  }
+
+  private onTryFromHere = (event: Event): void => {
+    event.preventDefault();
+    if (!this.tryFromHereAvailable || this.tryFromHereBusy) return;
+    this.dispatchEvent(
+      new CustomEvent("tryFromHere", {
+        detail: this.threadId,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  };
+
+  private renderTimelineBulkControls() {
+    const bulk = this.renderTimelineBulkButtons();
+    const tryFromHere = this.renderTryFromHereControl();
+    if (bulk === nothing && tryFromHere === nothing) return nothing;
+    return html`<div class="cpk-td__timeline-toolbar">
+      ${bulk}${tryFromHere}
+    </div>`;
+  }
+
+  private renderTimelineBulkButtons() {
     if (this._eventsNotAvailable) return nothing;
-    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
-    if (this._tab !== "timeline") return nothing;
 
     const detailIds = this.timelineItemsForEvents(this.activeEvents)
       .filter((item) => item.details)
@@ -4306,7 +4883,7 @@ export class CpkThreadInspector extends PortableLitElement {
       (id) => !this._expandedTimelineDetails.has(id),
     );
 
-    return html`<div class="cpk-td__timeline-toolbar">
+    return html`
       <button
         type="button"
         class="cpk-td__timeline-bulk-toggle"
@@ -4323,7 +4900,7 @@ export class CpkThreadInspector extends PortableLitElement {
       >
         Collapse all
       </button>
-    </div>`;
+    `;
   }
 
   private renderRawEventBulkControls() {
@@ -4367,6 +4944,10 @@ export class CpkThreadInspector extends PortableLitElement {
     });
   }
 
+  private withMessagesToolbar(content: unknown) {
+    return html`${this.renderTimelineBulkControls()}${content}`;
+  }
+
   private renderTimeline() {
     if (this._loadingEvents) {
       return html`
@@ -4374,13 +4955,19 @@ export class CpkThreadInspector extends PortableLitElement {
       `;
     }
     if (this._eventsError) {
-      return html`<div class="cpk-td__status cpk-td__status--error">
+      return html`<div
+        class="cpk-td__status cpk-td__status--error"
+      >
         ${this._eventsError}
       </div>`;
     }
     if (this._eventsNotAvailable) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>Timeline event history not available</span>
@@ -4395,14 +4982,20 @@ export class CpkThreadInspector extends PortableLitElement {
     const events = this.activeEvents;
     const cachedTimeline = this.getCachedPanelTpl("timeline", [
       events,
+      this._conversation,
+      this.agentMessagesInput,
       this._expandedTimelineDetails,
     ]);
     if (cachedTimeline) return cachedTimeline;
 
     const timelineItems = this.timelineItemsForEvents(events);
     if (timelineItems.length === 0) {
-      if (this._conversation.length > 0) return this.renderConversation();
-      if (this._loadingMessages) return this.renderConversation();
+      if (this._conversation.length > 0) {
+        return this.renderConversation();
+      }
+      if (this._loadingMessages) {
+        return this.renderConversation();
+      }
       return html`
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
@@ -4416,19 +5009,40 @@ export class CpkThreadInspector extends PortableLitElement {
 
     return this.cachedPanelTpl(
       "timeline",
-      [events, this._expandedTimelineDetails],
+      [
+        events,
+        this._conversation,
+        this.agentMessagesInput,
+        this._expandedTimelineDetails,
+      ],
       () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
     );
   }
 
+  private timelineItemClass(item: TimelineItem): string {
+    const classes = [
+      "cpk-td__timeline-item",
+      `cpk-td__timeline-item--${item.kind}`,
+    ];
+    if (item.kind === "warning" || item.severity === "error") {
+      classes.push("cpk-td__timeline-item--warning");
+    }
+    if (item.kind === "message") {
+      const title = item.title.toLowerCase();
+      if (title.startsWith("user")) {
+        classes.push("cpk-td__timeline-item--user");
+      } else if (title.includes("assistant")) {
+        classes.push("cpk-td__timeline-item--assistant");
+      }
+    }
+    return classes.join(" ");
+  }
+
   private renderTimelineItem(item: TimelineItem) {
-    const isWarning = item.kind === "warning";
     const detailsExpanded = this._expandedTimelineDetails.has(item.id);
     return html`
       <div
-        class="cpk-td__timeline-item ${
-          isWarning ? "cpk-td__timeline-item--warning" : ""
-        }"
+        class=${this.timelineItemClass(item)}
         data-message-id=${item.messageId ?? nothing}
       >
         <div class="cpk-td__timeline-header">
@@ -4436,13 +5050,19 @@ export class CpkThreadInspector extends PortableLitElement {
             >${item.severity === "error" ? "error" : item.kind}</span
           >
           <span class="cpk-td__timeline-title">${item.title}</span>
-          <button
-            type="button"
-            class="cpk-td__source-link"
-            @click=${() => this.revealSourceEvent(item.sourceIndex)}
-          >
-            Source event #${item.sourceIndex}
-          </button>
+          ${
+            item.sourceIndex
+              ? html`
+                  <button
+                    type="button"
+                    class="cpk-td__source-link"
+                    @click=${() => this.revealSourceEvent(item.sourceIndex)}
+                  >
+                    Source event #${item.sourceIndex}
+                  </button>
+                `
+              : nothing
+          }
           <span class="cpk-td__timeline-time"
             >${formatTimestamp(item.timestamp)}</span
           >
@@ -4493,9 +5113,7 @@ export class CpkThreadInspector extends PortableLitElement {
         }
         ${
           item.details && detailsExpanded
-            ? html`<pre class="cpk-td__timeline-body">
-${unsafeHTML(highlightedJson(item.details))}</pre
-            >`
+            ? renderHighlightedJsonBlock(item.details)
             : nothing
         }
       </div>
@@ -4681,9 +5299,7 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
             ? html`
               <div class="cpk-td__tool-body">
                 <div class="cpk-td__tool-section-label">Arguments</div>
-                <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.arguments))}</pre
-                >
+                ${renderHighlightedJsonBlock(item.arguments)}
                 ${
                   item.result
                     ? html`
@@ -4693,9 +5309,7 @@ ${unsafeHTML(highlightedJson(item.arguments))}</pre
                       >
                         Result
                       </div>
-                      <pre class="cpk-td__tool-pre">
-${unsafeHTML(highlightedJson(item.result))}</pre
-                      >
+                      ${renderHighlightedJsonBlock(item.result)}
                     `
                     : nothing
                 }
@@ -4837,15 +5451,18 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       "raw-events",
       [events, this._expandedRawEvents],
       () => {
-        return html`${events.map((event) => {
-          const { bg, fg } = eventColors(event.type);
-          const eventId = this.rawEventId(event);
-          const detailsExpanded = this._expandedRawEvents.has(eventId);
-          return html`
-            <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
-              <div class="cpk-td__event-header" style="background:${bg}">
-                <span class="cpk-td__event-type" style="color:${fg}"
-                  >${event.type}</span
+        return html`${this.renderRawEventBulkControls()}${events.map(
+          (event) => {
+            const eventId = this.rawEventId(event);
+            const detailsExpanded = this._expandedRawEvents.has(eventId);
+            return html`
+            <div
+              class="cpk-td__event cpk-td__event--${eventCategory(event.type)}"
+              data-source-index=${event.sourceIndex}
+            >
+              <div class="cpk-td__event-header">
+                <span class="cpk-td__event-type" title=${event.type}
+                  >${humanizeEventType(event.type)}</span
                 >
                 <span class="cpk-td__event-time"
                   >${formatTimestamp(event.timestamp)}</span
@@ -4890,14 +5507,13 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
               </button>
               ${
                 detailsExpanded
-                  ? html`<pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
-                  >`
+                  ? renderHighlightedJsonBlock(event.rawEvent ?? event)
                   : nothing
               }
             </div>
           `;
-        })}`;
+          },
+        )}`;
       },
     );
   }
@@ -5826,6 +6442,36 @@ export class WebInspectorElement extends LitElement {
   private systemColorSchemeMediaQuery: MediaQueryList | null = null;
   private briefingRestoreMenu: MenuKey | null = null;
   private homeViewedThisOpen = false;
+
+  // ── Intelligence install prompt (Home) ──────────────────────────────────
+  //
+  // One run id per element lifetime, minted on first copy. The CLI treats the
+  // id as one onboarding journey, so a developer who copies twice because they
+  // switched editors must not look like two journeys.
+  private onboardingRunId: string | null = null;
+  /**
+   * `copied` reverts after {@link PROMPT_COPY_RESET_MS}; `failed` does not.
+   *
+   * The instruction only has to survive long enough to be read. Keeping it
+   * forever left a button wearing a checkmark and reading as spent, which is
+   * the wrong signal for the likeliest reason someone comes back to this card:
+   * to copy again. A failed copy is the opposite case — the prompt itself is
+   * on screen to be selected by hand, so it stays until acted on.
+   */
+  private promptCopyState: "idle" | "copied" | "failed" = "idle";
+  private promptCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ── Intelligence story (Home) ───────────────────────────────────────────
+  //
+  // Three beats condensed from the six-phase animation on the Intelligence
+  // home page. Runs only while Home is the visible tab AND the document is
+  // visible: this is a debugging tool, and a permanent timer behind a closed
+  // panel is exactly the kind of thing a developer would find in a profile and
+  // rightly complain about.
+  private intelStoryBeat = 0;
+  private intelStoryUserPinned = false;
+  private intelStoryTimer: ReturnType<typeof setTimeout> | null = null;
+  private intelStoryReducedMotion: MediaQueryList | null = null;
   private hasResolvedCore = false;
   private settingsOpen = false;
   private readonly lastSelectedMenuByGroup: Record<
@@ -5837,26 +6483,6 @@ export class WebInspectorElement extends LitElement {
     inspect: "ag-ui-events",
   };
   private lastScrolledAgentNavigationLayout: string | null = null;
-  private eventSnippets: EventSnippet[] = [];
-  private selectedSnippetId: string | null = null;
-  private snippetRecipe: SnippetRecipe = "tool-call";
-  private snippetName = "";
-  private snippetJson = "[]";
-  private snippetToolName = "";
-  private snippetToolArgs = "{}";
-  private snippetReasoningText = "";
-  private snippetTextContent = "";
-  private snippetActivityType = "a2ui-surface";
-  private snippetActivityContent = "{}";
-  private snippetError: string | null = null;
-  private snippetBanner: string | null = null;
-  private snippetConfirmOpen = false;
-  private lastInject: LastInject | null = null;
-  private snippetListWidth = 200;
-  private snippetDividerResizing = false;
-  private snippetDividerPointerId = -1;
-  private snippetDividerStartX = 0;
-  private snippetDividerStartWidth = 0;
   private selectedThreadId: string | null = null;
   private inAppThreadId: string | null = null;
   private inAppAgentId: string | null = null;
@@ -5899,9 +6525,13 @@ export class WebInspectorElement extends LitElement {
   private playgroundError: string | null = null;
   private playgroundSourceThreadId: string | null = null;
   private playgroundShowEphemeralNotice = false;
+  private tryFromHereBusy = false;
+  private tryFromHereError: string | null = null;
   private threadCapabilityEnabled: boolean | null = null;
   private threadCapabilityGeneration = 0;
   private contextMenuOpen = false;
+  private iconRailContextCloseTimer: ReturnType<typeof setTimeout> | null =
+    null;
   private layoutMenuOpen = false;
   private dockMode: DockMode = "floating";
   private popOut: PopOutHandle | null = null;
@@ -5912,7 +6542,7 @@ export class WebInspectorElement extends LitElement {
   private bodyTransitionTimeoutIds: Set<ReturnType<typeof setTimeout>> =
     new Set();
   private pendingSelectedContext: string | null = null;
-  private autoAttachCore = true;
+  public autoAttachCore = true;
   private attemptedAutoAttach = false;
   private cachedTools: InspectorToolDefinition[] = [];
   private toolSignature = "";
@@ -6014,6 +6644,10 @@ export class WebInspectorElement extends LitElement {
   private launcherHudSide: "left" | "right" = "left";
   private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  private launcherHudIntro = false;
+  private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
+    null;
+  private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
    * the circle cannot steal "Turn on Threads". Not a public open option.
@@ -6172,11 +6806,6 @@ export class WebInspectorElement extends LitElement {
         key: "ag-ui-events",
         label: "AG-UI Events",
         icon: "Zap" as LucideIconName,
-      },
-      {
-        key: "event-snippets",
-        label: "Event Snippets",
-        icon: "Code" as LucideIconName,
       },
       { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
       ...(hasFrontendTools
@@ -6666,7 +7295,11 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
 
-    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    const runtimeFetch =
+      typeof core.ɵruntimeFetch === "function"
+        ? core.ɵruntimeFetch
+        : globalThis.fetch;
+    const store = ɵcreateThreadStore({ fetch: runtimeFetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
@@ -7450,7 +8083,7 @@ export class WebInspectorElement extends LitElement {
       // selected thread and re-fetches `/threads/:id/messages` when it ticks,
       // so the conversation view stays in sync with the streaming agent
       // without the parent re-implementing AG-UI → ConversationItem mapping.
-      const runThreadId = (agent as { threadId?: string }).threadId;
+      const runThreadId = this.readAgentThreadId(agent);
       if (runThreadId) {
         this.liveMessageVersion.set(
           runThreadId,
@@ -7603,27 +8236,6 @@ export class WebInspectorElement extends LitElement {
     this.requestUpdate();
   }
 
-  private focusEventSnippets(options: InspectorOpenOptions): void {
-    this.pendingPersistedMenu = null;
-    this.selectedMenu = "event-snippets";
-    this.settingsOpen = false;
-    this.lastSelectedMenuByGroup.inspect = "event-snippets";
-    this.contextMenuOpen = false;
-    this.layoutMenuOpen = false;
-    this.reloadEventSnippets();
-    if (options.snippetId) {
-      this.selectEventSnippet(options.snippetId);
-    }
-    if (
-      options.agentId &&
-      this.contextOptions.some((option) => option.key === options.agentId)
-    ) {
-      this.selectedContext = options.agentId;
-    }
-    this.persistState();
-    this.requestUpdate();
-  }
-
   private filterEvents(events: InspectorEvent[]): InspectorEvent[] {
     const query = this.eventFilterText.trim().toLowerCase();
 
@@ -7670,6 +8282,25 @@ export class WebInspectorElement extends LitElement {
   ): InspectorMessage[] | null {
     const messages = this.agentMessages.get(agentId);
     return messages ?? null;
+  }
+
+  private readAgentThreadId(agent: AbstractAgent): string | undefined {
+    if (!("threadId" in agent)) return undefined;
+    const threadId = agent.threadId;
+    return typeof threadId === "string" ? threadId : undefined;
+  }
+
+  private getLiveAgentMessagesForThread(thread: ɵThread): InspectorMessage[] {
+    const messages =
+      this.agentMessages.get(thread.agentId) ?? EMPTY_INSPECTOR_MESSAGES;
+    const core = this._core;
+    if (!core || typeof core.getAgent !== "function") return messages;
+    const agent = core.getAgent(thread.agentId);
+    if (!agent) return EMPTY_INSPECTOR_MESSAGES;
+    if (this.readAgentThreadId(agent) !== thread.id) {
+      return EMPTY_INSPECTOR_MESSAGES;
+    }
+    return messages;
   }
 
   private getAgentStatus(agentId: string): "running" | "idle" | "error" {
@@ -7778,11 +8409,11 @@ export class WebInspectorElement extends LitElement {
               }
               ${
                 argsString
-                  ? html`<pre
-                    class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
-                  >
-${argsString}</pre
-                  >`
+                  ? html`<div class="mt-2">
+                    ${renderHighlightedJsonBlock(
+                      coerceJsonValue(call.function?.arguments),
+                    )}
+                  </div>`
                   : nothing
               }
             </div>
@@ -7869,37 +8500,33 @@ ${argsString}</pre
 
   private getEventBadgeClasses(type: string): string {
     const base =
-      "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
+      "font-mono text-[10px] font-semibold inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
     if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
-    }
-
-    if (type.startsWith("RUN_")) {
-      return `${base} bg-blue-50 text-blue-700 border-blue-200`;
+      return `${base} bg-rose-50 text-rose-800 border-rose-200`;
     }
 
     if (type.startsWith("TEXT_MESSAGE")) {
-      return `${base} bg-emerald-50 text-emerald-700 border-emerald-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
     if (type.startsWith("TOOL_CALL")) {
-      return `${base} bg-amber-50 text-amber-700 border-amber-200`;
+      return `${base} bg-emerald-50 text-gray-900 border-emerald-200`;
+    }
+
+    if (type.startsWith("RUN_") || type.startsWith("STEP_")) {
+      return `${base} bg-gray-100 text-gray-900 border-gray-200`;
     }
 
     if (type.startsWith("REASONING")) {
-      return `${base} bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200`;
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("STATE")) {
-      return `${base} bg-violet-50 text-violet-700 border-violet-200`;
+    if (type.startsWith("STATE") || type.startsWith("MESSAGES")) {
+      return `${base} bg-violet-50 text-gray-900 border-violet-200`;
     }
 
-    if (type.startsWith("MESSAGES")) {
-      return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    return `${base} bg-gray-100 text-gray-600 border-gray-200`;
+    return `${base} bg-gray-100 text-gray-900 border-gray-200`;
   }
 
   private stringifyPayload(payload: unknown, pretty: boolean): string {
@@ -7978,6 +8605,13 @@ ${argsString}</pre
     unsafeCSS(tailwindStyles),
     css`
       :host {
+        --cpk-inspector-shell-radius: 5px;
+        --cpk-inspector-surface-dark: #111319;
+        --cpk-json-key: #3d408f;
+        --cpk-json-str: #0b6b4c;
+        --cpk-json-num: #8a5900;
+        --cpk-json-bool: #c0333a;
+        --cpk-json-nil: #57575b;
         position: fixed;
         top: 0;
         left: 0;
@@ -7985,6 +8619,191 @@ ${argsString}</pre
         display: block;
         will-change: transform;
         font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      }
+
+      :host([data-color-scheme="dark"]),
+      .inspector-window[data-color-scheme="dark"] {
+        --cpk-json-key: #bec2ff;
+        --cpk-json-str: #85ecce;
+        --cpk-json-num: #ffac4d;
+        --cpk-json-bool: #fa5f67;
+        --cpk-json-nil: #afafb7;
+      }
+
+      .cpk-json-token--key {
+        color: var(--cpk-json-key);
+      }
+
+      .cpk-json-token--str {
+        color: var(--cpk-json-str);
+      }
+
+      .cpk-json-token--num {
+        color: var(--cpk-json-num);
+      }
+
+      .cpk-json-token--bool {
+        color: var(--cpk-json-bool);
+      }
+
+      .cpk-json-token--nil {
+        color: var(--cpk-json-nil);
+      }
+
+      .cpk-json-block {
+        margin: 0;
+        padding: 10px 12px;
+        border: 1px solid #dbdbe5;
+        border-radius: 8px;
+        background: #f7f7f9;
+        font-family: "Spline Sans Mono", monospace;
+        font-size: 12px;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        color: #010507;
+        overflow: auto;
+      }
+
+      :host([data-color-scheme="dark"]) .cpk-json-block,
+      .inspector-window[data-color-scheme="dark"] .cpk-json-block {
+        background: #111319;
+        border-color: #343742;
+        color: #f3f4f8;
+      }
+
+      @keyframes cpk-playground-message-enter {
+        from {
+          opacity: 0;
+          filter: blur(2px);
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          filter: blur(0);
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes cpk-playground-thinking {
+        0%,
+        60%,
+        100% {
+          opacity: 0.28;
+          transform: translateY(0);
+        }
+        30% {
+          opacity: 1;
+          transform: translateY(-2px);
+        }
+      }
+
+      .cpk-playground-root {
+        container-type: inline-size;
+        background: #fbfbfd !important;
+      }
+
+      .cpk-playground-header {
+        min-height: 58px;
+        background: #f7f6fd !important;
+      }
+
+      .cpk-playground-welcome {
+        max-width: 560px;
+        padding: 24px;
+      }
+
+      .cpk-playground-welcome-title {
+        color: #24242b;
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+      }
+
+      .cpk-playground-composer {
+        border: 1px solid #dcdce8;
+        box-shadow: 0 8px 22px rgba(31, 23, 57, 0.08),
+          0 1px 2px rgba(31, 23, 57, 0.1);
+      }
+
+      .cpk-playground-composer:focus-within {
+        border-color: #aaa4d4;
+        box-shadow: 0 10px 26px rgba(86, 53, 155, 0.13),
+          0 0 0 3px rgba(190, 194, 255, 0.3);
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-root,
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-header {
+        background: #15171e !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-welcome-title {
+        color: #f3f4f8 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
+        border-color: #464957;
+        background: #15171e !important;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.26),
+          0 1px 2px rgba(0, 0, 0, 0.36);
+      }
+
+      .inspector-window[data-color-scheme="dark"]
+        .cpk-playground-composer:focus-within {
+        border-color: #777aae;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34),
+          0 0 0 3px rgba(102, 106, 158, 0.3);
+      }
+
+      .cpk-playground-message-enter {
+        animation: cpk-playground-message-enter 0.24s cubic-bezier(0.16, 1, 0.3, 1)
+          both;
+      }
+
+      .cpk-playground-thinking-dot {
+        animation: cpk-playground-thinking 1.2s ease-in-out infinite;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(2) {
+        animation-delay: 0.12s;
+      }
+
+      .cpk-playground-thinking-dot:nth-child(3) {
+        animation-delay: 0.24s;
+      }
+
+      .cpk-playground-reasoning summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .cpk-playground-reasoning[open]
+        .cpk-playground-reasoning-chevron {
+        transform: rotate(90deg);
+      }
+
+      @container (max-width: 560px) {
+        .cpk-playground-header {
+          align-items: stretch;
+        }
+
+        .cpk-playground-actions {
+          width: 100%;
+        }
+
+        .cpk-playground-thread-select {
+          min-width: 0;
+          max-width: none;
+          flex: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-playground-message-enter,
+        .cpk-playground-thinking-dot {
+          animation: none;
+        }
       }
 
       .rounded-sm {
@@ -8022,8 +8841,8 @@ ${argsString}</pre
            the two cannot drift apart. A dark grey rather than near-black: the
            launcher sits on a customer's page, and 1,5,7 against white is a
            harder edge than this surface needs. */
-        --cpk-launcher-face: rgba(28, 31, 36, 0.95);
-        --cpk-launcher-face-solid: rgb(28, 31, 36);
+        --cpk-launcher-face: rgba(24, 28, 31, 0.95);
+        --cpk-launcher-face-solid: rgb(24, 28, 31);
         --cpk-launcher-edge: rgba(190, 194, 255, 0.25);
         /* The launcher's own size, exposed so the signal dot can be placed
            against the OUTER rim with a length rather than a percentage.
@@ -8046,6 +8865,10 @@ ${argsString}</pre
         box-sizing: border-box;
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
+          background-color 200ms ease,
+          border-color 200ms ease,
+          box-shadow 200ms ease,
           opacity 160ms ease;
       }
 
@@ -8073,6 +8896,7 @@ ${argsString}</pre
         touch-action: none;
         user-select: none;
         z-index: 60;
+        background: transparent;
       }
 
       .edge-resize-handle {
@@ -8207,17 +9031,76 @@ ${argsString}</pre
         flex-shrink: 0;
         transition:
           background-color 0.15s,
-          border-color 0.15s;
+          border-color 0.15s,
+          color 0.15s;
       }
       .cpk-copy-btn:hover {
         background-color: #f0f0f4;
         border-color: #afafb7;
       }
 
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn {
+        background: #191c24;
+        border-color: #3a3d49;
+        color: #f3f4f8;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .cpk-copy-btn:hover {
+        background: #20232d;
+        border-color: #57575b;
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div {
+        left: 100%;
+        margin-inline-start: 8px;
+      }
+
+      .inspector-icon-rail-menu {
+        transform-origin: left center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateX(-8px) scale(0.96);
+        transition:
+          opacity 180ms ease,
+          transform 180ms ease,
+          visibility 180ms ease;
+      }
+
+      .inspector-icon-rail-menu[data-open="true"] {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateX(0) scale(1);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .inspector-icon-rail-menu {
+          transition: none;
+        }
+      }
+
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-sidebar-agent-scope
+        [data-context-dropdown-root="true"]
+        > div::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        inset-inline-end: 100%;
+        width: 12px;
+      }
+
       .cpk-section-header {
         background: #e8edf5;
         border-bottom: 1px solid rgba(0, 0, 0, 0.08);
         padding: 10px 16px;
+      }
+      .inspector-window[data-color-scheme="dark"] .cpk-section-header {
+        border-bottom-color: #3a3d49;
       }
       .cpk-section-header h4 {
         font-size: 11px;
@@ -8443,13 +9326,29 @@ ${argsString}</pre
       .console-button {
         background-color: var(--cpk-launcher-face) !important;
         border-color: var(--cpk-launcher-edge) !important;
+        /* One hairline, not two. The border above is it; a second ring used to
+           sit 1px outside as a box-shadow and hardcoded the lilac instead of
+           reading the --cpk-launcher-edge token, so it could not follow it.
+           What replaces it is a one-pixel light edge along the top, which is
+           what keeps the face from reading flat without drawing a frame.
+
+           The border is not decoration: the face is #181C1F, which against a
+           dark host page (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) is
+           indistinguishable from the page. It is the only thing that gives the
+           launcher an outline there, so it stays. */
         box-shadow:
-          0 0 0 1px rgba(190, 194, 255, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
+        /* Promotes the launcher to its own compositing layer, which the
+           backdrop-filter this replaces used to do as a side effect. Without
+           a layer the hover scale re-rasterises the mark every frame and it
+           visibly jitters; with one, the compositor scales it as a texture. */
+        will-change: transform;
       }
       .console-button:hover {
         background-color: var(--cpk-launcher-face-solid) !important;
         border-color: rgba(190, 194, 255, 0.45) !important;
+        transform: scale(1.05);
       }
       .console-button:focus-visible {
         outline-color: #bec2ff !important;
@@ -8571,8 +9470,23 @@ ${argsString}</pre
         width: 19%;
         height: 19%;
         border-radius: 50%;
-        background: var(--cpk-launcher-signal);
-        box-shadow: 0 0 0 1.5px var(--cpk-launcher-face);
+        /* Lit from the upper left and shaded at the lower right, so the dot
+           reads as a lens rather than a flat disc. Both stops are derived from
+           the signal colour, so a new tone needs no new values. */
+        background: radial-gradient(
+          circle at 32% 28%,
+          color-mix(in srgb, var(--cpk-launcher-signal), white 40%) 0%,
+          var(--cpk-launcher-signal) 60%,
+          color-mix(in srgb, var(--cpk-launcher-signal), black 20%) 100%
+        );
+        /* Replaces an opaque 1.5px collar in the launcher's own face. That
+           collar was 21% of the dot's footprint, and because the dot's centre
+           sits *on* the rim, its outer half painted a hard dark crescent onto
+           the host page rather than onto the launcher. A hairline plus a soft
+           drop does the same separating job without the hard edge. */
+        box-shadow:
+          0 0 0 0.5px rgba(1, 5, 7, 0.4),
+          0 1px 2.5px rgba(1, 5, 7, 0.5);
       }
 
       /* ── Launcher pill: the launcher opens sideways and says what ─── */
@@ -8783,6 +9697,12 @@ ${argsString}</pre
           .cpk-launcher-signal-wash {
           animation: none !important;
         }
+        .console-button {
+          transition: opacity 160ms ease;
+        }
+        .console-button:hover {
+          transform: none;
+        }
       }
 
       /* ── Launcher HUD: hover menu, quieter than the error island ── */
@@ -8794,6 +9714,9 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud {
+        --hud-fill: var(--cpk-inspector-surface-dark);
+        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
         top: 0;
         z-index: 4;
@@ -8827,38 +9750,47 @@ ${argsString}</pre
       }
 
       .cpk-launcher-hud__card {
-        --hud-fill: rgb(28 31 36 / 0.88);
-        --hud-line: rgb(190 194 255 / 0.5);
         position: relative;
         width: 228px;
         padding: 4px;
         border: 1px dotted var(--hud-line);
-        border-radius: 10px;
+        border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #fff;
-        backdrop-filter: blur(12px) saturate(1.2);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
         box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] {
+        --hud-fill: #fff;
+        --hud-line: #d8d8e8;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
+        color: #010507;
       }
 
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
+        z-index: 1;
         width: 10px;
         height: 10px;
-        background: var(--hud-fill);
+        border: 0;
+        /* The card frosts the page behind it, so it reads lighter than the
+           raw fill. Mix a little white so the arrow matches the glass card
+           without going lighter than the HUD. */
+        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
         transform: translateY(-50%) rotate(45deg);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
-        right: -5px;
-        border-top: 1px solid var(--hud-line);
-        border-right: 1px solid var(--hud-line);
+        right: 9px;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
-        left: -5px;
-        border-bottom: 1px solid var(--hud-line);
-        border-left: 1px solid var(--hud-line);
+        left: 9px;
       }
 
       .cpk-launcher-hud__list {
@@ -8892,6 +9824,12 @@ ${argsString}</pre
         background: rgb(255 255 255 / 0.06);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within,
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+        background: #f0f0f4;
+      }
+
       .cpk-launcher-hud__action {
         display: flex;
         gap: 8px;
@@ -8907,6 +9845,10 @@ ${argsString}</pre
         font-weight: 600;
         text-align: start;
         cursor: pointer;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
+        color: #010507;
       }
 
       /* Stretch the row action over the whole tab, including the detail
@@ -8952,6 +9894,10 @@ ${argsString}</pre
         line-height: 1;
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
+        color: #68686e;
+      }
+
       .cpk-launcher-hud__help:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
@@ -8978,6 +9924,10 @@ ${argsString}</pre
           padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
       }
 
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
+        color: #68686e;
+      }
+
       .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
       .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
       .cpk-launcher-hud__row[data-cpk-hud-help="open"] .cpk-launcher-hud__detail {
@@ -8991,6 +9941,103 @@ ${argsString}</pre
         .cpk-launcher-hud,
         .cpk-launcher-hud__detail {
           transition: none;
+        }
+      }
+
+      /*
+       * On mount, borrow the hover HUD for one short introduction. The card
+       * establishes the destination first; its rows then resolve in order so
+       * the eye can count the available features instead of receiving one
+       * undifferentiated block. Only opacity and transform move.
+       */
+      @keyframes cpk-launcher-hud-intro {
+        0% {
+          opacity: 0;
+          transform: translateX(8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-intro-right {
+        0% {
+          opacity: 0;
+          transform: translateX(-8px);
+        }
+        8%,
+        88% {
+          opacity: 1;
+          transform: none;
+        }
+        100% {
+          opacity: 0;
+          transform: translateX(-4px);
+        }
+      }
+
+      @keyframes cpk-launcher-hud-row-online {
+        from {
+          opacity: 0;
+          transform: translateY(4px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes cpk-launcher-hud-check-online {
+        from {
+          opacity: 0;
+          transform: scale(0.65);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"] {
+        animation: cpk-launcher-hud-intro
+          var(--cpk-launcher-hud-intro-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
+        animation-name: cpk-launcher-hud-intro-right;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__row {
+        animation: cpk-launcher-hud-row-online
+          var(--cpk-launcher-hud-row-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--cpk-hud-row-delay);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        .cpk-launcher-hud__check {
+        animation: cpk-launcher-hud-check-online 220ms
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"],
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row,
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__check {
+          animation: none !important;
+          opacity: 1;
+          transform: none;
         }
       }
 
@@ -9020,7 +10067,7 @@ ${argsString}</pre
       /* ── Inspector window ────────────────────────────────────────── */
       .inspector-window {
         border: 1px solid #d8d8e8 !important;
-        border-radius: 5px !important;
+        border-radius: var(--cpk-inspector-shell-radius) !important;
         box-shadow: none !important;
       }
 
@@ -9136,10 +10183,69 @@ ${argsString}</pre
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle {
+        box-sizing: border-box !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
         justify-content: center !important;
         align-items: center !important;
         gap: 0 !important;
-        padding-inline: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon svg,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-icon
+        svg,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder svg {
+        width: 18px !important;
+        height: 18px !important;
+        overflow: visible !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"] {
+        display: flex !important;
+        flex: none !important;
+        width: 36px !important;
+        min-width: 36px !important;
+        max-width: 36px !important;
+        justify-content: center !important;
+        align-items: center !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-agent-selector
+        > [data-context-dropdown-root="true"]
+        > button,
+      .inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder {
+        display: flex !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
+        max-width: 36px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 0 !important;
+        padding: 0 !important;
+        transition:
+          background-color 180ms ease,
+          border-color 180ms ease,
+          color 180ms ease !important;
+      }
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-label,
+      .inspector-sidebar[data-icon-rail="true"]
+        .inspector-context-dropdown-chevron {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        flex: none !important;
+        overflow: hidden !important;
       }
       .inspector-sidebar[data-icon-rail="true"] .inspector-nav-label,
       .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-label {
@@ -9410,7 +10516,10 @@ ${argsString}</pre
       clearTimeout(this.transitionTimeoutId);
       this.transitionTimeoutId = null;
     }
+    this.clearIconRailContextCloseTimer();
     this.unsubscribeFromInspectorThreadBridge();
+    this.stopIntelligenceStory();
+    this.clearIntelligencePromptReset();
     this.threadsSetupPromptCopyGeneration += 1;
     if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
       window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
@@ -9419,6 +10528,7 @@ ${argsString}</pre
     this.threadsSetupPromptCopyState = "idle";
     this.stopSignalPulse();
     this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -9479,6 +10589,7 @@ ${argsString}</pre
     this.ensureAnnouncementLoading();
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
+    this.scheduleLauncherHudIntro();
   }
 
   render() {
@@ -9518,6 +10629,7 @@ ${argsString}</pre
     this.maybeCompleteEventErrorView();
     this.flushErrorLandingScroll();
     this.maybeTrackHomeViewed();
+    this.syncIntelligenceStory();
 
     if (!this.isOpen) {
       this.lastScrolledAgentNavigationLayout = null;
@@ -9575,18 +10687,9 @@ ${argsString}</pre
       "justify-center",
       "rounded-full",
       "border",
-      "border-white/20",
-      "bg-slate-950/95",
       "text-xs",
       "font-medium",
       "text-white",
-      "ring-1",
-      "ring-white/10",
-      "backdrop-blur-md",
-      "transition",
-      "hover:border-white/30",
-      "hover:bg-slate-900/95",
-      "hover:scale-105",
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
@@ -9788,6 +10891,50 @@ ${argsString}</pre
     return this.gestureSignal !== null;
   }
 
+  private scheduleLauncherHudIntro(
+    delay: number = LAUNCHER_HUD_INTRO_MS.delay,
+  ): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+    }
+    this.launcherHudIntroStartTimer = setTimeout(() => {
+      this.launcherHudIntroStartTimer = null;
+      if (!this.isConnected || this.isOpen) return;
+      if (this.isLauncherHudBlocked()) {
+        this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
+        return;
+      }
+
+      this.resolveLauncherHudSide();
+      this.launcherHudIntro = true;
+      this.launcherHudOpen = true;
+      this.requestUpdate();
+      this.launcherHudIntroEndTimer = setTimeout(() => {
+        this.launcherHudIntroEndTimer = null;
+        this.launcherHudIntro = false;
+        this.launcherHudOpen = false;
+        this.launcherHudHelp = null;
+        this.requestUpdate();
+      }, LAUNCHER_HUD_INTRO_MS.duration);
+    }, delay);
+  }
+
+  private cancelLauncherHudIntro(): void {
+    if (this.launcherHudIntroStartTimer !== null) {
+      clearTimeout(this.launcherHudIntroStartTimer);
+      this.launcherHudIntroStartTimer = null;
+    }
+    if (this.launcherHudIntroEndTimer !== null) {
+      clearTimeout(this.launcherHudIntroEndTimer);
+      this.launcherHudIntroEndTimer = null;
+    }
+    if (!this.launcherHudIntro) return;
+    this.launcherHudIntro = false;
+    if (this.isConnected) {
+      this.requestUpdate();
+    }
+  }
+
   private resolveLauncherHudSide(): void {
     if (typeof window === "undefined") {
       this.launcherHudSide = "left";
@@ -9820,6 +10967,7 @@ ${argsString}</pre
   }
 
   private closeLauncherHud(): void {
+    this.cancelLauncherHudIntro();
     if (this.launcherHudCloseTimer !== null) {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
@@ -9831,6 +10979,7 @@ ${argsString}</pre
   }
 
   private handleLauncherHudEnter = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9845,6 +10994,7 @@ ${argsString}</pre
   };
 
   private handleLauncherHudFocusIn = (): void => {
+    this.cancelLauncherHudIntro();
     this.openLauncherHud();
   };
 
@@ -9934,6 +11084,7 @@ ${argsString}</pre
     label: string;
     detail: string;
     connected?: boolean;
+    introIndex: number;
   }): TemplateResult {
     const helpOpen = this.launcherHudHelp === args.id;
     const detailId = `cpk-hud-detail-${args.id}`;
@@ -9942,6 +11093,13 @@ ${argsString}</pre
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
         data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        style=${styleMap({
+          "--cpk-hud-row-index": `${args.introIndex}`,
+          "--cpk-hud-row-delay": `${
+            LAUNCHER_HUD_INTRO_MS.rowStart +
+            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
+          }ms`,
+        })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
         <button
@@ -9972,23 +11130,38 @@ ${argsString}</pre
 
   private renderLauncherHud(): TemplateResult | typeof nothing {
     if (!this.launcherHudOpen) return nothing;
-    const threadsOn = this.areThreadEndpointsAvailable();
-    const intelligenceOn = Boolean(this._core?.intelligence);
-    const learningOn = intelligenceOn && this._memoriesAvailable;
+    // The launcher must agree with Home about feature availability. Raw
+    // transport flags can be present for a runtime that is not entitled to use
+    // Intelligence, which previously made the HUD show every service as on.
+    const homeModel = this.getHomeModel();
+    const threadsOn = homeModel.services.some(
+      (service) => service.id === "threads" && service.enabled,
+    );
+    const learningOn = homeModel.services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
+        data-color-scheme=${this.colorScheme}
+        style=${styleMap({
+          "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
+          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+        })}
       >
+        <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
-          <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
           <ul class="cpk-launcher-hud__list" role="list">
             ${this.renderHudRow({
               id: "inspector",
               label: HUD_OPEN_INSPECTOR_LABEL,
               detail: HUD_OPEN_INSPECTOR_DETAIL,
+              introIndex: 0,
             })}
           </ul>
           <ul class="cpk-launcher-hud__list" role="list">
@@ -9999,6 +11172,7 @@ ${argsString}</pre
                 ? HUD_THREADS_ON_DETAIL
                 : HUD_THREADS_OFF_DETAIL,
               connected: threadsOn,
+              introIndex: 1,
             })}
             ${this.renderHudRow({
               id: "intelligence",
@@ -10009,6 +11183,7 @@ ${argsString}</pre
                 ? HUD_INTELLIGENCE_ON_DETAIL
                 : HUD_INTELLIGENCE_OFF_DETAIL,
               connected: intelligenceOn,
+              introIndex: 2,
             })}
             ${this.renderHudRow({
               id: "learning",
@@ -10019,6 +11194,7 @@ ${argsString}</pre
                 ? HUD_LEARNING_ON_DETAIL
                 : HUD_LEARNING_OFF_DETAIL,
               connected: learningOn,
+              introIndex: 3,
             })}
           </ul>
         </div>
@@ -10175,42 +11351,46 @@ ${argsString}</pre
           automaticallyCollapsed
             ? nothing
             : html`
-              <button
-                type="button"
-                class="inspector-sidebar-toggle"
-                data-inspector-sidebar-toggle
-                aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
-                aria-expanded=${iconRail ? "false" : "true"}
-                data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
-                title=${iconRail ? nothing : "Collapse sidebar"}
-                style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                @pointerenter=${
-                  iconRail ? this.handleSidebarRailTooltipShow : nothing
-                }
-                @pointerleave=${
-                  iconRail ? this.handleSidebarRailTooltipHide : nothing
-                }
-                @focus=${iconRail ? this.handleSidebarRailTooltipShow : nothing}
-                @blur=${iconRail ? this.handleSidebarRailTooltipHide : nothing}
-                @click=${this.handleSidebarToggle}
-              >
-                <span class="inspector-nav-icon" aria-hidden="true">
-                  ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
-                </span>
-                <span class="inspector-nav-label"
-                  >${iconRail ? "Expand" : "Collapse"}</span
-                >
-              </button>
-            `
-        }
-        ${
-          iconRail
-            ? nothing
-            : html`
               <div class="inspector-sidebar-footer">
-                <div class="inspector-sidebar-status-list">
-                  ${this.renderSidebarIntelligenceStatus(homeModel)}
-                </div>
+                ${
+                  iconRail
+                    ? nothing
+                    : html`
+                      <div class="inspector-sidebar-status-list">
+                        ${this.renderSidebarIntelligenceStatus(homeModel)}
+                      </div>
+                    `
+                }
+                <button
+                  type="button"
+                  class="inspector-sidebar-toggle"
+                  data-inspector-sidebar-toggle
+                  aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
+                  aria-expanded=${iconRail ? "false" : "true"}
+                  data-inspector-tooltip=${iconRail ? "Expand sidebar" : nothing}
+                  title=${iconRail ? nothing : "Collapse sidebar"}
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @pointerenter=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @pointerleave=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @focus=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @blur=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @click=${this.handleSidebarToggle}
+                >
+                  <span class="inspector-nav-icon" aria-hidden="true">
+                    ${this.renderIcon(iconRail ? "ChevronRight" : "ChevronLeft")}
+                  </span>
+                  <span class="inspector-nav-label"
+                    >${iconRail ? "Expand" : "Collapse"}</span
+                  >
+                </button>
               </div>
             `
         }
@@ -10503,11 +11683,16 @@ ${argsString}</pre
     const connected = model.hero.connection === "connected";
     const action = model.hero.action;
     const renewing = action?.kind === "renew";
+    // Three distinct jobs, not two. A lapsed plan needs a renewal link, not an
+    // install prompt and an explainer — that developer already knows what
+    // Intelligence is. Only the never-connected case gets the full pitch.
+    const installing = !connected && !renewing;
     return html`
       <section
         class="inspector-home-section inspector-intelligence-hud"
         data-inspector-home-card="intelligence"
         data-state=${connected ? "connected" : "disconnected"}
+        data-mode=${connected ? "connected" : renewing ? "renew" : "install"}
         aria-label="Intelligence ${
           connected ? "connected" : renewing ? "plan expired" : "not enabled"
         }"
@@ -10515,16 +11700,38 @@ ${argsString}</pre
         <header class="inspector-intelligence-hud-header">
           <div class="inspector-intelligence-hud-heading">
             <h2 class="inspector-home-section-title">
+              ${
+                // The brand mark makes this read as a product lockup rather
+                // than another status heading. Inside the h2 so it stays on
+                // the same line, with an empty alt so the accessible name is
+                // still just the product's name.
+                installing
+                  ? html`
+                    <img
+                      class="inspector-intelligence-mark"
+                      src=${inspectorLogoKiteUrl}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  `
+                  : nothing
+              }
               ${connected ? "Intelligence" : model.hero.title}
             </h2>
             ${
               connected
                 ? nothing
-                : html`
-                  <p class="inspector-intelligence-hud-description">
-                    ${model.hero.body}
-                  </p>
-                `
+                : installing
+                  ? html`
+                    <p class="inspector-intelligence-sr-summary">
+                      ${model.hero.body}
+                    </p>
+                  `
+                  : html`
+                    <p class="inspector-intelligence-hud-description">
+                      ${model.hero.body}
+                    </p>
+                  `
             }
           </div>
           <div class="inspector-intelligence-hud-header-actions">
@@ -10542,7 +11749,7 @@ ${argsString}</pre
                 : nothing
             }
             ${
-              !connected && action
+              renewing && action
                 ? html`
                   <a
                     class="inspector-intelligence-hud-action inspector-intelligence-hud-connect-action"
@@ -10559,8 +11766,23 @@ ${argsString}</pre
                 `
                 : nothing
             }
+            ${installing ? this.renderIntelligenceInstallActions(action) : nothing}
           </div>
         </header>
+
+        ${
+          // Exceptional state, so it gets its own full-width strip between the
+          // bands rather than being squeezed into the header's action column.
+          installing && this.promptCopyState === "failed"
+            ? html`
+              <code class="inspector-intelligence-install-fallback" tabindex="0"
+                >${createOnboardingPrompt(this.getOnboardingRunId())}</code
+              >
+            `
+            : nothing
+        }
+
+        ${installing ? this.renderIntelligenceStory() : nothing}
 
         ${
           connected
@@ -10987,6 +12209,514 @@ ${argsString}</pre
     trackHomeCtaClicked({ action_kind: action.kind });
   }
 
+  /**
+   * The install row: copy the prompt, or fall back to the signup page.
+   *
+   * The prompt is primary and the link is secondary, which is the inversion
+   * this card exists for. Leaving for a signup page is where developers drop
+   * out; pasting into the editor they are already in is not.
+   *
+   * No third-party coding-agent logos here, unlike the Intelligence app. That
+   * app is a private hosted surface; this one is a published npm package
+   * embedded in other people's sites, and shipping Anthropic's and OpenAI's
+   * marks inside it is a trademark call that is not ours to make quietly. The
+   * helper line names the agents in text instead.
+   */
+  private renderIntelligenceInstallActions(action?: HomeHeroAction) {
+    const copied = this.promptCopyState === "copied";
+    const failed = this.promptCopyState === "failed";
+    return html`
+      <div
+        class="inspector-intelligence-install"
+        data-copy-state=${this.promptCopyState}
+      >
+        ${
+          // The two actions are two routes to the same outcome — let the coding
+          // agent wire it up, or go and do it in the browser — so the
+          // secondary names the alternative path rather than promising an
+          // explainer. It used to read "What Intelligence does", which pointed
+          // at intelligence.copilotkit.ai: a product and signup page, not an
+          // explanation. Mis-promising a destination is a poor trade right at
+          // the moment the card is asking to be trusted.
+          //
+          // One slot for the secondary message, and its content follows the
+          // state: before the press the useful aside is the other route, after
+          // it is "where to put it". Adding the instruction as a second row
+          // instead pushed the action column past the band's 76px and shoved
+          // the whole story down at the moment the developer had just acted.
+          // Both are single lines, so swapping them cannot change the height.
+          //
+          // Secondary sits inside the row and the primary at the outer edge:
+          // in a right-aligned group the filled button belongs on the outside,
+          // not wedged between the heading and a link.
+          this.promptCopyState === "idle"
+            ? action
+              ? html`
+                <a
+                  class="inspector-intelligence-install-secondary"
+                  data-inspector-home-intelligence-action=${action.kind}
+                  href=${action.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Set Intelligence up yourself (opens in a new tab)"
+                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                  @click=${() => this.handleHomeHeroCta(action)}
+                >
+                  Set it up yourself ${this.renderIcon("ArrowUpRight")}
+                </a>
+              `
+              : nothing
+            : html`
+              <p
+                class="inspector-intelligence-install-hint"
+                data-tone=${failed ? "error" : "success"}
+                role="status"
+              >
+                ${
+                  failed
+                    ? "Clipboard blocked — copy the prompt below."
+                    : "Paste it into your coding agent."
+                }
+              </p>
+            `
+        }
+        <button
+          type="button"
+          class="inspector-intelligence-hud-action inspector-intelligence-install-copy"
+          data-inspector-intelligence-copy-prompt
+          aria-label=${
+            copied
+              ? "Install prompt copied to clipboard. Paste it into your coding agent."
+              : "Copy the Intelligence install prompt"
+          }
+          style=${INTERACTIVE_FOCUS_BASE_STYLE}
+          @click=${this.handleIntelligencePromptCopy}
+        >
+          ${this.renderIcon(copied ? "Check" : "ClipboardCopy")}
+          ${copied ? "Prompt copied" : "Copy setup prompt"}
+        </button>
+      </div>
+    `;
+  }
+
+  /** One run id per element lifetime; minted on first use, never rotated. */
+  private getOnboardingRunId(): string {
+    this.onboardingRunId ??= createOnboardingRunId();
+    return this.onboardingRunId;
+  }
+
+  private handleIntelligencePromptCopy = async (
+    event?: Event,
+  ): Promise<void> => {
+    // A second press restarts the clock rather than inheriting the first
+    // press's countdown.
+    this.clearIntelligencePromptReset();
+    const runId = this.getOnboardingRunId();
+    const clipboard = this.getClipboard(event);
+    let outcome: "copied" | "failed" = "failed";
+
+    if (clipboard?.writeText) {
+      try {
+        await clipboard.writeText(createOnboardingPrompt(runId));
+        outcome = "copied";
+      } catch {
+        outcome = "failed";
+      }
+    }
+
+    if (!this.isConnected) {
+      return;
+    }
+
+    this.promptCopyState = outcome;
+    this.requestUpdate();
+
+    if (outcome === "copied") {
+      this.scheduleIntelligencePromptReset();
+    }
+
+    if (!this.core?.telemetryDisabled) {
+      trackHomePromptCopied({ onboarding_run_id: runId, outcome });
+    }
+  };
+
+  /**
+   * Return the button and its secondary line to the idle state.
+   *
+   * Long enough to read six words, short enough that a developer who went to
+   * their editor and came back — because the paste went somewhere wrong, or
+   * the terminal is gone — finds a button that plainly invites a second press
+   * rather than a spent one wearing a checkmark.
+   *
+   * Only the copied state resets. A failed copy has the prompt on screen for
+   * manual selection, and yanking that away mid-drag would be worse than the
+   * clipboard failing in the first place.
+   */
+  private scheduleIntelligencePromptReset(): void {
+    this.clearIntelligencePromptReset();
+    this.promptCopyResetTimer = setTimeout(() => {
+      this.promptCopyResetTimer = null;
+      if (!this.isConnected || this.promptCopyState !== "copied") {
+        return;
+      }
+      this.promptCopyState = "idle";
+      this.requestUpdate();
+    }, PROMPT_COPY_RESET_MS);
+  }
+
+  private clearIntelligencePromptReset(): void {
+    if (this.promptCopyResetTimer !== null) {
+      clearTimeout(this.promptCopyResetTimer);
+      this.promptCopyResetTimer = null;
+    }
+  }
+
+  /**
+   * The three-beat Intelligence story.
+   *
+   * Every beat is in the DOM at all times and switched by opacity, so the
+   * strip never reflows and screen readers get one stable structure. The
+   * caption is the live text; the beats themselves are decorative and hidden
+   * from assistive tech, because reading out a mocked code listing helps
+   * nobody.
+   */
+  /**
+   * The rotating argument, paired to whatever the picture below is showing.
+   *
+   * Hidden from assistive tech: a sentence that replaces itself every few
+   * seconds is noise in a screen reader, so the stable summary above carries
+   * the message there instead. Both sentences are always in the DOM and only
+   * their opacity changes, so the block cannot reflow and the card never jumps
+   * height mid-loop.
+   */
+  /**
+   * Where a slide sits relative to the one on screen.
+   *
+   * This is what makes the motion agree with the rail: the rail reads left to
+   * right, so a slide that has not been reached yet waits to the right, and one
+   * already passed leaves to the left. Deriving it from the indices rather than
+   * remembering a direction means clicking backwards through the tabs animates
+   * backwards for free, with no state to keep in sync. The loop's wrap from the
+   * last tab to the first therefore reads as a rewind, which is what it is.
+   */
+  private intelligenceSlidePosition(index: number): string {
+    if (index === this.intelStoryBeat) return "active";
+    return index < this.intelStoryBeat ? "before" : "after";
+  }
+
+  /** Same rule, addressed by beat id, for the picture halves. */
+  private intelligenceBeatPosition(beatId: string): string {
+    return this.intelligenceSlidePosition(
+      INTELLIGENCE_STORY_BEATS.findIndex((beat) => beat.id === beatId),
+    );
+  }
+
+  private renderIntelligenceStoryCopy() {
+    return html`
+      <div
+        class="inspector-intelligence-copy"
+        data-inspector-intelligence-copy
+        data-beat=${
+          INTELLIGENCE_STORY_BEATS[this.intelStoryBeat]?.id ?? "threads"
+        }
+        aria-hidden="true"
+      >
+        ${INTELLIGENCE_STORY_BEATS.map(
+          (beat, index) => html`
+            <div
+              class="inspector-intelligence-copy-slide"
+              data-beat-id=${beat.id}
+              data-active=${index === this.intelStoryBeat}
+              data-position=${this.intelligenceSlidePosition(index)}
+            >
+              <strong>${beat.lead}</strong>
+              <span>${beat.support}</span>
+            </div>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStory() {
+    const activeBeat = INTELLIGENCE_STORY_BEATS[this.intelStoryBeat];
+    return html`
+      <section
+        class="inspector-intelligence-story"
+        data-inspector-intelligence-story
+        data-beat=${activeBeat?.id ?? "threads"}
+      >
+        ${this.renderIntelligenceStoryCopy()}
+        <div class="inspector-intelligence-story-stage" aria-hidden="true">
+          ${this.renderIntelligenceStoryThreads()}
+          ${this.renderIntelligenceStoryLearning()}
+          ${this.renderIntelligenceStorySkill()}
+          ${this.renderIntelligenceStoryReuse()}
+        </div>
+        <div
+          class="inspector-intelligence-story-rail"
+          role="tablist"
+          aria-label="What Intelligence adds"
+        >
+          ${INTELLIGENCE_STORY_BEATS.map(
+            (beat, index) => html`
+              <button
+                type="button"
+                role="tab"
+                class="inspector-intelligence-story-tab"
+                aria-selected=${index === this.intelStoryBeat}
+                data-active=${index === this.intelStoryBeat}
+                style=${INTERACTIVE_FOCUS_BASE_STYLE}
+                @click=${() => this.pinIntelligenceStoryBeat(index)}
+              >
+                ${beat.label}
+              </button>
+            `,
+          )}
+        </div>
+      </section>
+    `;
+  }
+
+  /** Beat 1 — the developer's own users' conversations, one of them broken. */
+  private renderIntelligenceStoryThreads() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="threads"
+        data-position=${this.intelligenceBeatPosition("threads")}
+      >
+        <div class="inspector-intelligence-threads">
+          ${INTELLIGENCE_STORY_THREADS.map(
+            (thread, index) => html`
+              <span
+                class="inspector-intelligence-thread"
+                data-failed=${thread.failed}
+                style="--thread-index:${index}"
+              >
+                <i></i>
+                <strong>${thread.title}</strong>
+                <small>${thread.meta}</small>
+              </span>
+            `,
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStoryLearning() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="learning"
+        data-position=${this.intelligenceBeatPosition("learning")}
+      >
+        <div class="inspector-intelligence-beat-col">
+          <span class="inspector-intelligence-beat-label">
+            Signals from ${INTELLIGENCE_STORY_SIGNALS.length} threads
+          </span>
+          ${INTELLIGENCE_STORY_SIGNALS.map(
+            (signal, index) => html`
+              <span
+                class="inspector-intelligence-signal"
+                style="--signal-index:${index}"
+                >${signal}</span
+              >
+            `,
+          )}
+        </div>
+        <div class="inspector-intelligence-beat-flow">
+          ${this.renderIcon("ArrowRight")}
+        </div>
+        <div class="inspector-intelligence-beat-col">
+          <span class="inspector-intelligence-beat-label">
+            Reusable pattern
+          </span>
+          ${INTELLIGENCE_STORY_RULES.map(
+            (rule, index) => html`
+              <span
+                class="inspector-intelligence-rule"
+                style="--rule-index:${index}"
+              >
+                <i>${this.renderIcon("Check")}</i>${rule}
+              </span>
+            `,
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStorySkill() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="skill"
+        data-position=${this.intelligenceBeatPosition("skill")}
+      >
+        <div class="inspector-intelligence-skill-file">
+          <header>
+            ${this.renderIcon("FileText")}
+            <strong>${INTELLIGENCE_STORY_SKILL_FILE}</strong>
+            <em>Pending review</em>
+          </header>
+          <div class="inspector-intelligence-skill-code">
+            <span data-line="1"
+              ><b># Meeting scheduling</b></span
+            >
+            <span data-line="2">When planning a meeting:</span>
+            ${INTELLIGENCE_STORY_RULES.map(
+              (rule, index) => html`
+                <span
+                  data-line=${index + 3}
+                  style="--rule-index:${index}"
+                  >${index + 1}. ${rule}</span
+                >
+              `,
+            )}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderIntelligenceStoryReuse() {
+    return html`
+      <div
+        class="inspector-intelligence-beat"
+        data-beat-id="intelligence"
+        data-position=${this.intelligenceBeatPosition("intelligence")}
+      >
+        <div class="inspector-intelligence-chain">
+          ${INTELLIGENCE_STORY_CHAIN.map(
+            (step, index) => html`
+              <span
+                class="inspector-intelligence-chain-step"
+                style="--step-index:${index}"
+              >
+                <i>${this.renderIcon(step.icon as LucideIconName)}</i>
+                <strong>${step.name}</strong>
+                <small>${step.detail}</small>
+              </span>
+              ${
+                index === INTELLIGENCE_STORY_CHAIN.length - 1
+                  ? nothing
+                  : html`
+                    <span
+                      class="inspector-intelligence-chain-arrow"
+                      style="--step-index:${index}"
+                      >${this.renderIcon("ChevronRight")}</span
+                    >
+                  `
+              }
+            `,
+          )}
+        </div>
+        <span class="inspector-intelligence-chain-proof">
+          ${this.renderIcon("Sparkles")} Next run starts with
+          <code>${INTELLIGENCE_STORY_SKILL_FILE}</code>
+        </span>
+      </div>
+    `;
+  }
+
+  /** A press pins that beat and stops the loop; the developer is now driving. */
+  private pinIntelligenceStoryBeat(index: number): void {
+    this.intelStoryUserPinned = true;
+    this.intelStoryBeat = index;
+    this.stopIntelligenceStory();
+    this.requestUpdate();
+
+    // Reported here and nowhere else: this is the only path a human can take
+    // to a beat. The auto-advance in syncIntelligenceStory deliberately stays
+    // silent.
+    if (!this.core?.telemetryDisabled) {
+      const beat = INTELLIGENCE_STORY_BEATS[index];
+      if (beat) {
+        trackHomeStoryBeatSelected({ beat: beat.id, beat_index: index });
+      }
+    }
+  }
+
+  /**
+   * Advance the story only while it is actually on screen.
+   *
+   * Gated on the panel being open, Home being the visible tab, settings being
+   * closed and the document being visible. Anything less and a debugging tool
+   * would be holding a repeating timer behind a closed panel.
+   */
+  private syncIntelligenceStory(): void {
+    const visible =
+      this.isOpen &&
+      !this.settingsOpen &&
+      this.selectedMenu === "home" &&
+      !this._core?.intelligence &&
+      typeof document !== "undefined" &&
+      document.visibilityState !== "hidden";
+
+    if (!visible) {
+      // Leaving Home also releases a pinned beat, so coming back later shows a
+      // running story rather than a frozen one that reads as broken.
+      this.intelStoryUserPinned = false;
+      this.stopIntelligenceStory();
+      return;
+    }
+
+    if (this.intelStoryUserPinned || this.prefersReducedMotion()) {
+      this.stopIntelligenceStory();
+      return;
+    }
+
+    if (this.intelStoryTimer !== null) {
+      return;
+    }
+
+    const advance = (): void => {
+      const current = INTELLIGENCE_STORY_BEATS[this.intelStoryBeat];
+      this.intelStoryTimer = setTimeout(() => {
+        this.intelStoryTimer = null;
+        if (!this.isConnected) {
+          return;
+        }
+        this.intelStoryBeat =
+          (this.intelStoryBeat + 1) % INTELLIGENCE_STORY_BEATS.length;
+        this.requestUpdate();
+        advance();
+      }, current?.duration ?? 3_800);
+    };
+
+    advance();
+  }
+
+  private stopIntelligenceStory(): void {
+    if (this.intelStoryTimer !== null) {
+      clearTimeout(this.intelStoryTimer);
+      this.intelStoryTimer = null;
+    }
+  }
+
+  /**
+   * Reduced motion parks the story on the closing beat.
+   *
+   * That beat is the whole argument in one static frame, so a developer who
+   * asked their OS for less motion still gets the point rather than a
+   * fragment of it.
+   */
+  private prefersReducedMotion(): boolean {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+    this.intelStoryReducedMotion ??= window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
+    if (this.intelStoryReducedMotion.matches) {
+      this.intelStoryBeat = INTELLIGENCE_STORY_BEATS.length - 1;
+      return true;
+    }
+    return false;
+  }
+
   private maybeTrackHomeViewed(): void {
     if (this.selectedMenu !== "home" || this.settingsOpen || !this.isOpen) {
       return;
@@ -11247,16 +12977,6 @@ ${argsString}</pre
                     <div
                       class="edge-resize-handle edge-resize-handle-s pointer-events-auto"
                       data-resize-edge="s"
-                      role="presentation"
-                      aria-hidden="true"
-                      @pointerdown=${this.handleResizePointerDown}
-                      @pointermove=${this.handleResizePointerMove}
-                      @pointerup=${this.handleResizePointerUp}
-                      @pointercancel=${this.handleResizePointerCancel}
-                    ></div>
-                    <div
-                      class="resize-handle pointer-events-auto absolute bottom-0 left-0 flex h-7 w-7 cursor-nesw-resize items-center justify-center text-gray-600 transition hover:text-gray-900"
-                      data-resize-edge="sw"
                       role="presentation"
                       aria-hidden="true"
                       @pointerdown=${this.handleResizePointerDown}
@@ -12337,9 +14057,7 @@ ${argsString}</pre
     source: InspectorOpenSource,
     options: InspectorOpenOptions = {},
   ): void {
-    if (options.snippetId || options.menu === "event-snippets") {
-      this.focusEventSnippets(options);
-    } else if (options.threadId) {
+    if (options.threadId) {
       this.focusThread(options);
     }
 
@@ -12676,20 +14394,8 @@ ${argsString}</pre
   }
 
   private normalizeMessageContent(content: unknown): string {
-    if (typeof content === "string") {
-      return content;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in (content as Record<string, unknown>)
-    ) {
-      const maybeText = (content as Record<string, unknown>).text;
-      if (typeof maybeText === "string") {
-        return maybeText;
-      }
-    }
+    const extracted = textFromUnknownContent(content);
+    if (extracted) return extracted;
 
     if (content === null || content === undefined) {
       return "";
@@ -13041,6 +14747,54 @@ ${argsString}</pre
     return mapped;
   }
 
+  private async loadThreadSnapshot(thread: ɵThread): Promise<{
+    messages: Message[];
+    state: unknown;
+  }> {
+    const core = this._core;
+    if (!core?.runtimeUrl) {
+      throw new Error("Failed to load thread.");
+    }
+    const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
+    const encodedThreadId = encodeURIComponent(thread.id);
+    const [messagesResponse, stateResponse] = await Promise.all([
+      fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
+        headers: { ...core.headers },
+      }),
+      fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
+        headers: { ...core.headers },
+      }),
+    ]);
+    if (!messagesResponse.ok) {
+      throw new Error(
+        `Failed to load thread (HTTP ${messagesResponse.status}).`,
+      );
+    }
+    const messagesBody = (await messagesResponse.json()) as {
+      messages?: ThreadDebuggerMessage[];
+    };
+    const stateBody = stateResponse.ok
+      ? ((await stateResponse.json()) as { state?: unknown })
+      : { state: {} };
+    return {
+      messages: this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
+      state: stateBody.state ?? {},
+    };
+  }
+
+  private applyThreadSnapshotToPlayground(
+    thread: ɵThread,
+    snapshot: { messages: Message[]; state: unknown },
+  ): void {
+    this.startPlaygroundSession(
+      false,
+      snapshot.messages,
+      snapshot.state,
+      thread.agentId,
+    );
+    this.playgroundSourceThreadId = thread.id;
+  }
+
   private handlePlaygroundThreadSourceChange = async (
     event: Event,
   ): Promise<void> => {
@@ -13050,48 +14804,67 @@ ${argsString}</pre
       return;
     }
 
-    const core = this._core;
     const thread = this._threads.find((candidate) => candidate.id === threadId);
-    if (!core?.runtimeUrl || !thread) return;
+    if (!thread) return;
 
     this.playgroundIsLoadingThread = true;
     this.playgroundError = null;
     this.requestUpdate();
 
     try {
-      const baseUrl = core.runtimeUrl.replace(/\/+$/, "");
-      const encodedThreadId = encodeURIComponent(threadId);
-      const [messagesResponse, stateResponse] = await Promise.all([
-        fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
-          headers: { ...core.headers },
-        }),
-        fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
-          headers: { ...core.headers },
-        }),
-      ]);
-      if (!messagesResponse.ok) {
-        throw new Error(
-          `Failed to load thread (HTTP ${messagesResponse.status}).`,
-        );
-      }
-      const messagesBody = (await messagesResponse.json()) as {
-        messages?: ThreadDebuggerMessage[];
-      };
-      const stateBody = stateResponse.ok
-        ? ((await stateResponse.json()) as { state?: unknown })
-        : { state: {} };
-      this.startPlaygroundSession(
-        false,
-        this.mapThreadMessagesToPlayground(messagesBody.messages ?? []),
-        stateBody.state ?? {},
-        thread.agentId,
-      );
-      this.playgroundSourceThreadId = threadId;
+      const snapshot = await this.loadThreadSnapshot(thread);
+      this.applyThreadSnapshotToPlayground(thread, snapshot);
     } catch (error) {
       this.playgroundError =
         error instanceof Error ? error.message : "Failed to load thread.";
     } finally {
       this.playgroundIsLoadingThread = false;
+      this.requestUpdate();
+    }
+  };
+
+  private handleTryFromHere = async (
+    threadId: string | null,
+  ): Promise<void> => {
+    if (!threadId || this.tryFromHereBusy) return;
+    const thread =
+      this._threads.find((candidate) => candidate.id === threadId) ?? null;
+    if (!thread) return;
+
+    this.tryFromHereBusy = true;
+    this.tryFromHereError = null;
+    this.requestUpdate();
+
+    const isCurrentTryFromHereRequest = (): boolean =>
+      this.selectedThreadId === threadId && this.selectedMenu === "threads";
+
+    try {
+      const snapshot = await this.loadThreadSnapshot(thread);
+      // A later thread or pane change owns the UI. Keep the fetch outcome
+      // for telemetry, but do not replace Playground or leave Threads.
+      if (isCurrentTryFromHereRequest()) {
+        this.applyThreadSnapshotToPlayground(thread, snapshot);
+        this.handleMenuSelect("playground");
+      }
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "success",
+        });
+      }
+    } catch (error) {
+      if (isCurrentTryFromHereRequest()) {
+        this.tryFromHereError =
+          error instanceof Error ? error.message : "Failed to load thread.";
+      }
+      if (!this.core?.telemetryDisabled) {
+        trackThreadsTryFromHereClicked({
+          ...this.getThreadsTelemetryProps(),
+          outcome: "failure",
+        });
+      }
+    } finally {
+      this.tryFromHereBusy = false;
       this.requestUpdate();
     }
   };
@@ -13222,7 +14995,7 @@ ${argsString}</pre
 
     return html`
       <form
-        class=${centered ? "mt-5 w-full" : "bg-white px-3 pb-3 pt-1.5"}
+        class=${centered ? "cpk-playground-form mt-5 w-full" : "cpk-playground-form bg-white px-3 pb-3 pt-1.5"}
         @submit=${this.handlePlaygroundSubmit}
       >
         ${
@@ -13259,10 +15032,10 @@ ${argsString}</pre
             : nothing
         }
         <div
-          class="mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
+          class="cpk-playground-composer mx-auto flex max-w-3xl items-end gap-1.5 rounded-[28px] bg-white px-2.5 py-1.5 shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] transition-shadow duration-200 focus-within:shadow-[0_6px_18px_0_#00000014,0_0_1px_0_#0000009e]"
         >
           <textarea
-            class="min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
+            class="cpk-playground-input min-h-[40px] max-h-32 flex-1 resize-none bg-transparent px-2.5 py-2.5 text-[13px] leading-5 text-gray-900 outline-none placeholder:text-gray-500 disabled:cursor-not-allowed disabled:opacity-60"
             rows="1"
             placeholder=${placeholder}
             aria-label="Playground message"
@@ -13273,7 +15046,7 @@ ${argsString}</pre
           ></textarea>
           <button
             type=${this.playgroundIsRunning ? "button" : "submit"}
-            class=${`mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
+            class=${`cpk-playground-send mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 [&>svg]:h-[18px] [&>svg]:w-[18px] ${
               sendDisabled
                 ? "cursor-not-allowed bg-[#00000014] text-[rgb(13,13,13)] opacity-50"
                 : "cursor-pointer bg-black text-white hover:opacity-70 active:opacity-60"
@@ -13297,709 +15070,6 @@ ${argsString}</pre
           AI can make mistakes. Please verify important information.
         </p>
       </form>
-    `;
-  }
-
-  private reloadEventSnippets(): void {
-    this.eventSnippets = loadEventSnippets();
-  }
-
-  private handleSnippetImportChange = async (event: Event): Promise<void> => {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) {
-      return;
-    }
-    try {
-      this.eventSnippets = importEventSnippets(await file.text());
-      this.snippetError = null;
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Import failed.";
-    }
-    this.requestUpdate();
-  };
-
-  private renderSnippetImportControl() {
-    return html`
-      <label
-        class="inline-flex shrink-0 cursor-pointer items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] text-gray-700"
-        data-testid="cpk-snippet-import"
-      >
-        Import
-        <input
-          type="file"
-          accept="application/json"
-          class="hidden"
-          @change=${this.handleSnippetImportChange}
-        />
-      </label>
-    `;
-  }
-
-  private selectEventSnippet(id: string): void {
-    const snippet = this.eventSnippets.find((item) => item.id === id);
-    this.selectedSnippetId = id;
-    if (!snippet) {
-      this.requestUpdate();
-      return;
-    }
-    const editor = editorStateFromSnippet(snippet);
-    this.snippetRecipe = editor.recipe;
-    this.snippetName = editor.name;
-    this.snippetJson = editor.json;
-    this.snippetToolName = editor.draft.toolName;
-    this.snippetToolArgs = editor.draft.toolArgs;
-    this.snippetReasoningText = editor.draft.reasoningText;
-    this.snippetTextContent = editor.draft.textContent;
-    this.snippetActivityType = editor.draft.activityType;
-    this.snippetActivityContent = editor.draft.activityContent;
-    this.snippetError = null;
-    this.requestUpdate();
-  }
-
-  private compileSnippetDraft(): ReturnType<typeof parseSnippetEvents> {
-    switch (this.snippetRecipe) {
-      case "tool-call":
-        return compileToolCallRecipe({
-          toolName: this.snippetToolName,
-          argsJson: this.snippetToolArgs,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "reasoning":
-        return compileReasoningRecipe({
-          text: this.snippetReasoningText,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "text":
-        return compileTextRecipe({
-          text: this.snippetTextContent,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "activity":
-        return compileActivityRecipe({
-          activityType: this.snippetActivityType,
-          contentJson: this.snippetActivityContent,
-          threadId: this.getSnippetThreadId(),
-          runId: this.getSnippetRunId(),
-        });
-      case "raw":
-        return parseSnippetEvents(this.snippetJson);
-    }
-  }
-
-  private getSnippetThreadId(): string {
-    return this.selectedThreadId ?? "inspector-snippet";
-  }
-
-  private getSnippetRunId(): string {
-    return `inspector-snippet-${Date.now()}`;
-  }
-
-  private getSnippetTargetAgent(): AbstractAgent | null {
-    const core = this._core;
-    if (!core) {
-      return null;
-    }
-    const selected =
-      this.selectedContext !== "all-agents" ? this.selectedContext : null;
-    if (selected) {
-      return core.getAgent(selected) ?? null;
-    }
-    const first = this.contextOptions.find(
-      (option) => option.key !== "all-agents",
-    );
-    return first ? (core.getAgent(first.key) ?? null) : null;
-  }
-
-  private applyRecipeToEditor(): void {
-    try {
-      const events = this.compileSnippetDraft();
-      this.snippetJson = JSON.stringify(events, null, 2);
-      this.snippetError = null;
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not compile recipe.";
-    }
-    this.requestUpdate();
-  }
-
-  private handleSnippetRecipeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (
-      value === "tool-call" ||
-      value === "reasoning" ||
-      value === "text" ||
-      value === "activity" ||
-      value === "raw"
-    ) {
-      this.snippetRecipe = value;
-      if (value !== "raw") {
-        this.applyRecipeToEditor();
-      } else {
-        this.requestUpdate();
-      }
-    }
-  }
-
-  private saveCurrentSnippet(source: "chat" | "pane"): void {
-    try {
-      const events = parseSnippetEvents(this.snippetJson);
-      const now = new Date().toISOString();
-      const snippet: EventSnippet = {
-        id: this.selectedSnippetId ?? createSnippetId(),
-        name: this.snippetName.trim() || recipeLabel(this.snippetRecipe),
-        recipe: this.snippetRecipe,
-        events,
-        createdAt:
-          this.eventSnippets.find((item) => item.id === this.selectedSnippetId)
-            ?.createdAt ?? now,
-        updatedAt: now,
-      };
-      this.eventSnippets = upsertEventSnippet(snippet);
-      this.selectedSnippetId = snippet.id;
-      this.snippetBanner = "Snippet saved.";
-      this.snippetError = null;
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsSaved({
-          recipe: this.snippetRecipe,
-          source,
-          success: true,
-        });
-      }
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not save snippet.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsSaved({
-          recipe: this.snippetRecipe,
-          source,
-          success: false,
-        });
-      }
-    }
-    this.requestUpdate();
-  }
-
-  private async runCurrentSnippet(): Promise<void> {
-    this.snippetError = null;
-    this.snippetBanner = null;
-    let events;
-    try {
-      events = expandSnippetEventsForRun(parseSnippetEvents(this.snippetJson));
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Snippet JSON is invalid.";
-      this.requestUpdate();
-      return;
-    }
-    if (snippetContainsToolCall(events) && !this.snippetConfirmOpen) {
-      this.snippetConfirmOpen = true;
-      this.requestUpdate();
-      return;
-    }
-    this.snippetConfirmOpen = false;
-    const core = this._core;
-    const agent = this.getSnippetTargetAgent();
-    if (!core || !agent) {
-      this.snippetError = "No agent is available to inject into.";
-      this.requestUpdate();
-      return;
-    }
-    if (agent.isRunning) {
-      this.snippetError =
-        "The agent is running. Wait for the current run to end.";
-      this.requestUpdate();
-      return;
-    }
-    try {
-      const result = await ɵinjectInspectorEvents({
-        core,
-        agent,
-        events,
-      });
-      this.lastInject = {
-        snippetId: this.selectedSnippetId ?? "unsaved",
-        agentId: agent.agentId ?? "default",
-        runId: this.getSnippetRunId(),
-        messageIds: result.messageIds,
-      };
-      this.snippetBanner =
-        "Inspector injected these events into the live thread.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsRun({
-          recipe: this.snippetRecipe,
-          source: "pane",
-          success: true,
-        });
-      }
-    } catch (error) {
-      this.snippetError =
-        error instanceof Error ? error.message : "Could not run snippet.";
-      if (!this.core?.telemetryDisabled) {
-        trackEventSnippetsRun({
-          recipe: this.snippetRecipe,
-          source: "pane",
-          success: false,
-        });
-      }
-    }
-    this.requestUpdate();
-  }
-
-  private resetLastSnippetRun(): void {
-    const last = this.lastInject;
-    const core = this._core;
-    if (!last || !core) {
-      return;
-    }
-    const agent = core.getAgent(last.agentId);
-    if (!agent) {
-      this.snippetError = "The injected agent is no longer available.";
-      this.requestUpdate();
-      return;
-    }
-    ɵresetInspectorInject({ agent, messageIds: last.messageIds });
-    this.lastInject = null;
-    this.snippetBanner =
-      "Last inject was removed from the thread. App state from a tool handler was not undone.";
-    this.requestUpdate();
-  }
-
-  private renderEventSnippetsView() {
-    if (this.eventSnippets.length === 0 && this.selectedSnippetId === null) {
-      this.reloadEventSnippets();
-    }
-    const agent = this.getSnippetTargetAgent();
-    const runBlocked = agent?.isRunning === true;
-    const canRunJson = snippetJsonIsRunnable(this.snippetJson);
-    const canRun = canRunJson && !!agent && !runBlocked;
-    const canSave = canRunJson;
-    const canDelete = this.selectedSnippetId !== null;
-    const canExport = this.eventSnippets.length > 0;
-    const canReset = this.lastInject !== null;
-    const snippetGroups = groupEventSnippets(this.eventSnippets);
-    const tools = this._core?.tools ?? [];
-    return html`
-      <div class="flex h-full min-h-0 flex-col bg-white">
-        <div
-          class="flex items-center justify-between gap-4 border-b border-gray-200 px-4 py-3"
-        >
-          <div class="min-w-0">
-            <h2 class="text-sm font-semibold text-gray-900">Event Snippets</h2>
-            <p class="mt-1 text-[11px] text-gray-500">
-              Compile AG-UI events, run them on the live agent, and save them
-              for later. Tool-call runs use the real frontend-tool handler.
-            </p>
-          </div>
-          ${this.renderSnippetImportControl()}
-        </div>
-        ${
-          this.snippetBanner
-            ? html`<div
-                class="border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-[11px] text-emerald-800"
-                role="status"
-              >
-                ${this.snippetBanner}
-              </div>`
-            : nothing
-        }
-        ${
-          this.snippetError
-            ? html`<div
-                class="border-b border-rose-200 bg-rose-50 px-4 py-2 text-[11px] text-rose-800"
-                role="alert"
-              >
-                ${this.snippetError}
-              </div>`
-            : nothing
-        }
-        ${
-          this.snippetConfirmOpen
-            ? html`<div
-                class="border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900"
-                role="alertdialog"
-                aria-label="Confirm tool-call run"
-              >
-                <p>
-                  This snippet contains a tool call. Run will execute the real
-                  handler on the live thread.
-                </p>
-                <div class="mt-2 flex gap-2">
-                  <button
-                    type="button"
-                    class="rounded-md bg-gray-900 px-2 py-1 text-[11px] text-white"
-                    data-testid="cpk-snippet-run-handler"
-                    @click=${() => {
-                      this.snippetConfirmOpen = true;
-                      void this.runCurrentSnippet();
-                    }}
-                  >
-                    Run handler
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded-md border border-gray-300 bg-white px-2 py-1 text-[11px]"
-                    @click=${() => {
-                      this.snippetConfirmOpen = false;
-                      this.requestUpdate();
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>`
-            : nothing
-        }
-        <div class="flex min-h-0 flex-1">
-          <div
-            class="inspector-snippet-sidebar shrink-0"
-            style="width:${this.snippetListWidth}px"
-            data-testid="cpk-snippet-list"
-          >
-            ${
-              snippetGroups.length === 0
-                ? html`
-                    <p class="px-2 py-2 text-[11px] text-gray-500">No saved snippets yet.</p>
-                  `
-                : html`
-                    <nav class="inspector-sidebar-nav" aria-label="Saved snippets">
-                      ${snippetGroups.map(
-                        (group) => html`
-                          <div class="inspector-sidebar-section">
-                            <div
-                              class="inspector-sidebar-label"
-                              data-testid="cpk-snippet-category"
-                              data-recipe=${group.recipe}
-                            >
-                              ${group.label}
-                            </div>
-                            ${group.snippets.map((snippet) => {
-                              const isSelected =
-                                snippet.id === this.selectedSnippetId;
-                              return html`
-                                <button
-                                  type="button"
-                                  class="inspector-nav-control inspector-sidebar-control ${
-                                    isSelected
-                                      ? "inspector-nav-control-active"
-                                      : ""
-                                  }"
-                                  data-testid="cpk-snippet-item"
-                                  data-recipe=${snippet.recipe}
-                                  aria-current=${isSelected ? "page" : nothing}
-                                  aria-label="${recipeLabel(snippet.recipe)}: ${snippet.name}"
-                                  style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                                  @click=${() =>
-                                    this.selectEventSnippet(snippet.id)}
-                                >
-                                  <span
-                                    class="inspector-nav-icon"
-                                    aria-hidden="true"
-                                  >
-                                    <span
-                                      class="flex h-6 w-6 items-center justify-center rounded-md ${recipeIconWrapClass(
-                                        snippet.recipe,
-                                      )}"
-                                    >
-                                      ${this.renderIcon(
-                                        recipeIconName(
-                                          snippet.recipe,
-                                        ) as LucideIconName,
-                                      )}
-                                    </span>
-                                  </span>
-                                  <span class="inspector-nav-label"
-                                    >${snippet.name}</span
-                                  >
-                                </button>
-                              `;
-                            })}
-                          </div>
-                        `,
-                      )}
-                    </nav>
-                  `
-            }
-          </div>
-          <div
-            class="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-gray-400"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize snippet list"
-            title="Drag to resize"
-            data-testid="cpk-snippet-list-resize"
-            style="touch-action:none"
-            @pointerdown=${this.handleSnippetListDividerPointerDown}
-            @pointermove=${this.handleSnippetListDividerPointerMove}
-            @pointerup=${this.handleSnippetListDividerPointerUp}
-            @pointercancel=${this.handleSnippetListDividerPointerUp}
-          ></div>
-          <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-auto p-4">
-            <label class="text-[11px] text-gray-600">
-              Name
-              <input
-                class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                data-testid="cpk-snippet-name"
-                .value=${this.snippetName}
-                @input=${(event: Event) => {
-                  this.snippetName = (event.target as HTMLInputElement).value;
-                }}
-              />
-            </label>
-            <label class="text-[11px] text-gray-600">
-              Recipe
-              <select
-                class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                data-testid="cpk-snippet-recipe"
-                .value=${this.snippetRecipe}
-                @change=${this.handleSnippetRecipeChange}
-              >
-                ${["tool-call", "reasoning", "text", "activity", "raw"].map(
-                  (recipe) => html`<option
-                    value=${recipe}
-                    ?selected=${recipe === this.snippetRecipe}
-                  >
-                    ${recipeLabel(recipe as SnippetRecipe)}
-                  </option>`,
-                )}
-              </select>
-            </label>
-            ${
-              this.snippetRecipe === "tool-call"
-                ? html`
-                    <label class="text-[11px] text-gray-600">
-                      Tool
-                      <input
-                        list="cpk-snippet-tools"
-                        class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                        data-testid="cpk-snippet-tool-name"
-                        .value=${this.snippetToolName}
-                        @input=${(event: Event) => {
-                          this.snippetToolName = (
-                            event.target as HTMLInputElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      />
-                      <datalist id="cpk-snippet-tools">
-                        ${tools.map(
-                          (tool) => html`<option value=${tool.name}></option>`,
-                        )}
-                      </datalist>
-                    </label>
-                    <label class="text-[11px] text-gray-600">
-                      Args JSON
-                      <textarea
-                        class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                        data-testid="cpk-snippet-tool-args"
-                        .value=${this.snippetToolArgs}
-                        @input=${(event: Event) => {
-                          this.snippetToolArgs = (
-                            event.target as HTMLTextAreaElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      ></textarea>
-                    </label>
-                  `
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "reasoning"
-                ? html`<label class="text-[11px] text-gray-600">
-                    Reasoning
-                    <textarea
-                      class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                      data-testid="cpk-snippet-reasoning"
-                      .value=${this.snippetReasoningText}
-                      @input=${(event: Event) => {
-                        this.snippetReasoningText = (
-                          event.target as HTMLTextAreaElement
-                        ).value;
-                        this.applyRecipeToEditor();
-                      }}
-                    ></textarea>
-                  </label>`
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "text"
-                ? html`<label class="text-[11px] text-gray-600">
-                    Assistant text
-                    <textarea
-                      class="mt-1 h-20 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                      data-testid="cpk-snippet-text"
-                      .value=${this.snippetTextContent}
-                      @input=${(event: Event) => {
-                        this.snippetTextContent = (
-                          event.target as HTMLTextAreaElement
-                        ).value;
-                        this.applyRecipeToEditor();
-                      }}
-                    ></textarea>
-                  </label>`
-                : nothing
-            }
-            ${
-              this.snippetRecipe === "activity"
-                ? html`
-                    <label class="text-[11px] text-gray-600">
-                      Activity type
-                      <input
-                        list="cpk-snippet-activity"
-                        class="mt-1 w-full rounded-md border border-gray-200 px-2 py-1 text-[11px]"
-                        data-testid="cpk-snippet-activity-type"
-                        .value=${this.snippetActivityType}
-                        @input=${(event: Event) => {
-                          this.snippetActivityType = (
-                            event.target as HTMLInputElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      />
-                      <datalist id="cpk-snippet-activity">
-                        ${ACTIVITY_STARTERS.map(
-                          (type) => html`<option value=${type}></option>`,
-                        )}
-                      </datalist>
-                    </label>
-                    <label class="text-[11px] text-gray-600">
-                      Content JSON
-                      <textarea
-                        class="mt-1 h-24 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                        data-testid="cpk-snippet-activity-content"
-                        .value=${this.snippetActivityContent}
-                        @input=${(event: Event) => {
-                          this.snippetActivityContent = (
-                            event.target as HTMLTextAreaElement
-                          ).value;
-                          this.applyRecipeToEditor();
-                        }}
-                      ></textarea>
-                    </label>
-                  `
-                : nothing
-            }
-            <label class="text-[11px] text-gray-600">
-              Events JSON
-              <textarea
-                class="mt-1 h-40 w-full rounded-md border border-gray-200 px-2 py-1 font-mono text-[11px]"
-                data-testid="cpk-snippet-json"
-                .value=${this.snippetJson}
-                @input=${(event: Event) => {
-                  this.snippetJson = (
-                    event.target as HTMLTextAreaElement
-                  ).value;
-                  this.requestUpdate();
-                }}
-              ></textarea>
-            </label>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="rounded-md bg-gray-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-50"
-                data-testid="cpk-snippet-run"
-                ?disabled=${!canRun}
-                title=${
-                  runBlocked
-                    ? "The agent is running. Wait for the current run to end."
-                    : !agent
-                      ? "No agent is available to inject into."
-                      : !canRunJson
-                        ? "Events JSON must be a non-empty event array."
-                        : "Run snippet"
-                }
-                @click=${() => void this.runCurrentSnippet()}
-              >
-                ${runBlocked ? "Agent running" : "Run"}
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-save"
-                ?disabled=${!canSave}
-                title=${
-                  canSave
-                    ? "Save snippet"
-                    : "Events JSON must be a non-empty event array."
-                }
-                @click=${() => this.saveCurrentSnippet("pane")}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-reset"
-                ?disabled=${!canReset}
-                title=${
-                  canReset
-                    ? "Remove the last inject from the thread"
-                    : "No Inspector inject to reset."
-                }
-                @click=${() => this.resetLastSnippetRun()}
-              >
-                Reset last run
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-delete"
-                ?disabled=${!canDelete}
-                title=${
-                  canDelete
-                    ? "Delete this snippet"
-                    : "Select a snippet to delete."
-                }
-                @click=${() => {
-                  if (!this.selectedSnippetId) return;
-                  if (!window.confirm("Delete this snippet?")) {
-                    return;
-                  }
-                  this.eventSnippets = deleteEventSnippet(
-                    this.selectedSnippetId,
-                  );
-                  this.selectedSnippetId = null;
-                  this.requestUpdate();
-                }}
-              >
-                Delete
-              </button>
-              <button
-                type="button"
-                class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-[11px] disabled:opacity-50"
-                data-testid="cpk-snippet-export"
-                ?disabled=${!canExport}
-                title=${
-                  canExport
-                    ? "Export snippets"
-                    : "Save a snippet before you export."
-                }
-                @click=${() => {
-                  if (!canExport) return;
-                  const blob = new Blob(
-                    [exportEventSnippetsJson(this.eventSnippets)],
-                    { type: "application/json" },
-                  );
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.href = url;
-                  link.download = "event-snippets.json";
-                  link.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                Export
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     `;
   }
 
@@ -14029,10 +15099,6 @@ ${argsString}</pre
 
     if (this.selectedMenu === "playground") {
       return this.renderPlaygroundView();
-    }
-
-    if (this.selectedMenu === "event-snippets") {
-      return this.renderEventSnippetsView();
     }
 
     if (this.selectedMenu === "agents") {
@@ -14138,10 +15204,20 @@ ${argsString}</pre
                       ?disabled=${busy}
                       @change=${this.handlePlaygroundThreadSourceChange}
                     >
-                      <option value="">Load a thread...</option>
+                      <option
+                        value=""
+                        ?selected=${!this.playgroundSourceThreadId}
+                      >
+                        Load a thread...
+                      </option>
                       ${sourceThreads.map(
                         (thread) => html`
-                          <option value=${thread.id}>
+                          <option
+                            value=${thread.id}
+                            ?selected=${
+                              this.playgroundSourceThreadId === thread.id
+                            }
+                          >
                             ${
                               thread.name?.trim() ||
                               `Thread ${thread.id.slice(0, 8)}`
@@ -14224,9 +15300,9 @@ ${argsString}</pre
               : visibleMessages.length === 0
                 ? html`
                     <div
-                      class="mx-auto flex h-full w-full max-w-3xl flex-col items-center justify-center text-center"
+                      class="cpk-playground-welcome mx-auto flex h-full w-full flex-col items-center justify-center text-center"
                     >
-                      <p class="text-base font-medium tracking-tight text-gray-900">
+                      <p class="cpk-playground-welcome-title">
                         How can I help you today?
                       </p>
                       ${this.renderPlaygroundComposer(
@@ -14852,39 +15928,6 @@ ${argsString}</pre
     );
   };
 
-  private handleSnippetListDividerPointerDown = (event: PointerEvent) => {
-    this.snippetDividerResizing = true;
-    this.snippetDividerPointerId = event.pointerId;
-    this.snippetDividerStartX = event.clientX;
-    this.snippetDividerStartWidth = this.snippetListWidth;
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    event.preventDefault();
-  };
-
-  private handleSnippetListDividerPointerMove = (event: PointerEvent) => {
-    if (
-      !this.snippetDividerResizing ||
-      this.snippetDividerPointerId !== event.pointerId
-    ) {
-      return;
-    }
-    const delta = event.clientX - this.snippetDividerStartX;
-    this.snippetListWidth = Math.max(
-      160,
-      Math.min(360, this.snippetDividerStartWidth + delta),
-    );
-    this.requestUpdate();
-  };
-
-  private handleSnippetListDividerPointerUp = (event: PointerEvent) => {
-    if (this.snippetDividerPointerId !== event.pointerId) return;
-    const target = event.currentTarget as HTMLElement;
-    if (target.hasPointerCapture(this.snippetDividerPointerId)) {
-      target.releasePointerCapture(this.snippetDividerPointerId);
-    }
-    this.snippetDividerResizing = false;
-  };
-
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
     this.threadDividerPointerId = event.pointerId;
@@ -15218,6 +16261,7 @@ ${argsString}</pre
       return;
     }
 
+    this.tryFromHereError = null;
     this.selectedThreadId = threadId;
     if (showingExamples && this.isExampleThreadId(threadId)) {
       this.selectedRealThreadIsExplicit = false;
@@ -16529,6 +17573,21 @@ ${argsString}</pre
                         .agentEventsInput=${
                           this.agentEvents.get(selectedThread.agentId) ?? []
                         }
+                        .agentMessagesInput=${
+                          selectedThreadIsLocalExample
+                            ? EMPTY_INSPECTOR_MESSAGES
+                            : this.getLiveAgentMessagesForThread(selectedThread)
+                        }
+                        .tryFromHereAvailable=${
+                          !selectedThreadIsLocalExample &&
+                          this.areThreadEndpointsAvailable() &&
+                          this._core?.threadEndpoints?.inspect !== false
+                        }
+                        .tryFromHereBusy=${this.tryFromHereBusy}
+                        .tryFromHereError=${this.tryFromHereError}
+                        @tryFromHere=${(event: CustomEvent<string | null>) => {
+                          void this.handleTryFromHere(event.detail);
+                        }}
                       ></cpk-thread-details>
                       ${
                         selectedThreadIsLocalExample
@@ -16829,11 +17888,7 @@ ${argsString}</pre
                         isExpanded
                           ? html`
                             <div class="group relative">
-                              <pre
-                                class="m-0 whitespace-pre-wrap break-words text-[10px] font-mono text-gray-600"
-                              >
-${prettyEvent}</pre
-                              >
+                              ${renderHighlightedJsonBlock(extractedEvent)}
                               <button
                                 class="absolute right-0 top-0 cursor-pointer rounded px-2 py-1 text-[10px] opacity-0 transition group-hover:opacity-100 ${
                                   this.copiedEvents.has(event.id)
@@ -17135,7 +18190,7 @@ ${prettyEvent}</pre
               messages && messages.length > 0
                 ? html`
                   <div class="w-full text-xs">
-                    <div class="flex bg-gray-50">
+                    <div class="cpk-agent-messages-head flex bg-gray-50">
                       <div
                         class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
                       >
@@ -17145,7 +18200,7 @@ ${prettyEvent}</pre
                         Content
                       </div>
                     </div>
-                    <div class="divide-y divide-gray-200">
+                    <div class="cpk-agent-messages-rows">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -17172,8 +18227,8 @@ ${prettyEvent}</pre
                           <div
                             class=${
                               isFailedResult
-                                ? "flex items-start bg-rose-50"
-                                : "flex items-start"
+                                ? "cpk-agent-message-row flex items-start bg-rose-50"
+                                : "cpk-agent-message-row flex items-start"
                             }
                             data-cpk-failed-tool-result=${
                               isFailedResult ? msg.toolCallId : nothing
@@ -17288,11 +18343,15 @@ ${prettyEvent}</pre
           >
         </button>
         ${
-          this.contextMenuOpen
+          iconRail || this.contextMenuOpen
             ? html`
               <div
-                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5"
+                class="absolute left-0 z-50 mt-1.5 w-40 rounded-md border border-gray-200 bg-white py-1 shadow-md ring-1 ring-black/5${
+                  iconRail ? " inspector-icon-rail-menu" : ""
+                }"
                 data-context-dropdown-root="true"
+                data-open=${this.contextMenuOpen ? "true" : "false"}
+                aria-hidden=${this.contextMenuOpen ? "false" : "true"}
               >
                 ${filteredOptions.map(
                   (option) => html`
@@ -17508,10 +18567,6 @@ ${prettyEvent}</pre
       this.homeViewedThisOpen = false;
     }
 
-    if (key === "event-snippets") {
-      this.reloadEventSnippets();
-    }
-
     if (key === "ag-ui-events" || key === "agents") {
       const keepErrorLanding =
         this.pendingScrollToEventId !== null ||
@@ -17538,9 +18593,21 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  private clearIconRailContextCloseTimer(): void {
+    if (this.iconRailContextCloseTimer === null) {
+      return;
+    }
+    clearTimeout(this.iconRailContextCloseTimer);
+    this.iconRailContextCloseTimer = null;
+  }
+
   /** Expand the icon-rail agent scope on hover while preserving keyboard access. */
   private handleIconRailContextPointerEnter = (event: PointerEvent): void => {
-    if (event.pointerType === "touch" || this.contextMenuOpen) {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    this.clearIconRailContextCloseTimer();
+    if (this.contextMenuOpen) {
       return;
     }
     this.layoutMenuOpen = false;
@@ -17552,8 +18619,12 @@ ${prettyEvent}</pre
     if (!this.contextMenuOpen) {
       return;
     }
-    this.contextMenuOpen = false;
-    this.requestUpdate();
+    this.clearIconRailContextCloseTimer();
+    this.iconRailContextCloseTimer = setTimeout(() => {
+      this.iconRailContextCloseTimer = null;
+      this.contextMenuOpen = false;
+      this.requestUpdate();
+    }, 180);
   };
 
   private handleIconRailContextPointerDown = (event: PointerEvent): void => {
@@ -17567,6 +18638,7 @@ ${prettyEvent}</pre
   };
 
   private handleIconRailContextFocusIn = (): void => {
+    this.clearIconRailContextCloseTimer();
     if (this.contextMenuOpen) {
       return;
     }
@@ -17591,6 +18663,7 @@ ${prettyEvent}</pre
       return;
     }
 
+    this.clearIconRailContextCloseTimer();
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
@@ -18371,23 +19444,25 @@ ${prettyEvent}</pre
         ${
           isExpanded
             ? html`
-              <div class="border-t border-gray-200 bg-gray-50/50 px-4 py-3">
+              <div class="border-t border-gray-200 px-4 py-3">
                 <div class="mb-3">
-                  <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
+                  <div class="mb-1 flex items-center justify-between gap-2">
+                    <h5 class="text-xs font-semibold text-gray-700">ID</h5>
+                    <button
+                      type="button"
+                      class="cpk-copy-btn"
+                      @click=${(e: Event) => {
+                        e.stopPropagation();
+                        void this.copyContextValue(id, `${id}:id`, e);
+                      }}
+                    >
+                      ${this.copiedContextItems.has(`${id}:id`) ? "Copied" : "Copy"}
+                    </button>
+                  </div>
                   <code
-                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
+                    class="block min-w-0 truncate font-mono text-xs font-medium text-gray-800"
                     >${id}</code
                   >
-                  <button
-                    type="button"
-                    class="cpk-copy-btn"
-                    @click=${(e: Event) => {
-                      e.stopPropagation();
-                      void this.copyContextValue(id, `${id}:id`, e);
-                    }}
-                  >
-                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
-                  </button>
                 </div>
                 ${
                   hasValue
@@ -19608,6 +20683,20 @@ export function defineWebInspector(
   defineElementOnce(registry, "cpk-thread-details", ɵCpkThreadDetails);
   defineElementOnce(registry, "cpk-memory-list", CpkMemoryList);
   defineElementOnce(registry, WEB_INSPECTOR_TAG, WebInspectorElement);
+}
+
+/**
+ * Bind a host-owned core before an Inspector is connected to the DOM. Disabling
+ * auto-attachment first prevents `connectedCallback` from briefly selecting a
+ * different global core.
+ */
+export function configureWebInspectorElement(
+  inspector: WebInspectorElement,
+  core: CopilotKitCore | null,
+): WebInspectorElement {
+  inspector.autoAttachCore = false;
+  inspector.core = core;
+  return inspector;
 }
 
 defineWebInspector();

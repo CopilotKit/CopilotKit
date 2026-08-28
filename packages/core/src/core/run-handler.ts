@@ -13,6 +13,7 @@ import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
 import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
@@ -398,13 +399,9 @@ export class RunHandler {
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
-      // Silently ignore abort errors (e.g. from navigation during active requests)
-      const isAbort =
-        connectError.name === "AbortError" ||
-        connectError.message === "Fetch is aborted" ||
-        connectError.message === "signal is aborted without reason" ||
-        connectError.message === "component unmounted";
-      if (!isAbort) {
+      // Silently ignore abort errors (e.g. from navigation during active
+      // requests).
+      if (!isAbortError(connectError)) {
         const context: Record<string, any> = {};
         if (agent.agentId) {
           context.agentId = agent.agentId;

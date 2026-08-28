@@ -12,7 +12,6 @@ import {
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   track,
-  trackErrorSignalViewed,
   trackInspectorOpened,
   trackTalkToEngineerClicked,
   trackThreadsEmptyEnabledViewed,
@@ -21,6 +20,7 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
@@ -265,80 +265,6 @@ describe("typed helpers", () => {
     });
   });
 
-  it("trackErrorSignalViewed sends the failure class, the presentation and whether a pill was shown", async () => {
-    trackErrorSignalViewed({
-      source: "connection",
-      presentation: "animated",
-      label: "shown",
-    });
-    await Promise.resolve();
-    const [, init] = fetchMock.mock.calls[0]!;
-    const body = JSON.parse((init?.body as string) ?? "{}") as {
-      event: string;
-      properties: Record<string, unknown>;
-    };
-    expect(body.event).toBe("oss.inspector.error_signal_viewed");
-    expect(body.properties).toMatchObject({
-      source: "connection",
-      presentation: "animated",
-      label: "shown",
-    });
-  });
-
-  it("trackErrorSignalViewed refuses to forward anything but its three enums", async () => {
-    // The one place a later change could casually attach a free-text field.
-    // The helper rebuilds its payload, so extra keys cannot ride along.
-    trackErrorSignalViewed({
-      source: "threads",
-      presentation: "reduced_motion",
-      label: "suppressed",
-      // @ts-expect-error - deliberately passing a field the helper must drop
-      message: "ECONNREFUSED http://localhost:4000/api/copilotkit",
-    });
-    await Promise.resolve();
-    const raw = (fetchMock.mock.calls[0]?.[1]?.body as string) ?? "{}";
-    expect(raw).not.toContain("ECONNREFUSED");
-    expect(raw).not.toContain("localhost:4000");
-    expect(raw).not.toContain("message");
-    const properties = (
-      JSON.parse(raw) as { properties: Record<string, unknown> }
-    ).properties;
-    expect(properties.source).toBe("threads");
-    expect(properties.presentation).toBe("reduced_motion");
-    expect(properties.label).toBe("suppressed");
-  });
-
-  it("trackErrorSignalViewed sends nothing when the user has opted out", async () => {
-    setTelemetryOptOut(true);
-    trackErrorSignalViewed({
-      source: "connection",
-      presentation: "animated",
-      label: "shown",
-    });
-    await Promise.resolve();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
-  it("trackInspectorOpened carries the error signal and its class", async () => {
-    trackInspectorOpened({
-      open_source: "floating_button",
-      has_unseen_announcement: false,
-      has_error_signal: true,
-      error_signal_source: "threads",
-    });
-    await Promise.resolve();
-    const [, init] = fetchMock.mock.calls[0]!;
-    const properties = (
-      JSON.parse((init?.body as string) ?? "{}") as {
-        properties: Record<string, unknown>;
-      }
-    ).properties;
-    expect(properties).toMatchObject({
-      has_error_signal: true,
-      error_signal_source: "threads",
-    });
-  });
-
   it("opened and What's new events carry no message, state, or announcement content", async () => {
     trackInspectorOpened({ open_source: "floating_button" });
     trackWhatsNewViewed({
@@ -418,6 +344,33 @@ describe("typed helpers", () => {
       name: "@copilotkit/web-inspector",
       version: webInspectorPackage.version,
     });
+  });
+
+  it("trackThreadsTryFromHereClicked sends outcome without thread ids", async () => {
+    trackThreadsTryFromHereClicked({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "valid",
+      telemetry_disabled: false,
+      leaf_key: "threads",
+      outcome: "success",
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTryFromHereClicked);
+    expect(body.properties).toMatchObject({
+      outcome: "success",
+      leaf_key: "threads",
+      runtime_mode: "sse",
+    });
+    expect(body.properties).not.toHaveProperty("thread_id");
+    expect(body.properties).not.toHaveProperty("message");
   });
 
   it("sends required threads CTA and viewed events", async () => {
@@ -532,7 +485,6 @@ describe("event catalogue", () => {
     expect(names.filter((name) => name.includes("banner"))).toEqual([]);
     expect(names).toContain("oss.inspector.whats_new_viewed");
     expect(names).toContain("oss.inspector.whats_new_signal_viewed");
-    expect(names).toContain("oss.inspector.error_signal_viewed");
     expect(names).toContain("oss.inspector.whats_new_clicked");
     expect(names.filter((name) => name.includes("dismissed"))).toEqual([
       // The example tour keeps its own dismissal; the announcement's is gone.
@@ -540,12 +492,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  it("holds twenty-six event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-seven event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(26);
-    expect(names).toContain("oss.inspector.event_snippets_run");
-    expect(names).toContain("oss.inspector.event_snippets_saved");
+    expect(names).toHaveLength(27);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

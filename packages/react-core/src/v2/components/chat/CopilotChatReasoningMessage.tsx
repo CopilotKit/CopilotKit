@@ -5,9 +5,6 @@ import { twMerge } from "tailwind-merge";
 import { Streamdown } from "streamdown";
 import type { WithSlots } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
-import { useCopilotKitInspector } from "../CopilotKitInspectorContext";
-import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage";
-import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
 export type CopilotChatReasoningMessageProps = WithSlots<
   {
@@ -48,9 +45,6 @@ export function CopilotChatReasoningMessage({
   const isLatest = messages?.[messages.length - 1]?.id === message.id;
   const isStreaming = !!(isRunning && isLatest);
   const hasContent = !!(message.content && message.content.length > 0);
-  const { isLocalInspectorEnabled, saveEventSnippet } =
-    useCopilotKitInspector();
-  const chatConfiguration = useCopilotChatConfiguration();
 
   // Track elapsed time while streaming
   const startTimeRef = useRef<number | null>(null);
@@ -151,22 +145,7 @@ export function CopilotChatReasoningMessage({
       data-message-id={message.id}
       {...props}
     >
-      <div className="cpk:flex cpk:items-center cpk:gap-1">
-        {boundHeader}
-        {isLocalInspectorEnabled && hasContent && (
-          <CopilotChatAssistantMessage.SaveSnippetButton
-            onClick={() =>
-              void saveEventSnippet({
-                kind: "reasoning",
-                messageId: message.id,
-                content: message.content ?? "",
-                threadId: chatConfiguration?.threadId,
-                agentId: chatConfiguration?.agentId,
-              })
-            }
-          />
-        )}
-      </div>
+      {boundHeader}
       {boundToggle}
     </div>
   );

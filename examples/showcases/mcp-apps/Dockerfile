@@ -5,8 +5,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install the exact dependency graph captured in package-lock.json
+RUN npm ci --legacy-peer-deps
 
 # Copy source files
 COPY . .

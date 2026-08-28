@@ -1,6 +1,7 @@
 import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
 import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import type { GetLearningContainerId } from "../core/learning";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -108,6 +109,14 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl?: string;
   /** API key for authenticating with CopilotKit Intelligence */
   apiKey: string;
+  /**
+   * Chooses the stable Learning Container ID for each Intelligence run.
+   * The callback receives the resolved application user and AG-UI run input.
+   * It must return the same ID for every run on one Thread because a Thread
+   * cannot move between Learning Containers after its first assignment.
+   * Return `null` or `undefined` to leave the Thread unassigned.
+   */
+  getLearningContainerId?: GetLearningContainerId;
   /**
    * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
@@ -471,13 +480,18 @@ interface ThreadEnvelope {
  * });
  * ```
  *
- * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence.
- * Override both together to target a self-hosted or non-production deployment:
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence —
+ * `https://api.intelligence.copilotkit.ai` and
+ * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
+ * managed service; leaving both unset is always correct against it.
+ *
+ * Override both together to target a non-production or future self-hosted
+ * deployment (the hosts below are placeholders — substitute your own):
  *
  * ```ts
  * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://intelligence.internal",
- *   wsUrl: "wss://realtime.intelligence.internal",
+ *   apiUrl: "https://api.intelligence.example.com",
+ *   wsUrl: "wss://realtime.intelligence.example.com",
  *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  * ```
@@ -489,11 +503,20 @@ export class CopilotKitIntelligence {
   #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #getLearningContainerId?: GetLearningContainerId;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
+    if (
+      config.getLearningContainerId !== undefined &&
+      typeof config.getLearningContainerId !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getLearningContainerId` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -511,6 +534,7 @@ export class CopilotKitIntelligence {
     this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
+    this.#getLearningContainerId = config.getLearningContainerId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -606,6 +630,11 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
   ɵgetApiKey(): string {
     return this.#apiKey;
+  }
+
+  /** @internal Used by the Intelligence runtime to assign Learning Containers. */
+  ɵgetLearningContainerId(): GetLearningContainerId | undefined {
+    return this.#getLearningContainerId;
   }
 
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
