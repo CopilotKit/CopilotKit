@@ -27,6 +27,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 - **Documentation lives in shell-docs** — author all CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not here. See [Documentation](.claude/docs/documentation.md).
+- **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
 
 ## Reference (read when relevant to your task)
 
