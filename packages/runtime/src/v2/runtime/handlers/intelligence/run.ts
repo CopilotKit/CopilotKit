@@ -15,7 +15,10 @@ import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
 import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
-import { resolveLearningContainerId } from "../../core/learning";
+import {
+  resolveLearningContainerId,
+  resolveLearningContainerSelector,
+} from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 
 /**
@@ -88,14 +91,22 @@ export async function handleIntelligenceRun({
 
   let learningContainerId: string | undefined;
   try {
-    learningContainerId = await resolveLearningContainerId(runtime.learning, {
-      surface: "web",
-      request,
-      threadId: input.threadId,
-      runId: input.runId,
-      agentId,
-      userId,
-    });
+    const selector = runtime.intelligence.ɵgetLearningContainerId?.();
+    learningContainerId = selector
+      ? await resolveLearningContainerSelector(selector, {
+          surface: "web",
+          user,
+          agentId,
+          input,
+        })
+      : await resolveLearningContainerId(runtime.learning, {
+          surface: "web",
+          request,
+          threadId: input.threadId,
+          runId: input.runId,
+          agentId,
+          userId,
+        });
   } catch (error) {
     logger.error("Failed to resolve Learning Container:", error);
     return Response.json(

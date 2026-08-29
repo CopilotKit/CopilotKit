@@ -1,5 +1,10 @@
 import type { AnalyticsEvents } from "./events";
-import { lambdaClient, parseAndWarnTelemetryId } from "@copilotkit/shared";
+import {
+  lambdaClient,
+  parseAndWarnTelemetryId,
+  computeSamplingMeta,
+  TELEMETRY_EMITTER_V2,
+} from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {
@@ -97,7 +102,21 @@ export class TelemetryClient {
       // the analytics event, and v1's client sends package name and version the
       // same way. Folding it in would work and would put a process-level fact
       // in the per-event slot, where nothing downstream expects to find one.
-      globalProperties: this.globalProperties,
+      // Sampling metadata rides in the same slot, as it does in v1: an event
+      // that records no sampling decision can't be weighted, and anyone
+      // counting raw events understates anonymous volume ~20× (OSS-1017).
+      globalProperties: {
+        ...this.globalProperties,
+        ...computeSamplingMeta({
+          telemetryId: this.telemetryId,
+          sampleRate: this.sampleRate,
+        }),
+        telemetry_emitter: TELEMETRY_EMITTER_V2,
+        // This client has one transport, so the marker is constant here. It
+        // is stamped anyway so the property means the same thing on every
+        // event whichever client produced it (OSS-1019).
+        telemetry_transport: "lambda",
+      },
       packageName: packageJson.name,
       packageVersion: packageJson.version,
       licenseToken: this.licenseToken ?? undefined,

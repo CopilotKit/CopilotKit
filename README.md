@@ -51,7 +51,7 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 ---
 
-## What is CopilotKit
+## What is CopilotKit?
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
