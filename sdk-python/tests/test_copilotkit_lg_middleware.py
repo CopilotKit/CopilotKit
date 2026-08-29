@@ -1253,6 +1253,145 @@ def test_bedrock_fix_strips_orphan_function_call_blocks_when_tool_calls_partial(
     assert call_ids == ["call_kept"]
 
 
+def _function_call_block(call_id: str, name: str, arguments: str) -> dict[str, Any]:
+    return {
+        "type": "function_call",
+        "call_id": call_id,
+        "name": name,
+        "arguments": arguments,
+        "id": f"fc_{call_id}",
+    }
+
+
+def _function_call_ids(message: AIMessage) -> list[str]:
+    return [
+        b.get("call_id")
+        for b in message.content
+        if isinstance(b, dict) and b.get("type") == "function_call"
+    ]
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_next_model_call_keeps_answered_function_call_blocks_on_restore(use_async):
+    """The restore path must not over-strip: when the intercepted frontend
+    call is restored with its synthetic result (and the backend call has its
+    real result), the equivalent `function_call` content blocks stay in the
+    request-scoped history — they are answered, so langchain-openai can pair
+    each Responses input item with its function_call_output.
+    """
+    middleware = CopilotKitMiddleware()
+    fe_tool = {"function": {"name": "navigate"}}
+    backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
+    frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
+    initial_state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(
+                content=[
+                    {"type": "text", "text": "calling tools"},
+                    _function_call_block("1", "backend_search", '{"q": "hi"}'),
+                    _function_call_block("2", "navigate", '{"path": "/x"}'),
+                ],
+                tool_calls=[backend_call, frontend_call],
+                id="ai-1",
+            ),
+        ],
+        "copilotkit": {"actions": [fe_tool]},
+    }
+
+    after_model = middleware.after_model(initial_state, MagicMock(name="runtime"))
+    assert after_model is not None
+    # after_model strips tool_calls but leaves the content blocks behind
+    stripped_ai = after_model["messages"][-1]
+    assert [tc["id"] for tc in stripped_ai.tool_calls] == ["1"]
+    assert _function_call_ids(stripped_ai) == ["1", "2"]
+
+    messages = [
+        *after_model["messages"],
+        ToolMessage(content='{"hits": 1}', tool_call_id="1"),
+    ]
+    state = {
+        "messages": messages,
+        "copilotkit": {**initial_state["copilotkit"], **after_model["copilotkit"]},
+    }
+    request = _make_request(state=state, messages=messages)
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    seen_ai = next(
+        m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in seen_ai.tool_calls] == ["1", "2"]
+    assert _function_call_ids(seen_ai) == ["1", "2"]
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == ["1", "2"]
+    assert json.loads(tool_messages[1].content) == {"status": "forwarded_to_frontend"}
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_replayed_cancelled_turn_strips_orphan_function_call_blocks(use_async):
+    """Regression for #6676: a run cancelled mid-turn persists the assistant
+    turn with its Responses `function_call` content blocks but without any
+    ToolMessage — the backend tool never ran and the intercept state was
+    never written. On replay, the model must receive a history with no
+    orphaned `function_call` blocks: langchain-openai would otherwise
+    serialize them as Responses input items with no matching
+    function_call_output, and OpenAI rejects every subsequent turn with
+    400 "No tool output found for function call call_...".
+    """
+    middleware = CopilotKitMiddleware()
+    poisoned_ai = AIMessage(
+        content=[
+            {"type": "text", "text": "calling tools"},
+            _function_call_block("1", "backend_search", '{"q": "hi"}'),
+            _function_call_block("2", "navigate", '{"path": "/x"}'),
+        ],
+        # after_model already stripped the frontend call; the run was
+        # cancelled before the backend tool produced a ToolMessage.
+        tool_calls=[{"id": "1", "name": "backend_search", "args": {"q": "hi"}}],
+        id="ai-1",
+    )
+    messages: list[Any] = [HumanMessage("hi"), poisoned_ai]
+    state = {
+        "messages": messages,
+        "copilotkit": {"actions": [{"function": {"name": "navigate"}}]},
+    }
+    request = _make_request(state=state, messages=messages)
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    seen_ai = next(
+        m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert _function_call_ids(seen_ai) == []
+    types_left = [b.get("type") for b in seen_ai.content if isinstance(b, dict)]
+    assert "text" in types_left
+    # the unanswered backend call is stripped as well — every tool call the
+    # model sees must have an answer
+    assert seen_ai.tool_calls == []
+    assert not any(isinstance(m, ToolMessage) for m in seen.messages)
+
+
 # ---------------------------------------------------------------------------
 # Checkpoint roundtrip — orphan-handoff contract
 # ---------------------------------------------------------------------------
