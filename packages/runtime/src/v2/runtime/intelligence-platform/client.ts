@@ -60,7 +60,6 @@ const RUNTIME_ENTITLEMENT_SOURCES = new Set([
 ] as const);
 
 export interface RuntimeEntitlement {
-  organizationId: string;
   source:
     | "managedOrgSubscription"
     | "selfHostedDeploymentLicense"
@@ -779,7 +778,9 @@ export class CopilotKitIntelligence {
       }
 
       const body = await Promise.race([response.text(), timeout]);
-      const entitlement = parseRuntimeEntitlement(JSON.parse(body) as unknown);
+      const entitlement = parseRuntimeEntitlementResponse(
+        JSON.parse(body) as unknown,
+      );
       if (!entitlement) {
         logger.error(
           { path, reason: "invalid-contract" },
@@ -1463,11 +1464,24 @@ function configuredUrl(url: string | undefined): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+function parseRuntimeEntitlementResponse(
+  input: unknown,
+): RuntimeEntitlement | null {
+  if (!isRecord(input)) return null;
+
+  const allowedEnvelopeKeys = new Set(["status", "entitlement"]);
+  if (Object.keys(input).some((key) => !allowedEnvelopeKeys.has(key))) {
+    return null;
+  }
+  if (input.status !== "ready") return null;
+
+  return parseRuntimeEntitlement(input.entitlement);
+}
+
 function parseRuntimeEntitlement(input: unknown): RuntimeEntitlement | null {
   if (!isRecord(input)) return null;
 
   const allowedKeys = new Set([
-    "organizationId",
     "source",
     "active",
     "features",
@@ -1479,8 +1493,6 @@ function parseRuntimeEntitlement(input: unknown): RuntimeEntitlement | null {
 
   const source = input.source;
   if (
-    typeof input.organizationId !== "string" ||
-    input.organizationId.length === 0 ||
     typeof source !== "string" ||
     !RUNTIME_ENTITLEMENT_SOURCES.has(source as RuntimeEntitlement["source"]) ||
     typeof input.active !== "boolean" ||
@@ -1492,8 +1504,17 @@ function parseRuntimeEntitlement(input: unknown): RuntimeEntitlement | null {
     return null;
   }
 
+  if (
+    !input.active &&
+    (Object.keys(input.features).length > 0 ||
+      Object.keys(input.limits).length > 0 ||
+      input.planCode !== undefined ||
+      input.entitlementSource !== undefined)
+  ) {
+    return null;
+  }
+
   return {
-    organizationId: input.organizationId,
     source: source as RuntimeEntitlement["source"],
     active: input.active,
     features: input.features,

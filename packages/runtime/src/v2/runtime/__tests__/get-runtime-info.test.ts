@@ -608,13 +608,20 @@ describe("handleGetRuntimeInfo", () => {
           ? {
               kind: "ok",
               entitlement: {
-                organizationId: "7",
                 source: "awsMarketplaceDeploymentLicense",
                 active: result.entitlement.active,
-                features: { msteams: true },
-                limits: { "threads.max_count": 25_000 },
-                planCode: "team_deployment",
-                entitlementSource: "must-not-reach-browser",
+                features: {
+                  "sdk.angular": true,
+                  analytics: true,
+                  self_learning: true,
+                  memory: true,
+                  managed_channels: true,
+                },
+                limits: {
+                  "threads.max_count": 0,
+                  "managed_channels.max_channels": 0,
+                },
+                planCode: "enterprise",
               },
             }
           : result,
@@ -629,10 +636,10 @@ describe("handleGetRuntimeInfo", () => {
       expect(response.status).toBe(200);
       expect(data.licenseStatus).toBe(expectedStatus);
       expect(
-        createLicenseContextValue(data.licenseStatus).checkFeature("msteams"),
+        createLicenseContextValue(data.licenseStatus).checkFeature("analytics"),
       ).toBe(expectedStatus === "valid");
       expect(JSON.stringify(data)).not.toMatch(
-        /organizationId|source|features|limits|planCode|entitlementSource|awsMarketplace/iu,
+        /organizationId|source|features|limits|planCode|entitlementSource|awsMarketplace|enterprise/iu,
       );
     },
   );

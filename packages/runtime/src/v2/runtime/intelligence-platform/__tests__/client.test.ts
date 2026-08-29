@@ -1289,18 +1289,34 @@ test("inspector-metadata client rejects invalid and unknown schemas", async () =
 });
 
 const activeRuntimeEntitlement = {
-  organizationId: "7",
   source: "awsMarketplaceDeploymentLicense" as const,
   active: true,
-  features: { msteams: true, deployment_via_helm_chart: true },
-  limits: { "threads.max_count": 25_000 },
-  planCode: "team_deployment",
+  features: {
+    "sdk.angular": true,
+    deployment_via_helm_chart: true,
+    analytics: true,
+    self_learning: true,
+    memory: true,
+    managed_channels: true,
+  },
+  limits: {
+    "threads.max_count": 0,
+    "managed_channels.max_channels": 0,
+  },
+  planCode: "enterprise",
+};
+
+const activeRuntimeEntitlementResponse = {
+  status: "ready" as const,
+  entitlement: activeRuntimeEntitlement,
 };
 
 test("runtime-entitlement client authenticates and accepts only the sanitized contract", async () => {
   const { client } = setupInspectorMetadataClient();
   fetchMock.mockResolvedValue(
-    new Response(JSON.stringify(activeRuntimeEntitlement), { status: 200 }),
+    new Response(JSON.stringify(activeRuntimeEntitlementResponse), {
+      status: 200,
+    }),
   );
 
   await expect(client.getRuntimeEntitlement()).resolves.toEqual({
@@ -1339,14 +1355,50 @@ test("runtime-entitlement client fails closed without retaining provider bodies"
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            ...activeRuntimeEntitlement,
-            consumptionToken: sensitiveMarker,
+            ...activeRuntimeEntitlementResponse,
+            entitlement: {
+              ...activeRuntimeEntitlement,
+              consumptionToken: sensitiveMarker,
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(activeRuntimeEntitlement), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            ...activeRuntimeEntitlementResponse,
+            organizationId: "must-not-cross-runtime-boundary",
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            status: "ready",
+            entitlement: {
+              ...activeRuntimeEntitlement,
+              active: false,
+            },
           }),
           { status: 200 },
         ),
       )
       .mockResolvedValueOnce(new Response("{", { status: 200 }));
 
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
+    await expect(client.getRuntimeEntitlement()).resolves.toEqual({
+      kind: "unavailable",
+    });
     await expect(client.getRuntimeEntitlement()).resolves.toEqual({
       kind: "unavailable",
     });
