@@ -28,5 +28,5 @@
       the browser payload.
 - [x] Run focused client and `/info` tests under Node 22, then the full runtime test, typecheck,
       build, formatting, and `git diff --check` targets.
-- [ ] Push a replacement draft PR linked to Intelligence PR #1072, rebase force-free onto the
+- [x] Push a replacement draft PR linked to Intelligence PR #1072, rebase force-free onto the
       latest GitHub `main`, and watch required CI until green.
