@@ -2073,7 +2073,7 @@ importers:
   packages/agentcore-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/runtime':
         specifier: workspace:*
@@ -2101,10 +2101,10 @@ importers:
   packages/angular:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
@@ -2286,10 +2286,10 @@ importers:
   packages/channels-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-ui':
         specifier: workspace:~
@@ -2323,7 +2323,7 @@ importers:
   packages/channels-discord:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2354,7 +2354,7 @@ importers:
   packages/channels-intelligence:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2373,7 +2373,7 @@ importers:
         version: 1.8.4
     devDependencies:
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -2397,10 +2397,10 @@ importers:
   packages/channels-slack:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2449,10 +2449,10 @@ importers:
   packages/channels-teams:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2504,7 +2504,7 @@ importers:
   packages/channels-telegram:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2554,7 +2554,7 @@ importers:
   packages/channels-whatsapp:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/channels-core':
         specifier: workspace:^
@@ -2579,7 +2579,7 @@ importers:
   packages/core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/shared':
         specifier: workspace:*
@@ -2637,7 +2637,7 @@ importers:
   packages/demo-agents:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       openai:
         specifier: ^4.85.1
@@ -2665,10 +2665,10 @@ importers:
   packages/react-core:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
@@ -2834,7 +2834,7 @@ importers:
   packages/react-native:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/core':
         specifier: workspace:*
@@ -3095,13 +3095,13 @@ importers:
         specifier: 0.0.10
         version: 0.0.10(@ag-ui/client@0.0.57)(rxjs@7.8.1)
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/encoder':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/langgraph':
         specifier: 0.0.42
@@ -3446,7 +3446,7 @@ importers:
   packages/shared:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
         specifier: '>=0.0.48'
@@ -3510,7 +3510,7 @@ importers:
   packages/sqlite-runner:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/runtime':
         specifier: workspace:*
@@ -3582,10 +3582,10 @@ importers:
         specifier: 0.10.4
         version: 0.10.4
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@ag-ui/core':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/core':
         specifier: workspace:*
@@ -3736,7 +3736,7 @@ importers:
   packages/web-inspector:
     dependencies:
       '@ag-ui/client':
-        specifier: 0.0.57
+        specifier: '>=0.0.57 <0.1.0'
         version: 0.0.57
       '@copilotkit/core':
         specifier: workspace:*
