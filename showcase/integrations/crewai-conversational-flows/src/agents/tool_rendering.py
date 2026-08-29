@@ -1,7 +1,7 @@
 """CrewAI Flow backing the Tool Rendering demo.
 
-The default ``ChatWithCrewFlow`` (used for the catch-all
-``LatestAiDevelopment`` crew on "/") executes backend tools internally
+``ChatWithCrewFlow``, which backs the crew endpoints, executes
+backend tools internally
 without emitting AG-UI ``TOOL_CALL_START`` / ``TOOL_CALL_END`` events.
 The frontend's ``useRenderTool`` hook never sees the tool call and
 therefore never renders the WeatherCard.

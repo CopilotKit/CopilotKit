@@ -28,7 +28,7 @@ import type {
 import { CopilotKit } from "./copilotkit";
 
 /**
- * A conversation thread managed by the Intelligence platform.
+ * A conversation thread managed by CopilotKit Intelligence.
  *
  * Each thread has a unique `id`, an optional human-readable `name`, and
  * timestamp fields tracking creation and update times. This mirrors the
@@ -61,7 +61,7 @@ export interface Thread {
  * Configuration for {@link injectThreads}.
  *
  * Thread operations are scoped to the runtime-authenticated user and the
- * provided agent on the Intelligence platform. Each field may be supplied as
+ * provided agent on CopilotKit Intelligence. Each field may be supplied as
  * a plain value or a {@link Signal}; when a signal is used the underlying
  * runtime context is re-synced whenever its value changes.
  */
@@ -219,11 +219,7 @@ function projectThread(thread: ɵThread): Thread {
 export class ThreadsStore implements InjectThreadsResult {
   readonly #copilotkit = inject(CopilotKit);
   readonly #store: ɵThreadStore = ɵcreateThreadStore({
-    // Cast to `typeof fetch`: the wrapper preserves correct `this` binding for
-    // globalThis.fetch but does not re-expose static members (e.g. `preconnect`)
-    // that newer DOM libs add and that the store never calls.
-    fetch: ((...args: Parameters<typeof fetch>) =>
-      globalThis.fetch(...args)) as typeof fetch,
+    fetch: this.#copilotkit.core.ɵruntimeFetch,
   });
   readonly #subscriptions: Subscription[] = [];
 
@@ -567,7 +563,7 @@ export class CopilotkitThreadsFactory {
  * the signal-based counterpart to react-core's `useThreads`.
  *
  * On creation the store fetches the thread list for the runtime-authenticated
- * user and the given `agentId`. When the Intelligence platform exposes a
+ * user and the given `agentId`. When CopilotKit Intelligence exposes a
  * WebSocket URL it also opens a realtime subscription so the `threads` signal
  * stays current without polling. Mutation methods return promises that resolve
  * once the platform confirms the operation and reject with an `Error` on

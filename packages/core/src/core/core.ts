@@ -714,6 +714,10 @@ export class CopilotKitCore {
     return this.agentRegistry.runtimeConnectionStatus;
   }
 
+  get ɵruntimeFetch(): typeof fetch {
+    return this.agentRegistry.createRuntimeFetch();
+  }
+
   get audioFileTranscriptionEnabled(): boolean {
     return this.agentRegistry.audioFileTranscriptionEnabled;
   }

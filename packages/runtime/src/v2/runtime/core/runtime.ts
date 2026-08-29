@@ -43,12 +43,18 @@ import {
   attachRuntimeErrorReporter,
   getRuntimeErrorReporterFromOptions,
 } from "./runtime-error-reporter";
-import type { CopilotRuntimeLearningConfig } from "./learning";
+import type {
+  CopilotRuntimeLearningConfig,
+  CopilotRuntimeUser,
+} from "./learning";
 import { assertStableLearningContainerId } from "./learning";
 
 export type {
+  CopilotRuntimeUser,
   CopilotRuntimeLearningConfig,
   CopilotRuntimeLearningContext,
+  GetLearningContainerId,
+  LearningContainerSelectorInput,
 } from "./learning";
 
 export const VERSION = pkg.version;
@@ -207,11 +213,6 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   exposeMemoryRoutes?: boolean;
 }
 
-export interface CopilotRuntimeUser {
-  id: string;
-  name: string;
-}
-
 export type IdentifyUserCallback = (
   request: Request,
 ) => MaybePromise<CopilotRuntimeUser>;
@@ -246,7 +247,10 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
-  /** Chooses one stable Learning Container ID for each web or Channel run. */
+  /**
+   * Chooses one stable Learning Container ID for each web or Channel run.
+   * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
+   */
   ɵlearning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
@@ -499,8 +503,25 @@ export class CopilotIntelligenceRuntime
       identifyUser?: unknown;
       channels?: unknown;
       memory?: unknown;
+      runner?: unknown;
       ɵlearning?: unknown;
     };
+    // Runtime guard mirroring the `channels` guard in `CopilotSseRuntime`: this
+    // constructor hardcodes `IntelligenceAgentRunner` into its `super()` call,
+    // so a caller-supplied `runner` can never be honored. The type forbids it
+    // (`runner` is declared only on `CopilotSseRuntimeOptions`), but that is an
+    // excess-property check — a JS / `as any` / non-literal caller passing
+    // `{ intelligence, runner }` would otherwise land here and have `runner`
+    // silently dropped in favor of the auto-wired one. Fail loud instead.
+    if (rawOptions.runner !== undefined) {
+      throw new Error(
+        "Intelligence Runtime auto-wires its own `runner`; passing `runner` " +
+          "alongside `intelligence` is not supported. Durability is managed by " +
+          "the Intelligence service, so `InMemoryAgentRunner` / a SQLite runner " +
+          "is unnecessary here — drop `runner`, or drop `intelligence` to run " +
+          "in SSE mode with a runner you control.",
+      );
+    }
     if (
       rawOptions.identifyUser !== undefined &&
       typeof rawOptions.identifyUser !== "function"
@@ -550,6 +571,14 @@ export class CopilotIntelligenceRuntime
     ) {
       throw new Error(
         "Intelligence Runtime `ɵlearning.containerId` must be a stable ID or callback",
+      );
+    }
+    if (
+      rawOptions.ɵlearning !== undefined &&
+      options.intelligence.ɵgetLearningContainerId?.() !== undefined
+    ) {
+      throw new Error(
+        "Configure Learning Containers with `getLearningContainerId` on `CopilotKitIntelligence`; do not also pass deprecated `ɵlearning` to `CopilotRuntime`",
       );
     }
     if (

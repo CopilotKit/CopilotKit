@@ -24,8 +24,13 @@ CopilotKit v2 runtime (`@copilotkit/runtime`) exposes a fetch-native handler wit
 
 ### Intelligence Mode (`"intelligence"`)
 
-- Requires `CopilotKitIntelligence` configuration with `apiUrl`, `wsUrl`, `apiKey`, `tenantId`.
-- Agent runs are durable -- threads are persisted on the Intelligence platform.
+- Requires a `CopilotKitIntelligence` instance. `apiKey` is the only required field --
+  it identifies the organization and project on its own, so there is no org or tenant
+  option to pass. `apiUrl` / `wsUrl` are optional overrides that default to the managed
+  platform (`https://api.intelligence.copilotkit.ai` and
+  `wss://realtime.intelligence.copilotkit.ai` -- two separate hosts, so `wsUrl` cannot be
+  derived from `apiUrl` by swapping the scheme).
+- Agent runs are durable -- threads are persisted on CopilotKit Intelligence.
 - Uses `IntelligenceAgentRunner` which coordinates via WebSocket.
 - Supports thread listing, archiving, deletion, and real-time updates.
 - Requires `identifyUser` callback to resolve authenticated users.

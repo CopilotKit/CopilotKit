@@ -268,7 +268,7 @@ Intelligence mode uses the `CopilotKitIntelligence` client to manage threads:
 
 Intelligence mode uses WebSocket for real-time events:
 
-- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with the Intelligence platform
+- Runner WebSocket: `{wsUrl}/runner` -- used by the runtime to communicate with CopilotKit Intelligence
 - Client WebSocket: `{wsUrl}/client` -- used by the frontend for real-time thread updates
 
 If WebSocket connections fail:
@@ -287,13 +287,27 @@ The CopilotKit Web Inspector (`@copilotkit/web-inspector`) provides real-time vi
 - Agent state snapshots
 - Tool call lifecycle
 
-Enable it during development:
+It mounts itself. React, Vue, and Angular all depend on
+`@copilotkit/web-inspector` and mount `cpk-web-inspector` from their provider,
+so there is nothing to import and nothing to render:
 
 ```tsx
-import { CopilotKitWebInspector } from "@copilotkit/web-inspector";
-
-<CopilotKit runtimeUrl="/api/copilotkit">
-  <CopilotKitWebInspector />
+<CopilotKitProvider runtimeUrl="/api/copilotkit">
   <YourApp />
-</CopilotKit>;
+</CopilotKitProvider>
 ```
+
+Visibility is decided by `shouldEnableInspector` in `@copilotkit/shared`:
+`isBrowser && isDevelopment && enableInspector !== false`. All three must hold,
+so `enableInspector` is an **opt-out** — setting it to `true` cannot add the
+Inspector to a production build.
+
+```tsx
+<CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={false}>
+```
+
+Vue uses the kebab-case prop `:enable-inspector="false"`; Angular configures it
+through `provideCopilotKit({ enableInspector: false })`.
+
+There is no `CopilotKitWebInspector` React component — `@copilotkit/web-inspector`
+exports the custom-element tag (`WEB_INSPECTOR_TAG`), not a wrapper.

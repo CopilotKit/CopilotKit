@@ -41,6 +41,28 @@ thread. Open a row to inspect its **Messages**, **AG-UI Events**, and **State**.
 The current row, tabs, links, actions, and window controls all support keyboard
 focus.
 
+## Errors
+
+When a CopilotKit error fires, the Inspector launcher turns red. Where there is
+room beside it, a pill names the failure for a few seconds. Click the launcher —
+or the pill while it is open — and Inspector opens the pane that explains that
+error:
+
+- **Runtime / connection**: Home.
+- **Threads list**: Threads.
+- **Agent run / `RUN_ERROR`**: AG-UI Events. The banner names the agent and the
+  error. If the run's `RUN_ERROR` is still in the event buffer, it is
+  highlighted and expanded.
+- **Tool handler / missing tool**: Agent. The banner names the agent, the tool,
+  and the error. When the error carries a tool call id, that call is
+  highlighted — a missing tool has no call to point at, so nothing is.
+- **Learning / memory**: Learning. Only once the Learning view has been opened:
+  the memory store is created on first visit, so before that there is nothing
+  to report.
+
+Use `onError` on `CopilotKit` or `CopilotChat` if you also want the app UI to
+show the same error. The Inspector still records it.
+
 ## Empty Threads demo
 
 When Threads is enabled but has no real rows, or when Threads is locked, the
@@ -61,13 +83,13 @@ identity data does not hide valid usage or action data.
 
 Trusted Thread usage also appears in the Threads footer:
 
-| Usage state | Inspector behavior |
-| --- | --- |
-| Finite | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
-| Unlimited | Shows the used count with **Unlimited** and no progress bar. |
-| Unknown limit | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress. |
-| Known expiry count | Shows the count, including `0 Expiring Soon`. |
-| Missing or malformed expiry | Hides the expiry value instead of inventing one. |
+| Usage state                 | Inspector behavior                                                                                                          |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Finite                      | Shows `used / limit Threads` and a native progress bar. An overage shows `limit+ / limit Threads` and caps the bar at 100%. |
+| Unlimited                   | Shows the used count with **Unlimited** and no progress bar.                                                                |
+| Unknown limit               | Shows the used count with **Limit unavailable**, but invents no numeric limit or progress.                                  |
+| Known expiry count          | Shows the count, including `0 Expiring Soon`.                                                                               |
+| Missing or malformed expiry | Hides the expiry value instead of inventing one.                                                                            |
 
 `Expiring Soon` describes a future retention-policy threshold in the next 24
 hours. It does not prove that the thread culler ran or that the Inspector locked
@@ -82,20 +104,20 @@ visible.
 
 <Callout type="info">
   If Threads is locked, the Inspector uses the Runtime's license state and can
-  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those license
-  and billing links appear only when the Runtime supplies a matching trusted
-  action URL; there is no fixed signup destination. An active license with
-  missing Runtime routes instead offers **Copy prompt for your agent** and
+  show **Enable Intelligence**, **Renew**, or **Manage Your Plan**. Those
+  license and billing links appear only when the Runtime supplies a matching
+  trusted action URL; there is no fixed signup destination. An active license
+  with missing Runtime routes instead offers **Copy prompt for your agent** and
   **Open setup guide**. The prompt points the coding agent to the public Runtime
   setup guide and asks it to verify the finished route setup.
 </Callout>
 
-| License state | Locked Threads behavior |
-| --- | --- |
-| Active | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
-| Not enabled | Shows **Enable Intelligence** only for a matching trusted action. |
-| Expired | Shows **Renew** or **Manage Your Plan** only for a matching trusted action. |
-| Unknown | Shows neutral unavailable copy without an action. |
+| License state | Locked Threads behavior                                                                                              |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Active        | Shows **Finish setting up Rich Threads**, copies a coding-agent repair prompt, and links to the Runtime route setup. |
+| Not enabled   | Shows **Enable Intelligence** only for a matching trusted action.                                                    |
+| Expired       | Shows **Renew** or **Manage Your Plan** only for a matching trusted action.                                          |
+| Unknown       | Shows neutral unavailable copy without an action.                                                                    |
 
 If an active license shows the setup state, follow [Enable Rich Threads routes](/backend/runtime-endpoints#enable-rich-threads-routes)
 to use multi-route mode, configure application-user identity, mount every
@@ -119,9 +141,38 @@ never enables Thread work. A license conflict hides an incompatible action
 without hiding valid usage. Metadata updates do not change the selected thread.
 
 <Callout type="info">
-  Want to preview A2UI catalog components directly in your editor? See the [VS Code Extension](/vs-code-extension)
-  for live preview with hot-reload.
+  Want to preview A2UI catalog components directly in your editor? See the [VS
+  Code Extension](/vs-code-extension) for live preview with hot-reload.
 </Callout>
+
+## View a thread in your app
+
+The Inspector can open a saved thread, but that does not change the live chat.
+Use **View in your app** in the thread detail header to load that thread into
+the official chat (`CopilotChat`, sidebar, or popup).
+
+The chat shows the saved messages. You can send new messages on that same
+thread. The list marks the thread that is open in the app.
+
+Click **Stop viewing** to put the chat back on the previous thread. If you
+pick another thread in the app, the Inspector override ends.
+
+This action is for real saved threads only. Example threads do not have it.
+A production build hides the action even if the Inspector is forced on.
+
+If no official chat for that agent is on the page, the Inspector shows an
+error. This behavior is agent-framework agnostic: the Inspector addresses the
+CopilotKit chat by `agentId`, regardless of which backend framework serves the
+agent.
+
+A custom chat can use the bridge exported by `@copilotkit/core`. Return `true`
+from `onInspectorViewThread` only when that chat claims the request, and include
+the same `requestId` in every lifecycle event:
+
+- `onInspectorViewThread` receives `{ requestId, threadId, agentId }`
+- `onInspectorStopViewing` receives `{ requestId, agentId }`
+- `emitInspectorActiveThread` sends `{ requestId, threadId, agentId, source }`
+- `emitInspectorViewThreadResult` sends `{ requestId, threadId, agentId, ok }`
 
 ## Pop out
 
@@ -138,10 +189,13 @@ If the window does not open, allow popups for the site and click pop-out
 again. A refresh closes the extra window. The Inspector does not reopen as a
 pop-out after a refresh.
 
-## Disabling the Inspector
+## Configuring the Inspector
 
-By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
-`0.0.0.0`. Set `enableInspector` to `false` to hide it on those hosts:
+In React, Vue, and Angular browser applications, the Inspector appears by
+default in development builds on any host. It is never loaded or rendered in a
+production build or during server-side rendering.
+
+Set `enableInspector` to `false` to hide it during development:
 
 ```tsx
 <CopilotKit
@@ -152,5 +206,12 @@ By default, the Inspector appears only on `localhost`, `127.0.0.1`, and
 </CopilotKit>
 ```
 
-Set `enableInspector` to `true` to show it on another host, including in a
-production build. CopilotKit always uses an explicit `true` or `false` value.
+An explicit `true` keeps it enabled in development but cannot override the
+production or server-rendering guard.
+
+Vue uses the kebab-case template prop `:enable-inspector="false"`. Angular
+configures it through `provideCopilotKit({ enableInspector: false })`.
+
+Legacy `showDevConsole` props no longer control the Inspector. Use
+`enableInspector` in every browser framework. Native iOS and Android
+applications do not have a built-in Inspector yet.

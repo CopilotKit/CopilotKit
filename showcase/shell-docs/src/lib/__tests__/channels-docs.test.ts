@@ -119,7 +119,7 @@ describe("Channels documentation journey", () => {
     );
     expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
     expect(overview?.source).toContain(
-      "## Production self-hosting: Run Enterprise Intelligence in your own infrastructure",
+      "## Production self-hosting: Run CopilotKit Intelligence in your own infrastructure",
     );
     expect(overview?.source).toContain(
       'surface="docs_channels_self_hosting_contact"',
@@ -576,7 +576,7 @@ describe("Channels documentation journey", () => {
     }
   });
 
-  it("distinguishes Intelligence platform selection from runnable topology", () => {
+  it("distinguishes CopilotKit Intelligence selection from runnable topology", () => {
     const source = bodyFor("channels/intelligence");
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");

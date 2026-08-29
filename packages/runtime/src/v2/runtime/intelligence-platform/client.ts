@@ -1,6 +1,7 @@
 import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
 import type { InspectorMetadataV1 } from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import type { GetLearningContainerId } from "../core/learning";
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -32,13 +33,13 @@ const memoryRequestHeaders = (
 });
 
 /**
- * REST base URL of CopilotKit's managed Intelligence platform — the default
+ * REST base URL of cloud-hosted CopilotKit Intelligence — the default
  * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
  */
 const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
 
 /**
- * Websocket base URL of CopilotKit's managed Intelligence platform — the
+ * Websocket base URL of cloud-hosted CopilotKit Intelligence — the
  * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
  *
  * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
@@ -50,7 +51,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
- * Error thrown when an Intelligence platform HTTP request returns a non-2xx
+ * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
  * parsing the error message string.
@@ -86,7 +87,7 @@ export interface ThreadDeletedPayload {
 
 export interface CopilotKitIntelligenceConfig {
   /**
-   * Base URL of the intelligence platform API.
+   * Base URL of the CopilotKit Intelligence API.
    *
    * Defaults to CopilotKit's managed platform,
    * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
@@ -106,10 +107,18 @@ export interface CopilotKitIntelligenceConfig {
    * different deployments, which logs a warning.
    */
   wsUrl?: string;
-  /** API key for authenticating with the intelligence platform */
+  /** API key for authenticating with CopilotKit Intelligence */
   apiKey: string;
   /**
-   * Enable Enterprise Learning — expose the Intelligence platform's
+   * Chooses the stable Learning Container ID for each Intelligence run.
+   * The callback receives the resolved application user and AG-UI run input.
+   * It must return the same ID for every run on one Thread because a Thread
+   * cannot move between Learning Containers after its first assignment.
+   * Return `null` or `undefined` to leave the Thread unassigned.
+   */
+  getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
    * intelligence runtime that resolve a user. Attached uniformly across
    * agent frameworks by `attachIntelligenceEnterpriseLearning` via
@@ -321,7 +330,7 @@ export interface AnnotateParams {
   threadId: string;
   /**
    * Discriminator identifying the annotation type.
-   * Must match a type known to the Intelligence platform
+   * Must match a type known to CopilotKit Intelligence
    * (for example, `"user_action"`).
    */
   type: string;
@@ -453,7 +462,7 @@ interface ThreadEnvelope {
 }
 
 /**
- * Client for the CopilotKit Intelligence Platform REST API.
+ * Client for the CopilotKit Intelligence REST API.
  *
  * Construct the client once and pass it to any consumers that need it
  * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
@@ -471,13 +480,18 @@ interface ThreadEnvelope {
  * });
  * ```
  *
- * `apiUrl` and `wsUrl` default to CopilotKit's managed Intelligence platform.
- * Override both together to target a self-hosted or non-production deployment:
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence —
+ * `https://api.intelligence.copilotkit.ai` and
+ * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
+ * managed service; leaving both unset is always correct against it.
+ *
+ * Override both together to target a non-production or future self-hosted
+ * deployment (the hosts below are placeholders — substitute your own):
  *
  * ```ts
  * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://intelligence.internal",
- *   wsUrl: "wss://realtime.intelligence.internal",
+ *   apiUrl: "https://api.intelligence.example.com",
+ *   wsUrl: "wss://realtime.intelligence.example.com",
  *   apiKey: process.env.INTELLIGENCE_API_KEY!,
  * });
  * ```
@@ -489,11 +503,20 @@ export class CopilotKitIntelligence {
   #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #getLearningContainerId?: GetLearningContainerId;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
+    if (
+      config.getLearningContainerId !== undefined &&
+      typeof config.getLearningContainerId !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getLearningContainerId` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -511,6 +534,7 @@ export class CopilotKitIntelligence {
     this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
+    this.#getLearningContainerId = config.getLearningContainerId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -606,6 +630,11 @@ export class CopilotKitIntelligence {
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to populate `Authorization`. */
   ɵgetApiKey(): string {
     return this.#apiKey;
+  }
+
+  /** @internal Used by the Intelligence runtime to assign Learning Containers. */
+  ɵgetLearningContainerId(): GetLearningContainerId | undefined {
+    return this.#getLearningContainerId;
   }
 
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
@@ -1188,7 +1217,7 @@ export class CopilotKitIntelligence {
   }
 
   /**
-   * Annotate a thread event on the Intelligence platform's general annotation
+   * Annotate a thread event on CopilotKit Intelligence's general annotation
    * endpoint (`PUT /connector/annotate/:clientEventId`).
    *
    * This is the generalized replacement for the old

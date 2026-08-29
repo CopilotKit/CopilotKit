@@ -59,7 +59,6 @@
  * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
  */
 
-import type { YogaInitialContext } from "graphql-yoga";
 import { buildSchemaSync } from "type-graphql";
 import { CopilotResolver } from "../../graphql/resolvers/copilot.resolver";
 import type { CopilotRuntime } from "../runtime/copilot-runtime";
@@ -96,7 +95,35 @@ export type CopilotRequestContextProperties = Record<
   AnyPrimitive | Record<string, AnyPrimitive>
 >;
 
-export type GraphQLContext = YogaInitialContext & {
+/**
+ * The request-scoped fields the v1 middleware hooks read off the GraphQL
+ * context.
+ *
+ * Declared here rather than imported as Yoga's `YogaInitialContext`. Nothing in
+ * this package serves GraphQL any more -- every v1 integration entry point
+ * delegates to the v2 Hono endpoint -- but that one type reference was enough to
+ * pull the whole `graphql-yoga` barrel, and with it `lru-cache@10`, into every
+ * consumer's program. `lru-cache@10` declares `implements Map`, which costs five
+ * TS2416 errors under `strict` with `skipLibCheck: false` (OSS-899).
+ *
+ * Structurally identical to `YogaInitialContext`, so a real Yoga context still
+ * satisfies it.
+ */
+export interface GraphQLRequestContext {
+  /** GraphQL parameters parsed from the request. */
+  params: {
+    operationName?: string;
+    query?: string;
+    variables?: Record<string, any>;
+    extensions?: Record<string, any>;
+  };
+  /** The incoming HTTP request. */
+  request: Request;
+  /** Defers work past the response, where the host runtime supports it. */
+  waitUntil(promise: Promise<unknown> | void): void;
+}
+
+export type GraphQLContext = GraphQLRequestContext & {
   _copilotkit: CreateCopilotRuntimeServerOptions;
   properties: CopilotRequestContextProperties;
   logger: typeof logger;

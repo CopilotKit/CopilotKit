@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getRuntimeConfig, type RuntimeConfig } from "./runtime-config.client";
+import { getRuntimeConfig } from "./runtime-config.client";
+import type { RuntimeConfig } from "./runtime-config.client";
 
 // shell-docs's vitest runs with `environment: "node"` (no jsdom) — we
 // simulate the browser by attaching a minimal `window` to globalThis

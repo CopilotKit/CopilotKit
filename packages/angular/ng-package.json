@@ -12,6 +12,7 @@
     "@copilotkit/shared",
     "@copilotkit/core",
     "@copilotkit/web-components",
+    "@copilotkit/web-inspector",
     "@jetbrains/websandbox",
     "rxjs",
     "zod",

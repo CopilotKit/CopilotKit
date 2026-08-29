@@ -222,9 +222,10 @@
 }
 
 .inspector-sidebar[data-icon-rail="true"] {
-  width: 56px;
-  min-width: 56px;
-  padding: 10px 6px;
+  width: 52px;
+  min-width: 52px;
+  align-items: center;
+  padding: 8px;
 }
 
 .inspector-sidebar-agent-scope {
@@ -265,14 +266,43 @@
   padding-bottom: 8px;
 }
 
+.inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-agent-scope,
+.inspector-sidebar[data-icon-rail="true"] .inspector-agent-selector,
+.inspector-sidebar[data-icon-rail="true"]
+  .inspector-agent-selector
+  > [data-context-dropdown-root="true"],
+.inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-footer {
+  display: flex;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  flex: none;
+  justify-content: center;
+  align-items: center;
+}
+
 .inspector-sidebar[data-icon-rail="true"]
   .inspector-agent-selector
   > [data-context-dropdown-root="true"]
-  > button {
-  width: 100%;
-  min-height: 34px;
+  > button,
+.inspector-sidebar[data-icon-rail="true"] .inspector-agent-placeholder {
+  box-sizing: border-box;
+  display: flex;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  align-items: center;
   justify-content: center;
-  padding: 6px 0;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .inspector-sidebar[data-icon-rail="true"] .inspector-context-dropdown-label,
@@ -290,6 +320,25 @@
   top: 0;
   left: calc(100% + 8px);
   margin-top: 0;
+}
+
+.inspector-icon-rail-menu {
+  transform-origin: left center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-8px) scale(0.96);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms ease;
+}
+
+.inspector-icon-rail-menu[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
 }
 
 .inspector-sidebar[data-icon-rail="true"]
@@ -363,14 +412,32 @@
   min-height: 36px;
 }
 
+.inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-nav {
+  overflow: visible;
+}
+
 .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-control,
 .inspector-sidebar[data-icon-rail="true"] .inspector-sidebar-toggle,
 .inspector-sidebar[data-icon-rail="true"] .inspector-nav-control {
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   justify-content: center;
   align-items: center;
   gap: 0;
-  padding: 6px 0;
-  overflow: hidden;
+  padding: 0;
+  overflow: visible;
+}
+
+.inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon,
+.inspector-sidebar[data-icon-rail="true"] .inspector-nav-icon svg,
+.inspector-sidebar[data-icon-rail="true"] .inspector-context-dropdown-icon,
+.inspector-sidebar[data-icon-rail="true"] .inspector-context-dropdown-icon svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
 }
 
 .inspector-home-badge {
@@ -418,7 +485,7 @@
   flex: none;
   flex-direction: column;
   gap: 6px;
-  padding: 2px 0 18px;
+  padding: 2px 0 0;
 }
 
 .inspector-sidebar-status-list {
@@ -805,7 +872,6 @@
 
 .inspector-settings-header {
   max-width: 70ch;
-  border-bottom: 1px solid #d5d3e4;
   padding-bottom: 22px;
 }
 
@@ -879,9 +945,8 @@
 }
 
 .inspector-settings-privacy {
-  border-top: 1px solid #d5d3e4;
   border-bottom: 1px solid #d5d3e4;
-  padding: 20px 0 22px;
+  padding: 0 0 22px;
 }
 
 .inspector-settings-status-row {
@@ -1494,6 +1559,743 @@ small.inspector-system-health-detail {
   min-height: 38px;
   padding: 10px 14px;
   font-size: 12px;
+}
+
+/* ── Intelligence install prompt ─────────────────────────────────────────── */
+
+/* Install mode borrows System Health's anatomy: a header band that holds the
+   name and the action, a rule, then the content. Two reasons. It is the
+   section directly above this one, so the panel keeps one section shape
+   throughout — and it puts the button in the same top-right slot that already
+   holds the status pill when Intelligence is connected and the renew link when
+   a plan has lapsed. The button no longer sits wedged between the copy and the
+   picture, splitting one argument in half. */
+.inspector-intelligence-hud[data-mode="install"]
+  .inspector-intelligence-hud-header {
+  min-height: 76px;
+  align-items: center;
+  border-bottom: 1px solid #d5d3e4;
+  /* A wash along the brand's own hue path — white into lilac into mint. The
+     same device the account strip at the top of the panel already uses, so the
+     band reads as premium without inventing a new visual language for one
+     element. Deliberately NOT gradient text: at 18px `background-clip: text`
+     renders muddy, costs contrast, and gradient headlines are the single most
+     over-used "premium" tell right now. */
+  background: linear-gradient(100deg, #fbfaff 0%, #f2eeff 52%, #edfaf5 100%);
+  padding: 18px;
+}
+
+.inspector-intelligence-hud[data-mode="install"]
+  .inspector-intelligence-hud-heading
+  .inspector-home-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #010507;
+  font-size: 18px;
+  letter-spacing: -0.025em;
+}
+
+.inspector-intelligence-mark {
+  display: block;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+/* The action column: buttons on one row, and the post-copy line beneath them,
+   both right-aligned against the band's edge. */
+.inspector-intelligence-hud[data-mode="install"]
+  .inspector-intelligence-hud-header-actions {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* Exposed to assistive tech only. The visible copy replaces itself every few
+   seconds, which a screen reader would read out as four separate
+   announcements per loop. */
+.inspector-intelligence-sr-summary {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Rotating copy, paired to the picture ────────────────────────────────── */
+
+/* Every slide occupies the same grid cell, so the block is as tall as its
+   longest sentence pair and the card cannot change height mid-loop. A fixed
+   min-height would have been a magic number that breaks on the next copy
+   edit. */
+.inspector-intelligence-copy {
+  display: grid;
+  padding: 16px 18px 0;
+}
+
+.inspector-intelligence-copy-slide {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition:
+    opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Same left-to-right rule as the picture, so the sentence and the thing it
+   describes travel together instead of crossing each other. */
+.inspector-intelligence-copy-slide[data-position="after"] {
+  transform: translateX(14px);
+}
+
+.inspector-intelligence-copy-slide[data-position="before"] {
+  transform: translateX(-14px);
+}
+
+.inspector-intelligence-copy-slide[data-position="active"] {
+  opacity: 1;
+  transform: none;
+}
+
+.inspector-intelligence-copy-slide > strong {
+  max-width: 52ch;
+  color: #2b2b31;
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+
+.inspector-intelligence-copy-slide > span {
+  max-width: 64ch;
+  color: #4f4f55;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* One row, always: a secondary message and the button. The message's content
+   changes with the copy state, but the row's shape never does, so the header
+   band cannot grow when the instruction appears. */
+.inspector-intelligence-install {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.inspector-intelligence-install-copy {
+  min-height: 34px;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+
+.inspector-intelligence-install-copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Copy confirmed reads as a state change, not a new colour: the fill drops
+   away and the accent moves to the text, so the button stops competing with
+   the story below it once its job is done. */
+.inspector-intelligence-install[data-copy-state="copied"]
+  .inspector-intelligence-install-copy {
+  border-color: #bba5df;
+  background-color: #ffffff;
+  color: #4e238c;
+}
+
+.inspector-intelligence-install-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6430ab;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.inspector-intelligence-install-secondary:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.inspector-intelligence-install-secondary svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Sits in the secondary slot the "What Intelligence does" link vacates, so it
+   matches that link's metrics rather than introducing a second text size. */
+.inspector-intelligence-install-hint {
+  margin: 0;
+  color: #68686e;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.inspector-intelligence-install-hint[data-tone="success"] {
+  color: #4e238c;
+  font-weight: 600;
+}
+
+.inspector-intelligence-install-hint[data-tone="error"] {
+  color: #a3341f;
+  font-weight: 600;
+}
+
+/* Full-width strip between the two bands, so a refused clipboard hands over
+   something readable instead of a cramped line inside the header. */
+.inspector-intelligence-install-fallback {
+  display: block;
+  max-height: 96px;
+  overflow: auto;
+  border-bottom: 1px solid #d5d3e4;
+  background-color: #ffffff;
+  padding: 10px 18px;
+  color: #4f4f55;
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1.65;
+  user-select: all;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ── Intelligence story ──────────────────────────────────────────────────── */
+
+/* The copy and the picture now share one band, because they are one argument.
+   No border between them; the rule above belongs to the header. */
+.inspector-intelligence-story {
+  container-name: cpk-intel-story;
+  container-type: inline-size;
+  background-color: #ffffff;
+}
+
+/* Every beat shares one grid cell instead of being absolutely positioned in a
+   fixed-height box. That box was shorter than the tallest beat, so the skill
+   listing bled past its padding while the shorter beats sat comfortably inside
+   theirs — the same section looked differently spaced depending on the slide.
+   Sharing a cell makes the stage exactly as tall as its tallest beat and gives
+   all four identical padding, with no magic number to re-tune when the content
+   changes. */
+.inspector-intelligence-story-stage {
+  display: grid;
+  padding: 16px 18px;
+}
+
+.inspector-intelligence-beat {
+  display: flex;
+  visibility: hidden;
+  align-items: center;
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition:
+    opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 380ms;
+}
+
+/* Direction follows the rail. A beat still to come waits to the right, one
+   already passed leaves to the left, so advancing reads left-to-right exactly
+   like the tabs underneath — and clicking a tab backwards animates backwards
+   without any stored direction. */
+.inspector-intelligence-beat[data-position="after"] {
+  transform: translateX(14px);
+}
+
+.inspector-intelligence-beat[data-position="before"] {
+  transform: translateX(-14px);
+}
+
+.inspector-intelligence-beat[data-position="active"] {
+  visibility: visible;
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+
+/* Beat 1 — the user's own threads. The failed row is the argument, so it is
+   the only coloured thing on the slide. */
+.inspector-intelligence-beat[data-beat-id="threads"] {
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.inspector-intelligence-threads {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspector-intelligence-thread {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #e6e3f2;
+  border-radius: 4px;
+  background-color: #faf9fe;
+  padding: 8px 10px;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
+}
+
+.inspector-intelligence-thread > i {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 999px;
+  background-color: #9b8cc4;
+}
+
+.inspector-intelligence-thread > strong {
+  overflow: hidden;
+  color: #2b2b31;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-intelligence-thread > small {
+  margin-left: auto;
+  flex: none;
+  color: #68686e;
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 9.5px;
+}
+
+.inspector-intelligence-thread[data-failed="true"] {
+  border-color: #f0d5cf;
+  background-color: #fdf6f4;
+}
+
+.inspector-intelligence-thread[data-failed="true"] > i {
+  background-color: #c2410c;
+}
+
+.inspector-intelligence-thread[data-failed="true"] > strong,
+.inspector-intelligence-thread[data-failed="true"] > small {
+  color: #8f2f1c;
+  font-weight: 650;
+}
+
+.inspector-intelligence-story[data-beat="threads"]
+  .inspector-intelligence-thread {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--thread-index) * 80ms + 90ms);
+}
+
+/* Beat 2 — many threads collapsing into one pattern.
+   The columns are deliberately uneven: raw user messages run longer than the
+   three-word rules they collapse into, so an even split clips the left side
+   while the right side sits half empty. */
+.inspector-intelligence-beat[data-beat-id="learning"] {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.15fr) auto minmax(0, 0.85fr);
+}
+
+.inspector-intelligence-beat-col {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inspector-intelligence-beat-label {
+  color: #68686e;
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inspector-intelligence-signal,
+.inspector-intelligence-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  border: 1px solid #e6e3f2;
+  border-radius: 4px;
+  background-color: #faf9fe;
+  padding: 6px 8px;
+  color: #4f4f55;
+  font-size: 10.5px;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
+}
+
+.inspector-intelligence-signal {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-intelligence-rule {
+  border-color: #cfe9dd;
+  background-color: #f4fbf8;
+  color: #21543f;
+  font-weight: 600;
+}
+
+.inspector-intelligence-rule > i {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: #1f8a5f;
+}
+
+.inspector-intelligence-rule > i svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.4;
+}
+
+.inspector-intelligence-story[data-beat="learning"]
+  .inspector-intelligence-signal,
+.inspector-intelligence-story[data-beat="learning"]
+  .inspector-intelligence-rule {
+  opacity: 1;
+  transform: none;
+}
+
+/* The signals land first, then the rules they produce — the order carries the
+   causality, so the delays are not decorative. */
+.inspector-intelligence-story[data-beat="learning"]
+  .inspector-intelligence-signal {
+  transition-delay: calc(var(--signal-index) * 80ms + 100ms);
+}
+
+.inspector-intelligence-story[data-beat="learning"]
+  .inspector-intelligence-rule {
+  transition-delay: calc(var(--rule-index) * 80ms + 420ms);
+}
+
+.inspector-intelligence-beat-flow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9b8cc4;
+}
+
+.inspector-intelligence-beat-flow svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Beat 2 — the artefact. */
+.inspector-intelligence-beat[data-beat-id="skill"] {
+  justify-content: center;
+}
+
+.inspector-intelligence-skill-file {
+  width: min(100%, 30rem);
+  overflow: hidden;
+  border: 1px solid #d5d3e4;
+  border-radius: 5px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 2px rgb(16 12 40 / 6%);
+}
+
+.inspector-intelligence-skill-file > header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-bottom: 1px solid #ebe9f4;
+  background-color: #faf9fe;
+  padding: 7px 10px;
+}
+
+.inspector-intelligence-skill-file > header svg {
+  width: 12px;
+  height: 12px;
+  color: #6430ab;
+}
+
+.inspector-intelligence-skill-file > header strong {
+  color: #2b2b31;
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.inspector-intelligence-skill-file > header em {
+  margin-left: auto;
+  color: #68686e;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.inspector-intelligence-skill-code {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1.75;
+}
+
+.inspector-intelligence-skill-code > span {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px;
+  color: #4f4f55;
+}
+
+/* Line numbers come from the markup's own index, so the gutter cannot drift
+   out of step with the listing. */
+.inspector-intelligence-skill-code > span::before {
+  min-width: 8px;
+  color: #a9a7bb;
+  content: attr(data-line);
+  text-align: right;
+}
+
+.inspector-intelligence-skill-code > span > b {
+  color: #6430ab;
+  font-weight: 600;
+}
+
+.inspector-intelligence-skill-code > span[style*="--rule-index"] {
+  opacity: 0;
+  transform: translateY(2px);
+  transition:
+    opacity 260ms ease,
+    transform 260ms ease;
+}
+
+.inspector-intelligence-story[data-beat="skill"]
+  .inspector-intelligence-skill-code
+  > span[style*="--rule-index"] {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--rule-index) * 110ms + 260ms);
+}
+
+/* Beat 3 — the loop, and the proof that closes it. */
+.inspector-intelligence-beat[data-beat-id="intelligence"] {
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.inspector-intelligence-chain {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  justify-content: center;
+  gap: 6px;
+}
+
+.inspector-intelligence-chain-step {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  border: 1px solid #e6e3f2;
+  border-radius: 5px;
+  background-color: #faf9fe;
+  padding: 9px 10px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 280ms ease,
+    transform 280ms ease;
+}
+
+.inspector-intelligence-chain-step > i {
+  display: inline-flex;
+  color: #6430ab;
+}
+
+.inspector-intelligence-chain-step > i svg {
+  width: 14px;
+  height: 14px;
+}
+
+.inspector-intelligence-chain-step > strong {
+  color: #2b2b31;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.inspector-intelligence-chain-step > small {
+  color: #68686e;
+  font-size: 9.5px;
+  line-height: 1.3;
+}
+
+.inspector-intelligence-chain-arrow {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: #bba5df;
+  opacity: 0;
+  transition: opacity 280ms ease;
+}
+
+.inspector-intelligence-chain-arrow svg {
+  width: 13px;
+  height: 13px;
+}
+
+.inspector-intelligence-story[data-beat="intelligence"]
+  .inspector-intelligence-chain-step,
+.inspector-intelligence-story[data-beat="intelligence"]
+  .inspector-intelligence-chain-arrow {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--step-index) * 90ms + 80ms);
+}
+
+.inspector-intelligence-chain-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  border: 1px solid #cfe9dd;
+  border-radius: 999px;
+  background-color: #f4fbf8;
+  padding: 5px 11px;
+  color: #21543f;
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
+}
+
+.inspector-intelligence-chain-proof svg {
+  width: 12px;
+  height: 12px;
+  color: #1f8a5f;
+}
+
+.inspector-intelligence-chain-proof code {
+  font-family: "Spline Sans Mono", ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.inspector-intelligence-story[data-beat="intelligence"]
+  .inspector-intelligence-chain-proof {
+  opacity: 1;
+  transform: none;
+  transition-delay: 460ms;
+}
+
+/* Rail: the step names double as the product vocabulary, so they are words
+   and not dots. It no longer carries a caption — that sentence now lives in
+   the rotating copy above, and saying it twice is what made the card feel
+   busy. */
+.inspector-intelligence-story-rail {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-top: 1px solid #ebe9f4;
+  padding: 8px 18px 9px;
+}
+
+.inspector-intelligence-story-tab {
+  position: relative;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  padding: 3px 7px 5px;
+  color: #68686e;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.inspector-intelligence-story-tab::after {
+  position: absolute;
+  right: 7px;
+  bottom: 1px;
+  left: 7px;
+  height: 1.5px;
+  border-radius: 2px;
+  background-color: #6430ab;
+  content: "";
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.inspector-intelligence-story-tab:hover {
+  color: #2b2b31;
+}
+
+.inspector-intelligence-story-tab[data-active="true"] {
+  color: #4e238c;
+}
+
+.inspector-intelligence-story-tab[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+/* A narrow card (docked, or a small floating window) drops the per-step detail
+   in the closing chain rather than shrinking the type into illegibility. */
+@container cpk-intel-story (max-width: 30rem) {
+  .inspector-intelligence-chain-step > small {
+    display: none;
+  }
+
+  .inspector-intelligence-story-rail {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-intelligence-copy-slide,
+  .inspector-intelligence-thread,
+  .inspector-intelligence-beat,
+  .inspector-intelligence-signal,
+  .inspector-intelligence-rule,
+  .inspector-intelligence-chain-step,
+  .inspector-intelligence-chain-arrow,
+  .inspector-intelligence-chain-proof,
+  .inspector-intelligence-skill-code > span[style*="--rule-index"],
+  .inspector-intelligence-story-tab::after {
+    transition-duration: 0s;
+    transition-delay: 0s;
+  }
 }
 
 .inspector-intelligence-hud-details {
@@ -2229,7 +3031,16 @@ small.inspector-system-health-detail {
 
 @media (prefers-reduced-motion: reduce) {
   .inspector-sidebar,
-  .inspector-nav-label {
+  .inspector-nav-label,
+  .inspector-sidebar[data-icon-rail="true"]
+    .inspector-agent-selector
+    > [data-context-dropdown-root="true"]
+    > button {
+    transition: none;
+  }
+
+  .inspector-icon-rail-menu {
+    animation: none;
     transition: none;
   }
 }
@@ -2628,16 +3439,21 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"] {
   color-scheme: dark;
   border-color: #7b7d89 !important;
-  background-color: #111319 !important;
+  background-color: var(--cpk-inspector-surface-dark) !important;
   color: #f3f4f8 !important;
 }
 
-.inspector-window[data-color-scheme="dark"] > div,
 .inspector-window[data-color-scheme="dark"] .inspector-shell,
 .inspector-window[data-color-scheme="dark"] .inspector-main,
 .inspector-window[data-color-scheme="dark"] #cpk-main-scroll {
   background-color: #111319 !important;
   color: #f3f4f8 !important;
+}
+
+.inspector-window[data-color-scheme="dark"] .resize-handle,
+.inspector-window[data-color-scheme="dark"] .edge-resize-handle,
+.inspector-window[data-color-scheme="dark"] .dock-resize-handle {
+  background: transparent !important;
 }
 
 .inspector-window[data-color-scheme="dark"] .drag-handle,
@@ -2684,10 +3500,20 @@ small.inspector-system-health-detail {
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-window-layout-menu {
-  border-color: #464957;
-  background-color: #191c24;
-  color: #f3f4f8;
+  border-color: #5c6173 !important;
+  background-color: #111319 !important;
+  color: #f3f4f8 !important;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-window-layout-menu
+  button,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-window-layout-menu
+  button
+  span {
+  color: #f3f4f8 !important;
 }
 
 .inspector-window[data-color-scheme="dark"]
@@ -2695,9 +3521,17 @@ small.inspector-system-health-detail {
   button:hover,
 .inspector-window[data-color-scheme="dark"]
   .inspector-window-layout-menu
-  button:focus-visible {
-  background-color: #292b43;
-  color: #d8d9ff;
+  button:focus-visible,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-window-layout-menu
+  button:hover
+  span,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-window-layout-menu
+  button:focus-visible
+  span {
+  background-color: #3a3f52 !important;
+  color: #ffffff !important;
 }
 
 .inspector-window[data-color-scheme="dark"]
@@ -2726,6 +3560,29 @@ small.inspector-system-health-detail {
   > button
   > span:last-child {
   color: #aeb1bd !important;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-context-dropdown-icon {
+  color: #f3f4f8 !important;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-sidebar[data-icon-rail="true"]
+  .inspector-agent-selector
+  > [data-context-dropdown-root="true"]
+  > button {
+  border-color: #8b90a5 !important;
+  background-color: #2f3340 !important;
+  color: #ffffff !important;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-sidebar[data-icon-rail="true"]
+  .inspector-context-dropdown-icon,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-sidebar[data-icon-rail="true"]
+  .inspector-agent-placeholder {
+  color: #ffffff !important;
 }
 
 .inspector-window[data-color-scheme="dark"]
@@ -2950,6 +3807,241 @@ small.inspector-system-health-detail {
   .inspector-intelligence-hud[data-state="disconnected"]
   .inspector-intelligence-hud-description {
   color: #c5c7d0;
+}
+
+/* ── Intelligence install prompt + story (dark) ──────────────────────────── */
+
+/* Same treatment System Health's header band gets, so the two sections keep
+   reading as one family in dark mode too. */
+/* Dark keeps the same hue path but at a whisper. The account strip drops its
+   gradient entirely in dark; here a trace of it survives, because this band is
+   the one that has to feel like a paid feature. Any stronger and it reads as a
+   rendering artefact rather than a deliberate surface. */
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-hud[data-mode="install"]
+  .inspector-intelligence-hud-header {
+  border-bottom-color: #3a3d49;
+  background: linear-gradient(100deg, #1d1e2b 0%, #221f31 54%, #1a2523 100%);
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-hud[data-mode="install"]
+  .inspector-intelligence-hud-heading
+  .inspector-home-section-title {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install-hint {
+  color: #aeb1bd;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install-hint[data-tone="success"] {
+  color: #d5cbff;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install-hint[data-tone="error"] {
+  color: #ffb3a1;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install[data-copy-state="copied"]
+  .inspector-intelligence-install-copy {
+  border-color: #666a9e;
+  background-color: transparent;
+  color: #d5cbff;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install-secondary {
+  color: #caccff;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-install-fallback {
+  border-bottom-color: #3a3d49;
+  background-color: #15171e;
+  color: #c5c7d0;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-story {
+  background-color: #15171e;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-beat-label,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-step
+  > small,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread
+  > small,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-file
+  > header
+  em {
+  color: #8f93a1;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-copy-slide
+  > strong {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-copy-slide
+  > span {
+  color: #c5c7d0;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-thread {
+  border-color: #33364a;
+  background-color: #1c1f2b;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread
+  > strong {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-thread > i {
+  background-color: #666a9e;
+}
+
+/* The broken thread is the reason to care, so it keeps its colour in dark
+   mode too — muted enough not to read as an alarm in the panel. */
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread[data-failed="true"] {
+  border-color: #5a3129;
+  background-color: #2a1a16;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread[data-failed="true"]
+  > i {
+  background-color: #f97316;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread[data-failed="true"]
+  > strong,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-thread[data-failed="true"]
+  > small {
+  color: #ffb3a1;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-signal {
+  border-color: #33364a;
+  background-color: #1c1f2b;
+  color: #c5c7d0;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-rule,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-proof {
+  border-color: #2f5748;
+  background-color: #16241f;
+  color: #8fd9b8;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-rule > i,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-proof
+  svg {
+  color: #5be4bb;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-beat-flow {
+  color: #666a9e;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-skill-file {
+  border-color: #3a3d49;
+  background-color: #191c24;
+  box-shadow: none;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-file
+  > header {
+  border-bottom-color: #3a3d49;
+  background-color: #1c1f2b;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-file
+  > header
+  strong {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-file
+  > header
+  svg,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-code
+  > span
+  > b,
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-step
+  > i {
+  color: #caccff;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-code
+  > span {
+  color: #c5c7d0;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-skill-code
+  > span::before {
+  color: #6d7180;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-chain-step {
+  border-color: #33364a;
+  background-color: #1c1f2b;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-step
+  > strong {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-chain-arrow {
+  color: #666a9e;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-story-rail {
+  border-top-color: #3a3d49;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-intelligence-story-tab {
+  color: #8f93a1;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-story-tab:hover {
+  color: #f3f4f8;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-story-tab[data-active="true"] {
+  color: #d5cbff;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .inspector-intelligence-story-tab::after {
+  background-color: #a78bfa;
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-system-health,
@@ -3562,11 +4654,24 @@ small.inspector-system-health-detail {
   background-color: #20232d !important;
 }
 
+.cpk-agent-messages-head {
+  border-bottom: 1px solid #e4e4ec;
+}
+
+.cpk-agent-message-row + .cpk-agent-message-row {
+  border-top: 1px solid #e4e4ec;
+}
+
+.inspector-window[data-color-scheme="dark"] .cpk-agent-messages-head,
+.inspector-window[data-color-scheme="dark"]
+  .cpk-agent-message-row
+  + .cpk-agent-message-row,
 .inspector-window[data-color-scheme="dark"]
   .cpk-agent-view
   .divide-gray-200
   > :not([hidden])
-  ~ :not([hidden]) {
+  ~ :not([hidden]),
+.inspector-window[data-color-scheme="dark"] .cpk-agent-view .divide-y > * {
   border-color: #3a3d49 !important;
 }
 
@@ -3583,6 +4688,13 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"] [class*="bg-rose-50"] {
   background-color: #3b1c22 !important;
   color: #ff9aa0 !important;
+}
+
+/* Body copy on error cards must inherit. Per-line rose-* classes are
+   dark-on-dark in this scheme (~2:1) and fail WCAG AA. */
+.inspector-window[data-color-scheme="dark"] [data-cpk-event-error] p,
+.inspector-window[data-color-scheme="dark"] [data-playground-error] p {
+  color: inherit !important;
 }
 
 .inspector-window[data-color-scheme="dark"] [class*="bg-amber-50"],
@@ -3650,6 +4762,39 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"] input::placeholder,
 .inspector-window[data-color-scheme="dark"] textarea::placeholder {
   color: #858996;
+}
+
+.inspector-window[data-color-scheme="dark"] .cpk-playground-composer {
+  background-color: #2f3340 !important;
+  box-shadow: 0 0 0 1px #6d7285 !important;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .cpk-playground-composer:focus-within {
+  box-shadow: 0 0 0 1px #c5c8de !important;
+}
+
+.inspector-window[data-color-scheme="dark"] .cpk-playground-input {
+  background-color: transparent !important;
+  color: #f3f4f8 !important;
+  caret-color: #f3f4f8 !important;
+}
+
+.inspector-window[data-color-scheme="dark"] .cpk-playground-input::placeholder {
+  color: #e4e6ef !important;
+  opacity: 1 !important;
+}
+
+.inspector-window[data-color-scheme="dark"]
+  .cpk-playground-send:not(:disabled) {
+  background-color: #f3f4f8 !important;
+  color: #111319 !important;
+  opacity: 1 !important;
+}
+
+.inspector-window[data-color-scheme="dark"] .cpk-playground-send:disabled {
+  background-color: #f3f4f833 !important;
+  color: #f3f4f8 !important;
 }
 
 .inspector-window[data-color-scheme="dark"] ::selection {

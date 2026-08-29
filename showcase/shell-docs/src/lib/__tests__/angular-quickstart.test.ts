@@ -25,14 +25,18 @@ describe("backend-scoped Angular quickstart", () => {
     expect(quickstartSource).toContain(
       'surface="docs:angular/quickstart:production"',
     );
-    expect(quickstartSource).toContain("Enterprise Intelligence");
+    expect(quickstartSource).toContain("CopilotKit Intelligence");
   });
 
-  it("imports the Angular Open Inspector step after the first chat", () => {
-    expect(quickstartSource).toContain("open-inspector-step-angular.mdx");
-    expect(quickstartSource).toContain("<OpenInspectorStepAngular");
-    expect(
-      quickstartSource.indexOf("<OpenInspectorStepAngular"),
-    ).toBeGreaterThan(quickstartSource.indexOf("send a"));
+  it("imports the shared Open Inspector step after the first chat", () => {
+    // Angular auto-mounts the Inspector from @copilotkit/angular >= 0.4.0, so it
+    // uses the same step as every other web frontend rather than an Angular
+    // variant that sends the reader off to install the element by hand.
+    expect(quickstartSource).toContain("open-inspector-step.mdx");
+    expect(quickstartSource).toContain("<OpenInspectorStep");
+    expect(quickstartSource).not.toContain("open-inspector-step-angular");
+    expect(quickstartSource.indexOf("<OpenInspectorStep")).toBeGreaterThan(
+      quickstartSource.indexOf("send a"),
+    );
   });
 });

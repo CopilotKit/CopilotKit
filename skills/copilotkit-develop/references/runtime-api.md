@@ -202,17 +202,17 @@ const runtime = new CopilotRuntime({
 
 ---
 
-## Intelligence Platform
+## Intelligence
 
 ### CopilotKitIntelligence
 
-Client for the CopilotKit Intelligence platform (durable threads, realtime WebSocket).
+Client for CopilotKit Intelligence (durable threads, realtime WebSocket).
 
 ```ts
 import { CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  // Configuration for the Intelligence platform
+  // Configuration for CopilotKit Intelligence
   // (API keys, URLs, etc.)
 });
 ```
@@ -264,7 +264,7 @@ Default runner for SSE mode. Runs agents in the Node.js process.
 
 ### IntelligenceAgentRunner
 
-Runner for Intelligence mode. Delegates execution to the Intelligence platform via WebSocket.
+Runner for Intelligence mode. Delegates execution to CopilotKit Intelligence via WebSocket.
 
 ---
 

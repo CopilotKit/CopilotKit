@@ -7,6 +7,11 @@ hideTOC: true
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_claude_sdk_python_quickstart"
+/>
+
 This quickstart gives you two working paths:
 
 - **Start from scratch** to scaffold the full Claude Agent SDK Python showcase.
@@ -287,6 +292,14 @@ Before you begin, you'll need the following:
             );
           }
           ```
+
+          <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+            `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+            same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+            server of its own and an absolute `runtimeUrl` such as
+            `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+            `/angular` and `/react-native` each show that setup.
+          </Callout>
 
           Add a chat surface:
 

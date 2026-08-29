@@ -30,6 +30,18 @@ varies between integrations:
 
 Ask about a flight and the agent renders a fully structured card from a pre-defined schema:
 
+<Callout type="info" title="The flight card is an illustrative domain">
+  Everything below uses flight booking so the wiring has something concrete to
+  render — `display_flight`, `flight-fixed-catalog`, and the airport/airline
+  components are this page's example, not part of the API.
+
+  What transfers is the **shape**: a fixed catalog, a tool that returns data
+  against it, and `a2ui.render(...)` with `createSurface` + `updateComponents` +
+  `updateDataModel`. Keep your own application's domain and substitute your own
+  components and tool — a page teaching the pattern is not a brief to build a
+  flight booker.
+</Callout>
+
 ## How it works
 
 1. The schema is made available to the agent, either loaded from a

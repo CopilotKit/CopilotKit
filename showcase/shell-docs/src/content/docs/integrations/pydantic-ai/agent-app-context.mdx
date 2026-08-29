@@ -1,0 +1,156 @@
+---
+title: Readables
+icon: "lucide/BookA"
+description: Share app specific context with your Pydantic AI agent.
+---
+
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
+This way, you can notify CopilotKit of what is going on in your app in real time.
+Some examples might be: the current user, the current page, etc.
+
+This context can then be shared with your Pydantic AI agent.
+
+## Implementation
+
+<Callout>
+    Check out the [Frontend Data documentation](/langgraph-python/agent-app-context) to understand what this is and how to use it.
+</Callout>
+
+<Callout type="warn">
+  Unlike `messages`, `tools` and `state`, Pydantic AI's AG-UI adapter does **not** pass
+  `context` to your agent on its own — and it does not warn when it drops it, so an agent
+  that never received your entries will still answer confidently about them. This is
+  deliberate: entries are client-submitted, so Pydantic AI leaves it to you to decide what
+  to trust. Read them off `run_input` and hand them to the agent yourself, as shown below.
+  See Pydantic AI's [AG-UI Context guide](https://pydantic.dev/docs/ai/integrations/ui/ag-ui/#context).
+</Callout>
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect components={props.components} />
+  </Step>
+
+  <Step>
+    ### Add the data to the Copilot
+
+    The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) is used to add data as context to the Copilot.
+
+    ```tsx title="YourComponent.tsx"
+    "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+    import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useState } from 'react';
+
+    export function YourComponent() {
+      // Create colleagues state with some sample data
+      const [colleagues, setColleagues] = useState([
+        { id: 1, name: "John Doe", role: "Developer" },
+        { id: 2, name: "Jane Smith", role: "Designer" },
+        { id: 3, name: "Bob Wilson", role: "Product Manager" }
+      ]);
+
+      // Share context with the agent
+      // [!code highlight:4]
+      useAgentContext({
+        description: "The current user's colleagues",
+        value: colleagues,
+      });
+      return (
+        // Your custom UI component
+        <>...</>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Consume the data in your Pydantic AI agent
+
+    The entries arrive on `RunAgentInput.context`. Build the adapter in two steps so you can
+    reach `run_input`, pass the entries into `deps`, and expose them to the model through a
+    tool.
+
+    ```python title="agent.py"
+    import json
+    from dataclasses import dataclass
+
+    from ag_ui.core import Context
+    from pydantic_ai import Agent, RunContext
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
+
+
+    @dataclass
+    class AppContextDeps:
+        """The entries the frontend shared on this run."""
+
+        context: list[Context]
+
+
+    agent = Agent(
+        "openai:gpt-5.4-mini",
+        instructions="You are a helpful assistant that can help emailing colleagues.",
+        deps_type=AppContextDeps, # [!code highlight]
+    )
+
+
+    # [!code highlight:10]
+    @agent.tool
+    def colleagues(ctx: RunContext[AppContextDeps]) -> list[dict]:
+        """The current user's colleagues, as the app shared them."""
+        for entry in ctx.deps.context:
+            if entry.description == "The current user's colleagues":
+                # `useAgentContext` JSON-stringifies `value` before it leaves the
+                # browser, and AG-UI types `Context.value` as a string, so parse it.
+                return json.loads(entry.value)
+        return []
+
+
+    async def run_agent(request: Request) -> Response:
+        # `dispatch_request` parses the request internally, so build the adapter in
+        # two steps instead: `run_input` is what carries the frontend's entries.
+        # [!code highlight:4]
+        adapter = await AGUIAdapter.from_request(request, agent=agent)
+        deps = AppContextDeps(context=adapter.run_input.context)
+        return adapter.streaming_response(adapter.run_stream(deps=deps))
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+
+    if __name__ == "__main__":
+        import uvicorn
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    ```
+
+    Two details are easy to miss:
+
+    - **`value` is a string, not your object.** `useAgentContext` calls `JSON.stringify` on
+      the value before the run leaves the browser, and AG-UI types `Context.value` as a
+      string on both ends. So `json.loads` is required, and a shape check like
+      `isinstance(entry.value, list)` can never pass.
+    - **Reach for `from_request`, not `dispatch_request`.** The one-line
+      `AGUIAdapter.dispatch_request(request, agent=agent)` used elsewhere in these docs
+      parses the request for you, which leaves you no `run_input` to build `deps` from.
+  </Step>
+
+  <Step>
+    ### Give it a try!
+    Ask your agent a question about the context, like "Who are my colleagues?". It should be able to answer!
+  </Step>
+</Steps>
+
+## Keep entries as data, not instructions
+
+Every entry is a claim your frontend made, so it describes a request — it never establishes
+who is making it. Deliver entries to the model as **data**, the way the tool above does.
+Do not build [`instructions`](https://pydantic.dev/docs/ai/agents/#instructions) out of
+them: instructions carry operator authority, so composing them from client-submitted text
+lets a prompt injection inherit that authority.
+
+Facts your *server* established — the authenticated user, the workspace, the tenant — are
+what belong in instructions. To let a client-supplied fact change how the agent behaves,
+authenticate it first, look up the policy your server holds for it, and write the
+instruction from that. The entry itself stays data.
