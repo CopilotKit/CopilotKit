@@ -38,7 +38,7 @@ There are two documentation domains — make sure your change goes to the right 
 
 ## Good first issues
 
-Are you new to open source contribution? Wondering how contributions work in our project? Here's a quick rundown.
+Are you new to open-source contribution? Wondering how contributions work in our project? Here's a quick rundown.
 
 Find an issue that you're interested in addressing, or a feature that you'd like to add.
 You can use [this view](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) which helps new contributors find easy gateways into our project.
