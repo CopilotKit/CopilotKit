@@ -172,9 +172,9 @@ const MANAGED_URL_ENV_FILE_REASON =
 /**
  * Paths allowed to assign a managed URL in an env example.
  *
- * `agentcore/docker` is the local development stack documented in
- * `agentcore/docs/LOCAL_DEVELOPMENT.md`; its whole purpose is a local
- * deployment, so naming one is correct there.
+ * `agentcore/docker` is the local development stack (documented in the
+ * agentcore example README); its whole purpose is a local deployment,
+ * so naming one is correct there.
  */
 const MANAGED_URL_ENV_FILE_ALLOWLIST = [
   "examples/integrations/agentcore/docker/.env.example",
