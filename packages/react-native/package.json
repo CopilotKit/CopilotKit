@@ -18,6 +18,10 @@
   },
   "type": "module",
   "sideEffects": [
+    "./src/index.*",
+    "./src/headless.*",
+    "./src/polyfills.*",
+    "./src/polyfills/**/*",
     "./dist/index.*",
     "./dist/headless.*",
     "./dist/polyfills.*",
@@ -69,10 +73,10 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node scripts/verify-polyfill-barrel.mjs",
     "dev": "tsdown --watch",
     "test": "vitest run && pnpm run test:scripts",
-    "test:scripts": "node --test scripts/__tests__/measure-headless.test.mjs",
+    "test:scripts": "node --test scripts/__tests__/measure-headless.test.mjs scripts/__tests__/verify-polyfill-barrel.test.mjs",
     "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",

@@ -303,6 +303,7 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
                 - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
                 - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. In **1.69.2 and every earlier version** the `polyfills` barrel was published empty — the build dropped all five polyfill imports out of it — so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
                 - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
             </Accordion>
         </Accordions>

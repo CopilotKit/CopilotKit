@@ -24,7 +24,8 @@ not depend on the React packages.
 
 | Path | Best fit | Vue setup |
 | --- | --- | --- |
-| Your components | You know the tool and its result shape | `useRenderTool`, or `useFrontendTool` with a `render` |
+| A component the agent shows | You want the agent to display a component and nothing else runs | `useComponent` |
+| Your components | The agent already owns the tool and you draw its call | `useRenderTool`, or `useFrontendTool` with a `render` |
 | Default card | You want *something* better than raw JSON, with no per-tool work | `useDefaultRenderTool()` |
 | A2UI | The agent emits declarative A2UI operations | `:a2ui` on `CopilotKitProvider` |
 | Open Generative UI | The agent generates HTML/CSS to be sandboxed | `:open-generative-ui` on `CopilotKitProvider` |
@@ -33,6 +34,69 @@ not depend on the React packages.
 All of these require the composable or component to sit inside
 [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider). Import
 everything from the `/v2` subpath.
+
+## Let the agent display a component
+
+The shortest path, and the one that needs nothing on your agent.
+[`useComponent`](/reference/vue/hooks/useComponent) registers a Vue component as a tool the
+agent can call to show it. There is no handler and no user interaction: the agent decides
+when, and fills the props from the schema you declare.
+
+```vue title="src/IncidentCard.vue"
+<script setup lang="ts">
+defineProps<{ id: string; severity: string; summary: string }>();
+</script>
+
+<template>
+  <article class="incident-card">
+    <header>
+      <strong>{{ id }}</strong>
+      <span :data-severity="severity">{{ severity }}</span>
+    </header>
+    <p>{{ summary }}</p>
+  </article>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { CopilotChat, CopilotKitProvider, useComponent } from "@copilotkit/vue/v2";
+import IncidentCard from "./IncidentCard.vue";
+
+useComponent({
+  name: "show_incident",
+  description: "Show one incident from the incident table.",
+  parameters: z.object({
+    id: z.string().describe("The incident id, such as INC-4711"),
+    severity: z.string().describe("One of sev1, sev2, sev3"),
+    summary: z.string().describe("One sentence on what happened"),
+  }),
+  render: IncidentCard,
+});
+</script>
+```
+
+The schema arrives at the component as its props, so the component stays an ordinary Vue
+component that knows nothing about CopilotKit. Nothing is added to the agent: the tool is
+declared here and forwarded over AG-UI, which is why this works the same behind a Python
+agent as a TypeScript one.
+
+<Callout type="info" title="`useComponent` or `useRenderTool`?">
+  Use `useComponent` when the component *is* the feature and the frontend declares the
+  tool. Use [`useRenderTool`](/reference/vue/hooks/useRenderTool) when your agent already
+  owns the tool and the browser only draws its call, which is the next section. The give-away
+  is where the tool lives: if removing the component would remove the tool from the agent's
+  list, it is a `useComponent`.
+</Callout>
+
+<Callout type="warn" title="A well-formed component is not a correct one">
+  The model fills these props from what it knows. A card rendered over records your
+  application does not hold looks the same in the browser, in a screenshot, and in a video as
+  a correct one. Share the page's data with the agent using
+  [`useAgentContext`](/reference/vue/hooks/useAgentContext), then read the rendered fields
+  against the records you actually hold.
+</Callout>
 
 ## Render a server-side tool call
 
@@ -288,6 +352,7 @@ A surface that silently falls back to text is the common failure. Two checks:
 
 ## Next steps
 
+- [`useComponent`](/reference/vue/hooks/useComponent) — a component the agent calls to display
 - [`useRenderTool`](/reference/vue/hooks/useRenderTool) — full render props and overloads
 - [`useDefaultRenderTool`](/reference/vue/hooks/useDefaultRenderTool) — the wildcard renderer
 - [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) — browser-side tools

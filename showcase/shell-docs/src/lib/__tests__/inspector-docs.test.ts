@@ -88,12 +88,13 @@ test("every web integration quickstart imports the Open Inspector step", () => {
   }
 });
 
-test("Intelligence signup CTA still names Inspector beside the Open Inspector step", () => {
+test("Intelligence onboarding prompt appears beside the Open Inspector step", () => {
   const langgraph = read("docs/integrations/langgraph/quickstart.mdx");
   const deepAgents = read("docs/integrations/deepagents/quickstart.mdx");
 
   for (const source of [langgraph, deepAgents]) {
-    expect(source).toContain("<OpsPlatformCTA");
+    expect(source).toContain("<IntelligenceOnboardingPrompt");
+    expect(source).toContain('feature="learning"');
     expect(source.toLowerCase()).toContain("inspector");
     expect(source).toContain("<OpenInspectorStep");
   }
@@ -132,13 +133,12 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   );
 });
 
-test("Inspector Callout snippets name the shipped pane and skip unshipped work", () => {
+test("Inspector Callout snippets name shipped panes and skip retired controls", () => {
   const snippets = listMdx(SNIPPETS_DIR);
   expect(snippets.length).toBeGreaterThan(0);
 
   for (const path of snippets) {
     const source = readFileSync(path, "utf8");
-    expect(source).not.toMatch(/\bPlayground\b/);
     expect(source).not.toMatch(/\bFork from here\b/);
     expect(source).not.toMatch(/\bEmit events\b/);
   }
