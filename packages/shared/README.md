@@ -27,7 +27,7 @@
 - Framework agnostic - Works with React, Next.js, AGUI and more
 - Production-ready UI - Use customizable components or build with headless UI
 - Built-in security - Prompt injection protection
-- Open source - Full transparency and community-driven
+- Open-source - Full transparency and community-driven
 
 <img src="https://github.com/user-attachments/assets/6cb425f8-ffcb-49d2-9bbb-87cab5995b78" alt="class-support-ecosystem" style="border-radius: 12px; border: 2px solid #d6d4fa;">
 
