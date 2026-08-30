@@ -143,6 +143,49 @@ describe("deriveChannelActivationConfig", () => {
     expect(config).not.toHaveProperty("provider");
   });
 
+  it("forwards managed delivery capacity so a runtime-hosted Channel is not pinned to the transport defaults", () => {
+    // Without this passthrough the transport falls back to 8 concurrent / 32
+    // pending regardless of how the host is sized, which caps a replica at
+    // roughly `8 / meanTurnSeconds` turns per second. The options existed on
+    // the launcher all along; only this derivation was missing.
+    const intelligence = fakeIntelligence("cpk-42_short_long");
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+      maxConcurrentDeliveries: 64,
+      maxPendingDeliveries: 256,
+    });
+
+    const config = deriveChannelActivationConfig({
+      intelligence,
+      channel,
+      runtimeInstanceId: "rti_capacity",
+    });
+
+    expect(config.maxConcurrentDeliveries).toBe(64);
+    expect(config.maxPendingDeliveries).toBe(256);
+  });
+
+  it("omits delivery capacity entirely when the Channel declares none, leaving the transport default in place", () => {
+    // Omission has to stay omission rather than an explicit undefined: the
+    // launcher spreads these conditionally, and a present-but-undefined key
+    // would override the transport default with `undefined`.
+    const intelligence = fakeIntelligence("cpk-42_short_long");
+    const channel = createChannel({
+      identifyUser: "platform",
+      name: "support",
+    });
+
+    const config = deriveChannelActivationConfig({
+      intelligence,
+      channel,
+      runtimeInstanceId: "rti_capacity_default",
+    });
+
+    expect(config).not.toHaveProperty("maxConcurrentDeliveries");
+    expect(config).not.toHaveProperty("maxPendingDeliveries");
+  });
+
   it("throws ChannelConfigError when the channel has no name", () => {
     const intelligence = fakeIntelligence("cpk-42_short_long");
     const channel = createChannel({ identifyUser: "platform" });
