@@ -4,7 +4,7 @@
 # Use ./up.sh instead of docker compose directly —
 # it resolves STACK_NAME + MEMORY_ID and generates a local aws-exports.json.
 #
-# Requires a deployed AWS stack. See ../docs/LOCAL_DEVELOPMENT.md.
+# Requires a deployed AWS stack — see the README's "Local Development" section.
 #
 # Frontend hot reloads on save (volume mount + Vite).
 # Agent changes require: docker compose up --build agent
