@@ -20,15 +20,26 @@ import path from "path";
 import https from "https";
 import { spawnSync } from "child_process";
 import { ROOT } from "./lib/config.js";
+import { GIT_LOG_FORMAT, parseCommitLog } from "./lib/changes.js";
 import { createReleaseDraft } from "./lib/notion.js";
 
 function getRecentCommits(count = 50): string {
   const result = spawnSync(
     "git",
-    ["log", "--oneline", `-${count}`, "--no-merges"],
+    ["log", `-${count}`, "--no-merges", `--format=${GIT_LOG_FORMAT}`],
     { cwd: ROOT, encoding: "utf8" },
   );
-  return result.stdout.trim();
+  return parseCommitLog(result.stdout)
+    .map((commit) =>
+      [
+        `commit ${commit.hash.slice(0, 7)}`,
+        `subject: ${commit.subject}`,
+        commit.body ? `body:\n${commit.body}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    )
+    .join("\n\n");
 }
 
 function callAnthropic(apiKey: string, prompt: string): Promise<string> {
@@ -101,7 +112,7 @@ Here is the raw changelog extracted from git history:
 
 ${rawChangelog}
 
-Here are the recent git commits for additional context:
+Here are the recent git commits, including their bodies, for additional context:
 
 ${recentCommits}
 
