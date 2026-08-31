@@ -66,8 +66,8 @@ and `useAgentContext` is how the agent gets it.
         ### Read the context in your ADK agent
 
         Pass an [`InstructionProvider`](https://google.github.io/adk-docs/agents/llm-agents/#instructions)
-        instead of a string. A provider receives a `ReadonlyContext`, and `ctx.state` is the only place
-        the CopilotKit context exists.
+        instead of a string. A provider receives a `ReadonlyContext`, and the adapter leaves the
+        CopilotKit context at `ctx.state[CONTEXT_STATE_KEY]`.
 
         ```python title="agent.py"
         import json
@@ -121,11 +121,22 @@ and `useAgentContext` is how the agent gets it.
         ```
 
         <Callout>
-            A provider is the right form here for a second reason. `canonical_instruction` reports
-            `bypass_state_injection=True` for a provider and `False` for a string, and the rendered
-            context above is full of JSON braces. Under a string instruction ADK reads every `{...}`
-            as a `{state_key}` placeholder and tries to resolve it. A provider hands back final text,
-            so the braces survive verbatim.
+            `ctx.state` is the form to reach for because it works on every `ag-ui-adk` version. On
+            `ag-ui-adk` 0.7.0 with `google-adk` 1.22.0 or later the adapter also copies the same
+            entries into `RunConfig.custom_metadata`, so
+            `ctx.run_config.custom_metadata["ag_ui_context"]` reads them too. Neither path puts them
+            in the prompt on its own — that is still the provider's job.
+        </Callout>
+
+        <Callout>
+            A provider is also the safer form for the braces. Under a string instruction ADK runs
+            `inject_session_state` over the text; its regex matches any `{...}` run, but substitutes
+            only when the contents are a valid state name. JSON such as `{"id": 1}` is therefore left
+            verbatim, while an identifier-shaped block — a `{status}` inside one of your context
+            values — is looked up in session state and raises `KeyError` when it is not there. A
+            provider reports `bypass_state_injection=True` from `canonical_instruction` (a string
+            reports `False`), so the rendered context is never scanned at all. Checked against
+            `google-adk` at the `>=1.28.1` floor `ag-ui-adk` 0.7.0 requires.
         </Callout>
     </Step>
 
