@@ -395,31 +395,71 @@ describe("DeliveryAdapter.postFile", () => {
   });
 });
 
+const READY_SLACK_MESSAGE = {
+  providerReference: "pref_v1_message_ready_01",
+  providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+} as const;
+
+const STAGED_HAT_IMAGE = [
+  {
+    type: "image" as const,
+    props: { fileId: "fileref_stage_01", alt: "Hat" },
+  },
+];
+
 describe("DeliveryAdapter.post", () => {
-  it("waits before the first Slack post when the message has a staged file", async () => {
+  it("waits, then sends a Slack status, then posts a staged file", async () => {
     vi.useFakeTimers();
-    const effect = vi.fn().mockResolvedValue({
-      providerReference: "pref_v1_message_ready_01",
-      providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
-    });
+    const effect = vi.fn().mockResolvedValue({ ...READY_SLACK_MESSAGE });
     const session = {
       effect,
       expectProviderOutput: vi.fn(),
     } as unknown as ClaimedChannelDelivery;
 
     try {
-      const pending = makeAdapter().post(replyTarget(session), [
-        {
-          type: "image",
-          props: { fileId: "fileref_stage_01", alt: "Hat" },
-        },
-      ]);
+      const pending = makeAdapter().post(replyTarget(session), STAGED_HAT_IMAGE);
       await Promise.resolve();
       expect(effect).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(2400);
       const ref = await pending;
-      expect(effect).toHaveBeenCalledTimes(1);
-      expect(ref.id).toBe("pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ");
+      expect(effect).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/^response_/),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+      expect(effect.mock.calls[1]?.[1]).toMatchObject({
+        kind: "slack.message.create",
+      });
+      expect(ref.id).toBe(READY_SLACK_MESSAGE.providerMessageId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still posts a staged Slack file when the status packet fails", async () => {
+    vi.useFakeTimers();
+    const effect = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new RealtimeGatewayPushError("packet", "packet_out_of_order", {
+          reason: "packet_out_of_order",
+        }),
+      )
+      .mockResolvedValueOnce({ ...READY_SLACK_MESSAGE });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(replyTarget(session), STAGED_HAT_IMAGE);
+      await vi.advanceTimersByTimeAsync(2400);
+      const ref = await pending;
+      expect(effect.mock.calls[1]?.[1]).toMatchObject({
+        kind: "slack.message.create",
+      });
+      expect(ref.id).toBe(READY_SLACK_MESSAGE.providerMessageId);
     } finally {
       vi.useRealTimers();
     }
