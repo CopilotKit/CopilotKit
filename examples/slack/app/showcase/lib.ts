@@ -56,11 +56,6 @@ export async function fetchJson<T>(url: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** `" (sample)"` when not live — so charts posted from sample data are labelled too. */
-export function sampleTag(live: boolean): string {
-  return live ? "" : " (sample)";
-}
-
 /** Whole days between `iso` and now (>= 0). */
 export function ageInDays(iso: string): number {
   const ms = Date.now() - new Date(iso).getTime();

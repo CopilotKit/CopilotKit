@@ -2,7 +2,7 @@
  * PR review radar — `/prs` and prompt-triggerable (`render_pr_radar`).
  *
  * Posts a shadcn-styled card of the open PRs most in need of review (oldest
- * first, colour-coded by age) plus a bar chart of PRs bucketed by age. Data is
+ * first, colour-coded by age). Data is
  * live from GitHub's public REST API (no token needed); on any fetch error it
  * falls back to sample data and says so on the card.
  *
@@ -12,8 +12,7 @@
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import { BarChart } from "@copilotkit/channels/charts";
-import { REPO, ghFetch, ageInDays, sampleTag } from "./lib.js";
+import { REPO, ghFetch, ageInDays } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
 interface Pr {
@@ -159,21 +158,6 @@ export function PrRadarCard({ prs, live }: PrRadarCardProps) {
   );
 }
 
-/** Bucket PRs by age for the bar chart. */
-function byAgeBucket(prs: Pr[]): { label: string; value: number }[] {
-  // ASCII labels only — Takumi's built-in Latin font has no en-dash / ≤ glyph.
-  const buckets = [
-    { label: "0-1d", test: (d: number) => d <= 1 },
-    { label: "2-3d", test: (d: number) => d >= 2 && d <= 3 },
-    { label: "4-7d", test: (d: number) => d >= 4 && d <= 7 },
-    { label: ">7d", test: (d: number) => d > 7 },
-  ];
-  return buckets.map((b) => ({
-    label: b.label,
-    value: prs.filter((p) => b.test(p.ageDays)).length,
-  }));
-}
-
 /** Shared render path — used by BOTH the tool and the slash command. */
 export async function renderPrRadar(thread: ShowcaseThread): Promise<string> {
   const { prs, live } = await fetchPrRadar();
@@ -191,17 +175,6 @@ export async function renderPrRadar(thread: ShowcaseThread): Promise<string> {
     width: 760,
     height,
   });
-  if (prs.length) {
-    await thread.post(
-      <BarChart
-        title={`Open PRs by age${sampleTag(live)}`}
-        data={byAgeBucket(prs)}
-      />,
-      {
-        filename: "pr-age.png",
-      },
-    );
-  }
   return live
     ? `Posted the PR radar — ${prs.length} open PR(s) on ${REPO}.`
     : "Posted the PR radar (GitHub was unreachable, so this is sample data).";
@@ -210,7 +183,7 @@ export async function renderPrRadar(thread: ShowcaseThread): Promise<string> {
 export const prRadarTool = defineChannelTool({
   name: "render_pr_radar",
   description:
-    "Post the PR review radar: a card of open pull requests most in need of review (oldest first, colour-coded by age) plus a bar chart of PRs by age. Live GitHub data.",
+    "Post the PR review radar: a card of open pull requests most in need of review (oldest first, colour-coded by age). Live GitHub data.",
   parameters: z.object({}),
   async handler(_args, { thread }) {
     return renderPrRadar(thread);

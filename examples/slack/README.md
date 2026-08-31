@@ -156,35 +156,27 @@ agent to present results with these instead of prose.
 
 Not every visualization fits the channel-UI vocabulary. **`render_mrr`**
 demonstrates posting **arbitrary app JSX as an image**: `<MrrCard/>` (a plain
-`react` component, not a `@copilotkit/channels` component) and an optional
-signups `<BarChart>` from `@copilotkit/channels/charts` are posted straight
+`react` component, not a `@copilotkit/channels` component) is posted straight
 to `thread.post` — no wrapper, no explicit "render to image" call.
 
 ```tsx
 export const renderMrrTool: ChannelTool<typeof schema> = {
   name: "render_mrr",
   description:
-    "Render an MRR summary card (and optional signups bar chart) as images and post them to the thread.",
+    "Render an MRR summary card as an image and post it to the thread.",
   parameters: schema,
-  async handler({ value, delta, series }, { thread }) {
+  async handler({ value, delta }, { thread }) {
     await thread.post(<MrrCard value={value} delta={delta} />, {
       filename: "mrr.png",
       title: "MRR",
     });
-    if (series?.length) {
-      await thread.post(<BarChart title="Signups / day" data={series} />, {
-        filename: "signups.png",
-      });
-    }
-    return (
-      "Posted the MRR card" + (series?.length ? " and signups chart." : ".")
-    );
+    return "Posted the MRR card.";
   },
 };
 ```
 
-`thread.post` detects that `<MrrCard/>` and `<BarChart/>` return plain React
-elements (not the channels-ui vocabulary) and routes them through
+`thread.post` detects that `<MrrCard/>` returns a plain React element (not the
+channels-ui vocabulary) and routes it through
 [Takumi](https://github.com/takumi-rs/takumi) — a static, in-process
 rasterizer — to a PNG, then uploads it through the same `postFile` path used
 everywhere else in this bot.
@@ -192,21 +184,20 @@ everywhere else in this bot.
 **Source:** `app/tools/render-mrr.tsx`, `app/components/mrr-card.ts`.
 
 > `react` and `takumi-js` are dependencies of this example for that reason —
-> there is no headless browser (the old Playwright-based `render_chart` /
-> `render_diagram` tools are gone) at runtime; rendering happens in-process.
+> there is no headless browser at runtime; rendering happens in-process.
 
-### Showcase features: CopilotKit-branded cards + charts as images
+### Showcase features: CopilotKit-branded cards as images
 
 Three realistic "we run this in our own Slack" features (`app/showcase/`), each
-rendering a **CopilotKit-branded card** plus **charts** as images, and each
-triggerable **two ways** — a slash command _and_ a prompt (the agent calls the
-matching `render_*` tool). Both paths share one `render*` fn.
+rendering a **CopilotKit-branded card** as an image, and each triggerable
+**two ways** — a slash command _and_ a prompt (the agent calls the matching
+`render_*` tool). Both paths share one `render*` fn.
 
 | Feature              | Slash / prompt                   | Data                                                    | Renders                                                                                                                                                    |
 | -------------------- | -------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PR review radar**  | `/prs` · "show the PR radar"     | GitHub PRs (public, no token)                           | card of oldest open PRs (age-coloured badges) + PRs-by-age bar chart                                                                                       |
-| **Weekly OSS pulse** | `/pulse` · "weekly pulse"        | GitHub + npm (public)                                   | KPI card (stars · downloads · issues) + downloads line chart + issues bar chart                                                                            |
-| **Linear standup**   | `/standup` · "cycle standup"     | Linear (`LINEAR_API_KEY`)                               | per-team progress card (a meter per team) + done-vs-remaining stacked bar                                                                                  |
+| **PR review radar**  | `/prs` · "show the PR radar"     | GitHub PRs (public, no token)                           | card of oldest open PRs (age-coloured badges)                                                                                                              |
+| **Weekly OSS pulse** | `/pulse` · "weekly pulse"        | GitHub + npm (public)                                   | KPI card (stars · downloads · issues)                                                                                                                      |
+| **Linear standup**   | `/standup` · "cycle standup"     | Linear (`LINEAR_API_KEY`)                               | per-team progress card                                                                                                                                     |
 | **Product carousel** | `/carousel` or "show a carousel" | Sample catalog (or items you pass to `render_carousel`) | native carousel: React `ProductCard` PNGs plus native headers, sale text, and Buy buttons. Works on `pnpm direct` (local Slack) and on Intelligence Slack. |
 
 The brand look comes from **Tailwind**: cards are authored with Tailwind classes
@@ -214,35 +205,18 @@ The brand look comes from **Tailwind**: cards are authored with Tailwind classes
 with `pnpm build:css`, and fed — together with the **Plus Jakarta Sans** brand
 font (`assets/fonts/`) — to `createChannel({ render: { stylesheets, fonts } })`
 via `app/render/brand.ts`. Takumi resolves the Tailwind classes when it
-rasterizes. Charts default to the CopilotKit brand data-viz palette. Every
-feature reads **live** data and **falls back to sample data** (never throws) when
-the API is unreachable, labelling the card `sample data` so the degradation is
-visible.
+rasterizes. Every feature reads **live** data and **falls back to sample data**
+(never throws) when the API is unreachable, labelling the card `sample data`
+so the degradation is visible.
 
 > After changing card classes, re-run `pnpm build:css` so the compiled
 > `styles/brand.css` (committed, fed at runtime) includes them.
-
-### Ad-hoc charts & diagrams: `render_chart` / `render_diagram`
-
-Beyond the fixed features above, the bot registers two **generic** data-viz
-tools from `@copilotkit/channels/charts` (`app/tools/index.ts`), so you can ask
-for a one-off visual:
-
-- **`render_chart`** — _"here's a CSV of signups by month, chart it as a bar
-  chart"_ → the agent parses the data and calls
-  `render_chart({ kind: "bar", data: [{label, value}, …], title })`, posting a
-  branded chart image. Supports `bar`/`line`/`pie`/`stacked`/`scatter`.
-- **`render_diagram`** — _"diagram our deploy pipeline"_ → the agent calls
-  `render_diagram({ nodes, edges, direction })`, posting a layered flow diagram
-  (boxes + arrows). Not arbitrary graph auto-layout (Takumi has no JS layout
-  engine).
 
 ```ts
 // One render fn, two triggers — app/showcase/pr-radar.tsx
 export async function renderPrRadar(thread) {
   const { prs, live } = await fetchPrRadar();           // live GitHub or sample
   await thread.post(<PrRadarCard prs={prs} live={live} />, { filename: "pr-radar.png", width: 760, height: 150 + prs.length * 40 });
-  if (prs.length) await thread.post(<BarChart title="Open PRs by age" data={byAgeBucket(prs)} />, { filename: "pr-age.png" });
 }
 export const prRadarTool = defineChannelTool({ name: "render_pr_radar", /* … */ async handler(_, { thread }) { return renderPrRadar(thread); } });
 export const prsCommand   = defineChannelCommand({ name: "prs", /* … */ async handler({ thread }) { await renderPrRadar(thread); } });
@@ -294,8 +268,8 @@ App-owned slash commands, registered via `createChannel({ commands })`:
 - **`/file-issue`** — opens a structured Linear issue form; degrades to a
   conversational flow on platforms without modal support (e.g. Telegram).
 - **`/prs`**, **`/pulse`**, **`/standup`** — the showcase features (see
-  [Showcase features](#showcase-features-shadcn-cards--charts-as-images)
-  below). Each renders a shadcn-style card + charts as images and is **also**
+  [Showcase features](#showcase-features-copilotkit-branded-cards-as-images)
+  below). Each renders a branded card as an image and is **also**
   triggerable by prompt (the matching `render_*` tool), so the same feature
   works whether you type the slash command or just ask the agent for it.
 - **`/carousel`** — mixed native channel UI and React snapshots. Each slide

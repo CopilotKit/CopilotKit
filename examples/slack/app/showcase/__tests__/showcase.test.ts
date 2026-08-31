@@ -1,7 +1,7 @@
 /**
- * Showcase render fns: each leads with a text summary, then posts a card +
- * chart image(s); uses live data when the API responds and falls back to sample
- * data (never throws) when it doesn't. We drive each `render*` fn with a fake
+ * Showcase render fns: each leads with a text summary, then posts a card
+ * image; uses live data when the API responds and falls back to sample data
+ * (never throws) when it doesn't. We drive each `render*` fn with a fake
  * `thread` recording `post` calls, and stub `fetch`/env for both paths.
  *
  * The leading text post is load-bearing: it's the only Slack *text* an
@@ -37,7 +37,7 @@ function filenames(post: ReturnType<typeof fakeThread>["post"]): string[] {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("PR radar", () => {
-  it("live: leads with text, then posts the card + age chart", async () => {
+  it("live: leads with text, then posts the card", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -61,9 +61,9 @@ describe("PR radar", () => {
     );
     const { post, thread } = fakeThread();
     const msg = await renderPrRadar(thread);
-    expect(post).toHaveBeenCalledTimes(3); // text + card + chart (1 non-draft PR)
+    expect(post).toHaveBeenCalledTimes(2); // text + card (1 non-draft PR)
     expect(typeof post.mock.calls[0]![0]).toBe("string");
-    expect(filenames(post)).toEqual(["pr-radar.png", "pr-age.png"]);
+    expect(filenames(post)).toEqual(["pr-radar.png"]);
     expect(msg).toMatch(/open PR/);
   });
 
@@ -74,14 +74,14 @@ describe("PR radar", () => {
     );
     const { post, thread } = fakeThread();
     const msg = await renderPrRadar(thread);
-    expect(post).toHaveBeenCalledTimes(3); // text + card + chart (sample has PRs)
+    expect(post).toHaveBeenCalledTimes(2); // text + card (sample has PRs)
     expect(post.mock.calls[0]![0]).toMatch(/sample data/);
     expect(msg).toMatch(/sample data/);
   });
 });
 
 describe("weekly pulse", () => {
-  it("live: leads with text, then KPI card + downloads + issues charts", async () => {
+  it("live: leads with text, then the KPI card", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string) => {
@@ -93,12 +93,8 @@ describe("weekly pulse", () => {
     );
     const { post, thread } = fakeThread();
     const msg = await renderWeeklyPulse(thread);
-    expect(post).toHaveBeenCalledTimes(4); // text + card + line + bar
-    expect(filenames(post)).toEqual([
-      "pulse.png",
-      "downloads.png",
-      "issues.png",
-    ]);
+    expect(post).toHaveBeenCalledTimes(2); // text + card
+    expect(filenames(post)).toEqual(["pulse.png"]);
     expect(msg).toMatch(/downloads/);
   });
 
@@ -109,7 +105,7 @@ describe("weekly pulse", () => {
     );
     const { post, thread } = fakeThread();
     const msg = await renderWeeklyPulse(thread);
-    expect(post).toHaveBeenCalledTimes(4);
+    expect(post).toHaveBeenCalledTimes(2);
     expect(msg).toMatch(/sample data/);
   });
 });
@@ -122,7 +118,7 @@ describe("cycle standup", () => {
   it("fallback: no LINEAR_API_KEY → sample data", async () => {
     const { post, thread } = fakeThread();
     const msg = await renderStandup(thread);
-    expect(post).toHaveBeenCalledTimes(3); // text + card + stacked bar
+    expect(post).toHaveBeenCalledTimes(2); // text + card
     expect(post.mock.calls[0]![0]).toMatch(/sample data/);
     expect(msg).toMatch(/sample data/);
   });
@@ -159,8 +155,8 @@ describe("cycle standup", () => {
     );
     const { post, thread } = fakeThread();
     const msg = await renderStandup(thread);
-    expect(post).toHaveBeenCalledTimes(3);
-    expect(filenames(post)).toEqual(["standup.png", "cycle-load.png"]);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(filenames(post)).toEqual(["standup.png"]);
     expect(msg).toMatch(/done across 1 team/); // NoCycle filtered out
   });
 });

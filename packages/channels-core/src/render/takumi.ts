@@ -47,7 +47,7 @@ function toChildren(children: unknown): unknown[] {
  * Materialize a channels JSX tree to real React elements for Takumi.
  *
  * Under the channels JSX runtime, host tags (`<div>`) are already React
- * elements while component tags (`<BarChart>`, `<Meter>`, your card) are
+ * elements while component tags (`<MrrCard>`, your card) are
  * `ChannelNode`s — so a host card is a React element whose children may contain
  * component nodes. This walk (only reached on the image path, where react is
  * present):

@@ -2,15 +2,13 @@
  * Linear cycle standup — `/standup` and prompt-triggerable (`render_standup`).
  *
  * Posts a shadcn card showing **per-team progress** through each team's active
- * cycle — one labelled progress meter per team ("OSS · 40% · 8/20") — plus a
- * done-vs-remaining stacked bar comparing scope across teams. Linear has no
+ * cycle — one labelled progress bar per team ("OSS · 40% · 8/20"). Linear has no
  * public read, so this needs `LINEAR_API_KEY` (personal API key); without it —
  * or on any error — it falls back to sample data and says so.
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import { StackedBar, Meter } from "@copilotkit/channels/charts";
-import { FETCH_TIMEOUT_MS, sampleTag } from "./lib.js";
+import { FETCH_TIMEOUT_MS } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
 interface TeamProgress {
@@ -118,14 +116,14 @@ async function fetchStandup(): Promise<Standup> {
   }
 }
 
-/** Meter fill colour (hex — the Meter chart takes a color, not a class): mint ≥66% · orange ≥33% · red below. */
+/** Progress-bar fill colour: mint ≥66% · orange ≥33% · red below. */
 function pctColor(pct: number): string {
   if (pct >= 66) return "#189370";
   if (pct >= 33) return "#ffac4d";
   return "#d92d20";
 }
 
-/** One team row: name + "pct% · done/total" over a progress meter. */
+/** One team row: name + "pct% · done/total" over a progress bar. */
 function teamRow(t: TeamProgress) {
   return (
     <div key={t.name} className="flex flex-col gap-1.5 w-full">
@@ -133,7 +131,18 @@ function teamRow(t: TeamProgress) {
         <span className="text-base font-semibold text-brand-ink">{`${t.name} · ${t.cycleName}`}</span>
         <span className="text-[15px] text-brand-muted">{`${t.pct}% · ${t.done}/${t.total} done`}</span>
       </div>
-      <Meter value={t.pct / 100} height={14} colors={[pctColor(t.pct)]} />
+      <div
+        className="w-full rounded-full overflow-hidden"
+        style={{ height: 14, backgroundColor: "#e5e7eb" }}
+      >
+        <div
+          style={{
+            width: `${t.pct}%`,
+            height: 14,
+            backgroundColor: pctColor(t.pct),
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -175,20 +184,6 @@ export async function renderStandup(thread: ShowcaseThread): Promise<string> {
     width: 760,
     height,
   });
-  // Stacked done-vs-remaining per team: bar height = scope, green = done,
-  // grey = remaining. Colours are explicit so "done" reads green everywhere.
-  await thread.post(
-    <StackedBar
-      title={`Done vs remaining by team${sampleTag(s.live)}`}
-      data={s.teams
-        .slice(0, 8)
-        .map((t) => ({ label: t.name, values: [t.done, t.total - t.done] }))}
-      colors={["#189370", "#e5e7eb"]}
-      width={760}
-      height={420}
-    />,
-    { filename: "cycle-load.png", width: 760, height: 420 },
-  );
   const totalDone = s.teams.reduce((a, t) => a + t.done, 0);
   const totalScope = s.teams.reduce((a, t) => a + t.total, 0);
   return s.live
@@ -199,7 +194,7 @@ export async function renderStandup(thread: ShowcaseThread): Promise<string> {
 export const standupTool = defineChannelTool({
   name: "render_standup",
   description:
-    "Post the cycle standup: per-team progress through each team's active Linear cycle (a labelled progress meter per team) plus a done-vs-remaining stacked bar. Live Linear data when LINEAR_API_KEY is set.",
+    "Post the cycle standup: per-team progress through each team's active Linear cycle (a labelled progress bar per team). Live Linear data when LINEAR_API_KEY is set.",
   parameters: z.object({}),
   async handler(_args, { thread }) {
     return renderStandup(thread);

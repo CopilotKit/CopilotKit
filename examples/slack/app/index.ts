@@ -128,7 +128,7 @@ async function main() {
   const tools: ChannelTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
   // CopilotKit brand render config: the compiled Tailwind stylesheet + Plus
-  // Jakarta Sans, fed to every image post so cards/charts render on-brand.
+  // Jakarta Sans, fed to every image post so cards render on-brand.
   const brand = await loadBrandRender();
 
   if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
@@ -266,7 +266,7 @@ async function main() {
     // Takumi image rendering config, CopilotKit-branded. `brand.stylesheets` is
     // the compiled Tailwind sheet (styles/brand.css) whose classes the cards use;
     // `brand.fonts` is Plus Jakarta Sans (the brand typeface) loaded from
-    // assets/fonts. Charts render in the brand data-viz palette by default.
+    // assets/fonts.
     render: {
       width: 760,
       stylesheets: brand.stylesheets,

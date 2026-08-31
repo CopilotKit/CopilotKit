@@ -39,19 +39,15 @@ features:
       should_escape: false
     - command: /prs
       description: Show the PR review radar (open PRs needing review)
-      usage_hint: ""
       should_escape: false
     - command: /pulse
       description: Show the weekly OSS pulse (stars, downloads, issues)
-      usage_hint: ""
       should_escape: false
     - command: /standup
       description: Show the current Linear cycle standup
-      usage_hint: ""
       should_escape: false
     - command: /carousel
       description: Post a demo carousel of React product cards
-      usage_hint: ""
       should_escape: false
 oauth_config:
   scopes:

@@ -292,20 +292,7 @@
             "selector": "exports[\".\"]"
           }
         },
-        {
-          "importPath": "@copilotkit/channels/charts",
-          "exportKey": "./charts",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/charts.d.ts",
-            "import": "./dist/charts.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels/package.json",
-            "selector": "exports[\"./charts\"]"
-          }
-        },
+
         {
           "importPath": "@copilotkit/channels/discord",
           "exportKey": "./discord",
@@ -534,20 +521,7 @@
             "selector": "exports[\".\"]"
           }
         },
-        {
-          "importPath": "@copilotkit/channels-core/charts",
-          "exportKey": "./charts",
-          "kind": "code",
-          "conditions": {
-            "types": "./dist/charts/index.d.ts",
-            "import": "./dist/charts/index.js"
-          },
-          "provenance": {
-            "kind": "package-json",
-            "path": "packages/channels-core/package.json",
-            "selector": "exports[\"./charts\"]"
-          }
-        },
+
         {
           "importPath": "@copilotkit/channels-core/jsx-dev-runtime",
           "exportKey": "./jsx-dev-runtime",

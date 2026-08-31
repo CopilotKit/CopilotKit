@@ -482,7 +482,7 @@ export class TeamsAdapter implements PlatformAdapter {
   /**
    * Post a file to the conversation. Teams renders an image inline when it's
    * sent as an attachment whose `contentUrl` is a `data:` URI, so we base64 the
-   * bytes into one — exactly what `render_chart`/`render_diagram` need to drop a
+   * bytes into one — exactly what an image post needs to drop a
    * PNG into the thread (the bot-slack `postFile` parallel). Non-image bytes are
    * still attached with their inferred MIME; whether Teams previews them is up
    * to the client. Sends on the live turn context, or proactively by reference.

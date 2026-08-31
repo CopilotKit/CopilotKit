@@ -1,21 +1,18 @@
 /**
  * Weekly OSS pulse — `/pulse` and prompt-triggerable (`render_weekly_pulse`).
  *
- * Posts a shadcn KPI card (stars · weekly npm downloads · open issues) plus a
- * downloads line chart and an issues opened-vs-closed bar chart. Data is live
+ * Posts a shadcn KPI card (stars · weekly npm downloads · open issues). Data is live
  * from GitHub's public REST API and npm's public downloads API (no token); on
  * failure it falls back to sample data and says so.
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import { BarChart, LineChart } from "@copilotkit/channels/charts";
 import {
   REPO,
   ghFetch,
   fetchJson,
   isoDaysAgo,
   compact,
-  sampleTag,
 } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
@@ -155,27 +152,6 @@ export async function renderWeeklyPulse(
     width: 760,
     height: 260,
   });
-  // LineChart is SVG at its own width/height — size it to the post canvas so it
-  // fills the image instead of sitting in a corner.
-  await thread.post(
-    <LineChart
-      title={`${NPM_PKG} downloads / day${sampleTag(p.live)}`}
-      data={p.downloads}
-      width={760}
-      height={360}
-    />,
-    { filename: "downloads.png", width: 760, height: 360 },
-  );
-  await thread.post(
-    <BarChart
-      title={`Issues this week${sampleTag(p.live)}`}
-      data={[
-        { label: "opened", value: p.issuesOpened },
-        { label: "closed", value: p.issuesClosed },
-      ]}
-    />,
-    { filename: "issues.png", width: 760, height: 400 },
-  );
   return p.live
     ? `Posted the weekly pulse — ${compact(p.weeklyDownloads)} downloads, ${p.stars} stars.`
     : "Posted the weekly pulse (live data was unreachable, so this is sample data).";
@@ -184,7 +160,7 @@ export async function renderWeeklyPulse(
 export const weeklyPulseTool = defineChannelTool({
   name: "render_weekly_pulse",
   description:
-    "Post the weekly OSS pulse: a KPI card (GitHub stars, weekly npm downloads, open issues) plus a downloads line chart and an issues opened-vs-closed bar chart. Live GitHub + npm data.",
+    "Post the weekly OSS pulse: a KPI card (GitHub stars, weekly npm downloads, open issues). Live GitHub + npm data.",
   parameters: z.object({}),
   async handler(_args, { thread }) {
     return renderWeeklyPulse(thread);
