@@ -3,18 +3,18 @@
  *
  * This route supports two agents that the frontend can switch between:
  * 1. "default" - BasicAgent + MCPAppsMiddleware for Static GenUI and MCP Apps
- * 2. "a2ui" - HttpAgent connecting to Python A2A server for A2UI rendering
+ * 2. "a2ui" - A2AAgent connecting to Python A2A server for A2UI rendering
  *
  * The frontend uses the `agent` prop on CopilotKitProvider to select which agent to use.
  */
 
 import {
+  BasicAgent,
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
-} from "@copilotkit/runtime";
+} from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
-import { BasicAgent } from "@copilotkit/runtime/v2";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
@@ -94,8 +94,8 @@ You also have access to 6 interactive apps that render in the chat:
  * "a2ui" Agent: A2AAgent connecting to Python A2A server
  *
  * The A2A server generates A2UI declarative JSON that the frontend renders
- * using the A2UIRenderer component. A2AAgent (unlike HttpAgent) properly
- * negotiates the A2UI extension with the server.
+ * using the A2UIRenderer component. A2AAgent negotiates the A2UI extension
+ * with the server.
  *
  * Handles:
  * - Restaurant finding and booking with rich UI

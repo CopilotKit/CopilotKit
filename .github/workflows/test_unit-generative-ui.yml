@@ -1,0 +1,101 @@
+name: test / unit / generative-ui
+
+# The demo's Node runtime adapter and Python A2A sidecar are separate processes.
+# Keep both compatibility contracts in one focused gate so SDK drift cannot
+# leave an apparently healthy frontend pointing at a sidecar that will not boot.
+
+on:
+  pull_request:
+    paths:
+      - "examples/showcases/generative-ui-playground/**"
+      - "packages/runtime/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/test_unit-generative-ui.yml"
+  push:
+    branches: [main]
+    paths:
+      - "examples/showcases/generative-ui-playground/**"
+      - "packages/runtime/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/test_unit-generative-ui.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NX_NO_CLOUD: "true"
+  NX_TUI: "false"
+
+jobs:
+  contracts:
+    name: Node and Python A2A contracts
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: examples/showcases/generative-ui-playground/a2a-agent/pyproject.toml
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run Node A2A runtime contract
+        env:
+          COPILOTKIT_TELEMETRY_DISABLED: "true"
+        run: pnpm exec nx run ui-protocols-demo:test --skip-nx-cache
+
+      - name: Install Python A2A sidecar
+        run: python -m pip install ./examples/showcases/generative-ui-playground/a2a-agent
+
+      - name: Verify Python A2A server compatibility
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          from unittest.mock import patch
+
+          from agent.__main__ import main
+
+          base_url = "http://a2a-agent.internal"
+          with (
+              patch.dict("os.environ", {"A2A_BASE_URL": base_url}),
+              patch("agent.__main__.uvicorn.run") as run_server,
+          ):
+              main.callback(host="127.0.0.1", port=10002)
+
+          run_server.assert_called_once()
+          app = run_server.call_args.args[0]
+          route_paths = {route.path for route in app.routes}
+
+          assert version("a2a-sdk") == "0.3.26"
+          assert "/.well-known/agent.json" in route_paths
+          PY

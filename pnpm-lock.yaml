@@ -212,19 +212,13 @@ importers:
         version: 0.8.3(signal-polyfill@0.2.2)
       '@ag-ui/a2a':
         specifier: ^0.0.6
-        version: 0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.57)
-      '@ag-ui/a2a-middleware':
-        specifier: ^0.0.2
-        version: 0.0.2(rxjs@7.8.1)
+        version: 0.0.6(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)
       '@ag-ui/client':
-        specifier: ^0.0.42
-        version: 0.0.42
+        specifier: 0.0.57
+        version: 0.0.57
       '@ag-ui/mcp-apps-middleware':
-        specifier: ^0.0.1
-        version: 0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/a2ui-renderer
+        specifier: 0.0.3
+        version: 0.0.3(@ag-ui/client@0.0.57)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../packages/core
@@ -274,6 +268,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.1.8)
+      railway:
+        specifier: 3.11.0
+        version: 3.11.0
       tailwindcss:
         specifier: ^4
         version: 4.2.2
@@ -4027,11 +4024,6 @@ packages:
 
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
-
-  '@ag-ui/a2a-middleware@0.0.2':
-    resolution: {integrity: sha512-quUT5TOtxzthlR9U+HwtL3klRVTIGfnlG4Va7aew2gQaJsHL27xpfvAc9xHnpO1+A0MDHhmNUAPZiESDYHZjCA==}
-    peerDependencies:
-      rxjs: 7.8.1
 
   '@ag-ui/a2a@0.0.6':
     resolution: {integrity: sha512-wvrBXU6214wuC5O+FBy7QiZFvobIlt3Lo0Ph2N+hBkeaBjPHvmMp/egIg4k9WyB60PzKjJDv5o21WxbvaYtzCw==}
@@ -23400,6 +23392,11 @@ packages:
   radix3@1.1.2:
     resolution: {integrity: sha512-b484I/7b8rDEdSDKckSSBA8knMpcdsXudlE/LNL639wFoHKwLbEkQFZHWEYwDC0wa0FKUcCY+GAF73Z7wxNVFA==}
 
+  railway@3.11.0:
+    resolution: {integrity: sha512-ehLFHCxV+gITWeBlIVaXulXaVRg4LCxqm0bq64iXSwYL1DESd0pUeLYMP/BMBhnZWeFFBYyJCREaq+Nka7Wgmw==}
+    engines: {node: '>=22'}
+    hasBin: true
+
   randombytes@2.1.0:
     resolution: {integrity: sha512-vYl3iOX+4CKUWuxGi9Ukhie6fsqXqS9FE2Zaic4tNFD2N2QQaXOMFbuKK4QmDHC0JO6B1Zp41J0LpT0oR68amQ==}
 
@@ -27209,20 +27206,19 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ag-ui/a2a-middleware@0.0.2(rxjs@7.8.1)':
-    dependencies:
-      '@a2a-js/sdk': 0.2.5
-      '@ag-ui/client': 0.0.42
-      ai: 6.0.156(zod@3.25.76)
-      rxjs: 7.8.1
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - supports-color
-
   '@ag-ui/a2a@0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.57)':
     dependencies:
       '@a2a-js/sdk': 0.2.5
       '@ag-ui/client': 0.0.42
+      '@ag-ui/core': 0.0.57
+      rxjs: 7.8.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@ag-ui/a2a@0.0.6(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)':
+    dependencies:
+      '@a2a-js/sdk': 0.2.5
+      '@ag-ui/client': 0.0.57
       '@ag-ui/core': 0.0.57
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -54185,6 +54181,12 @@ snapshots:
   quick-lru@5.1.1: {}
 
   radix3@1.1.2: {}
+
+  railway@3.11.0:
+    dependencies:
+      '@graphql-typed-document-node/core': 3.2.0(graphql@16.12.0)
+      graphql: 16.12.0
+      tsx: 4.21.0
 
   randombytes@2.1.0:
     dependencies:

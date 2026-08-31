@@ -11,10 +11,8 @@
     "@a2a-js/sdk": "^0.2.5",
     "@a2ui/lit": "^0.8.1",
     "@ag-ui/a2a": "^0.0.6",
-    "@ag-ui/a2a-middleware": "^0.0.2",
-    "@ag-ui/client": "^0.0.42",
-    "@ag-ui/mcp-apps-middleware": "^0.0.1",
-    "@copilotkit/a2ui-renderer": "workspace:*",
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/mcp-apps-middleware": "0.0.3",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
@@ -33,7 +31,26 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "railway": "3.11.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "executor": "nx:run-commands",
+        "dependsOn": [
+          {
+            "projects": ["@copilotkit/runtime"],
+            "target": "build"
+          }
+        ],
+        "options": {
+          "command": "node --experimental-strip-types --experimental-default-type=module --test tests/runtime-a2a-agent.test.mjs",
+          "cwd": "examples/showcases/generative-ui-playground"
+        },
+        "cache": false
+      }
+    }
   }
 }

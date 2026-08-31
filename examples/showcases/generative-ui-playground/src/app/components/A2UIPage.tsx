@@ -11,8 +11,8 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
+  createA2UIMessageRenderer,
 } from "@copilotkit/react-core/v2";
-import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
 import { a2uiTheme } from "../theme";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
