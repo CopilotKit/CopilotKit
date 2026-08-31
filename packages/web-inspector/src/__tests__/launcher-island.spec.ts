@@ -51,15 +51,7 @@ const ISLAND_CLOSE_MS = 220;
 /** Words the capsule can carry, each owned by the panel it comes from. */
 const RUNTIME_ERROR_WORDS = "Runtime error";
 const RUN_ERROR_WORDS = "Agent run failed";
-const INTELLIGENCE_OFF_WORDS = "Intelligence not connected";
 const INTELLIGENCE_ON_WORDS = "Intelligence connected";
-
-const ENABLED_ENDPOINTS = {
-  list: true,
-  inspect: true,
-  mutations: false,
-  realtimeMetadata: false,
-} satisfies ThreadEndpointRuntimeInfo;
 
 type Options = Readonly<{
   endpoints?: ThreadEndpointRuntimeInfo;
@@ -949,59 +941,102 @@ test("the drawer paints behind the capsule, which paints behind the mark", async
   expect(capsule).toBeLessThan(mark);
 });
 
-test("the launcher declares its own ring instead of trusting the Tailwind border utility", async () => {
+test("the launcher draws no ring, on every host alike", async () => {
   const { inspector } = await setup();
   const css = stylesheetText(inspector);
 
-  // The button's class list still carries Tailwind's `border` utility (it
-  // also supplies unrelated resets), so a reader skimming the markup could
-  // reasonably assume that utility is what draws the launcher's 1px ring.
-  // It cannot be relied on for that: the generated utility is
+  // The button's class list carries Tailwind's own border utility (it also
+  // supplies unrelated resets), and that utility is the reason the ring was
+  // never a decision. The generated rule is
   // `.border { border-style: var(--tw-border-style); border-width: 1px }`,
   // and `--tw-border-style` is registered by a Tailwind `@property` rule.
   // `@property` inside a stylesheet ADOPTED into a shadow root does not
   // register document-wide, so inside this component's shadow root the
-  // variable was unresolved: `border-style` fell back to `none`, and CSS
-  // then computes `border-width` to 0 regardless of the declared 1px. The
-  // ring therefore rendered only when the HOST page happened to load
-  // Tailwind v4 itself and register the property for us — on a plain host
-  // page it silently vanished, with the same stylesheet bytes either way.
-  // Measured live: the launcher's face against a dark host page is 1.10:1
-  // (GitHub dark), indistinguishable from the page on its own, so this
-  // hairline is not decoration — on that host it was the launcher's only
-  // contour.
+  // variable was unresolved: `border-style` fell back to `none`, and CSS then
+  // computed `border-width` to 0 regardless of the declared 1px.
   //
-  // The fix is the hand-written `.console-button` rule declaring
-  // `border-width` and `border-style` itself, so the ring no longer
-  // depends on what the host page happens to have loaded. That declaration
-  // lives on the SECOND `.console-button` rule in this sheet — the first,
-  // earlier one only carries layout (width/height/z-index/transition) — so
-  // this reads every `.console-button` rule rather than just the first,
-  // the same trap `ruleBody`'s own doc comment above calls out for
-  // `.cpk-launcher-capsule`.
+  // So the SAME stylesheet bytes drew a hairline on a host page that loads
+  // Tailwind v4 and no hairline on one that does not. The launcher is meant
+  // to look the same on both, and ringless is the look that was chosen from
+  // seeing them side by side — so the sheet has to say so, or the utility
+  // decides again on the next Tailwind host.
   //
-  // A computed-style assertion cannot see any of this: jsdom resolves no
-  // CSS off a shadow-root stylesheet, so the broken state (no declaration)
-  // and the fixed state (1px solid) read back an identical computed 0px /
-  // "" — only the declaration text tells them apart, which is why this
-  // whole suite reads stylesheet text instead. And the assertion has to be
-  // for PRESENCE, not a value: the bug was a missing declaration, not a
-  // wrong one, exactly like the z-index guard just above.
+  // This guards the zeroing declaration, not the absence of a border: an
+  // assertion that merely found no `border:` line would pass just as happily
+  // against the old bug, where nothing was declared and the host decided.
+  //
+  // A computed-style assertion cannot see any of this — jsdom resolves no CSS
+  // off a shadow-root stylesheet, so declared-nothing and declared-zero read
+  // back an identical 0px — which is why this suite reads stylesheet text.
+  //
+  // The declaration lives on the SECOND `.console-button` rule in this sheet;
+  // the first carries only layout (width/height/z-index/transition), so this
+  // reads every `.console-button` rule rather than just the first.
   const consoleButtonRules = allRuleBodies(css, ".console-button");
   expect(
     consoleButtonRules.length,
     "expected two .console-button rules (layout, then paint)",
   ).toBeGreaterThanOrEqual(2);
-  const declaresOwnRing = consoleButtonRules.some(
-    (rule) =>
-      /border-width:\s*1px/.test(rule) && /border-style:\s*solid/.test(rule),
+
+  const zeroesTheRing = consoleButtonRules.some((rule) =>
+    /border:\s*0\s*;/.test(rule),
   );
   expect(
-    declaresOwnRing,
-    "no .console-button rule declares border-width and border-style; the " +
-      "ring is back to depending on the host page registering " +
-      "--tw-border-style for the Tailwind `border` utility",
+    zeroesTheRing,
+    "no .console-button rule zeroes the border; the ring is back to " +
+      "depending on whether the host page registers --tw-border-style for " +
+      "the Tailwind border utility, which is how it came to differ between " +
+      "two hosts running identical bytes",
   ).toBe(true);
+
+  // And nothing may put one back on a state of the same element: a ring that
+  // appears only on hover or focus is the seam this shape exists to remove.
+  // :focus-visible is exempt and deliberately so — that outline is an
+  // accessibility affordance, not decoration, and it is an `outline`, which
+  // does not affect layout or the island's footprint.
+  const ringBack = consoleButtonRules.some((rule) =>
+    /border-(width|style)\s*:\s*(?!0)/.test(rule),
+  );
+  expect(
+    ringBack,
+    "a .console-button rule declares a non-zero border again",
+  ).toBe(false);
+});
+
+test("the circle and the island paint the same surface", async () => {
+  const { inspector } = await setup({ intelligence: true });
+  const css = stylesheetText(inspector);
+
+  // The capsule spans the whole island and reaches under the mark, so the two
+  // faces overlap. While both were translucent that overlap composited 0.95
+  // over 0.95 = 0.9975, and against a white page the circle came out at
+  // channel 24.6 against the pill's 35.6 — the circle read as a darker disc
+  // sitting ON the pill rather than as the same surface grown, which is the
+  // one thing this shape is for.
+  //
+  // Two halves, because either alone still lets them drift: they must name
+  // the SAME token, and that token must be opaque. A shared translucent token
+  // would stack again; two opaque literals would be one careless edit apart.
+  const faceValue = /--cpk-launcher-face:\s*([^;]+);/.exec(css)?.[1]?.trim();
+  expect(faceValue, "--cpk-launcher-face is not declared").toBeDefined();
+  expect(
+    faceValue,
+    "--cpk-launcher-face is translucent again; the capsule reaches under " +
+      "the mark, so two translucent faces stack there and the circle goes " +
+      "darker than the island it grew into",
+  ).toMatch(/^rgb\(|^#/);
+
+  for (const [selector, name] of [
+    [".console-button", "the launcher"],
+    [".cpk-launcher-capsule", "the capsule"],
+    [".cpk-launcher-drawer", "the drawer"],
+  ] as const) {
+    const rules = allRuleBodies(css, selector).join("\n");
+    expect(
+      /background(-color)?:\s*var\(--cpk-launcher-face\)/.test(rules),
+      `${name} does not paint with var(--cpk-launcher-face)`,
+    ).toBe(true);
+  }
 });
 
 test("the capsule shows on dwell, titled with the Intelligence connection it is the parent of", async () => {
