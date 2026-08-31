@@ -3,15 +3,19 @@ title: "useThreads"
 description: "Vue 3 composable for listing and mutating CopilotKit threads"
 ---
 
+<OpsPlatformCTA
+  variant="card"
+  title="useThreads needs a CopilotKit Intelligence project"
+  body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing threads."
+  ctaLabel="Create a free account"
+  surface="docs_reference_use_threads_vue"
+/>
+
 ## Overview
 
 `useThreads` is a Vue 3 composable for reading the active thread list for an agent and mutating that list from the client. It accepts reactive inputs for a required agent id, archived filter, page size, and an `enabled` flag. When `enabled` is `false`, the hook clears its thread-store context and skips `/threads` entirely; that is how the threads drawer stays idle while unlicensed.
 
-<Callout type="info">
-  Threads are part of <a href="/premium/overview">CopilotKit Intelligence</a>.
-  If your runtime does not expose thread endpoints yet, the hook stays inert
-  until that backend capability is available.
-</Callout>
+`useThreads` only activates when the connected runtime advertises compatible REST thread endpoints. Managed CopilotKit Intelligence provides those endpoints for durable thread metadata and realtime updates. Self-managed runner persistence, such as `AgentRunner`, `SqliteAgentRunner`, or a custom runner, can still persist and replay chat history, but it does not automatically provide the managed `useThreads` list/mutation/realtime contract.
 
 The hook returns normalized thread records with only the fields the Vue UI consumes: `id`, `agentId`, `name`, `archived`, `createdAt`, `updatedAt`, and optional `lastRunAt`. Threads are ordered by `lastRunAt`, then `updatedAt`, then `createdAt`.
 
@@ -166,6 +170,7 @@ const { hasMoreThreads, fetchMoreThreads, fetchMoreError } = useThreads({
 - Mutations are optimistic in the core store. Delete rolls back if the request fails.
 - `fetchMoreError` is tracked separately so a failed "load more" request can show inline without losing the loaded list.
 - Threads are sorted by `lastRunAt`, then `updatedAt`, then `createdAt`.
+- The hook keeps its own local store state in sync with the managed REST list and mutation API, while self-managed persistence handles conversation replay on the backend.
 
 ## Related
 

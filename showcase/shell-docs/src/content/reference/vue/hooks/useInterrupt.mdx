@@ -91,7 +91,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
     filter, otherwise `false`.
   </PropertyReference>
 
-  <PropertyReference name="resolve" type="(payload?: unknown, interruptId?: string) => Promise<unknown> | void">
+  <PropertyReference name="resolve" type="InterruptResolveFn">
     Primary resume method.
 
     - Legacy flow: resumes with `command.resume = payload` and forwards the
@@ -107,7 +107,7 @@ function useInterrupt<TValue = unknown, TResult = never>(
     Back-compat alias of `resolve`.
   </PropertyReference>
 
-  <PropertyReference name="cancel" type="(interruptId?: string) => Promise<unknown> | void">
+  <PropertyReference name="cancel" type="InterruptCancelFn">
     Cancels the pending interrupt.
 
     - Standard flow: records a cancellation for the addressed interrupt.
