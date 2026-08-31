@@ -167,6 +167,107 @@ describe("handleRunAgent", () => {
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
   });
 
+  it("keeps authorization request-local across repeated runs on one thread", async () => {
+    class RecordingHttpAgent extends HttpAgent {
+      constructor() {
+        super({ url: "https://runtime.example/agent" });
+      }
+
+      clone(): HttpAgent {
+        return new RecordingHttpAgent();
+      }
+    }
+
+    const identities: string[] = [];
+    const usersByAuthorization: Record<string, string> = {
+      "Bearer request-a": "user-a",
+      "Bearer request-b": "user-b",
+    };
+    const runtime = {
+      agents: Promise.resolve({ "test-agent": new RecordingHttpAgent() }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: {
+        run: ({ agent }: { agent: AbstractAgent }) =>
+          new Observable<BaseEvent>((subscriber) => {
+            const headers = (agent as HttpAgent).headers;
+            const authorization = Object.entries(headers).find(
+              ([name]) => name.toLowerCase() === "authorization",
+            )?.[1];
+            const identity = authorization
+              ? usersByAuthorization[authorization]
+              : undefined;
+            if (!identity) {
+              subscriber.error(new Error("Authentication required"));
+              return;
+            }
+            identities.push(identity);
+            subscriber.next({
+              type: EventType.CUSTOM,
+              name: "auth_identity",
+              value: { userId: identity },
+            } as BaseEvent);
+            subscriber.complete();
+          }),
+        connect: () => EMPTY,
+        isRunning: async () => false,
+        stop: async () => false,
+      },
+    } as unknown as CopilotRuntime;
+
+    const run = async (runId: string, authorization: string) => {
+      const response = await handleRunAgent({
+        runtime,
+        request: new Request("https://example.com/agent/test-agent/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authorization,
+          },
+          body: JSON.stringify({
+            threadId: "shared-thread",
+            runId,
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        }),
+        agentId: "test-agent",
+      });
+
+      expect(response.status).toBe(200);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let output = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        output +=
+          typeof value === "string"
+            ? value
+            : decoder.decode(value, { stream: true });
+      }
+      return output + decoder.decode();
+    };
+
+    const firstOutput = await run("run-a", "Bearer request-a");
+    const secondOutput = await run("run-b", "Bearer request-b");
+
+    expect(identities).toEqual(["user-a", "user-b"]);
+    expect(firstOutput).toContain("user-a");
+    expect(firstOutput).not.toContain("user-b");
+    expect(secondOutput).toContain("user-b");
+    expect(secondOutput).not.toContain("user-a");
+    for (const output of [firstOutput, secondOutput]) {
+      expect(output).not.toContain("request-a");
+      expect(output).not.toContain("request-b");
+    }
+  });
+
   const createMockAgentWithUse = () => {
     const useSpy = vi.fn();
     const agent = {
