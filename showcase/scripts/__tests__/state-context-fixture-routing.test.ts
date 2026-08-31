@@ -15,13 +15,13 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 // shadow the more specific D6 shared-state fixtures when loaded together.
 // Migration files (_migrated-from-*.json) are excluded because they contain
 // systemMessage-based discriminators that loadFixtureFile strips.
-function loadBundledFixtures(): Fixture[] {
+function loadBundledFixtures(context: string): Fixture[] {
   const fixtureFiles = [
     ...globSync("showcase/aimock/shared/*.json", {
       cwd: REPO_ROOT,
       absolute: true,
     }).filter((f) => !path.basename(f).startsWith("_migrated")),
-    ...globSync("showcase/aimock/d6/langgraph-python/*.json", {
+    ...globSync(`showcase/aimock/d6/${context}/*.json`, {
       cwd: REPO_ROOT,
       absolute: true,
     }),
@@ -32,6 +32,7 @@ function loadBundledFixtures(): Fixture[] {
 function request(
   userMessage: string,
   systemMessage: string,
+  context: string,
 ): ChatCompletionRequest {
   return {
     model: "gpt-5.4",
@@ -41,7 +42,7 @@ function request(
     ],
     // D6 fixtures use match.context for per-integration scoping; aimock's
     // matchFixture checks req._context against it.
-    _context: "langgraph-python",
+    _context: context,
   } as ChatCompletionRequest;
 }
 
@@ -74,47 +75,60 @@ The user's recent activity in the app, newest first:
 // to the correct integration's fixtures happens at the HTTP layer.
 //
 // This test verifies that the default demo fixtures exist and produce
-// semantically correct content for the reference integration.
+// semantically correct content for each covered integration.
 
-describe("state/context fixture routing", () => {
-  it("shared-state default preferences match with correct content", () => {
-    const fixtures = loadBundledFixtures();
+describe.each(["langgraph-python", "ms-agent-python"])(
+  "state/context fixture routing (%s)",
+  (context) => {
+    it("shared-state default preferences match with correct content", () => {
+      const fixtures = loadBundledFixtures(context);
 
-    const defaultMatch = matchFixture(
-      fixtures,
-      request("Say hi and introduce yourself.", DEFAULT_SHARED_STATE_SYSTEM),
-    );
-    expect(defaultMatch).not.toBeNull();
-    expect((defaultMatch!.response as TextResponse).content).toContain(
-      "shared-state co-pilot",
-    );
-  });
+      const defaultMatch = matchFixture(
+        fixtures,
+        request(
+          "Say hi and introduce yourself.",
+          DEFAULT_SHARED_STATE_SYSTEM,
+          context,
+        ),
+      );
+      expect(defaultMatch).not.toBeNull();
+      expect((defaultMatch!.response as TextResponse).content).toContain(
+        "shared-state co-pilot",
+      );
+    });
 
-  it("readonly context defaults match with correct content", () => {
-    const fixtures = loadBundledFixtures();
+    it("readonly context defaults match with correct content", () => {
+      const fixtures = loadBundledFixtures(context);
 
-    const defaultMatch = matchFixture(
-      fixtures,
-      request(
-        "What do you know about me from my context?",
-        DEFAULT_READONLY_CONTEXT_SYSTEM,
-      ),
-    );
-    expect(defaultMatch).not.toBeNull();
-    expect((defaultMatch!.response as TextResponse).content).toContain("Atai");
-  });
+      const defaultMatch = matchFixture(
+        fixtures,
+        request(
+          "What do you know about me from my context?",
+          DEFAULT_READONLY_CONTEXT_SYSTEM,
+          context,
+        ),
+      );
+      expect(defaultMatch).not.toBeNull();
+      expect((defaultMatch!.response as TextResponse).content).toContain(
+        "Atai",
+      );
+    });
 
-  it("readonly context follow-up question matches", () => {
-    const fixtures = loadBundledFixtures();
+    it("readonly context follow-up question matches", () => {
+      const fixtures = loadBundledFixtures(context);
 
-    const followUp = matchFixture(
-      fixtures,
-      request(
-        "Based on my recent activity, what should I try next?",
-        DEFAULT_READONLY_CONTEXT_SYSTEM,
-      ),
-    );
-    expect(followUp).not.toBeNull();
-    expect((followUp!.response as TextResponse).content).toBeTruthy();
-  });
-});
+      const followUp = matchFixture(
+        fixtures,
+        request(
+          "Based on my recent activity, what should I try next?",
+          DEFAULT_READONLY_CONTEXT_SYSTEM,
+          context,
+        ),
+      );
+      expect(followUp).not.toBeNull();
+      expect((followUp!.response as TextResponse).content).toContain(
+        "Since you recently viewed the pricing page",
+      );
+    });
+  },
+);
