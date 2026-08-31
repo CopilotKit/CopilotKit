@@ -432,6 +432,11 @@ export interface PlatformAdapter {
    */
   stageFile?(target: ReplyTarget, args: StageFileArgs): Promise<StagedFile>;
   /**
+   * Optional best-effort ping before a long local render (Takumi). Managed
+   * Slack uses this so the Intelligence packet slot stays applied.
+   */
+  keepAlive?(target: ReplyTarget): Promise<void>;
+  /**
    * Optional slash-command support. Called once on `start()` with the channel's
    * declared commands, so a surface that registers commands up front (e.g.
    * Discord's application-command API) can publish them. Surfaces that match
