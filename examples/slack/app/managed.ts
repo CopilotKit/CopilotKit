@@ -35,10 +35,6 @@ import {
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";
-import {
-  isCarouselRequest,
-  renderCatalogCarousel,
-} from "./tools/render-carousel.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
@@ -91,11 +87,10 @@ const requiredIntelligenceKey = (): string => {
 };
 
 /**
- * The managed Channel `name` is chosen HERE, in code — it is the project-unique
- * identifier the runtime uses to derive the managed Channel's activation config
- * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
+ * Channel name on the Intelligence project. Defaults to `triage`. Set
+ * `INTELLIGENCE_CHANNEL_NAME` to attach to an existing managed Channel.
  */
-const channelName = "triage";
+const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
 
 async function main() {
   const brand = await loadBrandRender();
@@ -137,12 +132,6 @@ async function main() {
   }) => {
     console.error("[channel] turn", message.text);
     try {
-      if (isCarouselRequest(message.text)) {
-        console.error("[channel] posting sample carousel");
-        await thread.post("Rendering the carousel…");
-        await renderCatalogCarousel(thread);
-        return;
-      }
       // Channel history (app-api /api/channels/history) does NOT include the
       // in-flight turn (unlike native adapters whose getHistory rebuilds the
       // live thread), so pass the current message explicitly as `prompt` —
@@ -188,8 +177,11 @@ async function main() {
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
-    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
+    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
+    wsUrl: firstEnv(
+      "COPILOTKIT_INTELLIGENCE_WS_URL",
+      "INTELLIGENCE_GATEWAY_WS_URL",
+    ),
     apiKey: requiredIntelligenceKey(),
   });
 

@@ -52,10 +52,6 @@ vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
-vi.mock("./tools/render-carousel.js", () => ({
-  isCarouselRequest: () => false,
-  renderCatalogCarousel: vi.fn(),
-}));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));
 vi.mock("./sender-context.js", () => ({ senderContext: vi.fn() }));
@@ -168,5 +164,38 @@ describe("managed channel entrypoint", () => {
         expect.objectContaining({ apiKey: "cpk-legacy" }),
       ),
     );
+  });
+
+  it("runs the agent when the user asks for a carousel in plain text", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    vi.resetModules();
+    fakes.bot.onMention.mockClear();
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.INTELLIGENCE_API_KEY = "cpk-test";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await import("./managed.js");
+
+    const onTurn = fakes.bot.onMention.mock.calls[0]?.[0] as (args: {
+      thread: { runAgent: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn> };
+      message: { text: string };
+    }) => Promise<void>;
+    const runAgent = vi.fn().mockResolvedValue(undefined);
+    const post = vi.fn();
+    await onTurn({
+      thread: { runAgent, post },
+      message: { text: "show me a product carousel" },
+    });
+
+    expect(runAgent).toHaveBeenCalledOnce();
+    expect(post).not.toHaveBeenCalled();
   });
 });
