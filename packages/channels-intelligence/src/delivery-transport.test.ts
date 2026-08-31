@@ -1094,14 +1094,27 @@ test("retries the exact packet after reconnect and calls no second sequence", as
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
-test("rejoins and retries the exact packet after packet_out_of_order", async () => {
+function outOfOrderError(): RealtimeGatewayPushError {
+  return new RealtimeGatewayPushError("packet", "packet_out_of_order", {
+    reason: "packet_out_of_order",
+  });
+}
+
+test("rejoins and sends seq 0 with a new packet id after packet_out_of_order", async () => {
   const first = channel();
   const second = channel();
-  vi.mocked(first.push).mockRejectedValueOnce(
-    new RealtimeGatewayPushError("packet", "packet_out_of_order", {
-      reason: "packet_out_of_order",
-    }),
-  );
+  vi.mocked(first.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve(acknowledgement(packet)),
+    )
+    .mockRejectedValueOnce(outOfOrderError());
+  vi.mocked(second.push).mockImplementation((_event, packet) => {
+    const body = packet as { seq: number };
+    if (body.seq !== 0) {
+      return Promise.reject(outOfOrderError());
+    }
+    return Promise.resolve(acknowledgement(packet));
+  });
   const reconnect = vi.fn().mockResolvedValue({
     channel: second,
     owner: {
@@ -1120,24 +1133,78 @@ test("rejoins and retries the exact packet after packet_out_of_order", async () 
     reconnect,
   );
 
-  const result = await session.effect("response_01", {
+  await session.effect("response_01", {
+    kind: "slack.thread.status",
+    status: "is thinking…",
+  });
+  const result = await session.effect("response_02", {
     kind: "slack.message.create",
     text: "Hello",
   });
 
-  expect(reconnect).toHaveBeenCalledOnce();
-  expect(second.push).toHaveBeenCalledOnce();
+  const original = vi.mocked(first.push).mock.calls[1]![1] as {
+    seq: number;
+    packetId: string;
+  };
   const retried = vi.mocked(second.push).mock.calls[0]![1] as {
     seq: number;
     packetId: string;
+    ownerGeneration: number;
   };
-  const original = vi.mocked(first.push).mock.calls[0]![1] as {
-    seq: number;
-    packetId: string;
-  };
-  expect(retried.seq).toBe(original.seq);
-  expect(retried.packetId).toBe(original.packetId);
+  expect(original.seq).toBe(1);
+  expect(retried.seq).toBe(0);
+  expect(retried.packetId).not.toBe(original.packetId);
+  expect(retried.ownerGeneration).toBe(8);
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
+test("keeps the packet path open after packet_out_of_order is exhausted", async () => {
+  const first = channel();
+  const second = channel();
+  const third = channel();
+  vi.mocked(first.push).mockRejectedValue(outOfOrderError());
+  vi.mocked(second.push).mockRejectedValue(outOfOrderError());
+  const reconnect = vi
+    .fn()
+    .mockResolvedValueOnce({
+      channel: second,
+      owner: {
+        ownerGeneration: 8,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+    })
+    .mockResolvedValueOnce({
+      channel: third,
+      owner: {
+        ownerGeneration: 9,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+    });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    first,
+    reconnect,
+  );
+
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
+
+  await expect(
+    session.effect("response_02", {
+      kind: "slack.message.create",
+      text: "World",
+    }),
+  ).resolves.toEqual({ providerReference: "pref_v1_message_01" });
 });
 
 test("polls the same packet after a retry-wait result", async () => {

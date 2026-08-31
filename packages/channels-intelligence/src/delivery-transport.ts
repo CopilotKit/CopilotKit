@@ -622,16 +622,21 @@ export class ClaimedChannelDelivery {
         // reconnects; permanent non-cleanup failures seal further effects
         // but leave the path open for terminal + stream.stop packets.
         const acknowledgement = await this.sendExactPacket(packet);
-        this.assertExactAcknowledgement(packet, acknowledgement);
+        const sentPacket = this.unacknowledgedPacket ?? packet;
+        this.assertExactAcknowledgement(sentPacket, acknowledgement);
         this.unacknowledgedPacket = undefined;
-        this.nextSeq += 1;
+        this.nextSeq = sentPacket.seq + 1;
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
+        const outOfOrder =
+          error instanceof RealtimeGatewayPushError &&
+          error.code === "packet_out_of_order";
         if (
           !isCleanupPacket &&
           !bestEffort &&
-          payload.kind !== "slack.thread.status"
+          payload.kind !== "slack.thread.status" &&
+          !outOfOrder
         ) {
           this.effectsClosed = true;
         }
@@ -687,8 +692,8 @@ export class ClaimedChannelDelivery {
       } catch (error) {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
         // A long local render (Takumi) can leave the delivery topic stale.
-        // The gateway then rejects the first later packet as out of order.
-        // Rejoin and retry that exact packet, same as a dropped socket.
+        // The gateway then rejects the next packet as out of order. A join
+        // starts seq at 0, so retry the payload as a new seq-0 packet.
         const outOfOrder =
           error instanceof RealtimeGatewayPushError &&
           error.code === "packet_out_of_order";
@@ -720,16 +725,24 @@ export class ClaimedChannelDelivery {
           refreshed.deliveryExpiresAt,
           refreshed.capabilities,
         );
-        pendingPacket = packet;
+        if (outOfOrder) {
+          this.nextSeq = 0;
+          pendingPacket = this.buildPacket(packet.payload);
+        } else {
+          pendingPacket = packet;
+        }
+        this.unacknowledgedPacket = pendingPacket;
         if (
-          packet.payload.kind === "slack.stream.append" &&
-          packet.payload.fullText !== undefined &&
+          pendingPacket.payload.kind === "slack.stream.append" &&
+          pendingPacket.payload.fullText !== undefined &&
           !refreshed.capabilities?.includes(
             SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
           )
         ) {
-          const { fullText: _fullText, ...legacyPayload } = packet.payload;
-          pendingPacket = { ...packet, payload: legacyPayload };
+          const { fullText: _fullText, ...legacyPayload } =
+            pendingPacket.payload;
+          pendingPacket = { ...pendingPacket, payload: legacyPayload };
+          this.unacknowledgedPacket = pendingPacket;
         }
       }
     }
