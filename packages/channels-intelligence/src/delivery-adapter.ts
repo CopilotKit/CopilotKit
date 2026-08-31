@@ -91,6 +91,7 @@ interface DeliveryMessageRef extends MessageRef {
 const MANAGED_ASSET_ACTIVITY_TYPE = "copilotkit.managed-asset";
 const MANAGED_ASSET_HISTORY_ATTEMPTS = 3;
 const MANAGED_SLACK_TEXT_INTERVAL_MS = 600;
+const MANAGED_SLACK_KEEPALIVE_MS = 15_000;
 
 /** Slack could not prove whether a managed file became visible. */
 export class ChannelFileDeliveryUnknownError extends ChannelDeliveryTerminatedError {
@@ -147,6 +148,10 @@ export class DeliveryAdapter implements PlatformAdapter {
   readonly skipIngressDedup = true;
   readonly injectInboundTurnOnce = true;
   readonly ackDeadlineMs = 0;
+  private readonly slackKeepAlives = new WeakMap<
+    ClaimedChannelDelivery,
+    ReturnType<typeof setInterval>
+  >();
   readonly stateStore?: StateStore;
   readonly capabilities: SurfaceCapabilities = {
     supportsMessageEvents: true,
@@ -558,25 +563,20 @@ export class DeliveryAdapter implements PlatformAdapter {
         providerMessageId,
       );
     };
-    if (target.delivery.adapter === "slack") {
-      if (hasManagedSlackFile(ir)) {
-        await waitForManagedSlackFile();
-        // Takumi can idle the delivery join for minutes. A status packet
-        // rejoins on packet_out_of_order without closing the path, so the
-        // carousel post can use the fresh join.
-        try {
-          await target.claimedDelivery.effect(
-            mintId("response_"),
-            { kind: "slack.thread.status", status: "is thinking…" },
-            { charge: false, bestEffort: true },
-          );
-        } catch {
-          // Status is best-effort. The carousel post still runs.
+    try {
+      if (target.delivery.adapter === "slack") {
+        if (hasManagedSlackFile(ir)) {
+          await waitForManagedSlackFile();
+          await this.pingSlackStatus(target.claimedDelivery);
         }
+        return await withManagedSlackFileRetry(send);
       }
-      return withManagedSlackFileRetry(send);
+      return await send();
+    } finally {
+      if (target.delivery.adapter === "slack") {
+        this.stopSlackKeepAlive(target.claimedDelivery);
+      }
     }
-    return send();
   }
 
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -895,6 +895,47 @@ export class DeliveryAdapter implements PlatformAdapter {
     return { fileId: handle };
   }
 
+  /**
+   * Apply a Slack thinking status, then ping it every 15s so a long Takumi
+   * render does not leave the Intelligence packet slot stale.
+   */
+  async keepAlive(targetValue: ReplyTarget): Promise<void> {
+    const target = asDeliveryTarget(targetValue);
+    if (target.delivery.adapter !== "slack") return;
+    this.startSlackKeepAlive(target.claimedDelivery);
+    await this.pingSlackStatus(target.claimedDelivery);
+  }
+
+  private startSlackKeepAlive(claimedDelivery: ClaimedChannelDelivery): void {
+    if (this.slackKeepAlives.has(claimedDelivery)) return;
+    const id = setInterval(() => {
+      void this.pingSlackStatus(claimedDelivery);
+    }, MANAGED_SLACK_KEEPALIVE_MS);
+    id.unref?.();
+    this.slackKeepAlives.set(claimedDelivery, id);
+  }
+
+  private stopSlackKeepAlive(claimedDelivery: ClaimedChannelDelivery): void {
+    const id = this.slackKeepAlives.get(claimedDelivery);
+    if (id === undefined) return;
+    clearInterval(id);
+    this.slackKeepAlives.delete(claimedDelivery);
+  }
+
+  private async pingSlackStatus(
+    claimedDelivery: ClaimedChannelDelivery,
+  ): Promise<void> {
+    try {
+      await claimedDelivery.effect(
+        mintId("response_"),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+    } catch {
+      // Status is best-effort. The carousel post still runs.
+    }
+  }
+
   /** Retries canonical persistence without repeating provider delivery. */
   private async persistManagedAssetActivity(
     target: DeliveryReplyTarget,
@@ -1013,6 +1054,8 @@ export class DeliveryAdapter implements PlatformAdapter {
       status: { threadTs: "managed", isPane: false },
       transport: {
         setStatus: async ({ status, loading_messages: loadingMessages }) => {
+          if (status) this.startSlackKeepAlive(claimedDelivery);
+          else this.stopSlackKeepAlive(claimedDelivery);
           await claimedDelivery.effect(
             responseId,
             {

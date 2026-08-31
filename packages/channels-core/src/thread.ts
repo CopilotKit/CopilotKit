@@ -253,6 +253,7 @@ export class Thread implements ThreadInterface {
       );
     }
     const g = this.deps.render ?? {};
+    await this.deps.adapter.keepAlive?.(this.deps.replyTarget);
     return resolveRenders(roots, {
       renderJsxToPng: this.deps.renderImage ?? defaultRenderImage,
       stageFile: (args) =>

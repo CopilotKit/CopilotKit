@@ -517,6 +517,39 @@ describe("DeliveryAdapter.post", () => {
   });
 });
 
+describe("DeliveryAdapter.keepAlive", () => {
+  it("sends a Slack status, then pings again before the carousel wait", async () => {
+    vi.useFakeTimers();
+    const effect = vi.fn().mockResolvedValue({
+      providerReference: "pref_v1_message_ready_01",
+      providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter();
+    const target = replyTarget(session);
+
+    try {
+      await adapter.keepAlive(target);
+      expect(effect).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/^response_/),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(effect).toHaveBeenCalledTimes(2);
+      const pending = adapter.post(target, STAGED_HAT_IMAGE);
+      await vi.advanceTimersByTimeAsync(2400);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("DeliveryAdapter.stageFile", () => {
   it("stores Slack bytes and returns the handle without posting a file", async () => {
     const session = {

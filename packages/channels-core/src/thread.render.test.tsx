@@ -75,6 +75,23 @@ describe("Thread.post / update Render trees", () => {
     expect(collect(adapter.posted[0]!, "render")).toHaveLength(0);
   });
 
+  it("pings keepAlive before Takumi stages a Render tree", async () => {
+    const adapter = new FakeAdapter();
+    const order: string[] = [];
+    adapter.keepAlive = async () => {
+      order.push("keep");
+    };
+    adapter.stageFile = async () => {
+      order.push("stage");
+      return { fileId: "F-staged" };
+    };
+    const thread = makeThread(adapter);
+
+    await thread.post(mixedUi);
+
+    expect(order).toEqual(["keep", "stage"]);
+  });
+
   it("throws when stageFile is missing and the tree has Render", async () => {
     const adapter = new FakeAdapter();
     const thread = makeThread(adapter);
