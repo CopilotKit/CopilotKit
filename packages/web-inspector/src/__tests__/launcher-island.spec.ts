@@ -941,33 +941,36 @@ test("the drawer paints behind the capsule, which paints behind the mark", async
   expect(capsule).toBeLessThan(mark);
 });
 
-test("the launcher draws no ring, on every host alike", async () => {
+test("the launcher declares its own ring instead of trusting the Tailwind border utility", async () => {
   const { inspector } = await setup();
   const css = stylesheetText(inspector);
 
-  // The button's class list carries Tailwind's own border utility (it also
-  // supplies unrelated resets), and that utility is the reason the ring was
-  // never a decision. The generated rule is
-  // `.border { border-style: var(--tw-border-style); border-width: 1px }`,
+  // The button's class list carries Tailwind's own border utility, and a
+  // reader skimming the markup could reasonably assume that is what draws the
+  // launcher's hairline. It cannot be relied on for that: the generated rule
+  // is `.border { border-style: var(--tw-border-style); border-width: 1px }`,
   // and `--tw-border-style` is registered by a Tailwind `@property` rule.
   // `@property` inside a stylesheet ADOPTED into a shadow root does not
-  // register document-wide, so inside this component's shadow root the
-  // variable was unresolved: `border-style` fell back to `none`, and CSS then
-  // computed `border-width` to 0 regardless of the declared 1px.
+  // register document-wide, so inside this shadow root the variable was
+  // unresolved: `border-style` fell back to `none`, and CSS then computed
+  // `border-width` to 0 regardless of the declared 1px. The SAME stylesheet
+  // bytes therefore drew a ring on a host page that loads Tailwind v4 and no
+  // ring on one that does not.
   //
-  // So the SAME stylesheet bytes drew a hairline on a host page that loads
-  // Tailwind v4 and no hairline on one that does not. The launcher is meant
-  // to look the same on both, and ringless is the look that was chosen from
-  // seeing them side by side — so the sheet has to say so, or the utility
-  // decides again on the next Tailwind host.
+  // That is the whole point of declaring it, and the reason is not symmetry
+  // for its own sake. The ring exists to separate the launcher from a DARK
+  // page: the face is #181C1F, measured at 1.10:1 against GitHub dark, which
+  // is indistinguishable from the page on its own. So on precisely the hosts
+  // the ring is FOR, the inherited version was the one that vanished. The
+  // intent sat in the sheet while the pixels were up to the host.
   //
-  // This guards the zeroing declaration, not the absence of a border: an
-  // assertion that merely found no `border:` line would pass just as happily
-  // against the old bug, where nothing was declared and the host decided.
-  //
-  // A computed-style assertion cannot see any of this — jsdom resolves no CSS
-  // off a shadow-root stylesheet, so declared-nothing and declared-zero read
-  // back an identical 0px — which is why this suite reads stylesheet text.
+  // A computed-style assertion cannot see any of this: jsdom resolves no CSS
+  // off a shadow-root stylesheet, so the broken state (nothing declared) and
+  // the fixed state (1px solid) read back an identical computed 0px / "" —
+  // only the declaration text tells them apart, which is why this suite reads
+  // stylesheet text. And the assertion is for PRESENCE, not a value: the bug
+  // was a missing declaration, not a wrong one, exactly like the z-index
+  // guard above.
   //
   // The declaration lives on the SECOND `.console-button` rule in this sheet;
   // the first carries only layout (width/height/z-index/transition), so this
@@ -977,30 +980,29 @@ test("the launcher draws no ring, on every host alike", async () => {
     consoleButtonRules.length,
     "expected two .console-button rules (layout, then paint)",
   ).toBeGreaterThanOrEqual(2);
-
-  const zeroesTheRing = consoleButtonRules.some((rule) =>
-    /border:\s*0\s*;/.test(rule),
+  const declaresOwnRing = consoleButtonRules.some(
+    (rule) =>
+      /border-width:\s*1px/.test(rule) && /border-style:\s*solid/.test(rule),
   );
   expect(
-    zeroesTheRing,
-    "no .console-button rule zeroes the border; the ring is back to " +
-      "depending on whether the host page registers --tw-border-style for " +
-      "the Tailwind border utility, which is how it came to differ between " +
-      "two hosts running identical bytes",
+    declaresOwnRing,
+    "no .console-button rule declares border-width and border-style; the " +
+      "ring is back to depending on the host page registering " +
+      "--tw-border-style for the Tailwind border utility, which is exactly " +
+      "the dark-page case the ring exists for",
   ).toBe(true);
 
-  // And nothing may put one back on a state of the same element: a ring that
-  // appears only on hover or focus is the seam this shape exists to remove.
-  // :focus-visible is exempt and deliberately so — that outline is an
-  // accessibility affordance, not decoration, and it is an `outline`, which
-  // does not affect layout or the island's footprint.
-  const ringBack = consoleButtonRules.some((rule) =>
-    /border-(width|style)\s*:\s*(?!0)/.test(rule),
+  // And it must read the same token the island reads, or the circle and the
+  // thing it grows into are ringed differently on the one gesture where both
+  // are on screen at once.
+  const ringToken = consoleButtonRules.some((rule) =>
+    /border-color:\s*var\(--cpk-launcher-edge\)/.test(rule),
   );
   expect(
-    ringBack,
-    "a .console-button rule declares a non-zero border again",
-  ).toBe(false);
+    ringToken,
+    "the launcher's ring does not read var(--cpk-launcher-edge), so it can " +
+      "drift from the capsule and drawer hairlines",
+  ).toBe(true);
 });
 
 test("the circle and the island paint the same surface", async () => {

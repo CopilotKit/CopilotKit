@@ -9656,23 +9656,31 @@ export class WebInspectorElement extends LitElement {
       /* ── Floating button ─────────────────────────────────────────── */
       .console-button {
         background-color: var(--cpk-launcher-face) !important;
-        border: 0;
-        /* No ring, and explicitly none on every host.
-           The element carries Tailwind's own border utility, which resolves its
-           style from a registered custom property; @property inside an adopted
-           stylesheet does not register document-wide, so that utility drew a
-           hairline only where the HOST page happened to load Tailwind v4 and
-           register it for us. Ringless was therefore never a design - it was
-           whatever the host had. Declaring it makes it one, and makes the two
-           hosts agree.
+        /* Width and style declared here, not left to the Tailwind utility on
+           the element. That utility resolves border-style from a registered
+           custom property, and @property inside an adopted stylesheet does not
+           register document-wide - so the ring appeared only where the HOST
+           page happened to load Tailwind v4 and register it for us. On a plain
+           host it computed to none, which takes the width to zero, and the
+           launcher lost its only outline.
 
-           What carries the shape instead is the light edge along the top and
-           the shadow below. The cost is real and belongs here rather than in a
-           commit message: the face is #181C1F, which against a dark host page
-           (GitHub dark 1.10:1, Tailwind slate-900 1.04:1) barely separates
-           from it, and that top edge is now the whole contour there. Putting
-           the hairline back is one declaration:
-           border: 1px solid var(--cpk-launcher-edge). */
+           That is why the ring is declared rather than merely kept: the reason
+           it exists is to separate the launcher from a DARK page, and on a
+           dark page without Tailwind v4 the inherited version was not there.
+           The intent was in the sheet; the pixels were up to the host.
+
+           Measured: the face is #181C1F, 1.10:1 against GitHub dark and 1.04:1
+           against Tailwind slate-900 - indistinguishable from the page on its
+           own. This hairline is the whole contour there, which is what makes it
+           structure rather than decoration. This block is unlayered and the
+           generated sheet is all layered, so it wins without needing to shout.
+
+           It reads --cpk-launcher-edge, the same token the capsule and the
+           drawer read, so the circle and the island are ringed alike and the
+           growth has no seam. */
+        border-width: 1px;
+        border-style: solid;
+        border-color: var(--cpk-launcher-edge) !important;
         box-shadow:
           inset 0 1px 0 rgba(255, 255, 255, 0.07),
           0 4px 14px rgba(1, 5, 7, 0.28) !important;
@@ -9688,15 +9696,17 @@ export class WebInspectorElement extends LitElement {
        * Hover changes nothing about the launcher, and the rule that used to is
        * gone rather than emptied.
        *
-       * It had two declarations and both have lost their subject. The tint
-       * moved the face from 0.95 to opaque, and the face is opaque now. The
-       * border brightened a ring the launcher no longer draws.
+       * It had two declarations and both work against the shape now. The tint
+       * moved the face from 0.95 to opaque, and the face is opaque always. The
+       * border brightened the circle's hairline to 0.45 while the capsule's
+       * stayed at 0.25 - so the ring the circle grows out of would have
+       * stopped matching the ring it grows into, on the one gesture where the
+       * two are visible at once.
        *
-       * Keeping either would work against the shape: the circle and the island
-       * are one surface, so a circle that tints on hover is a circle that
-       * stops matching the thing it grows into. The affordance is the island
-       * opening. Its one gap is a launcher with no room to open - hover then
-       * has no answer at all, where it used to at least tint.
+       * The affordance is the island opening. Its one gap is a launcher with
+       * no room to open - hover then has no answer at all, where it used to at
+       * least tint. Restoring feedback means giving it to the whole island
+       * rather than to the circle alone.
        *
        * The rule also used to carry "transform: scale(1.05)". That scale was a
        * third motion: the mark stepped up while the island arrived beside it,
