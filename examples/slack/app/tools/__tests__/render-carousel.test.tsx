@@ -73,6 +73,19 @@ describe("render_carousel tool", () => {
     );
   });
 
+  it("posts the sample catalog when items is an empty list", async () => {
+    const { posts, thread } = fakeThread();
+    const res = await renderCarouselTool.handler(
+      { items: [] },
+      { thread } as never,
+    );
+    expect(res).toBe("Posted a 3-item carousel.");
+    const ir = renderToIR(posts[0] as never);
+    expect(
+      ir.flatMap((node) => collectTypes(node)).filter((t) => t === "carouselCard"),
+    ).toHaveLength(SAMPLE_CATALOG.length);
+  });
+
   it("uses caller items when they are provided", async () => {
     const { posts, thread } = fakeThread();
     const res = await renderCarouselTool.handler(

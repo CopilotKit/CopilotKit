@@ -216,6 +216,7 @@ const SYSTEM_PROMPT = [
   "- PR review radar / open PRs to review    -> render_pr_radar (no args)",
   "- Weekly OSS pulse / stars/downloads/issues -> render_weekly_pulse (no args)",
   "- Cycle standup / per-team cycle progress -> render_standup (no args)",
+  "- Product carousel / catalog / sample slides -> render_carousel (no args for the sample catalog)",
   "If the user explicitly asks for a card/table/incident/status/links, calling the",
   "tool IS the whole answer — never describe what the card 'would' contain in prose.",
   "Your text message alongside a rendered card MUST be empty or ONE short line (e.g.",
@@ -233,7 +234,7 @@ const SYSTEM_PROMPT = [
   "(create_issue, update_issue, create_page, …). ONLY before such a write, call the",
   "confirm_write tool with a one-line summary and wait for approval; perform the",
   "write only if confirmed. Rendering a card/table (issue_list, issue_card,",
-  "show_incident, show_status, show_links, render_table) and",
+  "show_incident, show_status, show_links, render_table, render_carousel) and",
   "any read (search/list/get) are NOT writes — never gate them, and never add an",
   "'I'll need approval' disclaimer to a pure render or read.",
 ].join("\n");
