@@ -2,7 +2,7 @@
 
 This guide shows how to set up **CopilotKit Intelligence**: durable thread storage plus a websocket transport for realtime events.
 
-Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide an Intelligence platform client to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
+Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide a CopilotKit Intelligence client to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
 
 ---
 
@@ -63,13 +63,13 @@ The important design rule is:
 npm install @copilotkit/runtime
 ```
 
-### 2. Create the Intelligence platform client
+### 2. Create CopilotKit Intelligence client
 
 ```typescript
 import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
 });
 ```
@@ -84,7 +84,7 @@ layer appends `/runner` or `/client` itself.
 
 ```typescript
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
   apiUrl: "https://api.your-intelligence-host",
   wsUrl: "wss://realtime.your-intelligence-host",

@@ -34,7 +34,10 @@ Per-instance `allowedDivergence` list in `manifest.json`:
 - `agent/**` — agents are written in different languages/runtimes (Python
   create_agent, TS StateGraph, Python StateGraph+FastAPI). Human-authored.
 - `src/app/api/copilotkit/**` — north-star uses `LangGraphAgent`, Docker
-  instances use `HttpAgent`. Different routes.
+  instances use `HttpAgent`. Different routes. The Intelligence wiring block
+  inside those routes is held to one shape by
+  `scripts/validate-intelligence-wiring-block.ts`, which covers all 22 starters
+  rather than the 7 tracked here (OSS-982).
 - `Dockerfile`, `docker/Dockerfile.agent`, `serve.py`, `scripts/**` —
   language-specific build/run tooling.
 

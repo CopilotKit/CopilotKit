@@ -119,7 +119,7 @@ describe("Channels documentation journey", () => {
     );
     expect(overview?.source).toContain('ctaLabel="Book time with an engineer"');
     expect(overview?.source).toContain(
-      "## Production self-hosting: Run Enterprise Intelligence in your own infrastructure",
+      "## Production self-hosting: Run CopilotKit Intelligence in your own infrastructure",
     );
     expect(overview?.source).toContain(
       'surface="docs_channels_self_hosting_contact"',
@@ -364,6 +364,29 @@ describe("Channels documentation journey", () => {
     expect(intelligence).toMatch(/browser wizard[\s\S]*released setup path/i);
   });
 
+  it("names which kind of Microsoft bot identity Teams setup creates", () => {
+    const teams = bodyFor("frontends/teams");
+
+    // A tenant administrator's first question. Saying only what we do NOT
+    // create (the previous "Azure Bot is not part of the normal path") does not
+    // answer it, so the kind we DO create has to be named, along with where its
+    // credentials live and who can rotate them.
+    expect(teams).toContain("Teams-managed");
+    expect(teams).toMatch(/Tools\s+→\s+Bot\s+management/);
+    expect(teams).toMatch(/single-tenant/);
+    expect(teams).toMatch(/nothing\s+is\s+billable/);
+    // Azure Bot and a self-managed Entra app are the alternatives, and both may
+    // only appear as alternatives. What separates them from what we create is
+    // the cost and where the resource lives, so pin that rather than the prose.
+    expect(teams).toContain("Azure Bot");
+    expect(teams).toContain("Microsoft Entra");
+    expect(teams).toMatch(/billable\s+Azure\s+Bot/);
+    expect(teams).toMatch(/your\s+own\s+subscription/);
+    // Switching kinds is not a toggle: the app ID is the manifest's bot ID.
+    expect(teams).toMatch(/teams\s+app\s+bot\s+migrate/);
+    expect(teams).toMatch(/fresh\s+package/);
+  });
+
   it("documents provider-scoped identity and per-run Memory", () => {
     const source = bodyFor("channels/identity-and-memory");
     const slackQuickstart = bodyFor("frontends/slack");
@@ -518,14 +541,29 @@ describe("Channels documentation journey", () => {
     expect(slack).not.toContain("Directory (tenant) ID");
 
     expect(teams).toContain("### Connect Microsoft Teams");
-    expect(teams).toContain("Microsoft Entra");
-    expect(teams).toContain("Azure Bot");
-    expect(teams).toMatch(/Follow the guided setup/);
-    expect(teams).toMatch(/Teams\s+Developer\s+Portal/);
-    expect(teams).toMatch(/never\s+stores them/);
-    expect(teams).toContain("Add to a team");
     expect(teams).toContain("Microsoft Teams");
-    expect(teams).toContain("fresh package");
+    expect(teams).toMatch(/Teams\s+Developer\s+Portal/);
+    // Setup is one CLI command, not a form the reader fills in. Pinning the
+    // flags keeps the doc from drifting back to hand-entered credentials.
+    expect(teams).toContain("--adapter teams --provision");
+    expect(teams).toMatch(/copy\s+button/);
+    // Both permissions, and which one is optional. Naming only the required
+    // one is how the file-access permission got documented as mandatory.
+    expect(teams).toContain("ChannelMessage.Read.Group");
+    expect(teams).toContain("Files.Read.All");
+    expect(teams).toMatch(/genuinely\s+optional/);
+    expect(teams).toContain("Created and installed");
+    expect(teams).toMatch(/adding\s+the\s+app\s+to\s+a\s+team/);
+    // Microsoft exposes no install API, so the command produces a package and
+    // the reader uploads it. Saying the command "installs the app" is the drift
+    // this guards, and the upload has to name the Team's own Apps tab: the
+    // personal Apps section installs to personal scope, which cannot be
+    // promoted to a Team afterwards.
+    expect(teams).toContain("teams-app.zip");
+    expect(teams).toMatch(/Manage\s+team/);
+    expect(teams).toMatch(/no\s+install\s+API/);
+    expect(teams).not.toContain("Microsoft Entra");
+    expect(teams).not.toContain("Files.ReadWrite.All");
     expect(teams).not.toContain("### Connect Slack");
     expect(teams).not.toContain("connections:write");
     expect(teams).not.toContain("`xapp-…`");
@@ -538,7 +576,7 @@ describe("Channels documentation journey", () => {
     }
   });
 
-  it("distinguishes Intelligence platform selection from runnable topology", () => {
+  it("distinguishes CopilotKit Intelligence selection from runnable topology", () => {
     const source = bodyFor("channels/intelligence");
     const slack = filterFrontendScopedBlocks(source, "slack");
     const teams = filterFrontendScopedBlocks(source, "teams");

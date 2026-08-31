@@ -23,7 +23,7 @@ From this directory (after `pnpm install` at the repo root):
 
 ```sh
 export OPENAI_API_KEY=sk-...              # or add it to .env (see .env.example)
-export COPILOTKIT_API_KEY=cpk-...          # Intelligence key (free tier)
+export INTELLIGENCE_API_KEY=cpk-...          # Intelligence key (free tier)
 pnpm start                                 # starts the bot on http://localhost:3978/api/messages
 ```
 
@@ -176,10 +176,11 @@ Set the environment for wherever you deploy:
 - `OPENAI_API_KEY` _(required)_: the bot runs a `BuiltInAgent` and exits at
   startup without it.
 - `OPENAI_MODEL` _(optional)_: defaults to `openai/gpt-5.5`.
-- `COPILOTKIT_API_KEY` _(required)_: the Intelligence runtime that owns the
+- `INTELLIGENCE_API_KEY` _(required)_: the Intelligence runtime that owns the
   Channel lifecycle. A Channel runs only through Intelligence, so the bot exits
   at startup without it (free tier is enough). No URLs to configure — the SDK
-  defaults to the managed Intelligence platform.
+  defaults to cloud-hosted CopilotKit Intelligence. `COPILOTKIT_API_KEY` is a
+  deprecated alias, still read as a fallback.
 - `COPILOTKIT_INTELLIGENCE_URL` / `COPILOTKIT_INTELLIGENCE_WS_URL` _(optional)_:
   point the bot at a self-hosted or dev Intelligence deployment. Set **both or
   neither**: the API and realtime planes are **separate hosts**

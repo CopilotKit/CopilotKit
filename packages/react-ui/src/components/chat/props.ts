@@ -1,3 +1,127 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — AssistantMessageProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — ButtonProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — ChatError:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — ComponentsMap:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — CopilotObservabilityHooks:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — ErrorMessageProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — HeaderProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — ImageRendererProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — InputProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — MessagesProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — Renderer:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — RenderMessageProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — RenderSuggestionsListProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — SuggestionsProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat suggestions): https://docs.copilotkit.ai/reference/v2/hooks/useConfigureSuggestions
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — UserMessageProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/react-ui — WindowProps:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import type {
   AIMessage,
   Message,
@@ -118,14 +242,20 @@ export interface MessagesProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state
@@ -214,14 +344,20 @@ export interface AssistantMessageProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * The feedback state for this message ("thumbsUp" or "thumbsDown")
@@ -310,14 +446,20 @@ export interface RenderMessageProps {
   onCopy?: (message: string) => void;
 
   /**
-   * Callback function for thumbs up feedback
+   * Callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * Callback function for thumbs down feedback
+   * Callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * Map of message IDs to their feedback state

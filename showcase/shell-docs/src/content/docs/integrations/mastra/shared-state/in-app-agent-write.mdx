@@ -29,7 +29,7 @@ You can easily write to your agent's state from your native application, allowin
 
   ```ts
   const runtime = new CopilotRuntime({
-    agents: MastraAgent.getLocalAgents({ mastra }),
+    agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
   });
   ```
 

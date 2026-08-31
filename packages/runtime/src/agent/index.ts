@@ -92,12 +92,10 @@ export type BuiltInAgentModel =
   | "openai/o3-mini"
   | "openai/o4-mini"
   // Anthropic (Claude) models
-  | "anthropic/claude-sonnet-4.5"
-  | "anthropic/claude-sonnet-4"
-  | "anthropic/claude-3.7-sonnet"
-  | "anthropic/claude-opus-4.1"
-  | "anthropic/claude-opus-4"
-  | "anthropic/claude-3.5-haiku"
+  | "anthropic/claude-sonnet-4-6"
+  | "anthropic/claude-sonnet-4-5"
+  | "anthropic/claude-opus-4-8"
+  | "anthropic/claude-haiku-4-5"
   // Google (Gemini) models
   | "google/gemini-2.5-pro"
   | "google/gemini-2.5-flash"
@@ -220,7 +218,7 @@ export function resolveModel(
         // Honor a custom Anthropic-compatible endpoint via ANTHROPIC_BASE_URL (see OpenAI note).
         baseURL: process.env.ANTHROPIC_BASE_URL,
       });
-      // Accepts any Claude id, e.g. "claude-3.7-sonnet", "claude-3.5-haiku"
+      // Pass model identifiers through unchanged; the provider owns validation.
       return anthropic(model);
     }
 

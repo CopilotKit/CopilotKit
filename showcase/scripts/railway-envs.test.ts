@@ -112,7 +112,7 @@ describe("railway-envs SSOT", () => {
     expect(names.length).toBe(42);
   });
 
-  it("models CrewAI conversational flows as a staging-first showcase deployment", () => {
+  it("models CrewAI conversational flows as a dual-environment showcase deployment", () => {
     const name = "showcase-crewai-conversational-flows";
     const entry = SERVICES[name];
 
@@ -127,7 +127,12 @@ describe("railway-envs SSOT", () => {
     expect(entry.serviceRefs).toEqual([
       { key: "OPENAI_BASE_URL", target: "aimock" },
     ]);
-    expect(envsFor(name)).toEqual(["staging"]);
+    expect(envsFor(name)).toEqual(["prod", "staging"]);
+    expect(domainFor(name, "prod")).toBe(
+      "showcase-crewai-conversational-flows-production.up.railway.app",
+    );
+    expect(healthcheckPathFor(name, "prod")).toBe("/api/health");
+    expect(probeEnabled(name, "prod")).toBe(true);
     expect(domainFor(name, "staging")).toBe(
       "showcase-crewai-conversational-flows-staging.up.railway.app",
     );
@@ -248,10 +253,10 @@ describe("railway-envs SSOT", () => {
   });
 
   it("CI_BUILT_SERVICES contains exactly 40 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 28 showcase/infra CI-built (incl. the staging-only
-    // showcase-crewai-conversational-flows) + 12 starter-<slug> (S2 brought them under
-    // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
-    // job to ghcr.io/copilotkit/starter-<slug>:latest).
+    // 28 showcase/infra CI-built (including conversational flows) + 12
+    // starter-<slug> (S2 brought them under the gate; they ARE built+pushed by
+    // showcase_build.yml's `build-starters` job to
+    // ghcr.io/copilotkit/starter-<slug>:latest).
     expect(CI_BUILT_SERVICES.size).toBe(40);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).

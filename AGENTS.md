@@ -22,13 +22,14 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 ## Essentials
 
 - **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
-- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Some packages have `v1/` and `v2/` internal directories for backward compatibility, but they're a single published package.
+- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Dual-version packages keep deprecated implementation code under `src/v1-deprecated/`, route the package root through `src/v1-deprecated-compatibility.ts`, and keep current code under `src/v2/`. These remain one published package; the deprecated source directory is not a public subpath.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+- **Always start from fresh remote main** — at the start of every new task, before creating any branch or worktree, and before running `nx affected` or any base-sensitive comparison, run `git fetch origin main`. Create new work from `origin/main`, never from the local `main` ref. Local `main` may be arbitrarily stale and must not be used as an affected base. For an existing branch, compare against the fetched merge base explicitly (for example, `BASE=$(git merge-base HEAD origin/main)` followed by `nx affected --base="$BASE" --head=HEAD`).
 - **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
-- **Draft PR up front** — the moment a new branch has one commit, push it and open a **draft PR**. Don't wait until "ready" — unmerged-and-unpushed work is invisible. Flip the PR from draft to ready (`gh pr ready <pr#>`) only when the developer says so. See [Git & PRs](.claude/docs/git.md#open-a-draft-pr-up-front).
 - **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
+- **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
 
 ## Private Agent Instructions
 
@@ -60,6 +61,8 @@ Before editing anything that looks like product docs, read [Documentation](.clau
 - For showcase-driven frameworks (`docs_mode: generated`), update the showcase source of truth: manifests, demos, feature coverage, source regions, registry inputs, shared/root MDX, and sparse framework overrides. Do not hand-edit generated files under `showcase/shell-docs/src/data/frameworks/`.
 - For authored frameworks (`docs_mode: authored`), edit `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For snippets, edit `showcase/shell-docs/src/content/snippets/`; snippets can feed root docs, authored framework pages, and showcase-driven framework pages.
+- When the task changes Inspector UI, chrome, panes, or overlay behavior, follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change.
+- When adding, renaming, or removing an Inspector pane, follow `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
 - **AG-UI protocol docs** are canonical upstream in `ag-ui-protocol/ag-ui`. The `showcase/shell-docs/src/content/ag-ui/` tree is a downstream mirror; change AG-UI upstream first, then sync the mirror back.
 - **Do not recreate `docs/content/docs/`**. Top-level `docs/` is only a symlink to shell-docs. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
 - To run shell-docs locally, follow `showcase/shell-docs/README.md` and use the shell-docs npm commands.

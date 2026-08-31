@@ -54,6 +54,12 @@ async function setup(
 ): Promise<ThreadsUsageFooterContext> {
   document.body.replaceChildren();
   window.localStorage.clear();
+  // A returning developer on Threads: the first-run landing tab is now What's
+  // new, and this suite is about the Threads footer.
+  window.localStorage.setItem(
+    "cpk:inspector:state",
+    JSON.stringify({ selectedMenu: "threads" }),
+  );
   const inspectorMetadata = metadata(options);
   const fetchMock = vi.fn(
     async (input: RequestInfo | URL): Promise<Response> => {
@@ -108,10 +114,16 @@ async function setup(
   );
   await inspector.updateComplete;
   const opener = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-    'button[aria-label="Web Inspector"]',
+    'button[aria-label^="Web Inspector"]',
   );
   if (!opener) throw new Error("Web Inspector opener was not rendered");
   opener.click();
+  await inspector.updateComplete;
+  const threads = Array.from(
+    inspector.shadowRoot?.querySelectorAll<HTMLElement>("button") ?? [],
+  ).find((element) => element.textContent?.trim() === "Threads");
+  if (!threads) throw new Error("Threads was not rendered");
+  threads.click();
   await inspector.updateComplete;
 
   return {
@@ -267,7 +279,16 @@ test.each(usageDisplayCases)("$name", async (case_) => {
       );
     }
     if (case_.usage.used === 241) {
-      expect(footer.outerHTML).not.toContain("241");
+      // Comments stripped before the substring check. lit builds its part
+      // marker as `lit$` + nine digits from Math.random(), regenerated per
+      // process, and writes it into the DOM as a comment — so roughly one run
+      // in a hundred produced a marker containing "241" and failed this
+      // assertion with no relation to what the footer showed. What the
+      // assertion is actually about is that the unclamped count never reaches
+      // the user, and lit's internal bookkeeping is not that.
+      const rendered = footer.outerHTML.replace(/<!--[\s\S]*?-->/g, "");
+      expect(rendered).not.toContain("<!--");
+      expect(rendered).not.toContain("241");
       expect(context.core.inspectorMetadata?.usage?.used).toBe(241);
     }
   } finally {
@@ -459,7 +480,7 @@ test("the Threads footer stays scoped to Threads across navigation and Settings"
       ) ?? null;
 
     expect(findFooter()).not.toBeNull();
-    await context.selectTab("Agents");
+    await context.selectTab("Agent");
     expect(findFooter()).toBeNull();
     await context.selectTab("Learning");
     expect(findFooter()).toBeNull();

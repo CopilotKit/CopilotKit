@@ -91,7 +91,10 @@ so it validates the staging instance and canonical GHCR image without requiring
 a prod instance. Older staging-first entries used a temporary `gateIgnore`
 exemption; do not copy that historical pattern.
 
-`showcase-crewai-conversational-flows` is the current worked example.
+`showcase-crewai-conversational-flows` followed this staging-first path before
+its prod instance was provisioned and recorded in the SSOT. Treat it as a
+completed example; its current dual-environment entry is not a staging-only
+template.
 
 ### The critical gotcha (read this first)
 
@@ -270,6 +273,19 @@ There is no per-process forking. The live worker count equals the **effective
 replica count** strictly 1:1. `HARNESS_POOL_COUNT` is an **informational-only**
 control-plane hint — it does NOT fork additional workers. The authoritative
 per-worker concurrency knob is `BROWSER_POOL_MAX_CONTEXTS`.
+
+### Harness-worker recycling
+
+Planned max-job recycling is an ordinary, clean worker replacement path: the
+worker drains, deregisters from the roster, shuts down its browser pool, then
+exits `0`. Railway's `ALWAYS` restart policy replaces both clean exits and
+failed exits. Staging reasserts the policy before creating desired state; prod
+reasserts and verifies it while promoting. The direct named `harness-workers`
+pin path preserves it. We do not manage a retry-max field or claim infinite restarts for
+pathological crash loops.
+
+Prod rollout waits for staging evidence. Direct named `harness-workers` rollback
+is disabled, so operators pin the prior image by its `@sha256` digest instead.
 
 ### Effective replica count — `multiRegionConfig`, not top-level `numReplicas`
 

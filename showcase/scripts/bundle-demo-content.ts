@@ -58,7 +58,15 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import yaml from "yaml";
-import { findUnexpectedMultiFileRegions } from "./lib/demo-region-guard.js";
+import {
+  findUnexpectedMultiFileRegions,
+  findOversizeRegions,
+  findWorkspaceOnlyImportRegions,
+} from "./lib/demo-region-guard.js";
+import type {
+  RegionBodyFinding,
+  RegionBodySource,
+} from "./lib/demo-region-guard.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -363,12 +371,20 @@ function collectDemoFiles(
   return { readme, files: out, perFileRegions };
 }
 
+function describeRegionFinding(finding: RegionBodyFinding): string {
+  return `  ${finding.demoKey}: region "${finding.regionName}" (${finding.file}) ${finding.detail}`;
+}
+
 function main() {
   console.log("Bundling demo content...\n");
 
   const bundle: BundledContent = {
     demos: {},
   };
+
+  // Every published region body, checked once at the end so one run reports
+  // every unfollowable snippet instead of only the first.
+  const regionBodies: RegionBodySource[] = [];
 
   if (!fs.existsSync(PACKAGES_DIR)) {
     console.log("No packages directory found.");
@@ -568,6 +584,15 @@ function main() {
         }
 
         bundle.demos[key] = { readme, files, backend_files: [], regions };
+
+        for (const [regionName, region] of Object.entries(regions)) {
+          regionBodies.push({
+            demoKey: key,
+            regionName,
+            file: region.file,
+            code: region.code,
+          });
+        }
         const hlCount = files.filter((f) => f.highlighted).length;
         const regionCount = Object.keys(regions).length;
         console.log(
@@ -581,6 +606,29 @@ function main() {
         { cause: err },
       );
     }
+  }
+
+  // Guard the published snippets before writing: a region a reader cannot
+  // follow is a docs bug, and it is invisible in review because the bodies are
+  // assembled here rather than authored. See demo-region-guard.ts.
+  const workspaceOnly = findWorkspaceOnlyImportRegions(regionBodies);
+  const oversize = findOversizeRegions(regionBodies);
+  if (workspaceOnly.length > 0 || oversize.length > 0) {
+    throw new Error(
+      [
+        workspaceOnly.length > 0
+          ? `Region bodies importing repo-only modules:\n${workspaceOnly.map(describeRegionFinding).join("\n")}`
+          : null,
+        oversize.length > 0
+          ? `Region bodies over the published-snippet limit:\n${oversize.map(describeRegionFinding).join("\n")}`
+          : null,
+        "Move the @region marker so it wraps only the code the page is about, " +
+          "splitting the file if the snippet needs its own imports (see " +
+          "mastra/src/mastra/tools/a2ui-generate.ts).",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
   }
 
   const json = JSON.stringify(bundle, null, 2) + "\n";

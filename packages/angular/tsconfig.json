@@ -20,9 +20,11 @@
     "paths": {
       "@copilotkit/angular": ["./src/public-api.ts"],
       "@copilotkit/a2ui-renderer/web-components": [
+        "../a2ui-renderer/dist/web-components/index.d.mts",
         "../a2ui-renderer/src/web-components/index.ts"
       ],
       "@copilotkit/a2ui-renderer/web-components/define": [
+        "../a2ui-renderer/dist/web-components/define.d.mts",
         "../a2ui-renderer/src/web-components/define.ts"
       ],
       "@copilotkit/core": ["../core/dist/index.d.mts", "../core/src/index.ts"],
@@ -35,7 +37,14 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts", "**/*.test.ts"],
   "angularCompilerOptions": {
+    "compilationMode": "partial",
     "enableI18nLegacyMessageIdFormat": false,
+    "extendedDiagnostics": {
+      "checks": {
+        "nullishCoalescingNotNullable": "suppress",
+        "optionalChainNotNullable": "suppress"
+      }
+    },
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
     "strictTemplates": true

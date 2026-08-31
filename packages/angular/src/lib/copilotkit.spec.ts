@@ -44,7 +44,16 @@ const licenseKey = "ck_pub_" + "a".repeat(32);
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
-vi.mock("@copilotkit/core", () => {
+// Spread the real module and override only what these tests drive. The factory
+// used to replace `@copilotkit/core` wholesale, which broke as soon as the
+// Inspector mounted here: it is enabled by default in browser frameworks now,
+// and its connectedCallback reaches for `isInspectorThreadBridgeEnabled` — one
+// of seventeen value exports it needs. A missing one throws an uncaught
+// exception that fails the run while all 49 test files still pass, which is a
+// confusing way to learn about it. Listing the seventeen would only postpone
+// the next occurrence.
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@copilotkit/core")>();
   const CopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
@@ -89,6 +98,7 @@ vi.mock("@copilotkit/core", () => {
   }
 
   return {
+    ...actual,
     CopilotKitCore: MockCopilotKitCore,
     CopilotKitCoreRuntimeConnectionStatus,
   } as any;

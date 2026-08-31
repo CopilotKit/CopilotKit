@@ -4,12 +4,15 @@ Chat UI with generative charts, shared-state todo canvas, and inline tool render
 
 ## Prerequisites
 
-| Tool    | Version                      |
-| ------- | ---------------------------- |
-| AWS CLI | configured (`aws configure`) |
-| Node.js | 18+                          |
-| Python  | 3.8+                         |
-| Docker  | running                      |
+| Tool    | Version                                                                       |
+| ------- | ----------------------------------------------------------------------------- |
+| AWS CLI | configured (`aws configure`)                                                  |
+| Node.js | 18+                                                                           |
+| uv      | [any recent release](https://docs.astral.sh/uv/getting-started/installation/) |
+| Docker  | running                                                                       |
+
+The Python side is managed entirely by uv — it provisions the interpreter, so
+there is no separate Python install step.
 
 ## Deploy to AWS
 
@@ -49,7 +52,23 @@ cp .env.example .env
 
 The full chain runs locally: `browser:3000 → bridge:3001 → agent:8080`. AWS is only used for Memory and Gateway (SSM/OAuth2).
 
-See `docs/LOCAL_DEVELOPMENT.md` for full details.
+## Agent dependencies
+
+Each single-agent directory under `agents/` — `langgraph-single-agent/` and
+`strands-single-agent/` — is its own uv project with its own `uv.lock`, and the
+Dockerfiles install with `uv sync --locked` — so the image gets exactly the
+dependency set in the lockfile, not whatever resolves that day. `agents/utils/`
+is the exception: it is shared source that both Dockerfiles `COPY` in, not a
+project, so it has no `pyproject.toml` or lockfile of its own and anything it
+imports must be declared in each agent that copies it.
+
+```bash
+cd agents/langgraph-single-agent
+uv add some-package        # or edit pyproject.toml, then: uv lock
+```
+
+Either way, commit the updated `uv.lock` alongside `pyproject.toml`. Terraform
+hashes both, so a dependency change retriggers the image build on the next apply.
 
 ## What's inside
 
@@ -58,10 +77,10 @@ See `docs/LOCAL_DEVELOPMENT.md` for full details.
 | `frontend/`                      | Vite + React with CopilotKit chat, charts, todo canvas     |
 | `agents/langgraph-single-agent/` | LangGraph agent with tools + shared todo state             |
 | `agents/strands-single-agent/`   | Strands agent with tools + shared todo state               |
+| `pyproject.toml` / `uv.lock`     | Dependencies for the `scripts/` helpers                    |
 | `infra-cdk/`                     | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
 | `infra-terraform/`               | Terraform equivalent — see `infra-terraform/README.md`     |
 | `docker/`                        | Local dev via Docker Compose                               |
-| `docs/`                          | LOCAL_DEVELOPMENT.md, LOCAL_DOCKER_TESTING.md              |
 
 ## Architecture
 
@@ -88,5 +107,3 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-st   # Strands 
 
 - [CopilotKit](https://docs.copilotkit.ai)
 - [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Local Development](docs/LOCAL_DEVELOPMENT.md)
-- [Local Docker Testing](docs/LOCAL_DOCKER_TESTING.md)

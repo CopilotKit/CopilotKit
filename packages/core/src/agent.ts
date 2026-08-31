@@ -28,6 +28,7 @@ import type {
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
 import type { CopilotRuntimeTransport } from "./types";
+import { runtimeInfoError } from "./utils/runtime-info-error";
 
 type ResolvedRuntimeMode = RuntimeMode | "pending";
 
@@ -451,6 +452,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      fetch: this.fetch,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);
@@ -558,15 +560,13 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       init = {};
     }
 
-    const response = await fetch(url, {
+    const response = await this.fetch(url, {
       ...init,
       headers,
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     return (await response.json()) as RuntimeInfo;
   }
@@ -576,7 +576,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   ): Promise<RuntimeInfo> {
     // Try REST first (GET /info)
     try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
+      const response = await this.fetch(`${this.runtimeUrl}/info`, {
         headers: { ...headers },
         ...(this.credentials ? { credentials: this.credentials } : {}),
       });
@@ -596,16 +596,14 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     if (!singleHeaders["Content-Type"]) {
       singleHeaders["Content-Type"] = "application/json";
     }
-    const response = await fetch(this.runtimeUrl!, {
+    const response = await this.fetch(this.runtimeUrl!, {
       method: "POST",
       headers: singleHeaders,
       body: JSON.stringify({ method: "info" }),
       ...(this.credentials ? { credentials: this.credentials } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     this.transport = "single";
     this.singleEndpointUrl = this.runtimeUrl;
@@ -672,6 +670,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       agentId: routedId,
       headers: { ...this.headers },
       credentials: this.credentials,
+      fetch: this.fetch as typeof fetch,
     });
   }
 

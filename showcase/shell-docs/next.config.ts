@@ -746,7 +746,7 @@ const nextConfig: NextConfig = {
 
       // Concepts subgroup tightened: protocol pages moved into a new
       // /agentic-protocols/ section under Get Started, the
-      // Intelligence Platform + Threads explanation pages moved to
+      // Intelligence + Threads explanation pages moved to
       // Enterprise (/premium/), and three-types-of-gen-ui merged into
       // /concepts/generative-ui-overview. Per-path redirects below
       // catch URLs that were live in the brief window between the
