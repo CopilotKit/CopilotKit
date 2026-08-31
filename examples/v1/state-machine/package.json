@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "test": "vitest run",
     "start": "next start",
     "clean": "node -e \"const fs=require('fs');['.turbo','node_modules','dist','.next'].forEach(d=>fs.rmSync(d,{recursive:true,force:true}))\""
   },
@@ -27,7 +28,8 @@
     "@types/react-dom": "^18",
     "postcss": "^8",
     "tailwindcss": "^4.1.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.3"
   },
   "nx": {
     "targets": {

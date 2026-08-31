@@ -98,5 +98,5 @@ body {
 }
 
 .copilotKitInput button:not([disabled]) {
-  color: var(--primary);
+  color: hsl(var(--primary));
 }

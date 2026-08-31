@@ -56,7 +56,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
 
 3. Create a `.env` file in the project root and add your [OpenAI API key](https://platform.openai.com/api-keys):
 
-   ```
+   ```env
    OPENAI_API_KEY=your_openai_api_key
    ```
 
@@ -121,7 +121,7 @@ useAgentContext({
     name: formValues.name ?? "",
     email: formValues.email ?? "",
     incidentType: formValues.incidentType ?? "",
-    date: formValues.date?.toISOString() ?? "",
+    date: formValues.date ? serializeIncidentDate(formValues.date) : "",
     description: formValues.description ?? "",
     impactLevel: formValues.impactLevel ?? "",
     suggestedActions: formValues.suggestedActions ?? "",
@@ -149,7 +149,7 @@ useFrontendTool({
   name: "fillIncidentReportForm",
   description: "Fill out the incident report form",
   parameters: z.object({
-    fullName: z.string(),
+    fullName: z.string().min(2),
     email: z.string().email(),
     date: incidentDateSchema,
     incidentType: z.enum([
@@ -161,8 +161,8 @@ useFrontendTool({
       "other",
     ]),
     incidentLevel: z.enum(["low", "medium", "high", "critical"]),
-    incidentDescription: z.string(),
-    suggestedActions: z.string(),
+    incidentDescription: z.string().min(10),
+    suggestedActions: z.string().min(10),
   }),
   handler: async (action) => {
     const incidentDate = parseIncidentDate(action.date);

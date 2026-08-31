@@ -38,6 +38,10 @@ export function ResearchCanvas() {
         urls: z.array(z.string()),
       }),
       render: ({ args, status, respond }) => {
+        if (status === "complete") {
+          return <div role="status">Response recorded.</div>;
+        }
+
         return (
           <div data-test-id="delete-resource-generative-ui-container">
             <div className="font-bold text-base mb-2">

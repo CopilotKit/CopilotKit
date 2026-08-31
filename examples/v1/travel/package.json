@@ -7,6 +7,7 @@
     "dev:ui": "next dev",
     "dev:agent": "cd agent && uv run main.py",
     "build": "next build",
+    "test": "vitest run",
     "start": "next start",
     "lint": "next lint",
     "install:agent": "cd agent && uv sync"
@@ -51,7 +52,8 @@
     "concurrently": "^8.2.2",
     "postcss": "^8",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.3"
   },
   "nx": {
     "targets": {

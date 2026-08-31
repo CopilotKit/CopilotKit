@@ -8,57 +8,17 @@ import {
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { AddTrips, EditTrips, DeleteTrips } from "@/components/humanInTheLoop";
-import { defaultTrips } from "@/lib/types";
-import type { AgentState, Place, Trip } from "@/lib/types";
+import {
+  isAgentStateInitialized,
+  normalizeAgentState,
+  tripsSchema,
+} from "@/lib/agent-state";
+import type { Place, Trip } from "@/lib/types";
 import { z } from "zod";
-
-const defaultSelectedTripId = defaultTrips[0]?.id ?? null;
-
-const placeSchema = z.object({
-  id: z.string().describe("The place ID"),
-  name: z.string().describe("The place name"),
-  address: z.string().describe("The place address"),
-  latitude: z.number().describe("The place latitude"),
-  longitude: z.number().describe("The place longitude"),
-  rating: z.number().describe("The place rating"),
-  description: z.string().optional().describe("A short place description"),
-});
-
-const tripSchema = z.object({
-  id: z.string().describe("The trip ID"),
-  name: z.string().describe("The trip name"),
-  center_latitude: z.number().describe("The map center latitude"),
-  center_longitude: z.number().describe("The map center longitude"),
-  zoom_level: z.number().optional().describe("The map zoom level"),
-  places: z.array(placeSchema).describe("Places included in the trip"),
-});
-
-const tripsSchema = z.object({
-  trips: z.array(tripSchema).describe("The trips to review"),
-});
 
 const deleteTripsSchema = z.object({
   trip_ids: z.array(z.string()).describe("The IDs of the trips to delete"),
 });
-
-function normalizeAgentState(value: unknown): AgentState {
-  const state =
-    value !== null && typeof value === "object"
-      ? (value as Partial<AgentState>)
-      : {};
-
-  return {
-    ...state,
-    trips: Array.isArray(state.trips) ? state.trips : defaultTrips,
-    selected_trip_id:
-      state.selected_trip_id === undefined
-        ? defaultSelectedTripId
-        : state.selected_trip_id,
-    search_progress: Array.isArray(state.search_progress)
-      ? state.search_progress
-      : undefined,
-  };
-}
 
 type TripsContextType = {
   trips: Trip[];
@@ -82,20 +42,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isReady) return;
 
-    const currentState =
-      agent.state !== null && typeof agent.state === "object"
-        ? (agent.state as Partial<AgentState>)
-        : {};
+    if (isAgentStateInitialized(agent.state)) return;
 
-    if (
-      Array.isArray(currentState.trips) &&
-      currentState.selected_trip_id !== undefined
-    ) {
-      return;
-    }
-
-    agent.setState(normalizeAgentState(currentState));
-  }, [agent, isReady]);
+    agent.setState(normalizeAgentState(agent.state));
+  }, [agent, agent.state, isReady]);
 
   useRenderTool(
     {

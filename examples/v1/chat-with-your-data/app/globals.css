@@ -83,10 +83,10 @@
 [data-copilotkit] {
   --background: white;
   --foreground: #1e293b;
-  --primary: #3b82f6;
+  --primary: #2563eb;
   --primary-foreground: white;
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  --muted-foreground: #475569;
   --border: #e2e8f0;
   --input: #e2e8f0;
   --ring: #3b82f6;
@@ -97,8 +97,8 @@
 [data-copilotkit].dark {
   --background: #0f172a;
   --foreground: #f8fafc;
-  --primary: #3b82f6;
-  --primary-foreground: white;
+  --primary: #60a5fa;
+  --primary-foreground: #0f172a;
   --muted: #1e293b;
   --muted-foreground: #94a3b8;
   --border: #334155;

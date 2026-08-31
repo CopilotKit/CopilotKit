@@ -8,10 +8,8 @@ import {
 } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
-  agents: ({ request }) => {
-    const deploymentUrl =
-      request.headers.get("x-lgc-deployment-url") ||
-      process.env.LGC_DEPLOYMENT_URL;
+  agents: () => {
+    const deploymentUrl = process.env.LGC_DEPLOYMENT_URL;
 
     if (deploymentUrl) {
       return {

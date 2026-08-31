@@ -43,13 +43,13 @@ export function useStageConfirmOrder() {
             onConfirm={async (order: Order) => {
               if (!respond) return;
 
-              // Commit the order to the global state.
-              setOrders((prevOrders) => [...prevOrders, order]);
-
               // Let the agent know that the user has confirmed their order.
               await respond(
                 "User confirmed their order, please ask them if they would like to place a another order and if they do, call the 'nextState' action.",
               );
+
+              // Commit the order only after the response succeeds.
+              setOrders((prevOrders) => [...prevOrders, order]);
             }}
             onCancel={async () => {
               if (!respond) return;
