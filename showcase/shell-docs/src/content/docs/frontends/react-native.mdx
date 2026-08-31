@@ -696,6 +696,7 @@ So read the records your app actually holds, and confirm the answer names those 
 ## Known limitations
 
 - **Markdown in a custom UI** — the rendered chat on `@copilotkit/react-native/components` renders markdown for you (via `CopilotMarkdown`, backed by `react-native-streamdown`). If you build your own UI, a plain `Text` shows markdown as-is — reuse `CopilotMarkdown` or bring your own renderer.
+- **Inspector** — the [Inspector](/inspector#where-inspector-runs) is a browser overlay that mounts a custom element into the DOM, so it has no React Native surface and `@copilotkit/react-native` does not ship it. The three checks under [Proving it works](#proving-it-works) cover what it would have shown you.
 - **Voice** — `@copilotkit/voice` has not been adapted for React Native; wire your own STT as above.
 - **`threadId` on `useAgent`** — not supported yet ([#6141](https://github.com/CopilotKit/CopilotKit/pull/6141)). Thread scoping comes from a chat-configuration provider; a `threadId` passed to `useAgent` does not typecheck and is ignored.
 - **Cloud provider props** — `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.

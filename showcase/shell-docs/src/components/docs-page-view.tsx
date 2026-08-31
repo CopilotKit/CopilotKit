@@ -43,6 +43,8 @@ import type { OpsPlatformCTAProps } from "@/components/react/ops-platform-cta";
 import { ChannelsStartPrompt } from "@/components/channels-start-prompt";
 import type { ChannelsStartPromptProps } from "@/components/channels-start-prompt";
 import { RichThreadsSetupPrompt } from "@/components/rich-threads-setup-prompt";
+import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
+import type { IntelligenceOnboardingPromptProps } from "@/components/intelligence-onboarding-prompt";
 import { SignupLink } from "@/components/react/signup-link";
 import type { SignupLinkProps } from "@/components/react/signup-link";
 import { FrameworkSetup } from "@/lib/setup-concept";
@@ -108,6 +110,16 @@ export interface DocsPageViewProps {
    * (or suppress them) based on its own state.
    */
   ContentWrapper?: React.ComponentType<{ children: React.ReactNode }>;
+}
+
+function IntelligenceOnboardingPromptMdx(
+  props: IntelligenceOnboardingPromptProps,
+): React.JSX.Element {
+  return (
+    <div className="mb-6">
+      <IntelligenceOnboardingPrompt {...props} />
+    </div>
+  );
 }
 
 /**
@@ -343,6 +355,8 @@ export async function DocsPageView({
                           />
                         ),
                         RichThreadsSetupPrompt,
+                        IntelligenceOnboardingPrompt:
+                          IntelligenceOnboardingPromptMdx,
                         OpsPlatformCTA: (props: OpsPlatformCTAProps) => (
                           <OpsPlatformCTA
                             {...props}

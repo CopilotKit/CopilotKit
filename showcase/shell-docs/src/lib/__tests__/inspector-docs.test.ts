@@ -88,12 +88,13 @@ test("every web integration quickstart imports the Open Inspector step", () => {
   }
 });
 
-test("Intelligence signup CTA still names Inspector beside the Open Inspector step", () => {
+test("Intelligence onboarding prompt appears beside the Open Inspector step", () => {
   const langgraph = read("docs/integrations/langgraph/quickstart.mdx");
   const deepAgents = read("docs/integrations/deepagents/quickstart.mdx");
 
   for (const source of [langgraph, deepAgents]) {
-    expect(source).toContain("<OpsPlatformCTA");
+    expect(source).toContain("<IntelligenceOnboardingPrompt");
+    expect(source).toContain('feature="learning"');
     expect(source.toLowerCase()).toContain("inspector");
     expect(source).toContain("<OpenInspectorStep");
   }
@@ -132,13 +133,12 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   );
 });
 
-test("Inspector Callout snippets name the shipped pane and skip unshipped work", () => {
+test("Inspector Callout snippets name shipped panes and skip retired controls", () => {
   const snippets = listMdx(SNIPPETS_DIR);
   expect(snippets.length).toBeGreaterThan(0);
 
   for (const path of snippets) {
     const source = readFileSync(path, "utf8");
-    expect(source).not.toMatch(/\bPlayground\b/);
     expect(source).not.toMatch(/\bFork from here\b/);
     expect(source).not.toMatch(/\bEmit events\b/);
   }
@@ -189,4 +189,33 @@ test("React Native and Channels do not tell the reader to click the Inspector bu
   expect(reactNative).not.toContain("OpenInspectorStep");
   expect(channels).not.toContain("click the Inspector button");
   expect(channels).not.toContain("OpenInspectorStep");
+});
+
+// Skipping the Open Inspector step kept the docs from pointing React Native at a surface it
+// cannot open, but it never stated the absence. Both pages now say it (OSS-977).
+test("Inspector states that it needs a browser and React Native has none", () => {
+  const inspector = read("docs/inspector.mdx");
+
+  expect(inspector).toContain("## Where Inspector runs");
+  expect(inspector).toContain("Inspector is a browser overlay");
+  expect(inspector).toContain("There is no React Native build of Inspector");
+
+  // Naming the gap without naming the substitutes moves the cost rather than removing it.
+  expect(inspector).toContain("copilotkit verify --round-trip");
+  expect(inspector).toContain("/troubleshooting/debug-mode");
+  expect(inspector).toContain("/react-native#proving-it-works");
+});
+
+test("the React Native page lists the missing Inspector among its limitations", () => {
+  const reactNative = read("docs/frontends/react-native.mdx");
+
+  // The limitations list is where a mobile developer checks what does not carry over.
+  const limitationsAt = reactNative.indexOf("## Known limitations");
+  const inspectorAt = reactNative.indexOf("**Inspector**");
+  expect(limitationsAt).toBeGreaterThanOrEqual(0);
+  expect(inspectorAt).toBeGreaterThan(limitationsAt);
+
+  expect(reactNative).toContain("no React Native surface");
+  expect(reactNative).toContain("[Inspector](/inspector#where-inspector-runs)");
+  expect(reactNative).toContain("[Proving it works](#proving-it-works)");
 });

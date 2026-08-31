@@ -83,3 +83,28 @@ test.each([
     );
   },
 );
+
+// A snippet that is not bundled and a bundled snippet that fails to compile both left
+// `FrameworkSetup` returning `null`, so a rendering defect shipped looking exactly like a
+// deliberate omission — the only trace a `console.error` nobody reads in production
+// (OSS-1036). Absence is a real state and stays quiet; a broken snippet is not.
+test("a concept nobody bundled for this framework renders nothing, quietly", async () => {
+  const result = await FrameworkSetup({
+    concept: "frontend-tools-setup",
+    currentFramework: "ag2",
+  });
+
+  expect(result).toBeNull();
+  expect(mocks.mdxRemote).not.toHaveBeenCalled();
+});
+
+test("a bundled snippet that fails to compile is loud, not null", async () => {
+  mocks.mdxRemote.mockRejectedValueOnce(new Error("Unexpected token"));
+
+  await expect(
+    FrameworkSetup({
+      concept: "frontend-tools-setup",
+      currentFramework: "google-adk",
+    }),
+  ).rejects.toThrow(/frontend-tools-setup.*google-adk/);
+});

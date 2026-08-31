@@ -134,6 +134,11 @@ const PROMPTS: Readonly<Record<string, { heal: string; exhaust: string }>> = {
     exhaust:
       "Generate a .NET board that fails every validation pass so I can preview the recovery fallback.",
   },
+  "ms-agent-python": {
+    heal: "Draft the Q3 pipeline snapshot and auto-correct a malformed first render.",
+    exhaust:
+      "Generate a summary that fails every validation attempt so I can preview the fallback.",
+  },
   strands: {
     heal: "Assemble a quarterly performance board and recover from a malformed first draft.",
     exhaust:
