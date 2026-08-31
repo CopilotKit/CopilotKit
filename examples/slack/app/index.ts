@@ -58,6 +58,10 @@ import {
   defaultWhatsAppContext,
 } from "@copilotkit/channels/whatsapp";
 import { appTools } from "./tools/index.js";
+import {
+  isCarouselRequest,
+  renderCatalogCarousel,
+} from "./tools/render-carousel.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { loadBrandRender } from "./render/brand.js";
@@ -286,6 +290,11 @@ async function main() {
   // silently.
   bot.onMention(async ({ thread, message }) => {
     try {
+      if (isCarouselRequest(message.text)) {
+        console.log("[channel] posting sample carousel");
+        await renderCatalogCarousel(thread);
+        return;
+      }
       await thread.runAgent({
         context: senderContext(message.user, thread.platform),
       });

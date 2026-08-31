@@ -35,6 +35,10 @@ import {
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { appTools } from "./tools/index.js";
+import {
+  isCarouselRequest,
+  renderCatalogCarousel,
+} from "./tools/render-carousel.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
@@ -129,6 +133,11 @@ async function main() {
   // Turn + feature handlers — identical to the native example (app/index.ts).
   support.onMention(async ({ thread, message }) => {
     try {
+      if (isCarouselRequest(message.text)) {
+        console.log("[channel] posting sample carousel");
+        await renderCatalogCarousel(thread);
+        return;
+      }
       // Channel history (app-api /api/channels/history) does NOT include the
       // in-flight turn (unlike native adapters whose getHistory rebuilds the
       // live thread), so pass the current message explicitly as `prompt` —

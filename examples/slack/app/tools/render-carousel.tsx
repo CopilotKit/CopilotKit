@@ -101,7 +101,12 @@ function CatalogCarousel({
   );
 }
 
-/** Shared by the tool and the slash command. */
+/** True when the user asks for the sample carousel in plain text. */
+export function isCarouselRequest(text: string): boolean {
+  return /\bcarousel\b/i.test(text) || /\bsample catalog\b/i.test(text);
+}
+
+/** Shared by the tool, the slash command, and the plain-text mention path. */
 export async function renderCatalogCarousel(
   thread: CarouselThread,
   args: { heading?: string; items?: CatalogItem[] } = {},
