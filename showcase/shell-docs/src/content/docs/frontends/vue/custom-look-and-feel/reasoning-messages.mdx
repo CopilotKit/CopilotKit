@@ -4,19 +4,47 @@ icon: "lucide/Brain"
 description: Customize the Vue display for reasoning messages emitted by an agent.
 ---
 
-Some agents emit reasoning messages before their final response. The default
-Vue `CopilotChatReasoningMessage` renders them as a collapsible Markdown card:
-it opens while the latest reasoning message streams, labels that state
-`Thinking…`, then collapses to `Thought for X seconds` when the run finishes.
+Some models emit reasoning tokens before their final response. CopilotKit
+surfaces the corresponding AG-UI reasoning messages automatically with a
+collapsible `CopilotChatReasoningMessage` card.
 
-No extra chat prop is required. When the agent emits a reasoning message, the
-default message view renders it.
+## Default Behavior
 
-## Customize the reasoning card
+When reasoning events arrive, the built-in Vue card:
+
+- Shows **Thinking…** with a pulsating indicator while reasoning is active.
+- Expands automatically while the latest reasoning message streams.
+- Collapses and switches to **Thought for X seconds** when streaming finishes.
+- Renders the content as Markdown.
+- Provides a chevron toggle so the user can review the content later.
+
+No extra chat prop is required. If the selected agent emits reasoning
+messages, the default message view renders them.
+
+## Customizing the Reasoning Message
 
 Compose a custom reasoning leaf in the `reasoning-message` slot of
 `CopilotChatMessageView`. The leaf itself provides scoped `header`,
 `content-view`, `toggle`, and `layout` slots.
+
+| Sub-component | Vue slot | Description |
+| --- | --- | --- |
+| Header | `header` | Clickable bar with label and expand/collapse action. |
+| Content | `content-view` | Raw reasoning content and streaming state. |
+| Toggle | `toggle` | Expand/collapse wrapper data. |
+| Complete layout | `layout` | All message and subcomponent state for a full rearrangement. |
+
+### Custom Header
+
+Replace the header to change its icon, label, or styling. It receives:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `isOpen` | `boolean` | Whether the content is expanded. |
+| `label` | `string` | `Thinking…` while streaming, then `Thought for X seconds`. |
+| `hasContent` | `boolean` | Whether reasoning text has arrived. |
+| `isStreaming` | `boolean` | Whether this latest reasoning message is streaming. |
+| `onClick` | `() => void` or `undefined` | Toggle action, present only when content exists. |
 
 ```vue title="ChatWithReasoning.vue"
 <script setup lang="ts">
@@ -53,16 +81,80 @@ import {
 </template>
 ```
 
-## Slot data
+Keep `onClick` attached when replacing the header; it owns the open/close
+transition and is intentionally absent when there is nothing to reveal.
 
-| Slot | Data |
-| --- | --- |
-| `header` | `isOpen`, `label`, `hasContent`, `isStreaming`, and optional `onClick`. |
-| `content-view` | `content`, `hasContent`, and `isStreaming`. |
-| `toggle` | `isOpen` and the content-view data. |
-| `layout` | The message, all messages, run state, and the header/content/toggle slot data. |
+### Custom Content
 
-Keep the `onClick` action attached when you replace the header: it owns the
-expand/collapse transition. Use the `layout` slot only when you need to
-rearrange the whole card; the smaller slots are less work and keep the default
-structure.
+Replace only the content area when the default header and toggle behavior are
+correct but the body needs a different presentation:
+
+```vue
+<CopilotChatReasoningMessage
+  :message="message"
+  :messages="messages"
+  :is-running="isRunning"
+>
+  <template #content-view="{ content, hasContent, isStreaming }">
+    <pre v-if="hasContent || isStreaming" class="reasoning-log">
+      {{ content }}{{ isStreaming ? " ▊" : "" }}
+    </pre>
+  </template>
+</CopilotChatReasoningMessage>
+```
+
+The Vue slot uses `content` for the raw string; React's `children` prop is not
+part of this API.
+
+## Fully Custom Reasoning Message
+
+For complete control, replace `reasoning-message` without composing the
+built-in leaf. The slot receives the same top-level state as the default
+component:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `message` | `ReasoningMessage` | Reasoning message; `.content` contains the text. |
+| `messages` | `Message[]` | All messages in the conversation. |
+| `isRunning` | `boolean` | Whether the agent is currently running. |
+
+```vue
+<CopilotChatMessageView :messages="messages" :is-running="isRunning">
+  <template #reasoning-message="{ message, isRunning: running }">
+    <aside class="reasoning-banner" :data-streaming="running">
+      <strong>Reasoning</strong>
+      <pre>{{ message.content }}</pre>
+    </aside>
+  </template>
+</CopilotChatMessageView>
+```
+
+This replacement owns expansion, Markdown rendering, duration labels, and
+accessibility; none of the built-in card behavior is retained automatically.
+
+## Layout Slot
+
+Vue does not use React's render-prop children pattern. The built-in reasoning
+leaf exposes a `layout` scoped slot with the message plus structured
+`header`, `contentView`, and `toggle` state:
+
+```vue
+<CopilotChatReasoningMessage
+  :message="message"
+  :messages="messages"
+  :is-running="isRunning"
+>
+  <template #layout="{ header, contentView, toggle }">
+    <section class="reasoning-card">
+      <button type="button" :disabled="!header.hasContent" @click="header.onClick?.()">
+        {{ header.label }}
+      </button>
+      <pre v-if="toggle.isOpen">{{ contentView.content }}</pre>
+    </section>
+  </template>
+</CopilotChatReasoningMessage>
+```
+
+Use `layout` only when you need to rearrange the whole card. The narrower
+`header`, `content-view`, and `toggle` slots preserve more of the default
+structure and behavior.

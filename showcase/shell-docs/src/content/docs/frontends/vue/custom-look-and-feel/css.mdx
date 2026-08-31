@@ -6,22 +6,32 @@ description: Theme CopilotKit Vue components with CSS design tokens.
 
 ## What is this?
 
-The Vue v2 components ship a scoped Tailwind theme. Import the package
-stylesheet once, then override CSS custom properties on `[data-copilotkit]` or
-an ancestor to retint the prebuilt UI without changing its behavior.
+CopilotKit Vue has several plain-CSS ways to change the appearance of the
+prebuilt UI without changing its behavior. You can:
+
+- Override the v2 design tokens to re-tint the whole UI.
+- Scope those tokens to one chat surface so they do not leak across the app.
+- Add structural CSS around stable CopilotKit roots and your own slot markup.
+- Change inherited fonts per surface.
+- Replace icons through Vue slots and user-facing copy through `labels`.
+
+The Vue v2 components ship a Tailwind v4 theme based on the standard
+shadcn/ui token set. Import the package stylesheet once, then override CSS
+custom properties on `[data-copilotkit]` or an ancestor.
 
 Use [slots](/vue/custom-look-and-feel/slots) when you need to replace markup,
 and [headless UI](/vue/custom-look-and-feel/headless-ui) when you need your own
 surface.
 
-## Import and scope the theme
+## Scoping the theme
 
 ```ts title="main.ts"
 import "@copilotkit/vue/styles.css";
 ```
 
-The components mark their roots with `data-copilotkit`, so scope overrides to
-one product area when the rest of the application uses different tokens:
+The components mark their roots with `data-copilotkit`. Put a class around one
+product area and scope every override below it when the rest of the application
+uses different tokens:
 
 ```vue title="SupportChat.vue"
 <script setup lang="ts">
@@ -47,7 +57,29 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 </style>
 ```
 
-## Design-token reference
+## CSS Variables (Easiest)
+
+The easiest customization is a CSS-variable override because every nested Vue
+chat component picks it up automatically.
+
+<Callout type="info" title="Vue uses the v2 token system">
+  The older `--copilot-kit-*` variables and `.copilotKit...` classes documented
+  for `@copilotkit/react-ui` style v1 React components do not style
+  `@copilotkit/vue/v2`. Vue's public stylesheet is
+  `@copilotkit/vue/styles.css` and uses the v2 tokens below.
+</Callout>
+
+## v2 Design Tokens (shadcn)
+
+The tokens are scoped to `[data-copilotkit]` and wired into the prefixed
+Tailwind utilities through an `@theme inline` block. Override them on the
+CopilotKit root or any ancestor, just as you would in a shadcn project.
+
+### Reference
+
+These are the most commonly overridden tokens. Each light value has a matching
+dark-mode value under `.dark [data-copilotkit]`. The full set lives in
+`@copilotkit/vue/styles.css`.
 
 | Token | Description |
 | --- | --- |
@@ -62,10 +94,8 @@ import { CopilotChat } from "@copilotkit/vue/v2";
 | `--sidebar-*` | Sidebar-specific background, foreground, border, and ring tokens. |
 | `--radius` | Base corner radius; the smaller and larger radii derive from it. |
 
-## Dark mode
-
 The stylesheet recognizes a `.dark` ancestor. Override the same tokens under
-that ancestor to match your application’s dark-mode switch:
+that ancestor to match your application's dark-mode switch:
 
 ```css title="app.css"
 .dark [data-copilotkit] {
@@ -77,3 +107,71 @@ that ancestor to match your application’s dark-mode switch:
 
 Any valid CSS color works; `oklch()` is the default because it preserves
 perceived lightness more consistently across hues.
+
+## Custom CSS
+
+Use your own wrapper classes and slot markup for structural changes. Vue v2's
+internal prefixed utility classes are implementation details, so avoid copying
+or overriding them as an API. Stable CopilotKit roots and your own classes make
+safer selectors:
+
+```css title="app.css"
+.support-chat [data-copilotkit] {
+  border-radius: 1rem;
+}
+
+.support-chat .support-message-card {
+  border: 1px solid var(--border);
+  padding: 1rem;
+}
+```
+
+Use [slots](/vue/custom-look-and-feel/slots) to introduce
+`.support-message-card` or to replace structure. The Vue package does not
+expose the v1 React `.copilotKitMessages`, `.copilotKitInput`, or
+`.copilotKitUserMessage` class contract.
+
+## Custom Fonts
+
+Fonts inherit through the CopilotKit root, so scope a font to one surface or
+set it for every Vue chat:
+
+```css title="app.css"
+.support-chat [data-copilotkit] {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+```
+
+## Custom Icons
+
+Vue uses slots instead of an `icons` prop. `CopilotPopup` and
+`CopilotSidebar` expose a `toggle-button` slot with open state and actions, so
+you can replace the launcher and its icons together:
+
+```vue
+<CopilotPopup>
+  <template #toggle-button="{ isOpen, toggle }">
+    <button type="button" :aria-label="isOpen ? 'Close chat' : 'Open chat'" @click="toggle">
+      <MyCloseIcon v-if="isOpen" />
+      <MyChatIcon v-else />
+    </button>
+  </template>
+</CopilotPopup>
+```
+
+The public `CopilotChatToggleButton` leaf also exposes `open-icon` and
+`close-icon` slots when you want to keep the default button behavior.
+
+## Custom Labels
+
+Customize user-facing copy through the `labels` prop:
+
+```vue
+<CopilotChat
+  :labels="{
+    welcomeMessageText: 'Hello! How can I help you today?',
+    modalHeaderTitle: 'My Copilot',
+    chatInputPlaceholder: 'Ask me anything!',
+  }"
+/>
+```
