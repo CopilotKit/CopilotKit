@@ -53,3 +53,36 @@ test("rejects suggested actions shorter than the form minimum", () => {
 
   expect(result.success).toBe(false);
 });
+
+test("rejects a full name containing only whitespace", () => {
+  const { input } = setup();
+
+  const result = fillIncidentReportFormParameters.safeParse({
+    ...input,
+    fullName: "  ",
+  });
+
+  expect(result.success).toBe(false);
+});
+
+test("rejects an incident description containing only whitespace", () => {
+  const { input } = setup();
+
+  const result = fillIncidentReportFormParameters.safeParse({
+    ...input,
+    incidentDescription: "          ",
+  });
+
+  expect(result.success).toBe(false);
+});
+
+test("rejects suggested actions containing only whitespace", () => {
+  const { input } = setup();
+
+  const result = fillIncidentReportFormParameters.safeParse({
+    ...input,
+    suggestedActions: "          ",
+  });
+
+  expect(result.success).toBe(false);
+});
