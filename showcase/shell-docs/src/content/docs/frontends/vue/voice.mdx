@@ -42,6 +42,17 @@ The default REST transport posts multipart form data to
 the Vue client sends a JSON envelope to `runtimeUrl` containing base64 audio,
 `mimeType`, and `filename`.
 
+Set the provider prop when your runtime exposes one single endpoint:
+
+```vue
+<CopilotKitProvider
+  runtime-url="/api/copilotkit"
+  :use-single-endpoint="true"
+>
+  <CopilotChat />
+</CopilotKitProvider>
+```
+
 ## Custom audio handling
 
 Pass `on-finish-transcribe-with-audio` when your application wants to receive
