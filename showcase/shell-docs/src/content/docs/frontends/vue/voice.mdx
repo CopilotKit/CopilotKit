@@ -1,0 +1,102 @@
+---
+title: Voice
+description: Add runtime-backed speech-to-text to a Vue chat composer.
+icon: "lucide/Mic"
+---
+
+You can add voice input to `CopilotChat` without wiring a separate microphone
+button. The component renders its transcription controls only when the runtime
+advertises `audioFileTranscriptionEnabled` and the browser supports
+`MediaRecorder`.
+
+## When to use this
+
+- Use voice input for hands-free, accessibility, mobile, kiosk, and long-form
+  prompts.
+- Use [multimodal attachments](/vue/multimodal-attachments) when the user is
+  sending an audio file rather than speaking live.
+
+## Frontend setup
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+When the user starts recording, the browser requests microphone permission.
+After recording finishes, the Vue component sends the audio to the runtime,
+places the returned transcript into the composer, and leaves it editable. The
+user submits it like any other message; Vue does not auto-send the transcript.
+Serve production pages over HTTPS so browsers can grant microphone access.
+
+The default REST transport posts multipart form data to
+`{runtimeUrl}/transcribe` with an `audio` field. With `use-single-endpoint`,
+the Vue client sends a JSON envelope to `runtimeUrl` containing base64 audio,
+`mimeType`, and `filename`.
+
+## Custom audio handling
+
+Pass `on-finish-transcribe-with-audio` when your application wants to receive
+the recorded `Blob` and handle transcription itself. This callback replaces the
+default runtime request, so it must put any resulting text into your own UI:
+
+```vue
+<script setup lang="ts">
+async function handleAudio(audio: Blob) {
+  const transcript = await myTranscriptionService(audio);
+  console.log(transcript);
+}
+</script>
+
+<template>
+  <CopilotChat :on-finish-transcribe-with-audio="handleAudio" />
+</template>
+```
+
+The Vue package does not expose the React demo's `onTranscribed` canned-audio
+callback or a runnable voice Showcase route. For deterministic demos and
+tests, call your own handler with a recorded `Blob` instead of documenting a
+non-existent Vue prop.
+
+## Configure the runtime
+
+The mic appears only when the runtime has a `TranscriptionService`. Configure
+that service in your V2 runtime and mount the normal runtime handler. The
+service implements:
+
+```ts
+import {
+  CopilotRuntime,
+  TranscriptionService,
+} from "@copilotkit/runtime/v2";
+
+class MyTranscriptionService extends TranscriptionService {
+  async transcribeFile({ audioFile }: { audioFile: File }): Promise<string> {
+    return transcribeWithYourProvider(audioFile);
+  }
+}
+
+const runtime = new CopilotRuntime({
+  agents,
+  transcriptionService: new MyTranscriptionService(),
+});
+```
+
+With the service configured, `GET /info` reports
+`audioFileTranscriptionEnabled: true` and `POST /transcribe` dispatches to
+`transcribeFile`. Without it, the runtime cannot produce a transcript even if
+the browser has a microphone.
+
+See [Runtime HTTP endpoints](/backend/runtime-endpoints) for route mounting,
+request shapes, and server-side error handling. The V2 runtime maps service
+errors to transcription error codes such as `rate_limited`, `auth_failed`,
+`audio_too_long`, and `provider_error`; the Vue composer presents a retryable
+or actionable message and clears it after a short delay.
