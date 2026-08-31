@@ -36,10 +36,29 @@ function getBooleanProperty(
   return typeof value === "boolean" ? value : undefined;
 }
 
-function getSurfaceId(payload: Record<string, unknown> | undefined): string {
-  return payload
-    ? (getStringProperty(payload, "surfaceId") ?? DEFAULT_SURFACE_ID)
-    : DEFAULT_SURFACE_ID;
+/**
+ * Resolves the surface an operation addresses.
+ *
+ * The nested payload's `surfaceId` is the v0.9 shape and wins, because that is
+ * the id `MessageProcessor` creates the surface under — grouping by anything
+ * else files operations against a surface that never exists, which paints
+ * nothing. A top-level `surfaceId` beside the payload is not the v0.9 shape, so
+ * it is honoured only when the payload carries no id of its own. The React path
+ * in `@copilotkit/react-core` resolves it in the same order; the two disagreeing
+ * is what OSS-1048 recorded.
+ *
+ * @param payload - The operation's nested payload (`createSurface`, etc).
+ * @param operation - The whole operation, consulted only as a fallback.
+ * @returns The surface id, defaulting to `"default"`.
+ */
+function getSurfaceId(
+  payload: Record<string, unknown> | undefined,
+  operation: Record<string, unknown>,
+): string {
+  const nested = payload ? getStringProperty(payload, "surfaceId") : undefined;
+  return (
+    nested ?? getStringProperty(operation, "surfaceId") ?? DEFAULT_SURFACE_ID
+  );
 }
 
 function getOperationSurfaceId(operation: A2uiMessage): string {
@@ -64,7 +83,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         createSurface: {
-          surfaceId: getSurfaceId(createSurface),
+          surfaceId: getSurfaceId(createSurface, operation),
           catalogId: getStringProperty(createSurface, "catalogId") ?? catalogId,
           theme: createSurface.theme ?? {},
           sendDataModel: getBooleanProperty(createSurface, "sendDataModel"),
@@ -79,7 +98,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         updateComponents: {
-          surfaceId: getSurfaceId(updateComponents),
+          surfaceId: getSurfaceId(updateComponents, operation),
           components: Array.isArray(components)
             ? components.map(normalizeComponent)
             : [],
@@ -93,7 +112,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         updateDataModel: {
-          surfaceId: getSurfaceId(updateDataModel),
+          surfaceId: getSurfaceId(updateDataModel, operation),
           path: getStringProperty(updateDataModel, "path") ?? "/",
           value: updateDataModel.value,
         },
@@ -106,7 +125,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         deleteSurface: {
-          surfaceId: getSurfaceId(deleteSurface),
+          surfaceId: getSurfaceId(deleteSurface, operation),
         },
       } satisfies A2uiMessage;
       return [message];
@@ -117,7 +136,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         createSurface: {
-          surfaceId: getSurfaceId(beginRendering),
+          surfaceId: getSurfaceId(beginRendering, operation),
           catalogId,
           theme: beginRendering.styles ?? {},
           sendDataModel: getBooleanProperty(beginRendering, "sendDataModel"),
@@ -132,7 +151,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         updateComponents: {
-          surfaceId: getSurfaceId(surfaceUpdate),
+          surfaceId: getSurfaceId(surfaceUpdate, operation),
           components: Array.isArray(components)
             ? components.map(normalizeComponent)
             : [],
@@ -146,7 +165,7 @@ function normalizeOperations(
       const message = {
         version: "v0.9",
         updateDataModel: {
-          surfaceId: getSurfaceId(dataModelUpdate),
+          surfaceId: getSurfaceId(dataModelUpdate, operation),
           path: getStringProperty(dataModelUpdate, "path") ?? "/",
           value: dataModelUpdate.value ?? dataModelUpdate.contents,
         },

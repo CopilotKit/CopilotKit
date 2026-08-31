@@ -549,3 +549,74 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
     );
   });
 });
+
+/**
+ * `MessageProcessor` creates a surface under the id nested in the operation's
+ * payload, so grouping has to resolve the same id or the operations are filed
+ * against a surface that never exists — a card that paints nothing. The
+ * web-components path in `@copilotkit/a2ui-renderer` resolves it by the same
+ * rule. (OSS-1048)
+ */
+describe("A2UIMessageRenderer — resolving which surface an operation addresses", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("groups by the nested surface id, not a top-level one", async () => {
+    const { createA2UIMessageRenderer } =
+      await import("../a2ui/A2UIMessageRenderer.js");
+    const RenderComponent = createA2UIMessageRenderer({ theme: {} as Theme })
+      .render as React.FC<any>;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { container } = render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
+              createSurface: {
+                surfaceId: "nested",
+                catalogId: BASIC_CATALOG,
+              },
+            },
+            {
+              version: "v0.9",
+              surfaceId: "top-level",
+              updateComponents: {
+                surfaceId: "nested",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Nested wins",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-surface-id='nested']"),
+      ).not.toBeNull();
+    });
+    expect(container.querySelector("[data-surface-id='top-level']")).toBeNull();
+
+    // Grouping under "top-level" would file the operations against a surface
+    // createSurface never made, which is the silence the report names.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes("no surface by that id"))).toEqual(
+      [],
+    );
+  });
+});
