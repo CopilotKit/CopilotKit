@@ -225,7 +225,9 @@ export function managedUrlEnvFileAssignment(text: string): string | null {
  * @returns `true` when the line carries that exact name.
  */
 export function retiredNameReference(name: string, text: string): boolean {
-  return new RegExp(String.raw`(?<![A-Z0-9_])${name}(?![A-Z0-9_])`).test(text);
+  return new RegExp(String.raw`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`).test(
+    text,
+  );
 }
 
 interface Violation {
