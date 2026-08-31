@@ -447,6 +447,206 @@ describe("A2UIMessageRenderer — reporting a card that renders nothing", () => 
     );
   });
 
+  // Both renderers start walking a surface at the component with id "root" and
+  // show an animated placeholder for an id they cannot find. A payload that
+  // names its entry point anything else is complete, accepted, and permanently
+  // a grey box: the surface exists, nothing throws, the component type is never
+  // reached, and `surfaceHasRenderableContent` says yes, so `onReady` fires and
+  // the never-painted report above is deliberately suppressed. (OSS-1057)
+  it("reports a payload whose components never name a root", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId: "rootless",
+                catalogId: BASIC_CATALOG,
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "rootless",
+                components: [
+                  {
+                    id: "card",
+                    component: "Text",
+                    text: { path: "/headline" },
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+            {
+              version: "v0.9",
+              updateDataModel: {
+                surfaceId: "rootless",
+                value: { headline: "Hello World" },
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    const report = messages.find((message) =>
+      message.includes('A2UI surface "rootless" has no "root" component'),
+    );
+    expect(report).toBeDefined();
+    expect(report).toContain('the components it received are named "card"');
+    expect(report).toContain('rename the entry-point component to "root"');
+    expect(report).toContain(
+      "Operations received: createSurface, updateComponents, updateDataModel",
+    );
+
+    // The payload is renderable on paper, so the never-painted report stays out
+    // of the way rather than reporting the same card twice.
+    expect(messages.filter((m) => m.includes("never painted"))).toEqual([]);
+  });
+
+  // A root that WAS sent and still is not in the model is a different fault with
+  // a different fix, so the report says which of the two it is.
+  it("distinguishes a root that was sent from one that was never named", async () => {
+    const { warnAboutUnresolvedRoot } =
+      await import("../a2ui/A2UIMessageRenderer.js");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const operations = [
+      {
+        version: "v0.9",
+        updateComponents: {
+          surfaceId: "dropped",
+          components: [{ id: "root", component: "Text", text: "Hello World" }],
+        },
+      },
+    ];
+
+    warnAboutUnresolvedRoot("dropped", operations, {
+      componentsModel: { get: () => undefined },
+    });
+
+    const report = warn.mock.calls
+      .map((call) => String(call[0]))
+      .find((message) => message.includes('A2UI surface "dropped"'));
+    expect(report).toBeDefined();
+    expect(report).toContain('a component with id "root" WAS sent');
+    expect(report).toContain("did not reach the surface's model");
+    expect(report).not.toContain("rename the entry-point component");
+  });
+
+  it("stays silent about the root when the surface resolves one", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: { surfaceId: "rooted", catalogId: BASIC_CATALOG },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "rooted",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Hello World",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes('no "root" component'))).toEqual(
+      [],
+    );
+  });
+
+  // Components stream in, so the snapshot that carries the root can arrive after
+  // one that does not. The deadline runs from the LAST operations to land, so the
+  // early snapshot must not be reported.
+  it("stays silent when the root arrives in a later snapshot", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    const createSurface = {
+      version: "v0.9",
+      createSurface: { surfaceId: "late-root", catalogId: BASIC_CATALOG },
+    };
+    const withoutRoot = {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "late-root",
+        components: [{ id: "card", component: "Text", text: "Hello World" }],
+      },
+    };
+    const withRoot = {
+      version: "v0.9",
+      updateComponents: {
+        surfaceId: "late-root",
+        components: [
+          { id: "card", component: "Text", text: "Hello World" },
+          { id: "root", component: "Text", text: "Hello World" },
+        ],
+      },
+    };
+
+    const { rerender } = render(
+      <RenderComponent
+        content={{ a2ui_operations: [createSurface, withoutRoot] }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS / 2);
+    });
+
+    rerender(
+      <RenderComponent
+        content={{ a2ui_operations: [createSurface, withRoot] }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes('no "root" component'))).toEqual(
+      [],
+    );
+  });
+
   it("reports operations addressed to a surface that was never created", async () => {
     const RenderComponent = await loadRenderer();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});

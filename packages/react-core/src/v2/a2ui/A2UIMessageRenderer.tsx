@@ -10,6 +10,7 @@ import {
   initializeDefaultCatalog,
   injectStyles,
   DEFAULT_SURFACE_ID,
+  ROOT_COMPONENT_ID,
 } from "@copilotkit/a2ui-renderer";
 import type { Theme, A2UIClientEventMessage } from "@copilotkit/a2ui-renderer";
 import {
@@ -160,6 +161,83 @@ function warnAboutUnpaintedSurfaces(grouped: Map<string, any[]>): void {
         `client wiring. This warning is development-only.`,
     );
   }
+}
+
+/**
+ * Names the component ids a surface was sent, for a warning about the one id
+ * that is missing.
+ *
+ * @param operations - The operations grouped under one surface.
+ * @returns A quoted, comma-separated list of ids, or "none".
+ */
+function describeComponentIds(operations: any[]): string {
+  const ids: string[] = [];
+  for (const operation of operations) {
+    const components = operation?.updateComponents?.components;
+    if (!Array.isArray(components)) continue;
+    for (const component of components) {
+      const id = component?.id;
+      if (typeof id === "string" && !ids.includes(id)) ids.push(id);
+    }
+  }
+  return ids.length === 0 ? "none" : ids.map((id) => `"${id}"`).join(", ");
+}
+
+/**
+ * Reports a surface that is still waiting for its {@link ROOT_COMPONENT_ID}
+ * component once its operations have stopped arriving.
+ *
+ * Both renderers begin walking a surface at that one id, and treat an id they
+ * cannot find as not arrived yet — an animated placeholder. That is right while
+ * operations stream. Once they have stopped it is not waiting, it is stuck, and
+ * every other check calls it healthy: the surface exists, `processMessages` did
+ * not throw, the component types were never reached, and
+ * `surfaceHasRenderableContent` says yes on the strength of components plus a
+ * data model, so `onReady` fires and the never-painted report is suppressed.
+ * A complete, accepted payload therefore animates a grey box forever in silence.
+ *
+ * Reads the live components model rather than scanning the operations for the
+ * id, so it covers every way the root can fail to resolve — not only a payload
+ * that never named one.
+ *
+ * @param surfaceId - The surface the operations were addressed to.
+ * @param operations - The operations processed for that surface.
+ * @param surface - The live surface model, already known to exist.
+ */
+export function warnAboutUnresolvedRoot(
+  surfaceId: string,
+  operations: any[],
+  surface: any,
+): void {
+  if (surface?.componentsModel?.get?.(ROOT_COMPONENT_ID)) return;
+
+  // No components at all is the never-painted report's case, and it names the
+  // cause better than this one can. Reporting both would say it twice.
+  const componentOps = operations.filter((o) => o?.updateComponents);
+  if (componentOps.length === 0) return;
+
+  const rootWasSent = componentOps.some((o) =>
+    o.updateComponents?.components?.some?.(
+      (c: any) => c?.id === ROOT_COMPONENT_ID,
+    ),
+  );
+
+  const cause = rootWasSent
+    ? `a component with id "${ROOT_COMPONENT_ID}" WAS sent, so the components ` +
+      `did not reach the surface's model — check for an A2UI render error above, ` +
+      `or a catalog that took none of them`
+    : `the components it received are named ${describeComponentIds(operations)}, ` +
+      `and none of them is "${ROOT_COMPONENT_ID}" — rename the entry-point ` +
+      `component to "${ROOT_COMPONENT_ID}", and make every other component ` +
+      `reachable from it through child/children`;
+
+  console.warn(
+    `[CopilotKit] A2UI surface "${surfaceId}" has no "${ROOT_COMPONENT_ID}" ` +
+      `component ${String(PAINT_FALLBACK_MS)}ms after its last operations were ` +
+      `processed, so it is showing the placeholder for a component that has not ` +
+      `arrived yet and will keep showing it: ${cause}. Operations received: ` +
+      `${describeOperationKinds(operations)}. This warning is development-only.`,
+  );
 }
 
 export function createA2UIMessageRenderer(
@@ -509,6 +587,9 @@ function SurfaceMessageProcessor({
     // are renderable from components alone. Latency-independent. (OSS-162)
     if (onReady && surfaceHasRenderableContent(operations)) onReady();
 
+    // Everything below only reports; it never changes what renders.
+    if (!IS_DEVELOPMENT) return;
+
     // `processMessages` is synchronous, so a surface missing right after it was
     // never created. A2UIRenderer renders its `fallback` for an unknown surface
     // id, and that defaults to null — nothing on screen and nothing logged. The
@@ -519,19 +600,30 @@ function SurfaceMessageProcessor({
     // without its createSurface yet is not reported as a failure. The cleanup
     // cancels a pending check whenever new operations land, which debounces this
     // to the last snapshot of a stream.
-    if (!IS_DEVELOPMENT || getSurface(surfaceId)) return;
-    const missingSurfaceCheck = setTimeout(() => {
-      if (getSurface(surfaceId)) return;
-      console.warn(
-        `[CopilotKit] A2UI processed ${String(ops.length)} operation(s) addressed ` +
-          `to surface "${surfaceId}" and no surface by that id exists, so this ` +
-          `card rendered nothing. Operations received: ` +
-          `${describeOperationKinds(ops)}. A createSurface for "${surfaceId}" has ` +
-          `to arrive before, or with, the operations that target it. ` +
-          `This warning is development-only.`,
-      );
-    }, 0);
-    return () => clearTimeout(missingSurfaceCheck);
+    if (!getSurface(surfaceId)) {
+      const missingSurfaceCheck = setTimeout(() => {
+        if (getSurface(surfaceId)) return;
+        console.warn(
+          `[CopilotKit] A2UI processed ${String(ops.length)} operation(s) addressed ` +
+            `to surface "${surfaceId}" and no surface by that id exists, so this ` +
+            `card rendered nothing. Operations received: ` +
+            `${describeOperationKinds(ops)}. A createSurface for "${surfaceId}" has ` +
+            `to arrive before, or with, the operations that target it. ` +
+            `This warning is development-only.`,
+        );
+      }, 0);
+      return () => clearTimeout(missingSurfaceCheck);
+    }
+
+    // The surface exists, so the report above does not apply. What can still be
+    // silently wrong is the one component both renderers start from: absent, the
+    // card animates a placeholder forever. The deadline is measured from the last
+    // operations to land, so a root still missing when it expires is a root that
+    // is not coming — the cleanup re-arms the timer on every new snapshot.
+    const unresolvedRootCheck = setTimeout(() => {
+      warnAboutUnresolvedRoot(surfaceId, operations, getSurface(surfaceId));
+    }, PAINT_FALLBACK_MS);
+    return () => clearTimeout(unresolvedRootCheck);
   }, [processMessages, getSurface, surfaceId, operations, onReady]);
 
   return null;
