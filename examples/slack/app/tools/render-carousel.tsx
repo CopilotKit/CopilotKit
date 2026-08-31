@@ -29,19 +29,38 @@ export const catalogItemSchema = z.object({
   tag: z.string().optional().describe("Optional badge, e.g. 'On sale'."),
 });
 
-const schema = z.object({
-  heading: z
-    .string()
-    .optional()
-    .describe("Carousel heading. Defaults to 'This week'."),
-  items: z
-    .array(catalogItemSchema)
-    .max(10)
-    .optional()
-    .describe(
-      "Catalog slides. Omit this, or pass an empty list, to post the sample shoes / hat / bottle catalog.",
-    ),
-});
+/** `render_carousel()` with no args must post the sample catalog. */
+function coerceCarouselArgs(raw: unknown): Record<string, unknown> {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
+    return {};
+  }
+  const obj = { ...(raw as Record<string, unknown>) };
+  if (obj.heading == null) delete obj.heading;
+  if (
+    obj.items == null ||
+    (Array.isArray(obj.items) && obj.items.length === 0)
+  ) {
+    delete obj.items;
+  }
+  return obj;
+}
+
+const schema = z.preprocess(
+  coerceCarouselArgs,
+  z.object({
+    heading: z
+      .string()
+      .optional()
+      .describe("Carousel heading. Defaults to 'This week'."),
+    items: z
+      .array(catalogItemSchema)
+      .max(10)
+      .optional()
+      .describe(
+        "Catalog slides. Omit this, or pass an empty list, to post the sample shoes / hat / bottle catalog.",
+      ),
+  }),
+);
 
 export type CatalogItem = z.infer<typeof catalogItemSchema>;
 
