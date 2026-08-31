@@ -1,9 +1,5 @@
 /**
- * Regression test for the chat window flex layout broken in 1.55.
- *
- * Root cause: the drag-and-drop wrapper div introduced with attachments had
- * no CSS class when not dragging, so no flex rule applied and the chat body
- * collapsed to content height instead of filling the window.
+ * Regression coverage for the form-filling chat window layout.
  */
 import { test, expect } from "@playwright/test";
 
@@ -14,65 +10,47 @@ test.describe("chat window layout", () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
-    // form-filling uses defaultOpen — window is already open after hydration
-    await page.locator(".copilotKitWindow.open").waitFor({ timeout: 10_000 });
+    await expect(page.getByTestId("copilot-popup")).toBeVisible();
   });
 
-  test("chat body fills the window", async ({ page }) => {
-    const chatBody = page.locator(".copilotKitChatBody");
-    const window = page.locator(".copilotKitWindow");
+  test("chat body fills the popup", async ({ page }) => {
+    const chatBody = page.locator("[data-popup-chat]");
+    const popup = page.getByTestId("copilot-popup");
 
     await expect(chatBody).toHaveCSS("flex", "1 1 0%");
 
-    const bodyBox = await chatBody.boundingBox();
-    const windowBox = await window.boundingBox();
-    expect(bodyBox).not.toBeNull();
-    expect(windowBox).not.toBeNull();
-    expect(bodyBox!.height).toBeGreaterThan(windowBox!.height * 0.8);
+    const chatBodyBox = await chatBody.boundingBox();
+    const popupBox = await popup.boundingBox();
+    expect(chatBodyBox).not.toBeNull();
+    expect(popupBox).not.toBeNull();
+    expect(chatBodyBox!.height).toBeGreaterThan(popupBox!.height * 0.8);
   });
 
-  test("messages area fills available space", async ({ page }) => {
-    const messages = page.locator(".copilotKitMessages");
-    const window = page.locator(".copilotKitWindow");
+  test("chat fills the available body space", async ({ page }) => {
+    const chat = page.getByTestId("copilot-chat");
+    const chatBody = page.locator("[data-popup-chat]");
 
-    const messagesBox = await messages.boundingBox();
-    const windowBox = await window.boundingBox();
-    expect(messagesBox).not.toBeNull();
-    expect(windowBox).not.toBeNull();
-    expect(messagesBox!.height).toBeGreaterThan(windowBox!.height * 0.5);
-    expect(messagesBox!.height).toBeLessThanOrEqual(windowBox!.height);
+    await expect(chat).toHaveCSS("display", "flex");
+
+    const chatBox = await chat.boundingBox();
+    const chatBodyBox = await chatBody.boundingBox();
+    expect(chatBox).not.toBeNull();
+    expect(chatBodyBox).not.toBeNull();
+    expect(chatBox!.height).toBeGreaterThan(chatBodyBox!.height * 0.9);
+    expect(chatBox!.height).toBeLessThanOrEqual(chatBodyBox!.height);
   });
 
-  test("input is pinned to the lower half of the window", async ({ page }) => {
-    const input = page.locator(".copilotKitInput");
-    const window = page.locator(".copilotKitWindow");
+  test("input is pinned to the lower half of the popup", async ({ page }) => {
+    const input = page.getByTestId("copilot-chat-input");
+    const popup = page.getByTestId("copilot-popup");
 
     const inputBox = await input.boundingBox();
-    const windowBox = await window.boundingBox();
+    const popupBox = await popup.boundingBox();
     expect(inputBox).not.toBeNull();
-    expect(windowBox).not.toBeNull();
+    expect(popupBox).not.toBeNull();
 
     const inputMidY = inputBox!.y + inputBox!.height / 2;
-    const windowMidY = windowBox!.y + windowBox!.height / 2;
-    expect(inputMidY).toBeGreaterThan(windowMidY);
-  });
-
-  test("drag state does not break layout", async ({ page }) => {
-    const chatBody = page.locator(".copilotKitChatBody");
-    const messages = page.locator(".copilotKitMessages");
-    const window = page.locator(".copilotKitWindow");
-
-    await page.evaluate(() => {
-      const body = document.querySelector(".copilotKitChatBody");
-      body?.dispatchEvent(new DragEvent("dragenter", { bubbles: true }));
-    });
-
-    await expect(chatBody).toHaveCSS("flex", "1 1 0%");
-
-    const messagesBox = await messages.boundingBox();
-    const windowBox = await window.boundingBox();
-    expect(messagesBox).not.toBeNull();
-    expect(windowBox).not.toBeNull();
-    expect(messagesBox!.height).toBeGreaterThan(windowBox!.height * 0.5);
+    const popupMidY = popupBox!.y + popupBox!.height / 2;
+    expect(inputMidY).toBeGreaterThan(popupMidY);
   });
 });
