@@ -97,6 +97,15 @@ jobs:
         working-directory: p2p
         run: |
           pnpm --ignore-workspace install --frozen-lockfile
+          # Name the cause here. If the registry's own dependencies did not
+          # install, `reconcile` fails as a cascade of TS2307/TS2304 errors
+          # pointing at the registry's source (`Cannot find module 'node:fs'`,
+          # `Cannot find name '__dirname'`), which reads as a registry bug
+          # rather than a failed install.
+          if [ ! -x node_modules/.bin/ts-node ]; then
+            echo "::error::Registry dependencies were not installed in p2p/node_modules — check the pnpm install step above."
+            exit 1
+          fi
           pnpm --ignore-workspace run reconcile
 
       - name: Open fragment PR
