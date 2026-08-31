@@ -58,7 +58,10 @@ import type {
   ChannelDeliveryTransport,
   PreparedChannelDelivery,
 } from "./delivery-transport.js";
-import { ChannelProviderDeliveryError } from "./delivery-transport.js";
+import {
+  ChannelProviderDeliveryError,
+  isUnreadySlackFileDeliveryDetails,
+} from "./delivery-transport.js";
 import { ChannelProviderMismatchError } from "./delivery-transport.js";
 import {
   assertProviderMessageId,
@@ -540,14 +543,25 @@ export class DeliveryAdapter implements PlatformAdapter {
 
   async post(targetValue: ReplyTarget, ir: ChannelNode[]): Promise<MessageRef> {
     const target = asDeliveryTarget(targetValue);
-    const responseId = mintId("response_");
-    const { providerReference, providerMessageId } = await this.postRendered(
-      target.claimedDelivery,
-      target.delivery.adapter,
-      responseId,
-      ir,
-    );
-    return messageRef(target, responseId, providerReference, providerMessageId);
+    const send = async (): Promise<MessageRef> => {
+      const responseId = mintId("response_");
+      const { providerReference, providerMessageId } = await this.postRendered(
+        target.claimedDelivery,
+        target.delivery.adapter,
+        responseId,
+        ir,
+      );
+      return messageRef(
+        target,
+        responseId,
+        providerReference,
+        providerMessageId,
+      );
+    };
+    if (target.delivery.adapter === "slack") {
+      return withManagedSlackFileRetry(send);
+    }
+    return send();
   }
 
   async update(refValue: MessageRef, ir: ChannelNode[]): Promise<void> {
@@ -1672,4 +1686,34 @@ function normalizeTaskStatus(
     value === "failed"
     ? value
     : "in_progress";
+}
+
+const SLACK_FILE_POST_ATTEMPTS = 5;
+const SLACK_FILE_READY_SLEEP_MS = 200;
+
+function isUnreadyManagedSlackFileError(error: unknown): boolean {
+  if (!(error instanceof ChannelProviderDeliveryError)) return false;
+  return isUnreadySlackFileDeliveryDetails(error.details);
+}
+
+/** Slack can reject slack_file before it finishes processing a staged upload. */
+async function withManagedSlackFileRetry<T>(op: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= SLACK_FILE_POST_ATTEMPTS; attempt += 1) {
+    try {
+      return await op();
+    } catch (error) {
+      lastError = error;
+      if (
+        !isUnreadyManagedSlackFileError(error) ||
+        attempt === SLACK_FILE_POST_ATTEMPTS
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, SLACK_FILE_READY_SLEEP_MS * attempt),
+      );
+    }
+  }
+  throw lastError;
 }

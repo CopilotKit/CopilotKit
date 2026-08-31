@@ -1717,6 +1717,62 @@ test("surfaces a failed provider result as an already-terminal error", async () 
   expect(session.hasProviderOutput()).toBe(false);
 });
 
+test("keeps effects open after an unready Slack file so the post can retry", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: [
+      "invalid field at /blocks/1/elements/0/hero_image/slack_file.id/slack_file",
+    ],
+    retryable: false,
+    deliveryId: "dlv_delivery_01",
+  } as const;
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve(
+        acknowledgement(packet, {
+          phase: "failed",
+          result: {
+            error: "provider_call_failed",
+            status: "failed",
+            details,
+          },
+        }),
+      ),
+    )
+    .mockImplementation((_event, packet) =>
+      Promise.resolve(acknowledgement(packet)),
+    );
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  const error = await session
+    .effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    })
+    .catch((caught: unknown) => caught);
+  expect(error).toBeInstanceOf(ChannelProviderDeliveryError);
+
+  await expect(
+    session.effect("response_02", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).resolves.toMatchObject({ providerReference: "pref_v1_message_01" });
+});
+
 test("keeps effects open after a best-effort provider failure", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
