@@ -2,6 +2,7 @@ import { html, LitElement, nothing } from "lit";
 import { ComponentContext } from "@a2ui/web_core/v0_9";
 import type { SurfaceModel } from "@a2ui/web_core/v0_9";
 import type { LitComponentImplementation } from "./types";
+import { ROOT_COMPONENT_ID } from "./constants";
 
 type SubscriptionLike = { unsubscribe: () => void };
 
@@ -13,7 +14,7 @@ export class CpkA2uiNode extends LitElement {
   };
 
   surface?: SurfaceModel<LitComponentImplementation>;
-  componentId = "root";
+  componentId = ROOT_COMPONENT_ID;
   basePath = "/";
   private subscriptions: SubscriptionLike[] = [];
   private subscribedSurface?: SurfaceModel<LitComponentImplementation>;
