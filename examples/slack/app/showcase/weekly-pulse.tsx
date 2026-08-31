@@ -7,13 +7,7 @@
  */
 import { z } from "zod";
 import { defineChannelTool, defineChannelCommand } from "@copilotkit/channels";
-import {
-  REPO,
-  ghFetch,
-  fetchJson,
-  isoDaysAgo,
-  compact,
-} from "./lib.js";
+import { REPO, ghFetch, fetchJson, isoDaysAgo, compact } from "./lib.js";
 import type { ShowcaseThread } from "./lib.js";
 
 const NPM_PKG = "@copilotkit/react-core";
