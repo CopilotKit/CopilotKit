@@ -12,8 +12,8 @@ matches the value:
 
 | Value | Supported channel |
 | --- | --- |
-| UI preferences the model should see | Publish them with `useAgentContext`; see [Agent Config](/langgraph-python/agent-config). |
-| Authentication and authorization | Send an `Authorization` header and validate it for every request; see [Authentication](/langgraph-python/auth). |
+| UI preferences the model should see | Publish them with your frontend's agent-context API; see [Agent Config](/agent-config). |
+| Authentication and authorization | Send an `Authorization` header and validate it for every request; see [Authentication](/auth). |
 | Graph execution settings | Set them in the trusted backend that invokes or serves the graph. |
 
 <Callout type="warning" title="Do not send credentials as run properties">
@@ -25,16 +25,24 @@ matches the value:
 ## Model-visible UI preferences
 
 For tone, expertise level, response length, selected records, or other
-non-secret values that should influence the model, use
-[`useAgentContext`](/reference/v2/hooks/useAgentContext). The
-[Agent Config guide](/langgraph-python/agent-config) shows the complete React
-and Angular patterns and how CopilotKit middleware exposes the latest values on
-every turn.
+non-secret values that should influence the model, publish them as agent
+context. The [Agent Config guide](/agent-config) shows the complete pattern and
+how CopilotKit middleware exposes the latest values on every turn.
+
+<FrontendOnly frontend="react">
+  In React, publish the values with
+  [`useAgentContext`](/reference/v2/hooks/useAgentContext).
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+  In Angular, publish the values with
+  [`connectAgentContext`](/reference/angular/functions/connectAgentContext).
+</FrontendOnly>
 
 ## Authentication
 
 Authentication belongs in request headers, not graph state or runtime
-properties. The [Authentication guide](/langgraph-python/auth) covers both
+properties. The [Authentication guide](/auth) covers both
 LangGraph Platform and self-hosted AG-UI endpoints. In both cases, validate the
 current request before the graph runs and inject only a resolved user or tenant
 identifier.
@@ -76,7 +84,7 @@ influences it. Do not accept a browser-supplied configuration object wholesale.
     ```
 
     Create the agent after authentication for each request, as shown in the
-    [self-hosted authentication example](/langgraph-python/auth#self-hosted-deployment).
+    [self-hosted authentication example](/auth#self-hosted-deployment).
   </Tab>
 
   <Tab value="TypeScript">

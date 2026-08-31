@@ -18,6 +18,7 @@ test.each(
     expect(doc).not.toBeNull();
 
     const prefix = frontend === "angular" ? "angular/" : "";
+    const routePrefix = `/${prefix}${framework}`;
     const llmText = renderPageToLlmText(
       {
         url: `${prefix}${framework}/configurable`,
@@ -34,10 +35,7 @@ test.each(
       expect(output).toContain(
         "does not copy arbitrary browser-provided properties",
       );
-      expect(output).toContain("useAgentContext");
-      expect(output).toContain("/agent-config");
       expect(output).toContain("Authorization");
-      expect(output).toContain("/auth");
       expect(output).toContain("LangGraphAGUIAgent");
       expect(output).toContain('"configurable": {"tenant_id": tenant_id}');
       expect(output).toContain('"recursion_limit": 50');
@@ -46,6 +44,21 @@ test.each(
       expect(output).not.toContain("forwardedProps");
       expect(output).not.toContain("authToken");
       expect(output).not.toContain("example-token");
+    }
+
+    expect(llmText).toContain(`[Agent Config](${routePrefix}/agent-config)`);
+    expect(llmText).toContain(
+      `[Agent Config guide](${routePrefix}/agent-config)`,
+    );
+    expect(llmText).toContain(`[Authentication](${routePrefix}/auth)`);
+    expect(llmText).toContain(`[Authentication guide](${routePrefix}/auth)`);
+
+    if (frontend === "angular") {
+      expect(llmText).toContain("connectAgentContext");
+      expect(llmText).not.toContain("useAgentContext");
+    } else {
+      expect(llmText).toContain("useAgentContext");
+      expect(llmText).not.toContain("connectAgentContext");
     }
   },
 );
