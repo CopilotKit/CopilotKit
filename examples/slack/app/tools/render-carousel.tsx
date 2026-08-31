@@ -102,7 +102,8 @@ function CatalogCarousel({
 }
 
 /** True when the user asks for the sample carousel in plain text. */
-export function isCarouselRequest(text: string): boolean {
+export function isCarouselRequest(text: string | undefined): boolean {
+  if (typeof text !== "string") return false;
   return /\bcarousel\b/i.test(text) || /\bsample catalog\b/i.test(text);
 }
 

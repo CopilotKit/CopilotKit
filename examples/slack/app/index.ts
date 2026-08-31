@@ -288,10 +288,15 @@ async function main() {
   // turn so a failed run (agent backend down, network/auth error) is logged
   // and surfaced to the user instead of crashing the process or vanishing
   // silently.
-  bot.onMention(async ({ thread, message }) => {
+  const onTurn: Parameters<typeof bot.onMention>[0] = async ({
+    thread,
+    message,
+  }) => {
+    console.error("[channel] turn", message.text);
     try {
       if (isCarouselRequest(message.text)) {
-        console.log("[channel] posting sample carousel");
+        console.error("[channel] posting sample carousel");
+        await thread.post("Rendering the carousel…");
         await renderCatalogCarousel(thread);
         return;
       }
@@ -306,7 +311,9 @@ async function main() {
           console.error("[channel] failed to post agent error", postErr),
         );
     }
-  });
+  };
+  bot.onMention(onTurn);
+  bot.onMessage(onTurn);
 
   // Modal demo (cont.) — handle the /file-issue submission. The handler lives in
   // `modals/file-issue.tsx` (extracted + unit-tested): it validates, then

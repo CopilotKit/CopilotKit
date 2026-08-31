@@ -131,10 +131,15 @@ async function main() {
   });
 
   // Turn + feature handlers — identical to the native example (app/index.ts).
-  support.onMention(async ({ thread, message }) => {
+  const onTurn: Parameters<typeof support.onMention>[0] = async ({
+    thread,
+    message,
+  }) => {
+    console.error("[channel] turn", message.text);
     try {
       if (isCarouselRequest(message.text)) {
-        console.log("[channel] posting sample carousel");
+        console.error("[channel] posting sample carousel");
+        await thread.post("Rendering the carousel…");
         await renderCatalogCarousel(thread);
         return;
       }
@@ -156,7 +161,9 @@ async function main() {
           console.error("[channel] failed to post agent error", postErr),
         );
     }
-  });
+  };
+  support.onMention(onTurn);
+  support.onMessage(onTurn);
   support.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
   support.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
