@@ -4,8 +4,9 @@ This file defines contributor workflow for keeping `@copilotkit/vue` aligned wit
 
 ## Scope
 
-- Scope is limited to `packages/vue/**`.
-- Keep upstream changes outside the Vue package to a minimum until the Vue port is merged.
+- Package implementation scope is limited to `packages/vue/**`.
+- The documented integration exceptions are Vue docs and runnable examples under `showcase/**`, plus their registry, generated-catalog, and validation-workflow plumbing described in [Documentation ownership](#documentation-ownership).
+- Keep other upstream changes outside the Vue package to a minimum until the Vue port is merged.
 
 ## Parity source of truth
 

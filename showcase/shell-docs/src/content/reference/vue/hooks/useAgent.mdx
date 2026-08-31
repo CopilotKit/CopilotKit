@@ -7,7 +7,7 @@ description: "Vue 3 composable for accessing AG-UI agent instances"
 
 `useAgent` is a Vue 3 composable that returns a reactive reference to an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The composable subscribes to agent changes and triggers reactive updates when the agent's state, messages, or execution status changes.
 
-The composable returns `{ agent }`, where `agent` is a Vue `shallowRef<AbstractAgent | null>` — it is `null` until an agent resolves. (If the agent cannot be resolved for the given `agentId` after the runtime syncs, the composable throws rather than leaving `agent` as `null`.) Access the underlying instance with `agent.value` in `<script setup>`, or rely on auto-unwrapping in `<template>`, and guard with `agent?.` / `agent.value?.` for the unresolved case.
+The composable returns `{ agent }`, where `agent` is typed as a Vue `shallowRef<AbstractAgent | null>` for API compatibility. During setup, it synchronously assigns an existing or provisional agent; if neither can be resolved, it throws instead of returning with `agent.value` set to `null`. Access the underlying instance with `agent.value` in `<script setup>`, or rely on auto-unwrapping in `<template>`. Optional chaining remains useful when consuming the nullable public type.
 
 <Callout type="warn">
   Throws an error if no agent can be resolved for the given `agentId` after the runtime has synced (for example, when the id does not match any agent reported by your runtime `/info` or registered via `agents__unsafe_dev_only`).
@@ -68,7 +68,7 @@ Reactive props accept `MaybeRefOrGetter`, so you can pass a plain value, a `ref`
   Object containing the reactive agent reference.
 
   <PropertyReference name="agent" type="ShallowRef<AbstractAgent | null>">
-    A Vue `shallowRef` holding the AG-UI agent instance, or `null` before it resolves. When an agent is configured on the provider it resolves synchronously during setup, but it can still be `null` during the unresolved window — for example during server-side rendering or while the runtime is still loading agents — so the examples below guard with `agent?.` / `v-if`. Read it with `agent.value` in `<script setup>`, or directly (auto-unwrapped) in `<template>`. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
+    A Vue `shallowRef` holding the AG-UI agent instance. Its public type includes `null`, but the current implementation resolves synchronously during setup: it assigns an existing agent or a provisional proxy, or throws when it cannot resolve one. Read it with `agent.value` in `<script setup>`, or directly (auto-unwrapped) in `<template>`. The examples below retain `agent?.` / `v-if` guards because callers consume the nullable public type. See the [AbstractAgent documentation](https://docs.ag-ui.com/sdk/js/client/abstract-agent) for full interface details.
 
     The properties and methods below belong to the unwrapped agent (`agent.value`).
 
