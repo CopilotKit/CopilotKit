@@ -216,9 +216,6 @@ const SYSTEM_PROMPT = [
   "- PR review radar / open PRs to review    -> render_pr_radar (no args)",
   "- Weekly OSS pulse / stars/downloads/issues -> render_weekly_pulse (no args)",
   "- Cycle standup / per-team cycle progress -> render_standup (no args)",
-  "- Numeric data to chart, ONLY on an explicit 'chart this' -> render_chart",
-  "  (kind bar|line|pie|stacked|scatter)",
-  "- A flow/process/architecture diagram the user explicitly asks for -> render_diagram",
   "If the user explicitly asks for a card/table/incident/status/links, calling the",
   "tool IS the whole answer — never describe what the card 'would' contain in prose.",
   "Your text message alongside a rendered card MUST be empty or ONE short line (e.g.",
@@ -310,7 +307,7 @@ const agent = new BuiltInAgent({
       messages,
       systemPrompts: [SYSTEM_PROMPT + availabilityNote, ...systemPrompts],
       // `web_search` is an OpenAI provider tool (run server-side by OpenAI);
-      // `clientTools` are the bot's frontend tools (issue/page cards, charts,
+      // `clientTools` are the bot's frontend tools (issue/page cards,
       // confirm_write HITL) forwarded on every run — passed as client-side
       // tools so the model can call them and the bot renders/gates them via
       // the AG-UI client-tool round-trip. MCP tools come in via `mcp` below.

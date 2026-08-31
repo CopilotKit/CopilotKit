@@ -15,7 +15,7 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
   pnpm add react
   ```
 
-  Without it, posting arbitrary JSX (or importing `@copilotkit/channels/charts`) fails with a module-not-found error.
+  Without it, posting arbitrary JSX fails with a module-not-found error.
 </Callout>
 
 <Steps>
@@ -148,14 +148,13 @@ Now `thread.post(<MrrCard/>)` just works. The SDK renders your own React compone
     );
     ```
 
-    Need a chart? The `@copilotkit/channels/charts` components render through this same image path. See [Charts](/channels/charts).
   </Step>
   <Step>
     ### Know the limits
 
     Takumi is a static SSR rasterizer. It calls your components with server-render semantics, not a real browser. Keep this in mind:
 
-    - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use the built-in [charts](/channels/charts) components or your own pure presentational markup instead.
+    - **No runtime-JS chart or diagram libraries.** Recharts, Chart.js, and Mermaid measure or paint the live DOM (`useEffect`, canvas, layout measurement), and none of that runs under Takumi. Use your own pure presentational markup instead.
     - **`update()` and `postEphemeral()` do not accept arbitrary JSX.** An uploaded image cannot be edited in place, so both throw a clear error if you pass a React element (or an unbranded component that returns one). Post a new image instead.
     - **Image posts are file-backed, and not every platform hands back a message id.** `post()` returns a `MessageRef` holding the id of the *message* the image was posted as, so `delete()`/`react()` work where the platform reports one (Slack via the file's share, Discord, Teams, Telegram, WhatsApp). Platforms that upload media out of band, or the managed transport (which hands the upload to an async outbox), may report no id at all: you get `{ id: "" }` and a warning. The upload itself still succeeded. Never assume a media/file id doubles as a message id, the platform APIs reject it.
     - **The canvas has a fixed size.** It defaults to 720 by 480. Pass `width`/`height` globally via `render`, or per post, for anything else.
@@ -166,10 +165,10 @@ You have arrived: arbitrary app components render to images alongside your nativ
 
 ## See it end to end
 
-The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features, each a CopilotKit-branded card plus charts, and each triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
+The [`examples/slack`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) app (`app/showcase/`) uses this for three "run it in your own Slack" features. Each one is a CopilotKit-branded card, and each is triggerable both by a slash command and by prompt (the agent calls the matching `render_*` tool; both share one `render*` fn):
 
-- **PR review radar** (`/prs`): a card of the oldest open PRs with age-colored badges, plus a PRs-by-age bar chart, from GitHub's public API (no token).
-- **Weekly OSS pulse** (`/pulse`): a KPI card (stars, npm downloads, open issues), plus a downloads line chart and an issues bar chart, from GitHub and npm.
-- **Linear cycle standup** (`/standup`): a per-team progress card (one labelled meter per team), plus a done-vs-remaining stacked bar comparing scope across teams, from Linear.
+- **PR review radar** (`/prs`): a card of the oldest open PRs with age-colored badges, from GitHub's public API (no token).
+- **Weekly OSS pulse** (`/pulse`): a KPI card (stars, npm downloads, open issues) from GitHub and npm.
+- **Linear cycle standup** (`/standup`): a per-team progress card (one labelled bar per team) from Linear.
 
-The brand look is a compiled Tailwind stylesheet (`pnpm build:css`) plus Plus Jakarta Sans, fed once via `render.stylesheets` and `render.fonts`. Cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It is a concrete template for wiring your own dashboards, and it registers `chartTool`/`diagramTool` (see [Charts](/channels/charts)) so you can also ask for an ad-hoc chart or diagram.
+The brand look is a compiled Tailwind stylesheet (`pnpm build:css`) plus Plus Jakarta Sans, fed once via `render.stylesheets` and `render.fonts`. Cards are authored with Tailwind classes and Takumi resolves them. Each feature reads live data and falls back to labelled sample data so it always runs. It is a concrete template for wiring your own dashboards.

@@ -97,8 +97,8 @@ export namespace JSX {
    * Decouples "what can be used as a JSX tag" from "what a JSX expression
    * evaluates to" (TS 5.1+). Without this, TypeScript additionally requires
    * every function component's return type to be assignable to {@link Element}
-   * — which breaks arbitrary app/React components (e.g. `@copilotkit/channels/charts`'
-   * `BarChart`, which returns a real `ReactElement`) authored directly as JSX
+   * — which breaks arbitrary app/React components (e.g. a presentational card
+   * that returns a real `ReactElement`) authored directly as JSX
    * under this pragma. Those are intentionally unbranded: `thread.post` peeks
    * at their output at runtime and routes them to the image path (see
    * `resolveArbitraryElement` in @copilotkit/channels-core render/detect).

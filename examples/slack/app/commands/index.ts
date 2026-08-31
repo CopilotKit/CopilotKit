@@ -136,7 +136,7 @@ export const appCommands: ChannelCommand[] = [
   }),
 
   // Showcase slash commands (`/prs`, `/pulse`, `/standup`) — each renders a
-  // shadcn card + charts as images. They share their render fns with the
+  // branded card as an image. They share their render fns with the
   // matching prompt-triggerable tools in app/tools.
   ...showcaseCommands,
 
