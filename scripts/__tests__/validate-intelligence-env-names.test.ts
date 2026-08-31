@@ -60,6 +60,18 @@ describe("retiredNameReference", () => {
       false,
     );
   });
+
+  it("allows a lowercase-prefixed identifier containing the retired name", () => {
+    expect(retiredNameReference(RETIRED, "my" + RETIRED + "=cpk-...")).toBe(
+      false,
+    );
+  });
+
+  it("allows a lowercase-suffixed identifier containing the retired name", () => {
+    expect(retiredNameReference(RETIRED, RETIRED + "Legacy=cpk-...")).toBe(
+      false,
+    );
+  });
 });
 
 /**
