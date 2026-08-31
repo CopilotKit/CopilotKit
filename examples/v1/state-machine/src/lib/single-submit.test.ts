@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test, vi } from "vitest";
 import { submitOnce } from "./single-submit";
 
@@ -13,11 +14,13 @@ test("runs only one submission while a response is pending", async () => {
     pending,
     action,
     onPendingChange: vi.fn(),
+    onError: vi.fn(),
   });
   const secondSubmission = submitOnce({
     pending,
     action,
     onPendingChange: vi.fn(),
+    onError: vi.fn(),
   });
   await Promise.resolve();
 
@@ -32,8 +35,18 @@ test("keeps a successful submission latched until the controls unmount", async (
   const onPendingChange = vi.fn();
   const pending = { current: false };
 
-  await submitOnce({ pending, action, onPendingChange });
-  await submitOnce({ pending, action, onPendingChange });
+  await submitOnce({
+    pending,
+    action,
+    onPendingChange,
+    onError: vi.fn(),
+  });
+  await submitOnce({
+    pending,
+    action,
+    onPendingChange,
+    onError: vi.fn(),
+  });
 
   expect(action).toHaveBeenCalledTimes(1);
   expect(pending.current).toBe(true);
@@ -41,16 +54,35 @@ test("keeps a successful submission latched until the controls unmount", async (
   expect(onPendingChange).toHaveBeenCalledWith(true);
 });
 
-test("unlocks a failed submission so the user can retry", async () => {
+test("converts a rejected submission into retry state without rejecting", async () => {
   const action = vi.fn().mockRejectedValue(new Error("network unavailable"));
   const onPendingChange = vi.fn();
+  const onError = vi.fn();
   const pending = { current: false };
 
-  await expect(
-    submitOnce({ pending, action, onPendingChange }),
-  ).rejects.toThrow("network unavailable");
+  const submission = submitOnce({
+    pending,
+    action,
+    onPendingChange,
+    onError,
+  });
 
+  await expect(submission).resolves.toBeUndefined();
   expect(pending.current).toBe(false);
   expect(onPendingChange).toHaveBeenNthCalledWith(1, true);
   expect(onPendingChange).toHaveBeenNthCalledWith(2, false);
+  expect(onError).toHaveBeenCalledWith({
+    message: "Could not send your response. Try again.",
+    retry: action,
+  });
+});
+
+test("renders failed submissions as an accessible retry prompt", () => {
+  const source = readFileSync(
+    new URL("../components/generative-ui/confirm-order.tsx", import.meta.url),
+    "utf8",
+  );
+
+  expect(source).toMatch(/role=["']alert["']/);
+  expect(source).toMatch(/>\s*Retry\s*</);
 });

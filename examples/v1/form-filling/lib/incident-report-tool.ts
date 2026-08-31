@@ -4,6 +4,7 @@ import { incidentDateSchema } from "./incident-date";
 export const fillIncidentReportFormParameters = z.object({
   fullName: z
     .string()
+    .trim()
     .min(2, "Name must be at least 2 characters")
     .describe("The full name of the person reporting the incident"),
   email: z
@@ -28,12 +29,14 @@ export const fillIncidentReportFormParameters = z.object({
     .describe("The severity of the incident"),
   incidentDescription: z
     .string()
+    .trim()
     .min(10, "Description must be at least 10 characters")
     .describe(
       "A detailed description of the incident with at least 10 characters",
     ),
   suggestedActions: z
     .string()
+    .trim()
     .min(10, "Suggested actions must be at least 10 characters")
     .describe("Detailed suggested actions in a bulleted list"),
 });

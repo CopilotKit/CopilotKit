@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -39,36 +38,13 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
 import { parseIncidentDate, serializeIncidentDate } from "@/lib/incident-date";
+import { incidentReportFormSchema } from "@/lib/incident-report-form";
+import type { IncidentReportFormValues } from "@/lib/incident-report-form";
 import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
 
-// Define the form schema with Zod
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  incidentType: z.string({
-    required_error: "Please select an incident type.",
-  }),
-  date: z.date({
-    required_error: "Please select the date when the incident occurred.",
-  }),
-  description: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-  impactLevel: z.string({
-    required_error: "Please select an impact level.",
-  }),
-  suggestedActions: z.string().min(10, {
-    message: "Suggested actions must be at least 10 characters.",
-  }),
-});
-
 export function IncidentReportForm() {
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<IncidentReportFormValues>({
+    resolver: zodResolver(incidentReportFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -80,7 +56,7 @@ export function IncidentReportForm() {
   });
   const formValues = useWatch({ control: form.control });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  function onSubmit(values: IncidentReportFormValues) {
     console.log(values);
     alert("Incident report submitted successfully!");
     form.reset({

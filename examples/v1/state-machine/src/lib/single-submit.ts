@@ -2,10 +2,16 @@ export type PendingSubmission = {
   current: boolean;
 };
 
+export type SubmissionFailure = {
+  message: string;
+  retry: () => Promise<void> | void;
+};
+
 type SubmitOnceOptions = {
   pending: PendingSubmission;
   action: () => Promise<void> | void;
   onPendingChange: (pending: boolean) => void;
+  onError: (failure: SubmissionFailure) => void;
 };
 
 /**
@@ -15,6 +21,7 @@ export async function submitOnce({
   pending,
   action,
   onPendingChange,
+  onError,
 }: SubmitOnceOptions): Promise<void> {
   if (pending.current) {
     return;
@@ -24,9 +31,12 @@ export async function submitOnce({
   onPendingChange(true);
   try {
     await action();
-  } catch (error) {
+  } catch {
     pending.current = false;
     onPendingChange(false);
-    throw error;
+    onError({
+      message: "Could not send your response. Try again.",
+      retry: action,
+    });
   }
 }
