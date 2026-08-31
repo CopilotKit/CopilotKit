@@ -400,8 +400,7 @@ describe("DeliveryAdapter.post", () => {
     vi.useFakeTimers();
     const effect = vi.fn().mockResolvedValue({
       providerReference: "pref_v1_message_ready_01",
-      providerMessageId:
-        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
     });
     const session = {
       effect,
@@ -420,9 +419,7 @@ describe("DeliveryAdapter.post", () => {
       await vi.advanceTimersByTimeAsync(2400);
       const ref = await pending;
       expect(effect).toHaveBeenCalledTimes(1);
-      expect(ref.id).toBe(
-        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
-      );
+      expect(ref.id).toBe("pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ");
     } finally {
       vi.useRealTimers();
     }
