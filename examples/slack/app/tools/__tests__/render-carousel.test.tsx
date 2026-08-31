@@ -141,6 +141,7 @@ describe("isCarouselRequest", () => {
     expect(isCarouselRequest("show me a product carousel")).toBe(true);
     expect(isCarouselRequest("post the sample catalog")).toBe(true);
     expect(isCarouselRequest("triage my open issues")).toBe(false);
+    expect(isCarouselRequest(undefined)).toBe(false);
   });
 });
 
