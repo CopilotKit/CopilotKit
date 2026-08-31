@@ -115,8 +115,8 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         });
         ```
     </Accordion>
-    <Accordion title="Check your agent name in useCoAgent">
-        Make sure that the agent defined in `langgraph.json` matches what you use in the `useCoAgent` hook:
+    <Accordion title="Check your agent name in useAgent">
+        Make sure that the agent defined in `langgraph.json` matches the `agentId` you pass to the `useAgent` hook:
 
         ```json title="langgraph.json"
         {
@@ -138,7 +138,7 @@ If you're seeing this error, it means CopilotKit couldn't find the LangGraph age
         ```
     </Accordion>
     <Accordion title="Check your agent name in useCoAgentStateRender">
-        Make sure that the agent defined in `langgraph.json` matches what you use in the `useAgent` hook:
+        Make sure that the agent defined in `langgraph.json` matches the `name` you pass to the `useCoAgentStateRender` hook:
 
         ```json title="langgraph.json"
         {
