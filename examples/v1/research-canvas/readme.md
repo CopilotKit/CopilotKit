@@ -2,6 +2,8 @@
 
 This example demonstrates a research canvas UI.
 
+This example uses CopilotKit v2. See the [v1 to v2 migration guide](https://docs.copilotkit.ai/migrate/v2) when updating another CopilotKit app.
+
 **Live demo:** https://copilotkit.ai/examples/canvas-research
 
 Tutorial Video:
@@ -10,105 +12,60 @@ Tutorial Video:
 
 ---
 
-## Running the Agent
+## Run with the Python agent
 
-**These instructions assume you are in the `coagents-research-canvas/` directory**
-
-## Running the Agent
-
-First, install the backend dependencies:
-
-### Python SDK
+From this example's directory, install the UI and Python dependencies:
 
 ```sh
-cd agent-py
-poetry install
-```
-
-### JS-SDK
-
-```sh
-cd agent-js
 pnpm install
+pnpm install:agent:py
 ```
 
-Then, create a `.env` file inside `./agent-py` or `./agent-js` with the following:
+Create `agents/python/.env`:
 
-```
+```sh
 OPENAI_API_KEY=...
 TAVILY_API_KEY=...
-LANGSMITH_API_KEY=...(JS ONLY)
 ```
 
-⚠️ IMPORTANT:
-Make sure the OpenAI API Key you provide, supports gpt-4o.
-
-Then, run the demo:
-
-### Python
+Start the UI and Python agent together:
 
 ```sh
-poetry run demo
+pnpm dev
 ```
 
-## Running the UI
+The Python agent requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
 
-First, install the dependencies:
+## Run with the TypeScript agent
+
+Install the TypeScript agent and create `agents/typescript/.env` with the same
+OpenAI and Tavily keys. Add `LANGSMITH_API_KEY` only when your LangGraph setup
+requires it.
 
 ```sh
-cd ./ui
-pnpm i
+pnpm install:agent:ts
+cd agents/typescript
+pnpm exec langgraph dev --host localhost --port 8123
 ```
 
-Then, create a `.env` file inside `./ui` with the following:
-
-```
-OPENAI_API_KEY=...
-```
-
-Then, run the Next.js project:
+In another terminal, start the UI from this example's directory and point the
+runtime at that LangGraph server:
 
 ```sh
-pnpm run dev
+LGC_DEPLOYMENT_URL=http://localhost:8123 pnpm dev:ui
 ```
-
-⚠️ IMPORTANT:
-If you're using the JS agent, follow the steps and uncomment the code inside the `app/api/copilotkit/route.ts`, `remoteEndpoints` action:
-
-```ts
-//const runtime = new CopilotRuntime({
-// remoteEndpoints: [
-// Uncomment this if you want to use LangGraph JS, make sure to
-// remove the remote action url below too.
-//
-// langGraphPlatformEndpoint({
-//   deploymentUrl: "http://localhost:8123",
-//   langsmithApiKey: process.env.LANGSMITH_API_KEY || "", // only used in LangGraph Platform deployments
-//   agents: [{
-//       name: "research_agentt",
-//       description: "Research agent"
-//   }]
-// }),
-// ],
-//});
-```
-
-**Next for JS run these commands:**
-
-- Run this command to start your LangGraph server `npx @langchain/langgraph-cli dev --host localhost --port 8123`
-- Run this command to connect your Copilot Cloud Tunnel to the LangGraph server `npx copilotkit@latest dev --port 8123`
 
 ## Usage
 
 Navigate to [http://localhost:3000](http://localhost:3000).
 
-# LangGraph Studio
+## LangGraph Studio
 
-Run LangGraph studio, then load the `./agent-py` folder into it.
+Run LangGraph Studio, then load `agents/python` or `agents/typescript`.
 
 # Troubleshooting
 
 A few things to try if you are running into trouble:
 
 1. Make sure there is no other local application server running on the 8000 port.
-2. Under `/agent/research_canvas/demo.py`, change `0.0.0.0` to `127.0.0.1` or to `localhost`
+2. If your machine cannot bind to `0.0.0.0`, change the host in `agents/python/main.py` to `127.0.0.1`.

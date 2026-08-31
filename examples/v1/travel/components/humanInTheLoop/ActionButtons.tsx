@@ -1,10 +1,10 @@
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 import { Button } from "../ui/button";
 import { useEffect } from "react";
 
 export type ActionButtonsProps = {
-  status: RenderFunctionStatus;
-  handler: any;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
   approve: React.ReactNode;
   reject: React.ReactNode;
   selectedPlaceIds?: Set<string>;
@@ -15,7 +15,7 @@ export type ActionButtonsProps = {
 
 export const ActionButtons = ({
   status,
-  handler,
+  respond,
   approve,
   reject,
   selectedPlaceIds,
@@ -36,24 +36,24 @@ export const ActionButtons = ({
       <Button
         className="w-full"
         variant="outline"
-        disabled={status === "complete" || status === "inProgress"}
-        onClick={() => handler?.("CANCEL")}
+        disabled={status !== ToolCallStatus.Executing}
+        onClick={async () => respond?.("CANCEL")}
       >
         {reject}
       </Button>
       <Button
         className="w-full"
-        disabled={status === "complete" || status === "inProgress"}
-        onClick={() => {
+        disabled={status !== ToolCallStatus.Executing}
+        onClick={async () => {
           if (selectedPlaceIds && selectedPlaceIds.size > 0) {
             if (type == "edit") {
               console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-              handler?.(
+              await respond?.(
                 JSON.stringify(Array.from(selectedPlaceIds) + "|||editMode"),
               );
             } else {
               console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-              handler?.(
+              await respond?.(
                 JSON.stringify(Array.from(selectedPlaceIds) + "|||addMode"),
               );
             }
@@ -61,13 +61,13 @@ export const ActionButtons = ({
             setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
             if (type == "edit") {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0] + "|||editMode"));
+              await respond?.(JSON.stringify(placeIds?.[0] + "|||editMode"));
             } else {
               // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-              handler?.(JSON.stringify(placeIds?.[0] + "|||addMode"));
+              await respond?.(JSON.stringify(placeIds?.[0] + "|||addMode"));
             }
           } else {
-            handler?.("SEND");
+            await respond?.("SEND");
           }
         }}
       >

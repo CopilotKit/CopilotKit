@@ -1,11 +1,9 @@
 import { useGlobalState } from "@/lib/stages";
-import { Order } from "@/lib/types";
+import type { Order } from "@/lib/types";
 import { ConfirmOrder } from "@/components/generative-ui/confirm-order";
 
-import {
-  useCopilotAction,
-  useCopilotAdditionalInstructions,
-} from "@copilotkit/react-core";
+import { useFrontendTool, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 
 /**
   useStageConfirmOrder is a hook that will add this stage to the state machine. It is responsible for:
@@ -16,49 +14,48 @@ import {
 export function useStageConfirmOrder() {
   const { setOrders, stage, setStage } = useGlobalState();
 
-  // Conditionally add additional instructions for the agent's prompt.
-  useCopilotAdditionalInstructions(
-    {
-      instructions:
-        "CURRENT STATE: You are now confirming the order of the user. Say, 'Great! Now let's just confirm your order. Here is the summary of your order. ' and then call the 'confirmOrder' action. Always call the 'confirmOrder' tool, never ask the user for anything.",
-      available: stage === "confirmOrder" ? "enabled" : "disabled",
-    },
-    [stage],
-  );
-
   // Conditionally add the nextState action to the state machine. Agent will decide if it should be called.
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "nextState",
       description: "Proceed to next state",
-      available: stage === "confirmOrder" ? "enabled" : "disabled",
-      handler: async () => setStage("getContactInfo"),
+      available: stage === "confirmOrder",
+      parameters: z.object({}),
+      handler: async () => {
+        setStage("getContactInfo");
+        return "Started a new order";
+      },
     },
     [stage],
   );
 
   // Render the ConfirmOrder component and wait for the user's response.
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "confirmOrder",
       description: "Confirm the order of the user",
-      available: stage === "confirmOrder" ? "enabled" : "disabled",
-      renderAndWaitForResponse: ({ status, respond }) => {
+      available: stage === "confirmOrder",
+      parameters: z.object({}),
+      render: ({ status, respond }) => {
         return (
           <ConfirmOrder
             status={status}
-            onConfirm={(order: Order) => {
+            onConfirm={async (order: Order) => {
+              if (!respond) return;
+
               // Commit the order to the global state.
               setOrders((prevOrders) => [...prevOrders, order]);
 
               // Let the agent know that the user has confirmed their order.
-              respond?.(
+              await respond(
                 "User confirmed their order, please ask them if they would like to place a another order and if they do, call the 'nextState' action.",
               );
             }}
-            onCancel={() => {
+            onCancel={async () => {
+              if (!respond) return;
+
               // Let the agent know that the user has cancelled their order.
-              respond?.(
+              await respond(
                 "User cancelled their order, please ask them if they'd like to start over with a new order or if they'd like to continue with their current order. If they'd like to start over, call the 'nextState' action. If they'd like to continue with their current order, call the 'confirmOrder' action.",
               );
             }}

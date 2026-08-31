@@ -1,18 +1,17 @@
-import { Place, Trip } from "@/lib/types";
+import type { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Plus } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import type { ToolCallStatus } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
-import { useTrips } from "@/lib/hooks/use-trips";
 
 export type AddTripsProps = {
-  args: any;
-  status: RenderFunctionStatus;
-  handler: any;
+  args: Partial<{ trips: Trip[] }>;
+  status: ToolCallStatus;
+  respond?: (result: unknown) => Promise<void>;
 };
 
-export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
+export const AddTrips = ({ args, status, respond }: AddTripsProps) => {
   useEffect(() => {
     console.log(args, "argsAddTripsargsAddTripsargsAddTrips");
   }, [args]);
@@ -57,7 +56,7 @@ export const AddTrips = ({ args, status, handler }: AddTripsProps) => {
           trip.places?.map((place: Place) => place.id),
         )}
         status={status}
-        handler={handler}
+        respond={respond}
         approve={
           <>
             <Plus className="w-4 h-4 mr-2" /> Add

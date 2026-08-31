@@ -10,23 +10,6 @@
 }
 
 :root {
-  --copilot-kit-primary-color: #3b82f6;
-  --copilot-kit-contrast-color: white;
-  --copilot-kit-secondary-contrast-color: #1e293b;
-  --copilot-kit-background-color: white;
-  --copilot-kit-muted-color: #64748b;
-  --copilot-kit-separator-color: rgba(0, 0, 0, 0.08);
-  --copilot-kit-scrollbar-color: rgba(0, 0, 0, 0.2);
-  --copilot-kit-response-button-color: #1e293b;
-  --copilot-kit-response-button-background-color: white;
-  --copilot-kit-border-color: #e2e8f0;
-  --copilot-kit-shadow-color: rgba(0, 0, 0, 0.1);
-  --copilot-kit-input-border-color: #e2e8f0;
-  --copilot-kit-input-focus-border-color: #3b82f6;
-  --copilot-kit-input-focus-ring-color: rgba(59, 130, 246, 0.5);
-  --copilot-kit-font-family: var(--font-sans);
-  --copilot-kit-border-radius: 0.5rem;
-
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
   --card: oklch(1 0 0);
@@ -63,22 +46,6 @@
 }
 
 .dark {
-  --copilot-kit-primary-color: #3b82f6;
-  --copilot-kit-contrast-color: white;
-  --copilot-kit-secondary-color: #1e293b;
-  --copilot-kit-secondary-contrast-color: #f8fafc;
-  --copilot-kit-background-color: #0f172a;
-  --copilot-kit-muted-color: #94a3b8;
-  --copilot-kit-separator-color: rgba(255, 255, 255, 0.08);
-  --copilot-kit-scrollbar-color: rgba(255, 255, 255, 0.2);
-  --copilot-kit-response-button-color: #f8fafc;
-  --copilot-kit-response-button-background-color: #1e293b;
-  --copilot-kit-border-color: #334155;
-  --copilot-kit-shadow-color: rgba(0, 0, 0, 0.3);
-  --copilot-kit-input-border-color: #334155;
-  --copilot-kit-input-focus-border-color: #3b82f6;
-  --copilot-kit-input-focus-ring-color: rgba(59, 130, 246, 0.5);
-
   --background: oklch(0.147 0.004 49.25);
   --foreground: oklch(0.985 0.001 106.423);
   --card: oklch(0.147 0.004 49.25);
@@ -111,6 +78,32 @@
   --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
   --sidebar-border: oklch(0.268 0.007 34.298);
   --sidebar-ring: oklch(0.553 0.013 58.071);
+}
+
+[data-copilotkit] {
+  --background: white;
+  --foreground: #1e293b;
+  --primary: #3b82f6;
+  --primary-foreground: white;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #3b82f6;
+  --radius: 0.5rem;
+}
+
+.dark [data-copilotkit],
+[data-copilotkit].dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --primary: #3b82f6;
+  --primary-foreground: white;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --input: #334155;
+  --ring: #3b82f6;
 }
 
 @theme inline {

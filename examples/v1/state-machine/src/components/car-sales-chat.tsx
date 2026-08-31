@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils/cn";
 import {
   useStageBuildCar,
@@ -11,19 +11,19 @@ import {
   useStageGetFinancingInfo,
 } from "@/lib/stages";
 
-import { useCopilotChat } from "@copilotkit/react-core";
-import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";
-import { CopilotChat } from "@copilotkit/react-ui";
-import "@copilotkit/react-ui/styles.css";
+import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 import { UserMessage, AssistantMessage } from "./chat-message";
 
 export interface ChatProps {
   className?: string;
 }
 
+const initialMessage =
+  "Hi, I'm Fio, your AI car salesman. First, let's get your contact information before we get started.";
+
 export function CarSalesChat({ className }: ChatProps) {
-  const { appendMessage, isLoading } = useCopilotChat();
-  const [initialMessageSent, setInitialMessageSent] = useState(false);
+  const { agent, isReady } = useAgent({ agentId: "default" });
+  const initialMessageSent = useRef(false);
 
   // Add the stages of the state machine
   useStageGetContactInfo();
@@ -35,19 +35,39 @@ export function CarSalesChat({ className }: ChatProps) {
 
   // Render an initial message when the chat is first loaded
   useEffect(() => {
-    if (initialMessageSent || isLoading) return;
+    if (initialMessageSent.current || !isReady || agent.isRunning) return;
 
-    setTimeout(() => {
-      appendMessage(
-        new TextMessage({
-          content:
-            "Hi, I'm Fio, your AI car salesman. First, let's get your contact information before we get started.",
-          role: MessageRole.Assistant,
-        }),
-      );
-      setInitialMessageSent(true);
+    if (
+      agent.messages.some(
+        (message) =>
+          message.role === "assistant" && message.content === initialMessage,
+      )
+    ) {
+      initialMessageSent.current = true;
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      if (
+        agent.messages.some(
+          (message) =>
+            message.role === "assistant" && message.content === initialMessage,
+        )
+      ) {
+        initialMessageSent.current = true;
+        return;
+      }
+
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: initialMessage,
+      });
+      initialMessageSent.current = true;
     }, 500);
-  }, [initialMessageSent, appendMessage, isLoading]);
+
+    return () => window.clearTimeout(timeout);
+  }, [agent, agent.isRunning, isReady]);
 
   return (
     <div
@@ -59,31 +79,31 @@ export function CarSalesChat({ className }: ChatProps) {
       <div className={cn("flex-1 w-full rounded-xl overflow-y-auto")}>
         <CopilotChat
           className="h-full w-full"
-          instructions={systemPrompt}
-          UserMessage={UserMessage}
-          AssistantMessage={AssistantMessage}
+          agentId="default"
+          messageView={{
+            userMessage: {
+              children: ({ message }) => <UserMessage message={message} />,
+            },
+            assistantMessage: {
+              children: ({
+                message,
+                messages,
+                isRunning,
+                markdownRenderer,
+                toolCallsView,
+              }) => (
+                <AssistantMessage
+                  message={message}
+                  messages={messages}
+                  isRunning={isRunning}
+                  markdownRenderer={markdownRenderer}
+                  toolCallsView={toolCallsView}
+                />
+              ),
+            },
+          }}
         />
       </div>
     </div>
   );
 }
-
-const systemPrompt = `
-GOAL
-You are trying to help the user purchase a car. The user will be going through a series of stages to accomplish this goal. Please help
-them through the process with their tools and data keeping in mind the current stage of the interaction. Do not proceed to the next
-stage until the current stage is complete. You must take each stage one at a time, do not skip any stages.
-
-BACKGROUND
-You are built by CopilotKit, an open-source framework for building agentic applications.
-
-DETAILS
-You will be going through a series of stages to sell a car. Each stage will have its own unique instructions, tools and data. Please evaluate your current stage
-before responding. Any additional instructions provided in the stage should be followed with the highest priority. DO NOT RESPOND WITH DATA YOU DO NOT HAVE ACCESS TO.
-If you cannot perform an action, do not attempt to perform it, just let the know that they cannot do that and reiterate the instructions for the current stage.
-
-NOTICES
-- DO NOT mention the word "stage" or "state" in your responses.
-- DO NOT mention the word "state machine" in your responses.
-- DO NOT offer to let the user test drive the car.
-`;

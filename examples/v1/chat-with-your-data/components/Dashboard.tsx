@@ -7,7 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useAgentContext, useRenderTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 import { AreaChart } from "./ui/area-chart";
 import { BarChart } from "./ui/bar-chart";
 import { DonutChart } from "./ui/pie-chart";
@@ -36,7 +37,7 @@ export function Dashboard() {
   const profitMargin = calculateProfitMargin();
 
   // Make data available to the Copilot
-  useCopilotReadable({
+  useAgentContext({
     description:
       "Dashboard data including sales trends, product performance, and category distribution",
     value: {
@@ -56,23 +57,16 @@ export function Dashboard() {
     },
   });
 
-  // Define render only search action
-  useCopilotAction({
+  // Render the server-side search tool in the chat.
+  useRenderTool({
     name: "searchInternet",
-    available: "disabled",
-    description: "Searches the internet for information.",
-    parameters: [
-      {
-        name: "query",
-        type: "string",
-        description: "The query to search the internet for.",
-        required: true,
-      },
-    ],
-    render: ({ args, status }) => {
+    parameters: z.object({
+      query: z.string().describe("The query to search the internet for."),
+    }),
+    render: ({ parameters, status }) => {
       return (
         <SearchResults
-          query={args.query || "No query provided"}
+          query={parameters.query || "No query provided"}
           status={status}
         />
       );

@@ -1,14 +1,20 @@
 import React from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { useGlobalState } from "@/lib/stages";
-import { Car, CardInfo, ContactInfo, FinancingInfo, Order } from "@/lib/types";
+import type {
+  Car,
+  CardInfo,
+  ContactInfo,
+  FinancingInfo,
+  Order,
+} from "@/lib/types";
 
-import { RenderFunctionStatus } from "@copilotkit/react-core";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface ConfirmOrderProps {
   onConfirm: (order: Order) => void;
   onCancel: () => void;
-  status: RenderFunctionStatus;
+  status: ToolCallStatus;
 }
 
 export const ConfirmOrder = ({
@@ -58,7 +64,7 @@ export const ConfirmOrder = ({
         </div>
       </div>
 
-      {status !== "complete" && (
+      {status === ToolCallStatus.Executing && (
         <ActionButtons
           onConfirm={() =>
             onConfirm({

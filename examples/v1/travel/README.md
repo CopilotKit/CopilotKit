@@ -2,6 +2,8 @@
 
 Plan your next trip with an AI-powered travel planner. This demo showcases a travel application where an AI assistant helps you create, manage, and explore trips with real-time map visualization and Google Maps integration.
 
+This example uses CopilotKit v2. If you are updating a v1 app, follow the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
+
 [Click here for a running example](https://copilotkit.ai/examples/travel-planner)
 
 <div align="center">

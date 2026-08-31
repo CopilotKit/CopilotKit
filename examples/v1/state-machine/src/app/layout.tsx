@@ -1,7 +1,8 @@
 "use client";
 
 import "./globals.css";
-import { CopilotKit } from "@copilotkit/react-core";
+import "@copilotkit/react-core/v2/styles.css";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { GlobalStateProvider } from "@/lib/stages";
 import { CarSalesChat } from "@/components/car-sales-chat";
 
@@ -13,7 +14,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
+        <CopilotKitProvider
+          runtimeUrl="/api/copilotkit"
+          enableInspector={false}
+        >
           <GlobalStateProvider>
             <div className="h-screen w-screen grid grid-cols-[40fr,60fr] p-10 gap-5">
               <div className="overflow-y-auto rounded-xl border">
@@ -24,7 +28,7 @@ export default function RootLayout({
               </div>
             </div>
           </GlobalStateProvider>
-        </CopilotKit>
+        </CopilotKitProvider>
       </body>
     </html>
   );
