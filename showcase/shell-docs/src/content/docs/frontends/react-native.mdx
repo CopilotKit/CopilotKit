@@ -12,8 +12,8 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
 ## Prerequisites
 
 - An OpenAI API key (or another model provider supported by [Model Selection](/model-selection))
-- React Native 0.70+ (bare CLI or Expo)
-- Node.js 20+
+- React Native 0.79+ (bare CLI or Expo) for the zero-configuration `/headless` path
+- Node.js 22.11+
 - `@react-native-community/cli` in your `devDependencies` **if you are on React Native 0.87 or later**, which no longer bundles it. A freshly `init`ed app already has it; an app you have upgraded may not, and without it `react-native bundle` and `react-native start` stop with a message naming the missing package instead of running.
 
 ## Getting started
@@ -361,55 +361,24 @@ Two React-Native-specific differences are worth knowing:
   Register the data with `useAgentContext`, and write the agent's instructions to refuse to answer about records that context does not carry. Then check one answer against the records your app actually holds — if it names anything else, the context never arrived, however right the screen looks.
 </Callout>
 
-## Metro configuration for release bundles
+## Metro compatibility
 
-With package exports enabled, a release bundle can fail with `Unable to resolve module node:crypto` (or another `node:` specifier) pointing at `jose`. This surfaces **only at bundle time**, never at typecheck.
-
-`jose` is not a direct dependency. It arrives transitively through telemetry: `@copilotkit/shared` → `@segment/analytics-node` → `jose`. `jose` publishes separate Node and browser builds behind its `exports` map, and its Node build imports `node:`-prefixed modules that Hermes cannot bundle.
-
-The fix is to resolve **`jose` specifically** against its `browser` condition, using `resolveRequest`:
+`@copilotkit/react-native/headless` works with Metro's stock configuration. You do not need a resolver override for CopilotKit:
 
 ```js title="metro.config.js"
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
 
-const config = {
-  resolver: {
-    resolveRequest: (context, moduleImport, platform) => {
-      // jose reaches the bundle via @copilotkit/shared -> @segment/analytics-node.
-      // Its Node build imports node:* modules that Hermes can't bundle.
-      if (moduleImport === "jose" || moduleImport.startsWith("jose/")) {
-        return context.resolveRequest(
-          { ...context, unstable_conditionNames: ["browser"] }, // [!code highlight]
-          moduleImport,
-          platform,
-        );
-      }
-      return context.resolveRequest(context, moduleImport, platform);
-    },
-  },
-};
-
-module.exports = mergeConfig(getDefaultConfig(__dirname), config);
+module.exports = mergeConfig(getDefaultConfig(__dirname), {});
 ```
 
-On Expo, swap in `getDefaultConfig` from `expo/metro-config`; the `resolver` block is identical.
+The package's React Native export condition keeps Node-only telemetry dependencies out of the native bundle while leaving the existing Node.js exports unchanged. On Expo, use `getDefaultConfig` from `expo/metro-config` as usual; CopilotKit still needs no custom resolver.
 
-<Callout type="warn" title="Don't assert `browser` globally">
-  It's tempting to set `resolver.unstable_conditionNames = ["browser", ...]` instead. Avoid it:
-
-  - `unstable_conditionNames` is an **unordered set of asserted conditions**, not a priority list. The winning target is chosen by the key order in *each package's own* `exports` map, so reordering this array changes nothing.
-  - It applies **globally**, so every dual-build dependency in your graph switches to its browser build — not just `jose`.
-  - Metro's React Native default is `["require", "react-native"]`. Replacing it wholesale drops the `react-native` condition, which changes resolution for any package that ships one.
-
-  Scoping with `resolveRequest` keeps Metro's defaults intact everywhere else.
-</Callout>
-
-<Callout type="info" title="Do you need `unstable_enablePackageExports`?">
-  Package `exports` resolution is **enabled by default from Metro 0.82 / React Native 0.79**, so no flag is needed there. It arrived opt-in in React Native 0.72 (Metro 0.76.1) — on React Native 0.72–0.78 set `resolver.unstable_enablePackageExports = true`, which is also what lets Metro resolve this package's `/headless`, `/components`, and `/polyfills` subpaths. React Native below 0.72 has no package-exports support.
+<Callout type="info" title="Using React Native 0.72–0.78?">
+  Package `exports` resolution is enabled by default from Metro 0.82 / React Native 0.79. It was opt-in in React Native 0.72–0.78, so those versions need `resolver.unstable_enablePackageExports = true` to resolve this package's `/headless`, `/components`, and `/polyfills` subpaths. React Native below 0.72 cannot resolve these subpaths.
 </Callout>
 
 <Callout type="success" title="Headless removes the need to stub">
-  Importing from [`@copilotkit/react-native/headless`](#import-surfaces) means Metro never resolves the chat or attachment peer dependencies, so you don't need `@gorhom/bottom-sheet`, `expo-document-picker`, or `expo-file-system` at all. The `jose` resolver above is independent of that choice — it's needed either way.
+  Importing from [`@copilotkit/react-native/headless`](#import-surfaces) means Metro never resolves the chat or attachment peer dependencies, so you don't need `@gorhom/bottom-sheet`, `expo-document-picker`, or `expo-file-system` at all.
 </Callout>
 
 ## Polyfills

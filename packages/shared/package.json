@@ -29,6 +29,10 @@
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
+      "react-native": {
+        "import": "./dist/react-native.mjs",
+        "require": "./dist/react-native.cjs"
+      },
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },

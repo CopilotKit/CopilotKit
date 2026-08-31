@@ -4,7 +4,7 @@
  *
  * Covers:
  * 1. useRenderTool with complex Zod schemas
- * 2. defineToolCallRenderer with Zod (named + wildcard default z.any())
+ * 2. defineToolCallRenderer with Zod (named tools preserve schema identity)
  * 3. useComponent with Zod schemas
  * 4. The registered schema object is the original Zod instance (identity check)
  */
@@ -12,6 +12,7 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
+import { schemaToJsonSchema } from "@copilotkit/shared";
 import { useRenderTool } from "../use-render-tool";
 import { useComponent } from "../use-component";
 import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
@@ -185,15 +186,18 @@ describe("useRenderTool Zod regression", () => {
 });
 
 describe("defineToolCallRenderer Zod regression", () => {
-  it("wildcard tool defaults to z.any() for args", () => {
+  it("wildcard tool uses a dependency-free any schema", async () => {
     const renderer = defineToolCallRenderer({
       name: "*",
       render: () => React.createElement("div", null, "wildcard"),
     });
 
     expect(renderer.name).toBe("*");
-    // z.any() has vendor "zod" on ~standard
-    expect(renderer.args!["~standard"].vendor).toBe("zod");
+    expect(renderer.args!["~standard"].vendor).toBe("copilotkit");
+    expect(
+      await renderer.args!["~standard"].validate({ arbitrary: true }),
+    ).toEqual({ value: { arbitrary: true } });
+    expect(schemaToJsonSchema(renderer.args!)).toEqual({});
   });
 
   it("named tool with Zod args preserves schema identity", () => {
