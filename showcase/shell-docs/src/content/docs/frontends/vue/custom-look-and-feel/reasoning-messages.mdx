@@ -1,0 +1,68 @@
+---
+title: Reasoning Messages
+icon: "lucide/Brain"
+description: Customize the Vue display for reasoning messages emitted by an agent.
+---
+
+Some agents emit reasoning messages before their final response. The default
+Vue `CopilotChatReasoningMessage` renders them as a collapsible Markdown card:
+it opens while the latest reasoning message streams, labels that state
+`Thinking…`, then collapses to `Thought for X seconds` when the run finishes.
+
+No extra chat prop is required. When the agent emits a reasoning message, the
+default message view renders it.
+
+## Customize the reasoning card
+
+Compose a custom reasoning leaf in the `reasoning-message` slot of
+`CopilotChatMessageView`. The leaf itself provides scoped `header`,
+`content-view`, `toggle`, and `layout` slots.
+
+```vue title="ChatWithReasoning.vue"
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatMessageView,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #message-view="{ messages, isRunning }">
+      <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+        <template #reasoning-message="{ message, messages: allMessages, isRunning: running }">
+          <CopilotChatReasoningMessage
+            :message="message"
+            :messages="allMessages"
+            :is-running="running"
+          >
+            <template #header="{ label, isOpen, hasContent, onClick }">
+              <button type="button" :disabled="!hasContent" @click="onClick?.()">
+                {{ label }} {{ isOpen ? "Hide" : "Show" }}
+              </button>
+            </template>
+            <template #content-view="{ content, isStreaming }">
+              <pre>{{ content }}{{ isStreaming ? ' ▊' : '' }}</pre>
+            </template>
+          </CopilotChatReasoningMessage>
+        </template>
+      </CopilotChatMessageView>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+## Slot data
+
+| Slot | Data |
+| --- | --- |
+| `header` | `isOpen`, `label`, `hasContent`, `isStreaming`, and optional `onClick`. |
+| `content-view` | `content`, `hasContent`, and `isStreaming`. |
+| `toggle` | `isOpen` and the content-view data. |
+| `layout` | The message, all messages, run state, and the header/content/toggle slot data. |
+
+Keep the `onClick` action attached when you replace the header: it owns the
+expand/collapse transition. Use the `layout` slot only when you need to
+rearrange the whole card; the smaller slots are less work and keep the default
+structure.

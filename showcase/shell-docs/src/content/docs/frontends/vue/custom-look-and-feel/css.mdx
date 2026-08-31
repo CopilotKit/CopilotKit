@@ -1,0 +1,75 @@
+---
+title: CSS Customization
+icon: "lucide/Palette"
+description: Theme CopilotKit Vue components with CSS design tokens.
+---
+
+## What is this?
+
+The Vue v2 components ship a scoped Tailwind theme. Import the package
+stylesheet once, then override CSS custom properties on `[data-copilotkit]` or
+an ancestor to retint the prebuilt UI without changing its behavior.
+
+Use [slots](/vue/custom-look-and-feel/slots) when you need to replace markup,
+and [headless UI](/vue/custom-look-and-feel/headless-ui) when you need your own
+surface.
+
+## Import and scope the theme
+
+```ts title="main.ts"
+import "@copilotkit/vue/styles.css";
+```
+
+The components mark their roots with `data-copilotkit`, so scope overrides to
+one product area when the rest of the application uses different tokens:
+
+```vue title="SupportChat.vue"
+<template>
+  <section class="support-chat">
+    <CopilotChat agent-id="support" />
+  </section>
+</template>
+
+<style>
+.support-chat [data-copilotkit] {
+  --primary: oklch(0.55 0.22 264);
+  --primary-foreground: oklch(0.99 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --muted: oklch(0.97 0 0);
+  --border: oklch(0.922 0 0);
+  --radius: 0.625rem;
+}
+</style>
+```
+
+## Design-token reference
+
+| Token | Description |
+| --- | --- |
+| `--background` / `--foreground` | Base surface and primary text. |
+| `--primary` / `--primary-foreground` | Action color and text on it. |
+| `--secondary` / `--secondary-foreground` | Secondary panels and cards. |
+| `--muted` / `--muted-foreground` | Subtle backgrounds and de-emphasized text. |
+| `--accent` / `--accent-foreground` | Hover and active state colors. |
+| `--border` / `--input` / `--ring` | Dividers, input outline, and focus ring. |
+| `--destructive` / `--destructive-foreground` | Error and danger states. |
+| `--card` / `--popover` (and `-foreground`) | Elevated surfaces. |
+| `--sidebar-*` | Sidebar-specific background, foreground, border, and ring tokens. |
+| `--radius` | Base corner radius; the smaller and larger radii derive from it. |
+
+## Dark mode
+
+The stylesheet recognizes a `.dark` ancestor. Override the same tokens under
+that ancestor to match your application’s dark-mode switch:
+
+```css title="app.css"
+.dark [data-copilotkit] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --border: oklch(0.269 0 0);
+}
+```
+
+Any valid CSS color works; `oklch()` is the default because it preserves
+perceived lightness more consistently across hues.

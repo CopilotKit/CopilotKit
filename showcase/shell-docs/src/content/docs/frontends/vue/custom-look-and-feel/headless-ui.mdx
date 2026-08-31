@@ -1,0 +1,73 @@
+---
+title: Fully Headless UI
+description: Build a Vue surface on CopilotKit’s reactive agent and runtime primitives.
+icon: "lucide/Settings"
+---
+
+## What is this?
+
+A headless surface brings its own layout and styling while CopilotKit supplies
+the selected agent, reactive conversation state, and runtime connection. Use it
+when the [slot system](/vue/custom-look-and-feel/slots) cannot express your
+layout or when the surface is not a conventional chat.
+
+## The core composables
+
+- `useAgent({ agentId })` returns a reactive `agent` ref for the selected
+  conversation and its run state.
+- `useCopilotKit()` returns the injected `copilotkit` runtime ref.
+- `useRenderActivityMessage()` and `useRenderCustomMessages()` resolve the
+  registered activity and before/after message renderers when a custom surface
+  needs them.
+
+Composables must execute in a component below `CopilotKitProvider`; calling one
+above the provider has no injected runtime context.
+
+## Minimal read-only message surface
+
+```vue title="CustomMessages.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent({ agentId: "my-agent" });
+const messages = computed(() => agent.value?.messages ?? []);
+const isRunning = computed(() => agent.value?.isRunning ?? false);
+</script>
+
+<template>
+  <section aria-live="polite">
+    <article v-for="message in messages" :key="message.id" :data-role="message.role">
+      {{ message.content }}
+    </article>
+    <p v-if="isRunning">Thinking…</p>
+  </section>
+</template>
+```
+
+Render this component below the provider:
+
+```vue
+<CopilotKitProvider runtime-url="/api/copilotkit">
+  <CustomMessages />
+</CopilotKitProvider>
+```
+
+## Decide when to use prebuilt leaves
+
+For a custom outer layout that should retain CopilotKit’s default message,
+tool-call, reasoning, and composer behavior, compose the exported Vue leaves
+such as `CopilotChatMessageView`, `CopilotChatAssistantMessage`, and
+`CopilotChatInput` inside your own template. For a fully custom rendering
+pipeline, handle every message role and registered renderer deliberately.
+
+The current Vue package does not expose React’s `useRenderToolCall` composable.
+For tool-call presentation in a Vue chat, use the named `tool-call-<name>` or
+`tool-call` slots, or register a renderer with `useRenderTool` before the chat
+surface mounts. Do not assume a React render-function API exists in Vue.
+
+## Next steps
+
+- [Slots](/vue/custom-look-and-feel/slots) for a lower-effort customization.
+- [CSS customization](/vue/custom-look-and-feel/css) when only the visual
+  design needs to change.

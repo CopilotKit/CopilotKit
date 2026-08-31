@@ -1,0 +1,112 @@
+---
+title: Slots (Subcomponents)
+icon: "lucide/Brush"
+description: Customize Vue chat surfaces with named and scoped slots.
+---
+
+## What is this?
+
+Vue chat components are composed with named slots. Use a template slot when
+you need to replace a visible piece of the default UI while retaining the
+runtime, message state, and streaming behavior. Scoped slots expose the data
+and imperative actions the replacement needs.
+
+This is Vue’s primary customization model: use templates and components, not
+React-style component or props-override objects.
+
+## Root chat slots
+
+`CopilotChat` accepts these named slots:
+
+| Slot | Scoped data or purpose |
+| --- | --- |
+| `chat-view` | Replace the complete chat view; receives messages, input state, suggestions, and submit/input actions. |
+| `message-view` | Replace the message-list composition; receives `messages` and `isRunning`. |
+| `input` | Replace the composer; receives `modelValue`, run state, attachment/transcription actions, and submit/input actions. |
+| `suggestion-view` | Replace suggestions; receives suggestions, loading indexes, and `onSelectSuggestion`. |
+| `welcome-screen` | Replace the empty state; receives the input and suggestion slot data. |
+| `welcome-message` | Replace only the default welcome message. |
+| `interrupt` | Render a pending interrupt from the chat surface. |
+
+`CopilotSidebar` and `CopilotPopup` additionally expose `header` and
+`toggle-button`. The toggle slot receives `isOpen`, `toggle`, `open`, and
+`close`.
+
+## Replace an empty state
+
+```vue title="SupportChat.vue"
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #welcome-screen="{ onSubmitMessage }">
+      <section class="welcome-card">
+        <h2>How can we help?</h2>
+        <button type="button" @click="onSubmitMessage('Show my open tickets')">
+          Show my open tickets
+        </button>
+      </section>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+## Customize assistant messages
+
+Use the `message-view` slot to compose the public message leaf components,
+then customize their own slots or events. This keeps the component hierarchy
+and provider ancestry intact:
+
+```vue title="SupportChat.vue"
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatAssistantMessage,
+  CopilotChatMessageView,
+} from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #message-view="{ messages, isRunning }">
+      <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+        <template #assistant-message="{ message, messages: allMessages, isRunning: running }">
+          <CopilotChatAssistantMessage
+            :message="message"
+            :messages="allMessages"
+            :is-running="running"
+          >
+            <template #toolbar-items>
+              <span class="reviewed-badge">Reviewed</span>
+            </template>
+          </CopilotChatAssistantMessage>
+        </template>
+      </CopilotChatMessageView>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+The message components expose further named slots for user messages, assistant
+toolbars and buttons, tool calls, reasoning messages, and activity messages.
+For activity rendering, `CopilotChatMessageView` first looks for
+`activity-<activityType>`, then `activity-message`.
+
+## Labels
+
+Use the `labels` prop on a prebuilt surface for text-only changes:
+
+```vue
+<CopilotChat
+  :labels="{
+    chatInputPlaceholder: 'Ask your agent anything…',
+    welcomeMessageText: 'How can I help you today?',
+    chatDisclaimerText: 'AI responses may be inaccurate.',
+  }"
+/>
+```
+
+Use slots for structure and behavior, and labels for the existing user-facing
+copy.
