@@ -219,6 +219,34 @@ describe("CopilotKit", () => {
     expect(handlerSpy).toHaveBeenCalledWith({ value: "ok" }, mockContext);
   });
 
+  it("adds a display-only client tool with no handler at all", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const injector = TestBed.inject(Injector);
+
+    copilotKit.addFrontendTool({
+      name: "display-only",
+      description: "Renders a card",
+      args: z.object({ value: z.string() }),
+      component: class {
+        toolCall = signal({} as any);
+      },
+      injector,
+    } as never);
+
+    // Core inserts an empty tool result for a tool that declares no handler, so a
+    // display-only registration must reach it with `handler` still absent. Binding
+    // a wrapper around `undefined` here would throw on the first tool call, and
+    // supplying a stub would write a fabricated result into the thread.
+    const tool = mockAddTool.mock.calls.at(-1)![0];
+    expect(tool.name).toBe("display-only");
+    expect(tool.handler).toBeUndefined();
+    expect(copilotKit.clientToolCallRenderConfigs()).toHaveLength(1);
+  });
+
   it("registers human-in-the-loop tools and delegates responses", async () => {
     const onResultSpy = vi
       .spyOn(HumanInTheLoop.prototype, "onResult")

@@ -52,8 +52,6 @@ cp .env.example .env
 
 The full chain runs locally: `browser:3000 → bridge:3001 → agent:8080`. AWS is only used for Memory and Gateway (SSM/OAuth2).
 
-See `docs/LOCAL_DEVELOPMENT.md` for full details.
-
 ## Agent dependencies
 
 Each single-agent directory under `agents/` — `langgraph-single-agent/` and
@@ -83,7 +81,6 @@ hashes both, so a dependency change retriggers the image build on the next apply
 | `infra-cdk/`                     | CDK: Cognito, AgentCore, CopilotKit Lambda bridge, Amplify |
 | `infra-terraform/`               | Terraform equivalent — see `infra-terraform/README.md`     |
 | `docker/`                        | Local dev via Docker Compose                               |
-| `docs/`                          | LOCAL_DEVELOPMENT.md, LOCAL_DOCKER_TESTING.md              |
 
 ## Architecture
 
@@ -110,5 +107,3 @@ cd infra-cdk && npx cdk@latest destroy --all --output ../cdk.out-st   # Strands 
 
 - [CopilotKit](https://docs.copilotkit.ai)
 - [AWS Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
-- [Local Development](docs/LOCAL_DEVELOPMENT.md)
-- [Local Docker Testing](docs/LOCAL_DOCKER_TESTING.md)

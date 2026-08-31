@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/angular",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Angular library for CopilotKit",
   "license": "MIT",
   "repository": {

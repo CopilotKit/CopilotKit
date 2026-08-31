@@ -11,6 +11,8 @@ You call `registerFrontendTool` inside an Angular injection context (a component
 
 The handler runs inside the same injector that registered the tool, so it can call `inject()` to reach your other Angular services.
 
+If there is nothing to run in the browser and you only want the agent to display a component with the arguments it supplies, use [`registerComponent`](/reference/angular/functions/registerComponent) instead of a stub handler.
+
 <Callout type="info">
   Import from the package root, `@copilotkit/angular`. There is no `/v2`
   subpath. `registerFrontendTool` must run in an injection context that has
@@ -257,6 +259,11 @@ export class WeatherComponent {
 ## Related
 
 <Cards>
+  <Card
+    title="registerComponent"
+    description="Let the agent display one of your components, with no handler and nothing to add on the agent side."
+    href="/reference/angular/functions/registerComponent"
+  />
   <Card
     title="registerRenderToolCall"
     description="Register a renderer for a tool call (including server-side and agentic tools) with full access to status and results."
