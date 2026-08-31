@@ -7,18 +7,26 @@ export const incidentReportFormSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
-  incidentType: z.string({
-    required_error: "Please select an incident type.",
-  }),
+  incidentType: z
+    .string({
+      required_error: "Please select an incident type.",
+    })
+    .min(1, {
+      message: "Please select an incident type.",
+    }),
   date: z.date({
     required_error: "Please select the date when the incident occurred.",
   }),
   description: z.string().trim().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  impactLevel: z.string({
-    required_error: "Please select an impact level.",
-  }),
+  impactLevel: z
+    .string({
+      required_error: "Please select an impact level.",
+    })
+    .min(1, {
+      message: "Please select an impact level.",
+    }),
   suggestedActions: z.string().trim().min(10, {
     message: "Suggested actions must be at least 10 characters.",
   }),
