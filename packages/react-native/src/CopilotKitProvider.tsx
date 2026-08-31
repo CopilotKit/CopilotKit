@@ -4,10 +4,14 @@ import {
   CopilotKitContext,
   LicenseContext,
 } from "@copilotkit/react-core/v2/context";
-import type { CopilotKitContextValue } from "@copilotkit/react-core/v2/context";
+import type {
+  CopilotKitContextValue,
+  CopilotKitCoreReact as CopilotKitCoreReactInstance,
+} from "@copilotkit/react-core/v2/context";
 import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
-import type { DebugConfig } from "@copilotkit/shared";
+import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
+import { createLicenseContextValue } from "@copilotkit/shared";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -97,10 +101,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [JSON.stringify(properties)],
   );
 
-  const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
+  const copilotkitRef = useRef<CopilotKitCoreReactInstance | null>(null);
 
   if (copilotkitRef.current === null) {
-    copilotkitRef.current = new CopilotKitCoreReact({
+    const instance: CopilotKitCoreReactInstance = new CopilotKitCoreReact({
       runtimeUrl,
       runtimeTransport:
         useSingleEndpoint === true
@@ -116,8 +120,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
     if (defaultThrottleMs !== undefined) {
-      copilotkitRef.current.setDefaultThrottleMs(defaultThrottleMs);
+      instance.setDefaultThrottleMs(defaultThrottleMs);
     }
+    copilotkitRef.current = instance;
   }
 
   const copilotkit = copilotkitRef.current;
@@ -160,6 +165,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     ReadonlySet<string>
   >(() => new Set());
 
+  const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
+    RuntimeLicenseStatus | undefined
+  >(undefined);
+
   // Use ref to avoid subscription churn when onError changes
   const onErrorRef = useRef(onError);
   useEffect(() => {
@@ -198,6 +207,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
           );
         }
       },
+      onRuntimeConnectionStatusChanged: () => {
+        setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      },
     });
     return () => subscription.unsubscribe();
   }, [copilotkit]);
@@ -210,14 +222,10 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
+  // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => ({
-      status: null as null,
-      license: null as null,
-      checkFeature: () => true,
-      getLimit: () => null,
-    }),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (

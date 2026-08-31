@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / byoc (bring-your-own-component)",
+    "sourceScript": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "BYOC hashbrown pill — the agent emits a JSON-structured response that the demo's custom renderer materializes as metric cards + charts. hasToolResult:false prevents re-match after tool result.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_dashboard_001",
+            "name": "render_dashboard",
+            "arguments": "{\"metrics\":[{\"label\":\"Total Revenue\",\"value\":\"$1.24M\",\"change\":\"+12%\"},{\"label\":\"New Customers\",\"value\":\"3,842\",\"change\":\"+8%\"},{\"label\":\"Avg Order Value\",\"value\":\"$322\",\"change\":\"+3%\"}],\"charts\":[{\"type\":\"pie\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":580000},{\"label\":\"SMB\",\"value\":420000},{\"label\":\"Consumer\",\"value\":240000}]},{\"type\":\"bar\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":380000},{\"label\":\"Nov\",\"value\":410000},{\"label\":\"Dec\",\"value\":450000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "BYOC hashbrown pill — follow-up narration after tool result.",
+      "match": {
+        "userMessage": "Q4 sales dashboard",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above with total revenue of $1.24M, a pie chart of revenue by segment, and a bar chart of monthly revenue."
+      }
+    }
+  ]
+}

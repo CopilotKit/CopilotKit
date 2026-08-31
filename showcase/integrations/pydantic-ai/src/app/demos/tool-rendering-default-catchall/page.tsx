@@ -1,16 +1,28 @@
 "use client";
 
-// Tool Rendering — DEFAULT CATCH-ALL variant.
-// The backend agent exposes mock tools (get_weather, search_flights, etc.)
-// and the frontend opts into CopilotKit's built-in default tool-call card.
+// Tool Rendering — DEFAULT CATCH-ALL variant (simplest).
+//
+// This cell is the simplest point in the three-way progression. The
+// backend exposes a handful of mock tools (get_weather, search_flights,
+// get_stock_price, roll_dice) and the frontend ONLY opts into
+// CopilotKit's built-in default tool-call card — no per-tool renderers,
+// no custom wildcard UI.
+//
+// `useDefaultRenderTool()` (called with no config) registers the built-
+// in `DefaultToolCallRenderer` under the `*` wildcard. That renderer
+// shows the tool name, a live status pill (Running → Done), and a
+// collapsible "Arguments / Result" section that fills in as the call
+// progresses. Without this hook the runtime has NO `*` renderer, so
+// `useRenderToolCall` falls through to `null` and tool calls are
+// invisible — the user only sees the assistant's final text summary.
 
 import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useConfigureSuggestions,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
@@ -36,23 +48,7 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Schedule a meeting",
-        message: "Schedule a meeting for a demo call.",
-      },
-      {
-        title: "Add some todos",
-        message: "Add 3 sales todos for Q2 prospecting.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat

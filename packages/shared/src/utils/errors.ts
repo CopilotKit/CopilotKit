@@ -63,37 +63,37 @@ const getSeeMoreMarkdown = (link: string) => `See more: [${link}](${link})`;
 export const ERROR_CONFIG = {
   [CopilotKitErrorCode.NETWORK_ERROR]: {
     statusCode: 503,
-    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#network-errors-api-not-found`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.NOT_FOUND]: {
     statusCode: 404,
-    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#network-errors-api-not-found`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.AGENT_NOT_FOUND]: {
     statusCode: 500,
-    troubleshootingUrl: `${BASE_URL}/coagents/troubleshooting/common-issues#i-am-getting-agent-not-found-error`,
+    troubleshootingUrl: `${BASE_URL}/langgraph-python/coagent-troubleshooting/common-coagent-issues#i-am-getting-agent-not-found-error`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.API_NOT_FOUND]: {
     statusCode: 404,
-    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-a-network-errors--api-not-found`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#network-errors-api-not-found`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.REMOTE_ENDPOINT_NOT_FOUND]: {
     statusCode: 404,
-    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#i-am-getting-copilotkits-remote-endpoint-not-found-error`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#remote-endpoint-not-found-error`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },
   [CopilotKitErrorCode.AUTHENTICATION_ERROR]: {
     statusCode: 401,
-    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues#authentication-errors`,
+    troubleshootingUrl: `${BASE_URL}/troubleshooting/common-issues`,
     visibility: ErrorVisibility.BANNER,
     severity: Severity.CRITICAL,
   },

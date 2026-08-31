@@ -4,14 +4,34 @@ description: Turn your Mastra Agents into an agent-native application in 10 minu
 icon: "lucide/Play"
 hideTOC: true
 ---
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+import SelfHostingCopilotRuntimeCreateEndpoint from "@/snippets/self-hosting-copilot-runtime-create-endpoint.mdx";
+import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
+import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeConfigureCopilotKitProvider from "@/snippets/coagents/self-host-configure-copilotkit-provider.mdx";
+import SelfHostingCopilotRuntimeStarter from "@/snippets/self-hosting-copilot-runtime-starter.mdx";
+import SelfHostingRemoteEndpoints from "@/snippets/self-hosting-remote-endpoints.mdx";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+  ServerIcon,
+} from "lucide-react";
+import CopilotUI from "@/snippets/copilot-ui.mdx";
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_mastra_quickstart"
 />
 
 ## Prerequisites
@@ -28,7 +48,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+        <SignupLink surface="docs_mastra_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -55,7 +75,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
+                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Mastra setup.
                 - **Framework** — pick **Mastra** when prompted.
             </Step>
             <Step>
@@ -163,14 +183,51 @@ Before you begin, you'll need the following:
                 ```
             </Step>
             <Step>
+                ### Start your agent
+
+                Leave the Mastra server running in its own terminal:
+
+                ```bash
+                npx mastra dev
+                ```
+
+                Note the port it prints. `mastra dev` takes 4111 when it is free and walks
+                up to 4131 when it is not, and the frontend you build next reaches this
+                agent over HTTP at that address.
+
+                Confirm it is serving your agent before you wire the frontend to it:
+
+                ```bash
+                curl http://127.0.0.1:4111/api/agents
+                ```
+
+                <Callout type="warn" title="A bare `GET /` is not a liveness check">
+                  Mastra serves its web console on the agent port and answers `200` whether
+                  or not any agent is registered. Check `/api/agents` and look for your
+                  agent by name.
+                </Callout>
+            </Step>
+            <Step>
                 ### Create your frontend
 
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
+                Create it *beside* your Mastra project, not inside it:
+
                 ```bash
+                cd ..
                 npx create-next-app@latest my-copilot-app
                 cd my-copilot-app
                 ```
+
+                <Callout type="warn" title="Don't point `next dev` at your Mastra project root">
+                  On its first run Next.js rewrites the `tsconfig.json` at its own root:
+                  it forces `esModuleInterop`, `isolatedModules`, `resolveJsonModule` and
+                  `jsx`, sets `noEmit: true`, and replaces `include` and `exclude`. Pointed
+                  at a Mastra project that compiles with `tsc`, that rewrites the config
+                  your agent builds with. A sibling package leaves it untouched — and it is
+                  why this guide reaches the agent over HTTP rather than importing it.
+                </Callout>
             </Step>
             <Step>
                 ### Install CopilotKit packages
@@ -182,34 +239,81 @@ Before you begin, you'll need the following:
             <Step>
                 ### Setup Copilot Runtime
 
-                Create an API route to connect CopilotKit to your Mastra agent:
+                Create an API route that connects CopilotKit to the Mastra server you
+                started above. `MastraAgent.getRemoteAgents` asks that server which agents
+                it has and bridges each one over HTTP, so your agent keeps running as its
+                own process:
 
-                ```ts title="app/api/copilotkit/route.ts"
+                ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
-                import { NextRequest } from "next/server";
-                import { MastraAgent } from "@ag-ui/mastra"
-                import { mastra } from "@/mastra"; // the path to your Mastra instance
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
+                import { MastraAgent } from "@ag-ui/mastra";
+                import { MastraClient } from "@mastra/client-js";
 
-                const serviceAdapter = new ExperimentalEmptyAdapter();
-
-                const runtime = new CopilotRuntime({
-                  agents: MastraAgent.getLocalAgents({ mastra }),
+                const mastraClient = new MastraClient({
+                  baseUrl: process.env.MASTRA_BASE_URL ?? "http://127.0.0.1:4111",
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                const runtime = new CopilotRuntime({
+                  // A factory, so the agent list is fetched per request rather than at
+                  // module load — the route survives an agent server that is not up yet.
+                  agents: ({ request }) =>
+                    MastraAgent.getRemoteAgents({
+                      mastraClient,
+                      // Scopes Mastra's own memory to the same user identified below.
+                      resourceId: request.headers.get("x-user-id") ?? "anonymous",
+                    }),
+                  // [!code highlight:8]
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.INTELLIGENCE_API_KEY!,
+                  }),
+                  // Threads are per-user. Without this, every visitor shares one history.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
+                });
 
-                  return handleRequest(req);
-                };
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
+
+                export const GET = handler;
+                export const POST = handler;
                 ```
+
+                This route needs two values from *this* app's environment — the license
+                key from step 1, and the address of the agent server you started earlier.
+                It reads them here, not in the Mastra project:
+
+                ```plaintext title=".env.local"
+                INTELLIGENCE_API_KEY=your_license_key
+                MASTRA_BASE_URL=http://127.0.0.1:4111
+                ```
+
+                `MASTRA_BASE_URL` defaults to `http://127.0.0.1:4111`, so you only need it
+                if your agent server took a different port or you are pointing at a
+                deployed Mastra service.
+
+                <Callout type="info" title="Embedding Mastra instead">
+                  If your Mastra instance lives inside this Next.js app rather than in its
+                  own process, swap `getRemoteAgents` for
+                  `MastraAgent.getLocalAgents({ mastra, resourceId })` and drop the client.
+                  See [local vs remote agents](/mastra/copilot-runtime#local-vs-remote-agents)
+                  for which one to choose.
+                </Callout>
+
+                <Callout type="info" title="Running without the Intelligence Platform?">
+                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
+                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
+                  Inspector stay locked and the key is never read. See
+                  [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+                  full constructor and how to confirm the key is in use.
+                </Callout>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -218,7 +322,7 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
+                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 // ...
@@ -228,7 +332,7 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent">
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent" useSingleEndpoint={false}>
                           {children}
                         </CopilotKit>
                       </body>
@@ -236,6 +340,14 @@ Before you begin, you'll need the following:
                   );
                 }
                 ```
+
+                <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+                  server of its own and an absolute `runtimeUrl` such as
+                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+                  `/angular` and `/react-native` each show that setup.
+                </Callout>
             </Step>
             <Step>
               ### Add the chat interface
@@ -259,7 +371,8 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your UI
 
-                Start the development server:
+                With the agent still running from earlier, start the frontend in a second
+                terminal:
 
                 <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
                     <Tab value="npm">
@@ -307,11 +420,17 @@ Before you begin, you'll need the following:
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
                 - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
-                - Make sure your Mastra agent is running on port 4111
+                - Make sure your Mastra agent is running on port 4111, and that `MASTRA_BASE_URL` points at it
+                - `curl http://127.0.0.1:4111/api/agents` should list your agent by name
                 - Check that your OpenAI API key is correctly set in the `.env` file
             </Accordion>
         </Accordions>
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## What's next?
@@ -339,3 +458,12 @@ Now that you have your basic agent setup, explore these advanced features:
   />
 </Cards>
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

@@ -44,7 +44,10 @@ print("hello")
 \`\`\`
 `;
 
-    const blocks = extractFromMdx(mdx, "/docs/test.mdx");
+    const blocks = extractFromMdx(
+      mdx,
+      "/showcase/shell-docs/src/content/test.mdx",
+    );
     expect(blocks).toHaveLength(1);
     expect(blocks[0].lang).toBe("python");
     expect(blocks[0].title).toBe("main.py");
@@ -63,7 +66,10 @@ const x = 1;
 \`\`\`
 `;
 
-    const blocks = extractFromMdx(mdx, "/docs/multi.mdx");
+    const blocks = extractFromMdx(
+      mdx,
+      "/showcase/shell-docs/src/content/multi.mdx",
+    );
     expect(blocks).toHaveLength(2);
     expect(blocks[0].doctest).toBe("script");
     expect(blocks[1].doctest).toBe("component");
@@ -84,7 +90,10 @@ print("has doctest")
 \`\`\`
 `;
 
-    const blocks = extractFromMdx(mdx, "/docs/mixed.mdx");
+    const blocks = extractFromMdx(
+      mdx,
+      "/showcase/shell-docs/src/content/mixed.mdx",
+    );
     expect(blocks).toHaveLength(1);
     expect(blocks[0].title).toBe("tested.py");
   });
@@ -103,7 +112,10 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 </Tabs>
 `;
 
-    const blocks = extractFromMdx(mdx, "/docs/tabbed.mdx");
+    const blocks = extractFromMdx(
+      mdx,
+      "/showcase/shell-docs/src/content/tabbed.mdx",
+    );
     expect(blocks).toHaveLength(1);
     expect(blocks[0].lang).toBe("python");
     expect(blocks[0].doctest).toBe("server");

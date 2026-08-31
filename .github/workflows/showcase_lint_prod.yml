@@ -1,0 +1,173 @@
+name: "Showcase: lint-prod (digest pinning)"
+
+# Runs `bin/railway lint-prod` on every PR that touches showcase/.
+#
+# Currently ADVISORY: the `--exit-zero` flag makes the step exit 0 even when
+# findings exist, so this workflow will not block PRs while we soak. Findings
+# still print to the step log so we can monitor drift. Once we have confidence
+# the findings are clean, remove `--exit-zero` to flip this to enforcing.
+#
+# Long-term contract: production must always be reproducible from a snapshot
+# (every service pinned to `ghcr.io/...@sha256:...`).
+#
+# Visibility surfaces:
+#   - $GITHUB_STEP_SUMMARY: structured markdown table rendered at the top of
+#     the workflow run page (every run, push or pull_request).
+#   - Sticky PR comment: a single comment per PR, found+updated via an HTML
+#     marker (<!-- lint-prod-sticky-comment -->). Only posted on
+#     pull_request events; push events on main only write the step summary.
+
+on:
+  pull_request:
+    paths:
+      - "showcase/**"
+      - ".github/workflows/showcase_lint_prod.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: showcase-lint-prod-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lint-prod:
+    name: Lint production pinning (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          ruby-version: "3.2"
+
+      - name: Lint production pinning (advisory)
+        id: lint
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "::warning::RAILWAY_TOKEN secret not configured; skipping lint-prod."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            echo "findings=0" >> "$GITHUB_OUTPUT"
+            echo "errored=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          # Advisory mode: --exit-zero so findings don't block the PR while we soak.
+          # Flip to enforcing by removing --exit-zero once findings are clean.
+          # Also emit machine-readable JSON for the visibility renderer.
+          #
+          # We capture stderr + exit code so a snapshot/GraphQL error doesn't
+          # abort the workflow before we can render a "audit unavailable" block.
+          # The intent of advisory mode is "never block a PR on this check".
+          rc=0
+          ruby showcase/bin/railway lint-prod --exit-zero --format json \
+            > lint-prod.json 2> lint-prod.err || rc=$?
+          # Mirror to the job log for humans (best-effort; ignore errors).
+          ruby showcase/bin/railway lint-prod --exit-zero || true
+          if [ "${rc}" -ne 0 ] || [ ! -s lint-prod.json ]; then
+            echo "::warning::lint-prod failed (rc=${rc}); rendering audit-unavailable block."
+            echo "--- lint-prod stderr ---"
+            cat lint-prod.err || true
+            echo "errored=true" >> "$GITHUB_OUTPUT"
+            echo "findings=0" >> "$GITHUB_OUTPUT"
+            # Synthesize an empty payload so the renderer has something to chew on.
+            ruby -rjson -rtime -e '
+              err = File.exist?("lint-prod.err") ? File.read("lint-prod.err").strip : ""
+              puts JSON.generate({"services" => [], "findings" => 0,
+                                  "timestamp" => Time.now.utc.iso8601,
+                                  "error" => err})
+            ' > lint-prod.json
+          else
+            echo "errored=false" >> "$GITHUB_OUTPUT"
+            findings=$(ruby -rjson -e 'puts JSON.parse(File.read("lint-prod.json"))["findings"]')
+            echo "findings=${findings}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Render audit summary
+        if: always() && steps.lint.outputs.skipped != 'true'
+        id: render
+        run: |
+          set -uo pipefail
+          # Render in America/Los_Angeles so the timestamp respects DST.
+          export TZ="America/Los_Angeles"
+          ruby <<'RUBY' > audit.md
+          require "json"
+          require "time"
+          data = JSON.parse(File.read("lint-prod.json"))
+          services = data["services"] || []
+          findings = (data["findings"] || 0).to_i
+          ts_utc = Time.parse(data["timestamp"] || Time.now.utc.iso8601)
+          ts_pt = ts_utc.getlocal
+          total = services.size
+          err = data["error"].to_s
+          out = +""
+          out << "## Production Digest-Pinning Audit\n\n"
+          if !err.empty?
+              # Audit failed to run (e.g. snapshot/GraphQL error). Render a fallback
+              # block instead of leaving the surface blank.
+              out << "Audit could not run this round.\n\n"
+              out << "<details><summary>Error</summary>\n\n```\n#{err}\n```\n\n</details>\n\n"
+          elsif findings.zero?
+              out << "All #{total} services digest-pinned.\n\n"
+          else
+              out << "#{findings} of #{total} service(s) not digest-pinned.\n\n"
+              out << "| Service | Source.image | Status |\n"
+              out << "|---|---|---|\n"
+              services.each do |s|
+                  next if s["status"] == "pinned"
+                  src = s["source"].to_s.empty? ? "_(unset)_" : "`#{s['source']}`"
+                  out << "| #{s['name']} | #{src} | mutable-tag |\n"
+              end
+              out << "\n"
+          end
+          out << "_Run #{ts_pt.strftime('%Y-%m-%d %H:%M:%S %Z')} — #{findings} finding(s)._\n"
+          puts out
+          RUBY
+          # Write to step summary (top of run page).
+          cat audit.md >> "$GITHUB_STEP_SUMMARY"
+          # Save body (with sticky marker) for the comment step.
+          {
+            echo "<!-- lint-prod-sticky-comment -->"
+            cat audit.md
+          } > comment.md
+
+      - name: Post/update sticky PR comment
+        if: always() && github.event_name == 'pull_request' && steps.lint.outputs.skipped != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          MARKER="<!-- lint-prod-sticky-comment -->"
+          # Find existing sticky comment (returns id only).
+          existing_id=$(gh api \
+            "/repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" \
+            --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" \
+            | head -1)
+          # Build a JSON body file so we can PATCH/POST a multiline body safely.
+          ruby -rjson -e 'puts JSON.generate({body: File.read("comment.md")})' \
+            > comment.json
+          if [ -n "${existing_id:-}" ]; then
+            echo "Updating existing sticky comment id=${existing_id}"
+            gh api -X PATCH \
+              "/repos/${REPO}/issues/comments/${existing_id}" \
+              --input comment.json > /dev/null
+          else
+            echo "Creating new sticky comment"
+            gh pr comment "${PR_NUMBER}" --repo "${REPO}" --body-file comment.md
+          fi
+
+      - name: Run bin/railway tests
+        run: |
+          ruby showcase/bin/spec/all_tests.rb

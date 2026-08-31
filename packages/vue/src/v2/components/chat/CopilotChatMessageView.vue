@@ -14,7 +14,6 @@ import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
 } from "../../types";
-import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
@@ -105,9 +104,9 @@ const resolvedAgentId = computed(
   () => config.value?.agentId ?? DEFAULT_AGENT_ID,
 );
 const resolvedThreadAgent = computed(() => {
-  const agentId = resolvedAgentId.value;
-  const registryAgent = copilotkit.value.getAgent(agentId);
-  return getThreadClone(registryAgent, config.value?.threadId) ?? registryAgent;
+  // Read the registry so this recomputes when agents are added or replaced.
+  void copilotkit.value.agents;
+  return copilotkit.value.getAgent(resolvedAgentId.value);
 });
 
 watch(
@@ -117,9 +116,8 @@ watch(
     () => copilotkit.value,
     () => copilotkit.value.runtimeConnectionStatus,
   ],
-  ([_agentId, threadId], _prev, onCleanup) => {
-    const registryAgent = copilotkit.value.getAgent(resolvedAgentId.value);
-    const agent = getThreadClone(registryAgent, threadId) ?? registryAgent;
+  (_values, _prev, onCleanup) => {
+    const agent = resolvedThreadAgent.value;
     if (!agent) return;
 
     const sub = agent.subscribe({
@@ -462,14 +460,17 @@ function resolveToolMessage(
       v-if="interruptState"
       name="interrupt"
       :event="interruptState.event"
+      :interrupt="interruptState.interrupt"
+      :interrupts="interruptState.interrupts"
       :result="interruptState.result"
       :resolve="interruptState.resolve"
+      :cancel="interruptState.cancel"
     />
 
     <slot v-if="showCursor" name="cursor">
       <div
         class="cpk:w-[11px] cpk:h-[11px] cpk:rounded-full cpk:bg-foreground cpk:animate-pulse cpk:ml-1"
-        data-testid="copilot-chat-cursor"
+        data-testid="copilot-loading-cursor"
       />
     </slot>
   </div>

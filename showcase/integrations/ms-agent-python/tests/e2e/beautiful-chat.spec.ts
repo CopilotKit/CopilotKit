@@ -165,14 +165,13 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(180_000);
-    // Backend: generate_a2ui tool calls a secondary LLM bound to
-    // `_design_a2ui_surface` (renamed from `render_a2ui` to avoid the A2UI
-    // middleware's default tool-call intercept on `render_a2ui`);
-    // both calls hit aimock fixtures
-    // (showcase/aimock/feature-parity.json — userMessage + toolName matchers
-    // differentiate primary vs secondary calls; a toolCallId match breaks the
-    // post-tool loop). The render_a2ui fixture ships a 3-metric + 2-chart
-    // dashboard tree against `copilotkit://app-dashboard-catalog`.
+    // Backend: native A2UI auto-injection (injectA2UITool: true). The
+    // auto-injected generate_a2ui runs the render_a2ui sub-agent, which emits
+    // the dashboard surface; both the outer emit and the inner render_a2ui hit
+    // aimock fixtures (userMessage + toolName matchers differentiate the outer
+    // planner call from the inner render call). The render surface is a
+    // 3-metric + 2-chart dashboard tree against
+    // `copilotkit://app-dashboard-catalog`.
     //
     // Visual fingerprint: a Metric label "Total Revenue", plus a recharts
     // ResponsiveContainer (the Pie/BarChart custom renderers wrap their
@@ -227,7 +226,6 @@ test.describe("Beautiful Chat", () => {
     page,
   }) => {
     test.setTimeout(120_000);
-    await page.waitForLoadState("networkidle");
 
     await page
       .getByRole("button", { name: "Task Manager (Shared State)" })

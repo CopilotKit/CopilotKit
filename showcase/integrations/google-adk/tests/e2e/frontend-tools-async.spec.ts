@@ -52,7 +52,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     // The keyword heading proves the async handler resolved against the
     // fixture-emitted `query_notes(keyword="project planning")` call.
     await expect(notesCard.locator('[data-testid="notes-keyword"]')).toHaveText(
-      /Matching\s+"project planning"/i,
+      /Matching\s+["“]project planning["”]/i,
       { timeout: 30_000 },
     );
 
@@ -80,7 +80,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     await expect(notesCard).toBeVisible({ timeout: 60_000 });
 
     await expect(notesCard.locator('[data-testid="notes-keyword"]')).toHaveText(
-      /Matching\s+"auth"/i,
+      /Matching\s+["“]auth["”]/i,
       { timeout: 30_000 },
     );
 
@@ -108,7 +108,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     // Keyword heading + match count + per-note testid + content +
     // tag chip — the full canonical shape per spec test #4.
     await expect(notesCard.locator('[data-testid="notes-keyword"]')).toHaveText(
-      /Matching\s+"reading"/i,
+      /Matching\s+["“]reading["”]/i,
       { timeout: 30_000 },
     );
     await expect(notesCard.getByText("1 match", { exact: false })).toBeVisible({
@@ -161,7 +161,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(1);
     await expect(
       page.locator('[data-testid="notes-keyword"]', {
-        hasText: /Matching\s+"project planning"/i,
+        hasText: /Matching\s+[""“]project planning[""”]/i,
       }),
     ).toBeVisible({ timeout: 60_000 });
 
@@ -169,7 +169,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(2);
     await expect(
       page.locator('[data-testid="notes-keyword"]', {
-        hasText: /Matching\s+"auth"/i,
+        hasText: /Matching\s+[""“]auth[""”]/i,
       }),
     ).toBeVisible({ timeout: 60_000 });
 
@@ -179,7 +179,7 @@ test.describe("Frontend Tools (async query_notes)", () => {
     await expect.poll(() => cards.count(), { timeout: 60_000 }).toBe(3);
     await expect(
       page.locator('[data-testid="notes-keyword"]', {
-        hasText: /Matching\s+"reading"/i,
+        hasText: /Matching\s+[""“]reading[""”]/i,
       }),
     ).toBeVisible({ timeout: 60_000 });
   });

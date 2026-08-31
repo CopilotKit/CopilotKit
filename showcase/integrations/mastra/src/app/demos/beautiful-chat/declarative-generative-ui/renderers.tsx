@@ -12,7 +12,8 @@
  */
 "use client";
 
-import React, { useState, type JSX } from "react";
+import React, { useState } from "react";
+import type { JSX } from "react";
 import {
   PieChart as RechartsPie,
   Pie,
@@ -25,14 +26,10 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import {
-  createCatalog,
-  type CatalogRenderers,
-} from "@copilotkit/a2ui-renderer";
-import {
-  demonstrationCatalogDefinitions,
-  type DemonstrationCatalogDefinitions,
-} from "./definitions";
+import { createCatalog } from "@copilotkit/a2ui-renderer";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { demonstrationCatalogDefinitions } from "./definitions";
+import type { DemonstrationCatalogDefinitions } from "./definitions";
 
 // ─── Theme-aware colors ─────────────────────────────────────────────
 
@@ -131,9 +128,6 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         </Tag>
       );
     },
-
-    // Text: removed — use the basic catalog's Text (supports DynamicStringSchema
-    // for path bindings in fixed-schema templates).
 
     Row: ({ props, children }) => {
       const justifyMap: Record<string, string> = {
@@ -601,5 +595,12 @@ export const demonstrationCatalog = createCatalog(
   demonstrationCatalogRenderers,
   {
     catalogId: "copilotkit://app-dashboard-catalog",
+    // Required: merges the basic A2UI primitives (Row, Column, Text, Card,
+    // Button, …) into this catalog so structural-children expansion works
+    // for templates like flight_schema.json's
+    // `Row { children: { componentId: "flight-card", path: "/flights" } }`.
+    // Both sibling working demos (a2ui-fixed-schema, declarative-gen-ui)
+    // already set this — beautiful-chat was the outlier.
+    includeBasicCatalog: true,
   },
 );

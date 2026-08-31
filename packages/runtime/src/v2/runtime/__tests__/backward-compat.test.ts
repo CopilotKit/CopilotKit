@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { describe, it, expect, vi } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
 import {
@@ -11,6 +11,7 @@ import {
 import { createCopilotEndpointExpress } from "../express";
 import { createCopilotEndpointSingleRouteExpress } from "../endpoints/express-single";
 import { CopilotRuntime } from "../core/runtime";
+import type { CopilotSseRuntimeOptions } from "../core/runtime";
 
 vi.mock("../handlers/handle-run", () => ({
   handleRunAgent: vi
@@ -39,15 +40,16 @@ describe("Backward compatibility", () => {
     return agent as AbstractAgent;
   };
 
-  const createMockRuntime = (opts?: Partial<CopilotRuntime>) => {
+  const createMockRuntime = (opts?: Partial<CopilotSseRuntimeOptions>) => {
     const runner = {
       run: () =>
-        new Observable((observer) => {
-          observer.next({});
+        new Observable<BaseEvent>((observer) => {
+          observer.next({} as BaseEvent);
           observer.complete();
           return () => undefined;
         }),
-      connect: () => of({}),
+      connect: () => of({} as BaseEvent),
+      isRunning: async () => false,
       stop: async () => true,
     };
 

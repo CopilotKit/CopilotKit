@@ -9,26 +9,24 @@
 // `open-generative-ui` activity event that the built-in
 // `OpenGenerativeUIActivityRenderer` mounts as a sandboxed iframe.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const agents = {
-  "open-gen-ui": new HttpAgent({ url: `${AGENT_URL}/` }),
-  "open-gen-ui-advanced": new HttpAgent({ url: `${AGENT_URL}/` }),
+  "open-gen-ui": createClaudeHttpAgent(`${AGENT_URL}/`),
+  "open-gen-ui-advanced": createClaudeHttpAgent(`${AGENT_URL}/`),
 };
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-ogui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       // @region[minimal-runtime-flag]
       // @region[advanced-runtime-config]
       runtime: new CopilotRuntime({
@@ -39,14 +37,12 @@ export const POST = async (req: NextRequest) => {
         },
       }),
       // @endregion[advanced-runtime-config]
-      // @endregion[minimal-runtime-flag]
+      // @endregion[minimal-runtime-flag],
+      basePath: "/api/copilotkit-ogui",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-ogui", error);
   }
 };

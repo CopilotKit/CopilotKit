@@ -19,21 +19,14 @@ export function IframeSwitcher({
   codeLabel = "Code",
   height = "600px",
 }: IframeSwitcherProps) {
-  const iframeStyle = {
-    width: "100%",
-    height,
-    border: "none",
-    borderRadius: "0.375rem",
-    background: "var(--bg-surface)",
-  };
-
   return (
     <div id={id}>
       <Tabs items={[exampleLabel, codeLabel]}>
         <Tab value={exampleLabel}>
           <iframe
             src={exampleUrl}
-            style={iframeStyle}
+            className="shell-docs-radius-surface w-full border-0 bg-[var(--bg-surface)]"
+            style={{ height }}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             loading="lazy"
           />
@@ -41,7 +34,8 @@ export function IframeSwitcher({
         <Tab value={codeLabel}>
           <iframe
             src={codeUrl}
-            style={iframeStyle}
+            className="shell-docs-radius-surface w-full border-0 bg-[var(--bg-surface)]"
+            style={{ height }}
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             loading="lazy"
           />

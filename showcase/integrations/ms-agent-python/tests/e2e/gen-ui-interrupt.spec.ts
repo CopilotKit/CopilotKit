@@ -23,7 +23,20 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
   test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
+    // Wait for the CopilotKit runtime info response to complete before
+    // interacting. Without this, messages sent before the runtime
+    // connects are silently dropped because the agent reference used by
+    // CopilotChat's submit handler is a provisional stub whose
+    // onMessagesChanged subscribers are replaced when the real agent
+    // arrives — orphaning the in-flight run's state updates.
+    const runtimeReady = page.waitForResponse(
+      (res) =>
+        res.url().includes("/api/copilotkit") &&
+        res.request().method() === "POST" &&
+        res.status() === 200,
+    );
     await page.goto("/demos/gen-ui-interrupt");
+    await runtimeReady;
   });
 
   test("page loads with chat input and no picker rendered", async ({
@@ -45,13 +58,7 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  // SKIP: `schedule_meeting` is a backend tool on the `interrupt_agent` graph
-  // that triggers a LangGraph `interrupt()`. On Railway
-  // (`showcase-langgraph-python-production.up.railway.app`) the graph does
-  // not reliably reach the interrupt within 60s of a typed prompt, so the
-  // inline `time-picker-card` never renders. See W8-6 for details. Un-skip
-  // when the interrupt-agent deployment is fixed.
-  test.skip("picking a slot transitions the card to the picked state", async ({
+  test("picking a slot transitions the card to the picked state", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
@@ -99,8 +106,7 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     });
   });
 
-  // SKIP: same root cause as the picking-a-slot path — see W8-6.
-  test.skip("cancel path: None-of-these-work transitions to cancelled state", async ({
+  test("cancel path: None-of-these-work transitions to cancelled state", async ({
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");

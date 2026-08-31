@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / declarative-hashbrown. The dedicated ByocHashbrownController (/byoc-hashbrown/run) emits the hashbrown UI-kit JSON envelope { ui: [ { <tag>: { props } }, ... ] } consumed by @hashbrownai/react's useUiKit + useJsonParser in the demo renderer (hashbrown-renderer.tsx). Chart `data` props are JSON-encoded STRINGS so the schema stays stable under partial streaming. Keyed on the exact suggestion-pill prompts (declarative-hashbrown/suggestions.ts). These supersede the legacy byoc.json render_dashboard/{metrics,charts} shape, which the dedicated hashbrown renderer cannot parse.",
+    "sourceFile": "harness/src/probes/scripts/d5-byoc.ts",
+    "created": "2026-06-07"
+  },
+  "fixtures": [
+    {
+      "_comment": "Sales dashboard pill — full hashbrown envelope: total-revenue metric + pie chart of revenue by segment + bar chart of monthly revenue. Renders [data-testid=metric-card] + [data-testid=pie-chart] + [data-testid=bar-chart].",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Total Revenue\",\"value\":\"$2.4M\"}}},{\"metric\":{\"props\":{\"label\":\"New Customers\",\"value\":\"1,847\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Segment\",\"data\":\"[{\\\"label\\\":\\\"Enterprise\\\",\\\"value\\\":1200000},{\\\"label\\\":\\\"Mid-Market\\\",\\\"value\\\":720000},{\\\"label\\\":\\\"SMB\\\",\\\"value\\\":480000}]\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Revenue\",\"data\":\"[{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":780000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":810000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":810000}]\"}}}]}"
+      }
+    },
+    {
+      "_comment": "Revenue by category pill — pie chart with 4 segments plus a heading metric.",
+      "match": {
+        "userMessage": "Break down Q4 revenue by product category as a pie chart. Include at least four segments with realistic sample values.",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Q4 Revenue\",\"value\":\"$2.4M\"}}},{\"pieChart\":{\"props\":{\"title\":\"Revenue by Product Category\",\"data\":\"[{\\\"label\\\":\\\"Platform\\\",\\\"value\\\":960000},{\\\"label\\\":\\\"Analytics\\\",\\\"value\\\":600000},{\\\"label\\\":\\\"Integrations\\\",\\\"value\\\":480000},{\\\"label\\\":\\\"Support\\\",\\\"value\\\":360000}]\"}}}]}"
+      }
+    },
+    {
+      "_comment": "Expense trend pill — bar chart with one bar per month over six months plus a heading metric.",
+      "match": {
+        "userMessage": "Show me monthly operating expenses for the last six months as a bar chart with one bar per month.",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "{\"ui\":[{\"metric\":{\"props\":{\"label\":\"Avg Monthly OpEx\",\"value\":\"$612K\"}}},{\"barChart\":{\"props\":{\"title\":\"Monthly Operating Expenses\",\"data\":\"[{\\\"label\\\":\\\"Jul\\\",\\\"value\\\":580000},{\\\"label\\\":\\\"Aug\\\",\\\"value\\\":595000},{\\\"label\\\":\\\"Sep\\\",\\\"value\\\":610000},{\\\"label\\\":\\\"Oct\\\",\\\"value\\\":625000},{\\\"label\\\":\\\"Nov\\\",\\\"value\\\":630000},{\\\"label\\\":\\\"Dec\\\",\\\"value\\\":632000}]\"}}}]}"
+      }
+    }
+  ]
+}

@@ -200,15 +200,48 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+def _build_reasoning_chain_chat_client() -> BaseChatClient:
+    """Build a Responses-API chat client for reasoning-token streaming.
+
+    Mirrors ``reasoning_agent.py::_build_reasoning_chat_client`` — the model
+    env var defaults to ``OPENAI_REASONING_MODEL`` and then the canonical
+    ``gpt-5.4`` so the fixture's ``response.reasoning_summary_text.delta``
+    events surface as AG-UI ``REASONING_MESSAGE_*`` events.
+    """
+    return OpenAIChatClient(
+        model=os.environ.get("OPENAI_REASONING_MODEL", "gpt-5.4"),
+        api_key=os.environ.get("OPENAI_API_KEY"),
+    )
+
+
 def create_tool_rendering_reasoning_chain_agent(
-    chat_client: BaseChatClient,
+    _chat_client_ignored: BaseChatClient,
 ) -> AgentFrameworkAgent:
-    """Instantiate the tool-rendering reasoning-chain demo agent."""
+    """Instantiate the tool-rendering reasoning-chain demo agent.
+
+    The shared ChatCompletions client from ``agent_server.py`` is intentionally
+    ignored — this cell needs the OpenAI Responses API specifically so the
+    fixture's per-leg ``reasoning`` summaries surface as AG-UI
+    ``REASONING_MESSAGE_*`` events (mirrors ``reasoning_agent.py`` and the
+    LGP reference's ``use_responses_api=True`` config). ChatCompletions emits
+    reasoning as ``protected_data`` only — no visible text reaches the
+    ``<CopilotChatReasoningMessage>`` slot, which is the whole point of this
+    cell vs the plain ``tool-rendering`` demo.
+    """
     base_agent = Agent(
-        client=chat_client,
+        client=_build_reasoning_chain_chat_client(),
         name="tool_rendering_reasoning_chain_agent",
         instructions=SYSTEM_PROMPT,
         tools=[get_weather, search_flights, get_stock_price, roll_d20, roll_dice],
+        # Disable server-side conversation storage so the OpenAI Responses
+        # client sends the full message history (including the original
+        # user prompt) on every leg of a tool-rendering chain instead of
+        # compressing prior context behind ``previous_response_id``. aimock
+        # is stateless and cannot resolve that ID, so chain-leg fixtures
+        # keyed on ``userMessage`` would otherwise miss and the chain would
+        # fall through to the real-OpenAI proxy with a ``ChatClientException``.
+        # Same pattern as ``shared_state_read_write_agent.py``.
+        default_options={"store": False},
     )
 
     return AgentFrameworkAgent(

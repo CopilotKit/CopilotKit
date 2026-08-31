@@ -1,0 +1,16 @@
+First, add `CopilotKitMiddleware` to your `create_agent` call. The middleware
+is what makes every CopilotKit feature on the frontend — frontend tools,
+shared state, agent context, and generative UI components — visible to your
+LangGraph agent on every turn.
+
+<DemoCode file="src/agents/frontend_tools.py" region="middleware" />
+
+<Accordions>
+  <Accordion title="Install the SDK">
+    If `copilotkit` isn't already in your project, add it so the import
+    above resolves. Pick the package manager that matches your project:
+
+    <InstallPythonSDK />
+
+  </Accordion>
+</Accordions>

@@ -1,0 +1,29 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / multimodal",
+    "sourceFile": "d5-multimodal.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "Canonical multimodal image turn — the sample button sends sample.png with this exact prompt. The response describes the checked-in asset; prompt-based fixture selection alone does not prove attachment transport.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo image I just attached",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "The attached image is the CopilotKit logo — a clean, geometric mark used across CopilotKit branding."
+      }
+    },
+    {
+      "_comment": "Canonical multimodal PDF turn — the sample button sends sample.pdf with this exact prompt. The response describes the checked-in asset; prompt-based fixture selection alone does not prove attachment transport.",
+      "match": {
+        "userMessage": "can you tell me what is in this demo pdf I just attached",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "The attached PDF document is the CopilotKit Quickstart guide. It walks through installing the React packages, configuring the CopilotKit provider, and adding a CopilotKit chat component to an application."
+      }
+    }
+  ]
+}

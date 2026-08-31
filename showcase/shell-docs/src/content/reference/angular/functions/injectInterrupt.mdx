@@ -1,0 +1,94 @@
+---
+title: "injectInterrupt"
+description: "Signal-based standard and legacy AG-UI interrupt handling for Angular."
+---
+
+`injectInterrupt` creates an injector-scoped controller for AG-UI interrupts.
+It supports standard interrupt arrays and the legacy `on_interrupt` custom
+event, including multiple simultaneous decisions.
+
+```ts
+function injectInterrupt<TValue = unknown, TResult = never>(
+  agentId?: string | Signal<string | undefined>,
+  options?: Omit<InjectInterruptOptions<TValue, TResult>, "agentId">,
+): InterruptController<TValue, TResult>;
+```
+
+```ts
+import { Component } from "@angular/core";
+import { injectInterrupt } from "@copilotkit/angular";
+
+@Component({
+  template: `
+    @if (interrupt.view(); as decision) {
+      <p>{{ decision.event.name }}</p>
+      <button type="button" (click)="decision.cancel()">Cancel</button>
+      <button type="button" (click)="decision.resolve({ approved: true })">
+        Approve
+      </button>
+    }
+  `,
+})
+export class ApprovalView {
+  readonly interrupt = injectInterrupt<{ reason: string }>();
+}
+```
+
+## Parameters
+
+- `agentId`: string or signal; defaults to the ambient chat agent.
+- `enabled(event)`: synchronous or asynchronous filter. `false` leaves the
+  event available for another controller.
+- `handler(props)`: synchronous or asynchronous preprocessing whose result is
+  exposed through the controller's `result` signal.
+
+The previous `injectInterrupt({ agentId, enabled, handler })` form remains
+supported.
+
+The controller exposes `event`, `interrupt`, `interrupts`, `result`, `error`,
+`hasInterrupt`, and `view` signals plus `resolve(payload?, interruptId?)` and
+`cancel(interruptId?)`. When several standard interrupts are pending, resolve
+or cancel every ID before the agent resumes. Tool-backed decisions persist a
+tool-result message before resumption.
+
+Every store already exposes an unfiltered controller as
+[`AgentStore.interruptController`](/reference/angular/functions/injectAgentStore).
+Reach for `injectInterrupt` when a decision needs a typed value, an `enabled`
+filter, or a `handler`.
+
+<Callout type="warn">
+  Controllers do not claim interrupts from one another. A store controller and
+  a filtered controller for the same agent can both expose the same decision.
+  If both UIs call `resolve` before the next run starts, both can attempt to
+  resume it. Render only one controller for a given decision.
+</Callout>
+
+For example, a matching refund interrupt is visible through both properties in
+this component:
+
+```ts
+type RefundRequest = { type: "refund"; amount: number };
+
+export class RefundPage {
+  readonly store = injectAgentStore("ticketing");
+  readonly refunds = injectInterrupt<RefundRequest>("ticketing", {
+    enabled: event => event.value.type === "refund",
+  });
+
+  // For a matching interrupt, both expressions are true:
+  // this.store().interruptController.hasInterrupt()
+  // this.refunds.hasInterrupt()
+}
+```
+
+Render `refunds` for this decision and do not also render
+`store().interruptController`. The unrendered store controller only observes
+the interrupt; it cannot resume anything unless application code calls its
+`resolve` or `cancel` method.
+
+The agent subscription is disconnected when the owning injector is destroyed.
+Thread changes and new or failed runs clear stale decisions. Predicate and
+handler failures are captured by `error`; expired decisions use
+`InterruptExpiredError`. A resume failure clears pending state and rejects—it
+is never retried automatically. The controller performs no DOM work and is SSR
+safe, but applications should not resume an agent during server rendering.

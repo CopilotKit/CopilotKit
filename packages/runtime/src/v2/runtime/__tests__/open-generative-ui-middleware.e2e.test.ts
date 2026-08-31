@@ -1,12 +1,11 @@
 import { describe, it, expect } from "vitest";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   RunAgentInput,
   ActivitySnapshotEvent,
   ActivityDeltaEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { Observable, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 import {
@@ -253,6 +252,38 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
       ]);
     });
 
+    it("does not emit a value-less patch when jsFunctions is null", () => {
+      // A JSON Patch "add" without a value property is rejected client-side
+      // by fast-json-patch (OPERATION_VALUE_REQUIRED), dropping the whole
+      // patch. The LLM frequently emits an empty/null jsFunctions, so
+      // setParam yields undefined — the delta for it must be skipped.
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"initialHeight":200,"jsFunctions":null}');
+
+      // No emitted patch op may be missing its value property.
+      const ops = (
+        emitted.filter(
+          (e) => e.type === EventType.ACTIVITY_DELTA,
+        ) as ActivityDeltaEvent[]
+      ).flatMap((e) => e.patch);
+      for (const op of ops) {
+        expect(op).toHaveProperty("value");
+      }
+
+      // The value-less jsFunctions delta is skipped entirely...
+      const jsFnDelta = ops.find((op) => op.path === "/jsFunctions");
+      expect(jsFnDelta).toBeUndefined();
+      // ...but the completion marker still goes out.
+      const jsFnComplete = ops.find((op) => op.path === "/jsFunctionsComplete");
+      expect(jsFnComplete).toEqual({
+        op: "add",
+        path: "/jsFunctionsComplete",
+        value: true,
+      });
+    });
+
     it("emits ACTIVITY_DELTA with add op for each jsExpressions item", () => {
       const emitted: BaseEvent[] = [];
       const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
@@ -328,6 +359,100 @@ describe("OpenGenerativeUIMiddleware e2e", () => {
         d.patch.some((p) => p.path === "/htmlComplete"),
       );
       expect(completeDelta).toBeDefined();
+    });
+
+    it("emits ACTIVITY_SNAPSHOT before any delta when css precedes initialHeight", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write(
+        '{"css":"body{margin:0}","html":"<div/>","initialHeight":300}',
+      );
+
+      // The snapshot must be the very first activity event — deltas emitted
+      // before it are silently dropped by the client (no activity message
+      // exists yet to patch).
+      expect(emitted[0].type).toBe(EventType.ACTIVITY_SNAPSHOT);
+
+      // initialHeight arrived after the snapshot, so it must be delivered
+      // as a delta instead.
+      const heightDelta = emitted.find(
+        (e) =>
+          e.type === EventType.ACTIVITY_DELTA &&
+          (e as ActivityDeltaEvent).patch.some(
+            (p) => p.path === "/initialHeight" && p.value === 300,
+          ),
+      );
+      expect(heightDelta).toBeDefined();
+
+      const snapshots = emitted.filter(
+        (e) => e.type === EventType.ACTIVITY_SNAPSHOT,
+      );
+      expect(snapshots).toHaveLength(1);
+    });
+
+    it("emits ACTIVITY_SNAPSHOT before any delta when initialHeight is omitted", () => {
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"css":"body{margin:0}","html":"<p>hi</p>"}');
+
+      expect(emitted.length).toBeGreaterThan(0);
+      expect(emitted[0].type).toBe(EventType.ACTIVITY_SNAPSHOT);
+      const snapshot = emitted[0] as ActivitySnapshotEvent;
+      expect(snapshot.content).toEqual({
+        initialHeight: undefined,
+        generating: true,
+      });
+    });
+
+    it("builds complete content when params stream in real-world failure order (css, html, jsFunctions, initialHeight, jsExpressions, placeholderMessages)", () => {
+      // Regression for CPK-7634: the LLM controls the key order of the
+      // streamed tool-call JSON. When initialHeight was not first, every
+      // delta before it targeted a not-yet-existing activity message and
+      // was dropped, leaving an empty gray box in the chat.
+      const emitted: BaseEvent[] = [];
+      const parser = new ArgsParser("tc-1", (e) => emitted.push(e));
+
+      parser.write('{"css":"body{margin:0}",');
+      parser.write('"html":"<div>calc</div>",');
+      parser.write('"jsFunctions":"function f(){}",');
+      parser.write('"initialHeight":760,');
+      parser.write('"jsExpressions":["f()"],');
+      parser.write('"placeholderMessages":["Building…"]}');
+
+      expect(emitted[0].type).toBe(EventType.ACTIVITY_SNAPSHOT);
+
+      // Reconstruct content by applying snapshot + deltas in order
+      let content: Record<string, unknown> = {};
+      for (const event of emitted) {
+        if (event.type === EventType.ACTIVITY_SNAPSHOT) {
+          content = { ...(event as ActivitySnapshotEvent).content } as Record<
+            string,
+            unknown
+          >;
+        } else if (event.type === EventType.ACTIVITY_DELTA) {
+          for (const op of (event as ActivityDeltaEvent).patch) {
+            if (op.op === "add") {
+              if (op.path.endsWith("/-")) {
+                const arrayKey = op.path.slice(1, -2);
+                (content[arrayKey] as unknown[]).push(op.value);
+              } else {
+                content[op.path.slice(1)] = op.value;
+              }
+            }
+          }
+        }
+      }
+
+      expect((content.html as string[]).join("")).toBe("<div>calc</div>");
+      expect(content.htmlComplete).toBe(true);
+      expect(content.css).toBe("body{margin:0}");
+      expect(content.cssComplete).toBe(true);
+      expect(content.jsFunctions).toBe("function f(){}");
+      expect(content.initialHeight).toBe(760);
+      expect(content.jsExpressions).toEqual(["f()"]);
+      expect(content.placeholderMessages).toEqual(["Building…"]);
     });
 
     it("emits snapshot only once even with multiple params", () => {

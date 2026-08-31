@@ -1,14 +1,132 @@
-import { RunnableConfig } from "@langchain/core/runnables";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/sdk-js/langchain — convertActionsToDynamicStructuredTools:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — convertActionToDynamicStructuredTool:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitCustomizeConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitMessage:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitState:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitEmitToolCall:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langchain — copilotKitExit:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — convertActionsToDynamicStructuredTools:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — convertActionToDynamicStructuredTool:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitCustomizeConfig:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitMessage:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitState:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitEmitToolCall:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitExit:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — copilotKitInterrupt:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { dispatchCustomEvent } from "@langchain/core/callbacks/dispatch";
 import {
   convertJsonSchemaToZodSchema,
   randomId,
+  randomUUID,
   CopilotKitMisuseError,
 } from "@copilotkit/shared";
 import { interrupt } from "@langchain/langgraph";
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { AIMessage } from "@langchain/core/messages";
-import { OptionsConfig } from "./types";
+import type { OptionsConfig } from "./types";
 
 /**
  * Customize the LangGraph configuration for use in CopilotKit.
@@ -301,8 +419,14 @@ export async function copilotkitEmitMessage(
  * ```typescript
  * import { copilotkitEmitToolCall } from "@copilotkit/sdk-js";
  *
- * await copilotkitEmitToolCall(config, name="SearchTool", args={"steps": 10})
+ * const autoId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 });
+ *
+ * // With a custom ID for correlation/idempotency:
+ * const customId = await copilotkitEmitToolCall(config, "SearchTool", { steps: 10 }, { toolCallId: "my-custom-id" });
  * ```
+ *
+ * @returns The tool call ID used for the emitted call — equals `options.toolCallId`
+ *          when provided, otherwise a randomly generated ID.
  */
 export async function copilotkitEmitToolCall(
   /**
@@ -317,17 +441,39 @@ export async function copilotkitEmitToolCall(
    * The arguments to emit.
    */
   args: any,
-) {
+  /**
+   * Options for the tool call emission.
+   */
+  options?: {
+    /**
+     * Optional tool call ID. If not provided, a random ID is generated.
+     * When provided, this ID is used as the toolCallId and parentMessageId
+     * in AG-UI protocol events. The caller is responsible for ensuring uniqueness.
+     */
+    toolCallId?: string;
+  },
+): Promise<string> {
   if (!config) {
     throw new CopilotKitMisuseError({
       message: "LangGraph configuration is required for copilotkitEmitToolCall",
     });
   }
 
-  if (!name || typeof name !== "string") {
+  if (typeof name !== "string" || name.trim().length === 0) {
     throw new CopilotKitMisuseError({
       message:
         "Tool name must be a non-empty string for copilotkitEmitToolCall",
+    });
+  }
+
+  if (
+    options?.toolCallId !== undefined &&
+    (typeof options.toolCallId !== "string" ||
+      options.toolCallId.trim().length === 0)
+  ) {
+    throw new CopilotKitMisuseError({
+      message:
+        "Tool call id must be a non-empty string when provided for copilotkitEmitToolCall",
     });
   }
 
@@ -338,16 +484,30 @@ export async function copilotkitEmitToolCall(
   }
 
   try {
+    JSON.stringify(args);
+  } catch (error) {
+    throw new CopilotKitMisuseError({
+      message: `Tool arguments for '${name}' are not JSON-serializable: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+
+  const toolCallId = options?.toolCallId ?? randomUUID();
+
+  try {
     await dispatchCustomEvent(
       "copilotkit_manually_emit_tool_call",
-      { name, args, id: randomId() },
+      { name, args, id: toolCallId },
       config,
     );
   } catch (error) {
-    throw new CopilotKitMisuseError({
-      message: `Failed to emit tool call '${name}': ${error instanceof Error ? error.message : String(error)}`,
-    });
+    const wrapped = new Error(
+      `copilotkitEmitToolCall dispatch failed for tool="${name}" id="${toolCallId}": ${error instanceof Error ? error.message : String(error)}`,
+    );
+    (wrapped as any).cause = error;
+    throw wrapped;
   }
+
+  return toolCallId;
 }
 
 export function convertActionToDynamicStructuredTool(

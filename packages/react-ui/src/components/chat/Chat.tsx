@@ -1,3 +1,28 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — CopilotChat:
+ *   V2 import and usage:
+ *     import { CopilotChat } from "@copilotkit/react-core/v2";
+ *     import "@copilotkit/react-core/v2/styles.css";
+ *
+ *     function App() {
+ *       return <CopilotChat agentId="my-agent" />;
+ *     }
+ *   V2 replacement source: packages/react-core/src/v2/components/chat/CopilotChat.tsx
+ *   V2 docs: https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ *   Migration note: V2 chat components and styles move from react-ui to react-core/v2.
+ *   Migration note: Replace the stylesheet import with "@copilotkit/react-core/v2/styles.css".
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 /**
  * <br/>
  * <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/CopilotChat.gif" width="500" />
@@ -30,10 +55,9 @@
  * ### With Observability Hooks
  *
  * To monitor user interactions, provide the `observabilityHooks` prop.
- * **Note:** This requires a `publicApiKey` in the `<CopilotKit>` provider.
  *
  * ```tsx
- * <CopilotKit publicApiKey="YOUR_PUBLIC_API_KEY">
+ * <CopilotKit>
  *   <CopilotChat
  *     observabilityHooks={{
  *       onMessageSent: (message) => {
@@ -62,12 +86,8 @@
  * For more information about how to customize the styles, check out the [Customize Look & Feel](/guides/custom-look-and-feel/customize-built-in-ui-components) guide.
  */
 
-import {
-  ChatContext,
-  ChatContextProvider,
-  CopilotChatIcons,
-  CopilotChatLabels,
-} from "./ChatContext";
+import type { CopilotChatIcons, CopilotChatLabels } from "./ChatContext";
+import { ChatContext, ChatContextProvider } from "./ChatContext";
 import { Messages as DefaultMessages } from "./Messages";
 import { Input as DefaultInput } from "./Input";
 import { RenderMessage as DefaultRenderMessage } from "./messages/RenderMessage";
@@ -75,26 +95,25 @@ import { AssistantMessage as DefaultAssistantMessage } from "./messages/Assistan
 import { UserMessage as DefaultUserMessage } from "./messages/UserMessage";
 import { ImageRenderer as DefaultImageRenderer } from "./messages/ImageRenderer";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import type { SystemMessageFunction } from "@copilotkit/react-core";
 import {
-  SystemMessageFunction,
   useCopilotContext,
   useCopilotChatInternal,
-  type OnStopGeneration,
-  type OnReloadMessages,
-  type ChatSuggestions,
+} from "@copilotkit/react-core";
+import type {
+  OnStopGeneration,
+  OnReloadMessages,
+  ChatSuggestions,
 } from "@copilotkit/react-core";
 import {
   CopilotKitError,
   CopilotKitErrorCode,
-  CopilotErrorEvent,
-  Message,
   Severity,
   ErrorVisibility,
   styledConsole,
-  CopilotErrorHandler,
   randomUUID,
 } from "@copilotkit/shared";
-import {
+import type {
   AssistantMessageProps,
   ChatError,
   ComponentsMap,
@@ -108,6 +127,8 @@ import {
   UserMessageProps,
 } from "./props";
 
+import type { FeedbackKind } from "./feedback";
+import { applyFeedbackClick } from "./feedback";
 import { AttachmentQueue } from "./AttachmentQueue";
 import type { Attachment, AttachmentsConfig } from "./props";
 import {
@@ -119,7 +140,12 @@ import {
   formatFileSize,
   deprecationWarning,
 } from "./attachment-utils";
-import type { InputContent } from "@copilotkit/shared";
+import type {
+  InputContent,
+  CopilotErrorEvent,
+  Message,
+  CopilotErrorHandler,
+} from "@copilotkit/shared";
 import { Suggestions as DefaultRenderSuggestionsList } from "./Suggestions";
 
 /**
@@ -186,14 +212,20 @@ export interface CopilotChatProps {
   onCopy?: (message: string) => void;
 
   /**
-   * A callback function for thumbs up feedback
+   * A callback function for thumbs up feedback.
+   *
+   * `isActive` reports the feedback state the click is transitioning to:
+   * `true` when thumbs up is being applied, `false` when it is being
+   * retracted. It is optional so existing one-argument handlers keep working.
    */
-  onThumbsUp?: (message: Message) => void;
+  onThumbsUp?: (message: Message, isActive?: boolean) => void;
 
   /**
-   * A callback function for thumbs down feedback
+   * A callback function for thumbs down feedback.
+   *
+   * See `onThumbsUp` for the meaning of `isActive`.
    */
-  onThumbsDown?: (message: Message) => void;
+  onThumbsDown?: (message: Message, isActive?: boolean) => void;
 
   /**
    * A list of markdown components to render in assistant message.
@@ -237,16 +269,19 @@ export interface CopilotChatProps {
    * Configuration for file attachments in the chat input.
    * Enables users to attach images, audio, video, and documents.
    *
+   * Supports images, audio, video, and documents. Omit `accept` to allow all
+   * file types (default: `"*\/*"`), or restrict with a MIME filter.
+   *
    * @example
    * ```tsx
    * <CopilotChat
    *   attachments={{
    *     enabled: true,
-   *     accept: "image/*,application/pdf",
+   *     accept: "image/*,audio/*,video/*,application/pdf",
    *     maxSize: 10 * 1024 * 1024, // 10MB
    *     onUpload: async (file) => {
    *       const url = await uploadToS3(file);
-   *       return { url, mimeType: file.type };
+   *       return { type: "url", value: url, mimeType: file.type };
    *     },
    *   }}
    * />
@@ -354,7 +389,6 @@ export interface CopilotChatProps {
 
   /**
    * Event hooks for CopilotKit chat events.
-   * These hooks only work when publicApiKey is provided.
    */
   observabilityHooks?: CopilotObservabilityHooks;
 
@@ -388,6 +422,19 @@ export type ImageUpload = {
   bytes: string;
 };
 
+/**
+ * @deprecated The v1 SDK is deprecated. Use v2 instead. Use `CopilotChat` from `@copilotkit/react-core/v2` instead.
+ *
+ * ```tsx
+ * import { CopilotChat } from "@copilotkit/react-core/v2";
+ * import "@copilotkit/react-core/v2/styles.css";
+ *
+ * function App() {
+ *   return <CopilotChat agentId="my-agent" />;
+ * }
+ * ```
+ * See https://docs.copilotkit.ai/reference/v2/components/CopilotChat
+ */
 export function CopilotChat({
   instructions,
   suggestions = "auto",
@@ -893,34 +940,36 @@ export function CopilotChat({
     }
   };
 
-  const handleThumbsUp = (message: Message) => {
-    if (onThumbsUp) {
-      onThumbsUp(message);
+  // `isActive` is the state the click transitions to. The built-in
+  // AssistantMessage derives it from the message's current feedback so a second
+  // click on an active button retracts it; a custom AssistantMessage may pass
+  // its own value. When omitted, treat the click as applying feedback.
+  const recordFeedback = (
+    message: Message,
+    kind: FeedbackKind,
+    isActive?: boolean,
+  ) => {
+    const nextActive = isActive ?? true;
+
+    setMessageFeedback((prev) =>
+      applyFeedbackClick(prev, message.id, kind, nextActive),
+    );
+
+    // `onFeedbackGiven` has no way to express a retraction, so only report the
+    // click that applies feedback.
+    if (nextActive) {
+      triggerObservabilityHook("onFeedbackGiven", message.id, kind);
     }
-
-    // Update feedback state
-    setMessageFeedback((prev) => ({
-      ...prev,
-      [message.id]: "thumbsUp",
-    }));
-
-    // Trigger feedback given event
-    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsUp");
   };
 
-  const handleThumbsDown = (message: Message) => {
-    if (onThumbsDown) {
-      onThumbsDown(message);
-    }
+  const handleThumbsUp = (message: Message, isActive?: boolean) => {
+    onThumbsUp?.(message, isActive ?? true);
+    recordFeedback(message, "thumbsUp", isActive);
+  };
 
-    // Update feedback state
-    setMessageFeedback((prev) => ({
-      ...prev,
-      [message.id]: "thumbsDown",
-    }));
-
-    // Trigger feedback given event
-    triggerObservabilityHook("onFeedbackGiven", message.id, "thumbsDown");
+  const handleThumbsDown = (message: Message, isActive?: boolean) => {
+    onThumbsDown?.(message, isActive ?? true);
+    recordFeedback(message, "thumbsDown", isActive);
   };
 
   return (

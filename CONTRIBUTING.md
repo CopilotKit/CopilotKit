@@ -27,11 +27,18 @@ So, you've got an awesome feature in mind? Throw it over to us by [creating an i
 
 If you don't feel ready to make a code contribution yet, no problem! You can also check out the [documentation issues](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3Adocumentation).
 
+## Contributing to documentation
+
+There are two documentation domains — make sure your change goes to the right place, or it won't reach the live site:
+
+- **CopilotKit docs** (docs.copilotkit.ai) are authored in **`showcase/shell-docs/src/content/`** (`docs/`, `reference/`, `snippets/`, `framework-overviews/`). When adding a page, update the relevant `meta.json` so it appears in navigation. Top-level `docs/` is only a symlink to `showcase/shell-docs/`; do not recreate the old `docs/content/docs/` tree.
+- **AG-UI protocol docs** (docs.ag-ui.com) are authored upstream in [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui), not in this repo. The `showcase/shell-docs/src/content/ag-ui/` copy is a downstream mirror.
+
 # How do I make a code contribution?
 
 ## Good first issues
 
-Are you new to open source contribution? Wondering how contributions work in our project? Here's a quick rundown.
+Are you new to open-source contribution? Wondering how contributions work in our project? Here's a quick rundown.
 
 Find an issue that you're interested in addressing, or a feature that you'd like to add.
 You can use [this view](https://github.com/CopilotKit/CopilotKit/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22) which helps new contributors find easy gateways into our project.
@@ -53,14 +60,14 @@ git clone https://github.com/<your-GitHub-username>/CopilotKit
 
 ## Step 3: Prepare the development environment
 
-### 1)Install Prerequisites
+### 1) Install Prerequisites
 
 - Node.js 20.x or later
 - pnpm v9.x installed globally (npm i -g pnpm@^9)
 
 > **Windows users:** Enable **Developer Mode** (Settings > System > For developers > Developer Mode → On) to allow symlink creation. This is required for Next.js standalone builds and pnpm to work correctly.
 
-### 2)Install Dependencies
+### 2) Install Dependencies
 
 To install the dependencies using pnpm
 Go inside project folder and run :
@@ -69,7 +76,7 @@ Go inside project folder and run :
 pnpm install
 ```
 
-### 3)Build Packages
+### 3) Build Packages
 
 To make sure everything works, let’s build all packages once:
 
@@ -143,6 +150,22 @@ Remember, it's okay if your pull request is not perfect (no pull request ever is
 
 Celebrate your success after your pull request is merged :-)
 
+## Changelogs and releases — do not add a changeset
+
+**Do not add files under `.changeset/` to your pull request.** If you (or your AI coding assistant) see a `.changeset/` directory in your checkout, it is stale — delete it and sync your fork with `main`.
+
+CopilotKit did use [Changesets](https://github.com/changesets/changesets) for releases, and the per-package `CHANGELOG.md` files still carry that history and its formatting. We have since migrated to **conventional-commit-driven releases**: the release tooling in `scripts/release/` builds the changelog from commit subjects in `git log <lastTag>..HEAD`. Nothing reads `.changeset/*.md` anymore, and `@changesets/cli` is not a dependency of this repo — a changeset file in your PR is inert, and CI will fail on it.
+
+What to do instead: write a good conventional commit subject (see [Git Commit Messages](#git-commit-messages)). That line is what ships in the release notes, so make it describe the user-visible change:
+
+```
+fix(runtime): coalesce consecutive same-role Anthropic messages before dispatch
+```
+
+Version bumps and `CHANGELOG.md` edits are made by maintainers during a release, not in your PR — please leave `package.json` versions and changelogs alone.
+
+> Working from an older fork or a long-lived branch? Rebase onto current `main` before opening your PR. Branches cut before mid-2026 can reintroduce `.changeset/` debris.
+
 ## Git Commit Messages
 
 We structure our commit messages like this:
@@ -179,6 +202,6 @@ Our Code of Conduct means that you are responsible for treating everyone on the 
 ## Need Help?
 
 - **Questions**: Use our [Discord support channel](https://discord.com/invite/6dffbvGU3D) for any questions you have.
-- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentatation info.
+- **Resources**: Visit [CopilotKit documentation](https://docs.copilotkit.ai/) for more helpful documentation info.
 
 ⭐ Happy coding, and we look forward to your contributions!

@@ -59,9 +59,10 @@ function getHandler(): (req: Request) => Promise<Response> {
   if (cachedHandler) return cachedHandler;
 
   const runtime = new CopilotRuntime({
-    // @ts-ignore -- see main route.ts
     agents: {
+      // @ts-expect-error -- see main route.ts
       "voice-demo": voiceDemoAgent,
+      // @ts-expect-error -- see main route.ts
       default: voiceDemoAgent,
     },
     transcriptionService: new GuardedOpenAITranscriptionService(),

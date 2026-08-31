@@ -25,14 +25,10 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
-import {
-  createCatalog,
-  type CatalogRenderers,
-} from "@copilotkit/a2ui-renderer";
-import {
-  demonstrationCatalogDefinitions,
-  type DemonstrationCatalogDefinitions,
-} from "./definitions";
+import { createCatalog } from "@copilotkit/a2ui-renderer";
+import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { demonstrationCatalogDefinitions } from "./definitions";
+import type { DemonstrationCatalogDefinitions } from "./definitions";
 
 // ─── Theme-aware colors ─────────────────────────────────────────────
 

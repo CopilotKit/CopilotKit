@@ -102,6 +102,7 @@ This context can then be shared with your LangGraph agent.
                 <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
                     <Tab value="Python">
                         ```python title="agent.py"
+                        from langchain_core.runnables import RunnableConfig
                         from langchain_core.messages import SystemMessage
                         from langchain_openai import ChatOpenAI
                         from copilotkit import CopilotKitState
@@ -231,7 +232,7 @@ This context can then be shared with your LangGraph agent.
                         from langchain.agents import create_agent
                         from copilotkit import CopilotKitMiddleware, CopilotKitState # [!code highlight]
 
-                        graph = create_agent( # Works the same for "create_react_agent" or similar options
+                        graph = create_agent( # create_agent supersedes the deprecated create_react_agent, which accepts neither middleware= nor system_prompt=
                             model="openai:gpt-5.4",
                             tools=[],  # Backend tools go here
                             middleware=[CopilotKitMiddleware()], # [!code highlight]
@@ -245,7 +246,7 @@ This context can then be shared with your LangGraph agent.
                         import { createAgent } from "langchain";
                         import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-                        export const agenticChatGraph = createAgent({ // Works the same for "create_react_agent" or similar options
+                        export const agenticChatGraph = createAgent({ // createAgent supersedes the deprecated createReactAgent, which accepts neither middleware nor systemPrompt
                           model: "openai:gpt-5.4",
                           tools: [],  // Backend tools go here
                           middleware: [copilotkitMiddleware], // [!code highlight]

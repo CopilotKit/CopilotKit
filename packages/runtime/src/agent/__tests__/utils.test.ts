@@ -7,8 +7,8 @@ import {
   convertToolsToVercelAITools,
   convertToolDefinitionsToVercelAITools,
   defineTool,
-  type ToolDefinition,
 } from "../index";
+import type { ToolDefinition } from "../index";
 import type { Message } from "@ag-ui/client";
 
 describe("resolveModel", () => {
@@ -28,31 +28,39 @@ describe("resolveModel", () => {
   it("should resolve OpenAI models with / separator", () => {
     const model = resolveModel("openai/gpt-4o");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o");
+    expect((model as { modelId: string }).modelId).toBe("gpt-4o");
   });
 
   it("should resolve OpenAI models with : separator", () => {
     const model = resolveModel("openai:gpt-4o-mini");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o-mini");
+    expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
   });
 
   it("should resolve Anthropic models", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("claude-sonnet-4.5");
+    expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
+  });
+
+  it("should pass retired Anthropic model identifiers through unchanged", () => {
+    const retiredModel = ["claude", "3.7", "sonnet"].join("-");
+    const model = resolveModel(`anthropic/${retiredModel}`);
+
+    expect(model).toBeDefined();
+    expect((model as { modelId: string }).modelId).toBe(retiredModel);
   });
 
   it("should resolve Google models", () => {
     const model = resolveModel("google/gemini-2.5-pro");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gemini-2.5-pro");
+    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
   });
 
   it("should handle gemini provider alias", () => {
     const model = resolveModel("gemini/gemini-2.5-flash");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gemini-2.5-flash");
+    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-flash");
   });
 
   it("should throw error for invalid format", () => {
@@ -316,6 +324,93 @@ describe("convertJsonSchemaToZodSchema", () => {
     const valid = zodSchema.parse({ user: { name: "John" } });
     expect(valid).toEqual({ user: { name: "John" } });
   });
+
+  it("should convert anyOf/oneOf unions to a Zod union instead of dropping them", () => {
+    // A frontend tool authored with z.discriminatedUnion serializes to a node
+    // carrying `anyOf` (or `oneOf`) and no top-level `type`. Previously this hit
+    // the empty-schema guard and collapsed to z.object({}), silently dropping
+    // the union. It must become a real z.union so both variants survive.
+    const jsonSchema = {
+      anyOf: [
+        {
+          type: "object" as const,
+          properties: {
+            kind: { type: "string" as const, enum: ["text"] },
+            text: { type: "string" as const },
+          },
+          required: ["kind", "text"],
+        },
+        {
+          type: "object" as const,
+          properties: {
+            kind: { type: "string" as const, enum: ["image"] },
+            url: { type: "string" as const },
+          },
+          required: ["kind", "url"],
+        },
+      ],
+    } as any;
+
+    const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
+    expect(zodSchema).toBeInstanceOf(z.ZodUnion);
+    expect(zodSchema.parse({ kind: "text", text: "hi" })).toEqual({
+      kind: "text",
+      text: "hi",
+    });
+    expect(zodSchema.parse({ kind: "image", url: "http://x/y.png" })).toEqual({
+      kind: "image",
+      url: "http://x/y.png",
+    });
+  });
+
+  it("should preserve a union nested inside array items (the oneOf trap)", () => {
+    // The exact reported trap: a z.discriminatedUnion inside array items. The
+    // union node must survive conversion; before the fix the array items became
+    // an empty object and the union-typed data was lost.
+    const jsonSchema = {
+      type: "object" as const,
+      properties: {
+        blocks: {
+          type: "array" as const,
+          items: {
+            oneOf: [
+              {
+                type: "object" as const,
+                properties: {
+                  type: { type: "string" as const, enum: ["heading"] },
+                  level: { type: "number" as const },
+                },
+                required: ["type", "level"],
+              },
+              {
+                type: "object" as const,
+                properties: {
+                  type: { type: "string" as const, enum: ["paragraph"] },
+                  content: { type: "string" as const },
+                },
+                required: ["type", "content"],
+              },
+            ],
+          },
+        },
+      },
+      required: ["blocks"],
+    } as any;
+
+    const zodSchema = convertJsonSchemaToZodSchema(jsonSchema, true);
+    const parsed = zodSchema.parse({
+      blocks: [
+        { type: "heading", level: 1 },
+        { type: "paragraph", content: "hello" },
+      ],
+    });
+    expect(parsed).toEqual({
+      blocks: [
+        { type: "heading", level: 1 },
+        { type: "paragraph", content: "hello" },
+      ],
+    });
+  });
 });
 
 describe("convertToolsToVercelAITools", () => {
@@ -390,6 +485,7 @@ describe("convertToolDefinitionsToVercelAITools", () => {
         parameters: z.object({
           input: z.string(),
         }),
+        execute: async () => undefined,
       },
     ];
 
@@ -405,11 +501,13 @@ describe("convertToolDefinitionsToVercelAITools", () => {
         name: "tool1",
         description: "First tool",
         parameters: z.object({}),
+        execute: async () => undefined,
       },
       {
         name: "tool2",
         description: "Second tool",
         parameters: z.object({ value: z.number() }),
+        execute: async () => undefined,
       },
     ];
 
@@ -507,12 +605,14 @@ describe("defineTool", () => {
       parameters: z.object({
         input: z.string(),
       }),
+      execute: async () => undefined,
     });
 
     expect(tool).toEqual({
       name: "myTool",
       description: "My test tool",
       parameters: expect.any(Object),
+      execute: expect.any(Function),
     });
 
     expect(tool.name).toBe("myTool");
@@ -527,6 +627,7 @@ describe("defineTool", () => {
         a: z.number(),
         b: z.number(),
       }),
+      execute: async () => undefined,
     });
 
     // Should be able to parse valid input

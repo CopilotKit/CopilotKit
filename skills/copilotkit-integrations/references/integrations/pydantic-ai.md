@@ -1,0 +1,159 @@
+# PydanticAI Integration
+
+PydanticAI has first-class AG-UI support built into `pydantic-ai-slim[ag-ui]`. The integration is minimal -- one Starlette route hands the request to `AGUIAdapter.dispatch_request()`.
+
+## Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+- `uv` for Python dependency management
+- OpenAI API key
+
+## Python Dependencies
+
+```toml
+[project]
+dependencies = [
+    "uvicorn",
+    "pydantic-ai-slim[ag-ui,openai]>=2,<3",
+    "ag-ui-protocol>=0.1.19",
+    "starlette>=0.46.2",
+    "python-dotenv",
+]
+```
+
+## Agent Definition (agent/src/agent.py)
+
+```python
+from textwrap import dedent
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+from pydantic_ai.ui import StateDeps
+from ag_ui.core import EventType, StateSnapshotEvent
+from pydantic_ai.models.openai import OpenAIResponsesModel
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Define shared state as a Pydantic model
+class ProverbsState(BaseModel):
+    proverbs: list[str] = Field(
+        default_factory=list,
+        description='The list of already written proverbs',
+    )
+
+# Create the agent with StateDeps for AG-UI state management
+agent = Agent(
+    model=OpenAIResponsesModel('gpt-4.1-mini'),
+    deps_type=StateDeps[ProverbsState],
+    system_prompt=dedent("""
+        You are a helpful assistant that helps manage and discuss proverbs.
+        When discussing proverbs, ALWAYS use the get_proverbs tool first.
+    """).strip()
+)
+
+# Tools that read state
+@agent.tool
+def get_proverbs(ctx: RunContext[StateDeps[ProverbsState]]) -> list[str]:
+    """Get the current list of proverbs."""
+    return ctx.deps.state.proverbs
+
+# Tools that modify state -- return StateSnapshotEvent to sync with frontend
+@agent.tool
+async def add_proverbs(
+    ctx: RunContext[StateDeps[ProverbsState]], proverbs: list[str]
+) -> StateSnapshotEvent:
+    ctx.deps.state.proverbs.extend(proverbs)
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT,
+        snapshot=ctx.deps.state,
+    )
+
+@agent.tool
+async def set_proverbs(
+    ctx: RunContext[StateDeps[ProverbsState]], proverbs: list[str]
+) -> StateSnapshotEvent:
+    ctx.deps.state.proverbs = proverbs
+    return StateSnapshotEvent(
+        type=EventType.STATE_SNAPSHOT,
+        snapshot=ctx.deps.state,
+    )
+
+@agent.tool
+def get_weather(_: RunContext[StateDeps[ProverbsState]], location: str) -> str:
+    """Get the weather for a given location."""
+    return f"The weather in {location} is sunny."
+```
+
+Key patterns:
+
+- Use `StateDeps[YourStateModel]` as the `deps_type` to enable AG-UI shared state
+- State-reading tools access `ctx.deps.state` directly
+- State-modifying tools return `StateSnapshotEvent` with the updated state -- this triggers a state sync to the frontend
+- The `RunContext` provides access to both state and dependencies
+
+## Starlette Server (agent/src/main.py)
+
+```python
+from agent import ProverbsState, StateDeps, agent
+from pydantic_ai.ui.ag_ui import AGUIAdapter
+from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import Response
+from starlette.routing import Route
+
+
+async def run_agent(request: Request) -> Response:
+    # Build the deps fresh on every request: `dispatch_request` writes the state the
+    # client sent into `deps.state`, so a shared instance leaks state between users.
+    return await AGUIAdapter.dispatch_request(
+        request, agent=agent, deps=StateDeps(ProverbsState())
+    )
+
+
+app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+```
+
+`AGUIAdapter.dispatch_request()` runs one AG-UI request and streams the protocol events
+back as SSE. Never share a single `StateDeps` instance across requests.
+
+## Next.js Route (src/app/api/copilotkit/[[...slug]]/route.ts)
+
+```typescript
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+} from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+import { handle } from "hono/vercel";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new HttpAgent({
+      url: process.env.AGENT_URL || "http://localhost:8000/",
+    }),
+  },
+  runner: new InMemoryAgentRunner(),
+});
+
+const app = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+export const GET = handle(app);
+export const POST = handle(app);
+export const PATCH = handle(app);
+export const DELETE = handle(app);
+```
+
+PydanticAI uses the generic `HttpAgent` from `@ag-ui/client`.
+
+## Frontend Usage
+
+The frontend is standard CopilotKit -- `useAgent` for shared state (read `agent.state`, write `agent.setState`), `useRenderTool` for generative UI, `useHumanInTheLoop` for approval flows. See the main SKILL.md for common patterns.

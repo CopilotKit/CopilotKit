@@ -1,8 +1,12 @@
 "use client";
 
-// Modal dialog rendered at the APP level — positioned with `fixed inset-0`
-// and portal'd to <body> so it overlays the whole page cleanly regardless
-// of the parent component's CSS context (transforms, overflow, stacking).
+// @region[approval-dialog]
+// Modal dialog rendered at the APP level (portal'd to <body>) — not
+// inside the chat bubble tree. The caller supplies `pending` (the
+// message/context the agent wants approval for) and an `onResolve`
+// completion callback. The user's click on Approve / Reject fires the
+// callback, which resolves the pending frontend-tool Promise back in
+// the parent page.
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -94,3 +98,4 @@ export function ApprovalDialog({ pending, onResolve }: Props) {
 
   return createPortal(content, document.body);
 }
+// @endregion[approval-dialog]

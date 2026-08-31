@@ -1,6 +1,10 @@
 /**
  * D6 — scoping + reference-snapshot loading helper.
  *
+ * @deprecated Replaced by e2e-full driver which subsumes D6 parity checks.
+ * This module is retained temporarily while e2e-parity.ts still imports it;
+ * remove once e2e-parity.ts is itself deleted.
+ *
  * The D6 driver compares LIVE captures against on-disk reference snapshots
  * across the showcase fleet. Running EVERY (integration, featureType) pair
  * on every tick is intractable: ~17 integrations × ~10 feature types ×

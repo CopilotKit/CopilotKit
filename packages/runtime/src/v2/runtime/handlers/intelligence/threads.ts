@@ -1,13 +1,13 @@
-import {
+import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
-  isIntelligenceRuntime,
 } from "../../core/runtime";
+import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { isValidIdentifier } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
-import { InMemoryAgentRunner } from "../../runner/in-memory";
+import { supportsLocalThreadEndpoints } from "../../runner/agent-runner";
 
 interface ThreadsHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -74,7 +74,7 @@ export async function handleListThreads({
   runtime,
   request,
 }: ThreadsHandlerParams): Promise<Response> {
-  // Intelligence platform path
+  // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
       const url = new URL(request.url);
@@ -106,7 +106,7 @@ export async function handleListThreads({
   }
 
   // Local in-memory fallback — useful for local development without Intelligence
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     const url = new URL(request.url);
     const agentId = url.searchParams.get("agentId");
     let threads = runtime.runner.listThreads();
@@ -127,14 +127,14 @@ export async function handleListThreads({
  *
  * The local-dev fallback exposes this so consumers (e.g. the demo's Clear
  * button) can wipe in-memory thread history without restarting the runtime.
- * Intentionally a no-op when the Intelligence platform is configured: real
+ * Intentionally a no-op when CopilotKit Intelligence is configured: real
  * thread history lives in the database and must not be wiped by a
  * client-side page load.
  */
 export function handleClearThreads({
   runtime,
 }: ThreadsHandlerParams): Response {
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     runtime.runner.clearThreads();
   }
   return new Response(null, { status: 204 });
@@ -268,13 +268,16 @@ export async function handleGetThreadMessages({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path
+  // CopilotKit Intelligence path
   if (isIntelligenceRuntime(runtime)) {
     try {
       const user = await resolveIntelligenceUser({ runtime, request });
       if (isHandlerResponse(user)) return user;
 
-      const data = await runtime.intelligence.getThreadMessages({ threadId });
+      const data = await runtime.intelligence.getThreadMessages({
+        threadId,
+        userId: user.id,
+      });
       return Response.json(data);
     } catch (error) {
       logger.error({ err: error, threadId }, "Error fetching thread messages");
@@ -283,9 +286,9 @@ export async function handleGetThreadMessages({
   }
 
   // Local in-memory fallback — useful for local development without Intelligence
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     const messages = runtime.runner.getThreadMessages(threadId);
-    // Map ag-ui Message objects to the same shape the Intelligence platform
+    // Map ag-ui Message objects to the same shape CopilotKit Intelligence
     // returns. Switching on the discriminant `role` lets each branch read
     // the narrowed message arm directly, instead of laundering through
     // `Record<string, unknown>` and chained `as` casts.
@@ -339,7 +342,7 @@ export async function handleGetThreadEvents({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path. Delegates to the platform's `_inspect`
+  // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // endpoint (Intelligence PR #144). Auth still flows through the standard
   // identifyUser → API key path; threadId scoping happens server-side.
   if (isIntelligenceRuntime(runtime)) {
@@ -360,7 +363,7 @@ export async function handleGetThreadEvents({
   }
 
   // Local in-memory fallback
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     try {
       const events = runtime.runner.getThreadEvents(threadId);
       return Response.json({ events });
@@ -381,7 +384,7 @@ export async function handleGetThreadState({
   request,
   threadId,
 }: ThreadMutationParams): Promise<Response> {
-  // Intelligence platform path. Delegates to the platform's `_inspect`
+  // CopilotKit Intelligence path. Delegates to the platform's `_inspect`
   // state endpoint, which folds STATE_DELTA events onto the latest
   // STATE_SNAPSHOT to return the thread's current state.
   if (isIntelligenceRuntime(runtime)) {
@@ -403,7 +406,7 @@ export async function handleGetThreadState({
     }
   }
 
-  if (runtime.runner instanceof InMemoryAgentRunner) {
+  if (supportsLocalThreadEndpoints(runtime.runner)) {
     try {
       const state = runtime.runner.getThreadState(threadId);
       return Response.json({ state });

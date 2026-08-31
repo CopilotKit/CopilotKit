@@ -3,21 +3,24 @@
 // Tool Rendering — REASONING CHAIN variant.
 //
 // A single cell that composes two previously-separate patterns:
-//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot.
+//
+//   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
 //        *               → <CustomCatchallRenderer />
+//      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
 import {
+  CopilotKit,
   CopilotChat,
   CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
@@ -26,6 +29,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -39,15 +43,6 @@ interface FlightSearchResult {
   origin?: string;
   destination?: string;
   flights?: Flight[];
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -66,67 +61,78 @@ export default function ToolRenderingReasoningChainDemo() {
 }
 
 function Chat() {
-  useRenderTool({
-    name: "get_weather",
-    parameters: z.object({ location: z.string() }),
-    render: ({ args, result, status }: any) => {
-      const loading = status !== "complete";
-      const parsed = parseJsonResult<WeatherResult>(result);
-      return (
-        <WeatherCard
-          loading={loading}
-          location={args?.location ?? parsed.city ?? ""}
-          temperature={parsed.temperature}
-          humidity={parsed.humidity}
-          windSpeed={parsed.wind_speed}
-          conditions={parsed.conditions}
-        />
-      );
+  useRenderTool(
+    {
+      name: "get_weather",
+      parameters: z.object({ location: z.string() }),
+      render: ({ parameters, result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<WeatherResult>(result);
+        return (
+          <WeatherCard
+            loading={loading}
+            location={parameters?.location ?? parsed.city ?? ""}
+            temperature={parsed.temperature}
+            humidity={parsed.humidity}
+            windSpeed={parsed.wind_speed}
+            conditions={parsed.conditions}
+          />
+        );
+      },
     },
-  });
+    [],
+  );
 
-  useRenderTool({
-    name: "search_flights",
-    parameters: z.object({
-      origin: z.string(),
-      destination: z.string(),
-    }),
-    render: ({ args, result, status }: any) => {
-      const loading = status !== "complete";
-      const parsed = parseJsonResult<FlightSearchResult>(result);
-      return (
-        <FlightListCard
-          loading={loading}
-          origin={args?.origin ?? parsed.origin ?? ""}
-          destination={args?.destination ?? parsed.destination ?? ""}
-          flights={parsed.flights ?? []}
-        />
-      );
+  useRenderTool(
+    {
+      name: "search_flights",
+      parameters: z.object({
+        origin: z.string(),
+        destination: z.string(),
+      }),
+      render: ({ parameters, result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<FlightSearchResult>(result);
+        return (
+          <FlightListCard
+            loading={loading}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
+            flights={parsed.flights ?? []}
+          />
+        );
+      },
     },
-  });
+    [],
+  );
 
-  useDefaultRenderTool({
-    render: ({ name, args, status, result }: any) => (
-      <CustomCatchallRenderer
-        name={name}
-        parameters={args}
-        status={status as CatchallToolStatus}
-        result={result}
-      />
-    ),
-  });
+  useDefaultRenderTool(
+    {
+      render: ({ name, parameters, status, result }) => (
+        <CustomCatchallRenderer
+          name={name}
+          parameters={parameters}
+          status={status as CatchallToolStatus}
+          result={result}
+        />
+      ),
+    },
+    [],
+  );
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
+      {
+        title: "Chain of dice rolls",
+        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+      },
       {
         title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

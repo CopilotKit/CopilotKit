@@ -3,6 +3,8 @@ export * from "./conditions";
 export * from "./console-styling";
 export * from "./errors";
 export * from "./json-schema";
+export * from "./inspector-metadata";
+export * from "./inspector-visibility";
 export * from "./types";
 export * from "./random-id";
 export * from "./requests";
@@ -18,7 +20,7 @@ import * as PartialJSON from "partial-json";
 export function parseJson(json: string, fallback: any = "unset") {
   try {
     return JSON.parse(json);
-  } catch (e) {
+  } catch {
     return fallback === "unset" ? null : fallback;
   }
 }
@@ -34,7 +36,7 @@ export function partialJSONParse(json: string) {
       return parsed;
     }
     return {};
-  } catch (error) {
+  } catch {
     return {};
   }
 }

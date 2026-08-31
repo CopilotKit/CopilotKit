@@ -10,7 +10,7 @@
 // popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -18,10 +18,8 @@ import {
   useConfigureSuggestions,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
-import {
-  generateFallbackSlots,
-  type TimeSlot,
-} from "../_shared/interrupt-fallback-slots";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
 
@@ -73,20 +71,27 @@ function Layout() {
 
 function useHeadlessInterrupt(agentId: string): {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 } {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId });
   const [pending, setPending] = useState<InterruptEvent | null>(null);
+  const pendingRef = useRef<InterruptEvent | null>(null);
+  pendingRef.current = pending;
 
   useEffect(() => {
     let local: InterruptEvent | null = null;
     const sub = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event.name === INTERRUPT_EVENT_NAME) {
+          // The AG-UI adapter JSON-stringifies interrupt values, so
+          // parse when the value arrives as a string.
+          const raw = event.value ?? {};
           local = {
             name: event.name,
-            value: (event.value ?? {}) as InterruptPayload,
+            value: (typeof raw === "string"
+              ? JSON.parse(raw)
+              : raw) as InterruptPayload,
           };
         }
       },
@@ -102,17 +107,17 @@ function useHeadlessInterrupt(agentId: string): {
       },
       onRunFailed: () => {
         local = null;
+        setPending(null);
       },
     });
     return () => sub.unsubscribe();
   }, [agent]);
 
   const resolve = useMemo(
-    () => (response: unknown) => {
-      const snapshot = pending;
-      setPending(null);
-      void copilotkit
-        .runAgent({
+    () => async (response: unknown) => {
+      const snapshot = pendingRef.current;
+      try {
+        return await copilotkit.runAgent({
           agent,
           forwardedProps: {
             command: {
@@ -120,10 +125,22 @@ function useHeadlessInterrupt(agentId: string): {
               interruptEvent: snapshot?.value,
             },
           },
-        })
-        .catch(() => {});
+        });
+      } catch (err) {
+        // Catastrophic rejection (network error, auth failure, validation
+        // reject) may fire before the run starts, so onRunFailed never runs.
+        // Clear pending here so the popup unmounts. Symmetric with the
+        // framework resolve catch + onRunFailed handler — all write null,
+        // no race. Caller still sees the rethrow.
+        console.error(
+          "[interrupt-headless] resume runAgent rejected; clearing pending + rethrowing",
+          err,
+        );
+        setPending(null);
+        throw err;
+      }
     },
-    [agent, copilotkit, pending],
+    [agent, copilotkit],
   );
 
   return { pending, resolve };
@@ -132,7 +149,7 @@ function useHeadlessInterrupt(agentId: string): {
 
 type AppSurfaceProps = {
   pending: InterruptEvent | null;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<unknown>;
 };
 
 function AppSurface({ pending, resolve }: AppSurfaceProps) {

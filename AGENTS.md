@@ -13,6 +13,8 @@
 
 <!-- nx configuration end-->
 
+> Working under `showcase/`? Read `showcase/AGENTS.md` FIRST — it defines the non-negotiable iron rules for showcase cells.
+
 # CopilotKit
 
 AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → **Runtime** (Express/Hono) → **Agent** (LangGraph/CrewAI/BuiltIn/Custom), communicating via the AG-UI protocol (event-based SSE).
@@ -20,9 +22,14 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 ## Essentials
 
 - **Nx monorepo** — always run tasks through `nx` (`nx run`, `nx run-many`, `nx affected`), never the underlying tooling directly.
-- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Some packages have `v1/` and `v2/` internal directories for backward compatibility, but they're a single published package.
+- **Flat package structure** — All packages live under `packages/` with the `@copilotkit/` scope. Dual-version packages keep deprecated implementation code under `src/v1-deprecated/`, route the package root through `src/v1-deprecated-compatibility.ts`, and keep current code under `src/v2/`. These remain one published package; the deprecated source directory is not a public subpath.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
+- **No changesets** — releases are conventional-commit-driven (`scripts/release/` reads commit subjects). This repo migrated off Changesets; never create `.changeset/*` files — nothing consumes them and CI fails on them. Describe the change in the commit subject instead, and leave `package.json` versions and `CHANGELOG.md` files to the release tooling.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
+- **Always start from fresh remote main** — at the start of every new task, before creating any branch or worktree, and before running `nx affected` or any base-sensitive comparison, run `git fetch origin main`. Create new work from `origin/main`, never from the local `main` ref. Local `main` may be arbitrarily stale and must not be used as an affected base. For an existing branch, compare against the fetched merge base explicitly (for example, `BASE=$(git merge-base HEAD origin/main)` followed by `nx affected --base="$BASE" --head=HEAD`).
+- **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
+- **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
+- **Inspector UI work** — follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change. Pane add/rename/remove also uses `skills/inspector-docs/SKILL.md`.
 
 ## Private Agent Instructions
 
@@ -39,9 +46,31 @@ The team maintains shared AI agent skills at [CopilotKit/internal-skills](https:
 
 If you need a skill and don't have the plugin installed, clone the repo and read the relevant `skills/<name>/SKILL.md` directly.
 
+## Documentation Editing
+
+Before editing anything that looks like product docs, read [Documentation](.claude/docs/documentation.md) and the local README for the docs area you are touching. The live docs source is **`showcase/shell-docs/`**; top-level `docs/` is only a symlink there.
+
+- **CopilotKit product docs** live under `showcase/shell-docs/src/content/`:
+  - Guides, how-tos, and concepts: `showcase/shell-docs/src/content/docs/`
+  - API reference: `showcase/shell-docs/src/content/reference/`
+  - Shared MDX snippets: `showcase/shell-docs/src/content/snippets/`
+  - Framework overview pages: `showcase/shell-docs/src/content/framework-overviews/`
+- When adding or moving a guide page under `showcase/shell-docs/src/content/docs/`, update that section's `meta.json` so the page appears in navigation.
+- The v2 API reference under `showcase/shell-docs/src/content/reference/{components,hooks,sdk}/` does **not** use `meta.json`; navigation is generated from page frontmatter. Only `reference/v1/` uses `meta.json`.
+- For framework docs, check the framework's `docs_mode` in `showcase/integrations/<slug>/manifest.yaml` and confirm the docs folder with `getDocsFolder()` in `showcase/shell-docs/src/lib/registry.ts`.
+- For showcase-driven frameworks (`docs_mode: generated`), update the showcase source of truth: manifests, demos, feature coverage, source regions, registry inputs, shared/root MDX, and sparse framework overrides. Do not hand-edit generated files under `showcase/shell-docs/src/data/frameworks/`.
+- For authored frameworks (`docs_mode: authored`), edit `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
+- For snippets, edit `showcase/shell-docs/src/content/snippets/`; snippets can feed root docs, authored framework pages, and showcase-driven framework pages.
+- When the task changes Inspector UI, chrome, panes, or overlay behavior, follow `skills/inspector-workbench/SKILL.md`. Start the standalone workbench and take screenshots after each visual change.
+- When adding, renaming, or removing an Inspector pane, follow `skills/inspector-docs/SKILL.md` so the matching docs Callout stays in sync.
+- **AG-UI protocol docs** are canonical upstream in `ag-ui-protocol/ag-ui`. The `showcase/shell-docs/src/content/ag-ui/` tree is a downstream mirror; change AG-UI upstream first, then sync the mirror back.
+- **Do not recreate `docs/content/docs/`**. Top-level `docs/` is only a symlink to shell-docs. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
+- To run shell-docs locally, follow `showcase/shell-docs/README.md` and use the shell-docs npm commands.
+
 ## Reference (read when relevant to your task)
 
 - [Architecture & Packages](.claude/docs/architecture.md) — V2/V1 package roles, request lifecycle, core concepts (AG-UI, ProxiedAgent, AgentRunner, tools, context, multi-agent)
 - [Hook Development](.claude/docs/hooks.md) — checklist for creating new hooks (docs, tests, JSDoc)
 - [Workflow & Process](.claude/docs/workflow.md) — when to plan, when to fix autonomously, verification, self-improvement loop, this should be your default mindset when working on any task
 - [Git & PRs](.claude/docs/git.md) — worktree workflow, branching, creating PRs
+- [Documentation](.claude/docs/documentation.md) — where to author docs (CopilotKit → shell-docs; AG-UI → upstream); `docs/` is retired

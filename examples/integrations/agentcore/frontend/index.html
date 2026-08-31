@@ -16,6 +16,21 @@
       href="https://fonts.googleapis.com/css2?family=Geist+Sans:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Set the theme class BEFORE first paint to avoid a white→dark flash.
+      useTheme applies the theme in a useEffect (post-mount), so without this the
+      app paints unthemed (light) first, then flips. This blocking inline script
+      matches useTheme's "system" default (light/dark on <html>) so there's no
+      flash and no mismatch when the provider re-applies.
+    -->
+    <script>
+      (function () {
+        try {
+          var d = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.add(d ? "dark" : "light");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

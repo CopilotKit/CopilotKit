@@ -1,0 +1,399 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / beautiful-chat",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Pie Chart pill alias - continuation after pieChart frontend tool result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_pie_chart_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Pie chart rendered above - Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Bar Chart pill alias - continuation after barChart frontend tool result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_bar_chart_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Bar chart rendered above - Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Schedule Meeting pill alias - continuation after scheduleTime frontend tool result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_schedule_time_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Meeting scheduled - calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Toggle Theme pill alias - continuation after toggleTheme frontend tool result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_toggle_theme_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Search Flights pill alias - continuation after backend search_flights result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_search_flights_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Two flights shown above - United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Pie Chart pill alias - visible suggestion prompt.",
+      "match": {
+        "userMessage": "pie chart of our revenue distribution by category",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_pie_chart_py_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Bar Chart pill alias - visible suggestion prompt.",
+      "match": {
+        "userMessage": "bar chart of our expenses by category",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_bar_chart_py_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Schedule Meeting pill alias - visible suggestion prompt.",
+      "match": {
+        "userMessage": "30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_schedule_time_py_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Toggle Theme pill alias - visible suggestion prompt.",
+      "match": {
+        "userMessage": "Toggle the app theme using the toggleTheme tool",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_toggle_theme_py_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat manual Search Flights pill alias - visible suggestion prompt.",
+      "match": {
+        "userMessage": "for next Tuesday",
+        "hasToolResult": false,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_search_flights_py_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA231\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL412\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard context - completion after generate_a2ui backend result.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_generate_a2ui_sales_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Sales dashboard rendered above with Total Revenue, New Customers, Conversion Rate, revenue mix, and monthly sales."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard context - call generate_a2ui after query_data returns.",
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolCallId": "call_d6_bc_manual_query_data_sales_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_generate_a2ui_sales_py_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Sales dashboard with total revenue, new customers, conversion rate metrics, revenue by category pie chart, and monthly sales bar chart.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Sales Dashboard context - visible suggestion prompt.",
+      "match": {
+        "userMessage": "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_query_data_sales_py_001",
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Excalidraw context - follow-up after create_view returns.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "hasToolResult": true,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Network diagram drawn above - a router branching to two switches, each connected to two PCs."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Excalidraw context - visible suggestion prompt.",
+      "match": {
+        "userMessage": "Use Excalidraw to create a simple network diagram",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_excalidraw_py_001",
+            "name": "create_view",
+            "arguments": "{\"elements\":\"[{\\\"type\\\":\\\"ellipse\\\",\\\"x\\\":200,\\\"y\\\":40,\\\"width\\\":100,\\\"height\\\":60,\\\"strokeColor\\\":\\\"#1971c2\\\",\\\"backgroundColor\\\":\\\"#a5d8ff\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Router\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":80,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch A\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":320,\\\"y\\\":160,\\\"width\\\":100,\\\"height\\\":50,\\\"strokeColor\\\":\\\"#2f9e44\\\",\\\"backgroundColor\\\":\\\"#b2f2bb\\\",\\\"fillStyle\\\":\\\"solid\\\",\\\"text\\\":\\\"Switch B\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":20,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 1\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":120,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 2\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":300,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 3\\\"},{\\\"type\\\":\\\"rectangle\\\",\\\"x\\\":400,\\\"y\\\":280,\\\"width\\\":80,\\\"height\\\":40,\\\"text\\\":\\\"PC 4\\\"},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":-120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":250,\\\"y\\\":100,\\\"width\\\":120,\\\"height\\\":60},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":-70,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":130,\\\"y\\\":210,\\\"width\\\":30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":-30,\\\"height\\\":70},{\\\"type\\\":\\\"arrow\\\",\\\"x\\\":370,\\\"y\\\":210,\\\"width\\\":70,\\\"height\\\":70}]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - follow-up after call_d6_bc_manual_calculator_py_001.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_calculator_py_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Calculator app rendered above - tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - follow-up after call_d6_bc_manual_calculator_py_002.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_calculator_py_002",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Calculator app rendered above - tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - follow-up after call_d6_bc_manual_calculator_py_003.",
+      "match": {
+        "toolCallId": "call_d6_bc_manual_calculator_py_003",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Calculator app rendered above - tap a metric shortcut to insert its value, then operate on it with the standard keypad."
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - visible suggestion prompt variant 1.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "claude-sdk-python",
+        "sequenceIndex": 0
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_calculator_py_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI...\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - visible suggestion prompt variant 2.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "claude-sdk-python",
+        "sequenceIndex": 1
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_calculator_py_002",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI...\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "beautiful-chat Calculator context - visible suggestion prompt variant 3.",
+      "match": {
+        "userMessage": "build a modern calculator with standard buttons",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_manual_calculator_py_003",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":520,\"placeholderMessages\":[\"Composing calculator UI...\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:280px;margin:0 auto}.display{background:#1e293b;padding:12px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right;font-size:18px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.shortcuts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:8px}button{padding:12px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px;cursor:pointer}button.metric{background:#475569;font-size:11px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-beautiful-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"shortcuts\\\"><button class=\\\"metric\\\" data-v=\\\"1200000\\\">Revenue $1.2M</button><button class=\\\"metric\\\" data-v=\\\"342\\\">Customers 342</button><button class=\\\"metric\\\" data-v=\\\"4.2\\\">Conversion 4.2%</button><button class=\\\"metric\\\" data-v=\\\"50000\\\">Avg Deal $50K</button></div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');function evaluateExpr(){if(!expr||!/^[0-9eE+\\\\-*\\\\/.() ]+$/.test(expr)){display.textContent='err';expr='';return;}try{var value=Function('\\\"use strict\\\";return ('+expr+');')();if(typeof value==='number'&&isFinite(value)){display.textContent=String(value);expr=String(value);}else{display.textContent='err';expr='';}}catch(e){display.textContent='err';expr='';}}document.querySelectorAll('.shortcuts button').forEach(function(btn){btn.addEventListener('click',function(){expr+=btn.dataset.v;display.textContent=expr;});});document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',function(){if(btn.id==='eq'){evaluateExpr();}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

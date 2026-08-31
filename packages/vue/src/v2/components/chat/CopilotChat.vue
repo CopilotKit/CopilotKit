@@ -20,6 +20,7 @@ import {
   useSlots,
   watch,
 } from "vue";
+import { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
@@ -35,12 +36,11 @@ import {
   TranscriptionError,
 } from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
-import {
-  LastUserMessageKey,
-  type LastUserMessageState,
-} from "./last-user-message-context";
+import { LastUserMessageKey } from "./last-user-message-context";
+import type { LastUserMessageState } from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
+import { useInspectorThreadOverride } from "../../providers/use-inspector-thread-override";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -107,6 +107,7 @@ type ActiveConnectCycle = {
   core: object;
   agent: AbstractAgent;
   threadId: string;
+  inspectorRequestId: string | null;
   abortController: AbortController;
   detached: boolean;
 };
@@ -124,15 +125,26 @@ const resolvedAgentId = computed(
 const providedThreadId = computed(
   () => props.threadId ?? existingConfig.value?.threadId,
 );
-const resolvedThreadId = computed(
+const baseThreadId = computed(
   () => providedThreadId.value ?? generatedThreadId.value,
 );
 // "Explicit" means the caller actually picked this thread — via the
 // `threadId` prop on CopilotChat or a wrapping provider that flagged its
 // threadId as caller-chosen. An auto-minted UUID leaking down through a
 // CopilotChatConfigurationProvider does NOT count.
-const hasExplicitThreadId = computed(
+const baseHasExplicitThreadId = computed(
   () => !!props.threadId || !!existingConfig.value?.hasExplicitThreadId,
+);
+const { inspectorThreadId, inspectorRequestId, failInspectorOverride } =
+  useInspectorThreadOverride({
+    agentId: resolvedAgentId,
+    baseThreadId,
+  });
+const resolvedThreadId = computed(
+  () => inspectorThreadId.value ?? baseThreadId.value,
+);
+const hasExplicitThreadId = computed(
+  () => inspectorThreadId.value !== null || baseHasExplicitThreadId.value,
 );
 const lastConnectedThreadId = ref<string | null>(null);
 const isConnecting = computed(
@@ -143,9 +155,12 @@ const isConnecting = computed(
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 const resolvedLabels = computed(() => stableLabels.value);
 
+// `useAgent` takes no threadId: it pins one only from a surrounding chat
+// configuration, and this call sits outside the provider rendered in this
+// component's template, so it would never see the thread being rendered. The
+// thread is assigned in the connect watcher below, mirroring React's CopilotChat.
 const { agent } = useAgent({
   agentId: resolvedAgentId,
-  threadId: resolvedThreadId,
   throttleMs: computed(() => props.throttleMs),
 });
 const { suggestions: autoSuggestions } = useSuggestions({
@@ -298,13 +313,40 @@ watch(
 
 watch(
   [
+    () => copilotkit.value,
+    resolvedAgentId,
+    resolvedThreadId,
+    inspectorRequestId,
+  ],
+  ([core, agentId, threadId, requestId], _old, onCleanup) => {
+    if (!requestId) return;
+    const subscription = core.subscribe({
+      onError: (event) => {
+        if (event.code !== CopilotKitCoreErrorCode.AGENT_CONNECT_FAILED) return;
+        if (event.context?.agentId !== agentId) return;
+        if (event.context?.threadId !== threadId) return;
+        failInspectorOverride(requestId);
+      },
+    });
+    onCleanup(() => subscription.unsubscribe());
+  },
+  { immediate: true },
+);
+
+watch(
+  [
     isMounted,
     () => copilotkit.value,
     () => agent.value,
     resolvedThreadId,
     hasExplicitThreadId,
+    inspectorRequestId,
   ],
-  ([mounted, core, currentAgent, threadId, isExplicit], _old, onCleanup) => {
+  (
+    [mounted, core, currentAgent, threadId, isExplicit, requestId],
+    _old,
+    onCleanup,
+  ) => {
     if (!mounted) {
       return;
     }
@@ -314,6 +356,30 @@ watch(
     if (!currentAgent) {
       return;
     }
+
+    const previousCycle = activeConnectCycle.value;
+    const inspectorTransition =
+      previousCycle !== null &&
+      previousCycle.threadId !== threadId &&
+      previousCycle.inspectorRequestId !== requestId &&
+      (previousCycle.inspectorRequestId !== null || requestId !== null);
+    if (inspectorTransition) {
+      try {
+        core.stopAgent({ agent: currentAgent });
+      } catch {
+        // No live run to stop.
+      }
+    }
+
+    // Pin the thread this chat renders onto its agent, before anything issues a
+    // request. `CopilotKitCore.connectAgent` reads `agent.threadId` synchronously
+    // to decide whether this is a fresh restore, so a later assignment would let
+    // /connect address the previous thread. Assigning inside this callback — as
+    // React does — makes the ordering unconditional instead of depending on
+    // watcher scheduling. Non-explicit threads skip /connect below, but the first
+    // runAgent still has to ship the thread the UI is rendering.
+    currentAgent.threadId = threadId;
+
     // When the caller hasn't picked a specific thread, resolvedThreadId is
     // a UUID minted locally. The backend has never seen it, so /connect
     // would always 404 — skip the call. A real thread is only created
@@ -346,7 +412,8 @@ watch(
       existingCycle &&
       existingCycle.core === (core as object) &&
       existingCycle.agent === currentAgent &&
-      existingCycle.threadId === threadId;
+      existingCycle.threadId === threadId &&
+      existingCycle.inspectorRequestId === requestId;
 
     let cycle: ActiveConnectCycle;
     if (hasSameDeps && existingCycle) {
@@ -361,6 +428,7 @@ watch(
         core: core as object,
         agent: currentAgent,
         threadId,
+        inspectorRequestId: requestId,
         abortController: connectAbortController,
         detached: false,
       };
@@ -376,6 +444,9 @@ watch(
             return;
           }
           console.error("CopilotChat: connectAgent failed", error);
+          if (requestId) {
+            failInspectorOverride(requestId);
+          }
         })
         .finally(() => {
           // Whether the connect succeeded or failed, we're no longer in
@@ -421,6 +492,26 @@ watch(
       void activeCycle.agent.detachActiveRun?.();
       activeConnectCycle.value = null;
     });
+  },
+  { immediate: true },
+);
+
+// Clear stale messages when the active thread switches to a fresh,
+// non-explicit thread (e.g. a "+ New" reset). Explicit thread switches
+// replay their history via the /connect cycle above, and the very first
+// resolution (mount) or an agent-store swap that keeps the same thread id
+// must never clear — only a real fresh-thread transition does.
+const lastFreshThreadId = ref<string | undefined>(undefined);
+watch(
+  [resolvedThreadId, hasExplicitThreadId, () => agent.value],
+  ([threadId, isExplicit, currentAgent]) => {
+    const previous = lastFreshThreadId.value;
+    lastFreshThreadId.value = threadId;
+    if (!currentAgent) return;
+    if (isExplicit) return;
+    if (previous === undefined) return;
+    if (threadId === previous) return;
+    currentAgent.setMessages([]);
   },
   { immediate: true },
 );

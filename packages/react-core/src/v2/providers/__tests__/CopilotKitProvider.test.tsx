@@ -1,10 +1,15 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type React from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { HttpAgent } from "@ag-ui/client";
+import { defineWebInspector } from "@copilotkit/web-inspector";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
+import { stubWindowLocation } from "../../../v1-deprecated/test-helpers/stub-window-location";
 
 // Mock console methods
 const originalConsoleError = console.error;
@@ -22,6 +27,8 @@ describe("CopilotKitProvider", () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
     consoleWarnSpy.mockRestore();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   describe("Basic functionality", () => {
@@ -47,6 +54,182 @@ describe("CopilotKitProvider", () => {
 
       errorSpy.mockRestore();
       consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+  });
+
+  describe("inspector visibility", () => {
+    async function settleInspectorLoad(): Promise<void> {
+      await act(async () => {
+        await vi.dynamicImportSettled();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      });
+    }
+
+    beforeEach(() => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.mocked(defineWebInspector).mockClear();
+    });
+
+    it("renders by default on any development host and passes the provider core before connection", async () => {
+      const restoreLocation = stubWindowLocation("http://192.168.1.25:3000");
+      let providerCore: ReturnType<typeof useCopilotKit>["copilotkit"] | null =
+        null;
+      const Probe = () => {
+        providerCore = useCopilotKit().copilotkit;
+        return null;
+      };
+
+      try {
+        render(
+          <CopilotKitProvider>
+            <Probe />
+          </CopilotKitProvider>,
+        );
+
+        await waitFor(() => {
+          const inspector = document.querySelector<
+            HTMLElement & {
+              autoAttachCore?: boolean;
+              autoAttachCoreAtConnection?: boolean;
+              core?: unknown;
+              coreAtConnection?: unknown;
+            }
+          >("cpk-web-inspector");
+          expect(inspector?.core).toBe(providerCore);
+          expect(inspector?.autoAttachCore).toBe(false);
+          expect(inspector?.coreAtConnection).toBe(providerCore);
+          expect(inspector?.autoAttachCoreAtConnection).toBe(false);
+        });
+      } finally {
+        restoreLocation();
+      }
+    });
+
+    it("does not render or load when explicitly disabled in development", async () => {
+      render(
+        <CopilotKitProvider enableInspector={false}>child</CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("never renders or loads in production, even when explicitly enabled", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" enableInspector={true}>
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("does not let legacy showDevConsole disable the development Inspector", async () => {
+      render(
+        <CopilotKitProvider showDevConsole={false}>child</CopilotKitProvider>,
+      );
+      await waitFor(() => {
+        expect(document.querySelector("cpk-web-inspector")).not.toBeNull();
+      });
+    });
+
+    it("does not let legacy showDevConsole enable the production Inspector", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      render(
+        <CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+          child
+        </CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(document.querySelector("cpk-web-inspector")).toBeNull();
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("does not render or load the inspector during SSR", async () => {
+      vi.stubEnv("NODE_ENV", "development");
+      vi.stubGlobal("window", undefined);
+      const html = renderToString(
+        <CopilotKitProvider enableInspector={true}>child</CopilotKitProvider>,
+      );
+      await settleInspectorLoad();
+      expect(html).not.toContain("cpk-web-inspector");
+      expect(defineWebInspector).not.toHaveBeenCalled();
+    });
+
+    it("hydrates development markup before mounting the Inspector", async () => {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const element = (
+        <CopilotKitProvider enableInspector={true}>
+          <div>child</div>
+        </CopilotKitProvider>
+      );
+
+      vi.stubGlobal("window", undefined);
+      container.innerHTML = renderToString(element);
+      vi.unstubAllGlobals();
+
+      const onRecoverableError = vi.fn();
+      const root = hydrateRoot(container, element, { onRecoverableError });
+
+      try {
+        await waitFor(() => {
+          expect(container.querySelector("cpk-web-inspector")).not.toBeNull();
+        });
+        expect(onRecoverableError).not.toHaveBeenCalled();
+      } finally {
+        await act(async () => root.unmount());
+        container.remove();
+      }
+    });
+  });
+  describe("selfManagedAgents license signal", () => {
+    const ENTERPRISE_WARNING = "Enterprise Intelligence tier";
+
+    it("warns when selfManagedAgents is provided without a license key", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider selfManagedAgents={{ myAgent: agent }}>
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
+      // selfManagedAgents satisfies hasLocalAgents, so the separate
+      // missing-runtime config warning must NOT fire here.
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Missing required prop"),
+      );
+    });
+
+    it("does not warn when selfManagedAgents is paired with a license key", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider
+          selfManagedAgents={{ myAgent: agent }}
+          publicLicenseKey="ck_lic_test"
+        >
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
+    });
+
+    it("does not warn for the free agents__unsafe_dev_only escape hatch", () => {
+      const agent = new HttpAgent({ url: "http://localhost:8000" });
+      render(
+        <CopilotKitProvider agents__unsafe_dev_only={{ myAgent: agent }}>
+          child
+        </CopilotKitProvider>,
+      );
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining(ENTERPRISE_WARNING),
+      );
     });
   });
 
@@ -427,19 +610,17 @@ describe("CopilotKitProvider", () => {
 
   describe("a2ui prop", () => {
     const originalFetch = global.fetch;
-    const originalWindow = (globalThis as { window?: unknown }).window;
+    let restoreLocation: () => void = () => {};
 
     beforeEach(() => {
-      (globalThis as { window?: unknown }).window = {};
+      // Clear window.location so the auto-open-inspector heuristic skips, while
+      // keeping the real jsdom window intact for React 18's renderer.
+      restoreLocation = stubWindowLocation();
     });
 
     afterEach(() => {
       global.fetch = originalFetch;
-      if (originalWindow === undefined) {
-        delete (globalThis as { window?: unknown }).window;
-      } else {
-        (globalThis as { window?: unknown }).window = originalWindow;
-      }
+      restoreLocation();
     });
 
     it("does not register an a2ui-surface renderer by default", () => {
@@ -499,6 +680,87 @@ describe("CopilotKitProvider", () => {
             (r) => r.activityType === "a2ui-surface",
           );
         expect(a2uiRenderer).toBeDefined();
+      });
+    });
+
+    describe("A2UI catalog context scoping (#5369)", () => {
+      // setupTests pins randomUUID to a constant ("mock-thread-id"), which
+      // makes every addContext id collide so the ContextStore can only hold a
+      // single entry. These tests assert on all four catalog entries, so they
+      // need unique ids.
+      beforeEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        let n = 0;
+        vi.mocked(randomUUID).mockImplementation(() => `ctx-uuid-${n++}`);
+      });
+
+      afterEach(async () => {
+        const { randomUUID } = await import("@copilotkit/shared");
+        vi.mocked(randomUUID).mockImplementation(() => "mock-thread-id");
+      });
+
+      it("scopes the A2UI catalog context entries to the runtime's a2ui agents", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            version: "1.0.0",
+            agents: {},
+            audioFileTranscriptionEnabled: false,
+            a2uiEnabled: true,
+            a2ui: { enabled: true, agents: ["my_a2ui_agent"] },
+          }),
+        });
+
+        const { result } = renderHook(() => useCopilotKit(), {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+              {children}
+            </CopilotKitProvider>
+          ),
+        });
+
+        await vi.waitFor(() => {
+          expect(
+            Object.values(result.current.copilotkit.context).length,
+          ).toBeGreaterThanOrEqual(4);
+        });
+
+        const entries = Object.values(result.current.copilotkit.context);
+        for (const entry of entries) {
+          expect(entry.agentIds).toEqual(["my_a2ui_agent"]);
+        }
+      });
+
+      it("leaves the A2UI catalog context unscoped when the runtime applies a2ui to all agents", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({
+            version: "1.0.0",
+            agents: {},
+            audioFileTranscriptionEnabled: false,
+            a2uiEnabled: true,
+            a2ui: { enabled: true },
+          }),
+        });
+
+        const { result } = renderHook(() => useCopilotKit(), {
+          wrapper: ({ children }) => (
+            <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+              {children}
+            </CopilotKitProvider>
+          ),
+        });
+
+        await vi.waitFor(() => {
+          expect(
+            Object.values(result.current.copilotkit.context).length,
+          ).toBeGreaterThanOrEqual(4);
+        });
+
+        const entries = Object.values(result.current.copilotkit.context);
+        for (const entry of entries) {
+          expect(entry.agentIds).toBeUndefined();
+        }
       });
     });
 
@@ -708,6 +970,52 @@ describe("CopilotKitProvider", () => {
         result.current.copilotkit.getTool({ toolName: "followUpTool" })
           ?.followUp,
       ).toBe(false);
+    });
+  });
+
+  describe("a2ui catalog auto-enable", () => {
+    it("forwards a2uiCatalogAvailable when a catalog is passed to the provider", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{ catalog: { components: new Map() } }}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties.a2uiCatalogAvailable).toBe(
+        true,
+      );
+    });
+
+    it("does not forward a2uiCatalogAvailable when no catalog is passed", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{}}>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(
+        result.current.copilotkit.properties.a2uiCatalogAvailable,
+      ).toBeUndefined();
+    });
+
+    it("preserves user-provided properties alongside the catalog signal", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            a2ui={{ catalog: { components: new Map() } }}
+            properties={{ tenant: "acme" }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties).toMatchObject({
+        tenant: "acme",
+        a2uiCatalogAvailable: true,
+      });
     });
   });
 });

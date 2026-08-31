@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { BasicAgent, type MCPClientProvider } from "../index";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
+import { BasicAgent } from "../index";
+import type { MCPClientProvider } from "../index";
+import { EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText } from "ai";
+import type { ToolSet } from "ai";
 import {
   mockStreamTextResponse,
   textDelta,
@@ -239,7 +242,10 @@ describe("mcpClients — user-managed MCP clients", () => {
     type MCPClient = Awaited<
       ReturnType<typeof import("@ai-sdk/mcp").createMCPClient>
     >;
-    const _assignable: MCPClientProvider = {} as MCPClient;
+    const client = {} as MCPClient;
+    const _assignable: MCPClientProvider = {
+      tools: () => client.tools() as unknown as Promise<ToolSet>,
+    };
     void _assignable;
     expect(true).toBe(true);
   });

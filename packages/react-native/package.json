@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-native",
-  "version": "1.57.3",
+  "version": "1.69.3",
   "private": false,
   "keywords": [
     "ai",
@@ -18,7 +18,12 @@
   },
   "type": "module",
   "sideEffects": [
+    "./src/index.*",
+    "./src/headless.*",
+    "./src/polyfills.*",
+    "./src/polyfills/**/*",
     "./dist/index.*",
+    "./dist/headless.*",
     "./dist/polyfills.*",
     "./dist/polyfills/**/*"
   ],
@@ -29,6 +34,10 @@
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./headless": {
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.cjs"
     },
     "./polyfills": {
       "import": "./dist/polyfills.mjs",
@@ -54,23 +63,29 @@
       "import": "./dist/polyfills/location.mjs",
       "require": "./dist/polyfills/location.cjs"
     },
+    "./components": {
+      "import": "./dist/components/index.mjs",
+      "require": "./dist/components/index.cjs"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node scripts/verify-polyfill-barrel.mjs",
     "dev": "tsdown --watch",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:scripts",
+    "test:scripts": "node --test scripts/__tests__/measure-headless.test.mjs scripts/__tests__/verify-polyfill-barrel.test.mjs",
     "check-types": "tsc --noEmit",
     "publint": "publint .",
     "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error",
     "link:global": "pnpm link --global",
-    "unlink:global": "pnpm unlink --global"
+    "unlink:global": "pnpm unlink --global",
+    "size:headless": "node scripts/measure-headless.mjs"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.53",
+    "@ag-ui/client": "0.0.57",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
@@ -80,6 +95,7 @@
   "devDependencies": {
     "@testing-library/react": "^16.3.0",
     "@types/react": "^19.2.0",
+    "esbuild": "^0.27.0",
     "jsdom": "^26.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
@@ -88,17 +104,33 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
+    "@gorhom/bottom-sheet": "^5.0.0",
     "expo-document-picker": ">=12.0.0",
     "expo-file-system": ">=17.0.0",
     "react": "^18 || ^19",
     "react-native": ">=0.70",
+    "react-native-gesture-handler": ">=2.0.0",
+    "react-native-reanimated": ">=3.0.0",
+    "react-native-streamdown": ">=0.1.0",
     "zod": ">=3.0.0"
   },
   "peerDependenciesMeta": {
+    "@gorhom/bottom-sheet": {
+      "optional": true
+    },
     "expo-document-picker": {
       "optional": true
     },
     "expo-file-system": {
+      "optional": true
+    },
+    "react-native-gesture-handler": {
+      "optional": true
+    },
+    "react-native-reanimated": {
+      "optional": true
+    },
+    "react-native-streamdown": {
       "optional": true
     },
     "zod": {

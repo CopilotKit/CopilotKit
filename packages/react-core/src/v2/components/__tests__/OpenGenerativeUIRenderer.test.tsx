@@ -2,10 +2,8 @@ import { render, cleanup, act } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { z } from "zod";
-import {
-  OpenGenerativeUIActivityRenderer,
-  OpenGenerativeUIContent,
-} from "../OpenGenerativeUIRenderer";
+import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
+import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsContext } from "../../providers/SandboxFunctionsContext";
 import type { SandboxFunction } from "../../types/sandbox-function";
 
@@ -22,19 +20,30 @@ function resetMockPromise() {
   });
 }
 
-const mockCreate = vi.fn(() => {
-  mockIframe = document.createElement("iframe");
-  return {
-    iframe: mockIframe,
-    promise: mockPromise,
-    run: mockRun,
-    destroy: mockDestroy,
-  };
-});
+type SandboxLocalApi = Record<string, (...args: unknown[]) => unknown>;
+
+interface SandboxCreateOptions {
+  frameContainer: HTMLElement;
+  frameContent: string;
+  allowAdditionalAttributes: string;
+}
+
+const mockCreate = vi.fn(
+  (_localApi: SandboxLocalApi, _options: SandboxCreateOptions) => {
+    mockIframe = document.createElement("iframe");
+    return {
+      iframe: mockIframe,
+      promise: mockPromise,
+      run: mockRun,
+      destroy: mockDestroy,
+    };
+  },
+);
 
 vi.mock("@jetbrains/websandbox", () => ({
   default: {
-    create: (...args: unknown[]) => mockCreate(...args),
+    create: (localApi: SandboxLocalApi, options: SandboxCreateOptions) =>
+      mockCreate(localApi, options),
   },
 }));
 

@@ -3,6 +3,10 @@ title: "State Rendering"
 icon: "lucide/Bot"
 description: Render the state of your agent with custom UI components.
 ---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/mastra/run-and-connect.mdx"
 
 <IframeSwitcher
   id="agent-state-example"
@@ -28,7 +32,7 @@ is a situation where a user and an agent are working together to solve a problem
 <Steps>
   <Step>
     ### Run and connect your agent
-    <RunAndConnect />
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Set up your agent with working memory
@@ -36,6 +40,12 @@ is a situation where a user and an agent are working together to solve a problem
     Create your Mastra agent with working memory. Here's a complete example that tracks searches:
 
     ```ts title="src/mastra/agents/index.ts"
+    import { openai } from "@ai-sdk/openai";
+    import { Agent } from "@mastra/core/agent";
+    import { LibSQLStore } from "@mastra/libsql";
+    import { z } from "zod";
+    import { Memory } from "@mastra/memory";
+    import { createTool } from "@mastra/core/tools";
 
     // Define the agent state schema
     const AgentStateSchema = z.object({
@@ -94,6 +104,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     ```tsx title="app/page.tsx"
     // ...
+    import { useAgent } from "@copilotkit/react-core/v2";
     // ...
 
     // Define the state of the agent, should match the working memory of your Mastra Agent.
@@ -139,6 +150,7 @@ is a situation where a user and an agent are working together to solve a problem
     other than the chat.
 
     ```tsx title="app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
     // ...
 
     // Define the state of the agent, should match the working memory of your Mastra Agent.
@@ -194,6 +206,5 @@ is a situation where a user and an agent are working together to solve a problem
       autoPlay
       muted
     />
-
   </Step>
 </Steps>

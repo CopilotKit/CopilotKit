@@ -1,43 +1,51 @@
-import React from "react";
-import Link from "next/link";
+import type React from "react";
+import Image from "next/image";
+import {
+  Card as FumadocsCard,
+  Cards as FumadocsCards,
+} from "fumadocs-ui/components/card";
+import { ChevronDown, Copy, SquareTerminal } from "lucide-react";
 
-// `Callout` is owned by `docs-callout.tsx` (broader type surface: info |
-// tip | warn | warning | error | danger | note). Re-exported here so
-// historical imports from `@/components/mdx-components` keep working.
-export { Callout } from "@/components/docs-callout";
+// Re-export fumadocs's default `<Callout>` so historical imports from
+// `@/components/mdx-components` keep working. Fumadocs supports the
+// types `info | warn | warning | error | success | idea`, plus the
+// alias `tip` (resolves to info). Other custom types fall back to the
+// default tone.
+export { Callout } from "fumadocs-ui/components/callout";
 
 export function Cards({
-  children,
-  className: _className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
+  className,
+  ...props
+}: React.ComponentProps<typeof FumadocsCards>) {
   // `not-prose` opts the wrapped Cards out of the .reference-content
   // prose-link styling (which forces underline + accent color on every
   // <a>). The Card's own className already controls link appearance.
   return (
-    <div className="not-prose grid grid-cols-1 sm:grid-cols-2 gap-4 my-6">
-      {children}
-    </div>
+    <FumadocsCards
+      {...props}
+      className={["not-prose my-6 grid-cols-1 gap-4 sm:grid-cols-2", className]
+        .filter(Boolean)
+        .join(" ")}
+    />
   );
 }
 
+type DocsCardProps = React.ComponentProps<typeof FumadocsCard> & {
+  logo?: string;
+  logoAlt?: string;
+  logoClassName?: string;
+};
+
 export function Card({
-  title,
-  description,
   href,
-  icon,
   className,
-  children,
-}: {
-  title: string;
-  description?: string;
-  href?: string;
-  icon?: React.ReactNode;
-  className?: string;
-  children?: React.ReactNode;
-}) {
+  style,
+  icon,
+  logo,
+  logoAlt = "",
+  logoClassName,
+  ...props
+}: DocsCardProps) {
   // Match the docs-landing pointer-card style:
   // - bordered surface, accent border on hover, subtle shadow on hover
   // - title flips to accent color on hover via `group-hover` so the link
@@ -47,65 +55,42 @@ export function Card({
   //   color: var(--accent)` on every <a>; that rule wins over the
   //   Tailwind `no-underline` class on specificity. `not-prose`
   //   triggers the global escape-hatch rule that drops both.
+  const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
+  const resolvedIcon =
+    icon ??
+    (logo ? (
+      <Image
+        src={logo}
+        alt={logoAlt}
+        width={20}
+        height={20}
+        className={["h-5 w-5 shrink-0 object-contain", logoClassName]
+          .filter(Boolean)
+          .join(" ")}
+        unoptimized
+      />
+    ) : undefined);
   const mergedClassName = [
-    "block group rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4",
+    "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
+    "[&_h3]:!mt-0 [&_h3]:!mb-1.5 [&_h3]:!text-base [&_h3]:!font-semibold [&_h3]:!leading-snug [&_p]:!text-sm [&_p]:!leading-relaxed",
     href
-      ? "not-prose no-underline hover:border-[var(--accent)] hover:shadow-sm transition"
-      : "transition-colors",
+      ? "not-prose hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+      : null,
     className,
   ]
     .filter(Boolean)
     .join(" ");
-
-  const content = (
-    <>
-      {icon && (
-        <div className="mb-2 text-[var(--text-muted)]" aria-hidden>
-          {icon}
-        </div>
-      )}
-      <div
-        className={`font-semibold text-[var(--text)] text-sm${
-          href ? " group-hover:text-[var(--accent)]" : ""
-        }`}
-      >
-        {title}
-      </div>
-      {description && (
-        <div className="text-xs text-[var(--text-muted)] mt-1">
-          {description}
-        </div>
-      )}
-      {children && (
-        <div className="text-xs text-[var(--text-secondary)] mt-2">
-          {children}
-        </div>
-      )}
-    </>
+  return (
+    <FumadocsCard
+      {...props}
+      href={resolvedHref}
+      icon={resolvedIcon}
+      className={mergedClassName}
+      style={
+        href ? { textDecoration: "none", color: "inherit", ...style } : style
+      }
+    />
   );
-
-  if (href) {
-    // Rewrite /reference/v2/... paths to /reference/...
-    const resolvedHref = href.replace(/^\/reference\/v2\//, "/reference/");
-    // Inline `textDecoration: none` is the load-bearing override here.
-    // The escape-hatch CSS rule `.reference-content .not-prose a {
-    // text-decoration: none }` only fires when `not-prose` sits on a
-    // *parent* of the <a> (descendant selector). Standalone Cards
-    // outside of a <Cards> wrapper have nothing above them to carry
-    // that class, so the prose-default underline still leaks through.
-    // The inline style wins on specificity in every shape.
-    return (
-      <Link
-        href={resolvedHref}
-        className={mergedClassName}
-        style={{ textDecoration: "none", color: "inherit" }}
-      >
-        {content}
-      </Link>
-    );
-  }
-
-  return <div className={mergedClassName}>{content}</div>;
 }
 
 export function Accordions({ children }: { children: React.ReactNode }) {
@@ -114,14 +99,68 @@ export function Accordions({ children }: { children: React.ReactNode }) {
 
 export function Accordion({
   title,
+  description,
+  featured = false,
   children,
 }: {
   title: string;
+  description?: string;
+  featured?: boolean;
   children: React.ReactNode;
 }) {
+  if (featured) {
+    return (
+      // Deliberately token-only, matching the in-content panel idiom in
+      // `OpsPlatformCTA`: neutral surface, `--border`, `--shadow-control`, and
+      // accent carried by a small glyph and the action, never by a filled block
+      // or a tinted gradient. `copilotkit-ui-theme` flags a purple accent bar
+      // or stripe as a known wrong direction, and `copilotkit-branding` scopes
+      // accent to restrained and atmospheric use — a saturated `--accent` tile
+      // plus an accent-mixed gradient was both at once. Padding is `p-4`, the
+      // same as every other docs panel, so a collapsed prompt no longer pushes
+      // the page's own introduction below the fold.
+      <details className="shell-docs-radius-surface not-prose group my-6 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-control)]">
+        <summary className="cursor-pointer list-none p-4 select-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden">
+          <span className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <span className="flex min-w-0 flex-1 items-start gap-3">
+              <SquareTerminal
+                aria-hidden="true"
+                className="mt-0.5 h-5 w-5 shrink-0 text-[var(--accent)]"
+              />
+
+              <span className="min-w-0">
+                <span className="block font-semibold text-[var(--text)]">
+                  {title}
+                </span>
+                {description ? (
+                  <span className="mt-1 block max-w-[62ch] text-sm leading-relaxed text-[var(--text-muted)]">
+                    {description}
+                  </span>
+                ) : null}
+              </span>
+            </span>
+
+            <span className="shell-docs-radius-control inline-flex min-h-9 w-full shrink-0 items-center justify-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 text-sm font-medium text-[var(--text)] shadow-[var(--shadow-control)] transition-colors group-hover:border-[var(--accent)] group-hover:text-[var(--accent)] sm:w-auto">
+              <Copy aria-hidden="true" className="h-3.5 w-3.5" />
+              <span className="group-open:hidden">Open &amp; copy prompt</span>
+              <span className="hidden group-open:inline">Close prompt</span>
+              <ChevronDown
+                aria-hidden="true"
+                className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180"
+              />
+            </span>
+          </span>
+        </summary>
+        <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-4 pt-3 pb-4 text-sm text-[var(--text-secondary)] [&>p:first-child]:mt-0">
+          {children}
+        </div>
+      </details>
+    );
+  }
+
   return (
-    <details className="group rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-      <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[var(--text)] select-none hover:bg-[var(--bg-elevated)] transition-colors">
+    <details className="shell-docs-radius-surface group border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)]">
+      <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-[var(--text)] transition-colors hover:bg-[var(--bg-elevated)]">
         {title}
       </summary>
       <div className="px-4 pb-4 text-sm text-[var(--text-secondary)]">

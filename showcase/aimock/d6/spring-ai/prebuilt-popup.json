@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / prebuilt-popup",
+    "sourceScript": "d5-prebuilt-popup.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-popup turn 1 — simple chat round-trip inside the popup surface. The assertion checks the response lands inside .copilotKitPopup.",
+      "match": {
+        "userMessage": "hi from the popup test",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Hello from the popup — the CopilotPopup prebuilt component is wired up and reachable. The launcher floats in the corner and the chat sits in an overlay panel."
+      }
+    }
+  ]
+}

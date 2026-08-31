@@ -2,9 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const LANGGRAPH_URL =
@@ -12,6 +11,14 @@ const LANGGRAPH_URL =
 
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] LANGGRAPH_URL: ${LANGGRAPH_URL}`);
+
+// Per-request request/response logging is gated behind this flag (default off).
+// Under d6 probe fan-out, unconditional per-request logs flooded Railway's
+// 500-logs/sec cap and killed the replica ("Messages dropped" → container stop).
+// Set SHOWCASE_ROUTE_DEBUG=1 to re-enable verbose per-request tracing locally.
+const ROUTE_DEBUG =
+  process.env.SHOWCASE_ROUTE_DEBUG === "1" ||
+  process.env.SHOWCASE_ROUTE_DEBUG === "true";
 console.log(
   `[copilotkit/route] LANGSMITH_API_KEY: ${process.env.LANGSMITH_API_KEY ? "set" : "not set"}`,
 );
@@ -74,6 +81,7 @@ agents["subagents"] = createAgent("subagents");
 // split out of main.py so main.py stays a pure default).
 agents["agentic_chat"] = createAgent("agentic_chat");
 agents["frontend_tools"] = createAgent("frontend_tools");
+agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools");
 // Frontend Tools (Async) — dedicated cell demonstrating an async useFrontendTool
 // handler (simulated client-side notes DB query). Backend has no tools; the
 // frontend registers `query_notes` via useFrontendTool and the agent awaits
@@ -111,12 +119,14 @@ console.log(
 export const POST = async (req: NextRequest) => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
+  if (ROUTE_DEBUG) {
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
+    );
+  }
 
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
@@ -124,17 +134,24 @@ export const POST = async (req: NextRequest) => {
         // (declarative-gen-ui and a2ui-fixed-schema) each live on their own
         // dedicated runtime endpoint (/api/copilotkit-declarative-gen-ui and
         // /api/copilotkit-a2ui-fixed-schema respectively), mirroring the
-        // beautiful-chat topology. Each of those runtimes configures
-        // `a2ui.injectA2UITool: false` because the backend graphs own their
-        // own A2UI-rendering tools explicitly (matching the canonical
-        // reference at examples/integrations/langgraph-python).
+        // beautiful-chat topology. The dynamic-schema cells
+        // (declarative-gen-ui, beautiful-chat) set `a2ui.injectA2UITool: true`
+        // so the runtime injects `generate_a2ui` and the agent's
+        // CopilotKitMiddleware auto-executes it; the fixed-schema cell sets
+        // `false` because that agent owns its `display_flight` tool explicitly.
         // OpenGenerativeUI lives in /api/copilotkit-ogui for the same reason.
         // MCP Apps is in /api/copilotkit-mcp-apps.
       }),
+      basePath: "/api/copilotkit",
+      mode: "single-route",
     });
 
-    const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
+    const response = await copilotHandler(req);
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    }
     return response;
   } catch (error: any) {
     console.error(`[copilotkit/route] ERROR: ${error.message}`);
@@ -147,7 +164,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let langGraphStatus = "unknown";
   try {

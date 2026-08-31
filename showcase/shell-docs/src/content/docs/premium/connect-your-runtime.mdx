@@ -1,0 +1,112 @@
+---
+title: Connect your runtime to Intelligence
+description: "Wire an existing CopilotKit runtime to CopilotKit Intelligence — construct CopilotKitIntelligence with a project API key, identify users, and confirm the credential is actually being used."
+icon: "lucide/PlugZap"
+doc_type: how-to
+premium: true
+---
+
+Connecting a runtime to Intelligence takes two things: construct a
+`CopilotKitIntelligence` client with your project API key, and pass it to your
+runtime as `intelligence`. The runtime reads the key from the client you pass,
+not from the environment.
+
+This page is that wiring step. For what the platform is and why you would use it,
+see the [CopilotKit Intelligence overview](/premium/overview) and the
+[architecture page](/premium/intelligence-platform).
+
+## Before you start
+
+You need a project API key. Either provision one with the CLI:
+
+```bash title="Terminal"
+npx copilotkit login
+npx copilotkit project select
+```
+
+`project select` writes a project-scoped key to `.env` as `INTELLIGENCE_API_KEY`.
+You can also copy a key from the
+[cloud-hosted dashboard](/premium/managed-intelligence-platform).
+
+```bash title=".env"
+INTELLIGENCE_API_KEY=cpk-...
+```
+
+<Callout type="warn">
+  This is a server-side secret. Do not give it a `NEXT_PUBLIC_` or `VITE_`
+  prefix — that ships it to the browser.
+</Callout>
+
+## Wire the runtime
+
+Construct the client once and pass it to `CopilotRuntime` as `intelligence`.
+
+```ts title="app/api/copilotkit/[[...slug]]/route.ts"
+import {
+  CopilotRuntime,
+  CopilotKitIntelligence,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+
+const intelligence = new CopilotKitIntelligence({
+  // apiUrl and wsUrl default to the managed platform — leave them unset.
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+});
+
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  // Threads are per-user. Without this every visitor shares one history.
+  identifyUser: (request) => ({
+    id: request.headers.get("x-user-id") ?? "anonymous",
+    name: request.headers.get("x-user-name") ?? "Anonymous",
+  }),
+});
+
+export const { GET, POST } = createCopilotRuntimeHandler({ runtime });
+```
+
+`apiKey` is the only required field. The key scopes the project, so there is no
+separate organization or project id to pass.
+
+## Confirm the credential is actually used
+
+A build that compiles and a chat that replies both prove nothing about
+Intelligence — a runtime in SSE mode does all of that with the key unread. So a
+green round trip in the browser is not evidence on its own.
+
+Confirm it from the product side instead. Open your project in the
+[cloud-hosted dashboard](/premium/managed-intelligence-platform) and send a
+message in your app. A thread should appear. If none does, the runtime never
+reached the platform and is running in SSE mode, whatever the browser showed.
+
+## Self-hosted deployments
+
+`apiUrl` and `wsUrl` default to the managed platform. Override them **together**
+or not at all — the API and realtime planes are deployed on different hosts, so
+the websocket URL cannot be derived from the API URL, and setting one alone
+leaves the other plane pointed at the managed host.
+
+```ts
+const intelligence = new CopilotKitIntelligence({
+  apiUrl: "https://api.intelligence.internal",
+  wsUrl: "wss://realtime.intelligence.internal",
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+});
+```
+
+Pass the bare websocket base: the client appends `/runner` and `/client` itself,
+and prepends `/api` to every REST call. Passing `apiUrl: ".../api"` produces
+double-prefixed `/api/api/threads`.
+
+See [Self-host CopilotKit Intelligence](/premium/self-hosting) for the full
+deployment path.
+
+## Troubleshooting
+
+| Symptom | Cause |
+| --- | --- |
+| Chat works, no threads in the dashboard | `intelligence` was never passed to `CopilotRuntime`; the runtime is in SSE mode. |
+| Opaque auth error on the first request | `INTELLIGENCE_API_KEY` is empty or belongs to a different project. |
+| Socket sits in `connecting`, then "did not settle in time" | `wsUrl` overridden alone, or pointed at the API host. |
+| `/api/api/...` in request logs | `apiUrl` included a `/api` suffix. |

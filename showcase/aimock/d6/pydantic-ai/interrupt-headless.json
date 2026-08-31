@@ -1,0 +1,104 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for pydantic-ai / interrupt-headless",
+    "sourceFile": "harness/fixtures/d5/interrupt-headless.json",
+    "created": "2026-05-21",
+    "copiedFrom": "langgraph-python"
+  },
+  "fixtures": [
+    {
+      "_comment": "interrupt-headless sales-call pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence over toolName matching.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless alice-1on1 pill — second leg: confirmation after user picks a slot. Placed BEFORE first-leg so toolCallId matching takes precedence.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    },
+    {
+      "_comment": "interrupt-headless sales-call pill — first leg: schedule_meeting tool call triggers interrupt(...). Same agent/prompts as gen-ui-interrupt but different frontend (useHeadlessInterrupt renders in app surface pane, not inline).",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_sales_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "interrupt-headless alice-1on1 pill — first leg: schedule_meeting tool call.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_alice_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "interrupt-headless — 'Book an intro call' content fallback for the no-tools turn. The toolName:schedule_meeting fixtures above only match when schedule_meeting is in the tool list; the headless flow also issues a turn with tools:[], so the model cannot emit a tool call and those fixtures are skipped → strict 503. This ungated content-only fallback covers that turn and is loop-safe (no toolCalls).",
+      "match": {
+        "userMessage": "Book an intro call with the sales team to discuss pricing",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "I've started booking an intro call with the sales team to discuss pricing — pick one of the proposed times to confirm."
+      }
+    }
+  ]
+}

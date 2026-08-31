@@ -1,6 +1,12 @@
 {
   "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // Pin auto-included @types so stray global type packages in ancestor
+    // node_modules directories cannot change what this package typechecks
+    // against (tsc walks up from the package looking for @types).
+    "types": ["node"],
     "outDir": "dist",
     "rootDir": "src",
     "declaration": true,

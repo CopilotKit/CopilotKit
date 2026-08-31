@@ -5,7 +5,7 @@
 // A single cell that composes two previously-separate patterns:
 //
 //   1. Reasoning tokens rendered via a custom `reasoningMessage` slot —
-//      the same approach used by the `agentic-chat-reasoning` cell.
+//      the same approach used by the `reasoning-custom` cell.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
@@ -29,6 +29,7 @@ import {
   CustomCatchallRenderer,
   type CatchallToolStatus,
 } from "./custom-catchall-renderer";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 interface WeatherResult {
   city?: string;
@@ -42,15 +43,6 @@ interface FlightSearchResult {
   origin?: string;
   destination?: string;
   flights?: Flight[];
-}
-
-function parseJsonResult<T>(result: unknown): T {
-  if (!result) return {} as T;
-  try {
-    return (typeof result === "string" ? JSON.parse(result) : result) as T;
-  } catch {
-    return {} as T;
-  }
 }
 
 export default function ToolRenderingReasoningChainDemo() {
@@ -131,14 +123,23 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Compare two stocks",
+        message: "Compare AAPL and MSFT stocks for me.",
       },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
+      {
+        title: "Chain of dice rolls",
+        // Say "d20" not "Roll a 20-sided die": aimock loads d4 before d6 and
+        // matchFixture returns the FIRST substring match, so the d4 agentic-chat
+        // fixture (userMessage "Roll a 20-sided die", no reasoning) would shadow
+        // this demo's first leg and push the reasoning a step late (renders as
+        // trailing thinking under replay). "d20" keeps the unique tail
+        // "compare it to a smaller one" that the reasoning-chain fixtures match
+        // while dodging the d4 shadow. Real-LLM order was always correct.
+        message: "Roll a d20 for me and compare it to a smaller one.",
+      },
       {
         title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        message: "Find flights from SFO to JFK and show me the weather there.",
       },
     ],
     available: "always",

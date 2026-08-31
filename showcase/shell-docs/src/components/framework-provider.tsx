@@ -6,15 +6,15 @@
 //
 // - `framework` — STRICTLY URL-derived. Non-null only on `/<framework>/...`
 //   routes. Use this when chrome legitimately needs to know "is the URL
-//   scoped to a framework?" (e.g. RouterPivot's redirect-target logic, or
-//   a banner that only shows when the URL is genuinely scoped).
+//   scoped to a framework?" (e.g. a banner or selector state that only
+//   applies when the URL is genuinely scoped).
 //
 // - `storedFramework` — last REMEMBERED choice from localStorage. Use to
 //   mark the user's last pick in a picker UI (e.g. ring around their card)
 //   without treating it as the active selection.
 //
 // - `effectiveFramework` — what the page renders as. Falls back through
-//   URL → stored → DEFAULT_FRAMEWORK so it's never null. This is the
+//   URL → DEFAULT_FRAMEWORK so it's never null. This is the
 //   field every snippet renderer, sidebar link, and "Continue with X"
 //   pointer should read. Treating no-choice as Built-in Agent removes
 //   the dead-end where fresh visitors saw a forced picker before any
@@ -31,6 +31,7 @@ import React, {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { backendFromPathname } from "@/lib/frontend-options";
 
 export interface FrameworkContextValue {
   /**
@@ -48,8 +49,8 @@ export interface FrameworkContextValue {
   storedFramework: string | null;
   /**
    * Framework the page should render as — never null. Falls through
-   * URL → stored → DEFAULT_FRAMEWORK. Snippet renderers, sidebar links,
-   * and "Continue with X" affordances should read this.
+   * URL → DEFAULT_FRAMEWORK. The stored preference is advisory only so
+   * frameworkless root pages keep CopilotKit/Built-in Agent chrome.
    */
   effectiveFramework: string;
   /** All known framework slugs derived from the registry. */
@@ -67,6 +68,10 @@ const STORAGE_KEY = "selectedFramework";
  * via the Next.js runtime, no external agent server. Treating fresh
  * visitors as if they'd picked it removes the forced-picker dead end and
  * gives them working code on first paint.
+ *
+ * Its docs are served at the ROOT surface (no `/built-in-agent/` URL
+ * prefix). Mirrors ROOT_FRAMEWORK in `lib/registry.ts`, which client
+ * modules must not import (it would pull registry.json into the bundle).
  */
 export const DEFAULT_FRAMEWORK = "built-in-agent";
 
@@ -117,9 +122,7 @@ export function FrameworkProvider({
 }) {
   const pathname = usePathname() ?? "";
   const urlFramework = useMemo(() => {
-    const first = pathname.split("/").filter(Boolean)[0];
-    if (first && knownFrameworks.includes(first)) return first;
-    return null;
+    return backendFromPathname(pathname, knownFrameworks);
   }, [pathname, knownFrameworks]);
 
   const [stored, setStored] = useState<string | null>(null);
@@ -151,13 +154,11 @@ export function FrameworkProvider({
   // scoped to it.
   const framework = urlFramework;
 
-  // Effective framework falls through URL → stored → default so content
-  // always has a target to render against. Validate `stored` against the
-  // known registry before honouring it, so a stale entry from a renamed
-  // or removed integration doesn't poison the render.
-  const storedIsValid = stored !== null && knownFrameworks.includes(stored);
-  const effectiveFramework =
-    framework ?? (storedIsValid ? stored! : DEFAULT_FRAMEWORK);
+  // Effective framework falls through URL → default. localStorage is only
+  // the remembered preference; promoting it here makes root BIA pages show
+  // the wrong selected backend after a user previously viewed another
+  // framework.
+  const effectiveFramework = framework ?? DEFAULT_FRAMEWORK;
 
   const setStoredFramework = (slug: string | null) => {
     // Validate the slug against the known registry. Callers passing a

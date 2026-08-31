@@ -1,19 +1,22 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import type { RunAgentParameters } from "./shared/agent-utils";
 import {
+  attachIntelligenceEnterpriseLearning,
   cloneAgentForRequest,
   configureAgentForRequest,
   parseRunRequest,
-  RunAgentParameters,
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
+import { getRuntimeErrorReporter } from "../core/runtime-error-reporter";
 
 export async function handleRunAgent({
   runtime,
   request,
   agentId,
 }: RunAgentParameters) {
+  const startTime = Date.now();
   telemetry.capture("oss.runtime.copilot_request_created", {
     "cloud.guardrails.enabled": false,
     requestType: "run",
@@ -39,21 +42,35 @@ export async function handleRunAgent({
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
 
-    configureAgentForRequest({ runtime, request, agentId, agent });
-
-    if (
-      runtime.licenseChecker &&
-      !runtime.licenseChecker.checkFeature("agents")
-    ) {
-      console.warn(
-        '[CopilotKit Runtime] Warning: "agents" feature is not licensed. Visit copilotkit.ai/pricing',
-      );
-    }
-
+    // Parse the body before configuring middleware: the request is single-read,
+    // and middleware configuration needs the A2UI catalog signal the React
+    // provider forwards (see `a2uiCatalogAvailable` below). Middleware is applied
+    // to the agent here; the run itself is kicked off later, so this is safe.
     const input = await parseRunRequest(request);
     if (input instanceof Response) {
       return input;
     }
+
+    // `<CopilotKit a2ui={{ catalog }}>` forwards this flag on every run. Its
+    // presence alone is enough to turn A2UI on end-to-end — no runtime-side
+    // `a2ui` config required.
+    const providerA2UIHasCatalog =
+      (input.forwardedProps as Record<string, unknown> | undefined)
+        ?.a2uiCatalogAvailable === true;
+
+    configureAgentForRequest({
+      runtime,
+      request,
+      agentId,
+      agent,
+      providerA2UIHasCatalog,
+    });
+    const memoryResponse = await attachIntelligenceEnterpriseLearning({
+      runtime,
+      request,
+      agent,
+    });
+    if (memoryResponse instanceof Response) return memoryResponse;
 
     agent.setMessages(input.messages);
     agent.setState(input.state);
@@ -73,6 +90,7 @@ export async function handleRunAgent({
         agentId,
         agent,
         input,
+        startTime,
       });
     }
 
@@ -84,8 +102,17 @@ export async function handleRunAgent({
       agentId,
       debug: runtime.debug,
       logger: runtime.debugLogger,
+      startTime,
     });
   } catch (error) {
+    getRuntimeErrorReporter(runtime)?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      phase: "common",
+      startTime,
+    });
     console.error("Error running agent:", error);
     console.error(
       "Error stack:",

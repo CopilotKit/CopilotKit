@@ -2,9 +2,28 @@
   "title": "Microsoft Agent Framework",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
+    "quickstart",
+    "cli",
+    "build-with-agents",
     "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "threads-self-managed"
+      ]
+    },
     "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
@@ -13,9 +32,13 @@
     "agent-app-context",
     "---Microsoft Agent Framework---",
     "auth",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium"
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
+    "---Intelligence---",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
   ]
 }

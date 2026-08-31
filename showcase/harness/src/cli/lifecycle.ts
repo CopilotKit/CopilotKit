@@ -1,9 +1,5 @@
-import {
-  execSync,
-  execFileSync,
-  spawn,
-  type SpawnOptions,
-} from "node:child_process";
+import { execSync, execFileSync, spawn } from "node:child_process";
+import type { SpawnOptions } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,19 +12,38 @@ const log = createLogger({ component: "lifecycle" });
 //   cli/ -> src/ -> ops/ -> showcase/
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHOWCASE_DIR = path.resolve(__dirname, "../../..");
-const COMPOSE_FILE = path.join(SHOWCASE_DIR, "docker-compose.local.yml");
+// Honor SHOWCASE_COMPOSE_FILE env var (set by isolation overlay) so the harness
+// uses the offset/renamed temp compose file instead of the checked-in original.
+// Without this override, every `docker compose` call would target the default
+// project's compose file → concurrent --isolate runs collide on container names.
+const COMPOSE_FILE =
+  process.env.SHOWCASE_COMPOSE_FILE ||
+  path.join(SHOWCASE_DIR, "docker-compose.local.yml");
 const INTEGRATIONS_DIR = path.join(SHOWCASE_DIR, "integrations");
+const ANGULAR_BROWSER_DIR = path.join(
+  SHOWCASE_DIR,
+  "angular",
+  "dist",
+  "showcase-angular",
+  "browser",
+);
 // Honor LOCAL_PORTS_FILE env var (set by isolation overlay) so the harness
 // reads offset ports from a temp file instead of the checked-in original.
 const PORTS_FILE =
   process.env.LOCAL_PORTS_FILE ||
   path.join(SHOWCASE_DIR, "shared/local-ports.json");
 
-/** Well-known infra service ports that aren't in local-ports.json. */
+/** Well-known infra service ports that aren't in local-ports.json.
+ *
+ * Honor SHOWCASE_INFRA_PORT_OFFSET (set by --isolate) so health checks hit
+ * the offset host ports of the isolated stack instead of the default
+ * project's :4010/:8090/:3210 (which would silently report "healthy"
+ * against the WRONG containers). */
+const _INFRA_OFFSET = Number(process.env.SHOWCASE_INFRA_PORT_OFFSET) || 0;
 const INFRA_PORTS: Record<string, number> = {
-  aimock: 4010,
-  pocketbase: 8090,
-  dashboard: 3200,
+  aimock: 4010 + _INFRA_OFFSET,
+  pocketbase: 8090 + _INFRA_OFFSET,
+  dashboard: 3210 + _INFRA_OFFSET,
 };
 
 /** Health-check endpoint overrides per service type. */
@@ -38,8 +53,10 @@ const HEALTH_ENDPOINTS: Record<string, string> = {
   dashboard: "/",
 };
 
-/** Default health endpoint for integration services. */
-const DEFAULT_HEALTH_ENDPOINT = "/health";
+/** Default health endpoint for integration services.
+ *  Matches the compose-level integration healthcheck
+ *  (`curl -f http://localhost:10000/api/health`) in docker-compose.local.yml. */
+const DEFAULT_HEALTH_ENDPOINT = "/api/health";
 
 export interface LifecycleOptions {
   verbose?: boolean;
@@ -70,12 +87,14 @@ function compose(...args: string[]): string {
     ) {
       throw new Error(
         "Docker not found. Please install Docker Desktop and ensure 'docker' is on your PATH.",
+        { cause: err },
       );
     }
     const e = err as { stderr?: string; status?: number };
     const stderr = typeof e.stderr === "string" ? e.stderr.trim() : "";
     throw new Error(
       `docker compose failed (exit ${e.status ?? "?"}): docker ${fullArgs.join(" ")}\n${stderr}`,
+      { cause: err },
     );
   }
 }
@@ -122,9 +141,13 @@ function resolveHealthEndpoint(service: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * For each integration package directory, replace `tools` and `shared-tools`
- * symlinks with real directory copies so Docker can access them inside the
- * build context. This mirrors the `stage_shared()` function in dev-local.sh.
+ * For each integration package directory, replace `tools`, `shared-tools`,
+ * `data`, `_shared`, and `public/angular` symlinks with real directory copies so
+ * Docker can access them inside the build context. This mirrors
+ * `stage_shared()` in `scripts/cli/_common.sh`. `_shared` carries the
+ * single-source CVDIAG bootstrap module (`showcase/integrations/_shared/`)
+ * into each Python integration's context, while `public/angular` carries one
+ * shared Angular browser build into every integration image.
  */
 export function stageSharedModules(): void {
   log.info("staging shared modules for Docker build contexts");
@@ -143,7 +166,7 @@ export function stageSharedModules(): void {
   for (const pkg of packages) {
     const pkgDir = path.join(INTEGRATIONS_DIR, pkg.name);
 
-    for (const linkName of ["tools", "shared-tools"]) {
+    for (const linkName of ["tools", "shared-tools", "data", "_shared"]) {
       const linkPath = path.join(pkgDir, linkName);
 
       // Only process if it's a symlink
@@ -178,6 +201,45 @@ export function stageSharedModules(): void {
         from: target,
       });
     }
+
+    const angularLink = path.join(pkgDir, "public", "angular");
+    let angularIsSymlink = false;
+    try {
+      angularIsSymlink = fs.lstatSync(angularLink).isSymbolicLink();
+    } catch {
+      // Missing Angular link means this package does not host the shared app.
+    }
+    if (!angularIsSymlink) continue;
+
+    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+      log.info("building shared Angular browser artifact");
+      execFileSync(
+        "pnpm",
+        ["nx", "run", "@copilotkit/showcase-angular-host:build"],
+        {
+          cwd: path.dirname(SHOWCASE_DIR),
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+    }
+    if (!fs.existsSync(ANGULAR_BROWSER_DIR)) {
+      throw new Error(
+        `Angular browser build did not produce ${ANGULAR_BROWSER_DIR}`,
+      );
+    }
+
+    fs.rmSync(angularLink);
+    fs.cpSync(ANGULAR_BROWSER_DIR, angularLink, { recursive: true });
+    fs.writeFileSync(
+      path.join(angularLink, "runtime-config.js"),
+      `globalThis.__COPILOTKIT_SHOWCASE__ = Object.freeze({"frontendId":"angular","integrationId":"${pkg.name}"});\n`,
+      "utf-8",
+    );
+    log.debug("staged Angular browser artifact", {
+      pkg: pkg.name,
+      from: ANGULAR_BROWSER_DIR,
+    });
   }
 
   log.info("shared module staging complete");
@@ -190,8 +252,12 @@ export function stageSharedModules(): void {
 export function restoreSymlinks(): void {
   log.debug("restoring symlinks via git checkout");
   try {
+    // NOTE: the `integrations/*/_shared` glob restores the per-integration
+    // `_shared` symlinks that staging replaced with real copies. It also
+    // matches the canonical source dir `integrations/_shared` (a real tracked
+    // dir, never a symlink) — a no-op restore there is harmless.
     execSync(
-      "git checkout -- integrations/*/tools integrations/*/shared-tools",
+      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/data integrations/*/_shared integrations/*/public/angular",
       {
         cwd: SHOWCASE_DIR,
         stdio: "pipe",
@@ -253,10 +319,50 @@ export async function up(
     }
 
     const verboseFlag = opts?.verbose ? ["--progress", "plain"] : [];
-    const args = [...profileArgs, "up", "-d", "--build", ...verboseFlag];
-
+    // Two-call strategy to preserve A21's BuildKit-contention fix (target-only
+    // rebuild) WITHOUT regressing the infra startup that A21 inadvertently
+    // dropped (A21b, issue #5495).
+    //
+    // docker compose semantics: positional service names after `up` restrict
+    // WHICH services start to the named ones + their `depends_on` chain — not
+    // just which ones get `--build`-rebuilt. A21 passed the target slug as a
+    // positional after `up -d --build`, which (correctly) scoped the rebuild
+    // to the slug but (incorrectly) prevented infra services without an
+    // explicit `depends_on` from the target (pocketbase, dashboard, harness,
+    // harness-pool-worker) from coming up. Under `--isolate` with a sibling
+    // stack holding the same host ports, health checks then crossed onto the
+    // foreign containers and the cell silently misrouted → 0.0s red.
+    //
+    // Fix: split into two calls when slugs is non-empty.
+    //   1. compose <profiles> up -d              — start ALL services in the
+    //      active profiles using cached images. No `--build`, no positional
+    //      services. Brings up the full infra profile + the slug's profile.
+    //   2. compose <profiles> up -d --build <slug...>
+    //      Force-rebuild ONLY the named services and ensure they're up. Other
+    //      services already running from call (1) are no-ops.
+    //
+    // When slugs is empty (infra-only bring-up), keep the single blanket call
+    // so first-time bootstrap still builds whatever infra images are missing.
     log.info("starting services", { slugs: slugs.length ? slugs : ["infra"] });
-    compose(...args);
+    // Track which compose call most recently ran so a downstream health
+    // failure can name the call that touched the unhealthy service. Without
+    // this, an operator seeing "Health check failed for: <slug>" cannot tell
+    // whether infra-up (call 1) crossed onto a foreign container or whether
+    // the target's rebuild (call 2) produced a broken image.
+    let lastComposeCall: string;
+    if (slugs.length > 0) {
+      // Call 1: bring up all services (no build, cached images).
+      lastComposeCall = "call 1 (infra-up: profiles up -d, no build)";
+      compose(...profileArgs, "up", "-d", ...verboseFlag);
+      // Call 2: rebuild target slug(s) and ensure they're up.
+      lastComposeCall =
+        "call 2 (target rebuild: profiles up -d --build <slug>...)";
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag, ...slugs);
+    } else {
+      // Infra-only: single call with blanket --build for first-time bootstrap.
+      lastComposeCall = "infra-only (profiles up -d --build, no slugs)";
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag);
+    }
 
     // Determine which services to health-check
     const servicesToCheck =
@@ -271,7 +377,7 @@ export async function up(
 
     if (unhealthy.length > 0) {
       throw new Error(
-        `Health check failed for: ${unhealthy.join(", ")}. Check logs with: showcase logs <slug>`,
+        `Health check failed for: ${unhealthy.join(", ")} after ${lastComposeCall}. Check logs with: showcase logs <slug>`,
       );
     }
 
@@ -296,7 +402,14 @@ export async function down(
     compose("--profile", "all", "down");
   } else {
     log.info("stopping services", { slugs });
-    const profileArgs = slugs.flatMap((s) => ["--profile", s]);
+    // Integration services depend on infra services such as aimock. Compose
+    // must load the infra profile to resolve those dependencies even though
+    // `stop <slug...>` only stops the explicitly named integrations.
+    const profileArgs = [
+      "--profile",
+      "infra",
+      ...slugs.flatMap((s) => ["--profile", s]),
+    ];
     compose(...profileArgs, "stop", ...slugs);
   }
 }
@@ -304,8 +417,15 @@ export async function down(
 /**
  * Rebuild Docker images, optionally for specific services.
  *
- * Stages shared modules first, builds images, then restarts any services
- * that were running before the rebuild.
+ * Stages shared modules first, builds images, then force-recreates the
+ * targeted services so a stale running container is always replaced with
+ * the freshly-built image (a rebuild that left the old container running
+ * was a silent no-op — see the 36h-stale-image false-positive).
+ *
+ * The `infra` profile is always included alongside the targeted slugs so
+ * compose can resolve infra `depends_on` deps (e.g. `aimock`). Without it,
+ * `docker compose --profile <slug> build <slug>` fails with
+ * "service <slug> depends on undefined service aimock".
  */
 export async function rebuild(
   slugs: string[],
@@ -313,36 +433,46 @@ export async function rebuild(
 ): Promise<void> {
   try {
     stageSharedModules();
-    // When no specific slugs, check ALL running services for restart
-    const servicesToCheck = slugs.length > 0 ? slugs : listRunningServices();
-    const runningBefore: string[] = [];
-    if (slugs.length > 0) {
-      for (const slug of servicesToCheck) {
-        if (await isRunning(slug)) {
-          runningBefore.push(slug);
-        }
-      }
-    } else {
-      runningBefore.push(...servicesToCheck);
-    }
 
     log.info("rebuilding images", {
       slugs: slugs.length ? slugs : ["all"],
     });
 
     if (slugs.length > 0) {
-      const profileArgs = slugs.flatMap((s) => ["--profile", s]);
+      // Always include the infra profile so infra `depends_on` deps
+      // (aimock, pocketbase, dashboard) are defined for the targeted slugs.
+      const profileArgs = ["--profile", "infra"];
+      for (const slug of slugs) {
+        profileArgs.push("--profile", slug);
+      }
       compose(...profileArgs, "build", ...slugs);
-    } else {
-      compose("--profile", "all", "build");
-    }
 
-    if (runningBefore.length > 0) {
-      log.info("restarting previously-running services", {
-        services: runningBefore,
+      // Force-recreate the targeted containers so the freshly-built image
+      // is actually adopted even if they were already running. `up -d`
+      // without --force-recreate would leave a stale container in place.
+      log.info("recreating services with freshly-built images", {
+        services: slugs,
       });
-      const restartProfiles = runningBefore.flatMap((s) => ["--profile", s]);
-      compose(...restartProfiles, "up", "-d", ...runningBefore);
+      compose(...profileArgs, "up", "-d", "--force-recreate", ...slugs);
+    } else {
+      // No specific slugs: rebuild everything, then recreate whatever was
+      // running before so we don't spin up services that were down.
+      const runningBefore = listRunningServices();
+      compose("--profile", "all", "build");
+
+      if (runningBefore.length > 0) {
+        log.info("recreating previously-running services", {
+          services: runningBefore,
+        });
+        const restartProfiles = runningBefore.flatMap((s) => ["--profile", s]);
+        compose(
+          ...restartProfiles,
+          "up",
+          "-d",
+          "--force-recreate",
+          ...runningBefore,
+        );
+      }
     }
   } finally {
     restoreSymlinks();
@@ -583,7 +713,12 @@ export async function healthCheck(
   services: string[],
 ): Promise<Map<string, boolean>> {
   const results = new Map<string, boolean>();
-  const maxWaitMs = 30_000;
+  // Honor SHOWCASE_HEALTHCHECK_TIMEOUT_MS so cold-start isolated stacks
+  // (slower than the warm default project) have time to come up. Default
+  // bumped from 30s to 90s — Next.js + Python/JVM agents commonly need 60s+
+  // on first boot inside a fresh project.
+  const maxWaitMs =
+    Number(process.env.SHOWCASE_HEALTHCHECK_TIMEOUT_MS) || 90_000;
   const intervalMs = 2_000;
 
   log.info("running health checks", { services });

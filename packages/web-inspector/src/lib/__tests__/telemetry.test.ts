@@ -1,31 +1,52 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
   TELEMETRY_DOCS_URL,
   TELEMETRY_EVENTS,
   TELEMETRY_INGEST_URL,
+  getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   track,
-  trackBannerClicked,
-  trackBannerViewed,
+  trackInspectorOpened,
+  trackTalkToEngineerClicked,
+  trackThreadsEmptyEnabledViewed,
+  trackThreadsEnabledViewed,
+  trackThreadsIntelligenceSignupClicked,
+  trackThreadsLockedViewed,
   trackThreadsTabClicked,
-} from "../telemetry";
+  trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
+  trackWhatsNewClicked,
+  trackWhatsNewSignalViewed,
+  trackWhatsNewViewed,
+} from "../telemetry.js";
 import {
   _resetTelemetryPersistenceForTesting,
+  clearLegacyAnnouncementReadState,
   getOrCreateTelemetryDistinctId,
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
+  loadAnnouncementPulsedTimestamp,
+  loadAnnouncementReadTimestamp,
   markTelemetryDisclosureShown,
+  saveAnnouncementPulsedTimestamp,
+  saveAnnouncementReadTimestamp,
   setTelemetryOptOut,
-} from "../persistence";
+} from "../persistence.js";
 
 // The wrapper short-circuits before any network call when opted out, but
 // for the network-touching cases we mock fetch globally so we can read
 // what would have been sent without making real HTTP requests.
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
+const webInspectorPackage = JSON.parse(
+  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+) as { version: string };
 
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
@@ -52,7 +73,7 @@ afterEach(() => {
 
 describe("track()", () => {
   it("posts to telemetry.copilotkit.ai/ingest with confirmed IngestPayload shape", async () => {
-    track(TELEMETRY_EVENTS.bannerViewed, {
+    track(TELEMETRY_EVENTS.whatsNewViewed, {
       banner_id: "2025-05-01T00:00:00Z",
     });
 
@@ -77,28 +98,44 @@ describe("track()", () => {
       package: { name: string; version?: string };
       ts: number;
     };
-    expect(body.event).toBe("oss.inspector.banner_viewed");
+    expect(body.event).toBe("oss.inspector.whats_new_viewed");
     expect(body.properties.banner_id).toBe("2025-05-01T00:00:00Z");
     expect(typeof body.properties.distinct_id).toBe("string");
     // package is top-level object, not a string inside properties
-    expect(body.package).toEqual({ name: "@copilotkit/web-inspector" });
+    expect(body.package).toEqual({
+      name: "@copilotkit/web-inspector",
+      version: webInspectorPackage.version,
+    });
     expect(body.properties).not.toHaveProperty("package");
     expect(typeof body.ts).toBe("number");
   });
 
-  it("sends regardless of localStorage opt-out — callers gate on core.telemetryDisabled", async () => {
+  it("short-circuits when localStorage opt-out is set", async () => {
     setTelemetryOptOut(true);
     expect(isTelemetryOptedOut()).toBe(true);
 
-    track(TELEMETRY_EVENTS.bannerClicked, {
+    track(TELEMETRY_EVENTS.whatsNewClicked, {
       banner_id: "x",
       cta: "body",
     });
     await Promise.resolve();
 
-    // track() no longer short-circuits on localStorage; opt-out is enforced
-    // at the call site via core.telemetryDisabled before track*() is invoked.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("swallows unserializable properties before dispatching", async () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(() =>
+      track(TELEMETRY_EVENTS.whatsNewClicked, circular),
+    ).not.toThrow();
+    expect(() =>
+      track(TELEMETRY_EVENTS.whatsNewClicked, { value: 1n }),
+    ).not.toThrow();
+    await Promise.resolve();
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("swallows fetch failures (telemetry is best-effort)", async () => {
@@ -113,7 +150,7 @@ describe("track()", () => {
     vi.stubGlobal("fetch", undefined);
 
     expect(() =>
-      track(TELEMETRY_EVENTS.bannerViewed, { banner_id: "abc" }),
+      track(TELEMETRY_EVENTS.whatsNewViewed, { banner_id: "abc" }),
     ).not.toThrow();
 
     // No fetch call possible — restore happens in afterEach via unstubAllGlobals
@@ -121,7 +158,7 @@ describe("track()", () => {
   });
 
   it("never includes message content or agent state in the payload", async () => {
-    track(TELEMETRY_EVENTS.bannerViewed, { banner_id: "abc" });
+    track(TELEMETRY_EVENTS.whatsNewViewed, { banner_id: "abc" });
     await Promise.resolve();
 
     const [, init] = fetchMock.mock.calls[0]!;
@@ -136,51 +173,343 @@ describe("track()", () => {
 // ─── Typed per-event helpers ─────────────────────────────────────────────────
 
 describe("typed helpers", () => {
-  it("trackBannerViewed sends banner_id and optional cta_label", async () => {
-    trackBannerViewed({ banner_id: "ts-2025", cta_label: "Try threads" });
+  it("trackWhatsNewViewed sends banner_id, surface, and optional cta_label", async () => {
+    trackWhatsNewViewed({
+      banner_id: "ts-2025",
+      surface: "whats_new",
+      cta_label: "Try threads",
+    });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
       properties: Record<string, unknown>;
     };
-    expect(body.event).toBe(TELEMETRY_EVENTS.bannerViewed);
+    expect(body.event).toBe(TELEMETRY_EVENTS.whatsNewViewed);
     expect(body.properties.banner_id).toBe("ts-2025");
+    expect(body.properties.surface).toBe("whats_new");
     expect(body.properties.cta_label).toBe("Try threads");
+    // What's new is enriched like every other event — the flat shape the
+    // retired banner events used no longer exists.
+    expect(body.properties).toMatchObject({
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+    expect(body.properties.inspector_distinct_id).toBe(
+      body.properties.distinct_id,
+    );
   });
 
-  it("trackBannerViewed omits cta_label when undefined (JSON.stringify drops it)", async () => {
-    trackBannerViewed({ banner_id: "ts-2025" });
+  it("trackWhatsNewSignalViewed records the launcher presentation", async () => {
+    trackWhatsNewSignalViewed({
+      banner_id: "ts-2025",
+      surface: "launcher",
+      presentation: "animated",
+    });
+    await Promise.resolve();
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe("oss.inspector.whats_new_signal_viewed");
+    expect(body.properties).toMatchObject({
+      banner_id: "ts-2025",
+      surface: "launcher",
+      presentation: "animated",
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+  });
+
+  it("trackWhatsNewViewed omits cta_label when undefined (JSON.stringify drops it)", async () => {
+    trackWhatsNewViewed({ banner_id: "ts-2025", surface: "whats_new" });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const raw = (init?.body as string) ?? "{}";
     expect(raw).not.toContain("cta_label");
   });
 
-  it("trackBannerClicked sends banner_id, cta, and optional cta_label", async () => {
-    trackBannerClicked({ banner_id: "ts-2025", cta: "body" });
+  it("trackInspectorOpened sends open_source and is enriched with package identity", async () => {
+    trackInspectorOpened({
+      open_source: "floating_button",
+      license_status: "none",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      has_unseen_announcement: true,
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+      package: { name: string; version?: string };
+    };
+    expect(body.event).toBe("oss.inspector.opened");
+    expect(body.properties).toMatchObject({
+      open_source: "floating_button",
+      license_status: "none",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      has_unseen_announcement: true,
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+    expect(body.properties.inspector_distinct_id).toBe(
+      body.properties.distinct_id,
+    );
+    expect(body.package).toEqual({
+      name: "@copilotkit/web-inspector",
+      version: webInspectorPackage.version,
+    });
+  });
+
+  it("opened and What's new events carry no message, state, or announcement content", async () => {
+    trackInspectorOpened({ open_source: "floating_button" });
+    trackWhatsNewViewed({
+      banner_id: "ts-2025",
+      surface: "whats_new",
+    });
+    await Promise.resolve();
+    for (const [, init] of fetchMock.mock.calls) {
+      const properties = (
+        JSON.parse((init?.body as string) ?? "{}") as {
+          properties: Record<string, unknown>;
+        }
+      ).properties;
+      // Allow-list assertion: any new key has to be added here deliberately,
+      // so an accidental content/PII payload fails the test instead of
+      // shipping.
+      const allowed = new Set([
+        "open_source",
+        "banner_id",
+        "surface",
+        "distinct_id",
+        "inspector_distinct_id",
+        "package_name",
+        "package_version",
+      ]);
+      expect(Object.keys(properties).filter((k) => !allowed.has(k))).toEqual(
+        [],
+      );
+    }
+  });
+
+  it("trackWhatsNewClicked sends banner_id, cta, and optional cta_label", async () => {
+    trackWhatsNewClicked({ banner_id: "ts-2025", cta: "body" });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
       properties: Record<string, unknown>;
     };
-    expect(body.event).toBe(TELEMETRY_EVENTS.bannerClicked);
+    expect(body.event).toBe(TELEMETRY_EVENTS.whatsNewClicked);
     expect(body.properties.banner_id).toBe("ts-2025");
     expect(body.properties.cta).toBe("body");
   });
 
-  it("trackThreadsTabClicked sends no caller-supplied properties", async () => {
-    trackThreadsTabClicked();
+  it("trackThreadsTabClicked sends thread metadata without content", async () => {
+    trackThreadsTabClicked({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "none",
+      telemetry_disabled: false,
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+      package: { name: string; version?: string };
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTabClicked);
+    expect(body.properties).toMatchObject({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "none",
+      telemetry_disabled: false,
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+    expect(body.properties).toHaveProperty("inspector_distinct_id");
+    expect(body.properties.inspector_distinct_id).toBe(
+      body.properties.distinct_id,
+    );
+    expect(body.package).toEqual({
+      name: "@copilotkit/web-inspector",
+      version: webInspectorPackage.version,
+    });
+  });
+
+  it("trackThreadsTryFromHereClicked sends outcome without thread ids", async () => {
+    trackThreadsTryFromHereClicked({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "valid",
+      telemetry_disabled: false,
+      leaf_key: "threads",
+      outcome: "success",
+    });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
       properties: Record<string, unknown>;
     };
-    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTabClicked);
-    // Only distinct_id should be in properties (no caller keys)
-    expect(Object.keys(body.properties)).toEqual(["distinct_id"]);
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTryFromHereClicked);
+    expect(body.properties).toMatchObject({
+      outcome: "success",
+      leaf_key: "threads",
+      runtime_mode: "sse",
+    });
+    expect(body.properties).not.toHaveProperty("thread_id");
+    expect(body.properties).not.toHaveProperty("message");
+  });
+
+  it("sends required threads CTA and viewed events", async () => {
+    trackThreadsLockedViewed({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+    });
+    trackThreadsIntelligenceSignupClicked({
+      cta: "signup",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    trackThreadsTalkToEngineerClicked({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    trackTalkToEngineerClicked({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_header",
+      posthog_distinct_id: "abc-123",
+    });
+    trackThreadsEmptyEnabledViewed({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      has_threads: false,
+      usage_bucket: "empty",
+      expiry_bucket: "zero",
+      group_key: "workbench",
+      leaf_key: "threads",
+    });
+    trackThreadsEnabledViewed({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      has_threads: true,
+      usage_bucket: "within_limit",
+      expiry_bucket: "positive",
+      group_key: "workbench",
+      leaf_key: "threads",
+    });
+
+    await Promise.resolve();
+
+    const payloads = fetchMock.mock.calls.map(([, init]) => {
+      return JSON.parse((init?.body as string) ?? "{}") as {
+        event: string;
+        properties: Record<string, unknown>;
+      };
+    });
+    const hasThreads = payloads.map(({ properties }) => properties.has_threads);
+    const events = payloads.map((payload) => payload.event);
+    expect(events).toEqual([
+      TELEMETRY_EVENTS.threadsLockedViewed,
+      TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+      TELEMETRY_EVENTS.talkToEngineerClicked,
+      TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
+      TELEMETRY_EVENTS.threadsEnabledViewed,
+    ]);
+    expect(hasThreads.slice(4), "has_threads").toEqual([false, true]);
+    expect(payloads[0]!.properties).toMatchObject({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+    });
+    expect(payloads[1]!.properties).toMatchObject({
+      cta: "signup",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[2]!.properties).toMatchObject({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[2]!.properties).not.toHaveProperty("has_threads");
+    expect(payloads[3]!.properties).toMatchObject({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_header",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[4]!.properties).toMatchObject({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      has_threads: false,
+      usage_bucket: "empty",
+      expiry_bucket: "zero",
+      group_key: "workbench",
+      leaf_key: "threads",
+    });
+    expect(payloads[5]!.properties).toMatchObject({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      has_threads: true,
+      usage_bucket: "within_limit",
+      expiry_bucket: "positive",
+      group_key: "workbench",
+      leaf_key: "threads",
+    });
+  });
+});
+
+// ─── Event catalogue ────────────────────────────────────────────────────────
+
+describe("event catalogue", () => {
+  // The announcement rename is a hard cut: the bubble and the in-panel card
+  // that fired the `banner_*` events no longer exist, so emitting those names
+  // from the new trigger would populate the historical series with
+  // differently-meaning data.
+  it("has retired the banner events and replaced them with What's new", () => {
+    const names = Object.values(TELEMETRY_EVENTS) as string[];
+
+    expect(names.filter((name) => name.includes("banner"))).toEqual([]);
+    expect(names).toContain("oss.inspector.whats_new_viewed");
+    expect(names).toContain("oss.inspector.whats_new_signal_viewed");
+    expect(names).toContain("oss.inspector.whats_new_clicked");
+    expect(names.filter((name) => name.includes("dismissed"))).toEqual([
+      // The example tour keeps its own dismissal; the announcement's is gone.
+      "oss.inspector.threads_example_tour_dismissed",
+    ]);
+  });
+
+  it("holds twenty-seven event names, all under the owned oss.inspector prefix", () => {
+    const names = Object.values(TELEMETRY_EVENTS) as string[];
+
+    expect(names).toHaveLength(27);
+    expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
+      [],
+    );
+  });
+});
+
+// ─── Safe URL classification ────────────────────────────────────────────────
+
+describe("getRuntimeUrlType()", () => {
+  it("classifies runtime URLs without exposing origins", () => {
+    expect(getRuntimeUrlType(undefined)).toBe("missing");
+    expect(getRuntimeUrlType("/api/copilotkit")).toBe("relative");
+    expect(getRuntimeUrlType("http://localhost:4000")).toBe("localhost");
+    expect(getRuntimeUrlType("https://example.com/api")).toBe("remote");
   });
 });
 
@@ -231,6 +560,179 @@ describe("distinct ID lifecycle", () => {
     const first = getOrCreateTelemetryDistinctId();
     const second = getOrCreateTelemetryDistinctId();
     expect(first).toBe(second);
+  });
+});
+
+// ─── Announcement read state (host-scoped) ──────────────────────────────────
+
+/**
+ * Same host, different port. localStorage is partitioned by origin — which
+ * includes the port — so its store starts empty, while the cookie jar is keyed
+ * by host and survives. Everything the read state has to do is a consequence
+ * of that asymmetry.
+ */
+function moveToAnotherLocalhostPort(): void {
+  window.localStorage.clear();
+}
+
+/** A browser that blocks cookies: writes are dropped, reads come back empty. */
+function blockCookies(): void {
+  Object.defineProperty(document, "cookie", {
+    get: () => "",
+    set: () => {},
+    configurable: true,
+  });
+}
+
+describe("announcement read state", () => {
+  it("reports nothing read before anything is read", () => {
+    expect(loadAnnouncementReadTimestamp()).toBeNull();
+  });
+
+  it("stays read after moving to another localhost port", () => {
+    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
+
+    moveToAnotherLocalhostPort();
+
+    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
+  });
+
+  it("reports the announcement it was last given, so a newer one reads as unread", () => {
+    saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z");
+    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
+
+    moveToAnotherLocalhostPort();
+
+    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
+  });
+
+  it("degrades to per-port memory when cookies are blocked", () => {
+    blockCookies();
+
+    expect(() =>
+      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
+    ).not.toThrow();
+    // Still remembered on the port the developer is working on…
+    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
+
+    // …and re-armed on the next one, which is the documented degradation.
+    moveToAnotherLocalhostPort();
+    expect(loadAnnouncementReadTimestamp()).toBeNull();
+  });
+
+  it("ignores a malformed stored value instead of throwing", () => {
+    document.cookie = "cpk_inspector_announcements=%7Bnot-json";
+
+    expect(loadAnnouncementReadTimestamp()).toBeNull();
+  });
+
+  it("does not throw when cookie access itself throws", () => {
+    // Sandboxed documents throw on `document.cookie` rather than returning
+    // an empty string, which must degrade to the mirror just as quietly.
+    Object.defineProperty(document, "cookie", {
+      get: () => {
+        throw new DOMException("SecurityError");
+      },
+      set: () => {
+        throw new DOMException("SecurityError");
+      },
+      configurable: true,
+    });
+
+    expect(() =>
+      saveAnnouncementReadTimestamp("2026-08-19T10:00:00.000Z"),
+    ).not.toThrow();
+    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-19T10:00:00.000Z");
+  });
+
+  it("does not throw in SSR (window undefined)", () => {
+    vi.stubGlobal("window", undefined);
+
+    expect(() => saveAnnouncementReadTimestamp("ts")).not.toThrow();
+    expect(() => loadAnnouncementReadTimestamp()).not.toThrow();
+  });
+});
+
+// ─── Pulse suppression (per browser tab) ────────────────────────────────────
+
+describe("announcement pulse suppression", () => {
+  it("reports nothing pulsed in a fresh tab", () => {
+    expect(loadAnnouncementPulsedTimestamp()).toBeNull();
+  });
+
+  // Deliberately the timestamp and not a boolean: a boolean would swallow a
+  // newly published announcement for the rest of the tab's life.
+  it("records which announcement the tab pulsed for", () => {
+    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
+    expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-19T10:00:00.000Z");
+
+    saveAnnouncementPulsedTimestamp("2026-08-20T10:00:00.000Z");
+    expect(loadAnnouncementPulsedTimestamp()).toBe("2026-08-20T10:00:00.000Z");
+  });
+
+  it("is not shared with the read state, which outlives the tab", () => {
+    saveAnnouncementPulsedTimestamp("2026-08-19T10:00:00.000Z");
+
+    expect(loadAnnouncementReadTimestamp()).toBeNull();
+  });
+
+  it("does not throw when sessionStorage is unavailable", () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new DOMException("SecurityError");
+      },
+      setItem: () => {
+        throw new DOMException("QuotaExceededError");
+      },
+    });
+
+    expect(() => saveAnnouncementPulsedTimestamp("ts")).not.toThrow();
+    // Losing the suppression costs one extra pulse, never correctness.
+    expect(loadAnnouncementPulsedTimestamp()).toBeNull();
+  });
+});
+
+// ─── One-time reset of the superseded read state ────────────────────────────
+
+describe("legacy announcement read state", () => {
+  const LEGACY_KEY = "cpk:inspector:announcements";
+
+  it("is deleted rather than migrated, so every user is re-armed once", () => {
+    window.localStorage.setItem(
+      LEGACY_KEY,
+      JSON.stringify({ timestamp: "2026-08-01T10:00:00.000Z" }),
+    );
+
+    clearLegacyAnnouncementReadState();
+
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
+    expect(loadAnnouncementReadTimestamp()).toBeNull();
+  });
+
+  it("cannot resurrect the value once a new announcement is read", () => {
+    window.localStorage.setItem(
+      LEGACY_KEY,
+      JSON.stringify({ timestamp: "2026-08-01T10:00:00.000Z" }),
+    );
+
+    clearLegacyAnnouncementReadState();
+    saveAnnouncementReadTimestamp("2026-08-20T10:00:00.000Z");
+    clearLegacyAnnouncementReadState();
+
+    expect(window.localStorage.getItem(LEGACY_KEY)).toBeNull();
+    expect(loadAnnouncementReadTimestamp()).toBe("2026-08-20T10:00:00.000Z");
+  });
+
+  it("is safe on every startup, with or without a value to remove", () => {
+    expect(() => {
+      clearLegacyAnnouncementReadState();
+      clearLegacyAnnouncementReadState();
+    }).not.toThrow();
+
+    vi.spyOn(window.localStorage, "removeItem").mockImplementation(() => {
+      throw new DOMException("SecurityError");
+    });
+    expect(() => clearLegacyAnnouncementReadState()).not.toThrow();
   });
 });
 

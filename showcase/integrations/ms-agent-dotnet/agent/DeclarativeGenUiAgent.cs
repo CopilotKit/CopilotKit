@@ -20,8 +20,7 @@ using OpenAI;
 /// </summary>
 public class DeclarativeGenUiAgent
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
+    private readonly IConfiguration _configuration;
     private readonly OpenAIClient _openAiClient;
     private readonly ILogger _logger;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -32,20 +31,16 @@ public class DeclarativeGenUiAgent
         ArgumentNullException.ThrowIfNull(loggerFactory);
         ArgumentNullException.ThrowIfNull(jsonSerializerOptions);
 
+        _configuration = configuration;
         _logger = loggerFactory.CreateLogger<DeclarativeGenUiAgent>();
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpointEnv = Environment.GetEnvironmentVariable("OPENAI_BASE_URL");
-        var endpoint = endpointEnv ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -53,52 +48,54 @@ public class DeclarativeGenUiAgent
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
+        // Instructions (not Description) is the system prompt ChatClientAgent
+        // actually sends to the model. Without it the agent narrates walls of
+        // text and only sometimes calls generate_a2ui.
         return new ChatClientAgent(
             chatClient,
+            instructions: """
+                You are the embedded sales analyst for Vantage Threads. Answer every
+                business question by calling `generate_a2ui` exactly once to draw a
+                rich visual surface. After the tool returns, reply with at most ONE
+                short sentence (or nothing). Never paste tables, metrics, or chart
+                data into the chat message — the A2UI surface is the product.
+
+                When calling generate_a2ui, set `context` to a short brief that names
+                the view (dashboard / rep performance / at-risk / account details)
+                and reminds the designer to use the Vantage Threads Q2 numbers with
+                non-empty chart data arrays and full table rows.
+
+                Catalog only: Card, Metric, PieChart, BarChart, DataTable, StatusBadge,
+                InfoRow, PrimaryButton, Row, Column, Text. Never DashboardCard.
+                """,
             name: "DeclarativeGenUiAgent",
-            description: @"You are an assistant that helps the user visualise information with dynamic UI.
-Whenever the user asks for a dashboard, chart, status report, or any rich visual output,
-ALWAYS call the `generate_a2ui` tool with a short natural-language description of what
-should be rendered. Keep any textual reply to one short sentence — the UI speaks for itself.",
+            description: "Declarative A2UI dynamic-schema demo agent",
             tools: [
                 AIFunctionFactory.Create(GenerateA2ui, options: new() { Name = "generate_a2ui", SerializerOptions = _jsonSerializerOptions })
             ]);
     }
 
     [Description("Generate dynamic A2UI components using a secondary LLM call")]
-    private async Task<string> GenerateA2ui(
-        [Description("The user's request describing what UI to generate")] string userRequest,
+    private async Task<object> GenerateA2ui(
+        [Description("Conversation context to generate UI from.")] string context = "",
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(userRequest);
+        context ??= "";
 
         var errorId = Guid.NewGuid().ToString("n")[..16];
-        _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userRequest);
-
-        var secondaryChatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        var systemPrompt = @"You are a UI generator. Given a user request, generate A2UI v0.9 components.
-You MUST respond with ONLY a JSON object (no markdown, no explanation) with this exact structure:
-{
-  ""surfaceId"": ""dynamic-surface"",
-  ""catalogId"": ""declarative-gen-ui-catalog"",
-  ""components"": [<A2UI v0.9 component array>],
-  ""data"": {<optional initial data>}
-}
-The root component must have id ""root"".
-Available components: Row, Column, Text, Card, Button, Badge, Table, Chart, StatusBadge, Metric, InfoRow, PrimaryButton, PieChart, BarChart.";
-
-        var messages = new List<ChatMessage>
-        {
-            new(ChatRole.System, systemPrompt),
-            new(ChatRole.User, userRequest),
-        };
+        var userContent = string.IsNullOrWhiteSpace(context)
+            ? "KPI dashboard with 3-4 metrics, pie chart sales by region, bar chart quarterly revenue, status report."
+            : context;
+        _logger.LogInformation("DeclarativeGenUi: Generating A2UI (errorId={ErrorId}) for: {Request}", errorId, userContent);
 
         string? content;
         try
         {
-            var result = await secondaryChatClient.GetResponseAsync(messages, cancellationToken: cancellationToken).ConfigureAwait(false);
-            content = result.Text;
+            content = await A2uiSecondaryToolCaller.GetDesignToolArgumentsAsync(
+                _configuration,
+                BeautifulChatA2ui.DeclarativeGenUiDesignSystemPrompt(),
+                userContent,
+                cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException ex)
         {
@@ -122,6 +119,10 @@ Available components: Row, Column, Text, Card, Button, Badge, Table, Chart, Stat
             return SalesAgentFactory.StructuredError("empty_llm_output", "Model returned no text content", "Retry or check model availability", errorId);
         }
 
-        return SalesAgentFactory.BuildA2uiResponseFromContent(content, errorId, _logger);
+        return SalesAgentFactory.BuildA2uiResponseFromContent(
+            content,
+            errorId,
+            _logger,
+            forcedCatalogId: BeautifulChatA2ui.DeclarativeGenUiCatalogId);
     }
 }

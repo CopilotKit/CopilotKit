@@ -1,18 +1,30 @@
 "use client";
 
-// FrameworkSelector — persistent "agentic backend" dropdown that anchors
-// the docs experience. Opens a panel listing every registry integration
-// grouped by category. Selecting an entry navigates to
-// `/<framework>/<current-feature>` when the page is framework-scopable,
-// otherwise to `/<framework>` (the framework's landing page, which is
-// itself a docs route under the catch-all).
+// FrameworkSelector - persistent docs selector. The sidebar variant
+// exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { useFramework } from "./framework-provider";
+import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
+import { ComingSoonChannelLogo, FrontendLogo } from "./frontend-logo";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import {
+  COMING_SOON_CHANNEL_OPTIONS,
+  FRONTEND_OPTIONS,
+  backendPathForCurrentPath,
+  frontendFromPathname,
+  frontendPathForCurrentPath,
+  isChannelFrontend,
+  isFrontendOptionActive,
+  shouldNavigateFrontendSelection,
+} from "@/lib/frontend-options";
+import type {
+  ComingSoonChannelOption,
+  FrontendId,
+} from "@/lib/frontend-options";
 
 export interface FrameworkOption {
   slug: string;
@@ -34,74 +46,81 @@ export interface FrameworkSelectorProps {
   /**
    * Presentation flavor.
    * - `topbar` (default, legacy): compact pill sized for a horizontal bar.
-   * - `sidebar`: full-width pill with integration logo left, name center,
-   *   chevron right — styled to match the docs.copilotkit.ai sidebar header.
+   * - `sidebar`: two full-width selector rows for frontend and backend.
    */
   variant?: "topbar" | "sidebar";
 }
 
-/**
- * Strip a known framework prefix off the pathname. Returns the remainder
- * slug (no leading slash) or `null` when the path isn't framework-scoped.
- *
- * Only inspects the FIRST path segment — we deliberately do NOT recurse
- * into deeper segments so paths like `/<fw>/<fw>/x` preserve the inner
- * `<fw>/x` as the tail (the inner segment is part of the feature slug,
- * not a framework switch).
- */
-function stripFrameworkPrefix(
-  pathname: string,
-  knownFrameworks: string[],
-): string | null {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts.length === 0) return null;
-  // Guard: only the first segment is considered a framework prefix.
-  if (!knownFrameworks.includes(parts[0])) return null;
-  return parts.slice(1).join("/");
+function SelectorAffordance({ active }: { active: boolean }) {
+  return (
+    <span className="ml-1 flex shrink-0 items-center" aria-hidden="true">
+      <ChevronDown
+        className={`h-3.5 w-3.5 transition-colors ${
+          active
+            ? "text-[var(--accent)]"
+            : "text-[var(--text-muted)] group-hover:text-[var(--accent)]"
+        }`}
+        strokeWidth={2}
+      />
+    </span>
+  );
 }
 
-/** Strip the `/docs` prefix off the pathname to get the feature slug. */
-function stripDocsPrefix(pathname: string): string | null {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "docs") return null;
-  return parts.slice(1).join("/");
+export function ComingSoonChannelPickerOption({
+  option,
+}: {
+  option: ComingSoonChannelOption;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-disabled="true"
+      aria-selected={false}
+      disabled
+      className="shell-docs-radius-control flex w-full cursor-not-allowed items-center gap-2 px-2 py-1.5 text-[13px] text-[var(--text-muted)]"
+    >
+      <span
+        className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
+        aria-hidden="true"
+      >
+        <ComingSoonChannelLogo icon={option.icon} size={17} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left font-medium">
+        {option.name}
+      </span>
+      <span className="rounded-full border border-[var(--border)] bg-[var(--bg-elevated)] px-1.5 py-0.5 text-[10px] font-medium leading-none text-[var(--text-muted)]">
+        Coming soon
+      </span>
+    </button>
+  );
 }
 
 export function FrameworkSelector({
   options,
-  categoryOrder,
+  categoryOrder: _categoryOrder,
   className,
   variant = "topbar",
 }: FrameworkSelectorProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const posthog = usePostHog();
-  const { effectiveFramework, knownFrameworks, setStoredFramework } =
-    useFramework();
-  const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const { effectiveFramework, setStoredFramework } = useFramework();
+  const urlFrontend = frontendFromPathname(pathname);
+  const [openMenu, setOpenMenu] = useState<"frontend" | "backend" | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  // Close on outside-click / Escape
+  // Close on outside-click / Escape.
   useEffect(() => {
-    if (!open) return;
+    if (!openMenu) return;
     const handleClick = (e: MouseEvent) => {
-      // `e.target` is typed as `EventTarget | null`; `Node.contains`
-      // requires an actual `Node`. Guard instead of casting so we don't
-      // silently invoke `contains` with non-DOM targets (e.g. events
-      // dispatched against `window`).
       const target = e.target instanceof Node ? e.target : null;
       if (!target) return;
-      if (
-        panelRef.current?.contains(target) ||
-        buttonRef.current?.contains(target)
-      ) {
-        return;
-      }
-      setOpen(false);
+      if (rootRef.current?.contains(target)) return;
+      setOpenMenu(null);
     };
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") setOpenMenu(null);
     };
     document.addEventListener("mousedown", handleClick);
     document.addEventListener("keydown", handleKey);
@@ -109,54 +128,56 @@ export function FrameworkSelector({
       document.removeEventListener("mousedown", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [open]);
+  }, [openMenu]);
 
   // Display whatever the page is currently rendering as: URL framework
-  // when present, then stored choice, then the soft-default
-  // (Built-in Agent). The selector should never read "Pick a backend"
-  // when the docs are actually rendering BIA code — that's misleading.
+  // when present, then stored choice, then the soft-default.
   const current = options.find((o) => o.slug === effectiveFramework);
 
-  // BIA is the soft-default and the framing on the sidebar is "you're
-  // reading CopilotKit's docs" rather than "you've picked the Built-in
-  // Agent backend." Show "CopilotKit" in the sidebar selector chrome
-  // (closed pill + dropdown row) but keep the registry name elsewhere
-  // so DocsLandingNext, IntegrationGrid, etc. still call it Built-in
-  // Agent where the framing is about choosing a backend.
   const isSidebar = variant === "sidebar";
   const displayNameFor = (opt: FrameworkOption) =>
     isSidebar && opt.slug === "built-in-agent" ? "CopilotKit" : opt.name;
   const label = current ? displayNameFor(current) : "Pick an agentic backend";
+  const effectiveFrontendId = urlFrontend ?? "react";
+  const selectedFrontend =
+    FRONTEND_OPTIONS.find((option) => option.id === effectiveFrontendId) ??
+    FRONTEND_OPTIONS[0];
+  const frontendTypeLabel = isChannelFrontend(effectiveFrontendId)
+    ? "Channel"
+    : "Frontend";
 
-  // Compute the target href for a given framework option given the current
-  // path. Preserves feature slug when possible.
-  function hrefFor(slug: string): string {
-    // Case 1: currently on /<existing-framework>/<rest>
-    const frameworkTail = stripFrameworkPrefix(pathname, knownFrameworks);
-    if (frameworkTail !== null) {
-      return frameworkTail ? `/${slug}/${frameworkTail}` : `/${slug}`;
+  function selectFrontend(id: FrontendId) {
+    const destinationPath = frontendPathForCurrentPath(
+      id,
+      pathname,
+      options.map((option) => option.slug),
+    );
+    if (
+      shouldNavigateFrontendSelection(
+        id,
+        effectiveFrontendId,
+        pathname,
+        destinationPath,
+      )
+    ) {
+      try {
+        posthog?.capture("docs.frontend_selected", {
+          frontend: id,
+          from_frontend: effectiveFrontendId,
+          backend: effectiveFramework,
+          from_path: pathname,
+          destination_path: destinationPath,
+        });
+      } catch {
+        // Swallow - analytics is fire-and-forget.
+      }
+      router.replace(destinationPath);
     }
-    // Case 2: currently on /docs/<rest> — switch to framework-scoped (legacy)
-    const docsTail = stripDocsPrefix(pathname);
-    if (docsTail !== null && docsTail.length > 0) {
-      return `/${slug}/${docsTail}`;
-    }
-    // Case 3: currently on /<unscoped-slug> (e.g. /quickstart) — preserve the
-    // feature slug so switching frameworks keeps the user on the same topic.
-    const unscopedTail = pathname.split("/").filter(Boolean).join("/");
-    if (unscopedTail) {
-      return `/${slug}/${unscopedTail}`;
-    }
-    // Fallback: framework landing page
-    return `/${slug}`;
+    setOpenMenu(null);
   }
 
   function selectFramework(slug: string) {
     setStoredFramework(slug);
-    // Fire a PostHog event so analytics dashboards can see which
-    // backend readers pick. Wrapped in try/catch — PostHog can be
-    // blocked by ad blockers or fail to initialize, and a broken
-    // analytics call must never break navigation.
     try {
       const opt = options.find((o) => o.slug === slug);
       posthog?.capture("docs.framework_selected", {
@@ -166,18 +187,21 @@ export function FrameworkSelector({
         from_path: pathname,
       });
     } catch {
-      // Swallow — analytics is fire-and-forget.
+      // Swallow - analytics is fire-and-forget.
     }
-    // replace vs push: picking a backend is a pivot on the same logical
-    // page, not a forward navigation. Using `push` clutters the back
-    // stack with every framework the user clicked through, which makes
-    // the browser Back button useless. `replace` keeps history sane.
-    router.replace(hrefFor(slug));
-    setOpen(false);
+    router.replace(
+      backendPathForCurrentPath(
+        slug,
+        pathname,
+        options.map((option) => option.slug),
+        DEFAULT_FRAMEWORK,
+      ),
+    );
+    setOpenMenu(null);
   }
 
   // Single flat list, ordered by the canonical display order. The
-  // category buckets ("Most Popular / Agent Frameworks / Enterprise /
+  // category buckets ("Most Popular / Agent Frameworks / Intelligence /
   // Emerging") used to live here but partners read them as a tier
   // list — we now show every backend in one neutral list.
   const flatOptions = options
@@ -185,92 +209,239 @@ export function FrameworkSelector({
     .slice()
     .sort((a, b) => compareByDisplayOrder(a.slug, b.slug));
 
-  // BIA pinned at the top of the sidebar dropdown — only the sidebar
-  // variant (the topbar selector renders the flat list inline).
   const pinnedBIA = isSidebar
     ? (options.find((o) => o.slug === "built-in-agent") ?? null)
     : null;
 
-  // Sidebar variant: full-width pill with integration logo box on the
-  // left, framework name center, chevron right. Mirrors the canonical
-  // docs.copilotkit.ai reference: h-14 pill, lavender bg + accent border
-  // when a framework is active, soft surface bg when nothing is picked.
-  const sidebarBtnClasses = [
-    "w-full flex items-center gap-2 p-1.5 rounded-xl border h-12",
-    "transition-colors cursor-pointer",
-    "text-[13px] font-medium text-[var(--text)]",
-    current
-      ? "bg-[var(--accent-light)] border-[var(--accent)] hover:border-[var(--accent)]"
-      : "bg-[var(--bg-surface)]/60 border-[var(--border)] hover:border-[var(--accent)]",
-  ].join(" ");
-
   const topbarBtnClasses =
-    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+    "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+  const frontendMenuLabel = "Choose frontend";
+
+  const backendOptions = (
+    includePinnedBIA: boolean,
+    optionHoverClass: string,
+  ) => (
+    <>
+      {includePinnedBIA && pinnedBIA && (
+        <button
+          key={pinnedBIA.slug}
+          type="button"
+          role="option"
+          aria-selected={pinnedBIA.slug === effectiveFramework}
+          onClick={() => selectFramework(pinnedBIA.slug)}
+          className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            pinnedBIA.slug === effectiveFramework
+              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+              : `text-[var(--text-secondary)] ${optionHoverClass}`
+          }`}
+        >
+          <FrameworkLogo
+            slug={pinnedBIA.slug}
+            fallbackSrc={pinnedBIA.logo}
+            size={16}
+            className="shrink-0 text-[var(--accent)]"
+          />
+          <span className="flex-1 truncate text-left">
+            {displayNameFor(pinnedBIA)}
+          </span>
+        </button>
+      )}
+
+      {flatOptions.map((opt) => {
+        const isActive = opt.slug === effectiveFramework;
+        return (
+          <button
+            key={opt.slug}
+            type="button"
+            role="option"
+            aria-selected={isActive}
+            onClick={() => selectFramework(opt.slug)}
+            className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+              isActive
+                ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                : `text-[var(--text-secondary)] ${optionHoverClass}`
+            }`}
+          >
+            <FrameworkLogo
+              slug={opt.slug}
+              fallbackSrc={opt.logo}
+              size={16}
+              className="shrink-0 text-[var(--accent)]"
+            />
+            <span className="flex-1 truncate text-left">
+              {displayNameFor(opt)}
+            </span>
+          </button>
+        );
+      })}
+    </>
+  );
 
   return (
-    <div className={`relative ${className ?? ""}`}>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        className={isSidebar ? sidebarBtnClasses : topbarBtnClasses}
-      >
-        {isSidebar ? (
-          <>
-            <span
-              className={`flex justify-center items-center w-8 h-8 shrink-0 rounded-md ${
-                current
-                  ? "bg-[var(--accent)]/25 dark:bg-white/10"
-                  : "bg-[var(--bg-elevated)]"
-              }`}
-              aria-hidden="true"
+    <div
+      ref={rootRef}
+      className={`relative ${openMenu ? "z-50" : ""} ${className ?? ""}`}
+    >
+      {isSidebar ? (
+        <>
+          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenMenu((menu) => (menu === "frontend" ? null : "frontend"))
+              }
+              aria-haspopup="listbox"
+              aria-expanded={openMenu === "frontend"}
+              aria-label={frontendMenuLabel}
+              className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              {current ? (
-                <FrameworkLogo
-                  slug={current.slug}
-                  fallbackSrc={current.logo}
-                  size={16}
-                  className="text-[var(--text)]"
-                />
-              ) : (
-                <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)] opacity-70" />
-              )}
-            </span>
-            <span className="flex-1 min-w-0 text-left">
-              {current ? (
-                <span className="block truncate leading-tight">{label}</span>
-              ) : (
-                <span className="block truncate leading-tight text-[var(--text-muted)]">
-                  Pick a backend
-                </span>
-              )}
-              <span className="block text-[9px] uppercase tracking-wider text-[var(--text-faint)] leading-tight mt-0.5">
-                Agentic backend
+              <span
+                className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                aria-hidden="true"
+              >
+                <FrontendLogo icon={selectedFrontend.icon} size={19} />
               </span>
-            </span>
-            <svg
-              className="w-3.5 h-3.5 mr-0.5 shrink-0 text-[var(--text-muted)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
+                  {frontendTypeLabel}
+                </span>
+                <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-semibold leading-tight text-[var(--text)]">
+                  <span className="truncate">{selectedFrontend.name}</span>
+                </span>
+              </span>
+              <SelectorAffordance active={openMenu === "frontend"} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setOpenMenu((menu) => (menu === "backend" ? null : "backend"))
+              }
+              aria-haspopup="listbox"
+              aria-expanded={openMenu === "backend"}
+              aria-label="Choose agent backend"
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </>
-        ) : (
-          <>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />
+              <span
+                className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                aria-hidden="true"
+              >
+                {current ? (
+                  <FrameworkLogo
+                    slug={current.slug}
+                    fallbackSrc={current.logo}
+                    size={17}
+                    className="text-[var(--accent)]"
+                  />
+                ) : (
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
+                  Agent backend
+                </span>
+                {current ? (
+                  <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
+                    {label}
+                  </span>
+                ) : (
+                  <span className="mt-0.5 block truncate text-[13px] font-medium leading-tight text-[var(--text-muted)]">
+                    No backend selected
+                  </span>
+                )}
+              </span>
+              <SelectorAffordance active={openMenu === "backend"} />
+            </button>
+          </div>
+
+          {openMenu === "frontend" && (
+            <div
+              role="listbox"
+              aria-label={frontendMenuLabel}
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2"
+            >
+              {FRONTEND_OPTIONS.map((option, index) => {
+                const isActive = isFrontendOptionActive(
+                  option.id,
+                  effectiveFrontendId,
+                  pathname,
+                );
+                return (
+                  <React.Fragment key={option.id}>
+                    {isChannelFrontend(option.id) &&
+                      !FRONTEND_OPTIONS.slice(0, index).some((candidate) =>
+                        isChannelFrontend(candidate.id),
+                      ) && (
+                        <div
+                          role="separator"
+                          className="mx-2 mb-1 mt-2 border-t border-[var(--border)] pt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]"
+                        >
+                          Channels SDK
+                        </div>
+                      )}
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => selectFrontend(option.id)}
+                      className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                        isActive
+                          ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                      }`}
+                    >
+                      <span
+                        className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
+                        aria-hidden="true"
+                      >
+                        <FrontendLogo icon={option.icon} size={17} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
+                        <span className="truncate">{option.name}</span>
+                      </span>
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+              {COMING_SOON_CHANNEL_OPTIONS.map((option) => (
+                <ComingSoonChannelPickerOption
+                  key={option.id}
+                  option={option}
+                />
+              ))}
+            </div>
+          )}
+
+          {openMenu === "backend" && (
+            <div
+              role="listbox"
+              aria-label="Choose agent backend"
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 top-full z-50 mt-1 max-h-[60vh] w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2"
+            >
+              {backendOptions(
+                true,
+                "hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              setOpenMenu((menu) => (menu === "backend" ? null : "backend"))
+            }
+            aria-haspopup="listbox"
+            aria-expanded={openMenu === "backend"}
+            className={topbarBtnClasses}
+          >
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
             <span className="truncate">
               {current ? (
                 <>
-                  <span className="text-[var(--text-faint)] font-mono text-[10px] uppercase tracking-wider mr-1">
+                  <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
                     Backend
                   </span>
                   {label}
@@ -279,84 +450,25 @@ export function FrameworkSelector({
                 <span className="text-[var(--text-muted)]">{label}</span>
               )}
             </span>
-            <svg
-              className="w-3 h-3 shrink-0 text-[var(--text-muted)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </>
-        )}
-      </button>
+            <ChevronDown
+              className="h-3 w-3 shrink-0 text-[var(--text-muted)]"
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+          </button>
 
-      {open && (
-        <div
-          ref={panelRef}
-          role="listbox"
-          className={
-            isSidebar
-              ? "absolute top-full left-0 right-0 mt-1 max-h-[60vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
-              : "absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
-          }
-        >
-          {pinnedBIA && (
-            <button
-              key={pinnedBIA.slug}
-              type="button"
-              onClick={() => selectFramework(pinnedBIA.slug)}
-              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
-                pinnedBIA.slug === effectiveFramework
-                  ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-              }`}
+          {openMenu === "backend" && (
+            <div
+              role="listbox"
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-[340px] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
-              <FrameworkLogo
-                slug={pinnedBIA.slug}
-                fallbackSrc={pinnedBIA.logo}
-                size={16}
-                className="shrink-0"
-              />
-              <span className="flex-1 text-left truncate">
-                {displayNameFor(pinnedBIA)}
-              </span>
-            </button>
+              {backendOptions(
+                false,
+                "hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+              )}
+            </div>
           )}
-
-          <div>
-            {flatOptions.map((opt) => {
-              const isActive = opt.slug === effectiveFramework;
-              return (
-                <button
-                  key={opt.slug}
-                  type="button"
-                  onClick={() => selectFramework(opt.slug)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
-                    isActive
-                      ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
-                  }`}
-                >
-                  <FrameworkLogo
-                    slug={opt.slug}
-                    fallbackSrc={opt.logo}
-                    size={16}
-                    className="shrink-0"
-                  />
-                  <span className="flex-1 text-left truncate">
-                    {displayNameFor(opt)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

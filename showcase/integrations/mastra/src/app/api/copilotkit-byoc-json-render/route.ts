@@ -6,14 +6,15 @@
 // Mastra port we reuse the shared weatherAgent — the dashboard shape is
 // enforced entirely on the frontend by the catalog and the renderer.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
 const byocJsonRenderAgent = getLocalAgent({
   mastra,
@@ -32,19 +33,20 @@ const runtime = new CopilotRuntime({
   agents: { byoc_json_render: byocJsonRenderAgent },
 });
 
-export const POST = async (req: NextRequest) => {
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-byoc-json-render",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime,
-    });
-    return await handleRequest(req);
-  } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
-  }
-};
+export const POST = async (req: NextRequest) =>
+  withForwardedHeaders(req, async () => {
+    try {
+      const copilotHandler = createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit-byoc-json-render",
+        mode: "single-route",
+      });
+      return await copilotHandler(req);
+    } catch (error: unknown) {
+      const e = error as { message?: string; stack?: string };
+      return NextResponse.json(
+        { error: e.message, stack: e.stack },
+        { status: 500 },
+      );
+    }
+  });

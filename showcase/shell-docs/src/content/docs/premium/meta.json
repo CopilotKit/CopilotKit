@@ -1,10 +1,14 @@
 {
-  "title": "Premium Features",
+  "title": "Intelligence",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "overview",
+    "managed-intelligence-platform",
+    "connect-your-runtime",
+    "self-hosting",
     "intelligence-platform",
-    "threads-explained",
-    "observability",
-    "self-hosting"
+    "threads-explained"
   ]
 }

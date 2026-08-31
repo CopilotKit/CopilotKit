@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-python / tool-rendering-default-catchall",
+    "sourceFile": "harness/fixtures/d5/tool-rendering.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 follow-up content after get_weather tool ran. The built-in default renderer renders the tool card; this fixture provides the narration follow-up. MUST come before tool-emitting fixture (first-match-wins).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "default-catchall: weather in Tokyo \u2014 emit get_weather tool call. The CopilotKit built-in default renderer will catch this tool call since no user-supplied per-tool renderer is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "hasToolResult": false,
+        "context": "ms-agent-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

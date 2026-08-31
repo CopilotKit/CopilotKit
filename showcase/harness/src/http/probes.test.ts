@@ -97,6 +97,8 @@ function makeFakeWriter(): ProbeRunWriter & {
   const recentMap = new Map<string, ProbeRunRecord[]>();
   return {
     start: async () => ({ id: "row1" }),
+    findByJobId: async () => null,
+    update: async () => {},
     finish: async () => {},
     recent: async (probeId, _limit) => recentMap.get(probeId) ?? [],
     setRecent: (probeId, runs) => recentMap.set(probeId, runs),
@@ -896,6 +898,8 @@ describe("GET /api/probes/:id — R2-A.9 graceful degradation", () => {
     const sched = makeFakeScheduler();
     const writer: ProbeRunWriter = {
       start: async () => ({ id: "x" }),
+      findByJobId: async () => null,
+      update: async () => {},
       finish: async () => {},
       recent: async () => {
         throw new Error("PB transient outage");

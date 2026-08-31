@@ -61,7 +61,7 @@ const spec = computed<BannerSpec | null>(() => {
         severity: "warning",
         message: `Your CopilotKit license expires in ${days} ${dayLabel}. Please renew.`,
         actionLabel: "Renew",
-        actionUrl: "https://cloud.copilotkit.ai",
+        actionUrl: "https://dashboard.operations.copilotkit.ai",
       };
     }
     case "expired":

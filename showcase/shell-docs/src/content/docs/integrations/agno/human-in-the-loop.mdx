@@ -4,6 +4,8 @@ icon: "lucide/Users"
 description: Create frontend tools and use them within your Agno agent for human-in-the-loop interactions.
 ---
 
+import AgnoFrontendToolPersistence from "@/snippets/integrations/agno/frontend-tool-persistence.mdx";
+
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
@@ -25,7 +27,6 @@ In this guide, we cover the use of frontend tools for Human-in-the-loop.
 ## When should I use this?
 
 Use frontend tools when you need your agent to interact with client-side primitives such as:
-
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -33,6 +34,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
 - Performing actions that require the user's immediate browser context
 
 ## Implementation
+
+<AgnoFrontendToolPersistence />
 
 <Steps>
     <Step>
@@ -58,14 +61,18 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         ```python title="agent.py"
         from agno.agent import Agent
+        from agno.db.sqlite import SqliteDb
         from agno.models.openai import OpenAIChat
         from agno.os import AgentOS
         from agno.os.interfaces.agui import AGUI
         from tools.frontend import offerOptions
 
+        db = SqliteDb(db_file="tmp/agno.db")
+
         agent = Agent(
             model=OpenAIChat(id="gpt-5.4"),
             tools=[offerOptions],
+            db=db,
             description="A helpful assistant that can answer questions and provide information.",
             instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
         )
@@ -87,6 +94,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         prompts the user for approval.
 
         ```tsx title="page.tsx"
+        import { useHumanInTheLoop } from "@copilotkit/react-core/v2" // [!code highlight]
+        import { z } from "zod"
 
         export function Page() {
           // ...
@@ -94,20 +103,10 @@ Use frontend tools when you need your agent to interact with client-side primiti
           useHumanInTheLoop({
             name: "offerOptions",
             description: "Give the user a choice between two options and have them select one.",
-            parameters: [
-              {
-                name: "option_1",
-                type: "string",
-                description: "The first option",
-                required: true,
-              },
-              {
-                name: "option_2",
-                type: "string",
-                description: "The second option",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              option_1: z.string().describe("The first option"),
+              option_2: z.string().describe("The second option"),
+            }),
             render: ({ args, respond }) => {
               if (!respond) return <></>;
               return (
@@ -133,5 +132,4 @@ Use frontend tools when you need your agent to interact with client-side primiti
         Can you show me two good options for a restaurant name?
         ````
     </Step>
-
 </Steps>

@@ -1,0 +1,11 @@
+<Steps>
+  <Step>
+    ### Put shared state in the system prompt and tools
+
+    The demo exposes frontend preferences to Claude and gives the agent a tool
+    for writing notes back into CopilotKit state. Keep the state contract small,
+    typed, and mirrored by the UI components that read the same values.
+
+    <DemoCode file="src/agent/shared-state-read-write-prompt.ts" region="shared-state-setup" />
+  </Step>
+</Steps>

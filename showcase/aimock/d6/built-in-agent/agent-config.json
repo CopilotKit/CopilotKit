@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional pill — value-A. Fixture must return a professional-sounding introduction.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit assistant, configured to communicate in a professional tone. I am here to support your workflow with clear, structured, and precise responses. Please let me know how I may assist you."
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual pill — value-B. Must differ from value-A so the diff assertion passes.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, set to keep things chill and conversational. Ask me anything — no formalities needed, just vibes."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner pill — value-A. Simple, jargon-free explanation.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "CopilotKit is a toolkit that lets you add an AI chat assistant to your web app. Think of it like giving your app a helpful sidekick that users can talk to. You drop in a component, connect it to an AI service, and your users get a chat window that can answer questions and take actions."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert pill — value-B. Technical, detailed explanation.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "CopilotKit provides a React component layer (CopilotChat, CopilotSidebar, CopilotPopup) backed by a runtime server that proxies requests to LLM providers via the AG-UI protocol. The runtime orchestrates tool execution, manages conversation state, and supports multi-agent topologies through ProxiedAgent routing. Frontend hooks like useCopilotAction and useCopilotReadable let you expose application state and actions to the model context without manual prompt engineering."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise pill — value-A. Short response.",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Agent context feeds app-state into the model on each turn so the assistant stays aware of what the user is doing."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed concise by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Agent context is the mechanism by which your application's runtime state is surfaced to the underlying language model on every conversational turn. When you use the useAgentContext hook, you register key-value pairs — such as the current user's preferences, the active page, or domain-specific configuration — that are serialized into the system prompt sent alongside each user message. This means the assistant can reference live application data without requiring the user to re-state it manually. For example, if the user has set their preferred tone to 'casual' and their expertise level to 'beginner', those values are injected into the prompt so the model adjusts its register and depth accordingly. The result is a context-aware assistant that adapts to user settings in real time."
+      }
+    }
+  ]
+}

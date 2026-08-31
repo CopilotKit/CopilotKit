@@ -4,9 +4,7 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 
 ## Prerequisites
 
-- **GitHub Personal Access Token** (for GitHub Models API)
-  - Retrieve from GitHub using [these instructions](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic).
-  - or generate via `gh auth token` in your CLI (requires [GitHub CLI](https://github.com/cli/cli?tab=readme-ov-file#installation))
+- **OpenAI API key** from the [API key page](https://platform.openai.com/api-keys)
 - **.NET 9.0 SDK**
   - [Download directly](https://dotnet.microsoft.com/download/dotnet/9.0)
   - macOS/Linux
@@ -77,26 +75,12 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
    > npm run install:agent
    > ```
 
-2. Set up your GitHub token for GitHub Models:
-
-   First, get your GitHub token:
-
-   ```bash
-   gh auth token
-   ```
-
-   Then, navigate to the agent directory and set it as a user secret:
+2. Save your OpenAI API key as a .NET user secret:
 
    ```bash
    cd agent
-   dotnet user-secrets set GitHubToken "<your-token>"
+   dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
    cd ..
-   ```
-
-   Or set it in one command:
-
-   ```bash
-   cd agent; dotnet user-secrets set GitHubToken "$(gh auth token)"; cd ..
    ```
 
 3. Start the development server:
@@ -117,6 +101,39 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 
    This will start both the Next.js UI (port 3000) and C# agent server (port 8000) concurrently.
 
+## Running a Channel
+
+`channel-host.mts` mounts the same agent as an Intelligence Channel
+(Slack, Teams). It requires `INTELLIGENCE_API_KEY` and a declared Channel in
+`.copilotkit/channels.json` — set both up with `copilotkit init` or
+`copilotkit channels add`, which write that file and the credentials your
+`.env` needs, then:
+
+```bash
+npm run channel
+```
+
+The host reads which Channel to hold from `.copilotkit/channels.json`. If a
+project declares more than one, set `INTELLIGENCE_CHANNEL_NAME` to pick one.
+
+The host holds no provider credentials and exposes no provider endpoint —
+Intelligence owns the provider edge — so the same file works for every provider.
+
+The Channel itself is declared in `channels.mts` — that is where to add commands,
+reactions, or an `onMention` handler. `channel-host.mts` only owns the process
+lifetime, and is byte-identical in every starter.
+
+Once startup finishes, the log reports the truth per Channel:
+
+- `Channel "<name>" is online.` — the session is up and can send.
+- `Channel "<name>" is declared but no provider is attached yet.` —
+  a normal waiting state, not a failure. Run `copilotkit channels status` to
+  see what setup remains.
+
+Neither message proves the provider app is installed, reachable, or that
+anyone can message it — verify that separately (invite the bot, then message
+it) before treating the Channel as working.
+
 ## Available Scripts
 
 The following scripts can also be run using your preferred package manager:
@@ -129,6 +146,8 @@ The following scripts can also be run using your preferred package manager:
 - `start` - Starts the production server
 - `lint` - Runs ESLint for code linting
 - `install:agent` - Restores NuGet packages for the C# agent
+- `channel` - Holds an Intelligence Channel open (see "Running a Channel" above)
+- `typecheck:channel` - Type-checks the channel host on its own `tsconfig.channel.json`
 
 ## Project Structure
 
@@ -162,10 +181,10 @@ This starter showcases key AG-UI protocol features:
 ## 📚 Documentation
 
 - [Microsoft Agent Framework](https://github.com/microsoft/agents) - Learn about Microsoft's agent framework
+- [Microsoft Agent Framework model providers](https://learn.microsoft.com/en-us/agent-framework/integrations/by-component/model-providers/) - Choose another model provider
 - [AG-UI Protocol](https://github.com/copilotkit/ag-ui) - AG-UI protocol specification
 - [CopilotKit Documentation](https://docs.copilotkit.ai) - CopilotKit features and API
 - [Next.js Documentation](https://nextjs.org/docs) - Next.js features and API
-- [GitHub Models](https://github.com/marketplace/models) - Free AI models via GitHub
 
 ## Contributing
 
@@ -182,7 +201,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 If you see "I'm having trouble connecting to my tools", make sure:
 
 1. The C# agent is running on port 8000
-2. Your GitHub token is set correctly via user secrets
+2. Your OpenAI API key is set via .NET user secrets
 3. Both servers started successfully (check terminal output)
 
 ### .NET SDK Not Installed
@@ -228,24 +247,13 @@ dotnet restore
 dotnet run
 ```
 
-### GitHub Token Issues
+### OpenAI API Key Issues
 
-If the agent fails to start with "GitHubToken not found":
+If the agent fails to start with "OPENAI_API_KEY not found":
 
 ```bash
 cd agent
-dotnet user-secrets set GitHubToken "$(gh auth token)"
-```
-
-Or manually:
-
-```bash
-# Get your token
-gh auth token
-
-# Set it as a user secret
-cd agent
-dotnet user-secrets set GitHubToken "YOUR_TOKEN_HERE"
+dotnet user-secrets set OPENAI_API_KEY "<your-openai-api-key>"
 ```
 
 ### Port Conflicts

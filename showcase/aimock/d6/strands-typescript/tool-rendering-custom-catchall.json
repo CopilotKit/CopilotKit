@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22",
+    "updated": "2026-06-15",
+    "note": "Reordered toolCallId-keyed narration BEFORE tool-emit fixtures (first-match-wins) and dropped hasToolResult:false gates. Reason: with the previous tool-emit-first ordering the toolCallId narration could not pre-empt re-emission on iteration 2; hasToolResult:false also breaks on the AAPL turn because the Tokyo tool result from turn 1 persists in the thread."
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 'Forecast Tokyo' 1st leg: emit get_weather. sequenceIndex:0 gates it to the first match \u2014 with stopStreamingAfterResult removed, the agent now takes a 2nd turn, and Strands' UUID tool ids mean the prior toolCallId follow-up can't match; sequenceIndex is id-invariant so the bare-userMessage narration below catches the 2nd leg. The custom wildcard renderer fires for any tool with no per-tool renderer ([data-testid='custom-wildcard-card'][data-tool-name='get_weather']).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "sequenceIndex": 0,
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_custom_catchall_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 'Forecast Tokyo' 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22\u00b0C and partly cloudy with a gentle easterly breeze \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 stock follow-up after tool result. MUST come before the tool-emitting fixture.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "toolCallId": "call_d6_custom_catchall_stock_001",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day \u2014 rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall \u2014 'AAPL stock price' second turn. Emits get_stock_price tool call. The custom wildcard renderer fires again with [data-tool-name='get_stock_price']. The cross-tool assertion verifies BOTH tool names rendered through the same custom-wildcard-card testid. No hasToolResult gate (the Tokyo tool result from turn 1 makes hasToolResult permanently true).",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_custom_catchall_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

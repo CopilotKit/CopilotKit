@@ -1,0 +1,80 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-open-advanced (open-gen-ui-advanced demo). The advanced demo embeds an iframe-rendered sandbox; the probe sends the 'Inline expression evaluator' pill and asserts iframe presence.",
+    "sourceFile": "harness/src/probes/scripts/d5-gen-ui-open-advanced.ts",
+    "copiedFrom": "gen-ui-open.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "open-gen-ui-advanced — Inline expression evaluator pill. Same generateSandboxedUi tool call as gen-ui-open; the advanced demo renders it in an iframe sandbox.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Composing the inline expression evaluator UI.",
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_ogui_adv_inline_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating…';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "open-gen-ui-advanced — Inline expression evaluator follow-up narration after generateSandboxedUi tool result lands. Mastra loops the LLM after tool results; without this fixture the 2nd call 503s.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "The inline expression evaluator UI is rendered above — type an arithmetic expression and click Evaluate to see the result."
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced — 3D axis visualization pill (first turn).",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Composing the 3D axis visualization scene.",
+        "toolCalls": [
+          {
+            "id": "call_d6_mastra_ogui_adv_axis_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing 3D axis scene…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px}h1{font-size:14px;margin:0 0 8px}svg{display:block;background:#1e293b;border-radius:8px}\",\"html\":\"<div class=\\\"wrap\\\"><h1>3D axis visualization (pitch / yaw / roll)</h1><svg width=\\\"320\\\" height=\\\"260\\\" viewBox=\\\"-80 -80 160 160\\\" data-testid=\\\"ogui-3d-axis\\\"><line x1=\\\"-60\\\" y1=\\\"0\\\" x2=\\\"60\\\" y2=\\\"0\\\" stroke=\\\"#f59e0b\\\"/><line x1=\\\"0\\\" y1=\\\"-60\\\" x2=\\\"0\\\" y2=\\\"60\\\" stroke=\\\"#6366f1\\\"/><line x1=\\\"-40\\\" y1=\\\"40\\\" x2=\\\"40\\\" y2=\\\"-40\\\" stroke=\\\"#10b981\\\"/><text x=\\\"62\\\" y=\\\"4\\\" font-size=\\\"8\\\" fill=\\\"#f59e0b\\\">X pitch</text><text x=\\\"4\\\" y=\\\"-62\\\" font-size=\\\"8\\\" fill=\\\"#6366f1\\\">Y yaw</text><text x=\\\"42\\\" y=\\\"-42\\\" font-size=\\\"8\\\" fill=\\\"#10b981\\\">Z roll</text></svg></div>\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "open-gen-ui-advanced — 3D axis visualization follow-up narration after generateSandboxedUi tool result lands.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "The 3D axis visualization is rendered above — the colored lines show pitch (X), yaw (Y), and roll (Z) axes around a model-airplane reference."
+      }
+    },
+    {
+      "_comment": "Narration fallback for generic advanced gen-ui probe.",
+      "match": {
+        "userMessage": "continue the advanced gen-ui flow",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "The advanced gen-UI flow continued with the second-step component. The chained payloads from turns 1 and 2 form the complete advanced gen-UI sequence."
+      }
+    }
+  ]
+}

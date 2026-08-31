@@ -14,7 +14,6 @@ import { IntelligenceAgent } from "@copilotkit/core";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
-import { getThreadClone } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
 import { createA2UIMessageRenderer } from "../../../components/A2UIMessageRenderer";
 import {
@@ -179,7 +178,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 async function submitMessageAndWaitForUserMessage(value: string) {
   await waitFor(() => {
-    expect(screen.queryByTestId("copilot-chat-cursor")).toBeNull();
+    expect(screen.queryByTestId("copilot-loading-cursor")).toBeNull();
   });
 
   const input = await screen.findByRole("textbox");
@@ -315,7 +314,7 @@ describe("CopilotChat activity message rendering", () => {
     expect(screen.getByTestId("copilotkit-probe").textContent).toBe("true");
   });
 
-  it("passes the per-thread clone (not the registry agent) to activity message renderers", async () => {
+  it("passes the registry agent to activity message renderers", async () => {
     const agent = new MockStepwiseAgent();
     const agentId = "action-agent";
     agent.agentId = agentId;
@@ -367,10 +366,11 @@ describe("CopilotChat activity message rendering", () => {
       expect(screen.getByTestId("action-button")).toBeDefined();
     });
 
-    const clone = getThreadClone(agent, threadId);
-    expect(clone).toBeDefined();
-    expect(toRaw(capturedAgent.value!)).toBe(clone);
-    expect(toRaw(capturedAgent.value!)).not.toBe(agent);
+    // Thread cloning is gone: renderers get the registry agent, with the
+    // thread pinned onto it rather than split across per-thread copies.
+    expect(capturedAgent.value).toBeDefined();
+    expect(toRaw(capturedAgent.value!)).toBe(agent);
+    expect(toRaw(capturedAgent.value!).threadId).toBe(threadId);
   });
 
   it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {

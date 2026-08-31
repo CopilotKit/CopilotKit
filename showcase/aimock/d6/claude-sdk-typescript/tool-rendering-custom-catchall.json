@@ -1,0 +1,65 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / tool-rendering-custom-catchall",
+    "sourceFile": "d5-tool-rendering-custom-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-custom-catchall — follow-up narration after get_weather tool result. Scoped via turnIndex:1 (assistant-count = 1 means 'one tool-call leg has been emitted; we're now narrating the result'). The Anthropic Responses API path auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the assistant-count gate fires.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "turnIndex": 1,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Tokyo is 22 degrees C and partly cloudy. The custom wildcard renderer should display a card for the get_weather tool call — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — first prompt 'weather in Tokyo'. Emits get_weather tool call. The custom wildcard renderer fires for any tool the user doesn't explicitly handle. hasToolResult:false on the tool-emitting fixtures.",
+      "match": {
+        "userMessage": "Forecast Tokyo through the wildcard renderer",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — follow-up narration after get_stock_price tool result. Scoped via turnIndex:3 (assistant-count = 3 means weather-emit + weather-narrate + stock-emit have happened; we're now narrating the AAPL tool result). The Anthropic Responses API path auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the AAPL tool-emit sibling so first-match-wins picks narration once the AAPL assistant-count gate fires.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "turnIndex": 3,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day. The custom wildcard renderer should display a card for the get_stock_price tool call — rendered through the custom wildcard catchall."
+      }
+    },
+    {
+      "_comment": "tool-rendering-custom-catchall — second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer. turnIndex:2 means exactly two prior assistant turns (Tokyo emit + Tokyo narrate) have happened, the AAPL prompt has just arrived, and no AAPL tool-call has been emitted yet. The narration sibling above (turnIndex:3) fires after this emit produces its assistant tool-call message.",
+      "match": {
+        "userMessage": "Quote AAPL through the wildcard renderer",
+        "turnIndex": 2,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_cc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    }
+  ]
+}

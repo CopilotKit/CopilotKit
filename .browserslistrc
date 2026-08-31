@@ -1,0 +1,6 @@
+# kaios 2.5 excluded deliberately — Gecko 48 era; excluded for CSS autoprefixer consumers.
+# JS compat targets (es2022 ESM/CJS, es2018 UMD; es2020 for react-core UMD) are hardcoded in tsdown configs and compat-check scripts.
+defaults
+not dead
+not op_mini all
+not kaios 2.5

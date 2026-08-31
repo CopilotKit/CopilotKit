@@ -1,4 +1,5 @@
-agno>=2.5.17
+agno==2.6.19
+sqlalchemy>=2.0.0
 openai>=1.88.0
 fastapi>=0.115.13
 uvicorn[standard]>=0.34.3

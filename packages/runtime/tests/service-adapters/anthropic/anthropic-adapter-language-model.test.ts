@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { AnthropicProviderSettings } from "@ai-sdk/anthropic";
-import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
+import { AnthropicAdapter } from "../../../src/v1-deprecated/service-adapters/anthropic/anthropic-adapter";
 import Anthropic from "@anthropic-ai/sdk";
 
 // Keys from AnthropicProviderSettings that we forward from the Anthropic SDK client.
 type ForwardedAnthropicKeys = "baseURL" | "apiKey" | "headers" | "fetch";
 
 // We don't set `name` or `generateId` — they're provider-internal concerns.
-type ControlledAnthropicKeys = "name" | "generateId";
+// `authToken` is an alternative auth mechanism the adapter does not forward.
+type ControlledAnthropicKeys = "name" | "generateId" | "authToken";
 
 // Compile-time exhaustiveness check: every key in AnthropicProviderSettings
 // must be accounted for. If this line errors, a new key was added.
@@ -74,7 +75,7 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
 
     const adapter = new AnthropicAdapter({
       anthropic,
-      model: "claude-3-5-sonnet-latest",
+      model: "claude-sonnet-4-6",
     });
     adapter.getLanguageModel();
 
@@ -86,7 +87,7 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
     expect(settings.headers).toEqual({ "x-custom": "value" });
     expect(settings.fetch).toBe(customFetch);
 
-    expect(mockProviderFn).toHaveBeenCalledWith("claude-3-5-sonnet-latest");
+    expect(mockProviderFn).toHaveBeenCalledWith("claude-sonnet-4-6");
   });
 
   it("works with default Anthropic config (no custom options)", () => {
@@ -97,5 +98,16 @@ describe("AnthropicAdapter.getLanguageModel()", () => {
     const settings = mockCreateAnthropic.mock.calls[0][0];
     expect(settings.baseURL).toBe("https://api.anthropic.com/v1");
     expect(settings.apiKey).toBe("sk-ant-default");
+    expect(mockProviderFn).toHaveBeenCalledWith("claude-opus-4-8");
+  });
+
+  it("passes explicitly configured model identifiers through unchanged", () => {
+    const retiredModel = ["claude", "3", "7", "sonnet"].join("-");
+    const anthropic = new Anthropic({ apiKey: "sk-ant-explicit" });
+    const adapter = new AnthropicAdapter({ anthropic, model: retiredModel });
+
+    adapter.getLanguageModel();
+
+    expect(mockProviderFn).toHaveBeenCalledWith(retiredModel);
   });
 });

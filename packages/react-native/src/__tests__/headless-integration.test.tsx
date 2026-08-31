@@ -1,6 +1,9 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+// Type-only (erased at runtime, so it does not defeat the vi.mock hoisting
+// below): shapes the importOriginal() spread in the @copilotkit/shared mock.
+import type * as CopilotKitShared from "@copilotkit/shared";
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -210,7 +213,31 @@ vi.mock("@copilotkit/react-core/v2/context", () => {
   };
 });
 
-vi.mock("@copilotkit/shared", () => ({
+// Mock @gorhom/bottom-sheet to prevent its CommonJS require("react-native")
+// from bypassing the vite alias and loading the Flow-syntax react-native.
+vi.mock("@gorhom/bottom-sheet", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    default: React.forwardRef((props: any, ref: any) =>
+      React.createElement("mock-bottom-sheet", { ref }, props.children),
+    ),
+    BottomSheetBackdrop: () => null,
+    BottomSheetFlatList: "FlatList",
+    BottomSheetView: (props: any) =>
+      React.createElement("div", null, props.children),
+  };
+});
+
+// Spread the real module rather than replacing it: `../headless` re-exports
+// @copilotkit/core's runtime enums (ToolCallStatus / CopilotKitCoreErrorCode /
+// CopilotKitCoreRuntimeConnectionStatus) as VALUES, so importing `../index`
+// evaluates real @copilotkit/core, which named-imports RUNTIME_MODE_SSE and
+// friends from @copilotkit/shared. A replace-everything factory has to restate
+// every one of those or the import throws; only createLicenseContextValue needs
+// stubbing here.
+vi.mock("@copilotkit/shared", async (importOriginal) => ({
+  ...(await importOriginal<typeof CopilotKitShared>()),
   createLicenseContextValue: () => ({
     status: null,
     license: null,
@@ -270,7 +297,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "test-tool",
           description: "A test tool",
-          parameters: {},
           handler: async () => "done",
         });
         return null;
@@ -326,7 +352,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "multi-tool",
           description: "Another tool",
-          parameters: {},
           handler: async () => "ok",
         });
         return null;
@@ -369,7 +394,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "orphan-tool",
           description: "No provider",
-          parameters: {},
           handler: async () => "fail",
         });
         return null;
@@ -401,7 +425,7 @@ describe("Headless integration", () => {
 
     it("useHumanInTheLoop throws when called outside CopilotKitProvider", () => {
       function TestComponent() {
-        useHumanInTheLoop();
+        useHumanInTheLoop({ name: "orphan-hitl", render: () => null });
         return null;
       }
 
@@ -416,7 +440,7 @@ describe("Headless integration", () => {
 
     it("useInterrupt throws when called outside CopilotKitProvider", () => {
       function TestComponent() {
-        useInterrupt();
+        useInterrupt({ render: () => <></> });
         return null;
       }
 

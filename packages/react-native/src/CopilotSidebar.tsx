@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import type { ViewStyle } from "react-native";
 import { CopilotChat } from "./CopilotChat";
-import type { CopilotChatProps } from "./CopilotChat";
+import type { CopilotChatBaseProps } from "./CopilotChat";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,7 +34,7 @@ export interface CopilotSidebarHandle {
 }
 
 export interface CopilotSidebarProps extends Omit<
-  CopilotChatProps,
+  CopilotChatBaseProps,
   "children"
 > {
   /**
@@ -295,7 +295,7 @@ function resolveWidth(
 
 const styles = StyleSheet.create({
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: `rgba(0, 0, 0, ${BACKDROP_OPACITY})`,
     zIndex: 999,
   },

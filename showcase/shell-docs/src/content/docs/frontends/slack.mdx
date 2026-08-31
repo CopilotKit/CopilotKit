@@ -1,0 +1,290 @@
+---
+title: Connect and run your agent in Slack
+description: Run any supported agent framework in Slack through a managed CopilotKit Intelligence connection.
+icon: "lucide/Slack"
+doc_type: tutorial
+---
+
+In this guide, you will connect an AG-UI agent to a managed Slack app,
+start a long-running Channels SDK listener, and verify a real workspace message.
+CopilotKit Intelligence holds the Slack credentials; your process holds the
+agent and application logic.
+
+New to the product? Start with the [Channels overview](/channels) to understand
+how the SDK, Runtime, Intelligence, and provider connection fit together.
+
+Before you continue, [configure the Channel in Intelligence](/channels/intelligence).
+You should have `CHANNEL_CODE` and `INTELLIGENCE_API_KEY`.
+
+## Before you start
+
+- Node.js 22 or later; the managed launcher requires the global `WebSocket`
+  available in Node.js 22+
+- A long-running Node host or container; serverless request handlers cannot own
+  the persistent gateway connection
+
+## Build and run your Channel
+
+<Steps>
+  <Step>
+    ### Create the runner
+
+    The install command below uses an exact, tested SDK pair; upgrade
+    `@copilotkit/channels` and `@copilotkit/runtime` together.
+
+    ```bash title="Terminal"
+    mkdir my-slack-channel
+    cd my-slack-channel
+    npm init -y
+    npm pkg set type=module
+    npm install --save-exact @copilotkit/channels@0.6.1 @copilotkit/runtime@1.65.0
+    npm install -D tsx typescript @types/node
+    ```
+
+    Add a NodeNext TypeScript configuration:
+
+    ```json title="tsconfig.json"
+    {
+      "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "types": ["node"]
+      },
+      "include": ["*.ts", "*.tsx"]
+    }
+    ```
+
+  </Step>
+
+  <Step>
+    ### Connect your agent backend
+
+    The Channels process can use any supported backend. The selector's
+    **Agent backend** controls the setup below. It must export a fresh
+    `makeAgent(threadId)` result for each Slack conversation; do not share one
+    stateful agent instance across threads.
+
+    <FrameworkSetup concept="channels-agent-setup" />
+
+  </Step>
+
+  <Step>
+    ### Declare the managed Slack Channel
+
+    Create the listener below. Replace `support-slack` with the exact Code shown
+    in Intelligence.
+
+    ```ts title="channel.ts"
+    import { createServer } from "node:http";
+    import { createChannel } from "@copilotkit/channels";
+    import {
+      CopilotKitIntelligence,
+      CopilotRuntime,
+    } from "@copilotkit/runtime/v2";
+    import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+    import { makeAgent } from "./agent.js";
+
+    function required(name: string): string {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing required environment variable: ${name}`);
+      return value;
+    }
+
+    const channel = createChannel({
+      name: required("CHANNEL_CODE"),
+      identifyUser: "platform",
+      agent: makeAgent,
+    });
+
+    channel.onMessage(async ({ thread, message }) => {
+      await thread.runAgent({
+        // Combine text and attachments explicitly when both are present.
+        prompt: message.contentParts?.length
+          ? [
+              ...(message.text
+                ? [{ type: "text" as const, text: message.text }]
+                : []),
+              ...message.contentParts,
+            ]
+          : message.text,
+        context: [
+          { description: "Originating platform", value: message.platform },
+        ],
+      });
+    });
+
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: required("INTELLIGENCE_API_KEY"),
+      // Managed deployments use the hosted defaults. Override both URLs
+      // together only for self-hosted or non-production Intelligence.
+      apiUrl: process.env.INTELLIGENCE_API_URL,
+      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
+    });
+
+    const runtime = new CopilotRuntime({
+      agents: {},
+      intelligence,
+      channels: [channel],
+    });
+
+    // Wire teardown before the listener exists, because creating it is what
+    // starts the Channel. A Ctrl-C during the connect window then still tears
+    // the Channel down instead of hitting Node's default handler.
+    let teardown: (() => Promise<void>) | undefined;
+    const shutdown = async () => {
+      await teardown?.();
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+
+    const listener = createCopilotNodeListener({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+    const channels = listener.channels;
+    const server = createServer(listener);
+    teardown = async () => {
+      await channels.stop();
+      if (server.listening) server.close();
+    };
+
+    // Optional: block startup until the activation above settles, so a broken
+    // deploy fails loudly instead of serving as a bot that never answers.
+    await channels.ready({ timeoutMs: 30_000 });
+    const status = channels.status();
+    if (status.overall !== "online") {
+      throw new Error(`Slack Channel is not online: ${JSON.stringify(status)}`);
+    }
+
+    const port = Number(process.env.PORT ?? 3000);
+    server.listen(port, () => {
+      console.log(`Slack Channel online; lifecycle server listening on :${port}`);
+    });
+    ```
+
+    Creating the Node listener starts the Channel: it owns its own process
+    lifetime, so a declared Channel connects because it was declared. `ready()`
+    is therefore optional and purely await-and-observe — it resolves once
+    activation settles and rejects with the activation failure. Because it can
+    settle with setup still required, inspect `status()` before reporting the
+    Channel online. Skip `ready()` and activation failures land in your logs
+    instead.
+
+  </Step>
+
+  <Step>
+    ### Configure secrets and start
+
+    ```dotenv title=".env"
+    INTELLIGENCE_API_KEY=<project-api-key>
+    CHANNEL_CODE=support-slack
+    # Add the agent variables shown for your selected backend.
+    PORT=3000
+
+    # Optional paired overrides for self-hosted or non-production Intelligence:
+    # INTELLIGENCE_API_URL=https://intelligence.example.com
+    # INTELLIGENCE_GATEWAY_WS_URL=wss://realtime.intelligence.example.com
+    ```
+
+    Hosted Intelligence supplies both managed base URLs by default. For a
+    self-hosted or non-production deployment, override both together. The REST
+    and realtime planes use separate hosts, so do not derive the WebSocket URL
+    from the API URL. Pass each as a bare base URL without `/api`, `/socket`,
+    `/runner`, or `/client`. Create the project-scoped runtime key from **API
+    Keys** in the Intelligence project sidebar.
+
+    Keep `.env` out of source control, start the selected agent backend, then
+    run:
+
+    ```bash title="Terminal"
+    node --env-file=.env --import tsx channel.ts
+    ```
+
+    Intelligence should change from **Waiting for runtime** to **Online**.
+
+    #### Know the healthy state
+
+    Starting the process is what connects the Channel, so it should become
+    **Online** on its own; the `await channels.ready(...)` in this guide only
+    waits for that to settle.
+
+    | Status | What to check |
+    | --- | --- |
+    | **Disabled** | Enable the Channel before expecting delivery. |
+    | **Setup incomplete** | Finish the selected provider's required setup fields before starting the runtime. |
+    | **Setup failed** | Reopen platform setup and correct the rejected credentials or configuration. |
+    | **Waiting for runtime** | Start the process — creating the listener connects the Channel — and match its Code and provider to this Channel. |
+    | **Conflict** | Compare every replica's complete Channel declaration set. Identical replicas should elect one active owner and connected standbys; different but overlapping sets are unsafe. |
+    | **Offline** | Check the listener process, network, and Intelligence gateway connection. |
+    | **Delivery failing** | Check platform credentials, app permissions, and the provider response. |
+    | **Online** | The runtime is connected; send a real provider message to verify the full path. |
+
+  </Step>
+
+  <Step>
+    ### Verify a real Slack message
+
+    Invite the app if needed, then mention it in a channel:
+
+    ```text title="Slack"
+    /invite @your-app
+    @your-app summarize the decisions in this thread
+    ```
+
+    Also test a direct message. A response in the real workspace validates the
+    Slack token pair, Intelligence delivery, gateway listener, AG-UI agent, and
+    reply path end to end.
+
+  </Step>
+</Steps>
+
+## Tool-call progress
+
+Managed Slack keeps tool-call progress out of the streamed reply by default, so
+the conversation ends with a clean result. Tool lifecycle events still remain
+in Intelligence history and are available during replay.
+
+Opt in per Channel when the live tool timeline is useful:
+
+```ts title="channel.ts"
+const channel = createChannel({
+  name: required("CHANNEL_CODE"),
+  identifyUser: "platform",
+  agent: makeAgent,
+  showToolStatus: true,
+});
+```
+
+## Troubleshooting
+
+<Accordions>
+  <Accordion title="The Channel stays at Waiting for runtime">
+    Confirm `CHANNEL_CODE` exactly matches the Intelligence Code and the
+    project-scoped `INTELLIGENCE_API_KEY` belongs to the same project. Provider
+    routing comes from the Slack connection attached in Intelligence, not from a
+    `createChannel` option.
+  </Accordion>
+  <Accordion title="Startup reports setup_required">
+    Reopen the Channel in Intelligence and finish the Slack credential steps.
+    `ready()` settling does not by itself mean the provider is online.
+  </Accordion>
+  <Accordion title="The app is Online but never receives a mention">
+    Invite it to the channel, then verify the `xoxb-…` Bot User OAuth token and
+    Signing Secret came from the same Slack app. Intelligence cannot fully
+    detect valid but mismatched credentials during setup. If you updated the
+    manifest or scopes, reinstall the app and save the current bot token in
+    Intelligence before retrying.
+  </Accordion>
+  <Accordion title="The agent mixes conversations">
+    Ensure `makeAgent` creates a new agent for every `threadId` and assigns that
+    id where the selected framework requires it.
+  </Accordion>
+</Accordions>
+
+Next, [map application users and choose Memory grants](/channels/identity-and-memory),
+add [tools and context](/channels/tools), or build
+[interactive approvals](/channels/interactive).

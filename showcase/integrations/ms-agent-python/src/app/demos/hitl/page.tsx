@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useHumanInTheLoop,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { useHitlSuggestions } from "./suggestions";
 
 interface Step {
   description: string;
@@ -23,34 +23,15 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Simple plan",
-        message: "Please plan a trip to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please plan a pasta dish in 10 steps.",
-      },
-    ],
-    available: "always",
-  });
+  useHitlSuggestions();
 
-  useLangGraphInterrupt({
-    render: ({ event, resolve }) => (
-      <StepSelector
-        steps={event.value?.steps || []}
-        onConfirm={(selectedSteps) => {
-          resolve(
-            "The user selected the following steps: " +
-              selectedSteps.map((s) => s.description).join(", "),
-          );
-        }}
-      />
-    ),
-  });
-
+  // NB: dropped the `useLangGraphInterrupt({...})` registration here because
+  // MS Agent Framework has no `interrupt()` primitive — the agent only ever
+  // emits a regular `generate_task_steps` tool call, which `useHumanInTheLoop`
+  // below handles. On LGP the langgraph-interrupt path coexists with the
+  // tool-call path; on MAF it's dead code and pulls in a V1 import that
+  // would break the V2 hook wiring (see GOTCHAS: V1 + V2 mixing silently
+  // unregisters tool renderers).
   useHumanInTheLoop({
     agentId: "human_in_the_loop",
     name: "generate_task_steps",

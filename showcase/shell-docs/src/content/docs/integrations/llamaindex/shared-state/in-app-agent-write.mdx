@@ -3,7 +3,6 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-
 <IframeSwitcher
   id="shared-state-write-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -14,8 +13,7 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates writing to shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
+  This example demonstrates writing to shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/llama-index/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -31,7 +29,7 @@ You can use this when you want to provide user input or control to your agent's 
 <Steps>
   <Step>
     ### Run and connect your agent
-    <RunAndConnect />
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -77,6 +75,7 @@ You can use this when you want to provide user input or control to your agent's 
         return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
+        import uvicorn
         uvicorn.run(app, host="localhost", port=8000)
     ```
 
@@ -89,6 +88,7 @@ You can use this when you want to provide user input or control to your agent's 
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -148,6 +148,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 // ...
 

@@ -163,7 +163,7 @@ function createRailwayAdapter(
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
 } {
-  const endpoint = "https://backboard.railway.com/graphql/v2";
+  const endpoint = "https://backboard.railway.app/graphql/v2";
 
   async function gql<T>(
     query: string,

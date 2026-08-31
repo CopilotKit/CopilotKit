@@ -1,0 +1,18 @@
+<Steps>
+  <Step>
+    ### Install the LangGraph Python SDK
+
+    <InstallPythonSDK />
+
+  </Step>
+  <Step>
+    ### Add state streaming middleware
+
+    `StateStreamingMiddleware` maps a tool argument to an agent state key and
+    forwards partial tool-call arguments as state updates while the model is
+    still generating.
+
+    <DemoCode file="src/agents/shared_state_streaming.py" region="state-streaming-middleware" />
+
+  </Step>
+</Steps>

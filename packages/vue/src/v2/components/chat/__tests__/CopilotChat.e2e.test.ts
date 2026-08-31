@@ -1069,7 +1069,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       );
 
       await waitFor(() => {
-        const chatLevelCursor = screen.queryByTestId("copilot-chat-cursor");
+        const chatLevelCursor = screen.queryByTestId("copilot-loading-cursor");
         expect(chatLevelCursor).toBeNull();
       });
 
@@ -1098,7 +1098,7 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       });
 
       await waitFor(() => {
-        const chatLevelCursor = screen.queryByTestId("copilot-chat-cursor");
+        const chatLevelCursor = screen.queryByTestId("copilot-loading-cursor");
         expect(chatLevelCursor).not.toBeNull();
       });
 

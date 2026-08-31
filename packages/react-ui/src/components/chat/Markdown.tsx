@@ -1,9 +1,31 @@
-import { FC, memo, useMemo } from "react";
-import ReactMarkdown, { Options, Components } from "react-markdown";
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/react-ui — Markdown:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (Chat UI): https://docs.copilotkit.ai/prebuilt-components/chat
+ *   Start at: @copilotkit/react-core/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
+import type { FC } from "react";
+import { memo, useMemo } from "react";
+import type { Options, Components } from "react-markdown";
+import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 
 const defaultComponents: Components = {
   a({ children, ...props }) {
@@ -148,7 +170,7 @@ export const Markdown = ({
     [remarkPlugins],
   );
   const mergedRehypePlugins = useMemo<Options["rehypePlugins"]>(
-    () => [rehypeRaw, ...(rehypePlugins ?? [])],
+    () => [rehypeRaw, ...(rehypePlugins ?? []), rehypeSanitize],
     [rehypePlugins],
   );
   return (

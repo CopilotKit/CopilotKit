@@ -14,6 +14,7 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
+import { getRuntimeConfig } from "./runtime-config";
 
 export const DOCS_CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
 export const REFERENCE_CONTENT_DIR = path.join(
@@ -138,9 +139,10 @@ export function resolveLastModified(absFilePath: string): Date {
  * root URL is emitted only once by the caller.
  */
 export function getBareDocsPages(): MdxEntry[] {
-  return walkMdx(DOCS_CONTENT_DIR, new Set(["integrations"])).filter(
-    (e) => e.slug.length > 0,
-  );
+  return walkMdx(
+    DOCS_CONTENT_DIR,
+    new Set(["frontends", "integrations"]),
+  ).filter((e) => e.slug.length > 0);
 }
 
 /**
@@ -173,13 +175,13 @@ export function getAgUiPages(): MdxEntry[] {
 }
 
 /**
- * Resolve the canonical base URL. Reads `NEXT_PUBLIC_BASE_URL` (set in
- * production to `https://docs.copilotkit.ai`) and strips any trailing
- * slash so callers can concatenate `${BASE}/${path}` safely. Falls back
- * to the production host so SSG always yields absolute URLs even when
- * the env var hasn't been wired yet.
+ * Resolve the canonical base URL. Delegates to the server runtime
+ * config reader. Non-production can override `NEXT_PUBLIC_BASE_URL`; a
+ * production-mode server always returns the canonical docs origin so a stale
+ * deployment variable or alternate serving hostname cannot leak into machine
+ * surfaces. Lives behind this wrapper so sitemap / robots / metadata / LLM
+ * call sites stay single-sourced.
  */
 export function getBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_BASE_URL || "https://docs.copilotkit.ai";
-  return raw.replace(/\/+$/, "");
+  return getRuntimeConfig().baseUrl;
 }

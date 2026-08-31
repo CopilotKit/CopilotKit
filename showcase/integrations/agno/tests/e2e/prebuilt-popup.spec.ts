@@ -8,16 +8,20 @@ test.describe("Pre-Built Popup", () => {
   test("page loads with heading and the popup open by default", async ({
     page,
   }) => {
+    // Verbatim heading from the demo source confirms the route mounted.
     await expect(
-      page.getByRole("heading", {
-        name: "Popup demo — look for the floating launcher",
-      }),
+      page.getByRole("heading", { name: "Popup demo" }),
     ).toBeVisible();
 
+    // defaultOpen={true} means the popup window is open on first paint. The
+    // demo sets a custom placeholder via labels.chatInputPlaceholder — we
+    // assert on that literal string to prove the popup rendered AND its
+    // labels override took effect.
     await expect(
       page.getByPlaceholder("Ask the popup anything..."),
     ).toBeVisible();
 
+    // The floating launcher/toggle is present on the page.
     await expect(
       page.locator('[data-testid="copilot-chat-toggle"]').first(),
     ).toBeVisible();
@@ -26,6 +30,7 @@ test.describe("Pre-Built Popup", () => {
   test('"Say hi" suggestion pill renders and produces an assistant response', async ({
     page,
   }) => {
+    // useConfigureSuggestions registers "Say hi" with available: "always".
     const sayHiPill = page
       .locator('[data-testid="copilot-suggestion"]')
       .filter({ hasText: "Say hi" })
@@ -34,6 +39,7 @@ test.describe("Pre-Built Popup", () => {
 
     await sayHiPill.click();
 
+    // Pill sends "Say hi from the popup!" — neutral agent replies with text.
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45000 });
@@ -45,25 +51,43 @@ test.describe("Pre-Built Popup", () => {
     const input = page.getByPlaceholder("Ask the popup anything...");
     await input.fill("Hello");
 
+    // Click the send button directly — Enter-on-textarea was intermittently
+    // dropping the submit on this deployment. The send-button testid is the
+    // stable per-chat-input affordance that always triggers the submit
+    // handler.
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
+    // Assistant responds — neutral agent, no tools.
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45000 });
   });
 
-  test("popup close button hides the popup; launcher re-mounts it", async ({
+  test("popup close button unmounts the popup; launcher re-mounts it", async ({
     page,
   }) => {
     const popup = page.locator('[data-testid="copilot-popup"]');
     await expect(popup).toBeVisible();
 
-    await page.locator('[data-testid="copilot-close-button"]').first().click();
+    // CopilotPopupView unmounts its content when closed (tracked by its
+    // internal isRendered state), so the most reliable close signal is the
+    // popup's own testid disappearing from the DOM. The dev-only
+    // <cpk-web-inspector> overlay (auto-enabled on localhost) intercepts
+    // Playwright's pointer-based click, so use a JS-level .click() that
+    // bypasses the overlay (same pattern as _genuine-shared.ts:clickByJs).
+    await page.evaluate(() => {
+      const btn = document.querySelector(
+        '[data-testid="copilot-close-button"]',
+      );
+      if (btn) (btn as HTMLElement).click();
+    });
     await expect(popup).toBeHidden({ timeout: 10000 });
 
+    // Floating launcher remains on the page and re-mounts the popup.
     await page.locator('[data-testid="copilot-chat-toggle"]').first().click();
     await expect(popup).toBeVisible({ timeout: 10000 });
 
+    // URL unchanged — toggling is pure client-side state.
     await expect(page).toHaveURL(/\/demos\/prebuilt-popup$/);
   });
 });

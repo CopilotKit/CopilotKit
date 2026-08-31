@@ -37,7 +37,7 @@ describe("CopilotKit config", () => {
     expect(fixture.componentInstance.config.headers).toBe(headers);
   });
 
-  it("does not throw when license key is missing and logs watermark warning", () => {
+  it("does not throw or warn when license key is missing (watermark disabled)", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     expect(() => {
@@ -46,7 +46,7 @@ describe("CopilotKit config", () => {
       });
     }).not.toThrow();
 
-    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 
   it("does not inject invalid license key into headers", () => {

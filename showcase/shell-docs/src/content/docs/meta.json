@@ -4,12 +4,26 @@
     "---Get Started---",
     "index",
     "quickstart",
-    "coding-agents",
+    "cli",
+    "build-with-agents",
     "---Concepts---",
     "...concepts",
     "...agentic-protocols",
     "---Build Chat UIs---",
     "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "threads-self-managed",
+        "premium/threads-explained"
+      ]
+    },
     "custom-look-and-feel",
     "multimodal-attachments",
     "voice",
@@ -18,7 +32,15 @@
     "...generative-ui",
     "---Add Agent Powers---",
     "frontend-tools",
-    "shared-state",
+    {
+      "title": "Shared State",
+      "pages": [
+        "shared-state",
+        "shared-state/rendering-in-app",
+        "shared-state/streaming",
+        "shared-state/agent-readonly"
+      ]
+    },
     "human-in-the-loop",
     "multi-agent/subagents",
     "agent-config",
@@ -30,12 +52,12 @@
     "---Observe & Operate---",
     "inspector",
     "vs-code-extension",
-    "---Enterprise---",
-    "premium/intelligence-platform",
-    "premium/threads-explained",
-    "premium/observability",
+    "---Intelligence---",
+    "premium/overview",
+    "premium/managed-intelligence-platform",
+    "premium/connect-your-runtime",
     "premium/self-hosting",
-    "threads",
+    "premium/intelligence-platform",
     "---Deploy---",
     "...deploy",
     "---Other---",
@@ -44,11 +66,12 @@
       "title": "Troubleshooting",
       "pages": [
         "troubleshooting/common-issues",
+        "troubleshooting/error-reference",
         "troubleshooting/error-debugging",
+        "troubleshooting/inspector-dev-console",
         "troubleshooting/debug-mode",
         "troubleshooting/event-inspector",
-        "troubleshooting/hook-explorer",
-        "troubleshooting/observability-connectors"
+        "troubleshooting/hook-explorer"
       ]
     },
     {
@@ -64,7 +87,7 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.8.2"]
+      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
     }
   ]
 }

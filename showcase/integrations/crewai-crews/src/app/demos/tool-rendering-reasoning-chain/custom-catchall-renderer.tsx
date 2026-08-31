@@ -2,6 +2,16 @@
 
 import React from "react";
 
+// Branded catch-all renderer for tools that don't have a dedicated
+// per-tool renderer. Registered via `useDefaultRenderTool` in page.tsx,
+// this component handles every tool call NOT claimed by a named
+// `useRenderTool` registration (e.g. get_stock_price, roll_dice).
+//
+// Shows the tool name, a status badge, pretty-printed arguments, and
+// the result (as JSON). Each cell is self-contained, so this file is
+// intentionally duplicated from the `tool-rendering-custom-catchall`
+// cell rather than imported across cell boundaries.
+
 export type CatchallToolStatus = "inProgress" | "executing" | "complete";
 
 export interface CustomCatchallRendererProps {
@@ -32,40 +42,97 @@ export function CustomCatchallRenderer({
           <span className="text-[10px] uppercase tracking-[0.14em] text-[#838389]">
             Tool
           </span>
-          <span className="font-mono text-sm text-[#010507]">{name}</span>
+          <span
+            data-testid="custom-catchall-tool-name"
+            className="font-mono text-sm text-[#010507]"
+          >
+            {name}
+          </span>
         </div>
-        <span className="rounded-full border border-[#DBDBE5] bg-[#FAFAFC] px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
-          {status}
-        </span>
+        <StatusBadge status={status} />
       </div>
+
       <div className="grid gap-3 p-4 text-sm">
-        <div>
-          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
-            Arguments
-          </div>
-          <pre className="overflow-x-auto rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 font-mono text-xs text-[#010507]">
+        <Section label="Arguments">
+          <pre
+            data-testid="custom-catchall-args"
+            className="overflow-x-auto rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 font-mono text-xs text-[#010507]"
+          >
             {safeStringify(parameters)}
           </pre>
-        </div>
-        <div>
-          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
-            Result
-          </div>
+        </Section>
+
+        <Section label="Result">
           {done ? (
-            <pre className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507]">
+            <pre
+              data-testid="custom-catchall-result"
+              className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507]"
+            >
               {parsedResult !== undefined
                 ? safeStringify(parsedResult)
                 : "(empty)"}
             </pre>
           ) : (
             <p className="text-xs italic text-[#838389]">
-              waiting for tool to finish...
+              waiting for tool to finish…
             </p>
           )}
-        </div>
+        </Section>
       </div>
     </div>
   );
+}
+
+function Section({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
+        {label}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: CatchallToolStatus }) {
+  const { label, tone } = describeStatus(status);
+  return (
+    <span
+      data-testid="custom-catchall-status"
+      className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function describeStatus(status: CatchallToolStatus): {
+  label: string;
+  tone: string;
+} {
+  switch (status) {
+    case "inProgress":
+      return {
+        label: "streaming",
+        tone: "border border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B]",
+      };
+    case "executing":
+      return {
+        label: "running",
+        tone: "border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507]",
+      };
+    case "complete":
+      return {
+        label: "done",
+        tone: "border border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370]",
+      };
+  }
 }
 
 function parseResult(result: string | undefined): unknown {

@@ -15,6 +15,12 @@ export interface NotesCardProps {
   notes?: Note[];
 }
 
+/**
+ * Branded card rendering the client-side "notes DB query" result.
+ * Mirrors the per-tool render path used by other tool-rendering cells —
+ * but the `notes` array is awaited from an async handler living entirely
+ * in the browser (no backend tool involved).
+ */
 export function NotesCard({ loading, keyword, notes }: NotesCardProps) {
   return (
     <div
@@ -40,7 +46,7 @@ export function NotesCard({ loading, keyword, notes }: NotesCardProps) {
             </p>
           </div>
           <div className="text-xl" aria-hidden>
-            {loading ? "..." : "NOTE"}
+            {loading ? "..." : "📓"}
           </div>
         </div>
 

@@ -1,0 +1,330 @@
+---
+title: "useHumanInTheLoop"
+description: "React hook for interactive tools that pause agent execution and wait for user input"
+---
+
+## Overview
+
+`useHumanInTheLoop` registers an interactive tool that pauses agent execution until the user responds through your custom UI. Unlike `useFrontendTool`, there is no `handler` function. Instead, the hook provides an internal status machine (`InProgress` -> `Executing` -> `Complete`) and supplies a `respond` callback to the render component while the tool is in the `Executing` state. The agent remains paused until `respond` is called with the user's input.
+
+<Callout type="info">
+  Re-exported from `@copilotkit/react-core/v2`, identical to the [React (V2) `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop). The only difference is the import path.
+</Callout>
+
+This hook is built on top of `useFrontendTool` with an internally managed handler that resolves the tool call promise when `respond` is invoked. Use it for confirmation dialogs, approval workflows, form collection, or any scenario where a human must provide input before the agent can continue. The `render` component returns React Native elements that CopilotKit surfaces in the chat. See [`useRenderTool`](/reference/react-native/hooks/useRenderTool) for the underlying React Native render mechanism.
+
+## Signature
+
+```tsx
+import { useHumanInTheLoop } from "@copilotkit/react-native";
+
+function useHumanInTheLoop<T extends Record<string, unknown>>(
+  tool: ReactHumanInTheLoop<T>,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="tool" type="ReactHumanInTheLoop<T>" required>
+  The interactive tool definition.
+
+<PropertyReference name="name" type="string" required>
+  A unique name for the tool. The agent references this name when it needs human
+  input.
+</PropertyReference>
+
+<PropertyReference name="description" type="string" required>
+  A natural-language description that tells the agent what the tool does and
+  when to invoke it (e.g., "Ask the user to confirm before deleting records").
+</PropertyReference>
+
+<PropertyReference name="parameters" type="z.ZodSchema" required>
+  A Zod schema defining the arguments the agent passes to the tool. These
+  arguments are forwarded to the render component so you can build context-aware
+  UI.
+</PropertyReference>
+
+  <PropertyReference name="render" type="React.ComponentType<RenderProps>" required>
+    A React Native component that drives the human interaction. The component receives different props depending on the current status:
+
+    **When `status` is `ToolCallStatus.InProgress`:**
+    - `args: Partial<T>`: partially streamed arguments
+    - `respond: undefined`: not yet available
+    - `result: undefined`
+
+    **When `status` is `ToolCallStatus.Executing`:**
+    - `args: T`: fully resolved arguments
+    - `respond: (result: unknown) => Promise<void>`: call this to send the user's response back to the agent and resume execution
+    - `result: undefined`
+
+    **When `status` is `ToolCallStatus.Complete`:**
+    - `args: T`: the original arguments
+    - `respond: undefined`: no longer available
+    - `result: string`: the serialized result
+
+  </PropertyReference>
+
+  <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
+    Controls tool availability. Set to `"disabled"` to temporarily prevent the agent from requesting human input through this tool.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="ReadonlyArray<unknown>">
+  An optional dependency array. When provided, the tool registration is
+  refreshed whenever any value in the array changes.
+</PropertyReference>
+
+## Usage
+
+### Confirmation Dialog
+
+A common pattern where the agent asks the user to confirm a destructive action.
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-native";
+import { z } from "zod";
+
+function DeleteConfirmation() {
+  useHumanInTheLoop(
+    {
+      name: "confirmDeletion",
+      description: "Ask the user to confirm before deleting items",
+      parameters: z.object({
+        itemName: z.string().describe("Name of the item to delete"),
+        itemCount: z.number().describe("Number of items to delete"),
+      }),
+      render: ({ args, status, respond, result }) => {
+        if (status === ToolCallStatus.InProgress) {
+          return (
+            <View style={{ padding: 16 }}>
+              <Text style={{ color: "#6b7280" }}>Preparing confirmation...</Text>
+            </View>
+          );
+        }
+
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <View style={{ padding: 16, borderWidth: 1, borderRadius: 8 }}>
+              <Text>
+                Are you sure you want to delete {args.itemCount} {args.itemName}
+                (s)?
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
+                <TouchableOpacity
+                  onPress={() => respond({ confirmed: true })}
+                  style={{ backgroundColor: "#ef4444", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}
+                >
+                  <Text style={{ color: "#fff" }}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => respond({ confirmed: false })}
+                  style={{ backgroundColor: "#d1d5db", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}
+                >
+                  <Text>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete && result) {
+          const parsed = JSON.parse(result);
+          return (
+            <View style={{ padding: 8 }}>
+              <Text style={{ fontSize: 12, color: "#4b5563" }}>
+                {parsed.confirmed ? "Items deleted." : "Deletion cancelled."}
+              </Text>
+            </View>
+          );
+        }
+
+        return null;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+### Form Input Collection
+
+Collect structured input from the user before the agent proceeds.
+
+```tsx
+import { useState } from "react";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-native";
+import { z } from "zod";
+
+function ShippingAddressForm() {
+  useHumanInTheLoop(
+    {
+      name: "collectShippingAddress",
+      description:
+        "Collect shipping address from the user before placing an order",
+      parameters: z.object({
+        orderSummary: z
+          .string()
+          .describe("A summary of the order being placed"),
+      }),
+      render: ({ args, status, respond }) => {
+        const [address, setAddress] = useState({
+          street: "",
+          city: "",
+          zip: "",
+        });
+
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <View style={{ padding: 16, borderWidth: 1, borderRadius: 8, gap: 12 }}>
+              <Text style={{ fontWeight: "500" }}>Order: {args.orderSummary}</Text>
+              <Text>Please enter your shipping address:</Text>
+              <TextInput
+                placeholder="Street address"
+                value={address.street}
+                onChangeText={(street) => setAddress({ ...address, street })}
+                style={{ borderWidth: 1, padding: 8, borderRadius: 6 }}
+              />
+              <TextInput
+                placeholder="City"
+                value={address.city}
+                onChangeText={(city) => setAddress({ ...address, city })}
+                style={{ borderWidth: 1, padding: 8, borderRadius: 6 }}
+              />
+              <TextInput
+                placeholder="ZIP code"
+                value={address.zip}
+                onChangeText={(zip) => setAddress({ ...address, zip })}
+                style={{ borderWidth: 1, padding: 8, borderRadius: 6 }}
+              />
+              <TouchableOpacity
+                onPress={() => respond(address)}
+                style={{ backgroundColor: "#3b82f6", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}
+              >
+                <Text style={{ color: "#fff" }}>Submit Address</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete) {
+          return (
+            <View style={{ padding: 8 }}>
+              <Text style={{ color: "#16a34a" }}>
+                Shipping address submitted.
+              </Text>
+            </View>
+          );
+        }
+
+        return null;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+### Approval Workflow with Context
+
+```tsx
+import { Text, TouchableOpacity, View } from "react-native";
+import { useHumanInTheLoop, ToolCallStatus } from "@copilotkit/react-native";
+import { z } from "zod";
+
+function ExpenseApproval() {
+  useHumanInTheLoop(
+    {
+      name: "approveExpense",
+      description: "Request manager approval for an expense report",
+      parameters: z.object({
+        employeeName: z.string().describe("Name of the employee"),
+        amount: z.number().describe("Expense amount in dollars"),
+        category: z.string().describe("Expense category"),
+        description: z.string().describe("Description of the expense"),
+      }),
+      render: ({ args, status, respond, result }) => {
+        if (status === ToolCallStatus.Executing && respond) {
+          return (
+            <View style={{ padding: 16, borderWidth: 1, borderRadius: 8 }}>
+              <Text style={{ fontWeight: "700" }}>Expense Approval Required</Text>
+              <View style={{ marginTop: 8, gap: 4 }}>
+                <Text style={{ fontSize: 12 }}>Employee: {args.employeeName}</Text>
+                <Text style={{ fontSize: 12 }}>Amount: ${args.amount.toFixed(2)}</Text>
+                <Text style={{ fontSize: 12 }}>Category: {args.category}</Text>
+                <Text style={{ fontSize: 12 }}>Description: {args.description}</Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
+                <TouchableOpacity
+                  onPress={() => respond({ approved: true })}
+                  style={{ backgroundColor: "#22c55e", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}
+                >
+                  <Text style={{ color: "#fff" }}>Approve</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() =>
+                    respond({ approved: false, reason: "Needs more detail" })
+                  }
+                  style={{ backgroundColor: "#ef4444", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}
+                >
+                  <Text style={{ color: "#fff" }}>Reject</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        }
+
+        if (status === ToolCallStatus.Complete && result) {
+          const parsed = JSON.parse(result);
+          return (
+            <View style={{ padding: 8 }}>
+              <Text style={{ fontSize: 12, color: parsed.approved ? "#16a34a" : "#dc2626" }}>
+                {parsed.approved
+                  ? "Expense approved."
+                  : `Expense rejected: ${parsed.reason}`}
+              </Text>
+            </View>
+          );
+        }
+
+        return null;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+## Behavior
+
+- **Blocks agent execution**: The agent pauses when this tool is called and waits for the `respond` callback to be invoked before continuing.
+- **Internal status machine**: The hook manages three states: `InProgress` (arguments streaming in), `Executing` (waiting for user response), and `Complete` (user has responded). Your render component receives the appropriate props for each state.
+- **Single response**: The `respond` callback should only be called once per tool invocation. Calling it resolves the tool call promise with the provided value.
+- **Built on `useFrontendTool`**: Under the hood, this hook wraps `useFrontendTool` with an internally generated handler, so all the same lifecycle behavior (mount/unmount registration, duplicate warnings) applies.
+- **Mount/Unmount lifecycle**: The tool and its render component are registered on mount and removed on unmount.
+- **No return value**: The hook returns `void`.
+
+## Related
+
+- [`useFrontendTool`](/reference/react-native/hooks/useFrontendTool): for tools with automated handlers that do not require user interaction
+- [`useRenderTool`](/reference/react-native/hooks/useRenderTool): the React Native mechanism for rendering tool calls inline in chat
+- [`ToolCallStatus`](#toolcallstatus): the status enum used across tool hooks
+- [React (V2) reference](/reference/v2/hooks/useHumanInTheLoop)
+
+## ToolCallStatus
+
+The `ToolCallStatus` enum is exported from `@copilotkit/react-native` and defines the three phases of tool execution:
+
+| Value                       | Description                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| `ToolCallStatus.InProgress` | Arguments are being streamed from the agent. The tool has not started executing yet.        |
+| `ToolCallStatus.Executing`  | Arguments are fully resolved. For `useHumanInTheLoop`, the `respond` callback is available. |
+| `ToolCallStatus.Complete`   | Execution is finished. The `result` string is available.                                    |

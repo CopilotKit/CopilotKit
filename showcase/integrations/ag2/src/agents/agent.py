@@ -9,12 +9,14 @@ the agent via the AG-UI protocol.
 from __future__ import annotations
 
 import json
-import os
+import logging
 from typing import Annotated, Any
 
+import openai
 from autogen import ConversableAgent, LLMConfig
 from autogen.ag_ui import AGUIStream
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 load_dotenv()
 
@@ -31,23 +33,39 @@ from tools import (
 )
 from tools.types import Flight
 
+from ._header_forwarding import get_forwarded_headers
+from ._request_context import get_latest_user_message
+
+logger = logging.getLogger(__name__)
+
+# Module-level async client: re-used across requests (httpx connection pool is
+# thread-safe). Using AsyncOpenAI inside an `async def` avoids blocking the
+# ASGI event loop on the secondary LLM call.
+_async_openai_client = openai.AsyncOpenAI()
+
 
 # =====
 # Tools
 # =====
 async def get_weather(
     location: Annotated[str, "City name to get weather for"],
-) -> dict[str, str | float]:
+) -> str:
     """Get current weather for a location."""
     result = get_weather_impl(location)
-    return {
-        "city": result["city"],
-        "temperature": result["temperature"],
-        "feels_like": result["feels_like"],
-        "humidity": result["humidity"],
-        "wind_speed": result["wind_speed"],
-        "conditions": result["conditions"],
-    }
+    # Return a JSON string (not a dict): autogen serializes dict returns with
+    # str(), producing a Python repr (single quotes) that the frontend's
+    # parseJsonResult/JSON.parse cannot parse — the weather card then renders
+    # "--" placeholders. Same pattern as search_flights below.
+    return json.dumps(
+        {
+            "city": result["city"],
+            "temperature": result["temperature"],
+            "feels_like": result["feels_like"],
+            "humidity": result["humidity"],
+            "wind_speed": result["wind_speed"],
+            "conditions": result["conditions"],
+        }
+    )
 
 
 # @endregion[weather-tool-backend]
@@ -55,28 +73,37 @@ async def get_weather(
 
 async def query_data(
     query: Annotated[str, "Natural language query for financial data"],
-) -> list:
+) -> str:
     """Query financial database for chart data."""
-    return query_data_impl(query)
+    # Return a JSON string (not a list): autogen serializes non-str returns
+    # with str(), producing a Python repr (single quotes) that the frontend's
+    # parseJsonResult/JSON.parse cannot parse. Same pattern as get_weather.
+    return json.dumps(query_data_impl(query))
 
 
 async def manage_sales_todos(
     todos: Annotated[list, "Complete list of sales todos"],
-) -> dict:
+) -> str:
     """Manage the sales pipeline."""
-    return {"todos": manage_sales_todos_impl(todos)}
+    # See contract comment on query_data above — return JSON, not dict.
+    # SalesTodo is a Pydantic model; coerce via model_dump for serialisability.
+    result = [t.model_dump() for t in manage_sales_todos_impl(todos)]
+    return json.dumps({"todos": result})
 
 
-async def get_sales_todos() -> list:
+async def get_sales_todos() -> str:
     """Get the current sales pipeline."""
-    return get_sales_todos_impl(None)
+    # See contract comment on query_data above — return JSON, not list.
+    # SalesTodo is a Pydantic model; coerce via model_dump for serialisability.
+    return json.dumps([t.model_dump() for t in get_sales_todos_impl(None)])
 
 
 async def schedule_meeting(
     reason: Annotated[str, "Reason for the meeting"],
-) -> dict:
+) -> str:
     """Schedule a meeting with user approval."""
-    return schedule_meeting_impl(reason)
+    # See contract comment on query_data above — return JSON, not dict.
+    return json.dumps(schedule_meeting_impl(reason))
 
 
 async def search_flights(
@@ -96,7 +123,16 @@ async def search_flights(
     For airlineLogo use Google favicon API:
     https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
     """
-    typed_flights: list[Flight] = [Flight(**f) for f in flights]
+    try:
+        typed_flights: list[Flight] = [Flight(**f) for f in flights]
+    except ValidationError as exc:
+        logger.warning(
+            "search_flights: invalid flight shape type=%s err=%s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return json.dumps({"error": f"invalid flight shape: {exc}"})
     result = search_flights_impl(typed_flights)
     return json.dumps(result)
 
@@ -109,35 +145,78 @@ async def generate_a2ui(
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
     """
-    import openai
-
-    client = openai.OpenAI()
-
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
-        ],
-        tools=[
-            {
-                "type": "function",
-                "function": RENDER_A2UI_TOOL_SCHEMA,
-            }
-        ],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    # A13: AsyncOpenAI inside async def (was sync openai.OpenAI which blocks
+    # the ASGI event loop). Forward x-* headers via extra_headers in addition
+    # to the global httpx hook so aimock context routing is explicit at the
+    # call site.
+    #
+    # R2-A1 / A4: thread the latest user prompt from the inbound
+    # RunAgentInput.messages payload (captured into a per-request ContextVar
+    # by RequestUserMessageMiddleware — see agents/_request_context.py) into
+    # the inner LLM call so each pill's request body is byte-distinct.
+    # Without this, every pill landing on the omnibus agent (agentic-chat /
+    # tool-rendering / chat-customization-css / hitl) produces an IDENTICAL
+    # inner-LLM body and the aimock fixture cannot disambiguate. Falls back
+    # to the original hardcoded prompt when the middleware captured nothing
+    # (parse failure already logged at WARNING).
+    user_prompt = get_latest_user_message() or (
+        "Generate a dynamic A2UI dashboard based on the conversation."
     )
+    forwarded = get_forwarded_headers()
+    try:
+        response = await _async_openai_client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {
+                    "role": "system",
+                    "content": context or "Generate a useful dashboard UI.",
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": RENDER_A2UI_TOOL_SCHEMA,
+                }
+            ],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            extra_headers=forwarded or None,
+        )
+    except Exception as exc:
+        logger.error(
+            "generate_a2ui: inner LLM call failed type=%s err=%s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return json.dumps({"error": f"inner LLM call failed: {type(exc).__name__}"})
+
+    if not response.choices:
+        logger.warning("generate_a2ui: LLM returned no choices")
+        return json.dumps({"error": "LLM returned no choices"})
 
     choice = response.choices[0]
-    if choice.message.tool_calls:
+    if not choice.message.tool_calls:
+        logger.warning("generate_a2ui: secondary LLM produced no render_a2ui tool call")
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
+    try:
         args = json.loads(choice.message.tool_calls[0].function.arguments)
         result = build_a2ui_operations_from_tool_call(args)
         return json.dumps(result)
-
-    return json.dumps({"error": "LLM did not call render_a2ui"})
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        logger.error(
+            "generate_a2ui: failed to parse render_a2ui args type=%s err=%s",
+            type(exc).__name__,
+            exc,
+            exc_info=True,
+        )
+        return json.dumps(
+            {"error": f"failed to parse render_a2ui args: {type(exc).__name__}"}
+        )
 
 
 # =====

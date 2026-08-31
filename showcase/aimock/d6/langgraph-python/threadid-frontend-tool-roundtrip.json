@@ -1,0 +1,36 @@
+{
+  "_meta": {
+    "description": "ENT-658 regression fixture for langgraph-python /demos/threadid-frontend-tool-roundtrip. First turn emits a frontend tool call; follow-up turn confirms the tool result without changing threads.",
+    "created": "2026-05-27"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "toolCallId": "call_ent_658_test_frontend_tool_x",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Frontend tool finished for X."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "invoke testFrontendToolCalling with label X",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Calling frontend tool.",
+        "toolCalls": [
+          {
+            "id": "call_ent_658_test_frontend_tool_x",
+            "name": "testFrontendToolCalling",
+            "arguments": {
+              "label": "X"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

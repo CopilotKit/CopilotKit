@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / gen-ui-interrupt. Mastra uses suspend/resume (not LangGraph interrupt()) \u2014 the aimock fixture sits at the LLM layer and emits schedule_meeting tool calls which the Mastra adapter translates into tool-call-suspended AG-UI events.",
+    "sourceFile": "harness/fixtures/d5/gen-ui-interrupt.json",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call. The Mastra adapter translates this into a tool-call-suspended event, surfacing the time-picker UI inline via useInterrupt.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Sure \u2014 let me check available times.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_sales_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                {
+                  "label": "Mon 10:00 AM",
+                  "iso": "2026-05-11T10:00:00Z"
+                },
+                {
+                  "label": "Tue 2:00 PM",
+                  "iso": "2026-05-12T14:00:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied). Cancel resumes with the SAME toolCallId as pick; only the tool-result payload differs, so gate on toolResultContains (aimock \u2265 1.37.0) and keep this leg BEFORE the confirmation leg (first match wins).",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "toolResultContains": "cancelled",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Denied \u2014 the sales intro call was not booked because no time slot was selected."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resume fires.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "hasToolResult": false,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Got it \u2014 pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_alice_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice \u2014 Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                {
+                  "label": "Wed 11:00 AM",
+                  "iso": "2026-05-13T11:00:00Z"
+                },
+                {
+                  "label": "Thu 3:30 PM",
+                  "iso": "2026-05-14T15:30:00Z"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg. Same toolCallId as the pick path; discriminated by the tool-result payload via toolResultContains, ordered before the confirmation leg.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "toolResultContains": "cancelled",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Denied \u2014 the 1:1 with Alice was not scheduled because no time slot was selected."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after slot picked.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    }
+  ]
+}

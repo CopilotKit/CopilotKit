@@ -3,6 +3,8 @@ import a2a from "./a2a";
 import ag2 from "./ag2";
 import agentSpec from "./agent-spec";
 import agno from "./agno";
+import claudeSdkPython from "./claude-sdk-python";
+import claudeSdkTypescript from "./claude-sdk-typescript";
 import crewaiCrews from "./crewai-crews";
 import deepagents from "./deepagents";
 import googleAdk from "./google-adk";
@@ -22,6 +24,8 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   ag2,
   "agent-spec": agentSpec,
   agno,
+  "claude-sdk-python": claudeSdkPython,
+  "claude-sdk-typescript": claudeSdkTypescript,
   "crewai-crews": crewaiCrews,
   deepagents,
   "google-adk": googleAdk,
@@ -41,6 +45,10 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "ms-agent-python": msAgentDotnet,
   "pydantic-ai": pydanticAi,
   strands,
+  // strands-typescript shares the aws-strands/ content folder with the
+  // Python strands integration; intro content is framework-agnostic
+  // (mirrors how langgraph-typescript reuses langgraphPython above).
+  "strands-typescript": strands,
 };
 
 export type FrameworkOverviewSlug = keyof typeof frameworkOverviews;

@@ -2,7 +2,7 @@
 
 This guide shows how to set up **CopilotKit Intelligence**: durable thread storage plus a websocket transport for realtime events.
 
-Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide an Intelligence platform client to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
+Intelligence is designed to feel like a small runtime configuration change, not a separate product integration. You provide a CopilotKit Intelligence client to the runtime, and the rest of the stack switches from plain SSE mode into Intelligence mode automatically.
 
 ---
 
@@ -63,16 +63,31 @@ The important design rule is:
 npm install @copilotkit/runtime
 ```
 
-### 2. Create the Intelligence platform client
+### 2. Create CopilotKit Intelligence client
 
 ```typescript
 import { CopilotKitIntelligence } from "@copilotkit/runtime";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
   organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
-  apiUrl: "https://your-intelligence-host/api",
-  wsUrl: "wss://your-intelligence-host/socket",
+});
+```
+
+`apiUrl` and `wsUrl` default to the managed platform
+(`https://api.intelligence.copilotkit.ai` and
+`wss://realtime.intelligence.copilotkit.ai`). To target a non-production or
+self-hosted deployment, override **both** — they are separate hosts, so neither
+derives from the other, and setting one alone leaves the other plane on the
+managed platform. Pass bare bases: the client appends `/api/...` and the socket
+layer appends `/runner` or `/client` itself.
+
+```typescript
+const intelligence = new CopilotKitIntelligence({
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  organizationId: process.env.COPILOTKIT_INTELLIGENCE_ORGANIZATION_ID!,
+  apiUrl: "https://api.your-intelligence-host",
+  wsUrl: "wss://realtime.your-intelligence-host",
 });
 ```
 

@@ -1,36 +1,28 @@
 /**
- * Suggestion prompts surfaced in the chat composer. Each suggestion
- * explicitly asks the agent to produce an interactive sandboxed UI that
- * calls one of the host-side sandbox functions (see `sandbox-functions.ts`),
- * so the demo visibly exercises the iframe <-> host bridge end-to-end.
+ * Suggestion prompts surfaced in the chat composer. Each suggestion exercises
+ * the iframe <-> host bridge by asking the agent to produce an interactive
+ * sandboxed UI that calls one of the host-side sandbox functions (see
+ * `sandbox-functions.ts`). Iframe-specific constraints (no <form>, no
+ * type='submit', use addEventListener) live in the system prompt — keep
+ * suggestion titles and messages user-facing.
+ *
+ * Each `message` string doubles as a deterministic aimock fixture key. Keep
+ * them short, distinctive, and aligned with the fixture entries in
+ * `showcase/aimock/d5-all.json` so each pill click produces a stable
+ * `generateSandboxedUi` tool call (rather than getting absorbed by a generic
+ * catch-all fixture).
  */
 export const openGenUiSuggestions = [
   {
-    title: "Calculator (calls evaluateExpression)",
-    message:
-      "Build a modern calculator UI. Do NOT use a <form> element or type='submit' buttons " +
-      "(the sandbox blocks form submissions). Use <button type='button'> with click handlers. " +
-      "When the user presses '=', the handler MUST `await " +
-      "Websandbox.connection.remote.evaluateExpression({ expression })` with the current " +
-      "display expression, then read `res.value` (when `res.ok` is true) and update the display " +
-      "to that number. Show the history of computed values below the display.",
+    title: "Calculator",
+    message: "Calculator (calls evaluateExpression)",
   },
   {
-    title: "Ping the host (calls notifyHost)",
-    message:
-      "Build a simple card with a single 'Say hi to the host' button (type='button', NO <form>). " +
-      "When clicked, the handler MUST `await " +
-      "Websandbox.connection.remote.notifyHost({ message: 'Hi from the sandbox!' })` and then " +
-      "display the returned confirmation object (including `receivedAt` timestamp) inside the card.",
+    title: "Ping the host",
+    message: "Ping the host (calls notifyHost)",
   },
   {
     title: "Inline expression evaluator",
-    message:
-      "Build a tiny UI with a text input and an 'Evaluate' button. IMPORTANT: do NOT wrap them in a " +
-      "<form>, and do NOT use type='submit' — the sandbox iframe disallows form submission. Use " +
-      "<button type='button'> wired with addEventListener('click', ...). When clicked, read the " +
-      "input value, call `const res = await " +
-      "Websandbox.connection.remote.evaluateExpression({ expression })`, and then render " +
-      "`res.value` (if `res.ok === true`) or `res.error` (if `res.ok === false`) below the input.",
+    message: "Inline expression evaluator",
   },
 ];

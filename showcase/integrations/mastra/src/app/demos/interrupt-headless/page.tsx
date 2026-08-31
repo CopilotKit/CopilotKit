@@ -1,49 +1,37 @@
 "use client";
 
-// Headless Interrupt demo (Mastra port).
+// Headless Interrupt cell (OSS-383) — native `useInterrupt` in headless mode.
 //
-// Layout: chat on the right, empty app surface on the left. The user triggers
-// the agent from a chat suggestion. When the agent calls `schedule_meeting`,
-// we render a time-picker popup IN THE APP SURFACE (left pane) — outside of
-// the chat. Picking a slot resolves the tool call, the popup vanishes, and
-// the agent confirms back in chat.
+// Layout: chat on the right, app surface on the left. The user triggers the
+// agent from a chat suggestion. When the backend `schedule_meeting` tool
+// `suspend()`s, the @ag-ui/mastra bridge surfaces an AG-UI interrupt;
+// `useInterrupt({ renderInChat: false })` returns the picker element which we
+// place IN THE APP SURFACE (left pane) rather than inside the chat. Picking a
+// slot `resolve(...)`s the interrupt, resuming the Mastra run, and the agent
+// confirms back in chat.
 //
-// Adaptation: the LangGraph version uses a custom `useHeadlessInterrupt` hook
-// built on top of `useAgent` + `useCopilotKit` that reads LangGraph's native
-// `interrupt()` event from the AG-UI stream and resumes via
-// `copilotkit.runAgent({ forwardedProps: { command: { resume, ... } } })`.
-// Mastra has no interrupt primitive, so we instead register `schedule_meeting`
-// as a frontend tool and gate the UI on whether the tool is currently awaiting
-// a user decision. The async handler returns a Promise that only resolves when
-// the user interacts with the external popup — equivalent UX, different
-// mechanism.
+// `useInterrupt` handles both the standard `RUN_FINISHED` interrupt-outcome and
+// the legacy `on_interrupt` custom event, and drives the correct spec `resume`
+// on CopilotKit ≥1.61.2 — so this cell no longer hand-rolls the resume plumbing.
 
-import React, { useRef, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+// @region[headless-useinterrupt-primitives]
+import React from "react";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
-  useFrontendTool,
+  useInterrupt,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
+import { generateFallbackSlots } from "../_shared/interrupt-fallback-slots";
+import type { TimeSlot } from "../_shared/interrupt-fallback-slots";
 
-type InterruptPayload = {
+// Shape the backend `schedule_meeting` tool suspends with, wrapped by the
+// @ag-ui/mastra bridge under `mastra_suspend`.
+type SuspendPayload = {
   topic?: string;
   attendee?: string;
+  slots?: TimeSlot[];
 };
-
-type TimeSlot = { label: string; iso: string };
-
-type PickerResult =
-  | { chosen_time: string; chosen_label: string }
-  | { cancelled: true };
-
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-25T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-04-28T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-04-28T15:30:00-07:00" },
-];
 
 export default function InterruptHeadlessDemo() {
   return (
@@ -54,12 +42,6 @@ export default function InterruptHeadlessDemo() {
 }
 
 function Layout() {
-  const [pending, setPending] = useState<InterruptPayload | null>(null);
-  // Resolver for the currently-awaiting `schedule_meeting` tool call. Set by
-  // the async frontend-tool handler below, called when the user picks a slot
-  // or cancels from the external popup.
-  const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
-
   useConfigureSuggestions({
     suggestions: [
       {
@@ -74,73 +56,52 @@ function Layout() {
     available: "always",
   });
 
-  // @region[headless-promise-primitives]
-  useFrontendTool({
-    name: "schedule_meeting",
-    description:
-      "Ask the user to pick a time slot for a meeting via a picker popup " +
-      "that appears outside the chat. Blocks until the user chooses a " +
-      "slot or cancels.",
-    parameters: z.object({
-      topic: z
-        .string()
-        .describe("Short human-readable description of the meeting."),
-      attendee: z
-        .string()
-        .optional()
-        .describe("Who the meeting is with (optional)."),
-    }),
-    // Async handler: sets the pending payload so the popup renders, then
-    // returns a Promise that only resolves once the user interacts with the
-    // popup. This is the Mastra shim for the LangGraph headless interrupt
-    // `resume` flow.
-    handler: async ({
-      topic,
-      attendee,
-    }: {
-      topic: string;
-      attendee?: string;
-    }): Promise<string> => {
-      setPending({ topic, attendee });
-      const result = await new Promise<PickerResult>((resolve) => {
-        resolverRef.current = resolve;
-      });
-      setPending(null);
-      if ("cancelled" in result && result.cancelled) {
-        return "User cancelled. Meeting NOT scheduled.";
-      }
-      if ("chosen_label" in result) {
-        return `Meeting scheduled for ${result.chosen_label}.`;
-      }
-      return "User did not pick a time. Meeting NOT scheduled.";
+  // Headless: the hook RETURNS the interrupt element (or null) instead of
+  // publishing it into the chat, so we can place it in the app surface.
+  const interruptEl = useInterrupt({
+    agentId: "interrupt-headless",
+    renderInChat: false,
+    render: ({ event, resolve }) => {
+      // Mastra wraps the suspend value as `{ type: "mastra_suspend",
+      // suspendPayload, ... }`, JSON-stringified — parse then read
+      // `suspendPayload` (not the raw wrapper).
+      const raw = event.value ?? {};
+      const parsed = (typeof raw === "string" ? JSON.parse(raw) : raw) as {
+        suspendPayload?: SuspendPayload;
+      } & SuspendPayload;
+      const payload: SuspendPayload = parsed.suspendPayload ?? parsed;
+      return (
+        <TimeSlotPopup
+          payload={payload}
+          onPick={(slot) =>
+            setTimeout(
+              () =>
+                resolve({ chosen_time: slot.iso, chosen_label: slot.label }),
+              500,
+            )
+          }
+          onCancel={() => setTimeout(() => resolve({ cancelled: true }), 500)}
+        />
+      );
     },
-    // Render nothing inside the chat — the UI lives in the app surface.
-    render: () => null,
   });
-  // @endregion[headless-promise-primitives]
-
-  const resolve = (result: PickerResult) => {
-    const fn = resolverRef.current;
-    resolverRef.current = null;
-    fn?.(result);
-  };
 
   return (
     <div className="grid h-screen grid-cols-[1fr_420px] bg-[#FAFAFC]">
-      <AppSurface pending={pending} resolve={resolve} />
+      <AppSurface interruptEl={interruptEl} />
       <div className="border-l border-[#DBDBE5] bg-white">
         <CopilotChat agentId="interrupt-headless" className="h-full" />
       </div>
     </div>
   );
 }
+// @endregion[headless-useinterrupt-primitives]
 
-type AppSurfaceProps = {
-  pending: InterruptPayload | null;
-  resolve: (result: PickerResult) => void;
-};
-
-function AppSurface({ pending, resolve }: AppSurfaceProps) {
+function AppSurface({
+  interruptEl,
+}: {
+  interruptEl: React.ReactElement | null;
+}) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"
@@ -154,17 +115,7 @@ function AppSurface({ pending, resolve }: AppSurfaceProps) {
       </header>
 
       <div className="relative flex flex-1 items-center justify-center p-8">
-        {pending ? (
-          <TimeSlotPopup
-            payload={pending}
-            onPick={(slot) =>
-              resolve({ chosen_time: slot.iso, chosen_label: slot.label })
-            }
-            onCancel={() => resolve({ cancelled: true })}
-          />
-        ) : (
-          <EmptyState />
-        )}
+        {interruptEl ?? <EmptyState />}
       </div>
     </div>
   );
@@ -204,12 +155,18 @@ function EmptyState() {
 }
 
 type TimeSlotPopupProps = {
-  payload: InterruptPayload;
+  payload: SuspendPayload;
   onPick: (slot: TimeSlot) => void;
   onCancel: () => void;
 };
 
 function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
+  // Prefer the backend-supplied slots (generated relative to "now" so they
+  // never rot); fall back to a fresh local generator only if absent.
+  const slots =
+    payload.slots && payload.slots.length > 0
+      ? payload.slots
+      : generateFallbackSlots();
   return (
     <div
       role="dialog"
@@ -236,7 +193,7 @@ function TimeSlotPopup({ payload, onPick, onCancel }: TimeSlotPopupProps) {
       )}
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {DEFAULT_SLOTS.map((slot) => (
+        {slots.map((slot) => (
           <button
             key={slot.iso}
             type="button"

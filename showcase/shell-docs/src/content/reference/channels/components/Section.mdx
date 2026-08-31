@@ -1,0 +1,22 @@
+---
+title: Section
+description: Render a portable body-text section in Slack or Microsoft Teams.
+---
+
+`Section` renders the main body text of a rich message.
+
+```tsx
+import { Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Checkout latency is **above the SLO**.</Section>
+</Message>;
+```
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Text and nested portable content. |
+
+Managed Slack converts GitHub-flavored Markdown to Slack `mrkdwn`. Managed Teams
+renders a wrapping Adaptive Card `TextBlock`. Provider Markdown dialects are
+not identical, so verify complex tables, mentions, and links in both clients.

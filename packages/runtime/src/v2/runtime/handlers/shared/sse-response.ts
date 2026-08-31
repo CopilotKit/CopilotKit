@@ -1,13 +1,15 @@
-import { BaseEvent } from "@ag-ui/client";
+import type { BaseEvent } from "@ag-ui/client";
 import { EventEncoder } from "@ag-ui/encoder";
-import { Observable, Subscription } from "rxjs";
-import { ResolvedDebugConfig } from "@copilotkit/shared";
-import {
-  createLogger,
-  type CopilotRuntimeLogger,
-} from "../../../../lib/logger";
+import type { Observable, Subscription } from "rxjs";
+import type { ResolvedDebugConfig } from "@copilotkit/shared";
+import { createLogger } from "../../../../v1-deprecated/lib/logger";
+import type { CopilotRuntimeLogger } from "../../../../v1-deprecated/lib/logger";
 import { telemetry } from "../../telemetry";
-import { DebugEventBus } from "../../core/debug-event-bus";
+import type { DebugEventBus } from "../../core/debug-event-bus";
+import type {
+  RuntimeErrorPhase,
+  RuntimeErrorReporter,
+} from "../../core/runtime-error-reporter";
 
 interface CreateSseEventResponseParams {
   request: Request;
@@ -19,6 +21,16 @@ interface CreateSseEventResponseParams {
   debug?: ResolvedDebugConfig;
   /** Pre-created logger instance to avoid creating a new pino logger per request. */
   logger?: CopilotRuntimeLogger;
+  /**
+   * Whether to emit `oss.runtime.agent_execution_stream_*` telemetry for this
+   * stream. Defaults to `true`. The stateless `/suggest` path sets this to
+   * `false`: a suggestion is a side-effect-free structured completion, not a
+   * tracked run, and under `available: "always"` it fires often enough to flood
+   * run telemetry.
+   */
+  captureTelemetry?: boolean;
+  runtimeErrorReporter?: RuntimeErrorReporter;
+  startTime?: number;
 }
 
 export function createSseEventResponse({
@@ -28,6 +40,9 @@ export function createSseEventResponse({
   agentId,
   debug,
   logger,
+  captureTelemetry = true,
+  runtimeErrorReporter,
+  startTime,
 }: CreateSseEventResponseParams): Response {
   const stream = new TransformStream();
   const writer = stream.writable.getWriter();
@@ -66,11 +81,29 @@ export function createSseEventResponse({
   };
 
   let subscription: Subscription | undefined;
+  let agentErrorReported = false;
+
+  const reportAgentError = (error: unknown, phase: RuntimeErrorPhase) => {
+    if (agentErrorReported) return;
+    agentErrorReported = true;
+    runtimeErrorReporter?.report({
+      request,
+      error,
+      operation: "agent.run",
+      agentId,
+      threadId: debugThreadId || undefined,
+      runId: debugRunId || undefined,
+      phase,
+      startTime,
+    });
+  };
 
   (async () => {
     const observable = await observableFactory();
 
-    telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+    if (captureTelemetry) {
+      telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+    }
 
     if (debug?.lifecycle) {
       debugLogger!.debug("SSE stream opened");
@@ -86,6 +119,24 @@ export function createSseEventResponse({
           const e = event as { threadId?: string; runId?: string };
           debugThreadId = e.threadId ?? "";
           debugRunId = e.runId ?? "";
+        }
+
+        if (event.type === "RUN_ERROR") {
+          const e = event as {
+            message?: unknown;
+            threadId?: string;
+            runId?: string;
+          };
+          debugThreadId = e.threadId ?? debugThreadId;
+          debugRunId = e.runId ?? debugRunId;
+          reportAgentError(
+            new Error(
+              typeof e.message === "string"
+                ? e.message
+                : "Runner reported a run error",
+            ),
+            "sse.subscription",
+          );
         }
 
         // Broadcast to debug listeners BEFORE the stream-closed gate below.
@@ -143,9 +194,12 @@ export function createSseEventResponse({
         }
       },
       error: async (error) => {
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        reportAgentError(error, "sse.subscription");
+        if (captureTelemetry) {
+          telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
         if (debug?.lifecycle) {
           debugLogger!.debug(
             { error: error instanceof Error ? error.message : String(error) },
@@ -156,7 +210,9 @@ export function createSseEventResponse({
         await closeStream();
       },
       complete: async () => {
-        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        if (captureTelemetry) {
+          telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        }
         if (debug?.lifecycle) {
           debugLogger!.debug(
             { eventCount, loggedEventCount },
@@ -173,6 +229,7 @@ export function createSseEventResponse({
       subscription.unsubscribe();
     }
   })().catch(async (error) => {
+    reportAgentError(error, "sse.factory");
     logError(error);
     await closeStream();
   });

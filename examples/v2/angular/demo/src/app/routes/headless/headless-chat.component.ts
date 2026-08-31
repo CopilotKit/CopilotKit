@@ -1,4 +1,3 @@
-import type { OnDestroy, OnInit } from "@angular/core";
 import {
   Component,
   ChangeDetectionStrategy,
@@ -7,27 +6,27 @@ import {
   input,
   signal,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
+import { TitleCasePipe } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import type {
   HumanInTheLoopToolCall,
   HumanInTheLoopToolRenderer,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import {
   connectAgentContext,
   CopilotKit,
   injectAgentStore,
   registerHumanInTheLoop,
-} from "@copilotkitnext/angular";
-import { RenderToolCalls } from "@copilotkitnext/angular";
-import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
-import type { WebInspectorElement } from "@copilotkit/web-inspector";
+} from "@copilotkit/angular";
+import { RenderToolCalls } from "@copilotkit/angular";
 import { z } from "zod";
 
 @Component({
   selector: "require-approval",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div>Require approval</div>
     <button (click)="respond({ approved: true })">Approve</button>
@@ -48,7 +47,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
 @Component({
   selector: "headless-chat",
   standalone: true,
-  imports: [CommonModule, FormsModule, RenderToolCalls],
+  imports: [FormsModule, RenderToolCalls, TitleCasePipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -65,22 +64,24 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
           color: #111827;
         "
       >
-        <div *ngFor="let m of messages()" style="margin-bottom: 16px">
-          <div style="font-weight: 600; color: #374151">
-            {{ m.role | titlecase }}
+        @for (m of messages(); track m) {
+          <div style="margin-bottom: 16px">
+            <div style="font-weight: 600; color: #374151">
+              {{ m.role | titlecase }}
+            </div>
+            <div style="white-space: pre-wrap">{{ m.content }}</div>
+            @if (m.role === "assistant") {
+              <copilot-render-tool-calls
+                [message]="m"
+                [messages]="messages()"
+                [isLoading]="isRunning()"
+              />
+            }
           </div>
-          <div style="white-space: pre-wrap">{{ m.content }}</div>
-          <ng-container *ngIf="m.role === 'assistant'">
-            <copilot-render-tool-calls
-              [message]="m"
-              [messages]="messages() ?? []"
-              [isLoading]="isRunning()"
-            ></copilot-render-tool-calls>
-          </ng-container>
-        </div>
-        <div *ngIf="isRunning()" style="opacity: 0.9; color: #6b7280">
-          Thinking…
-        </div>
+        }
+        @if (isRunning()) {
+          <div style="opacity: 0.9; color: #6b7280">Thinking…</div>
+        }
       </div>
 
       <form
@@ -140,7 +141,7 @@ export class RequireApprovalComponent implements HumanInTheLoopToolRenderer {
     </div>
   `,
 })
-export class HeadlessChatComponent implements OnInit, OnDestroy {
+export class HeadlessChatComponent {
   readonly agentStore = injectAgentStore("openai");
   readonly agent = computed(() => this.agentStore()?.agent);
   readonly isRunning = computed(() => !!this.agentStore()?.isRunning());
@@ -148,7 +149,6 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
   readonly copilotkit = inject(CopilotKit);
 
   inputValue = "";
-  private inspectorElement: WebInspectorElement | null = null;
 
   constructor() {
     registerHumanInTheLoop({
@@ -167,31 +167,6 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
         description: "active",
       }),
     );
-  }
-
-  ngOnInit(): void {
-    if (typeof document === "undefined") return;
-
-    const existing =
-      document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);
-    const inspector =
-      existing ??
-      (document.createElement(WEB_INSPECTOR_TAG) as WebInspectorElement);
-    inspector.core = this.copilotkit.core;
-    inspector.setAttribute("auto-attach-core", "false");
-
-    if (!existing) {
-      document.body.appendChild(inspector);
-    }
-
-    this.inspectorElement = inspector;
-  }
-
-  ngOnDestroy(): void {
-    if (this.inspectorElement && this.inspectorElement.isConnected) {
-      this.inspectorElement.remove();
-    }
-    this.inspectorElement = null;
   }
 
   async clearThreads() {

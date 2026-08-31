@@ -10,10 +10,24 @@ export default defineConfig([
     outDir: "dist",
     unbundle: true,
     external: (id) => {
-      const externalPkgs = ["react", "react-dom", "@a2ui/lit", "zod"];
+      const externalPkgs = ["react", "react-dom", "zod"];
       return externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + "/"));
     },
-    exports: true,
+    exports: false,
+  },
+  {
+    entry: ["src/web-components/index.ts", "src/web-components/define.ts"],
+    format: ["esm", "cjs"],
+    dts: true,
+    sourcemap: true,
+    target: "es2022",
+    outDir: "dist/web-components",
+    unbundle: true,
+    external: (id) => {
+      const externalPkgs = ["lit", "@a2ui/web_core", "zod"];
+      return externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + "/"));
+    },
+    exports: false,
   },
   {
     entry: ["src/index.ts"],
@@ -23,7 +37,7 @@ export default defineConfig([
     target: "es2018",
     outDir: "dist",
     external: (id) => {
-      const externalPkgs = ["react", "react-dom", "@a2ui/lit", "zod"];
+      const externalPkgs = ["react", "react-dom", "zod"];
       return externalPkgs.some((pkg) => id === pkg || id.startsWith(pkg + "/"));
     },
     codeSplitting: false,
@@ -33,8 +47,6 @@ export default defineConfig([
         react: "React",
         "react/jsx-runtime": "React",
         "react-dom": "ReactDOM",
-        "@a2ui/lit": "A2UILit",
-        "@a2ui/lit/0.8": "A2UILit",
         zod: "Zod",
         clsx: "clsx",
         "markdown-it": "markdownit",

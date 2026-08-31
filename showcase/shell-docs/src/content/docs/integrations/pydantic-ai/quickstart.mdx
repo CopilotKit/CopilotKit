@@ -4,14 +4,12 @@ description: Turn your Pydantic AI agent into an agent-native application in 10 
 icon: "lucide/Play"
 hideTOC: true
 ---
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
+
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
+  surface="docs_pydantic_ai_quickstart"
 />
 
 ## Prerequisites
@@ -29,7 +27,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_pydantic_ai_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+        <SignupLink surface="docs_pydantic_ai_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -56,7 +54,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **Enterprise Intelligence Platform** — persistent threads, observability, and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
+                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard Pydantic AI setup.
                 - **Framework** — pick **Pydantic AI** when prompted.
             </Step>
             <Step>
@@ -129,7 +127,7 @@ Before you begin, you'll need the following:
                 Add Pydantic AI with AG-UI support and uvicorn to your project:
 
                 ```bash
-                uv add 'pydantic-ai-slim[ag-ui]' 'pydantic-ai-slim[openai]' uvicorn starlette==0.45.3
+                uv add 'pydantic-ai-slim[ag-ui,openai]>=2,<3' 'starlette>=0.46.2' uvicorn
                 ```
             </Step>
             <Step>
@@ -152,17 +150,29 @@ Before you begin, you'll need the following:
 
                 ```python title="main.py"
                 from pydantic_ai import Agent
+                from pydantic_ai.ui.ag_ui import AGUIAdapter
+                from starlette.applications import Starlette
+                from starlette.requests import Request
+                from starlette.responses import Response
+                from starlette.routing import Route
 
                 agent = Agent('openai:gpt-4.1-mini', instructions='Be fun!')
-                app = agent.to_ag_ui()
+
+
+                async def run_agent(request: Request) -> Response:
+                    return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+                app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
                 if __name__ == "__main__":
                     import uvicorn
-                    uvicorn.run(app, host="localhost", port=8000)
+
+                    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
                 ```
 
                 <Callout type="info" title="What is AG-UI?">
-                  AG-UI is an open protocol for frontend-agent communication. Pydantic AI's `.to_ag_ui()` method creates an ASGI app that CopilotKit can connect to.
+                  AG-UI is the protocol that lets Copilot Runtime communicate with your Pydantic AI agent.
                 </Callout>
             </Step>
             <Step>
@@ -171,6 +181,7 @@ Before you begin, you'll need the following:
                 CopilotKit works with any React-based frontend. We'll use Next.js for this example.
 
                 ```bash
+                cd ..
                 npx create-next-app@latest my-copilot-app
                 cd my-copilot-app
                 ```
@@ -185,35 +196,55 @@ Before you begin, you'll need the following:
             <Step>
                 ### Setup Copilot Runtime
 
-                Create an API route to connect CopilotKit to your Pydantic AI agent:
+                Create an API route that connects CopilotKit to the Pydantic AI
+                AG-UI endpoint:
 
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
                 import { HttpAgent } from "@ag-ui/client";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
                     my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
-                  }
+                  },
+                  // [!code highlight:8]
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.INTELLIGENCE_API_KEY!,
+                  }),
+                  // Threads are per-user. Without this, every visitor shares one history.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
-               ```
+                export const GET = handler;
+                export const POST = handler;
+                ```
+
+                The runtime reads the license key from step 1. Add it to the app that serves
+                this route:
+
+                ```plaintext title=".env.local"
+                INTELLIGENCE_API_KEY=your_license_key
+                ```
+
+                <Callout type="info" title="Running without the Intelligence Platform?">
+                  Drop the `intelligence` and `identifyUser` options and the runtime falls back
+                  to SSE mode with an in-memory runner. Chat still works, but Threads and the
+                  Inspector stay locked and the key is never read. See
+                  [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+                  full constructor and how to confirm the key is in use.
+                </Callout>
             </Step>
             <Step>
                 ### Configure CopilotKit Provider
@@ -222,8 +253,6 @@ Before you begin, you'll need the following:
 
                 ```tsx title="app/layout.tsx"
                 import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
-                import './globals.css';
 
                 // ...
 
@@ -232,7 +261,7 @@ Before you begin, you'll need the following:
                     <html lang="en">
                       <body>
                         {/* [!code highlight:3] */}
-                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent" useSingleEndpoint={false}>
                           {children}
                         </CopilotKit>
                       </body>
@@ -240,6 +269,14 @@ Before you begin, you'll need the following:
                   );
                 }
                 ```
+
+                <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+                  `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+                  same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+                  server of its own and an absolute `runtimeUrl` such as
+                  `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+                  `/angular` and `/react-native` each show that setup.
+                </Callout>
             </Step>
             <Step>
               ### Add the chat interface
@@ -263,10 +300,11 @@ Before you begin, you'll need the following:
             <Step>
                 ### Start your agent
 
-                From your agent directory, start the agent server:
+                From the frontend directory created above, start the agent
+                server:
 
                 ```bash
-                cd ..
+                cd ../my-agent
                 uv run main.py
                 ```
 
@@ -334,6 +372,11 @@ Before you begin, you'll need the following:
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## What's next?
@@ -367,3 +410,12 @@ Now that you have your basic agent setup, explore these advanced features:
   />
 </Cards>
 
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

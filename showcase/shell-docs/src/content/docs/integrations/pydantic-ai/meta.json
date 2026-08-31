@@ -2,16 +2,41 @@
   "title": "Pydantic AI",
   "root": true,
   "pages": [
+    "---Getting Started---",
     "index",
+    "quickstart",
+    "cli",
+    "build-with-agents",
+    "---Basics---",
+    "prebuilt-components",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "threads-self-managed"
+      ]
+    },
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
+    "frontend-tools",
     "shared-state",
+    "agent-app-context",
     "---Pydantic AI---",
     "multi-agent-flows",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium"
+    "---Backend---",
+    "copilot-runtime",
+    "ag-ui",
+    "---Intelligence---",
+    "---Troubleshooting---",
+    "...troubleshooting"
   ]
 }

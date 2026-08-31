@@ -1,8 +1,10 @@
 const METHOD_NAMES = [
   "agent/run",
+  "agent/suggest",
   "agent/connect",
   "agent/stop",
   "info",
+  "inspector/metadata",
   "transcribe",
 ] as const;
 
@@ -20,6 +22,46 @@ export interface MethodCall {
   body?: unknown;
 }
 
+/**
+ * Detect a single-route JSON envelope on a request the multi-route router
+ * could not match.
+ *
+ * A single-endpoint client (`useSingleEndpoint` on the frontend provider)
+ * POSTs `{ method, params, body }` at the base path. A multi-route runtime
+ * matches no route for that path and would otherwise answer a bare 404, giving
+ * the developer nothing to go on. Recognising the envelope here lets the
+ * handler name the actual cause instead.
+ *
+ * Deliberately conservative: it reports a method only for a POST carrying a
+ * JSON body whose `method` is one the single-route endpoint actually accepts.
+ * Anything else is a genuine 404 and must stay one.
+ *
+ * @returns The envelope's method name, or `null` if this is not an envelope.
+ */
+export async function detectSingleRouteEnvelope(
+  request: Request,
+): Promise<EndpointMethod | null> {
+  if (request.method !== "POST") return null;
+
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+
+  let envelope: unknown;
+  try {
+    envelope = await request.clone().json();
+  } catch {
+    return null;
+  }
+
+  if (typeof envelope !== "object" || envelope === null) return null;
+
+  const method = (envelope as JsonEnvelope).method;
+  if (typeof method !== "string") return null;
+  if (!(METHOD_NAMES as readonly string[]).includes(method)) return null;
+
+  return method as EndpointMethod;
+}
+
 export async function parseMethodCall(request: Request): Promise<MethodCall> {
   const contentType = request.headers.get("content-type") || "";
 
@@ -33,7 +75,7 @@ export async function parseMethodCall(request: Request): Promise<MethodCall> {
   let jsonEnvelope: JsonEnvelope;
   try {
     jsonEnvelope = (await request.clone().json()) as JsonEnvelope;
-  } catch (error) {
+  } catch {
     throw createResponseError("Invalid JSON payload", 400);
   }
 
@@ -114,7 +156,9 @@ function serializeJsonBody(body: unknown): BodyInit {
     body instanceof ArrayBuffer ||
     body instanceof Uint8Array
   ) {
-    return body;
+    // Uint8Array<ArrayBufferLike> is a valid fetch body at runtime, but the
+    // DOM lib's BodyInit only admits ArrayBuffer-backed views.
+    return body as BodyInit;
   }
 
   if (body instanceof FormData || body instanceof URLSearchParams) {

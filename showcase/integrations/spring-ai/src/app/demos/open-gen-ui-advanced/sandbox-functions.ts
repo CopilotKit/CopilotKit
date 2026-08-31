@@ -9,6 +9,9 @@ import { z } from "zod";
  * into the agent's context so the LLM knows which bridges exist when it
  * generates HTML/JS. Each handler runs on the HOST page and its return
  * value is awaited by the in-iframe caller.
+ *
+ * Keep the surface small and obvious — these are the demo's "app-side
+ * tools" that the sandbox-generated UI can call.
  */
 export const openGenUiSandboxFunctions = [
   {
@@ -23,14 +26,18 @@ export const openGenUiSandboxFunctions = [
         .describe("An arithmetic expression, e.g. '12 * (3 + 4.5)'"),
     }),
     handler: async ({ expression }: { expression: string }) => {
+      // Evaluate only arithmetic-safe expressions. Reject anything with
+      // identifiers or suspicious characters so we never exec arbitrary JS.
       if (!/^[\d+\-*/().\s]+$/.test(expression)) {
         return { ok: false, error: "Unsupported characters in expression." };
       }
       try {
+        // eslint-disable-next-line no-new-func
         const value = Function(`"use strict"; return (${expression});`)();
         if (typeof value !== "number" || !Number.isFinite(value)) {
           return { ok: false, error: "Not a finite number." };
         }
+        // eslint-disable-next-line no-console
         console.log(
           "[open-gen-ui/advanced] evaluateExpression",
           expression,
@@ -55,6 +62,7 @@ export const openGenUiSandboxFunctions = [
       message: z.string().describe("A short status message."),
     }),
     handler: async ({ message }: { message: string }) => {
+      // eslint-disable-next-line no-console
       console.log("[open-gen-ui/advanced] notifyHost:", message);
       return { ok: true, receivedAt: new Date().toISOString(), message };
     },

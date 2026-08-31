@@ -4,20 +4,23 @@ icon: "lucide/Blocks"
 description: "Use BuiltInAgent's factory mode to bring your own AI SDK, TanStack AI, or custom LLM backend."
 ---
 
-`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide a factory function that talks to any backend — CopilotKit handles converting the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
+`BuiltInAgent`'s factory mode gives you full control over the LLM call. You provide
+a factory function that talks to any backend, and CopilotKit handles converting
+the stream to AG-UI events, managing lifecycle, and wiring it into the runtime.
 
 ## When to use Simple Mode vs Factory Mode
 
 | | Simple Mode | Factory Mode |
 |---|---|---|
-| **Setup** | Minimal — pass a model string | You own the LLM call and stream |
+| **Setup** | Minimal: pass a model string | You own the LLM call and stream |
 | **Model resolution** | Built-in (`"openai/gpt-4o"`) | You set up the model yourself |
 | **Tools, MCP, state tools** | Automatically wired | You wire them in your factory |
 | **Backend support** | Vercel AI SDK only | Any backend: AI SDK, TanStack AI, or custom |
 | **Best for** | Quick setup, standard use cases | Full control, non-standard backends |
 
 <Callout type="info">
-If simple mode covers your needs, stick with it — it's simpler. Use factory mode when you need control that simple mode doesn't offer.
+If simple mode covers your needs, stick with it. Use factory mode when you need
+control that simple mode doesn't offer.
 </Callout>
 
 ## Quick Start
@@ -29,7 +32,7 @@ You have an existing LLM backend and you want a CopilotKit copilot using it. Pic
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertMessagesToVercelAISDKMessages,
@@ -63,7 +66,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
   convertInputToTanStackAI,
@@ -100,7 +103,7 @@ export default copilotEndpoint;
 ```typescript title="src/copilotkit.ts"
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotRuntimeHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -147,14 +150,15 @@ export default copilotEndpoint;
 </Tab>
 </Tabs>
 
-The frontend setup is the same as [BuiltInAgent](/quickstart) — wrap your app with `<CopilotKit>` and add a chat component.
+The frontend setup is the same as [BuiltInAgent](/quickstart): configure the
+CopilotKit provider and add a chat component.
 
 ## How It Works
 
 Factory mode accepts a config with two fields:
 
-- **`type`** — which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
-- **`factory`** — a function that receives the raw request and returns a backend-native stream
+- **`type`:** which backend you're using: `"aisdk"`, `"tanstack"`, or `"custom"`
+- **`factory`:** a function that receives the raw request and returns a backend-native stream
 
 The factory receives an `AgentFactoryContext` (from `@copilotkit/runtime/v2`):
 
@@ -168,7 +172,12 @@ interface AgentFactoryContext {
 
 CopilotKit handles everything else: `RUN_STARTED` and `RUN_FINISHED` lifecycle events, stream-to-AG-UI conversion, error handling, and abort/cancellation. Your factory never needs to emit lifecycle events.
 
-The factory can be async — return a `Promise` if you need to do setup before streaming:
+The `runner: new InMemoryAgentRunner()` in the examples above is the persistence
+backend that stores threads in process memory. To understand the runner
+abstraction and how to swap in durable persistence, see
+[AgentRunner & persistence](/backend/agent-runner).
+
+The factory can be async. Return a `Promise` if you need to do setup before streaming:
 
 ```typescript
 factory: async ({ input, abortSignal }) => {
@@ -206,7 +215,8 @@ const agent = new BuiltInAgent({
 });
 ```
 
-`convertToolsToVercelAITools` converts the frontend-defined tools (from `useFrontendTool`) into AI SDK's `ToolSet` format automatically.
+`convertToolsToVercelAITools` converts frontend-defined tools into AI SDK's
+`ToolSet` format automatically.
 </Tab>
 <Tab value="TanStack AI">
 ```typescript title="src/copilotkit.ts"
@@ -303,9 +313,15 @@ const agent = new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4", {
-        thinking: { type: "enabled", budgetTokens: 10000 },
-      }),
+      model: anthropic("claude-sonnet-4-6"),
+      providerOptions: {
+        anthropic: {
+          thinking: { type: "adaptive" },
+          // `effort` replaces the fixed token budget used by the older
+          // `{ type: "enabled", budgetTokens }` form.
+          effort: "high",
+        },
+      },
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       abortSignal,
     }),
@@ -313,6 +329,12 @@ const agent = new BuiltInAgent({
 ```
 
 Reasoning events (`REASONING_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_END`) are automatically extracted from the AI SDK stream.
+
+<Callout type="info">
+Pick the model with reasoning **visibility** in mind. From Claude Opus 4.7 onward (including Sonnet 5 and Opus 5), Anthropic defaults thinking `display` to `"omitted"` — the model still reasons, but no reasoning text comes back, so the events above arrive empty. `@ai-sdk/anthropic` does not expose `display` yet, so choose a model that defaults to summarized thinking (such as `claude-sonnet-4-6`) when you want the reasoning to be visible.
+</Callout>
+
+Using `BuiltInAgent` without a custom factory? The same options go through its `providerOptions` — see [Advanced Configuration](/advanced-configuration#provider-specific-options).
 </Tab>
 <Tab value="TanStack AI">
 <Callout type="warn">
@@ -329,10 +351,12 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: anthropicText("claude-sonnet-4"),
+      adapter: anthropicText("claude-sonnet-4-6"),
       messages,
       systemPrompts,
-      modelOptions: { thinking: { type: "enabled", budgetTokens: 10000 } },
+      modelOptions: {
+        thinking: { type: "adaptive", display: "summarized" },
+      },
       abortController,
     });
   },
@@ -358,14 +382,14 @@ const agent = new BuiltInAgent({
   factory: ({ input, abortSignal }) => {
     const systemParts: string[] = ["You are a helpful assistant."];
 
-    // Add context from the frontend (useAgentContext)
+    // Add context supplied by the frontend
     if (input.context?.length) {
       for (const ctx of input.context) {
         systemParts.push(`${ctx.description}:\n${ctx.value}`);
       }
     }
 
-    // Add shared application state (useCoAgent, etc.)
+    // Add shared application state
     if (input.state && Object.keys(input.state).length > 0) {
       systemParts.push(
         `Application State:\n${JSON.stringify(input.state, null, 2)}`,
@@ -466,8 +490,8 @@ const agent = new BuiltInAgent({
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
     const adapter =
-      props.model === "anthropic/claude-sonnet-4"
-        ? anthropicText("claude-sonnet-4")
+      props.model === "anthropic/claude-sonnet-4-6"
+        ? anthropicText("claude-sonnet-4-6")
         : openaiText((props.model as string) ?? "gpt-4o");
 
     const modelOptions: Record<string, unknown> = {};
@@ -487,13 +511,39 @@ const agent = new BuiltInAgent({
 </Tab>
 </Tabs>
 
-Forward props from the frontend using the `CopilotKit` provider's `properties` prop:
+Forward properties from the frontend provider:
 
+<FrontendOnly frontend="react">
 ```tsx title="app/page.tsx"
-<CopilotKit properties={{ model: "anthropic/claude-sonnet-4", temperature: 0.3 }}>
+<CopilotKit
+  properties={{ model: "anthropic/claude-sonnet-4-6", temperature: 0.3 }}
+  useSingleEndpoint={false}
+>
   <CopilotChat />
 </CopilotKit>
 ```
+
+<Callout type="info" title="About the explicit useSingleEndpoint">
+  The route above serves multi-route, the default. `<CopilotKitProvider>`
+  negotiates the transport when the prop is omitted, but every released
+  `<CopilotKit>` still pins it to `true` internally — which selects the
+  single-route transport and 404s against a multi-route route. Keep the
+  `{false}`. See
+  [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+</Callout>
+</FrontendOnly>
+
+<FrontendOnly frontend="angular">
+```ts title="src/app/app.config.ts"
+provideCopilotKit({
+  runtimeUrl: "/api/copilotkit",
+  properties: {
+    model: "anthropic/claude-sonnet-4-6",
+    temperature: 0.3,
+  },
+})
+```
+</FrontendOnly>
 
 ## Helper Utilities
 

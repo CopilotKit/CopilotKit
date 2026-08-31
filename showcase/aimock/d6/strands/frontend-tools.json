@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / frontend-tools",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "built-in-agent",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "frontend-tools 'Sunset' pill — 1st leg: emit change_background tool call. The Strands SDK mints its OWN UUID tool_call_ids for client-tool results (confirmed via the aimock journal: follow-up requests carry lastToolCallId=<uuid>, never the canonical call_d5_* id), so the post-tool follow-up cannot pin on toolCallId like langgraph-python does. AND the 3-pill probe runs all pills in ONE thread, so hasToolResult is permanently true after the first pill — gating on it makes pills 2/3 match their content leg on the first turn and never call the tool. We use sequenceIndex:0 (proven on built-in-agent, same Responses-API id situation): gate the 1st-leg to the FIRST match of this pill's userMessage; once exhausted the bare-userMessage post-tool fixture below catches the 2nd-leg request. Per-pill userMessage keeps the sequence counters independent.",
+      "match": {
+        "userMessage": "Make the background a sunset gradient",
+        "sequenceIndex": 0,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_sunset",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools 'Sunset' pill — 2nd leg (post-tool-result). Catches the follow-up once the sequenceIndex:0 fixture above is exhausted (sequenceIndex >= 1 → its check fails → falls through here).",
+      "match": {
+        "userMessage": "Make the background a sunset gradient",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Done — sunset gradient is live."
+      }
+    },
+    {
+      "_comment": "frontend-tools 'Forest' pill — 1st leg. Same sequenceIndex pattern as Sunset.",
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "sequenceIndex": 0,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_forest",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools 'Forest' pill — 2nd leg. Catches the follow-up after 1st-leg exhausts its sequenceIndex slot.",
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Done — forest gradient is live."
+      }
+    },
+    {
+      "_comment": "frontend-tools 'Cosmic' pill — 1st leg. Same sequenceIndex pattern.",
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "sequenceIndex": 0,
+        "context": "strands"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_cosmic",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "frontend-tools 'Cosmic' pill — 2nd leg.",
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Done — cosmic gradient is live."
+      }
+    }
+  ]
+}

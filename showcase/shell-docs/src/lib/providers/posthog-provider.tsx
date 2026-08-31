@@ -4,8 +4,8 @@ import { PostHogProvider as PostHogProviderBase } from "posthog-js/react";
 import posthog from "posthog-js";
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 
-const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 // Reverse-proxied via /ingest/* rewrites in next.config.ts so requests
 // flow through the docs host instead of *.i.posthog.com — bypasses
 // ad blockers / tracking-protection that target the PostHog hostname.
@@ -25,6 +25,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isInitializedRef = useRef(false);
+
+  // Pull the PostHog key from the runtime config injected by the root
+  // layout — empty string means "analytics disabled in this env" and
+  // the init/capture branches below already gate on truthiness.
+  const POSTHOG_KEY = getRuntimeConfig().posthogKey;
 
   // Read session_id from URL only on client side to avoid hydration mismatch
   useEffect(() => {

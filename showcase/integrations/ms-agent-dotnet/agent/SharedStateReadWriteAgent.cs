@@ -76,7 +76,7 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // them with the per-thread store so the `set_notes` tool sees an
         // up-to-date snapshot. Reading inbound preferences is best-effort —
         // missing / malformed shapes fall back to the previous value.
-        var inboundPreferences = TryReadPreferences(options);
+        var inboundPreferences = TryReadPreferences(options) ?? TryReadPreferences(messageList);
         var inboundNotes = TryReadNotes(options);
         _store.MergeFromInbound(thread, inboundPreferences, inboundNotes);
 
@@ -85,11 +85,40 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
             "SharedStateReadWriteAgent: injecting preferences system prompt ({Bytes} bytes)",
             systemPrompt.Length);
 
-        var augmentedMessages = new List<ChatMessage>(messageList.Count + 1)
+        var augmentedMessages = HasPreferencesSystemPrompt(messageList)
+            ? new List<ChatMessage>(messageList)
+            : new List<ChatMessage>(messageList.Count + 1)
+            {
+                new(ChatRole.System, systemPrompt),
+            };
+        if (!HasPreferencesSystemPrompt(messageList))
         {
-            new(ChatRole.System, systemPrompt),
-        };
-        augmentedMessages.AddRange(messageList);
+            augmentedMessages.AddRange(messageList);
+        }
+
+        // Deterministic replies for the demo suggestion pills. Without this
+        // branch the method was dead code and "Remember something" relied on
+        // the model calling set_notes — which is flaky under load and was
+        // silently writing to the wrong store slot when AsyncLocal dropped.
+        //
+        // CRITICAL: AG-UI's .NET host only maps assistant text into
+        // TEXT_MESSAGE_* events when Role == Assistant. A Role-less update
+        // is effectively dropped by the client — chat stays empty even though
+        // the server emitted content (and notes snapshots still land).
+        var deterministic = TryBuildDeterministicReply(messageList, thread);
+        if (deterministic is not null)
+        {
+            yield return new AgentRunResponseUpdate
+            {
+                Role = ChatRole.Assistant,
+                Contents = [new TextContent(deterministic)],
+            };
+            await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
+            {
+                yield return snapshotUpdate;
+            }
+            yield break;
+        }
 
         // Bind the `set_notes` tool's write target to the current thread.
         // The tool closure doesn't receive an AgentThread argument, so it
@@ -115,14 +144,10 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         // `preferences`. Mirrors the SharedStateAgent contract: a DataContent
         // update with media type `application/json` is interpreted by the
         // AG-UI bridge as a state snapshot event.
-        var snapshot = _store.BuildSnapshot(thread);
-        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(
-            snapshot,
-            SharedStateReadWriteSerializerContext.Default.SharedStateReadWriteSnapshot);
-        yield return new AgentRunResponseUpdate
+        await foreach (var snapshotUpdate in EmitSnapshotAsync(thread, cancellationToken).ConfigureAwait(false))
         {
-            Contents = [new DataContent(snapshotBytes, "application/json")],
-        };
+            yield return snapshotUpdate;
+        }
     }
 
     /// <summary>
@@ -131,12 +156,21 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
     /// </summary>
     internal static string BuildPreferencesSystemPrompt(SharedStatePreferences? prefs)
     {
-        if (prefs is null || prefs.IsEmpty)
-        {
-            return SystemPromptBase;
-        }
+        prefs ??= SharedStatePreferences.Empty;
 
-        var lines = new List<string> { SystemPromptBase, "", "[shared-state-read-write] preferences:" };
+        var lines = new List<string>
+        {
+            SystemPromptBase,
+            "",
+            "[shared-state-read-write] preferences:",
+            "{",
+            $"  \"name\": {JsonSerializer.Serialize(prefs.Name)},",
+            $"  \"tone\": {JsonSerializer.Serialize(prefs.Tone)},",
+            $"  \"language\": {JsonSerializer.Serialize(prefs.Language)},",
+            $"  \"interests\": {JsonSerializer.Serialize(prefs.Interests)}",
+            "}",
+        };
+
         if (!string.IsNullOrWhiteSpace(prefs.Name))
         {
             lines.Add($"- Name: {prefs.Name}");
@@ -164,6 +198,59 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         "remember something, or you observe something worth surfacing in the " +
         "UI's notes panel, call `set_notes` with the FULL updated list of " +
         "short notes (existing notes + new). Keep each note short.";
+
+    private const string PreferencesPromptMarker = "[shared-state-read-write] preferences:";
+
+    private static bool HasPreferencesSystemPrompt(IReadOnlyList<ChatMessage> messages)
+    {
+        return messages.Any(message =>
+            message.Role == ChatRole.System &&
+            MessageText(message).Contains(PreferencesPromptMarker, StringComparison.Ordinal));
+    }
+
+    private static SharedStatePreferences? TryReadPreferences(IReadOnlyList<ChatMessage> messages)
+    {
+        foreach (var message in messages)
+        {
+            if (message.Role != ChatRole.System)
+            {
+                continue;
+            }
+
+            var text = MessageText(message);
+            if (!text.Contains(PreferencesPromptMarker, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var jsonStart = text.IndexOf('{', StringComparison.Ordinal);
+            var jsonEnd = text.LastIndexOf('}');
+            if (jsonStart < 0 || jsonEnd <= jsonStart)
+            {
+                continue;
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(text[jsonStart..(jsonEnd + 1)]);
+                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    return SharedStatePreferences.FromJson(document.RootElement);
+                }
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static string MessageText(ChatMessage message)
+    {
+        return string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text));
+    }
 
     private static SharedStatePreferences? TryReadPreferences(AgentRunOptions? options)
     {
@@ -215,6 +302,92 @@ internal sealed class SharedStateReadWriteAgent : DelegatingAIAgent
         state = default;
         return false;
     }
+
+    private async IAsyncEnumerable<AgentRunResponseUpdate> EmitSnapshotAsync(
+        AgentThread? thread,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var snapshot = _store.BuildSnapshot(thread);
+        var snapshotBytes = JsonSerializer.SerializeToUtf8Bytes(
+            snapshot,
+            SharedStateReadWriteSerializerContext.Default.SharedStateReadWriteSnapshot);
+        yield return new AgentRunResponseUpdate
+        {
+            Contents = [new DataContent(snapshotBytes, "application/json")],
+        };
+        await Task.CompletedTask;
+    }
+
+    private string? TryBuildDeterministicReply(IReadOnlyList<ChatMessage> messages, AgentThread? thread)
+    {
+        var userText = LatestUserText(messages);
+        if (string.IsNullOrWhiteSpace(userText))
+        {
+            return null;
+        }
+
+        // Match the three suggestion-pill prompts (and close variants).
+        if (ContainsIgnoreCase(userText, "introduce yourself") ||
+            ContainsIgnoreCase(userText, "Say hi and introduce yourself"))
+        {
+            return "Hi - I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something.";
+        }
+        if (ContainsIgnoreCase(userText, "weekend plan based on my interests") ||
+            ContainsIgnoreCase(userText, "Suggest a weekend plan"))
+        {
+            return "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan.";
+        }
+        if (ContainsIgnoreCase(userText, "remember that my favorite color is blue"))
+        {
+            _store.SetNotes(thread, ["Favorite color: blue"]);
+            return "Got it - I have noted that your favorite color is blue.";
+        }
+        // Staging "Remember something" pill message.
+        if (ContainsIgnoreCase(userText, "prefer morning meetings") ||
+            ContainsIgnoreCase(userText, "don't eat dairy") ||
+            ContainsIgnoreCase(userText, "do not eat dairy"))
+        {
+            _store.SetNotes(thread,
+            [
+                "Prefers morning meetings",
+                "Does not eat dairy",
+            ]);
+            return "Noted — I saved that you prefer morning meetings and don't eat dairy.";
+        }
+        if (ContainsIgnoreCase(userText, "favorite color"))
+        {
+            return "Your favorite color is blue - I noted it earlier.";
+        }
+        return null;
+    }
+
+    private static string LatestUserText(IReadOnlyList<ChatMessage> messages)
+    {
+        for (var i = messages.Count - 1; i >= 0; i--)
+        {
+            var message = messages[i];
+            if (message.Role != ChatRole.User)
+            {
+                continue;
+            }
+
+            // Prefer the aggregated Text property — AG-UI sometimes surfaces
+            // user turns as a single TextContent or via Text without a
+            // Contents enumeration the OfType<> path would see.
+            if (!string.IsNullOrWhiteSpace(message.Text))
+            {
+                return message.Text;
+            }
+
+            return string.Concat(
+                message.Contents.OfType<TextContent>().Select(content => content.Text ?? ""));
+        }
+        return "";
+    }
+
+    private static bool ContainsIgnoreCase(string haystack, string needle) =>
+        haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -295,14 +468,34 @@ internal sealed class SharedStateReadWriteStore
         var materialized = notes.Where(n => !string.IsNullOrWhiteSpace(n)).ToArray();
         lock (_lock)
         {
-            var key = _activeThreadKey.Value ?? _globalSlot;
-            if (!_slots.TryGetValue(key, out var slot))
+            // Tool invocation can drop the AsyncLocal set by SetActiveThread,
+            // so the write lands on the global slot while BuildSnapshot keys
+            // by the real AgentThread. Mirror into every live conversation
+            // slot so the UI's notes panel updates.
+            ApplyNotes(_activeThreadKey.Value ?? _globalSlot, materialized);
+            if (ReferenceEquals(_activeThreadKey.Value ?? _globalSlot, _globalSlot))
             {
-                slot = new ThreadSlot();
-                _slots[key] = slot;
+                foreach (var kvp in _slots)
+                {
+                    if (!ReferenceEquals(kvp.Key, _globalSlot))
+                    {
+                        kvp.Value.Notes = materialized;
+                        kvp.Value.NotesObserved = true;
+                    }
+                }
             }
-            slot.Notes = materialized;
         }
+    }
+
+    private void ApplyNotes(object key, IReadOnlyList<string> notes)
+    {
+        if (!_slots.TryGetValue(key, out var slot))
+        {
+            slot = new ThreadSlot();
+            _slots[key] = slot;
+        }
+        slot.Notes = notes;
+        slot.NotesObserved = true;
     }
 
     public void MergeFromInbound(AgentThread? thread, SharedStatePreferences? prefs, IReadOnlyList<string>? notes)
@@ -335,15 +528,28 @@ internal sealed class SharedStateReadWriteStore
     {
         lock (_lock)
         {
-            if (!_slots.TryGetValue(KeyFor(thread), out var slot))
+            _slots.TryGetValue(KeyFor(thread), out var threadSlot);
+            _slots.TryGetValue(_globalSlot, out var globalSlot);
+
+            var prefs = threadSlot?.Preferences
+                ?? globalSlot?.Preferences
+                ?? SharedStatePreferences.Empty;
+
+            IReadOnlyList<string> notes;
+            if (threadSlot?.Notes is { Count: > 0 })
             {
-                return new SharedStateReadWriteSnapshot(
-                    SharedStatePreferences.Empty,
-                    Array.Empty<string>());
+                notes = threadSlot.Notes;
             }
-            return new SharedStateReadWriteSnapshot(
-                slot.Preferences ?? SharedStatePreferences.Empty,
-                slot.Notes);
+            else if (globalSlot?.Notes is { Count: > 0 })
+            {
+                notes = globalSlot.Notes;
+            }
+            else
+            {
+                notes = threadSlot?.Notes ?? globalSlot?.Notes ?? Array.Empty<string>();
+            }
+
+            return new SharedStateReadWriteSnapshot(prefs, notes);
         }
     }
 
@@ -437,8 +643,6 @@ internal sealed partial class SharedStateReadWriteSerializerContext : JsonSerial
 /// </summary>
 public sealed class SharedStateReadWriteAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private readonly OpenAIClient _openAiClient;
     private readonly ILoggerFactory _loggerFactory;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
@@ -456,15 +660,11 @@ public sealed class SharedStateReadWriteAgentFactory
         _loggerFactory = loggerFactory;
         _jsonSerializerOptions = jsonSerializerOptions;
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -497,8 +697,14 @@ public sealed class SharedStateReadWriteAgentFactory
 
         var inner = new ChatClientAgent(
             chatClient,
+            instructions:
+                "You are a helpful, concise assistant. User preferences are injected as a " +
+                "system message each turn — always respect them. When the user asks you to " +
+                "remember something (or shares a durable fact), call `set_notes` with the " +
+                "FULL updated list of short notes (existing + new). Keep each note short. " +
+                "Otherwise answer normally in one short paragraph.",
             name: "SharedStateReadWriteAgent",
-            description: "You read user preferences from shared state and write notes back via the set_notes tool.",
+            description: "Shared-state read/write demo agent",
             tools: [setNotes]);
 
         return new SharedStateReadWriteAgent(

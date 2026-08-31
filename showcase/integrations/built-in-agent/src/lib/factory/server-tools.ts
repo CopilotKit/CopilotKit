@@ -108,8 +108,33 @@ export const getStockPriceTool = toolDefinition({
   };
 });
 
-export const rollDiceTool = toolDefinition({
-  name: "roll_dice",
+// Mock revenue chart for the headless-complete demo's "Revenue chart"
+// pill. Returns six months of quarterly revenue data so the
+// `get_revenue_chart` tool result drives the ChartCard renderer with a
+// deterministic shape (label/value pairs, peaking in June). Mirrors the
+// LangGraph Python reference agent's `get_revenue_chart` tool.
+export const getRevenueChartTool = toolDefinition({
+  name: "get_revenue_chart",
+  description:
+    "Get a mock chart of quarterly revenue over the last six months. " +
+    "Returns label/value points (one per month, Jan–Jun) plus a title " +
+    "and subtitle so the client can render a bar chart.",
+  inputSchema: z.object({}),
+}).server(async () => ({
+  title: "Quarterly revenue",
+  subtitle: "USD thousands",
+  data: [
+    { label: "Jan", value: 42 },
+    { label: "Feb", value: 51 },
+    { label: "Mar", value: 58 },
+    { label: "Apr", value: 64 },
+    { label: "May", value: 73 },
+    { label: "Jun", value: 81 },
+  ],
+}));
+
+export const rollD20Tool = toolDefinition({
+  name: "roll_d20",
   description: "Roll a single die with the given number of sides.",
   inputSchema: z.object({
     sides: z.number().int().min(2).default(6),
@@ -143,6 +168,7 @@ export const baseServerTools = [
   getWeatherTool,
   searchFlightsTool,
   getStockPriceTool,
-  rollDiceTool,
+  getRevenueChartTool,
+  rollD20Tool,
   setNotesTool,
 ] as const;

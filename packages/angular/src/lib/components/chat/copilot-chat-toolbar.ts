@@ -5,13 +5,11 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { cn } from "../../utils";
 
 @Component({
   selector: "div[copilotChatToolbar]",
-  standalone: true,
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: {
@@ -27,7 +25,7 @@ export class CopilotChatToolbar {
 
   readonly computedClass = computed(() => {
     const baseClasses =
-      "w-full h-[60px] bg-transparent flex items-center justify-between";
+      "cpk:w-full cpk:h-[60px] cpk:bg-transparent cpk:flex cpk:items-center cpk:justify-between";
     return cn(baseClasses, this.inputClass());
   });
 }

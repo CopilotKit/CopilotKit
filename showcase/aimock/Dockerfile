@@ -1,4 +1,6 @@
 FROM ghcr.io/copilotkit/aimock:latest
-COPY d5-all.json /fixtures/d5-all.json
-COPY smoke.json /fixtures/smoke.json
-COPY feature-parity.json /fixtures/feature-parity.json
+
+# Depth-organized fixture directories
+COPY shared/ /fixtures/shared/
+COPY d4/ /fixtures/d4/
+COPY d6/ /fixtures/d6/

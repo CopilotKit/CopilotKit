@@ -4,7 +4,11 @@
   { "slug": "built-in-agent", "name": "Built-in Agent (TanStack AI)" },
   { "slug": "claude-sdk-python", "name": "Claude SDK Python" },
   { "slug": "claude-sdk-typescript", "name": "Claude SDK TypeScript" },
-  { "slug": "crewai-crews", "name": "CrewAI Crews" },
+  { "slug": "crewai-crews", "name": "CrewAI Flows" },
+  {
+    "slug": "crewai-conversational-flows",
+    "name": "CrewAI Conversational Flows"
+  },
   { "slug": "google-adk", "name": "Google ADK" },
   { "slug": "langgraph-fastapi", "name": "LangGraph FastAPI" },
   { "slug": "langgraph-python", "name": "LangGraph Python" },
@@ -13,8 +17,10 @@
   { "slug": "llamaindex", "name": "LlamaIndex" },
   { "slug": "mastra", "name": "Mastra" },
   { "slug": "ms-agent-dotnet", "name": "MS Agent .NET" },
+  { "slug": "ms-agent-harness-dotnet", "name": "MS Agent Harness .NET" },
   { "slug": "ms-agent-python", "name": "MS Agent Python" },
   { "slug": "pydantic-ai", "name": "Pydantic AI" },
   { "slug": "spring-ai", "name": "Spring AI" },
-  { "slug": "strands", "name": "Strands" }
+  { "slug": "strands", "name": "AWS Strands (Python)" },
+  { "slug": "strands-typescript", "name": "AWS Strands (TypeScript)" }
 ]

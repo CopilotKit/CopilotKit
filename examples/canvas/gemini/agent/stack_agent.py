@@ -510,7 +510,7 @@ workflow.add_node("analyze", analyze_with_gemini_node)
 workflow.add_node("end", end_node)
 workflow.add_edge(START, "gather_context")
 workflow.add_edge("gather_context", "analyze")
-workflow.add_edge("analyze", END)
+workflow.add_edge("analyze", "end")
 workflow.set_entry_point("gather_context")
 workflow.set_finish_point("end")
 

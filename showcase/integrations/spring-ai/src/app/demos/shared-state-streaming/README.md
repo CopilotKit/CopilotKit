@@ -1,29 +1,35 @@
-# Shared State Streaming — Spring AI
+# State Streaming
 
-Per-token state streaming for Spring AI. The agent defines a `write_document`
-tool; as the LLM streams the tool-call arguments, the controller extracts the
-growing `content` value and emits `STATE_SNAPSHOT` events. The frontend's
-`useAgent({ updates: [OnStateChanged] })` subscription re-renders the document
-panel on each snapshot, producing live per-token updates.
+## What This Demo Shows
 
-## How It Works
+Per-token streaming of a tool argument directly into shared agent state — the document grows character-by-character in the UI while the tool call is still in flight.
 
-1. `ChatClient.stream()` runs with `internalToolExecutionEnabled=false` and a
-   registered `write_document` tool callback. The model sees the tool and
-   generates a tool call.
+- **Live document panel**: `state.document` is rendered in a document view with a blinking cursor and a "LIVE" badge
+- **Token-level deltas**: every streamed token from the agent's `write_document` tool argument is forwarded straight into the `document` state key
+- **Char counter**: a running character count makes the per-token stream obvious
 
-2. Each streaming chunk that carries tool-call data for `write_document` has
-   accumulated arguments (e.g. `{"content": "Once upon a ti`). The controller
-   parses the partial JSON to extract the growing content string.
+## How to Interact
 
-3. On each increment, a `STATE_SNAPSHOT` is emitted with the updated
-   `state.document`. The CopilotKit runtime merges this into agent state and
-   the frontend re-renders.
+Click a suggestion chip, or try:
 
-4. After streaming completes, the controller emits the tool-call envelope
-   events (start/args/end/result) and a final state snapshot.
+- "Write a short poem about autumn leaves."
+- "Draft a polite email declining a meeting next Tuesday afternoon."
+- "Write a 2-paragraph explanation of quantum computing for a curious teenager."
 
-## Reference
+Watch the document panel fill in live as the agent writes.
 
-The LangGraph Python reference uses `StateStreamingMiddleware` for the same
-effect — see `showcase/integrations/langgraph-python/src/agents/shared_state_streaming.py`.
+## Technical Details
+
+The magic is one middleware entry:
+
+```py
+StateStreamingMiddleware(
+    StateItem(
+        state_key="document",
+        tool="write_document",
+        tool_argument="content",
+    )
+)
+```
+
+Without it, `state.document` would only update when the tool call finishes. With it, every token the LLM generates for the `content` argument is mirrored into state immediately. On the frontend, `useAgent({ updates: [OnStateChanged, OnRunStatusChanged] })` drives re-renders for both the text and the "LIVE" badge; `agent.isRunning` toggles the cursor.

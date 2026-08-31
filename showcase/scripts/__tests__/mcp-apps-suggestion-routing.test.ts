@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { globSync } from "glob";
 import { loadFixtureFile, matchFixture } from "@copilotkit/aimock";
 import type {
   ChatCompletionRequest,
@@ -13,20 +14,18 @@ import type {
 // (showcase/integrations/langgraph-python/src/app/demos/mcp-apps/suggestions.ts).
 //
 // Bug class this test catches: a pill's verbatim `message` falls through
-// the d5-all.json mcp-apps fixtures and gets absorbed by a generic
-// substring catch-all later in the load chain (e.g.
-// feature-parity.json's `{userMessage: "steps"}`), producing a
-// content-only response with no `create_view` tool call. The agent
-// never invokes the MCP tool, the runtime never fetches the UI
-// resource, and the sandboxed iframe never mounts. The chat looks like
-// it "works" — it just silently no-ops the demo's whole point.
+// the per-integration mcp-apps fixtures and gets absorbed by a generic
+// substring catch-all later in the load chain, producing a content-only
+// response with no `create_view` tool call. The agent never invokes the
+// MCP tool, the runtime never fetches the UI resource, and the sandboxed
+// iframe never mounts. The chat looks like it "works" — it just silently
+// no-ops the demo's whole point.
 //
 // We use aimock's `matchFixture` directly (no HTTP) so the test is
 // fast and deterministic: same matcher, same fixture load order as
 // docker-compose.local.yml.
 
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const AIMOCK_DIR = path.join(REPO_ROOT, "showcase", "aimock");
 const SUGGESTIONS_PATH = path.join(
   REPO_ROOT,
   "showcase",
@@ -39,15 +38,27 @@ const SUGGESTIONS_PATH = path.join(
   "suggestions.ts",
 );
 
-// Mirror showcase/docker-compose.local.yml's aimock command:
-//   --fixtures d5-all.json --fixtures smoke.json --fixtures feature-parity.json
-// aimock uses first-match-wins, so this order is load-bearing.
-const FIXTURE_FILES = ["d5-all.json", "smoke.json", "feature-parity.json"];
-
+// Load fixtures for a single integration (langgraph-python, the reference
+// integration) plus shared. At runtime each integration only sees its own
+// scoped fixtures via X-AIMock-Context, so loading a single integration's
+// fixture set is the correct simulation — loading all 18 integrations'
+// fixtures would produce first-match collisions across identical prompts.
 function loadBundledFixtures(): Fixture[] {
-  return FIXTURE_FILES.flatMap((f) =>
-    loadFixtureFile(path.join(AIMOCK_DIR, f)),
-  );
+  const fixtureFiles = [
+    ...globSync("showcase/aimock/shared/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d4/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+    ...globSync("showcase/aimock/d6/langgraph-python/*.json", {
+      cwd: REPO_ROOT,
+      absolute: true,
+    }),
+  ];
+  return fixtureFiles.flatMap((f) => loadFixtureFile(f));
 }
 
 function buildRequest(opts: {
@@ -79,6 +90,9 @@ function buildRequest(opts: {
   return {
     model: "gpt-5.4",
     messages,
+    // D6 fixtures use match.context for per-integration scoping; aimock's
+    // matchFixture checks req._context against it.
+    _context: "langgraph-python",
     tools: opts.withCreateViewTool
       ? [
           {
@@ -91,11 +105,11 @@ function buildRequest(opts: {
           },
         ]
       : undefined,
-  };
+  } as ChatCompletionRequest;
 }
 
 // One row per suggestion pill in suggestions.ts. `expectedFixtureKey`
-// is the load-bearing substring the d5-all.json fixture is keyed on —
+// is the load-bearing substring the mcp-apps fixture is keyed on —
 // it MUST be a substring of `message` (aimock matches `userMessage`
 // case-sensitively via String.prototype.includes — see
 // node_modules/@copilotkit/aimock/dist/router.js#matchFixture).
@@ -123,8 +137,7 @@ describe("MCP Apps suggestion-pill fixture routing", () => {
         src.includes(pill.message),
         `suggestions.ts no longer contains pill message:\n  "${pill.message}"\n` +
           `If you re-worded a pill, update both the matching fixture in ` +
-          `showcase/aimock/d5-all.json (and its mirror in ` +
-          `showcase/harness/fixtures/d5/mcp-apps.json) AND the PILLS table ` +
+          `showcase/aimock/d6/*/mcp-apps.json AND the PILLS table ` +
           `in this test so the new wording still routes to the create_view ` +
           `fixture.`,
       ).toBe(true);

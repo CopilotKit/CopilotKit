@@ -1,56 +1,63 @@
 import { test, expect } from "@playwright/test";
 
+// Shared State (Reading) — Recipe Editor demo. The page publishes
+// `agent.state.recipe` via `agent.setState`; the agent reads (but does
+// not mutate) that recipe on every turn. Spec mirrors the QA contract
+// in qa/shared-state-read.md and the testids exposed by recipe-card.tsx.
 test.describe("Shared State (Reading)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/shared-state-read");
   });
 
-  test("page loads with Sales Pipeline dashboard", async ({ page }) => {
-    await expect(page.getByText("Sales Pipeline")).toBeVisible({
-      timeout: 10000,
-    });
-  });
-
-  test("dashboard shows pipeline summary with Total Pipeline metric", async ({
+  test("recipe card loads with default ingredients and the sidebar mounts", async ({
     page,
   }) => {
-    await expect(page.getByText("Total Pipeline")).toBeVisible({
+    await expect(page.locator('[data-testid="recipe-card"]')).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.getByText("AI Recipe Assistant")).toBeVisible({
       timeout: 10000,
     });
-  });
-
-  test("sidebar is open with Sales Pipeline Assistant title", async ({
-    page,
-  }) => {
-    await expect(page.getByText("Sales Pipeline Assistant")).toBeVisible({
-      timeout: 10000,
-    });
-
-    // Sidebar should have a chat input
     await expect(
-      page.locator('textarea, [placeholder*="message"]').first(),
-    ).toBeVisible({ timeout: 10000 });
+      page.locator('[data-testid="ingredients-container"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-testid="instructions-container"]'),
+    ).toBeVisible();
   });
 
-  test("can send message through sidebar and get response", async ({
+  test("starter suggestions render", async ({ page }) => {
+    for (const title of [
+      "Create Italian recipe",
+      "Make it healthier",
+      "Suggest variations",
+    ]) {
+      await expect(page.getByRole("button", { name: title })).toBeVisible({
+        timeout: 15000,
+      });
+    }
+  });
+
+  test("clicking 'Add Ingredient' appends a new ingredient-card row", async ({
     page,
   }) => {
-    const input = page.locator('textarea, [placeholder*="message"]').first();
-    await input.fill("Summarize the current sales pipeline");
+    const ingredientCards = page.locator('[data-testid="ingredient-card"]');
+    const initialCount = await ingredientCards.count();
+    await page.locator('[data-testid="add-ingredient-button"]').click();
+    await expect(ingredientCards).toHaveCount(initialCount + 1, {
+      timeout: 5000,
+    });
+  });
+
+  test("sending a sidebar message returns an assistant response", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("What recipe am I making?");
     await input.press("Enter");
 
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
-      timeout: 30000,
-    });
-  });
-
-  test("dashboard shows deal list or empty state", async ({ page }) => {
-    // Either shows deals with "Active Deals" / "Closed" columns, or empty state
-    const hasDealList = page.getByText("Active Deals");
-    const hasEmptyState = page.getByText("No deals yet");
-
-    await expect(hasDealList.or(hasEmptyState).first()).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
   });
 });

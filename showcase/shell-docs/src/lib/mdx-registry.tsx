@@ -11,25 +11,83 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
-import { Callout as DocsCallout } from "@/components/docs-callout";
+import { Callout as DocsCallout } from "fumadocs-ui/components/callout";
 import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import {
   TailoredContent as RealTailoredContent,
   TailoredContentOption as RealTailoredContentOption,
 } from "@/components/react/tailored-content";
+import { NewLookAndFeelPreview } from "@/components/react/component-previews/new-look-and-feel";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
+import {
+  DocsTrackedCopy,
+  DocsTrackedLink,
+} from "@/components/react/docs-conversion";
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
+import { AngularSnippet } from "@/components/angular-snippet";
+import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
+import { MdxFrameworkOverview } from "@/components/content/landing-pages/mdx-framework-overview";
+import { FrameworkSetup } from "@/lib/setup-concept";
+import {
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
+} from "@/components/icons/framework-icons";
+import catalogData from "@/data/catalog.json";
+
+// Local `(integration, demo) → catalog entry` lookup. Mirrors the lookup in
+// `<Snippet>` (snippet.tsx) so `<InlineDemo>` can short-circuit to an
+// `<UnsupportedBox>` placeholder when the catalog flags a pair as
+// `unsupported` instead of iframing a backend route that 404s. Built once
+// at module scope.
+//
+// After Tyler's docs_mode cutover, only `generated`-mode frameworks
+// (langgraph-python, langgraph-typescript, google-adk) render the
+// agnostic shell-docs pages that embed `<InlineDemo>`. Authored-mode
+// frameworks render their own ported MDX and never hit this path, so
+// this guard now narrowly covers the LGTS/ADK gaps:
+//   langgraph-typescript ✗ shared-state-streaming
+//   google-adk           ✗ gen-ui-interrupt, interrupt-headless
+interface InlineDemoCatalogCell {
+  integration: string;
+  integration_name?: string;
+  feature: string;
+  feature_name?: string;
+  status: string;
+}
+
+const inlineDemoCatalogByKey: Map<string, InlineDemoCatalogCell> = (() => {
+  const m = new Map<string, InlineDemoCatalogCell>();
+  const cells =
+    (catalogData as { cells?: InlineDemoCatalogCell[] }).cells ?? [];
+  for (const c of cells) {
+    m.set(`${c.integration}::${c.feature}`, c);
+  }
+  return m;
+})();
 
 const Callout = DocsCallout;
 
@@ -52,16 +110,18 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
+  A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
   Overview: "shared/premium/overview.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
   MigrateToV: "shared/troubleshooting/migrate-to-v2.mdx",
+  MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
+  MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
+  MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
+  SelfHosting: "shared/premium/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
@@ -94,7 +154,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
     "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -206,6 +268,8 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  DocsTrackedCopy,
+  DocsTrackedLink,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -222,7 +286,7 @@ export const docsComponents = {
       );
       if (process.env.NODE_ENV !== "production") {
         return (
-          <div className="my-6 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          <div className="shell-docs-radius-surface my-6 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
             [mdx-registry] No deployed integrations support feature &quot;
             {feature}&quot;.
           </div>
@@ -240,7 +304,7 @@ export const docsComponents = {
             <Link
               key={i.slug}
               href={`/integrations/${i.slug}?demo=${feature}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
+              className="shell-docs-radius-control inline-flex items-center gap-1.5 border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               {i.name}
             </Link>
@@ -274,23 +338,59 @@ export const docsComponents = {
       );
       return null;
     }
+    // If the catalog marks this (integration × demo) pair as
+    // `unsupported`, render the same neutral placeholder <Snippet> uses
+    // instead of iframing a backend route that will 404. Only
+    // generated-mode frameworks reach this path; the affected cells are
+    // langgraph-typescript/shared-state-streaming and
+    // google-adk/{gen-ui-interrupt, interrupt-headless}.
+    const catalogEntry = inlineDemoCatalogByKey.get(`${integration}::${demo}`);
+    if (catalogEntry?.status === "unsupported") {
+      return (
+        <UnsupportedBox
+          integrationName={catalogEntry.integration_name ?? int.name}
+          featureName={catalogEntry.feature_name ?? demo}
+        />
+      );
+    }
     // Iframe the integration demo directly (its own backend host).
+    //
+    // Visual treatment: a fixed-height wrapper (550px) + CSS scale on the
+    // inner iframe to zoom the embedded content OUT. The iframe is sized
+    // to (100% / SCALE) (wider + taller than its visible box) and then
+    // `transform: scale(SCALE)` shrinks it back down to fill the wrapper.
+    // With SCALE < 1 the iframe lays out as if it had MORE viewport, so
+    // more demo content fits in the same visual footprint at a smaller
+    // effective size: useful for chat surfaces where the composer,
+    // suggested prompts, and early messages should all be visible at once.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    const iframeStyle: React.CSSProperties = {
+    const SCALE = 0.7;
+    const WRAPPER_HEIGHT = 550;
+    const wrapperStyle: React.CSSProperties = {
       width: "100%",
-      height: "500px",
+      height: `${WRAPPER_HEIGHT}px`,
+      overflow: "hidden",
+      background: "var(--bg-surface)",
+    };
+    const iframeStyle: React.CSSProperties = {
+      width: `calc(100% / ${SCALE})`,
+      height: `${WRAPPER_HEIGHT / SCALE}px`,
       border: "none",
       background: "var(--bg-surface)",
+      transform: `scale(${SCALE})`,
+      transformOrigin: "top left",
     };
     return (
       <DocsTabs items={["Demo", "Code"]}>
         <DocsTab value="Demo">
-          <iframe
-            src={demoUrl}
-            style={iframeStyle}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-            loading="lazy"
-          />
+          <div style={wrapperStyle}>
+            <iframe
+              src={demoUrl}
+              style={iframeStyle}
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              loading="lazy"
+            />
+          </div>
         </DocsTab>
         <DocsTab value="Code">
           <DemoSource integration={integration} demo={demo} />
@@ -305,16 +405,6 @@ export const docsComponents = {
   Tip: ({ children }: { children: React.ReactNode }) => (
     <Callout type="info">{children}</Callout>
   ),
-  ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
-    <>
-      <Callout type="info">
-        <strong>Early access:</strong> Threads and the Enterprise Intelligence
-        Platform are in early access. APIs may change before general
-        availability.
-      </Callout>
-      {children}
-    </>
-  ),
   Steps: DocsSteps,
   Step: DocsStep,
   CardGroup: Cards,
@@ -325,7 +415,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "1rem",
       }}
@@ -340,7 +430,10 @@ export const docsComponents = {
   // overrides this to inject `defaultFramework` from the URL — same
   // pattern as <Snippet>.
   WhenFrameworkHas,
+  WhenAngularBackend,
   AgentCoreCommandTabs,
+  AngularFeatureCatalog,
+  AngularSnippet,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -362,7 +455,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
       }}
     >
@@ -377,7 +470,11 @@ export const docsComponents = {
     // immediately overrode it to `undefined`, silently dropping it.
     <video
       {...props}
-      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        width: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   img: (props: Record<string, unknown>) => (
@@ -385,7 +482,11 @@ export const docsComponents = {
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     <img
       {...props}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
@@ -398,7 +499,7 @@ export const docsComponents = {
     if (process.env.NODE_ENV !== "production") {
       warnSilentNull("Snippet", "runtime override required (base stub)");
       return (
-        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
           [Snippet] runtime override required
           {children ? <div className="mt-1">{children}</div> : null}
         </div>
@@ -415,21 +516,52 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> is used by orphaned `deploy-agentcore`
-  // pages (langgraph/* + aws-strands) as a placeholder for content
-  // that was never authored. Without a registered shim, MDX rendering
-  // throws and ships a 500 in the public sitemap.
-  Content: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
+  // <Content framework="..." partial="..." /> renders a shared deploy
+  // partial and threads the page's `framework` into the partial's MDX
+  // scope so framework-aware bits inside it (e.g.
+  // `<AgentCoreCommandTabs framework={framework} />`, or the
+  // `href={`/${framework}/...`}` cards in the LangSmith partial) collapse
+  // to the single relevant framework instead of showing both. Unlike the
+  // generic `stubWithPartial` stubs, this one forwards props, so it's a
+  // dedicated loader call. `scope` keys surface as bare identifiers in
+  // the partial (NOT `props.*`); see PartialLoader.
+  //
+  // Used by the per-framework deploy wrappers:
+  //   - `deploy-agentcore` (langgraph/* + aws-strands) → defaults to
+  //     integrations/agentcore/index.mdx
+  //   - `deploy-langsmith` (deploy/* + langgraph/* + adk/*) → passes
+  //     partial="integrations/langsmith/index.mdx"
+  Content: ({
+    framework,
+    partial,
+  }: {
+    framework?: string;
+    partial?: string;
+  }) => (
+    <PartialLoader
+      relativePath={partial ?? "integrations/agentcore/index.mdx"}
+      scope={{ framework }}
+      components={
+        docsComponents as unknown as Record<
+          string,
+          React.ComponentType<Record<string, unknown>>
+        >
+      }
+    />
   ),
   IframeSwitcher: RealIframeSwitcher,
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  A2UI: stubWithPartial("A2UI"),
   RunAndConnect: stubWithPartial("RunAndConnect"),
   RunAndConnectSnippet: stubWithPartial("RunAndConnectSnippet"),
   MigrateTo: stubWithPartial("MigrateTo"),
   MigrateToV: stubWithPartial("MigrateToV"),
+  MigrateTo182: stubWithPartial("MigrateTo182"),
+  MigrateTo1100: stubWithPartial("MigrateTo1100"),
+  MigrateToV2: stubWithPartial("MigrateToV2"),
+  SelfHosting: stubWithPartial("SelfHosting"),
   HeadlessUI: stubWithPartial("HeadlessUI"),
   ImageZoom: ({ src, alt }: { src?: string; alt?: string }) => (
     // eslint-disable-next-line @next/next/no-img-element
@@ -437,7 +569,7 @@ export const docsComponents = {
       src={src}
       alt={alt || ""}
       style={{
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         maxWidth: "100%",
         marginBottom: "1rem",
         cursor: "zoom-in",
@@ -445,16 +577,44 @@ export const docsComponents = {
     />
   ),
   InstallSDKSnippet: stubWithPartial("InstallSDKSnippet"),
+  BuildWithAgents: stubWithPartial("BuildWithAgents"),
   MCPApps: stubWithPartial("MCPApps"),
   MCPSetup: stubWithPartial("MCPSetup"),
   Overview: stubWithPartial("Overview"),
-  FrameworkOverview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // Authored `integrations/<folder>/index.mdx` files use the flat-prop
+  // form `<FrameworkOverview frameworkName=... frameworkIcon={...} ...>`
+  // ported verbatim from v1. The MDX adapter wraps the data-driven
+  // `FrameworkOverview` so the props actually render (banner video,
+  // features grid, architecture image, live demos) instead of being
+  // dropped on the floor as a children-passthrough used to do.
+  FrameworkOverview: MdxFrameworkOverview,
+  // Per-render override in DocsPageView binds `currentFramework` from
+  // the URL — same closure pattern as MdxFrameworkOverview. The base
+  // registration renders null when invoked without a framework slug
+  // (e.g. an unscoped /docs/<slug> route where the concept of
+  // "framework-specific setup" doesn't apply).
+  FrameworkSetup,
+  // Per-framework icon components used inline by authored index.mdx files
+  // (e.g. `frameworkIcon={<MastraIcon className="h-12 w-12" />}`). Each
+  // resolves to the same component the data-driven path uses via
+  // `customIcons[<key>]`. New frameworks: add a matching `<XIcon>` here
+  // when porting their `index.mdx`.
+  AdkIcon,
+  Ag2Icon,
+  AgnoIcon,
+  AnthropicIcon,
+  CrewaiIcon,
+  DeepAgentsIcon,
+  LanggraphIcon,
+  LlamaIndexIcon,
+  MastraIcon,
+  MicrosoftIcon,
+  PydanticAIIcon: PydanticAiIcon,
+  PydanticAiIcon,
+  SpringIcon,
+  StrandsIcon,
   CommonIssues: stubWithPartial("CommonIssues"),
   ErrorDebugging: stubWithPartial("ErrorDebugging"),
-  Observability: stubWithPartial("Observability"),
-  ObservabilityConnectors: stubWithPartial("ObservabilityConnectors"),
   Inspector: stubWithPartial("Inspector"),
   DefaultToolRendering: stubWithPartial("DefaultToolRendering"),
   DisplayOnly: stubWithPartial("DisplayOnly"),
@@ -464,9 +624,7 @@ export const docsComponents = {
   CodingAgents: stubWithPartial("CodingAgents"),
   CustomAgent: stubWithPartial("CustomAgent"),
   DebugMode: stubWithPartial("DebugMode"),
-  NewLookAndFeelPreview: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  NewLookAndFeelPreview,
   Slots: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -494,7 +652,7 @@ export const docsComponents = {
             width: "100%",
             height: "100%",
             border: "none",
-            borderRadius: "0.5rem",
+            borderRadius: "var(--shell-docs-radius-surface)",
           }}
           sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           loading="lazy"
@@ -536,7 +694,7 @@ export const docsComponents = {
     <div
       style={{
         border: "1px solid var(--border)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         padding: "1rem",
         marginBottom: "0.75rem",
       }}
@@ -583,7 +741,7 @@ export const docsComponents = {
       return <div>{children}</div>;
     }
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -650,7 +808,7 @@ export const docsComponents = {
     ];
 
     return (
-      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+      <div className="shell-docs-radius-surface my-6 overflow-x-auto border border-[var(--border)] shadow-[var(--shadow-control)]">
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr>
@@ -742,17 +900,23 @@ export const docsComponents = {
       style={{
         padding: "1rem",
         background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
+        borderRadius: "var(--shell-docs-radius-surface)",
         marginBottom: "1rem",
       }}
     >
-      <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+      <a
+        href="https://dashboard.operations.copilotkit.ai"
+        style={{ color: "var(--accent)" }}
+      >
         Sign up for CopilotKit Cloud →
       </a>
     </div>
   ),
   LinkToCopilotCloud: () => (
-    <a href="https://cloud.copilotkit.ai" style={{ color: "var(--accent)" }}>
+    <a
+      href="https://dashboard.operations.copilotkit.ai"
+      style={{ color: "var(--accent)" }}
+    >
       CopilotKit Cloud
     </a>
   ),
@@ -818,7 +982,11 @@ export const docsComponents = {
       width={width}
       height={height}
       className={className}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+      style={{
+        borderRadius: "var(--shell-docs-radius-surface)",
+        maxWidth: "100%",
+        marginBottom: "1rem",
+      }}
     />
   ),
   A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
@@ -855,7 +1023,7 @@ export const docsComponents = {
         aria-label={ariaLabel}
         style={{
           padding: "0.5rem 1rem",
-          borderRadius: "0.375rem",
+          borderRadius: "var(--shell-docs-radius-control)",
           border: "1px solid var(--border)",
           background: "var(--bg-surface)",
           cursor: "pointer",
@@ -929,9 +1097,14 @@ export const docsComponents = {
   Banknote: () => <span>💰</span>,
   AlertCircle: () => <span>⚠️</span>,
   PiMonitor: () => <span>🖥️</span>,
-  AwsStrandsIcon: () => <span>☁️</span>,
-  MicrosoftIcon: () => <span>Ⓜ️</span>,
-  PydanticAIIcon: () => <span>🐍</span>,
+  // `MicrosoftIcon` and `PydanticAIIcon` were once emoji stubs here.
+  // Both are now registered to their real SVG icon components in the
+  // FrameworkOverview block above (around line 489), so the stubs would
+  // be duplicate keys (TS1117) — removed. `AwsStrandsIcon` remains a
+  // stub because the framework-icons export is named `StrandsIcon`
+  // (the `customIcons.awsStrands` key keeps the legacy v1 alias), and
+  // some ported MDX uses the AwsStrandsIcon name verbatim.
+  AwsStrandsIcon: StrandsIcon,
   SiLangchain: () => <span>🔗</span>,
   FaArrowUp: () => <span>↑</span>,
   FaCloud: () => <span>☁️</span>,

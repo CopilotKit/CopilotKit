@@ -16,6 +16,9 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    extraHTTPHeaders: {
+      "X-AIMock-Context": "built-in-agent",
+    },
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: process.env.SKIP_WEB_SERVER

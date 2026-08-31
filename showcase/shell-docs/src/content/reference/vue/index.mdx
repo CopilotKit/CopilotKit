@@ -1,0 +1,76 @@
+---
+title: "Vue"
+description: "API reference for @copilotkit/vue: the CopilotKit provider, prebuilt chat components, and composables for building CopilotKit into a Vue 3 app."
+---
+
+`@copilotkit/vue` brings CopilotKit to Vue 3. It ships a [provider](/reference/vue/components/CopilotKitProvider), a set of prebuilt chat components, and composables that mirror the React SDK. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
+
+<Callout type="info">
+  The v2 API lives under the `/v2` subpath, the same convention used by the web
+  SDK. Import the provider, components, and composables from
+  `@copilotkit/vue/v2`.
+</Callout>
+
+## Installation
+
+```sh
+npm install @copilotkit/vue
+```
+
+## Styling
+
+When using the prebuilt UI components, import the stylesheet once at your app entry point:
+
+```ts
+import "@copilotkit/vue/styles.css";
+```
+
+## Provider setup
+
+Wrap your app (or a sub-tree) with [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) to configure the runtime connection. Composables and components read this context through Vue's [provide/inject](https://vuejs.org/guide/components/provide-inject), so they must be used within the provider.
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider, CopilotChat } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat />
+  </CopilotKitProvider>
+</template>
+```
+
+## Vue conventions
+
+A few patterns recur across this reference and differ from the React SDK:
+
+- **Composables return refs.** A composable such as [`useAgent`](/reference/vue/hooks/useAgent) returns reactive refs (for example `{ agent }`). Read them with `.value` in `<script setup>`, or unwrapped directly in templates.
+- **Reactive arguments.** Many composables accept `MaybeRefOrGetter` arguments, so you can pass a plain value, a `ref`, or a getter and the composable stays reactive to changes.
+- **Props are kebab-case in templates.** Component props are documented with their camelCase names but are written as kebab-case attributes in templates (for example `runtimeUrl` becomes `runtime-url`).
+- **Slots replace render props.** Where the React SDK uses render props or `children`, the Vue components expose named [slots](https://vuejs.org/guide/components/slots) for the same customization.
+
+## API Reference
+
+<Callout type="info">
+  Looking for tool rendering composables? Start with
+  [`useFrontendTool`](/reference/vue/hooks/useFrontendTool),
+  [`useRenderTool`](/reference/vue/hooks/useRenderTool), and
+  [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop).
+</Callout>
+
+<Cards>
+  <Card
+    title="Composables"
+    description="Vue composables for agents, tools, context, suggestions, and chat configuration."
+    href="/reference/vue/hooks/useAgent"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="UI Components"
+    description="Prebuilt chat components: CopilotChat, CopilotPopup, CopilotSidebar, and more."
+    href="/reference/vue/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+</Cards>

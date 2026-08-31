@@ -19,6 +19,8 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
+
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
 const SYSTEM_PROMPT = `You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -156,7 +158,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // Force JSON-object output mode so the renderer's parseSpec never has
   // to parse around prose or code fences. Passed via `modelKwargs` so it
   // survives the LangChain → OpenAI chat-completions mapping.
-  const model = new ChatOpenAI({
+  const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     temperature: 0.2,
     modelKwargs: { response_format: { type: "json_object" } },

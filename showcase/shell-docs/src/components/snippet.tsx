@@ -38,7 +38,7 @@
 import React from "react";
 import demoContent from "../data/demo-content.json";
 import catalogData from "../data/catalog.json";
-import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { HighlightedDynamicCodeBlock } from "./highlighted-dynamic-codeblock";
 
 interface Region {
   file: string;
@@ -126,12 +126,17 @@ interface SnippetProps {
   title?: string;
   /** Hide the file-path caption. */
   noCaption?: boolean;
+  /**
+   * Line ranges to emphasize in the rendered snippet, relative to the
+   * extracted snippet body. Examples: "1-6", "3", "4-".
+   */
+  highlight?: string;
 }
 
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-yellow-500/40 bg-yellow-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="alert"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">
@@ -142,6 +147,11 @@ function WarningBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+function displayNameForSnippetFile(file: string): string {
+  const basename = file.split("/").pop() ?? file;
+  return basename.replace(/\.snippet(?=\.[^.]+$)/, "");
+}
+
 /**
  * `UnsupportedBox` — neutral, intentional-looking placeholder used when the
  * dashboard catalog flags a (framework × cell) pair as `unsupported`.
@@ -150,7 +160,7 @@ function WarningBox({ children }: { children: React.ReactNode }) {
  * "the framework deliberately doesn't implement this feature", which is an
  * expected state, not a docs gap.
  */
-function UnsupportedBox({
+export function UnsupportedBox({
   integrationName,
   featureName,
 }: {
@@ -159,7 +169,7 @@ function UnsupportedBox({
 }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-blue-500/40 bg-blue-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface my-4 border border-l-4 border-[var(--accent)] bg-[var(--accent-dim)] p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="note"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">
@@ -232,6 +242,28 @@ function parseLineRange(input: string | undefined): [number, number] | null {
   return null;
 }
 
+function parseHighlightedLines(
+  input: string | undefined,
+  totalLines: number,
+): Set<number> | null {
+  if (!input) return null;
+  const highlighted = new Set<number>();
+  for (const part of input.split(",")) {
+    const range = parseLineRange(part);
+    if (!range) return null;
+    const [start, end] = range;
+    const clampedEnd = Math.min(
+      end === Number.POSITIVE_INFINITY ? totalLines : end,
+      totalLines,
+    );
+    if (start > clampedEnd) continue;
+    for (let line = start; line <= clampedEnd; line++) {
+      highlighted.add(line);
+    }
+  }
+  return highlighted.size > 0 ? highlighted : null;
+}
+
 /**
  * Build a synthetic Region from a DemoFile + optional line range. Used by the
  * file+lines lookup path so the rest of the render pipeline is unchanged.
@@ -301,6 +333,7 @@ export function Snippet({
   // path that's already implied by surrounding doc context.
   title: _title,
   noCaption,
+  highlight,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
@@ -318,7 +351,7 @@ export function Snippet({
 
   if (!resolvedFramework) {
     return (
-      <div className="my-4 rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)] bg-[var(--bg-elevated)]">
+      <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.
       </div>
     );
@@ -427,16 +460,24 @@ export function Snippet({
   // like "frontend/src/app/page.tsx \u2014 chat surface" which duplicates
   // the path + adds a description; the path is implied by surrounding
   // doc context and the description doesn't earn its real estate next
-  // to working code. When `noCaption` is set the title is dropped
-  // entirely so the figure's floating copy button sits alone.
-  const basename = reg.file.split("/").pop() ?? reg.file;
-  const caption = noCaption ? undefined : basename;
+  // to working code. Docs-only extraction files can use `.snippet` before
+  // the extension while still rendering as the file they represent, e.g.
+  // `page.snippet.tsx` captions as `page.tsx`. When `noCaption` is set the
+  // title is dropped entirely so the figure's floating copy button sits alone.
+  const caption = noCaption ? undefined : displayNameForSnippetFile(reg.file);
+  const highlightedLines = parseHighlightedLines(
+    highlight,
+    reg.code.split("\n").length,
+  );
 
   return (
-    <DynamicCodeBlock
+    <HighlightedDynamicCodeBlock
       lang={resolveShikiLanguage(reg.language)}
       code={reg.code}
       codeblock={caption ? { title: caption } : undefined}
+      highlightedLines={
+        highlightedLines ? Array.from(highlightedLines) : undefined
+      }
     />
   );
 }

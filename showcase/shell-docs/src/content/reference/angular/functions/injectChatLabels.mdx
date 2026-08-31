@@ -1,0 +1,55 @@
+---
+title: "injectChatLabels"
+description: "Angular function that returns the CopilotKit chat labels, with provided overrides merged over the defaults"
+---
+
+## Overview
+
+`injectChatLabels` returns the full set of [`CopilotChatLabels`](/reference/angular/functions/provideCopilotChatLabels#parameters) in scope: any labels you provided through [`provideCopilotChatLabels`](/reference/angular/functions/provideCopilotChatLabels) merged over `COPILOT_CHAT_DEFAULT_LABELS`. If no labels were provided, it returns the defaults unchanged.
+
+It reads the `COPILOT_CHAT_LABELS` injection token (optionally), so it must run inside an Angular injection context (a constructor, a field initializer, or a factory). The prebuilt chat components call it internally; use it directly when you build your own chat UI and want the same configurable strings.
+
+## Signature
+
+```ts
+import { injectChatLabels } from "@copilotkit/angular";
+
+function injectChatLabels(): CopilotChatLabels;
+```
+
+## Return Value
+
+Returns a complete `CopilotChatLabels` object. Because the value is the merge of your overrides over the defaults, every field is always present (never `undefined`).
+
+## Usage
+
+Call it from an injection context and read the labels you need.
+
+```ts title="src/app/my-chat.component.ts"
+import { Component } from "@angular/core";
+import { injectChatLabels } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-my-chat",
+  standalone: true,
+  template: `<input [placeholder]="labels.chatInputPlaceholder" />`,
+})
+export class MyChatComponent {
+  protected readonly labels = injectChatLabels();
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="provideCopilotChatLabels"
+    description="Provide the label overrides that this function merges over the defaults."
+    href="/reference/angular/functions/provideCopilotChatLabels"
+  />
+  <Card
+    title="CopilotChat"
+    description="The prebuilt chat component that uses these labels internally."
+    href="/reference/angular/components/CopilotChat"
+  />
+</Cards>

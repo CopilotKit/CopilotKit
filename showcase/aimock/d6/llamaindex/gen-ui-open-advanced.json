@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / gen-ui-open-advanced",
+    "sourceScript": "d5-gen-ui-open-advanced.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open-advanced pill — emit generateSandboxedUi tool call with an inline expression evaluator. The D5 assertion checks for iframe[sandbox*='allow-scripts'] or [data-testid='gen-ui-open-advanced-iframe']. hasToolResult:false on initial prompt.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_li_open_adv_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Building expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#1e293b;color:#e2e8f0;padding:16px}input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;margin-bottom:8px}#result{background:#0f172a;padding:12px;border-radius:6px;font-family:monospace;min-height:20px}button{margin-top:8px;padding:8px 16px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer}button:hover{background:#2563eb}\",\"html\":\"<h3>Expression Evaluator</h3><input id='expr' placeholder='Enter expression, e.g. 2+2' /><button id='go'>Evaluate</button><div id='result'>—</div>\",\"jsFunctions\":\"(function(){document.getElementById('go').addEventListener('click',async function(){var expr=document.getElementById('expr').value;try{var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});document.getElementById('result').textContent=res&&res.ok?String(res.value):'Error';}catch(e){document.getElementById('result').textContent='Error: '+e.message;}});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open-advanced pill — follow-up after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Expression evaluator rendered above — type a math expression and click Evaluate to compute results in the sandboxed iframe."
+      }
+    }
+  ]
+}

@@ -1,84 +1,51 @@
 "use client";
 
 /**
- * Beautiful Chat (Spring AI port — simplified).
+ * Beautiful Chat — the flagship CopilotKit showcase cell, ported verbatim
+ * from the 4084 reference clone. The 4084 version lived as its own Next.js
+ * frontend at `demos/beautiful-chat/frontend/` with a full `src/components`
+ * tree + A2UI catalog. Here the same tree is colocated under the cell and
+ * re-wired with relative imports.
  *
- * A polished landing-style chat cell with brand theming and seeded
- * suggestions. The canonical langgraph-python version ships a much larger
- * surface (ExampleCanvas, GenerativeUIExamples, per-tool renderers wired
- * through an A2UI demonstration catalog). That ecosystem depends on
- * streaming-structured-output primitives the ag-ui:spring-ai integration
- * does not expose (see PARITY_NOTES.md), so the Spring port ships the
- * polished chat shell over the shared Spring agent and documents the
- * remaining canvas behavior as out-of-scope.
+ * Providers: layout-level `CopilotKit` + `ThemeProvider` wrappers from the
+ * original 4084 root layout are applied here instead, because the unified
+ * 4085 shell does not give each cell its own layout.tsx.
  *
- * Runtime: shared /api/copilotkit endpoint. Backend: the main Spring-AI
- * ChatClient bean — same one the agentic-chat cell uses. The cosmetic
- * layer (suggestions, theming, composer skin) lives entirely on the
- * frontend.
+ * Runtime: this cell uses its own dedicated runtime endpoint
+ * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
+ * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * same combined-runtime shape the canonical starter uses — without bleeding
+ * those global flags into other cells sharing the main `/api/copilotkit`
+ * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
  */
 
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import React from "react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-const AGENT_ID = "beautiful-chat";
-
-const BRAND_SUGGESTIONS = [
-  {
-    title: "Plan a 3-day Tokyo trip",
-    message:
-      "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise.",
-  },
-  {
-    title: "Explain RAG like I'm 12",
-    message:
-      "Explain retrieval-augmented generation as if I were 12. Use a simple analogy.",
-  },
-  {
-    title: "Draft a launch email",
-    message:
-      "Draft a short, upbeat launch email announcing a new AI-powered chat feature. 3 short paragraphs max.",
-  },
-];
+import { ThemeProvider } from "./hooks/use-theme";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+import { HomePage } from "./home-page";
 
 export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
-      <div
-        className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden"
-        style={{
-          background:
-            "radial-gradient(1200px 600px at 10% 10%, rgba(99,102,241,0.20), transparent 50%), radial-gradient(1000px 500px at 90% 90%, rgba(133,236,206,0.18), transparent 55%), linear-gradient(180deg, #FBFBFE 0%, #F4F4F8 100%)",
-        }}
+    <ThemeProvider>
+      <CopilotKit
+        runtimeUrl="/api/copilotkit-beautiful-chat"
+        agent="beautiful-chat"
+        a2ui={{ catalog: demonstrationCatalog }}
+        openGenerativeUI={{}}
+        /*
+         * `useSingleEndpoint` defaults to true (the single-POST-endpoint
+         * protocol). The canonical reference sets it to false to use the
+         * v2 multi-endpoint protocol (GET /info + POST /agent/{name}/connect),
+         * which requires a Hono-based endpoint via `createCopilotEndpoint`.
+         * The 4085 showcase uses `copilotRuntimeNextJSAppRouterEndpoint`
+         * (single-endpoint), which matches the other 4085 cells — so we
+         * use its default behavior here. Functionally equivalent for this demo.
+         */
       >
-        <div className="pointer-events-none absolute inset-0 [background:radial-gradient(circle_at_50%_0%,rgba(190,194,255,0.35),transparent_40%)]" />
-        <div className="relative flex h-full w-full max-w-3xl flex-col gap-4 px-4 py-8">
-          <header className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-[#010507]">
-              Beautiful Chat
-            </h1>
-            <p className="text-sm text-[#3A3A46]">
-              A polished conversational surface powered by your Spring AI
-              backend. Ask a question, or pick a suggestion below.
-            </p>
-          </header>
-          <div className="flex-1 overflow-hidden rounded-2xl border border-[#E5E5ED] bg-white/70 shadow-[0_1px_0_0_rgba(0,0,0,0.02),0_10px_40px_-10px_rgba(99,102,241,0.18)] backdrop-blur-sm">
-            <Chat />
-          </div>
-        </div>
-      </div>
-    </CopilotKit>
+        <HomePage />
+      </CopilotKit>
+    </ThemeProvider>
   );
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: BRAND_SUGGESTIONS,
-    available: "always",
-  });
-
-  return <CopilotChat agentId={AGENT_ID} className="h-full rounded-2xl" />;
 }

@@ -1,0 +1,551 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for built-in-agent / tool-rendering",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21",
+    "lastEditedNote": "BIA's /v1/responses endpoint REWRITES assistant tool_call ids to runtime-generated `fc-…` values, so toolCallId-keyed follow-ups never match on iteration 2 across the fleet. Each pill therefore uses a layered matcher: (a) toolCallId follow-up retained for the non-rewriting code path, (b) hasToolResult:true follow-up that fires regardless of id rewrites, (c) hasToolResult:false first-leg tool emitter so multi-pill sessions still trigger the tool. Mirrors the SF-weather pattern already in this file."
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_roll_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_flights_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "toolCallId": "call_tr_chain_weather_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "Chain tools — follow-up fallback for BIA /v1/responses id-rewriting (mirrors the SF-weather hasToolResult:true pattern). Fires AFTER any of the 3 chain tools ran when the toolCallId-chained fixtures above couldn't match because the id was rewritten to `fc-…`. Must precede the first-leg emitter below.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. hasToolResult:false anchors the first-leg so multi-pill sessions (prior pills already left tool results) still emit the chain.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_chain_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"Tokyo\"}"
+          },
+          {
+            "id": "call_tr_chain_roll_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":11}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "toolCallId": "call_tr_weather_sf_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "_comment": "Weather in SF — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the `call_tr_weather_sf_001` toolCallId chain above never matches the follow-up turn. Anchored on hasToolResult:true so it only fires AFTER get_weather has run (preventing a tool-emit loop) and never swallows the first turn. Must precede the turnIndex:0 tool-emit fixture below.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "San Francisco is currently 68°F and sunny with light winds."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Weather in SF — first-turn tool-emit fallback for multi-pill demo sessions where a PRIOR pill already left an assistant message in the thread, so turnIndex (thread-global assistant count) is not 0 and the fixture above is skipped. Anchored on hasToolResult:false so it only emits get_weather BEFORE any tool has run; the hasToolResult:true content fixture above handles the follow-up turn, so no loop.",
+      "match": {
+        "userMessage": "What's the weather in San Francisco?",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_weather_sf_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"San Francisco\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolCallId": "call_tr_flights_sfo_jfk_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "Find flights — follow-up content fallback for BIA /v1/responses id-rewriting. Same rationale as SF-weather hasToolResult:true fixture: if the toolCallId chain above missed because the id was rewritten to `fc-…`, this fires after search_flights ran. Must precede the first-leg emitter below.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "Find flights — first leg: emit search_flights tool call. Anchored on hasToolResult:false so multi-pill demo sessions (prior pills left tool results) still emit; the hasToolResult:true follow-up above handles iteration 2 so there's no emit loop.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "toolCallId": "call_tr_stock_aapl_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "Stock price — first-leg tool-emit. Uses sequenceIndex:0 (per-test counter) instead of hasToolResult/turnIndex because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result + assistant turn in history, making BOTH hasToolResult:false AND turnIndex:0 false-y when AAPL arrives at turn 2. sequenceIndex:0 fires exactly once per test; on iteration 2 (count=1) it falls through to the bare narration below, breaking the emit→tool-result→re-emit loop without depending on hasToolResult-based history inspection. Ordered BEFORE the bare narration so first-match-wins on iteration 1.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Stock price — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows a sibling pill's first turn.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_002",
+            "name": "roll_d20",
+            "arguments": "{\"value\":14}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_002",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_003",
+            "name": "roll_d20",
+            "arguments": "{\"value\":3}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_003",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_004",
+            "name": "roll_d20",
+            "arguments": "{\"value\":19}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_004",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_005",
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "toolCallId": "call_tr_d20_seq_005",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Rolled the d20 five times — landed on 20 on the final roll."
+      }
+    },
+    {
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first. Anchored on hasToolResult:false rather than turnIndex:0 so multi-pill demo sessions (prior pills' tool results in the thread) still trigger the first roll.",
+      "match": {
+        "userMessage": "Roll a 20-sided die.",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_d20_seq_001",
+            "name": "roll_d20",
+            "arguments": "{\"value\":7}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d5_get_weather_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "weather in Tokyo — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture). Must precede the tool-emitting fixtures below.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get_weather",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Mastra registers the weather tool as get-weather (hyphen); duplicate for compat",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get-weather",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get-weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ],
+        "reasoning": "The user asked about Tokyo weather. I'll call get_weather with location='Tokyo' to get the current conditions.",
+        "content": "Looking up the weather in Tokyo for you."
+      }
+    },
+    {
+      "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "turnIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    },
+    {
+      "_comment": "Legacy 'current price of AAPL' probe (tool-rendering Stock-price pill alias). MUST NOT be loosened to bare 'AAPL' — bare 'AAPL' matches the headless-complete probe's 'What's the price of AAPL right now?' as a substring and shadows gen-ui-headless-complete.json's tighter matcher when the BIA reprompt loop fires after id rewriting.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolCallId": "call_d5_get_stock_price_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "_comment": "AAPL probe — first-leg tool-emit. Uses sequenceIndex:0 (fires once per test) instead of hasToolResult:false because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result in history, making hasToolResult:false false-y for the AAPL turn. sequenceIndex:0 is stable across multi-pill sessions (per-test counter resets) AND breaks the emit→tool-result→re-emit loop on iteration 2 (count=1, seqIdx:0 mismatch → falls through to narration below). Ordered BEFORE the bare-userMessage narration so first-match-wins on iteration 1.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "sequenceIndex": 0,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "AAPL probe — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows because the emitter is gated by sequenceIndex rather than hasToolResult.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_search_flights_001",
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolCallId": "call_d5_display_flight_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Flight rendered. Tap 'Book flight' to confirm."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "SFO to JFK",
+        "toolName": "display_flight",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "name": "display_flight",
+            "arguments": {
+              "origin": "SFO",
+              "destination": "JFK",
+              "airline": "United",
+              "price": "$289"
+            },
+            "id": "call_d5_display_flight_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolCallId": "call_d5_write_document_poem_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — the poem has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "poem about autumn leaves",
+        "toolName": "write_document",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Streaming the poem now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_poem_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Crimson and amber in slow descent, / each leaf a quiet ledger of summer spent. / The wind, a courier with nothing to say, / files them gently into the morning's gray. / Somewhere a kettle hums, and afternoons grow brief — / autumn keeps its books in vermilion and gold leaf.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolCallId": "call_d5_write_document_email_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — the decline-email draft has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "polite email declining",
+        "toolName": "write_document",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Drafting the email now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_email_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"Hi — thanks for sending the invite for Tuesday afternoon. Unfortunately I won't be able to make it this week. I'd love to find time later in the month if your schedule allows. In the meantime, feel free to send any pre-reads my way and I'll review them async so we don't lose momentum. Best, [name]\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolCallId": "call_d5_write_document_quantum_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — the quantum-computing explainer has been written into the shared document state."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "quantum computing for a curious teenager",
+        "toolName": "write_document",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Streaming the explainer now.",
+        "toolCalls": [
+          {
+            "id": "call_d5_write_document_quantum_001",
+            "name": "write_document",
+            "arguments": "{\"document\":\"A regular computer stores information in bits — tiny switches that are either on (1) or off (0). A quantum computer uses qubits, which can sit in a fuzzy superposition of both states at once until you check them. Stack many qubits together and they can explore lots of possibilities in parallel, which is why people are excited.\\n\\nThis doesn't make quantum computers faster at everything. They're great at problems with hidden structure — like factoring big numbers, simulating molecules, or searching certain databases — but useless for, say, opening Excel. Today's machines are noisy and small, so we mostly use them to test ideas rather than replace your laptop.\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

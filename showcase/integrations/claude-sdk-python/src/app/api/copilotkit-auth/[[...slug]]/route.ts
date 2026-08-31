@@ -24,24 +24,23 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { CopilotRuntimeOptions } from "@copilotkit/runtime/v2";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-// Reuse the neutral shared Claude agent for the authenticated path.
-// The point of this demo is the gate mechanism, not per-user agent
-// branching — authenticated users get the same behaviour as any other
-// neutral demo.
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
-}
+const authDemoAgent = createClaudeHttpAgent(`${AGENT_URL}/`);
+type StaticRuntimeAgents = Awaited<
+  Exclude<CopilotRuntimeOptions["agents"], (...args: never[]) => unknown>
+>;
+type RuntimeAgent = StaticRuntimeAgents[keyof StaticRuntimeAgents];
 
-const agents: Record<string, AbstractAgent> = {
-  "auth-demo": createAgent(),
+const agents: Record<string, RuntimeAgent> = {
+  "auth-demo": authDemoAgent as unknown as RuntimeAgent,
   // Fallback: useAgent() with no args resolves "default" — alias to
   // the same agent so hooks in the demo page resolve cleanly.
-  default: createAgent(),
+  default: authDemoAgent as unknown as RuntimeAgent,
 };
 
 const runtime = new CopilotRuntime({ agents });

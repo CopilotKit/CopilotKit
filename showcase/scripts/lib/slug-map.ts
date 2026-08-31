@@ -212,6 +212,12 @@ const ENTRIES: readonly SlugEntry[] = [
     fallback: false,
   },
   { slug: "langroid", bornInShowcase: true, examples: [], fallback: false },
+  {
+    slug: "ms-agent-harness-dotnet",
+    bornInShowcase: true,
+    examples: [],
+    fallback: false,
+  },
   { slug: "spring-ai", bornInShowcase: true, examples: [], fallback: false },
 
   // Packages with a straightforward examples/integrations counterpart
@@ -291,6 +297,12 @@ const ENTRIES: readonly SlugEntry[] = [
     bornInShowcase: false,
     examples: ["strands-python"],
     fallback: true,
+  },
+  {
+    slug: "strands-typescript",
+    bornInShowcase: false,
+    examples: ["strands-typescript"],
+    fallback: false,
   },
 ];
 

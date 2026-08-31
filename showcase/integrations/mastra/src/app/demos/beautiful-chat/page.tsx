@@ -20,13 +20,11 @@
  */
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-import { ExampleLayout } from "./components/example-layout";
-import { ExampleCanvas } from "./components/example-canvas";
-import { useGenerativeUIExamples, useExampleSuggestions } from "./hooks";
 import { ThemeProvider } from "./hooks/use-theme";
 import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
+import { HomePage } from "./home-page";
 
 export default function BeautifulChatPage() {
   return (
@@ -49,19 +47,5 @@ export default function BeautifulChatPage() {
         <HomePage />
       </CopilotKit>
     </ThemeProvider>
-  );
-}
-
-function HomePage() {
-  useGenerativeUIExamples();
-  useExampleSuggestions();
-
-  return (
-    <ExampleLayout
-      chatContent={
-        <CopilotChat input={{ disclaimer: () => null, className: "pb-6" }} />
-      }
-      appContent={<ExampleCanvas />}
-    />
   );
 }

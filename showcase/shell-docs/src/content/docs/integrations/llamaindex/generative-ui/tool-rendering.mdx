@@ -3,7 +3,6 @@ title: "Tool Rendering"
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
-
 <IframeSwitcher
   id="backend-tools-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/llama-index/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
@@ -14,15 +13,7 @@ description: Render your agent's tool calls with custom UI components.
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section
-  applied in the{" "}
-  <a
-    href="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat"
-    target="_blank"
-  >
-    CopilotKit feature viewer
-  </a>
-  .
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/llama-index/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -40,7 +31,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-<RunAndConnect />
+<RunAndConnect components={props.components} />
 </Step>
 <Step>
 ### Give your agent a tool to call
@@ -83,6 +74,7 @@ async def health_check():
     return {"status": "healthy", "agent": "llamaindex"}
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="localhost", port=8000)
 ```
 
@@ -99,6 +91,7 @@ the UI.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
@@ -106,12 +99,11 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderTool({
     name: "getWeather",
-    render: ({ status, args }) => {
+    render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
         </p>
       );
     },
@@ -132,4 +124,4 @@ render the tool call and display the arguments that were passed to the tool.
 
 ## Default Tool Rendering
 
-<DefaultToolRendering />
+<DefaultToolRendering components={props.components} />

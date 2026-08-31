@@ -1,0 +1,108 @@
+A common question: *how do I point CopilotKit's threads at my own database instead of CopilotKit Intelligence?*
+
+The honest answer is that you can't, because there is no such extension point. CopilotKit does not define a "bring your own thread backend" endpoint spec that you can implement against — [Rich Threads](/threads) (`useThreads`, the [Threads Drawer](/prebuilt-components/copilot-threads-drawer), cross-device sync, replayable event history) are a capability of [CopilotKit Intelligence](/premium/overview), not an interface with a swappable implementation.
+
+What you *can* do without the platform is persist conversations yourself. That path is real and it works — it just looks different from Rich Threads, and it's worth being clear about what you get and what you give up before you build it.
+
+## What each path gives you
+
+| | Self-managed | CopilotKit Intelligence |
+| --- | --- | --- |
+| Conversation survives a page reload | Yes, if your framework checkpoints it | Yes |
+| Conversation follows the user across devices | Yes, if your store is server-side and user-scoped | Yes |
+| Thread list, rename, archive, delete | You build it | `useThreads`, built in |
+| Full AG-UI event history replayed into the UI | No — you restore framework state, not the event log | Yes |
+| Generative UI and multimodal history restored | No | Yes |
+| Realtime sync across tabs and devices | No | Yes |
+| Resuming a run that's still in flight | No | Yes |
+
+The line that matters most is the fourth row. Framework-native persistence stores your agent's *state*; it does not store the AG-UI event stream that produced the visible conversation. So a restored conversation can continue correctly while still not looking the way it did when the user left it — rendered tool-call components, streamed reasoning, and attachments are re-derived from the event history, which nobody kept.
+
+## The self-managed path
+
+Three pieces, none of them CopilotKit-specific.
+
+### 1. Own the `threadId`
+
+Don't let CopilotKit mint the id. Mint it yourself, store it, and pass it in — that id is the only thing correlating the browser, the runtime, and your agent's store.
+
+```tsx
+<CopilotChat agentId="my-agent" threadId={conversationId} />
+```
+
+An auto-minted id is re-created on remount, which silently starts a new conversation. See [Thread lifecycle](/threads-lifecycle#how-the-threadid-is-created) for the full precedence rules.
+
+### 2. Persist at the framework layer
+
+CopilotKit forwards the `threadId` to your agent as the AG-UI `threadId`. Use it as — or map it to — your framework's own thread identifier, and let the framework's persistence do the storing.
+
+<Tabs items={["LangGraph", "Other frameworks"]}>
+<Tab value="LangGraph">
+A checkpointer persists graph state per thread:
+
+```python title="agent.py"
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+checkpointer = AsyncPostgresSaver.from_conn_string(DB_URL)
+graph = builder.compile(checkpointer=checkpointer)
+```
+
+The incoming `threadId` becomes the checkpointer's `thread_id`, so the next run against the same id resumes from the stored state. See [LangGraph message persistence](/integrations/langgraph/advanced/persistence/message-persistence).
+
+<Callout type="info">
+  A checkpointer creates LangGraph's own checkpoint tables. It does **not** create a
+  CopilotKit threads table, and configuring one does not make `useThreads` work.
+</Callout>
+</Tab>
+<Tab value="Other frameworks">
+The same shape applies wherever your framework keeps durable state — CrewAI memory, an ADK session service, or your own store keyed by the `threadId` you passed in. What matters is that the id arriving over AG-UI is the key you persist under.
+</Tab>
+</Tabs>
+
+### 3. Build the thread list yourself
+
+`useThreads` is platform-backed and will not return your rows, so the conversation list is application code: a table of `(thread_id, user_id, title, updated_at)` that you query and render, with the selected id handed to `<CopilotChat threadId={...} />`.
+
+Scope every query to the signed-in user, and check ownership on the runtime side too — see [Thread authorization](/auth#thread-authorization).
+
+## Restoring the visible conversation
+
+Framework state alone doesn't repopulate the UI. If you want prior messages on screen at mount, you have to put them there — read them from your store and set them on the agent:
+
+```tsx
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function RestoreHistory({ threadId }: { threadId: string }) {
+  const { agent } = useAgent({ agentId: "my-agent" });
+
+  useEffect(() => {
+    let cancelled = false;
+    myApi.getMessages(threadId).then((messages) => {
+      if (!cancelled) agent?.setMessages(messages);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, threadId]);
+
+  return null;
+}
+```
+
+This restores text. It does not restore generative UI, tool-call renders, or attachments — those come back only from a replayed AG-UI event history, which is what the platform store provides and a checkpointer does not.
+
+## When to stop building this and use the platform
+
+Self-managed persistence is a reasonable fit when conversations are simple and mostly textual, you already run a database and an auth layer, and you'd rather own the storage than add a dependency.
+
+It stops being the cheaper option once you want a thread list with rename and archive, conversations that look the same on return as when the user left, realtime sync across tabs, or the ability to rejoin a run still in progress. At that point you are re-implementing the platform, and the boundary in [OSS vs Enterprise](/concepts/oss-vs-enterprise) is worth re-reading.
+
+If you have existing conversations in a framework store and want them as Rich Threads, [Importing and synchronizing thread history](/threads-import) covers the migration.
+
+## Related
+
+- [Thread lifecycle](/threads-lifecycle) — how ids are minted, hydrated, and switched
+- [Thread authorization](/auth#thread-authorization) — scoping threads to their owner
+- [OSS vs CopilotKit Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits
+- [Rich Threads](/threads) — what the platform-backed path looks like

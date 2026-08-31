@@ -1,0 +1,23 @@
+---
+title: Context
+description: Render muted metadata or footnote text in a portable Channels message.
+---
+
+`Context` renders secondary metadata below the main message content.
+
+```tsx
+import { Context, Message, Section } from "@copilotkit/channels/ui";
+
+<Message>
+  <Section>Deployment completed.</Section>
+  <Context>Production · commit 4f8a2d1</Context>
+</Message>;
+```
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `children` | `BotChildren` | Secondary text content. |
+
+Managed Slack renders a context block. Managed Teams renders small, subtle,
+wrapping text. Do not place a required instruction only in `Context`, because
+native clients intentionally de-emphasize it.

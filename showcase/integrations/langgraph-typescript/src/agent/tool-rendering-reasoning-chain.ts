@@ -7,9 +7,20 @@
  */
 
 import { z } from "zod";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { AIMessage, SystemMessage } from "@langchain/core/messages";
+import {
+  Annotation,
+  MemorySaver,
+  START,
+  StateGraph,
+  messagesStateReducer,
+  BaseMessage,
+} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
 
 const SYSTEM_PROMPT =
   "You are a travel & lifestyle concierge. When a user asks a question, " +
@@ -117,14 +128,52 @@ const rollDice = tool(
 // `OPENAI_REASONING_MODEL` is unset.
 const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
 
-const model = new ChatOpenAI({
-  model: REASONING_MODEL,
-  useResponsesApi: true,
-  reasoning: { effort: "low", summary: "auto" },
+const tools = [getWeather, searchFlights, getStockPrice, rollDice];
+
+// Custom StateGraph rather than `createReactAgent` so the per-invocation
+// `config` (with `copilotkit_forwarded_headers`) reaches the `ChatOpenAI`
+// construction — required for `x-aimock-context` propagation.
+const AgentStateAnnotation = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: messagesStateReducer,
+    default: () => [],
+  }),
 });
 
-export const graph = createReactAgent({
-  llm: model,
-  tools: [getWeather, searchFlights, getStockPrice, rollDice],
-  prompt: SYSTEM_PROMPT,
+type AgentState = typeof AgentStateAnnotation.State;
+
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  const model = makeChatOpenAI(config, {
+    model: REASONING_MODEL,
+    useResponsesApi: true,
+    reasoning: { effort: "low", summary: "auto" },
+  });
+
+  const modelWithTools = model.bindTools!(tools);
+
+  const response = await modelWithTools.invoke(
+    [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
+    config,
+  );
+
+  return { messages: response };
+}
+
+function shouldContinue({ messages }: AgentState) {
+  const lastMessage = messages[messages.length - 1] as AIMessage;
+  if (lastMessage.tool_calls?.length) return "tool_node";
+  return "__end__";
+}
+
+const workflow = new StateGraph(AgentStateAnnotation)
+  .addNode("chat_node", chatNode)
+  .addNode("tool_node", new ToolNode(tools))
+  .addEdge(START, "chat_node")
+  .addEdge("tool_node", "chat_node")
+  .addConditionalEdges("chat_node", shouldContinue as any);
+
+const memory = new MemorySaver();
+
+export const graph = workflow.compile({
+  checkpointer: memory,
 });

@@ -1,0 +1,179 @@
+---
+title: "useComponent"
+description: "Register a Vue component as a frontend tool renderer in chat"
+---
+
+## Overview
+
+`useComponent` is a convenience composable built on top of [`useFrontendTool`](/reference/vue/hooks/useFrontendTool). It registers a tool and renders a Vue component in chat using the tool call parameters as the component's props.
+
+Use this when you want a visual component renderer without writing a full frontend tool config manually. For lower-level control over render status (in progress, executing, complete) or to render any tool with a wildcard, reach for [`useRenderTool`](/reference/vue/hooks/useRenderTool) instead.
+
+<Callout type="info">
+  Import from the `/v2` subpath: `@copilotkit/vue/v2`. Like all CopilotKit
+  composables, `useComponent` must be called from within a component that is a
+  descendant of [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider).
+</Callout>
+
+## Signature
+
+```ts
+import type { Component, WatchSource } from "vue";
+import type { StandardSchemaV1 } from "@copilotkit/shared";
+import { useComponent } from "@copilotkit/vue/v2";
+
+function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
+  config: {
+    name: string;
+    description?: string;
+    parameters?: TSchema;
+    // When parameters is provided, props are inferred from the schema output.
+    // When omitted, the component accepts any props.
+    render: Component<NoInfer<InferRenderProps<TSchema>>>;
+    agentId?: string;
+  },
+  deps?: WatchSource<unknown>[],
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="object" required>
+  Configuration for the component tool.
+
+  <PropertyReference name="name" type="string" required>
+    Tool name used by the agent to invoke this component tool.
+  </PropertyReference>
+
+  <PropertyReference name="description" type="string">
+    Optional extra description for model guidance. It is appended to a default instruction (see [Behavior](#behavior)).
+  </PropertyReference>
+
+  <PropertyReference name="parameters" type="StandardSchemaV1">
+    Optional [Standard Schema](https://standardschema.dev) (for example a Zod schema) for typed and validated parameters. When provided, the `render` component's props are inferred from the schema output. When omitted, the component accepts any props.
+  </PropertyReference>
+
+  <PropertyReference name="render" type="Component<NoInfer<InferRenderProps<TSchema>>>" required>
+    A Vue component rendered with the parsed tool parameters passed as props. The parameters are spread onto the component as its props.
+  </PropertyReference>
+
+  <PropertyReference name="agentId" type="string">
+    Optional agent scope for the registration.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="WatchSource<unknown>[]">
+  Optional list of reactive watch sources. The registration re-runs when any of these change. Include any reactive values captured by `render` that should refresh the registration (for example a `ref` or a getter).
+</PropertyReference>
+
+## Behavior
+
+- **Default instruction.** The composable prepends a default instruction to the description: _"Use this tool to display the \"&lt;name&gt;\" component in the chat. This tool renders a visual UI component for the user."_. Your `description`, if provided, is appended after it.
+- **Built on `useFrontendTool`.** It calls [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) internally with a render function that mounts your component (via Vue's `h`) and spreads the tool's `args` as the component's props.
+- **Inherited lifecycle.** It inherits `useFrontendTool` behavior: a duplicate-name registration logs an override warning and replaces the previous tool, and the tool is removed automatically when the owning scope is disposed.
+- **Reactivity.** The registration is reactive to `config.name` and the `deps` watch sources. Pass any changing reactive values you depend on through `deps`.
+
+## Usage
+
+Define a Zod schema for the parameters, a Vue component that receives them as props, and register both with `useComponent`.
+
+```vue
+<!-- WeatherCard.vue -->
+<script setup lang="ts">
+defineProps<{
+  city: string;
+  unit: "c" | "f";
+}>();
+</script>
+
+<template>
+  <div class="rounded border p-3">
+    <div class="text-sm text-zinc-500">Weather request</div>
+    <div class="font-medium">{{ city }} ({{ unit.toUpperCase() }})</div>
+  </div>
+</template>
+```
+
+```vue
+<!-- App.vue -->
+<script setup lang="ts">
+import { z } from "zod";
+import { useComponent } from "@copilotkit/vue/v2";
+import WeatherCard from "./WeatherCard.vue";
+
+const weatherCardSchema = z.object({
+  city: z.string().describe("City name"),
+  unit: z.enum(["c", "f"]).default("c"),
+});
+
+useComponent({
+  name: "showWeatherCard",
+  description: "Render a weather card in chat for the requested city.",
+  parameters: weatherCardSchema,
+  render: WeatherCard,
+});
+</script>
+```
+
+### Without parameters
+
+When you omit `parameters`, the component accepts any props and the agent can invoke the tool with no arguments.
+
+```vue
+<script setup lang="ts">
+import { useComponent } from "@copilotkit/vue/v2";
+import LoadingSpinner from "./LoadingSpinner.vue";
+
+useComponent({
+  name: "showSpinner",
+  render: LoadingSpinner,
+});
+</script>
+```
+
+### Refreshing on reactive changes
+
+Pass reactive watch sources through `deps` so the registration re-runs when captured values change.
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { z } from "zod";
+import { useComponent } from "@copilotkit/vue/v2";
+import WeatherCard from "./WeatherCard.vue";
+
+// Pass any reactive watch sources the registration should track through `deps`;
+// the tool is re-registered whenever one of them changes.
+const refreshKey = ref(0);
+
+useComponent(
+  {
+    name: "showWeatherCard",
+    parameters: z.object({ city: z.string() }),
+    render: WeatherCard,
+  },
+  [refreshKey],
+);
+</script>
+```
+
+<Callout type="info">
+  `agentId` is read once when the composable runs, so it cannot be made reactive
+  through `deps`. To scope a component to a different agent at runtime,
+  conditionally render the component that calls `useComponent`.
+</Callout>
+
+## Related
+
+<Cards>
+  <Card
+    title="useFrontendTool"
+    description="Register a frontend tool with an optional renderer. useComponent is built on top of this."
+    href="/reference/vue/hooks/useFrontendTool"
+  />
+  <Card
+    title="useRenderTool"
+    description="Render a tool call with full access to status (in progress, executing, complete) and results."
+    href="/reference/vue/hooks/useRenderTool"
+  />
+</Cards>

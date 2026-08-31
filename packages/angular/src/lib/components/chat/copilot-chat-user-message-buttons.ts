@@ -7,8 +7,8 @@ import {
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { LucideAngularModule, Copy, Check, Edit } from "lucide-angular";
+
+import { Check, CopilotIcon, Copy, Edit } from "../icons/copilot-icon";
 import { CopilotTooltip } from "../../directives/tooltip";
 import { cn } from "../../utils";
 import { injectChatLabels } from "../../chat-config";
@@ -17,8 +17,6 @@ import { copyToClipboard } from "@copilotkit/shared";
 // Base toolbar button component
 @Component({
   selector: "button[copilotChatUserMessageToolbarButton]",
-  standalone: true,
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -45,24 +43,24 @@ export class CopilotChatUserMessageToolbarButton {
   computedClass = computed(() => {
     return cn(
       // Flex centering
-      "inline-flex items-center justify-center",
+      "cpk:inline-flex cpk:items-center cpk:justify-center",
       // Cursor
-      "cursor-pointer",
+      "cpk:cursor-pointer",
       // Background and text
-      "p-0 text-[rgb(93,93,93)] hover:bg-[#E8E8E8]",
+      "cpk:p-0 cpk:text-[rgb(93,93,93)] cpk:hover:bg-[#E8E8E8]",
       // Dark mode
-      "dark:text-[rgb(243,243,243)] dark:hover:bg-[#303030]",
+      "cpk:dark:text-[rgb(243,243,243)] cpk:dark:hover:bg-[#303030]",
       // Shape and sizing
-      "h-8 w-8 rounded-md",
+      "cpk:h-8 cpk:w-8 cpk:rounded-md",
       // Interactions
-      "transition-colors",
+      "cpk:transition-colors",
       // Hover states
-      "hover:text-[rgb(93,93,93)]",
-      "dark:hover:text-[rgb(243,243,243)]",
+      "cpk:hover:text-[rgb(93,93,93)]",
+      "cpk:dark:hover:text-[rgb(243,243,243)]",
       // Focus states
-      "focus:outline-none focus:ring-2 focus:ring-offset-2",
+      "cpk:focus:outline-none cpk:focus:ring-2 cpk:focus:ring-offset-2",
       // Disabled state
-      "disabled:opacity-50 disabled:cursor-not-allowed",
+      "cpk:disabled:opacity-50 cpk:disabled:cursor-not-allowed",
       this.inputClass(),
     );
   });
@@ -70,13 +68,8 @@ export class CopilotChatUserMessageToolbarButton {
 
 // Copy button component
 @Component({
-  standalone: true,
   selector: "copilot-chat-user-message-copy-button",
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatUserMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -88,9 +81,9 @@ export class CopilotChatUserMessageToolbarButton {
       (click)="handleCopy()"
     >
       @if (copied()) {
-        <lucide-angular [img]="CheckIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CheckIcon" [size]="18"></copilot-icon>
       } @else {
-        <lucide-angular [img]="CopyIcon" [size]="18"></lucide-angular>
+        <copilot-icon [img]="CopyIcon" [size]="18"></copilot-icon>
       }
     </button>
   `,
@@ -122,12 +115,7 @@ export class CopilotChatUserMessageCopyButton {
 // Edit button component
 @Component({
   selector: "copilot-chat-user-message-edit-button",
-  standalone: true,
-  imports: [
-    CommonModule,
-    LucideAngularModule,
-    CopilotChatUserMessageToolbarButton,
-  ],
+  imports: [CopilotIcon, CopilotChatUserMessageToolbarButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
@@ -138,7 +126,7 @@ export class CopilotChatUserMessageCopyButton {
       [inputClass]="inputClass()"
       (click)="handleEdit()"
     >
-      <lucide-angular [img]="EditIcon" [size]="18"></lucide-angular>
+      <copilot-icon [img]="EditIcon" [size]="18"></copilot-icon>
     </button>
   `,
 })

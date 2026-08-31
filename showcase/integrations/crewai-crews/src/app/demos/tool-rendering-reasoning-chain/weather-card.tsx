@@ -37,8 +37,11 @@ export function WeatherCard({
               {location || "Weather"}
             </h3>
             <p className="text-[#57575B] text-sm mt-0.5">
-              {loading ? "Fetching weather..." : conditions || "--"}
+              {loading ? "Fetching weather..." : conditions || "—"}
             </p>
+          </div>
+          <div className="text-4xl leading-none" aria-hidden>
+            {loading ? "..." : conditionsEmoji(conditions)}
           </div>
         </div>
 
@@ -71,4 +74,14 @@ export function WeatherCard({
       </div>
     </div>
   );
+}
+
+function conditionsEmoji(conditions?: string): string {
+  if (!conditions) return "";
+  const c = conditions.toLowerCase();
+  if (c.includes("sun") || c.includes("clear")) return "sun";
+  if (c.includes("rain") || c.includes("storm")) return "rain";
+  if (c.includes("cloud")) return "cloud";
+  if (c.includes("snow")) return "snow";
+  return "";
 }

@@ -16,7 +16,7 @@
   pointer-events: none;
 }
 
-.copilotKitSidebar .copilotKitWindow {
+:where(.copilotKitSidebar) .copilotKitWindow {
   border-radius: 0;
   opacity: 1;
   transform: translateX(100%);
@@ -28,7 +28,7 @@
   pointer-events: auto;
 }
 
-.copilotKitSidebar .copilotKitWindow.open {
+:where(.copilotKitSidebar) .copilotKitWindow.open {
   transform: translateX(0);
 }
 
@@ -54,7 +54,7 @@
     max-height: calc(100% - 6rem);
   }
 
-  .copilotKitSidebar .copilotKitWindow {
+  :where(.copilotKitSidebar) .copilotKitWindow {
     bottom: 0;
     right: 0;
     top: auto;

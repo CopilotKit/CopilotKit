@@ -17,16 +17,16 @@ import {
 describe("stripProviderPrefix", () => {
   it("strips known provider prefixes", () => {
     expect(stripProviderPrefix("openai/gpt-5.4")).toBe("gpt-5.4");
-    expect(stripProviderPrefix("anthropic/claude-sonnet-4")).toBe(
-      "claude-sonnet-4",
+    expect(stripProviderPrefix("anthropic/claude-sonnet-4-6")).toBe(
+      "claude-sonnet-4-6",
     );
     expect(stripProviderPrefix("google/gemini-2.5-pro")).toBe("gemini-2.5-pro");
     expect(stripProviderPrefix("cohere/command-r-plus")).toBe("command-r-plus");
     expect(stripProviderPrefix("meta/llama-4-scout")).toBe("llama-4-scout");
     expect(stripProviderPrefix("mistral/mistral-large")).toBe("mistral-large");
     expect(stripProviderPrefix("azure/gpt-4o")).toBe("gpt-4o");
-    expect(stripProviderPrefix("bedrock/claude-sonnet-4")).toBe(
-      "claude-sonnet-4",
+    expect(stripProviderPrefix("bedrock/claude-sonnet-4-6")).toBe(
+      "claude-sonnet-4-6",
     );
     expect(stripProviderPrefix("vertex/gemini-2.5-flash")).toBe(
       "gemini-2.5-flash",
@@ -35,7 +35,7 @@ describe("stripProviderPrefix", () => {
 
   it("returns the name unchanged when no prefix matches", () => {
     expect(stripProviderPrefix("gpt-5.4")).toBe("gpt-5.4");
-    expect(stripProviderPrefix("claude-sonnet-4")).toBe("claude-sonnet-4");
+    expect(stripProviderPrefix("claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
   });
 });
 
@@ -46,7 +46,7 @@ describe("stripProviderPrefix", () => {
 describe("looksLikeModelName", () => {
   it("recognizes known model prefixes", () => {
     expect(looksLikeModelName("gpt-5.4")).toBe(true);
-    expect(looksLikeModelName("claude-sonnet-4")).toBe(true);
+    expect(looksLikeModelName("claude-sonnet-4-6")).toBe(true);
     expect(looksLikeModelName("gemini-2.5-pro")).toBe(true);
     expect(looksLikeModelName("o1")).toBe(true);
     expect(looksLikeModelName("o1-mini")).toBe(true);
@@ -86,12 +86,12 @@ describe("extractModelNames", () => {
   it('extracts model from model: "..." pattern', () => {
     const content = [
       "```tsx",
-      'const config = { model: "claude-sonnet-4" };',
+      'const config = { model: "claude-sonnet-4-6" };',
       "```",
     ].join("\n");
 
     const results = extractModelNames(content);
-    expect(results).toEqual([{ model: "claude-sonnet-4", line: 2 }]);
+    expect(results).toEqual([{ model: "claude-sonnet-4-6", line: 2 }]);
   });
 
   it('extracts model from "model": "..." JSON pattern', () => {
@@ -139,14 +139,14 @@ describe("extractModelNames", () => {
     const content = [
       "```python",
       'a = ChatOpenAI(model="gpt-5.4")',
-      'b = ChatAnthropic(model="claude-sonnet-4")',
+      'b = ChatAnthropic(model="claude-sonnet-4-6")',
       "```",
     ].join("\n");
 
     const results = extractModelNames(content);
     expect(results).toHaveLength(2);
     expect(results[0].model).toBe("gpt-5.4");
-    expect(results[1].model).toBe("claude-sonnet-4");
+    expect(results[1].model).toBe("claude-sonnet-4-6");
   });
 
   it("ignores text outside code blocks", () => {
@@ -189,12 +189,12 @@ describe("loadAllowlist", () => {
   it("loads all model names from allowlist JSON", () => {
     const allowlistPath = path.resolve(
       __dirname,
-      "../../docs/model-allowlist.json",
+      "../../showcase/shell-docs/model-allowlist.json",
     );
     const allowed = loadAllowlist(allowlistPath);
 
     expect(allowed.has("gpt-5.4")).toBe(true);
-    expect(allowed.has("claude-sonnet-4")).toBe(true);
+    expect(allowed.has("claude-sonnet-4-6")).toBe(true);
     expect(allowed.has("gemini-2.5-pro")).toBe(true);
     expect(allowed.has("command-r-plus")).toBe(true);
     expect(allowed.has("llama-4-scout")).toBe(true);
@@ -203,7 +203,7 @@ describe("loadAllowlist", () => {
   it("excludes the _comment field", () => {
     const allowlistPath = path.resolve(
       __dirname,
-      "../../docs/model-allowlist.json",
+      "../../showcase/shell-docs/model-allowlist.json",
     );
     const allowed = loadAllowlist(allowlistPath);
 
@@ -231,7 +231,10 @@ describe("validateFiles", () => {
 
     fs.writeFileSync(
       allowlist,
-      JSON.stringify({ openai: ["gpt-5.4"], anthropic: ["claude-sonnet-4"] }),
+      JSON.stringify({
+        openai: ["gpt-5.4"],
+        anthropic: ["claude-sonnet-4-6"],
+      }),
     );
     fs.writeFileSync(
       path.join(dir, "test.mdx"),

@@ -2,15 +2,16 @@ import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 import type {
   RuntimeInfo,
-  AgentDescription,
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  InspectorMetadataV1,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import {
   logger,
+  parseInspectorMetadataV1,
   RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
   resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";
@@ -20,6 +21,57 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
 } from "./core";
 import type { CopilotRuntimeTransport } from "../types";
+import {
+  isRuntimeInfoRequestError,
+  runtimeInfoError,
+} from "../utils/runtime-info-error";
+import { isAbortError } from "../utils/abort-error";
+import type { RuntimeRequestMeta } from "../utils/runtime-request";
+import {
+  RUNTIME_REQUEST_WATCHDOG_MS,
+  runtimeRequestMeta,
+} from "../utils/runtime-request";
+
+type ResolvedCopilotRuntimeTransport = Exclude<CopilotRuntimeTransport, "auto">;
+
+type RuntimeInfoFetchResult = {
+  runtimeInfo: RuntimeInfo;
+  resolvedTransport: ResolvedCopilotRuntimeTransport;
+};
+
+/** Maximum wait for optional Inspector metadata before degrading to absence. */
+const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
+
+export const ɵRUNTIME_PROBE_TIMEOUT_MS = 5_000;
+
+type RuntimeRequestOutcome = "ok" | "failed" | "aborted" | "ignored";
+
+function classifyRuntimeRequestFailure(
+  error: unknown,
+  meta: RuntimeRequestMeta | undefined,
+): RuntimeRequestOutcome {
+  if (meta?.nonCritical) {
+    return "ignored";
+  }
+  if (isAbortError(error) && !meta?.timedOut) {
+    return "aborted";
+  }
+  return "failed";
+}
+
+interface RuntimeConnectionOptions {
+  preserveOnFailure?: boolean;
+  recovery?: boolean;
+}
+
+/** Build case-insensitive JSON headers without mutating the Core snapshot. */
+function withJsonContentType(headers: Record<string, string>): Headers {
+  const requestHeaders = new Headers(headers);
+  if (!requestHeaders.has("content-type")) {
+    requestHeaders.set("content-type", "application/json");
+  }
+  return requestHeaders;
+}
 
 export interface CopilotKitCoreAddAgentParams {
   id: string;
@@ -58,18 +110,62 @@ export class AgentRegistry {
   private localAgents: Record<string, AbstractAgent> = {};
   private remoteAgents: Record<string, AbstractAgent> = {};
 
+  private readonly mintedThreadIds = new WeakMap<AbstractAgent, string>();
+
   private _runtimeUrl?: string;
+  // Tracks an in-flight `/info` connection so concurrent calls targeting the
+  // same runtime (url + requested transport) collapse to a single request
+  // instead of each firing their own. See #5801.
+  private _connectionInFlight?: { key: string; promise: Promise<void> };
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
   private _runtimeTransport: CopilotRuntimeTransport = "auto";
+  // The transport MODE last requested via `setRuntimeTransport` (e.g. "auto").
+  // Distinct from `_runtimeTransport`, which auto-detect overwrites with the
+  // RESOLVED value ("rest"/"single"). The idempotency guard compares against
+  // this so re-applying the same mode (the provider effect re-applies "auto"
+  // on every render) is a no-op instead of re-running the /info handshake.
+  private _requestedTransport: CopilotRuntimeTransport = "auto";
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
+  private _threadEndpoints?: ThreadEndpointRuntimeInfo;
+  private _suggestions?: boolean;
+  private _inspectorMetadata?: InspectorMetadataV1;
+  private _inspectorMetadataSupported: boolean = false;
+  private inspectorMetadataRefreshReady: boolean = false;
+  private inspectorMetadataConnectionGeneration: number = 0;
+  private inspectorMetadataGeneration: number = 0;
+  private inspectorMetadataHeadersGeneration: number = 0;
+  private inspectorMetadataCredentialsGeneration: number = 0;
+  private inspectorMetadataAbortController?: AbortController;
+  private inspectorMetadataNotificationQueue: Promise<void> = Promise.resolve();
   private _a2uiEnabled: boolean = false;
+  private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
+
+  private runtimeFetch?: typeof fetch;
+  private runtimeProbeInFlight: boolean = false;
+  private runtimeProbeToken: number = 0;
+  private runtimeProbeAbortController?: AbortController;
+  private runtimeRecoveryRunning: boolean = false;
+  private runtimeRecoveryPending: boolean = false;
+  private runtimeHealthGeneration: number = 0;
+
+  /**
+   * The headers each HttpAgent was constructed with, captured on the first
+   * `applyHeadersToAgent` call for that agent (which, for agents the registry
+   * owns, happens at registration before any core headers are applied). Core
+   * headers are merged ON TOP of this baseline so that headers configured
+   * directly on an agent (e.g. an `Authorization` for a self-hosted backend)
+   * survive registration instead of being silently replaced. The baseline is
+   * captured once and never re-captured, so a later direct mutation of
+   * `agent.headers` is not folded into it. See #5635.
+   */
+  private agentOwnHeaders = new WeakMap<HttpAgent, Record<string, string>>();
 
   constructor(private core: CopilotKitCore) {}
 
@@ -108,8 +204,28 @@ export class AgentRegistry {
     return this._intelligence;
   }
 
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this._threadEndpoints;
+  }
+
+  get suggestions(): boolean | undefined {
+    return this._suggestions;
+  }
+
+  get inspectorMetadata(): InspectorMetadataV1 | undefined {
+    return this._inspectorMetadata;
+  }
+
   get a2uiEnabled(): boolean {
     return this._a2uiEnabled;
+  }
+
+  /**
+   * Agent ids the runtime applies A2UI to (#5369). `undefined` means A2UI
+   * applies to every agent — or is disabled entirely; check `a2uiEnabled`.
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this._a2uiAgents;
   }
 
   get openGenerativeUIEnabled(): boolean {
@@ -131,13 +247,17 @@ export class AgentRegistry {
     this.localAgents = this.assignAgentIds(agents);
     this.applyHeadersToAgents(this.localAgents);
     this.applyCredentialsToAgents(this.localAgents);
+    this.applyRuntimeFetchToAgents(this.localAgents);
     this._agents = this.localAgents;
   }
 
   /**
    * Set the runtime URL and update connection
    */
-  setRuntimeUrl(runtimeUrl: string | undefined): void {
+  setRuntimeUrl(
+    runtimeUrl: string | undefined,
+    options?: { deferConnection?: boolean },
+  ): void {
     const normalizedRuntimeUrl = runtimeUrl
       ? runtimeUrl.replace(/\/$/, "")
       : undefined;
@@ -146,17 +266,111 @@ export class AgentRegistry {
       return;
     }
 
+    this.invalidateInspectorMetadataConnection();
+    this.abandonRuntimeHealthProbe();
     this._runtimeUrl = normalizedRuntimeUrl;
+
+    // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
+    // so getters/hooks see it synchronously, but do NOT start the `/info` fetch
+    // here. The host starts it from a commit-phase effect via `connect()`, so
+    // renders discarded before commit never issue a request.
+    if (options?.deferConnection) {
+      return;
+    }
+
+    void this.updateRuntimeConnection({
+      preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
+    });
+  }
+
+  /**
+   * Start the initial runtime connection if it has not been started yet.
+   *
+   * Backs {@link CopilotKitCore.connect}. Idempotent: it only kicks off a fetch
+   * when a `runtimeUrl` is set and the connection is still `Disconnected` (its
+   * state before any connect attempt). `updateRuntimeConnection` flips the
+   * status to `Connecting` synchronously, so a second call — e.g. React
+   * StrictMode double-invoking the mount effect — bails here. A genuine config
+   * change still reconnects through `setRuntimeUrl`/`setRuntimeTransport`. See
+   * #5801.
+   */
+  connectRuntime(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (!this._runtimeUrl) {
+      return;
+    }
+    if (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Disconnected
+    ) {
+      return;
+    }
     void this.updateRuntimeConnection();
   }
 
   setRuntimeTransport(runtimeTransport: CopilotRuntimeTransport): void {
-    if (this._runtimeTransport === runtimeTransport) {
+    // Guard on the requested MODE, not the resolved value: after auto-detect
+    // writes `_runtimeTransport = "rest"`, re-applying the same requested
+    // "auto" must not be treated as a change (otherwise every provider
+    // re-render re-runs the /info handshake and rebuilds agents).
+    if (this._requestedTransport === runtimeTransport) {
       return;
     }
 
+    this.invalidateInspectorMetadataConnection();
+    this.abandonRuntimeHealthProbe();
+    this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
-    void this.updateRuntimeConnection();
+    void this.updateRuntimeConnection({
+      preserveOnFailure: this.hasLiveRuntimeKnowledgeToProtect(),
+    });
+  }
+
+  private hasLiveRuntimeKnowledgeToProtect(): boolean {
+    if (Object.keys(this.remoteAgents).length === 0) {
+      return false;
+    }
+    return (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    );
+  }
+
+  private reconcileRecoveredAgents(
+    reported: Record<string, AbstractAgent>,
+  ): Record<string, AbstractAgent> {
+    const merged = { ...this.remoteAgents, ...reported };
+    if (Object.keys(reported).length === 0) {
+      return merged;
+    }
+    for (const [id, agent] of Object.entries(merged)) {
+      if (Object.prototype.hasOwnProperty.call(reported, id)) {
+        continue;
+      }
+      if (this.carriesConversationState(agent)) {
+        continue;
+      }
+      delete merged[id];
+    }
+    return merged;
+  }
+
+  private carriesConversationState(agent: AbstractAgent): boolean {
+    if (agent.messages.length > 0) {
+      return true;
+    }
+    const mintedThreadId = this.mintedThreadIds.get(agent);
+    return mintedThreadId === undefined || agent.threadId !== mintedThreadId;
+  }
+
+  private abandonRuntimeHealthProbe(): void {
+    this.runtimeProbeToken += 1;
+    this.runtimeProbeInFlight = false;
+    this.runtimeHealthGeneration += 1;
+    this.runtimeProbeAbortController?.abort();
+    this.runtimeProbeAbortController = undefined;
   }
 
   /**
@@ -173,6 +387,7 @@ export class AgentRegistry {
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     this.applyHeadersToAgents(this._agents);
     this.applyCredentialsToAgents(this._agents);
+    this.applyRuntimeFetchToAgents(this._agents);
     void this.notifyAgentsChanged();
   }
 
@@ -184,6 +399,7 @@ export class AgentRegistry {
     this.localAgents[id] = agent;
     this.applyHeadersToAgent(agent);
     this.applyCredentialsToAgent(agent);
+    this.applyRuntimeFetchToAgent(agent);
     this._agents = { ...this.localAgents, ...this.remoteAgents };
     void this.notifyAgentsChanged();
   }
@@ -243,6 +459,7 @@ export class AgentRegistry {
       debug: debug ? resolveDebugConfig(debug) : undefined,
     });
     this.applyHeadersToAgent(agent);
+    this.applyRuntimeFetchToAgent(agent);
 
     this.localAgents[agentId] = agent;
     this._agents = { ...this.localAgents, ...this.remoteAgents };
@@ -287,11 +504,22 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current headers to an agent
+   * Apply current core headers to an agent, merged ON TOP of the agent's own
+   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
+   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
+   * because only `HttpAgent` carries a `headers` field. See #5635.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     if (agent instanceof HttpAgent) {
+      // Capture the agent's construction-time headers once, before any core
+      // headers overwrite them. On every subsequent apply we rebuild from this
+      // baseline so re-applying core headers (e.g. via setHeaders) never loses
+      // the agent's own headers.
+      if (!this.agentOwnHeaders.has(agent)) {
+        this.agentOwnHeaders.set(agent, { ...agent.headers });
+      }
       agent.headers = {
+        ...this.agentOwnHeaders.get(agent),
         ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
       };
     }
@@ -326,23 +554,496 @@ export class AgentRegistry {
     });
   }
 
+  createRuntimeFetch(): typeof fetch {
+    if (!this.runtimeFetch) {
+      this.runtimeFetch = (async (
+        input: RequestInfo | URL,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const meta = () => runtimeRequestMeta(init);
+        const watchdog = this.armRuntimeRequestWatchdog(meta());
+        try {
+          const response = await fetch(input, init);
+          watchdog.clear();
+          this.handleRuntimeRequestOutcome(
+            response.ok ? "ok" : meta()?.nonCritical ? "ignored" : "failed",
+            watchdog.checked,
+          );
+          return response;
+        } catch (error) {
+          watchdog.clear();
+          this.handleRuntimeRequestOutcome(
+            classifyRuntimeRequestFailure(error, meta()),
+            watchdog.checked,
+          );
+          throw error;
+        }
+      }) as typeof fetch;
+    }
+    return this.runtimeFetch;
+  }
+
+  private armRuntimeRequestWatchdog(meta: RuntimeRequestMeta | undefined): {
+    clear: () => void;
+    checked: () => boolean;
+  } {
+    if (
+      typeof window === "undefined" ||
+      meta?.nonCritical ||
+      meta?.selfBounded
+    ) {
+      return { clear: () => {}, checked: () => false };
+    }
+    let checked = false;
+    const timeoutId = setTimeout(() => {
+      checked = this.handleRuntimeRequestOutcome("failed");
+    }, RUNTIME_REQUEST_WATCHDOG_MS);
+    return {
+      clear: () => clearTimeout(timeoutId),
+      checked: () => checked,
+    };
+  }
+
+  applyRuntimeFetchToAgent(agent: AbstractAgent): void {
+    if (agent instanceof ProxiedCopilotRuntimeAgent) {
+      agent.fetch = this.createRuntimeFetch();
+    }
+  }
+
+  applyRuntimeFetchToAgents(agents: Record<string, AbstractAgent>): void {
+    Object.values(agents).forEach((agent) => {
+      this.applyRuntimeFetchToAgent(agent);
+    });
+  }
+
+  /** Refresh metadata after the Core header snapshot changes. */
+  handleHeadersChanged(): void {
+    this.inspectorMetadataHeadersGeneration += 1;
+    this.setInspectorMetadata(undefined);
+    void this.refreshInspectorMetadata();
+  }
+
+  /** Refresh metadata after the Core credentials mode changes. */
+  handleCredentialsChanged(): void {
+    this.inspectorMetadataCredentialsGeneration += 1;
+    this.setInspectorMetadata(undefined);
+    void this.refreshInspectorMetadata();
+  }
+
+  /**
+   * Fetch trusted inspector metadata independently from runtime discovery.
+   * Optional-route failures degrade to absent metadata and never affect the
+   * runtime connection state.
+   */
+  async refreshInspectorMetadata(): Promise<void> {
+    const generation = ++this.inspectorMetadataGeneration;
+    this.inspectorMetadataAbortController?.abort();
+    this.inspectorMetadataAbortController = undefined;
+
+    if (
+      !this._inspectorMetadataSupported ||
+      !this.inspectorMetadataRefreshReady ||
+      !this.runtimeUrl ||
+      this._runtimeConnectionStatus !==
+        CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      this.setInspectorMetadata(undefined);
+      return;
+    }
+
+    const runtimeUrl = this.runtimeUrl;
+    const requestedTransport = this._requestedTransport;
+    const resolvedTransport = this._runtimeTransport;
+    const headersGeneration = this.inspectorMetadataHeadersGeneration;
+    const credentialsGeneration = this.inspectorMetadataCredentialsGeneration;
+    const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+    const headers = { ...friends.headers };
+    const credentials = friends.credentials;
+    const abortController = new AbortController();
+    this.inspectorMetadataAbortController = abortController;
+
+    let timedOut = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let rejectForAbort: ((reason: Error) => void) | undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      rejectForAbort = reject;
+    });
+    const handleAbort = () => {
+      rejectForAbort?.(new Error("Inspector metadata request aborted"));
+    };
+    abortController.signal.addEventListener("abort", handleAbort, {
+      once: true,
+    });
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        reject(new Error("Inspector metadata request timed out"));
+        abortController.abort();
+      }, INSPECTOR_METADATA_REQUEST_TIMEOUT_MS);
+    });
+
+    let nextMetadata: InspectorMetadataV1 | undefined;
+    try {
+      const request = (async () => {
+        const response =
+          resolvedTransport === "single"
+            ? await this.fetchInspectorMetadataSingle({
+                runtimeUrl,
+                headers,
+                credentials,
+                signal: abortController.signal,
+              })
+            : await this.fetchInspectorMetadataRest({
+                runtimeUrl,
+                headers,
+                credentials,
+                signal: abortController.signal,
+              });
+
+        if (response.status === 204 || !response.ok) {
+          return undefined;
+        }
+        return parseInspectorMetadataV1(await response.json());
+      })();
+      nextMetadata = await Promise.race([request, aborted, timeout]);
+    } catch {
+      nextMetadata = undefined;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+      abortController.signal.removeEventListener("abort", handleAbort);
+    }
+
+    if (
+      !this.isInspectorMetadataRequestCurrent({
+        generation,
+        runtimeUrl,
+        requestedTransport,
+        resolvedTransport,
+        headersGeneration,
+        credentialsGeneration,
+        signal: abortController.signal,
+        allowAbortedSignal: timedOut,
+      })
+    ) {
+      return;
+    }
+
+    this.inspectorMetadataAbortController = undefined;
+    this.setInspectorMetadata(nextMetadata);
+  }
+
+  private async fetchInspectorMetadataRest({
+    runtimeUrl,
+    headers,
+    credentials,
+    signal,
+  }: {
+    runtimeUrl: string;
+    headers: Record<string, string>;
+    credentials: RequestCredentials | undefined;
+    signal: AbortSignal;
+  }): Promise<Response> {
+    return fetch(`${runtimeUrl}/inspector-metadata`, {
+      method: "GET",
+      headers,
+      ...(credentials ? { credentials } : {}),
+      signal,
+    });
+  }
+
+  private async fetchInspectorMetadataSingle({
+    runtimeUrl,
+    headers,
+    credentials,
+    signal,
+  }: {
+    runtimeUrl: string;
+    headers: Record<string, string>;
+    credentials: RequestCredentials | undefined;
+    signal: AbortSignal;
+  }): Promise<Response> {
+    return fetch(runtimeUrl, {
+      method: "POST",
+      headers: withJsonContentType(headers),
+      body: JSON.stringify({ method: "inspector/metadata" }),
+      ...(credentials ? { credentials } : {}),
+      signal,
+    });
+  }
+
+  private isInspectorMetadataRequestCurrent({
+    generation,
+    runtimeUrl,
+    requestedTransport,
+    resolvedTransport,
+    headersGeneration,
+    credentialsGeneration,
+    signal,
+    allowAbortedSignal = false,
+  }: {
+    generation: number;
+    runtimeUrl: string;
+    requestedTransport: CopilotRuntimeTransport;
+    resolvedTransport: CopilotRuntimeTransport;
+    headersGeneration: number;
+    credentialsGeneration: number;
+    signal: AbortSignal;
+    allowAbortedSignal?: boolean;
+  }): boolean {
+    return (
+      (allowAbortedSignal || !signal.aborted) &&
+      generation === this.inspectorMetadataGeneration &&
+      runtimeUrl === this.runtimeUrl &&
+      requestedTransport === this._requestedTransport &&
+      resolvedTransport === this._runtimeTransport &&
+      headersGeneration === this.inspectorMetadataHeadersGeneration &&
+      credentialsGeneration === this.inspectorMetadataCredentialsGeneration &&
+      this._inspectorMetadataSupported &&
+      this.inspectorMetadataRefreshReady &&
+      this._runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected
+    );
+  }
+
+  private invalidateInspectorMetadataConnection(): void {
+    this._inspectorMetadataSupported = false;
+    this.inspectorMetadataRefreshReady = false;
+    this.inspectorMetadataConnectionGeneration += 1;
+    this.inspectorMetadataGeneration += 1;
+    this.inspectorMetadataAbortController?.abort();
+    this.inspectorMetadataAbortController = undefined;
+    this.setInspectorMetadata(undefined);
+  }
+
+  /**
+   * Publish one state transition without making refreshes wait on subscribers.
+   * Each queued callback closes over its readonly snapshot so reentrant changes
+   * cannot replace the value that an older publication is still delivering.
+   */
+  private setInspectorMetadata(
+    inspectorMetadata: InspectorMetadataV1 | undefined,
+  ): void {
+    if (
+      JSON.stringify(this._inspectorMetadata) ===
+      JSON.stringify(inspectorMetadata)
+    ) {
+      return;
+    }
+
+    this._inspectorMetadata = inspectorMetadata;
+    const snapshot = inspectorMetadata;
+    this.inspectorMetadataNotificationQueue =
+      this.inspectorMetadataNotificationQueue
+        .then(() => this.notifyInspectorMetadataChanged(snapshot))
+        .catch((error: unknown) => {
+          console.error(
+            "Subscriber onInspectorMetadataChanged queue error:",
+            error,
+          );
+        });
+  }
+
+  private setRuntimeConnectionStatus(
+    status: CopilotKitCoreRuntimeConnectionStatus,
+  ): void {
+    this._runtimeConnectionStatus = status;
+    this.runtimeHealthGeneration += 1;
+  }
+
+  private handleRuntimeRequestOutcome(
+    outcome: RuntimeRequestOutcome,
+    alreadyChecked: () => boolean = () => false,
+  ): boolean {
+    if (outcome === "aborted" || outcome === "ignored") {
+      return false;
+    }
+    if (outcome === "failed" && alreadyChecked()) {
+      return false;
+    }
+    if (typeof window === "undefined") {
+      return false;
+    }
+    if (!this._runtimeUrl) {
+      return false;
+    }
+
+    if (outcome === "ok") {
+      this.runtimeHealthGeneration += 1;
+      if (this.runtimeRecoveryRunning) {
+        this.runtimeRecoveryPending = true;
+      }
+      if (
+        this._runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Error
+      ) {
+        void this.recoverRuntimeConnection();
+      }
+      return false;
+    }
+
+    if (
+      this._runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return false;
+    }
+    if (this.runtimeProbeInFlight) {
+      return false;
+    }
+    void this.probeRuntimeReachability();
+    return true;
+  }
+
+  private async fetchRuntimeInfoWithTimeout(
+    abortController: AbortController,
+  ): Promise<RuntimeInfoFetchResult> {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const request = this.fetchRuntimeInfo(abortController.signal);
+    void request.catch(() => {});
+    try {
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          abortController.abort();
+          reject(
+            new Error(
+              `Runtime did not answer within ${ɵRUNTIME_PROBE_TIMEOUT_MS}ms`,
+            ),
+          );
+        }, ɵRUNTIME_PROBE_TIMEOUT_MS);
+      });
+      return await Promise.race([request, timedOut]);
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+    }
+  }
+
+  private async probeRuntimeReachability(): Promise<void> {
+    const generation = this.runtimeHealthGeneration;
+    const token = ++this.runtimeProbeToken;
+    this.runtimeProbeInFlight = true;
+    const abortController = new AbortController();
+    this.runtimeProbeAbortController = abortController;
+    try {
+      await this.fetchRuntimeInfoWithTimeout(abortController);
+    } catch (error) {
+      if (generation !== this.runtimeHealthGeneration) {
+        return;
+      }
+      await this.markRuntimeUnreachable(
+        error instanceof Error ? error : new Error(String(error)),
+      );
+    } finally {
+      if (this.runtimeProbeAbortController === abortController) {
+        this.runtimeProbeAbortController = undefined;
+      }
+      if (this.runtimeProbeToken === token) {
+        this.runtimeProbeInFlight = false;
+      }
+    }
+  }
+
+  private async markRuntimeUnreachable(error: Error): Promise<void> {
+    this.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+    await this.notifyRuntimeStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    const runtimeStatus = isRuntimeInfoRequestError(error)
+      ? error.runtimeInfoStatus
+      : undefined;
+    logger.warn(
+      runtimeStatus === undefined
+        ? `Runtime did not answer the identification request (${this._runtimeUrl}/info): ${error.message}. The runtime appears to be unreachable.`
+        : `Runtime answered the identification request with status ${runtimeStatus} (${this._runtimeUrl}/info): ${error.message}. The runtime is reachable but refused the request — check credentials and authorisation before addresses and ports.`,
+    );
+    await (this.core as unknown as CopilotKitCoreFriendsAccess).emitError({
+      error,
+      code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
+      context: {
+        runtimeUrl: this._runtimeUrl,
+        reason: runtimeStatus === undefined ? "no-answer" : "answered",
+        ...(runtimeStatus === undefined ? {} : { runtimeStatus }),
+      },
+    });
+  }
+
+  private async recoverRuntimeConnection(): Promise<void> {
+    if (this.runtimeRecoveryRunning) {
+      this.runtimeRecoveryPending = true;
+      return;
+    }
+    this.runtimeRecoveryRunning = true;
+    try {
+      do {
+        this.runtimeRecoveryPending = false;
+        await this.updateRuntimeConnection({
+          preserveOnFailure: true,
+          recovery: true,
+        });
+      } while (
+        this.runtimeRecoveryPending &&
+        this._runtimeConnectionStatus !==
+          CopilotKitCoreRuntimeConnectionStatus.Connected
+      );
+    } finally {
+      this.runtimeRecoveryRunning = false;
+      this.runtimeRecoveryPending = false;
+    }
+  }
+
   /**
    * Update runtime connection and fetch remote agents
    */
-  private async updateRuntimeConnection(): Promise<void> {
+  private async updateRuntimeConnection(
+    options?: RuntimeConnectionOptions,
+  ): Promise<void> {
     // Skip fetching on the server (SSR)
     if (typeof window === "undefined") {
       return;
     }
 
+    // In-flight guard: if a connection to the same target (runtime url +
+    // requested transport) is already running, reuse it instead of starting a
+    // second `/info` request. A change to a different target supersedes it. See
+    // #5801.
+    const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    const inFlight = this._connectionInFlight;
+    if (inFlight && inFlight.key === key) {
+      return inFlight.promise;
+    }
+
+    const promise = this.performRuntimeConnection(options);
+    this._connectionInFlight = { key, promise };
+    void promise.finally(() => {
+      if (this._connectionInFlight?.promise === promise) {
+        this._connectionInFlight = undefined;
+      }
+    });
+    return promise;
+  }
+
+  private async performRuntimeConnection(
+    options?: RuntimeConnectionOptions,
+  ): Promise<void> {
     if (!this.runtimeUrl) {
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+      this.invalidateInspectorMetadataConnection();
+      this.setRuntimeConnectionStatus(
+        CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      );
       this._runtimeVersion = undefined;
       this._audioFileTranscriptionEnabled = false;
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
+      this._threadEndpoints = undefined;
+      this._suggestions = undefined;
       this._a2uiEnabled = false;
+      this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
       this.remoteAgents = {};
       this._agents = this.localAgents;
@@ -354,23 +1055,37 @@ export class AgentRegistry {
       return;
     }
 
-    this._runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Connecting;
+    const inspectorMetadataConnectionGeneration =
+      this.inspectorMetadataConnectionGeneration;
+
+    this.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    const runtimeHealthGeneration = this.runtimeHealthGeneration;
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
 
     try {
-      const runtimeInfoResponse = await this.fetchRuntimeInfo();
-      const {
-        version,
-        ...runtimeInfo
-      }: {
-        agents: Record<string, AgentDescription>;
-        version: string;
-        mode?: RuntimeMode;
-        intelligence?: IntelligenceRuntimeInfo;
-      } = runtimeInfoResponse;
+      if (
+        inspectorMetadataConnectionGeneration !==
+        this.inspectorMetadataConnectionGeneration
+      ) {
+        return;
+      }
+      const { runtimeInfo: runtimeInfoResponse, resolvedTransport } =
+        options?.recovery
+          ? await this.fetchRuntimeInfoWithTimeout(new AbortController())
+          : await this.fetchRuntimeInfo();
+      if (
+        inspectorMetadataConnectionGeneration !==
+        this.inspectorMetadataConnectionGeneration
+      ) {
+        return;
+      }
+
+      this._runtimeTransport = resolvedTransport;
+      const { version, ...runtimeInfo } = runtimeInfoResponse;
 
       const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
         .credentials;
@@ -379,6 +1094,28 @@ export class AgentRegistry {
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
+            // Reuse the already-registered instance for ids that are still
+            // present. A re-connection (an /info re-settle, a header/config or
+            // transport change) re-runs this method, but the runtime agent for
+            // a given id is the SAME logical agent — minting a fresh instance
+            // would discard its accumulated `messages`/`threadId` and its live
+            // subscriptions. Downstream (e.g. the `use-agent` memo) keys on the
+            // instance identity returned by `getAgent(id)`, so replacing it
+            // unmounts an already-rendered conversation. Only re-apply what the
+            // registry owns (headers + credentials) in place; the proxy
+            // re-resolves its own runtime mode/intelligence via `/info`.
+            const existing = Object.prototype.hasOwnProperty.call(
+              this.remoteAgents,
+              id,
+            )
+              ? this.remoteAgents[id]
+              : undefined;
+            if (existing instanceof ProxiedCopilotRuntimeAgent) {
+              this.applyHeadersToAgent(existing);
+              this.applyCredentialsToAgent(existing);
+              this.applyRuntimeFetchToAgent(existing);
+              return [id, existing];
+            }
             const agent = new ProxiedCopilotRuntimeAgent({
               runtimeUrl: this.runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
@@ -391,21 +1128,37 @@ export class AgentRegistry {
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
             });
             this.applyHeadersToAgent(agent);
+            this.applyRuntimeFetchToAgent(agent);
+            this.mintedThreadIds.set(agent, agent.threadId);
             return [id, agent];
           },
         ),
       );
 
-      this.remoteAgents = agents;
+      this.remoteAgents = options?.recovery
+        ? this.reconcileRecoveredAgents(agents)
+        : agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Connected;
+      this.setRuntimeConnectionStatus(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
       this._runtimeVersion = version;
       this._audioFileTranscriptionEnabled =
         runtimeInfoResponse.audioFileTranscriptionEnabled ?? false;
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
-      this._a2uiEnabled = runtimeInfoResponse.a2uiEnabled ?? false;
+      this._threadEndpoints = runtimeInfoResponse.threadEndpoints;
+      this._suggestions = runtimeInfoResponse.suggestions;
+      this._inspectorMetadataSupported =
+        runtimeInfoResponse.inspectorMetadata === true;
+      this.inspectorMetadataRefreshReady = false;
+      if (!this._inspectorMetadataSupported) {
+        this.setInspectorMetadata(undefined);
+      }
+      const a2uiInfo = runtimeInfoResponse.a2ui;
+      this._a2uiEnabled =
+        a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
+      this._a2uiAgents = a2uiInfo?.enabled ? a2uiInfo.agents : undefined;
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
@@ -415,22 +1168,60 @@ export class AgentRegistry {
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
       await this.notifyAgentsChanged();
+      if (
+        inspectorMetadataConnectionGeneration !==
+          this.inspectorMetadataConnectionGeneration ||
+        this._runtimeConnectionStatus !==
+          CopilotKitCoreRuntimeConnectionStatus.Connected
+      ) {
+        return;
+      }
+      this.inspectorMetadataRefreshReady = true;
+      if (this._inspectorMetadataSupported) {
+        void this.refreshInspectorMetadata();
+      }
     } catch (error) {
-      this._runtimeConnectionStatus =
-        CopilotKitCoreRuntimeConnectionStatus.Error;
-      this._runtimeVersion = undefined;
-      this._audioFileTranscriptionEnabled = false;
-      this._runtimeMode = RUNTIME_MODE_SSE;
-      this._intelligence = undefined;
-      this._a2uiEnabled = false;
-      this._openGenerativeUIEnabled = false;
-      this.remoteAgents = {};
-      this._agents = this.localAgents;
+      if (
+        inspectorMetadataConnectionGeneration !==
+        this.inspectorMetadataConnectionGeneration
+      ) {
+        return;
+      }
+      if (options?.preserveOnFailure) {
+        if (
+          options?.recovery &&
+          runtimeHealthGeneration !== this.runtimeHealthGeneration
+        ) {
+          return;
+        }
+        this.setRuntimeConnectionStatus(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        await this.notifyRuntimeStatusChanged(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+      } else {
+        this.invalidateInspectorMetadataConnection();
+        this.setRuntimeConnectionStatus(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        this._runtimeVersion = undefined;
+        this._audioFileTranscriptionEnabled = false;
+        this._runtimeMode = RUNTIME_MODE_SSE;
+        this._intelligence = undefined;
+        this._threadEndpoints = undefined;
+        this._suggestions = undefined;
+        this._a2uiEnabled = false;
+        this._a2uiAgents = undefined;
+        this._openGenerativeUIEnabled = false;
+        this.remoteAgents = {};
+        this._agents = this.localAgents;
 
-      await this.notifyRuntimeStatusChanged(
-        CopilotKitCoreRuntimeConnectionStatus.Error,
-      );
-      await this.notifyAgentsChanged();
+        await this.notifyRuntimeStatusChanged(
+          CopilotKitCoreRuntimeConnectionStatus.Error,
+        );
+        await this.notifyAgentsChanged();
+      }
 
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
@@ -449,8 +1240,11 @@ export class AgentRegistry {
     }
   }
 
-  private async fetchRuntimeInfo(): Promise<RuntimeInfo> {
-    if (!this.runtimeUrl) {
+  private async fetchRuntimeInfo(
+    signal?: AbortSignal,
+  ): Promise<RuntimeInfoFetchResult> {
+    const runtimeUrl = this.runtimeUrl;
+    if (!runtimeUrl) {
       throw new Error("Runtime URL is not set");
     }
 
@@ -462,80 +1256,101 @@ export class AgentRegistry {
       ...baseHeaders,
     };
 
-    if (this._runtimeTransport === "single") {
-      return this.fetchRuntimeInfoSingle(headers, credentials);
+    const runtimeTransport = this._runtimeTransport;
+    if (runtimeTransport === "single") {
+      return {
+        runtimeInfo: await this.fetchRuntimeInfoSingle(
+          runtimeUrl,
+          headers,
+          credentials,
+          signal,
+        ),
+        resolvedTransport: "single",
+      };
     }
 
-    if (this._runtimeTransport === "auto") {
-      return this.fetchRuntimeInfoAutoDetect(headers, credentials);
+    if (runtimeTransport === "auto") {
+      return this.fetchRuntimeInfoAutoDetect(
+        runtimeUrl,
+        headers,
+        credentials,
+        signal,
+      );
     }
 
     // REST transport
-    const response = await fetch(`${this.runtimeUrl}/info`, {
+    const response = await fetch(`${runtimeUrl}/info`, {
       headers,
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
-    return (await response.json()) as RuntimeInfo;
+    return {
+      runtimeInfo: (await response.json()) as RuntimeInfo,
+      resolvedTransport: "rest",
+    };
   }
 
   private async fetchRuntimeInfoSingle(
+    runtimeUrl: string,
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
+    signal?: AbortSignal,
   ): Promise<RuntimeInfo> {
-    if (!headers["Content-Type"]) {
-      headers["Content-Type"] = "application/json";
-    }
-    const response = await fetch(this.runtimeUrl!, {
+    const response = await fetch(runtimeUrl, {
       method: "POST",
-      headers,
+      headers: withJsonContentType(headers),
       body: JSON.stringify({ method: "info" }),
       ...(credentials ? { credentials } : {}),
+      ...(signal ? { signal } : {}),
     });
     if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
+      throw await runtimeInfoError(response);
     }
     return (await response.json()) as RuntimeInfo;
   }
 
   /**
    * Auto-detect transport by trying REST first, then falling back to single-endpoint.
-   * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
+   * The caller commits the detected transport only after confirming this
+   * connection attempt is still current.
    */
   private async fetchRuntimeInfoAutoDetect(
+    runtimeUrl: string,
     headers: Record<string, string>,
     credentials: RequestCredentials | undefined,
-  ): Promise<RuntimeInfo> {
+    signal?: AbortSignal,
+  ): Promise<RuntimeInfoFetchResult> {
     // Try REST first (GET /info)
     try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
+      const response = await fetch(`${runtimeUrl}/info`, {
         headers: { ...headers },
         ...(credentials ? { credentials } : {}),
+        ...(signal ? { signal } : {}),
       });
       // Only treat a successful (2xx) response as a valid REST runtime.
       // 404/405 means the endpoint doesn't exist; other non-2xx errors
       // (500, 403, etc.) should also fall through to single-endpoint.
       if (response.status >= 200 && response.status < 300) {
-        this._runtimeTransport = "rest";
-        return (await response.json()) as RuntimeInfo;
+        return {
+          runtimeInfo: (await response.json()) as RuntimeInfo,
+          resolvedTransport: "rest",
+        };
       }
       // Non-2xx — try single-endpoint below
     } catch {
       // REST failed (network error, etc.) — fall through to single-endpoint attempt
     }
 
-    const result = await this.fetchRuntimeInfoSingle(
+    const runtimeInfo = await this.fetchRuntimeInfoSingle(
+      runtimeUrl,
       { ...headers },
       credentials,
+      signal,
     );
-    this._runtimeTransport = "single";
-    return result;
+    return { runtimeInfo, resolvedTransport: "single" };
   }
 
   /**
@@ -601,6 +1416,21 @@ export class AgentRegistry {
           agents: this._agents,
         }),
       "Subscriber onAgentsChanged error:",
+    );
+  }
+
+  private async notifyInspectorMetadataChanged(
+    inspectorMetadata: InspectorMetadataV1 | undefined,
+  ): Promise<void> {
+    await (
+      this.core as unknown as CopilotKitCoreFriendsAccess
+    ).notifySubscribers(
+      (subscriber) =>
+        subscriber.onInspectorMetadataChanged?.({
+          copilotkit: this.core,
+          inspectorMetadata,
+        }),
+      "Subscriber onInspectorMetadataChanged error:",
     );
   }
 }

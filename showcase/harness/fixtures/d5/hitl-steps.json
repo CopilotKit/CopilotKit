@@ -19,6 +19,24 @@
     {
       "match": {
         "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__approved"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "toolCallId": "call_d5_generate_steps_001__rejected"
+      },
+      "response": {
+        "content": "No problem — I will not execute the Mars trip plan."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
         "hasToolResult": true
       },
       "response": {

@@ -11,7 +11,7 @@ import {
   CopilotKitProvider,
   CopilotSidebar,
   CopilotPopup,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface OpenGenUIPageProps {
@@ -24,7 +24,7 @@ export function OpenGenUIPage({ children }: OpenGenUIPageProps) {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-opengenui"
-      showDevConsole={false}
+      enableInspector={false}
     >
       {isDesktop ? (
         <>

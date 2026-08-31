@@ -1,0 +1,13 @@
+{
+  "title": "Cookbook",
+  "root": true,
+  "pages": [
+    "index",
+    "daytona",
+    "claude-managed-agents",
+    "oracle-agent-spec-memory",
+    "arcade",
+    "angular-adk-agentic-app",
+    "openbox-governed-copilotkit"
+  ]
+}

@@ -1,121 +1,105 @@
 import { test, expect } from "@playwright/test";
 
+/**
+ * Headless = bring-your-own-UI. The cell exercises the minimum-viable
+ * headless chat: useAgent + useCopilotKit, dressed in shadcn primitives,
+ * no tool rendering, no generative UI — just text in / text out via a
+ * hand-rolled UI.
+ *
+ * The 4-test plan drives the 3 empty-state pills and asserts the
+ * deterministic aimock fixture leading phrases land in the custom
+ * assistant bubble (`[data-testid="headless-message-assistant"]`).
+ *
+ * If the headless surface ever regressed to the default <CopilotChat />
+ * surface, the headless-specific testid would be missing and tests 2-4
+ * would fail. If a fixture-matcher misroute swapped one pill's response
+ * for another's, the wrong leading phrase would surface.
+ */
+
+const PILL_HELLO = "Say hello in one short sentence.";
+const PILL_JOKE = "Tell me a one-line joke.";
+const PILL_FACT = "Give me a fun fact.";
+
+// Intentionally NOT the showcase-assistant catch-all phrase ("Hello! I can
+// help you with weather lookups, creating pie and bar charts...") — that
+// boilerplate is what other tests in this PR explicitly guard AGAINST.
+// The dedicated d5-all.json fixture for "Say hello in one short sentence"
+// returns the leading phrase below; if fixture priority ever misroutes
+// this prompt to the catch-all, this assertion will fail with a clear
+// "expected non-boilerplate greeting" diff.
+const HELLO_LEADING = "Hi! In one short sentence: I'm a CopilotKit demo agent";
+const JOKE_LEADING =
+  "Why did the scarecrow win an award? Because he was outstanding in his field!";
+const FACT_LEADING = "A fun fact: Honey never spoils!";
+
+const ASSERT_TIMEOUT = 30_000;
+
 test.describe("Headless Chat (Simple)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/headless-simple");
   });
 
-  test("renders custom composer chrome instead of CopilotChat", async ({
+  test("page loads with custom composer and three suggestion pills", async ({
     page,
   }) => {
-    // Heading is a hand-rolled <h1> — not a chat primitive. If the demo
-    // ever regressed to rendering <CopilotChat /> it would not exist here.
+    // Custom composer is the structural signal that the demo is headless;
+    // no default CopilotChat input is rendered on this surface.
     await expect(
-      page.getByRole("heading", { name: "Headless Chat (Simple)" }),
+      page.locator('[data-testid="headless-composer"]'),
     ).toBeVisible();
 
-    // Empty-state helper text is rendered inside the message panel before
-    // any messages land.
-    await expect(page.getByText("No messages yet. Say hi!")).toBeVisible();
-
-    // Verbatim placeholder on the custom composer textarea (not the default
-    // CopilotKit "Type a message" placeholder) — this is the clearest
-    // structural signal the composer is hand-rolled.
+    // The 3 empty-state pills are hand-rolled <button>s containing the
+    // verbatim sample prompts.
     await expect(
-      page.getByPlaceholder(
-        "Type a message. Ask me to 'show a card about cats'.",
-      ),
+      page.getByRole("button", { name: PILL_HELLO, exact: true }),
     ).toBeVisible();
-
-    // The custom Send button is a plain <button>. Disabled on empty input.
-    const send = page.getByRole("button", { name: "Send", exact: true });
-    await expect(send).toBeVisible();
-    await expect(send).toBeDisabled();
-
-    // No default CopilotChat testids should be present — this cell is
-    // truly headless.
     await expect(
-      page.locator('[data-testid="copilot-chat-input"]'),
-    ).toHaveCount(0);
+      page.getByRole("button", { name: PILL_JOKE, exact: true }),
+    ).toBeVisible();
     await expect(
-      page.locator('[data-testid="copilot-send-button"]'),
-    ).toHaveCount(0);
+      page.getByRole("button", { name: PILL_FACT, exact: true }),
+    ).toBeVisible();
   });
 
-  test("Send button enables once textarea has content", async ({ page }) => {
-    const textarea = page.getByPlaceholder(
-      "Type a message. Ask me to 'show a card about cats'.",
-    );
-    const send = page.getByRole("button", { name: "Send", exact: true });
-
-    await expect(send).toBeDisabled();
-    await textarea.fill("Hello");
-    await expect(send).toBeEnabled();
-  });
-
-  test("sends a message and renders the user bubble", async ({ page }) => {
-    // The round-trip user bubble is the most reliable structural signal —
-    // it's rendered synchronously from agent.messages as soon as the send
-    // handler calls `agent.addMessage({ role: "user", ... })`. The assistant
-    // response reliability depends on the upstream LangGraph deployment
-    // plumbing through to aimock, so we keep this test scoped to the
-    // frontend composer's verified behavior.
-    const textarea = page.getByPlaceholder(
-      "Type a message. Ask me to 'show a card about cats'.",
-    );
-    await textarea.fill("hello");
-    await page.getByRole("button", { name: "Send", exact: true }).click();
-
-    // User bubble: self-end + bg-blue-600 are structural utility classes
-    // applied only to the user bubble in this cell.
-    const userBubble = page.locator("div.self-end.bg-blue-600").first();
-    await expect(userBubble).toBeVisible({ timeout: 10000 });
-    await expect(userBubble).toHaveText("hello");
-
-    // Empty-state text is gone after the first send.
-    await expect(page.getByText("No messages yet. Say hi!")).toHaveCount(0);
-
-    // Textarea clears after send.
-    await expect(textarea).toHaveValue("");
-  });
-
-  test("thinking indicator appears while agent is running", async ({
+  test("clicking the hello pill renders the deterministic greeting in the custom assistant bubble", async ({
     page,
   }) => {
-    // The "Agent is thinking..." helper is rendered whenever `agent.isRunning`
-    // is true. Sending any message flips that bit to true for the duration of
-    // the round-trip, so the indicator should surface.
-    const textarea = page.getByPlaceholder(
-      "Type a message. Ask me to 'show a card about cats'.",
-    );
-    await textarea.fill("hello");
-    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await page.getByRole("button", { name: PILL_HELLO, exact: true }).click();
 
-    await expect(page.getByText("Agent is thinking...")).toBeVisible({
-      timeout: 10000,
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText(HELLO_LEADING, {
+      timeout: ASSERT_TIMEOUT,
     });
   });
 
-  test("clicks the Largest continent suggestion and renders the canonical answer", async ({
+  test("clicking the joke pill renders the deterministic joke in the custom assistant bubble", async ({
     page,
   }) => {
-    // Suggestion chips are hand-rolled buttons inside a scoped container so the
-    // selector cannot collide with the Send button or any future composer
-    // controls. Clicking dispatches the configured message through send()
-    // imperatively (no setInput round-trip) so the user bubble appears with
-    // the verbatim configured prompt.
-    const chips = page.locator('[data-testid="headless-suggestions"]');
-    await expect(chips).toBeVisible();
+    await page.getByRole("button", { name: PILL_JOKE, exact: true }).click();
 
-    await chips.getByRole("button", { name: "Largest continent" }).click();
-
-    // Verbatim user message rendered inside the message panel.
-    await expect(page.getByText("What is the largest continent?")).toBeVisible({
-      timeout: 10000,
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText(JOKE_LEADING, {
+      timeout: ASSERT_TIMEOUT,
     });
+  });
 
-    // aimock's feature-parity fixture for "What is the largest continent?"
-    // returns a deterministic Asia-first answer.
-    await expect(page.getByText(/Asia/)).toBeVisible({ timeout: 30000 });
+  test("clicking the fun fact pill renders the deterministic fun fact in the custom assistant bubble", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: PILL_FACT, exact: true }).click();
+
+    const assistant = page
+      .locator('[data-testid="headless-message-assistant"]')
+      .first();
+    await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
+    await expect(assistant).toContainText(FACT_LEADING, {
+      timeout: ASSERT_TIMEOUT,
+    });
   });
 });

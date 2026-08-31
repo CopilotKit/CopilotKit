@@ -1,0 +1,132 @@
+---
+title: "ProxiedCopilotRuntimeAgent"
+description: "AG-UI agent that proxies a CopilotRuntime agent over REST, single-route, or Intelligence transports."
+---
+
+## Overview
+
+`ProxiedCopilotRuntimeAgent` is the AG-UI [`AbstractAgent`](https://docs.ag-ui.com/sdk/js/client/abstract-agent) implementation (extending `HttpAgent`) that `CopilotKitCore` uses to talk to a CopilotRuntime. It builds the correct runtime URLs, picks the transport (`rest`, `single`, or auto-detected), and transparently delegates to an Intelligence agent when the runtime is in Intelligence mode. You rarely construct it directly — `CopilotKitCore` creates one per runtime agent — but you reach for it (via [`registerProxiedAgent`](/reference/core/classes/CopilotKitCore)) when mounting several frontend agents against a single runtime agent.
+
+## Import
+
+```ts
+import { ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
+```
+
+## Constructor
+
+```ts
+new ProxiedCopilotRuntimeAgent(config: ProxiedCopilotRuntimeAgentConfig)
+```
+
+<PropertyReference name="config" type="ProxiedCopilotRuntimeAgentConfig" required>
+  Configuration object. Extends AG-UI's `HttpAgentConfig` (minus `url`). See [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig).
+
+  <PropertyReference name="runtimeUrl" type="string">
+    Base URL of the CopilotRuntime. Trailing slashes are stripped. Required when `transport` is `"single"`.
+  </PropertyReference>
+
+  <PropertyReference name="transport" type="CopilotRuntimeTransport" default="auto">
+    Transport style: `"rest"`, `"single"`, or `"auto"` (probes REST then falls back to single-route).
+  </PropertyReference>
+
+  <PropertyReference name="runtimeAgentId" type="string">
+    Runtime-side agent id to route outbound requests to. When set, the local `agentId` stays the registry key while traffic is routed to `runtimeAgentId`.
+  </PropertyReference>
+
+  <PropertyReference name="credentials" type="RequestCredentials">
+    Credentials mode applied to runtime fetch requests.
+  </PropertyReference>
+
+  <PropertyReference name="runtimeMode" type='"sse" | "intelligence" | "pending"' default="sse">
+    Runtime mode. `"pending"` marks the mode as not-yet-resolved; it is resolved via a runtime-info fetch when the agent enters the Intelligence delegate path.
+  </PropertyReference>
+
+  <PropertyReference name="intelligence" type="IntelligenceRuntimeInfo">
+    Intelligence runtime metadata (e.g. websocket URL) used to build the Intelligence delegate.
+  </PropertyReference>
+
+  <PropertyReference name="capabilities" type="AgentCapabilities">
+    Advertised agent capabilities, returned by `capabilities` / `getCapabilities()`.
+  </PropertyReference>
+
+  <PropertyReference name="debug" type="ResolvedDebugConfig">
+    Debug configuration applied to the agent.
+  </PropertyReference>
+</PropertyReference>
+
+## Methods
+
+<PropertyReference name="run(input: RunAgentInput): Observable<BaseEvent>" type="method">
+  Runs the agent against the runtime, returning the AG-UI event stream. Routes via HTTP, single-route, or the Intelligence delegate depending on the resolved runtime mode.
+</PropertyReference>
+
+<PropertyReference name="connect(input: RunAgentInput): Observable<BaseEvent>" type="method">
+  Connects to the runtime agent to receive its event stream without starting a new run.
+</PropertyReference>
+
+<PropertyReference name="connectAgent(parameters?, subscriber?): Promise<RunAgentResult>" type="method">
+  Higher-level connect that resolves the result and, in Intelligence mode, bridges the delegate's messages, state, and run lifecycle back onto this proxy.
+</PropertyReference>
+
+<PropertyReference name="abortRun(): void" type="method">
+  Aborts the active run. In Intelligence mode, aborts the delegate and detaches the local run pipeline; in HTTP (`rest`/`single`) mode, sends a stop request to the runtime. No-op when the agent has no `agentId`/`threadId` or no `fetch` is available.
+</PropertyReference>
+
+<PropertyReference name="detachActiveRun(): Promise<void>" type="method">
+  Detaches the currently attached run pipeline (and the delegate's, if present) without aborting the underlying run.
+</PropertyReference>
+
+<PropertyReference name="getCapabilities(): Promise<AgentCapabilities>" type="method">
+  Resolves the agent's advertised capabilities (empty object if none were configured).
+</PropertyReference>
+
+<PropertyReference name="clearReplayCursor(threadId: string): void" type="method">
+  In Intelligence mode, drops the delegate's cached event cursor for a thread so the next connect replays full history. No-op for other runtime modes.
+</PropertyReference>
+
+<PropertyReference name="clone(): ProxiedCopilotRuntimeAgent" type="method">
+  Returns a new, independent instance carrying over runtime URL, ids, transport, mode, capabilities, headers, messages, and state. `state` and `messages` are deep-cloned, so mutating the clone does not affect the original; the delegate, if present, is cloned via its own `clone()`.
+</PropertyReference>
+
+<PropertyReference name="capabilities: AgentCapabilities | undefined" type="getter">
+  The configured capabilities, or `undefined`.
+</PropertyReference>
+
+<PropertyReference name="runtimeAgentId: string | undefined" type="property">
+  Read-only. The runtime-side agent id outbound requests are routed to, when configured.
+</PropertyReference>
+
+## Usage
+
+```ts
+import { CopilotKitCore } from "@copilotkit/core";
+
+const copilotkit = new CopilotKitCore({ runtimeUrl: "/api/copilotkit" });
+
+// Mount a second frontend agent against the same runtime agent.
+const { agent, unregister } = copilotkit.registerProxiedAgent({
+  agentId: "chat-1",
+  runtimeAgentId: "default",
+});
+
+await copilotkit.runAgent({ agent });
+
+// On cleanup:
+unregister();
+```
+
+## Behavior
+
+- **Transport auto-detection** — with `transport: "auto"`, the agent issues `GET /info`; a 2xx response selects REST, otherwise it falls back to single-route (`POST { method: "info" }`).
+- **Lazy mode resolution** — a `"pending"` runtime mode is resolved via a runtime-info fetch only when the agent enters the Intelligence delegate path; plain HTTP `run`/`connect` proceed without resolving it.
+- **Intelligence delegation** — in Intelligence mode the proxy creates an internal `IntelligenceAgent` delegate (websocket) and mirrors its messages, state, and `isRunning` back onto itself.
+- **Immutable routing id** — `runtimeAgentId` is `readonly`; the REST run URL is baked at construction, so mutating it would desync routing.
+- **Abort/Zod errors are swallowed** — `AbortError` and Zod validation errors complete the stream silently rather than propagating, so cancelling a run does not surface as an error.
+
+## Related
+
+- [@copilotkit/core overview](/reference/core)
+- [CopilotKitCore](/reference/core/classes/CopilotKitCore)
+- [ProxiedCopilotRuntimeAgentConfig](/reference/core/types/ProxiedCopilotRuntimeAgentConfig)
+- [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent)

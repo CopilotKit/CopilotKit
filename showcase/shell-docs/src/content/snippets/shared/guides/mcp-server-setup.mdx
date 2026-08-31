@@ -1,4 +1,4 @@
-## Overview
+## MCP Docs Server
 
 The CopilotKit MCP server equips AI coding agents with deep knowledge about CopilotKit's APIs, patterns, and best practices. When connected to your
 development environment, it enables AI assistants to:
@@ -8,12 +8,7 @@ development environment, it enables AI assistants to:
 - Give your AI agents a user interface
 - Help you implement CopilotKit features correctly
 
-<Callout type="info">
-  Powered by 🪄 [Tadata](https://tadata.com) - The platform for instantly
-  building and hosting MCP servers.
-</Callout>
-
-## Cursor
+### Cursor
 
 [Cursor](https://cursor.sh/) is an AI-powered code editor built for productivity. It features built-in AI assistance and supports MCP for extending AI capabilities with external tools.
 
@@ -61,7 +56,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Claude Web
+### Claude Web
 
 [Claude](https://claude.ai/) is Anthropic's AI assistant accessible through a web interface. It supports MCP integrations, called Connectors, to connect with external tools and services.
 
@@ -81,7 +76,7 @@ development environment, it enables AI assistants to:
   <Step>Click "Add"</Step>
 </Steps>
 
-## Claude Desktop
+### Claude Desktop
 
 [Claude Desktop](https://claude.ai/download) is the desktop application version of Claude, offering the same AI capabilities with local system integration and MCP support.
 
@@ -107,7 +102,7 @@ development environment, it enables AI assistants to:
   <Step>Click "Add"</Step>
 </Steps>
 
-## Claude Code
+### Claude Code
 
 [Claude Code](https://docs.claude.com/en/docs/claude-code) is Anthropic's official CLI for Claude. It supports MCP integrations to connect with external tools and services, enhancing AI capabilities with specialized knowledge.
 
@@ -172,7 +167,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Windsurf
+### Windsurf
 
 [Windsurf](https://codeium.com/windsurf) is Codeium's agentic IDE that combines AI-powered coding assistance with traditional development tools. It features the Cascade AI assistant with MCP integration.
 
@@ -288,7 +283,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Cline
+### Cline
 
 [Cline](https://github.com/cline/cline) is a VS Code extension that provides autonomous AI coding assistance. It can perform complex tasks using MCP tools to interact with external systems.
 
@@ -348,7 +343,7 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## GitHub Copilot
+### GitHub Copilot
 
 [GitHub Copilot](https://github.com/features/copilot) is Microsoft's AI pair programmer integrated into VS Code and other editors. It supports MCP to extend its capabilities with external tools and services.
 
@@ -421,11 +416,44 @@ development environment, it enables AI assistants to:
   </Step>
 </Steps>
 
-## Other
+### Codex
+
+[Codex](https://developers.openai.com/codex) is OpenAI's coding agent. Its CLI reads MCP servers from `~/.codex/config.toml`, where each server is defined under an `[mcp_servers.<name>]` table.
+
+<Steps>
+  <Step>
+    ### Add MCP Server to Codex
+    Add CopilotKit MCP to `~/.codex/config.toml`. Codex launches command-based (stdio) servers, so bridge the remote server with `mcp-remote`:
+
+    ```toml title="~/.codex/config.toml"
+    [mcp_servers.copilotkit]
+    command = "npx"
+    args = ["mcp-remote", "https://mcp.copilotkit.ai"]
+    ```
+
+    Or add it from the terminal with the Codex CLI:
+
+    ```bash
+    codex mcp add copilotkit -- npx mcp-remote https://mcp.copilotkit.ai
+    ```
+  </Step>
+  <Step>
+    ### Verify Connection
+    List the configured MCP servers to confirm CopilotKit is registered:
+
+    ```bash
+    codex mcp list
+    ```
+
+    Once configured, the CopilotKit MCP tools are available to Codex and are used automatically when relevant to your CopilotKit development tasks.
+  </Step>
+</Steps>
+
+### Other
 
 For MCP-compatible applications not listed above, use these universal integration patterns. MCP (Model Context Protocol) is an open standard that allows AI applications to connect with external tools and data sources.
 
-### Connection Methods
+#### Connection Methods
 
 Most MCP-compatible applications support one or both of these connection methods:
 
@@ -447,13 +475,13 @@ Most MCP-compatible applications support one or both of these connection methods
   </Tab>
 </Tabs>
 
-### Integration Steps
+#### Integration Steps
 
 1. **Find MCP Settings** - Look for "MCP," "Model Context Protocol," or "Tools" in your application settings
 2. **Add Server** - Use the SSE URL: `https://mcp.copilotkit.ai/sse`
 3. **Test Connection** - Restart your application and verify the server appears in available tools
 
-### Common Configuration Patterns
+#### Common Configuration Patterns
 
 <Tabs groupId="config-patterns" items={['JSON Configuration File', 'Application Settings']} default="JSON Configuration File">
   <Tab value="JSON Configuration File">

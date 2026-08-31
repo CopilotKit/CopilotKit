@@ -33,90 +33,164 @@ Use state rendering when you want to:
     <RunAndConnect />
   </Step>
   <Step>
-    ### Define your agent state
+    ### Build an agent that produces state
 
-    Add properties to your agent state that you want to render in the UI.
+    Define the `searches` state, then add a tool that returns each completed update.
 
     <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
         ```python title="agent.py"
-        from copilotkit import CopilotKitState
+        from typing import Any, TypedDict
+
+        from copilotkit import (
+            CopilotKitMiddleware,
+            CopilotKitState,
+            StateItem,
+            StateStreamingMiddleware,
+        )
+        from deepagents import create_deep_agent
+        from langchain.agents.middleware import AgentMiddleware
+        from langchain.messages import ToolMessage
+        from langchain.tools import ToolRuntime, tool
+        from langgraph.types import Command
+
+        class Search(TypedDict):
+            query: str
+            done: bool
 
         class AgentState(CopilotKitState):
-            searches: list[dict]
+            searches: list[Search]
+
+        class SearchesStateMiddleware(AgentMiddleware[AgentState, Any, Any]):
+            state_schema = AgentState
+
+        @tool
+        def report_research_progress(
+            searches: list[Search],
+            runtime: ToolRuntime[None, AgentState],
+        ) -> Command:
+            """Report the current research tasks and completion status."""
+            return Command(
+                update={
+                    "searches": searches,
+                    "messages": [
+                        ToolMessage(
+                            content="Research progress saved.",
+                            tool_call_id=runtime.tool_call_id,
+                        )
+                    ],
+                }
+            )
+
+        agent = create_deep_agent(
+            model="openai:gpt-5.4",
+            tools=[report_research_progress],
+            middleware=[
+                SearchesStateMiddleware(),
+                CopilotKitMiddleware(),
+                StateStreamingMiddleware(
+                    StateItem(
+                        state_key="searches",
+                        tool="report_research_progress",
+                        tool_argument="searches",
+                    )
+                ),
+            ],
+            system_prompt=(
+                "You are a research assistant. Use report_research_progress "
+                "to show each task and mark it done when complete."
+            ),
+        )
         ```
       </Tab>
       <Tab value="TypeScript">
         ```ts title="agent.ts"
+        import { ToolMessage } from "@langchain/core/messages";
+        import { tool, type ToolRuntime } from "@langchain/core/tools";
+        import { Command } from "@langchain/langgraph";
+        import {
+          copilotkitMiddleware,
+          zodState,
+        } from "@copilotkit/sdk-js/langgraph";
+        import {
+          stateItem,
+          stateStreamingMiddleware,
+        } from "@copilotkit/sdk-js/langgraph-middlewares";
+        import { createDeepAgent } from "deepagents";
         import { createMiddleware } from "langchain";
-        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
         import { z } from "zod";
 
-        export const searchesStateMiddleware = createMiddleware({
-            name: "AgentState",
-            stateSchema: z.object({
-                searches: z.array(z.object({
-                    query: z.string(),
-                    done: z.boolean(),
-                })).default([]),
-            }),
+        const SearchSchema = z.object({
+          query: z.string(),
+          done: z.boolean(),
+        });
+        type Search = z.infer<typeof SearchSchema>;
+
+        const SearchesStateSchema = z.object({
+          searches: z.array(SearchSchema),
         });
 
-        // Compose with copilotkitMiddleware when constructing the agent:
-        // createDeepAgent({ middleware: [searchesStateMiddleware, copilotkitMiddleware], ... })
+        const searchesStateMiddleware = createMiddleware({
+          name: "SearchesState",
+          stateSchema: z.object({
+            searches: zodState(z.array(SearchSchema).default(() => [])),
+          }),
+        });
+
+        const reportResearchProgress = tool(
+          (
+            input: { searches: Search[] },
+            runtime: ToolRuntime<typeof SearchesStateSchema>,
+          ) =>
+            new Command({
+              update: {
+                searches: input.searches,
+                messages: [
+                  new ToolMessage({
+                    content: "Research progress saved.",
+                    tool_call_id: runtime.toolCallId,
+                  }),
+                ],
+              },
+            }),
+          {
+            name: "report_research_progress",
+            description:
+              "Report the current research tasks and completion status.",
+            schema: z.object({ searches: z.array(SearchSchema) }),
+          },
+        );
+
+        export const agent = createDeepAgent({
+          model: "openai:gpt-5.4",
+          tools: [reportResearchProgress],
+          middleware: [
+            searchesStateMiddleware,
+            copilotkitMiddleware,
+            stateStreamingMiddleware(
+              stateItem({
+                stateKey: "searches",
+                tool: "report_research_progress",
+                toolArgument: "searches",
+              }),
+            ),
+          ],
+          systemPrompt:
+            "You are a research assistant. Use report_research_progress " +
+            "to show each task and mark it done when complete.",
+        });
         ```
       </Tab>
     </Tabs>
   </Step>
   <Step>
-    ### Emit state updates from your agent
+    ### Understand the two update phases
 
-    Use `copilotkit_emit_state` to push intermediate state to the frontend before a node finishes.
+    The state-streaming middleware sends partial `searches` arguments while the model creates them. The frontend can show each partial value immediately.
 
-    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
-      <Tab value="Python">
-        ```python title="agent.py"
-        import asyncio
-        from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
-        from langchain_core.runnables import RunnableConfig
+    The tool then returns a `Command` that saves the completed list. Its `ToolMessage` closes the active tool call.
 
-        # Inside a custom tool or middleware hook where you have access to state and config:
-        async def emit_research_progress(state: AgentState, config: RunnableConfig):
-            state["searches"] = [
-                {"query": "Initial research", "done": False},
-                {"query": "Retrieving sources", "done": False},
-                {"query": "Forming an answer", "done": False},
-            ]
-            await copilotkit_emit_state(config, state) # [!code highlight]
-
-            for search in state["searches"]:
-                await asyncio.sleep(1)
-                search["done"] = True
-                await copilotkit_emit_state(config, state) # [!code highlight]
-        ```
-      </Tab>
-      <Tab value="TypeScript">
-        ```ts title="agent.ts"
-        import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-
-        // Inside a custom tool or middleware hook where you have config/state:
-        async function emitResearchProgress(state: any, config: any) {
-            state.searches = [
-                { query: "Initial research", done: false },
-                { query: "Retrieving sources", done: false },
-                { query: "Forming an answer", done: false },
-            ];
-            await copilotkitEmitState(config, state); // [!code highlight]
-
-            for (const search of state.searches) {
-                await new Promise((resolve) => setTimeout(resolve, 1000));
-                search.done = true;
-                await copilotkitEmitState(config, state); // [!code highlight]
-            }
-        }
-        ```
-      </Tab>
-    </Tabs>
+    Keep the state key, tool name, and tool argument identical. A mismatch sends updates to the wrong state field.
   </Step>
   <Step>
     ### Render state in the UI
@@ -132,7 +206,10 @@ Use state rendering when you want to:
         agentId: "sample_agent",
       });
 
-      const searches = agent.state.searches as { query: string; done: boolean }[] ?? [];
+      const state = (agent.state ?? {}) as {
+        searches?: { query: string; done: boolean }[];
+      };
+      const searches = state.searches ?? [];
 
       return (
         <div>
@@ -149,6 +226,6 @@ Use state rendering when you want to:
   <Step>
     ### Give it a try!
 
-    You'll see the search items appear and update in real-time as the agent progresses through each step.
+    Ask the agent to research a topic. The search items appear and update while the agent works.
   </Step>
 </Steps>

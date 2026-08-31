@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / agent-config",
+    "sourceScript": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional — value-A turn. Must differ from tone:casual response to pass the text-diff assertion.",
+      "match": {
+        "userMessage": "tone:professional — introduce yourself per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit assistant, configured in professional mode. I provide structured, precise, and business-appropriate responses tailored to your organizational needs. How may I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual — value-B turn. Must differ from tone:professional response.",
+      "match": {
+        "userMessage": "tone:casual — introduce yourself per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, running in chill mode. I keep things relaxed and friendly — think of me as that helpful coworker who always has a good vibe. What's up?"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner — value-A turn. Must differ from expertise:expert response.",
+      "match": {
+        "userMessage": "expertise:beginner — explain how copilotkit works per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "CopilotKit is like adding a smart helper to your app! You drop a chat component into your React page, connect it to an AI agent on the backend, and they talk to each other automatically. The agent can read what's on screen and help the user with tasks — no complicated wiring needed."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert — value-B turn. Must differ from expertise:beginner response.",
+      "match": {
+        "userMessage": "expertise:expert — explain how copilotkit works per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "CopilotKit implements a three-layer architecture: React frontend hooks (useCoAgent, useCopilotAction) communicate via the AG-UI protocol over SSE with the CopilotKit runtime (Express/Hono middleware), which orchestrates proxied agents (LangGraph, CrewAI, custom). The runtime manages tool registration, shared state synchronization, and multi-agent routing through a unified event stream. Context injection uses system-prompt builders that receive useAgentContext values per-turn."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise — value-A turn. Must be shorter than responseLength:detailed by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:concise — describe agent context per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Agent context lets your frontend pass runtime config (tone, expertise, length) to the agent's system prompt on every turn."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed — value-B turn. Must exceed concise by >= 80 chars (RESPONSE_LENGTH_DELTA_MIN).",
+      "match": {
+        "userMessage": "responseLength:detailed — describe agent context per your config",
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "Agent context is CopilotKit's mechanism for passing frontend configuration to the backend agent on every conversational turn. When you call useAgentContext with values like tone, expertise level, and response length preferences, those values are serialized into the system prompt builder that runs before the agent processes each user message. This means the agent dynamically adapts its behavior without needing separate endpoints or manual prompt engineering. The configuration lives in React state, so changes are instant and reflected on the very next turn — no page reload or session restart required. Common use cases include per-user personalization, A/B testing different agent personalities, and role-based response tailoring in enterprise applications."
+      }
+    }
+  ]
+}

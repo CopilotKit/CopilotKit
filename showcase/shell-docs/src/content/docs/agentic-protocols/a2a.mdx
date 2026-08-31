@@ -73,15 +73,14 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
   <Step>
     ### Configure the A2A middleware
-    ```tsx title="app/api/copilotkit/route.ts"
+    ```tsx title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
     import {
       CopilotRuntime,
-      ExperimentalEmptyAdapter,
-      copilotRuntimeNextJSAppRouterEndpoint,
-    } from "@copilotkit/runtime";
+      createCopilotRuntimeHandler,
+      InMemoryAgentRunner,
+    } from "@copilotkit/runtime/v2";
     import { HttpAgent } from "@ag-ui/client";
     import { A2AMiddlewareAgent } from "@ag-ui/a2a-middleware";
-    import { NextRequest } from "next/server";
 
     // These first two are the urls to the a2a agents
     const researchAgentUrl = process.env.RESEARCH_AGENT_URL || "http://localhost:9001";
@@ -142,25 +141,25 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     // CopilotKit runtime connects frontend to agent system
     const runtime = new CopilotRuntime({
       agents: {
-        a2a_chat: a2aMiddlewareAgent, // Must match agent prop in <CopilotKit agent="a2a_chat">
+        a2a_chat: a2aMiddlewareAgent, // Use this same id in the frontend.
       },
+      runner: new InMemoryAgentRunner(),
     });
 
     // Standard Next.js App Router handler that hands requests to the runtime.
-    const serviceAdapter = new ExperimentalEmptyAdapter();
 
-    export const POST = async (req: NextRequest) => {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        runtime,
-        serviceAdapter,
-        endpoint: "/api/copilotkit",
-      });
-      return handleRequest(req);
-    };
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+    });
+
+    export const GET = handler;
+    export const POST = handler;
     ```
 
   </Step>
 
+  <FrontendOnly frontend="react">
   <Step>
     ### Add a `useFrontendTool` to your Frontend
     Inside the chat component, we'll display the messages between the orchestrator and the a2a agents using the `useFrontendTool` hook.
@@ -204,7 +203,7 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
 
     Now we define the rendering for a message sent from the orchestrator to the a2a agents.
     Notice that the status can be `executing` or `complete`. When it's executing, the orchestrator has sent a message to the a2a agent,
-    but not recieved a response yet. When it's complete, the orchestrator has received a response from the a2a agent. In both cases, we render the message.
+    but not received a response yet. When it's complete, the orchestrator has received a response from the a2a agent. In both cases, we render the message.
     If status is "inProgress", we've been informed that a message will be sent, but it hasn't finished sending yet, so we don't render anything.
 
     ```tsx title="components/a2a/MessageToA2A.tsx"
@@ -331,6 +330,66 @@ To use A2A agents with CopilotKit, you need to first install the CopilotKit midd
     ```
 
   </Step>
+  </FrontendOnly>
+
+  <FrontendOnly frontend="angular">
+  <Step>
+    ### Render A2A handoffs in Angular
+
+    The middleware emits the `send_message_to_a2a_agent` tool call. Register an
+    Angular renderer for that name so the chat can show the destination,
+    request, and completion state:
+
+    ```ts title="src/app/a2a-message.component.ts"
+    import { Component, input } from "@angular/core";
+    import {
+      AngularToolCall,
+      ToolRenderer,
+      registerRenderToolCall,
+    } from "@copilotkit/angular";
+    import { z } from "zod";
+
+    type A2AMessageArgs = {
+      agentName: string;
+      task: string;
+    };
+
+    @Component({
+      selector: "app-a2a-message",
+      template: `
+        <strong>Orchestrator → {{ toolCall().args.agentName }}</strong>
+        <p>{{ toolCall().args.task }}</p>
+        <small>{{ toolCall().status }}</small>
+      `,
+    })
+    export class A2AMessageComponent
+      implements ToolRenderer<A2AMessageArgs>
+    {
+      readonly toolCall =
+        input.required<AngularToolCall<A2AMessageArgs>>();
+    }
+
+    @Component({ selector: "app-chat", template: `` })
+    export class ChatComponent {
+      constructor() {
+        registerRenderToolCall({
+          name: "send_message_to_a2a_agent",
+          args: z.object({
+            agentName: z.string(),
+            task: z.string(),
+          }),
+          component: A2AMessageComponent,
+        });
+      }
+    }
+    ```
+
+    Registration follows the current injector and cleans itself up when that
+    injector is destroyed. See the
+    [renderer API](/reference/angular/functions/registerRenderToolCall) for
+    agent scoping and streaming argument details.
+  </Step>
+  </FrontendOnly>
 
   <Step>
     ### Give it a try!

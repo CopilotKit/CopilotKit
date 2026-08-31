@@ -19,42 +19,44 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
+import { extractForwardedHeaders } from "@/lib/header-forwarding";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const agentConfigAgent = new HttpAgent({
-  url: `${AGENT_URL}/agent_config`,
-});
-
-const agents: Record<string, HttpAgent> = {
-  // The page's <CopilotKit agent="agent-config-demo"> resolves here.
-  "agent-config-demo": agentConfigAgent,
-  // Internal components (headless-chat, example-canvas) call `useAgent()`
-  // with no args, which defaults to agentId "default". Alias to the same
-  // agent so those component hooks resolve instead of throwing
-  // "Agent 'default' not found".
-  default: agentConfigAgent,
-};
-
-const runtime = new CopilotRuntime({
-  // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in
-  // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
-  // source, pending release.
-  agents,
-});
-
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-agent-config",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime,
+    // Per-request agent build conveys inbound `x-aimock-context` (and any
+    // other x-* header) to the Python agent_server. See
+    // `src/lib/header-forwarding.ts` for the rationale.
+    const headers = extractForwardedHeaders(req);
+    const agentConfigAgent = new HttpAgent({
+      url: `${AGENT_URL}/agent_config`,
+      headers,
     });
-    return await handleRequest(req);
+
+    const agents: Record<string, HttpAgent> = {
+      // The page's <CopilotKit agent="agent-config-demo"> resolves here.
+      "agent-config-demo": agentConfigAgent,
+      // Internal components (headless-chat, example-canvas) call `useAgent()`
+      // with no args, which defaults to agentId "default". Alias to the same
+      // agent so those component hooks resolve instead of throwing
+      // "Agent 'default' not found".
+      default: agentConfigAgent,
+    };
+
+    const runtime = new CopilotRuntime({
+      agents,
+    });
+
+    const copilotHandler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit-agent-config",
+      mode: "single-route",
+    });
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

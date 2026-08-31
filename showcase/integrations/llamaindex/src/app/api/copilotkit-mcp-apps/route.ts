@@ -10,17 +10,24 @@
 // at `/mcp-apps/run` has no bespoke tools — MCP tools are injected by the
 // runtime middleware at request time.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/run` });
+
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+// default LlamaIndex router at /run — the same backend the main route
+// registers `headless_complete` against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/run` });
 
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
@@ -29,8 +36,11 @@ const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/run` });
 // event the built-in `MCPAppsActivityRenderer` renders inline in the
 // chat. No app-side renderer registration required.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
+  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+  // plain Records. Fixed in source, pending release.
   agents: {
+    "headless-complete": headlessCompleteAgent as AbstractAgent,
     "mcp-apps": mcpAppsAgent as AbstractAgent,
   },
   mcpApps: {
@@ -49,12 +59,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-mcp-apps",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-mcp-apps",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

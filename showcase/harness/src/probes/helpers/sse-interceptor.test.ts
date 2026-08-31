@@ -4,11 +4,13 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   assembleCapture,
+  attachSseInterceptor,
   collectContractShape,
   computeStreamProfile,
   extractToolCallNames,
   parseSseEvents,
 } from "./sse-interceptor.js";
+import type { Page } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = path.resolve(
@@ -300,5 +302,133 @@ describe("assembleCapture", () => {
       'data: {"type":"B"}\n\n';
     const cap = assembleCapture(payload, [], 0, ["TOOL_CALL_START"]);
     expect(cap.raw_event_count).toBe(2);
+  });
+});
+
+/**
+ * r4f4 regression: doStop must detach the `framenavigated` listener
+ * BEFORE awaiting getResponseBody / the loadingFinished loop. Otherwise
+ * a main-frame navigation fired between the start of doStop and the
+ * CDP body fetch wipes payload + per-stream tracking state mid-flight
+ * and the returned capture is empty.
+ *
+ * We exercise this by building a fake Playwright Page + CDP surface
+ * whose `Network.getResponseBody` handler synchronously fires a fake
+ * main-frame `framenavigated` BEFORE returning the body. If the
+ * listener is still attached at that moment, the listener resets
+ * `payload` (clobbering the body we just received via cdp.send).
+ * With the fix in place the listener is detached first, the reset
+ * never fires during doStop, and the assembled capture reflects the
+ * real RUN_FINISHED-bearing payload.
+ */
+describe("attachSseInterceptor doStop framenavigated detach race (r4f4)", () => {
+  interface ListenerMap {
+    [event: string]: Array<(...args: unknown[]) => void>;
+  }
+
+  function makeFakeCdp(payloadBody: string, onBeforeBody: () => void) {
+    const listeners: ListenerMap = {};
+    return {
+      detachCount: 0,
+      on(event: string, fn: (...args: unknown[]) => void) {
+        (listeners[event] ??= []).push(fn);
+      },
+      off(event: string, fn: (...args: unknown[]) => void) {
+        const arr = listeners[event];
+        if (!arr) return;
+        const i = arr.indexOf(fn);
+        if (i !== -1) arr.splice(i, 1);
+      },
+      async send(method: string, _params?: unknown) {
+        if (method === "Network.enable") return {};
+        if (method === "Network.getResponseBody") {
+          // Simulate a navigation racing with the body fetch — this is
+          // the exact window r4f4 guards against.
+          onBeforeBody();
+          return { body: payloadBody, base64Encoded: false };
+        }
+        return {};
+      },
+      async detach() {
+        this.detachCount++;
+      },
+      emit(event: string, ...args: unknown[]) {
+        const arr = listeners[event];
+        if (!arr) return;
+        for (const fn of arr.slice()) fn(...args);
+      },
+    };
+  }
+
+  function makeFakePage(cdp: ReturnType<typeof makeFakeCdp>) {
+    const pageListeners: ListenerMap = {};
+    const mainFrame = { url: () => "https://test.invalid/" };
+    const fakePage = {
+      mainFrame: () => mainFrame,
+      on(event: string, fn: (...args: unknown[]) => void) {
+        (pageListeners[event] ??= []).push(fn);
+      },
+      off(event: string, fn: (...args: unknown[]) => void) {
+        const arr = pageListeners[event];
+        if (!arr) return;
+        const i = arr.indexOf(fn);
+        if (i !== -1) arr.splice(i, 1);
+      },
+      async addInitScript(_src: string) {},
+      context: () => ({
+        async newCDPSession(_p: unknown) {
+          return cdp;
+        },
+      }),
+      __emit(event: string, ...args: unknown[]) {
+        const arr = pageListeners[event];
+        if (!arr) return;
+        for (const fn of arr.slice()) fn(...args);
+      },
+      __frame: mainFrame,
+    };
+    return fakePage;
+  }
+
+  it("does NOT clobber payload when framenavigated fires during getResponseBody", async () => {
+    const realPayload =
+      'data: {"type":"RUN_STARTED","threadId":"t"}\n\n' +
+      'data: {"type":"TOOL_CALL_START","toolCallName":"my_tool"}\n\n' +
+      'data: {"type":"RUN_FINISHED"}\n\n';
+
+    // Holder so the cdp can reach the page to fire framenavigated.
+    const holder: { page: ReturnType<typeof makeFakePage> | null } = {
+      page: null,
+    };
+    const cdp = makeFakeCdp(realPayload, () => {
+      // Fire a main-frame framenavigated BEFORE body is returned.
+      // With the bug, the listener is still attached and resets
+      // payload + chunkTimestampsMs; with the fix, it has already
+      // been detached at the top of doStop and the reset never fires.
+      holder.page?.__emit("framenavigated", holder.page.__frame);
+    });
+    const fakePage = makeFakePage(cdp);
+    holder.page = fakePage;
+
+    const handle = await attachSseInterceptor(fakePage as unknown as Page);
+
+    // Simulate the request being observed (so trackedRequestId is set
+    // and doStop's body-fetch branch is reached).
+    cdp.emit("Network.requestWillBeSent", {
+      requestId: "req-1",
+      request: { url: "https://test.invalid/api/copilotkit/agent/x/run" },
+      wallTime: Date.now() / 1000,
+    });
+    cdp.emit("Network.dataReceived", { requestId: "req-1" });
+    cdp.emit("Network.loadingFinished", { requestId: "req-1" });
+
+    const cap = await handle.stop();
+
+    // The capture must reflect the REAL payload — not a wiped one.
+    expect(cap.raw_event_count).toBe(3);
+    expect(cap.toolCalls).toEqual(["my_tool"]);
+    expect(cap.contractFields["type"]).toBe("string");
+    // CDP detach should still have happened exactly once at end of doStop.
+    expect(cdp.detachCount).toBe(1);
   });
 });

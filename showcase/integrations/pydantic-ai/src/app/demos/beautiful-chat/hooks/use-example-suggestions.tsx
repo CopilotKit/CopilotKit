@@ -44,6 +44,11 @@ export const useExampleSuggestions = () => {
         className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
       },
       {
+        title: "Excalidraw Diagram (MCP App)",
+        message:
+          "Use Excalidraw to create a simple network diagram showing a router connected to two switches, each connected to two computers.",
+      },
+      {
         title: "Calculator App (Open Generative UI)",
         message:
           "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",

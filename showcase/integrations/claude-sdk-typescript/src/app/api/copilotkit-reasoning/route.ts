@@ -1,6 +1,6 @@
 /**
  * Dedicated runtime for reasoning demos
- * (`agentic-chat-reasoning`, `reasoning-default-render`,
+ * (`reasoning-default`, `reasoning-custom`,
  * `tool-rendering-reasoning-chain`).
  *
  * Proxies to the Claude agent_server's `/reasoning` endpoint, which enables
@@ -9,24 +9,32 @@
  * via `CLAUDE_REASONING_MODEL`.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createReasoningAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/reasoning` });
+  return createClaudeHttpAgent(`${AGENT_URL}/reasoning`);
 }
 
 const agents: Record<string, AbstractAgent> = {
-  "agentic-chat-reasoning": createReasoningAgent(),
-  "reasoning-default-render": createReasoningAgent(),
-  "tool-rendering-reasoning-chain": createReasoningAgent(),
+  "reasoning-default": createReasoningAgent(),
+  "reasoning-custom": createReasoningAgent(),
+  // Reasoning-chain owns its tools backend-side (get_stock_price,
+  // roll_dice, search_flights, get_weather) — the page registers
+  // render-only hooks, so the plain /reasoning pass-through stalled the
+  // chain after the first call (no tool result ever came back). The
+  // dedicated endpoint runs the agentic loop with extended thinking.
+  "tool-rendering-reasoning-chain": createClaudeHttpAgent(
+    `${AGENT_URL}/tool-rendering-reasoning-chain`,
+  ),
   default: createReasoningAgent(),
 };
 
@@ -37,17 +45,13 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-reasoning",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-reasoning",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-reasoning", error);
   }
 };

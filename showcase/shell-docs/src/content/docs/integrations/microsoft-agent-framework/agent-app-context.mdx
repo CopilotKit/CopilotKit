@@ -54,31 +54,34 @@ This context can then be shared with your AG-UI server and agent logic.
 
     <Step>
         ### Consume the data in your AG-UI server
-        The `context` you register on the frontend is forwarded to your AG-UI server in `ChatOptions.AdditionalProperties["ag_ui_context"]`. Use middleware to access this context and inject it into the agent's conversation.
+        The `context` you register on the frontend is forwarded in the AG-UI `RunAgentInput`. Use middleware to read it and inject it into the agent's conversation.
 
         <Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']} persist>
           <Tab value=".NET">
             ```csharp title="Program.cs"
             using System.Runtime.CompilerServices;
             using System.Text;
-            using Azure.AI.OpenAI;
-            using Azure.Identity;
+            using AGUI.Abstractions;
+            using AGUI.Server;
             using Microsoft.Agents.AI;
             using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
             using Microsoft.AspNetCore.Builder;
             using Microsoft.Extensions.AI;
+            using OpenAI;
+            using OpenAI.Chat;
+            using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
             var builder = WebApplication.CreateBuilder(args);
-            builder.Services.AddAGUI();
+            builder.Services.AddAGUIServer();
             var app = builder.Build();
 
-            string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-            string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+            string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+                ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
             // Create the base agent
-            AIAgent baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-                .GetChatClient(deployment)
-                .CreateAIAgent(
+            AIAgent baseAgent = new OpenAIClient(openAiApiKey)
+                .GetChatClient("gpt-5.4-mini")
+                .AsAIAgent(
                     name: "AGUIAssistant",
                     instructions: "You are a helpful assistant. Use the provided context about colleagues to answer questions.");
 
@@ -89,37 +92,37 @@ This context can then be shared with your AG-UI server and agent logic.
                 .Build();
 
             // Map the AG-UI endpoint
-            app.MapAGUI("/", agent);
+            app.MapAGUIServer("/", agent);
             await app.RunAsync();
 
             // Middleware to inject useAgentContext context as a system message
-            async IAsyncEnumerable<AgentRunResponseUpdate> InjectContextMiddleware(
-                IEnumerable<ChatMessage> messages,
-                AgentThread? thread,
+            async IAsyncEnumerable<AgentResponseUpdate> InjectContextMiddleware(
+                IEnumerable<AIChatMessage> messages,
+                AgentSession? session,
                 AgentRunOptions? options,
                 AIAgent innerAgent,
-                CancellationToken cancellationToken)
+                [EnumeratorCancellation] CancellationToken cancellationToken)
             {
-                // Extract context from AG-UI additional properties and inject if present
-                if (options is ChatClientAgentRunOptions { ChatOptions.AdditionalProperties: { } properties } &&
-                    properties.TryGetValue("ag_ui_context", out KeyValuePair<string, string>[]? context) &&
-                    context?.Length > 0)
+                // Recover the AG-UI request and inject its context if present
+                if (options is ChatClientAgentRunOptions { ChatOptions: { } chatOptions } &&
+                    chatOptions.TryGetRunAgentInput(out RunAgentInput? input) &&
+                    input?.Context is { Count: > 0 } context)
                 {
                     var contextBuilder = new StringBuilder();
                     contextBuilder.AppendLine("The following context from the user's application is available:");
-                    foreach (var item in context)
+                    foreach (AGUIContext item in context)
                     {
-                        contextBuilder.AppendLine($"- {item.Key}: {item.Value}");
+                        contextBuilder.AppendLine($"- {item.Description}: {item.Value}");
                     }
 
-                    var contextMessage = new ChatMessage(
+                    var contextMessage = new AIChatMessage(
                         ChatRole.System,
                         [new TextContent(contextBuilder.ToString())]);
 
                     messages = messages.Append(contextMessage);
                 }
 
-                await foreach (var update in innerAgent.RunStreamingAsync(messages, thread, options, cancellationToken))
+                await foreach (var update in innerAgent.RunStreamingAsync(messages, session, options, cancellationToken))
                 {
                     yield return update;
                 }
@@ -154,11 +157,11 @@ This context can then be shared with your AG-UI server and agent logic.
         </Tabs>
 
         <Callout type="info">
-          Context registered with `useAgentContext` is automatically forwarded by the AG-UI protocol in `ChatOptions.AdditionalProperties["ag_ui_context"]` as an array of key-value pairs (description → value). The middleware extracts and injects this context into the conversation.
+          Context registered with `useAgentContext` is forwarded in `RunAgentInput.Context` as `AGUIContext` entries. `TryGetRunAgentInput` recovers the request without depending on hosting-layer keys.
         </Callout>
 
         <Callout type="tip">
-          **Configuration & Error Handling**: This example uses environment variables for configuration. Set `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_DEPLOYMENT_NAME` via `appsettings.json`, user-secrets, or environment variables. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
+          **Configuration & Error Handling**: This example uses `OPENAI_API_KEY` for configuration. Set it with user secrets or an environment variable. For production deployments, add appropriate error handling and consider using the [Quickstart](/microsoft-agent-framework/quickstart) or [Authentication](/microsoft-agent-framework/auth) guides for complete setup patterns.
         </Callout>
     </Step>
     <Step>

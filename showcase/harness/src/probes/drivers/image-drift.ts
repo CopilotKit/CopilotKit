@@ -78,6 +78,18 @@ export type ImageDriftDriverSignal =
        */
       isStale: boolean;
       /**
+       * Set `true` only when the deploy environment is production AND the
+       * service is stale-behind-`:latest` (a real digest mismatch). Under
+       * the pinned-prod / floating-staging contract, prod is INTENTIONALLY
+       * pinned behind `:latest`, so "behind :latest" is expected — not a
+       * defect. When set, the driver renders the result GREEN (neutral)
+       * instead of red, and the flag records WHY the drift was excused.
+       * Absent on staging, on any non-production deploy, on fresh prod
+       * (no drift to excuse), and on genuine faults (missing digest, GHCR
+       * error) which must stay red even in prod.
+       */
+      pinnedExpected?: true;
+      /**
        * Populated only when the GHCR lookup succeeded but the deploy's
        * own `imageRef` lacked a digest — surfaces "no digest pinned on
        * the deploy" without collapsing into the error variant (the
@@ -156,19 +168,46 @@ export const imageDriftDriver: ProbeDriver<
     }
 
     const isStale = currentImage !== "" && currentImage !== expectedImage;
+    // Pinned-prod neutrality: under the pinned-prod / floating-staging
+    // contract, prod is INTENTIONALLY pinned behind `:latest`, so a digest
+    // mismatch against `:latest` is expected on the production-deployed
+    // harness — not a defect. When the deploy env is production AND the
+    // drift is a genuine stale-behind (`isStale`, i.e. both digests
+    // resolved but differ), render GREEN with `pinnedExpected: true`
+    // rather than red. A missing-digest fault (`currentImage === ""`) is
+    // NOT excused — that's a broken deploy, not a pin, so it stays red
+    // even in prod. Staging and unset-env deploys keep the original
+    // red-on-drift behaviour.
+    const pinnedExpected = isStale && isProductionEnv(ctx.env);
     return {
       key: input.key,
-      state: isStale || currentImage === "" ? "red" : "green",
+      state:
+        (isStale && !pinnedExpected) || currentImage === "" ? "red" : "green",
       signal: {
         service: input.name,
         currentImage,
         expectedImage,
         isStale,
+        ...(pinnedExpected ? { pinnedExpected: true as const } : {}),
       },
       observedAt,
     };
   },
 };
+
+/**
+ * Resolve whether the harness deploy environment is production. Mirrors
+ * the orchestrator's `sourceEnv` resolution (`SHOWCASE_ENV` override,
+ * then Railway's injected `RAILWAY_ENVIRONMENT_NAME`) so the driver's
+ * "is this prod?" answer matches the label the alert engine already
+ * stamps on every Slack payload. Case-insensitive exact match on
+ * "production" — "staging", "unknown", and unset all return false, so
+ * the neutralization only ever fires on a genuine prod deploy.
+ */
+function isProductionEnv(env: ProbeContext["env"]): boolean {
+  const name = env.SHOWCASE_ENV ?? env.RAILWAY_ENVIRONMENT_NAME;
+  return typeof name === "string" && name.trim().toLowerCase() === "production";
+}
 
 // Helpers -------------------------------------------------------------------
 

@@ -1,0 +1,48 @@
+---
+title: "AssistantMessage"
+description: "A left-aligned assistant chat bubble that renders Markdown content, with an optional typing indicator and timestamp."
+---
+
+## Overview
+
+`AssistantMessage` renders a left-aligned chat bubble for assistant turns. Content is rendered as Markdown through [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown). When `isLoading` is set, it shows an animated typing indicator instead of content. Useful when building a custom chat UI on top of the headless [`CopilotChat`](/reference/react-native/components/CopilotChat).
+
+## Import
+
+```tsx
+import { AssistantMessage } from "@copilotkit/react-native/components";
+```
+
+## Props
+
+<PropertyReference name="content" type="string" required>
+  Markdown content to render inside the bubble.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="boolean" default="false">
+  When `true`, shows a typing indicator instead of the content.
+</PropertyReference>
+
+<PropertyReference name="timestamp" type="Date">
+  Optional timestamp displayed below the bubble, formatted as 12-hour time.
+</PropertyReference>
+
+<PropertyReference name="style" type="ViewStyle">
+  Optional style override for the outer container.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { AssistantMessage } from "@copilotkit/react-native/components";
+
+<AssistantMessage content="Hello! How can I help?" timestamp={new Date()} />;
+
+// While the agent is responding:
+<AssistantMessage content="" isLoading />;
+```
+
+## Related
+
+- [`UserMessage`](/reference/react-native/components/UserMessage): the user-side counterpart
+- [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown): the Markdown renderer used internally

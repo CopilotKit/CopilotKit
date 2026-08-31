@@ -1,5 +1,5 @@
 /**
- * Reasoning agent — minimal ReAct agent showcase.
+ * Reasoning agent — minimal ReAct-style agent showcase.
  *
  * Shared by agentic-chat-reasoning (custom amber ReasoningBlock) and
  * reasoning-default-render (CopilotKit's built-in reasoning slot).
@@ -14,13 +14,27 @@
  * distinct content block that the CopilotKit runtime translates to a
  * `role: "reasoning"` AG-UI event — which both reasoning demos render.
  *
- * Falls back to gpt-4o-mini (no reasoning stream) if `OPENAI_REASONING_MODEL`
- * is unset, so local dev without a reasoning-tier key still works (reasoning
- * slot just stays empty in that case).
+ * Falls back to gpt-5-mini (a reasoning-tier model) if `OPENAI_REASONING_MODEL`
+ * is unset, so the reasoning slot still lights up in local dev without extra
+ * configuration.
+ *
+ * Note: we use a custom StateGraph rather than `createReactAgent` so that the
+ * per-invocation `config` (with `copilotkit_forwarded_headers`) reaches the
+ * `ChatOpenAI` construction — required for `x-aimock-context` propagation.
  */
 
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { RunnableConfig } from "@langchain/core/runnables";
+import { SystemMessage, AIMessage } from "@langchain/core/messages";
+import {
+  Annotation,
+  MemorySaver,
+  START,
+  StateGraph,
+  messagesStateReducer,
+  BaseMessage,
+} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { makeChatOpenAI } from "./openai-headers";
 
 const SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
@@ -28,14 +42,52 @@ const SYSTEM_PROMPT =
 
 const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
 
-const model = new ChatOpenAI({
-  model: REASONING_MODEL,
-  useResponsesApi: true,
-  reasoning: { effort: "low", summary: "auto" },
+const AgentStateAnnotation = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: messagesStateReducer,
+    default: () => [],
+  }),
 });
 
-export const graph = createReactAgent({
-  llm: model,
-  tools: [],
-  prompt: SYSTEM_PROMPT,
+type AgentState = typeof AgentStateAnnotation.State;
+
+async function chatNode(state: AgentState, config: RunnableConfig) {
+  const model = makeChatOpenAI(config, {
+    model: REASONING_MODEL,
+    useResponsesApi: true,
+    reasoning: { effort: "low", summary: "auto" },
+    // Token-level streaming of the OpenAI Responses API is buggy in
+    // @langchain/openai@1.4.4: the reasoning-summary delta (index =
+    // summary_index = 0) and the answer output_text delta (index =
+    // content_index = 0) are pushed to the SAME content-block index, so the
+    // streaming reducer collapses them into a single `type: "reasoning"`
+    // block whose `text` field silently swallows the answer. @ag-ui/langgraph
+    // then reads `content[0].type === "reasoning"` for every chunk and routes
+    // the whole turn (answer included) to REASONING_MESSAGE_* events — no
+    // assistant TEXT_MESSAGE ever renders, so the D6 reasoning-display probe
+    // reds with `text-unstable`. The NON-streaming Responses converter
+    // (`convertResponsesMessageToAIMessage`) processes final output *items*
+    // (not indexed deltas) and correctly yields TWO separate blocks — a
+    // `reasoning` block and a `text` block. Disabling token streaming forces
+    // that correct path; the bridge then emits both a reasoning message and
+    // the assistant answer, matching langgraph-python's rendering.
+    disableStreaming: true,
+  });
+
+  const response = await model.invoke(
+    [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
+    config,
+  );
+
+  return { messages: response };
+}
+
+const workflow = new StateGraph(AgentStateAnnotation)
+  .addNode("chat_node", chatNode)
+  .addEdge(START, "chat_node");
+
+const memory = new MemorySaver();
+
+export const graph = workflow.compile({
+  checkpointer: memory,
 });

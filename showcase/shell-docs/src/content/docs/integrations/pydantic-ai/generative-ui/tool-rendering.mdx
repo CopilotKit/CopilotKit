@@ -3,6 +3,11 @@ title: "Tool Rendering"
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -14,15 +19,7 @@ description: Render your agent's tool calls with custom UI components.
 />
 
 <Callout>
-  This example demonstrates the [implementation](#implementation) section
-  applied in the{" "}
-  <a
-    href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
-    target="_blank"
-  >
-    CopilotKit feature viewer
-  </a>
-  .
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -49,6 +46,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     <Tab value="Python">
         ```python title="agent.py"
         from pydantic_ai import Agent
+        from pydantic_ai.ui.ag_ui import AGUIAdapter
+        from starlette.applications import Starlette
+        from starlette.requests import Request
+        from starlette.responses import Response
+        from starlette.routing import Route
 
         agent = Agent("openai:gpt-5.4-mini")
 
@@ -59,9 +61,14 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             return f"The weather in {location} is sunny."
 
 
-        app = agent.to_ag_ui()
+        async def run_agent(request: Request) -> Response:
+            return await AGUIAdapter.dispatch_request(request, agent=agent)
+
+
+        app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
         if __name__ == "__main__":
+            import uvicorn
 
             uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
@@ -76,11 +83,11 @@ we just need to add a `useRenderTool` hook to render the tool call in
 the UI.
 
 <Callout type="info" title="Important">
-  In order to render a tool call in the UI, the name of the action must match
-  the name of the tool.
+  In order to render a tool call in the UI, the name of the action must match the name of the tool.
 </Callout>
 
 ```tsx title="app/page.tsx"
+import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 // ...
 
 const YourMainContent = () => {
@@ -88,18 +95,17 @@ const YourMainContent = () => {
   // [!code highlight:12]
   useRenderTool({
     name: "get_weather",
-    render: ({ status, args }) => {
+    render: ({status, args}) => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${args.location}.`}
+          {status === "complete" && `Called the weather API for ${args.location}.`}
         </p>
       );
     },
   });
   // ...
-};
+}
 ```
 
 </Step>

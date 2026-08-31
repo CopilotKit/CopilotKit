@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * MCP Apps demo (Strands port).
+ * MCP Apps demo.
  *
  * MCP Apps are MCP servers that expose tools with associated UI resources.
  * The CopilotKit runtime is wired with `mcpApps: { servers: [...] }`
@@ -12,21 +12,15 @@
  * renders the sandboxed iframe inline in the chat — no app-side renderer
  * registration required.
  *
- * This cell points at the public Excalidraw MCP app
- * (https://mcp.excalidraw.com). The Strands agent itself has no MCP-specific
- * tools — the runtime middleware advertises the MCP server's tools to the
- * agent at request time.
+ * This cell points at the public Excalidraw MCP app (https://mcp.excalidraw.com).
  *
- * Reference (canonical):
- * showcase/integrations/langgraph-python/src/app/demos/mcp-apps/page.tsx
+ * Reference:
+ * https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { Chat } from "./chat";
 
 export default function MCPAppsDemo() {
   // @region[no-frontend-renderer-needed]
@@ -43,23 +37,4 @@ export default function MCPAppsDemo() {
     </CopilotKit>
   );
   // @endregion[no-frontend-renderer-needed]
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
-      },
-    ],
-    available: "always",
-  });
-
-  return <CopilotChat agentId="mcp-apps" className="h-full rounded-2xl" />;
 }

@@ -1,0 +1,19 @@
+First, extend your graph's state annotation with `CopilotKitStateAnnotation`
+and bind forwarded actions through `convertActionsToDynamicStructuredTools`.
+The annotation is what makes every CopilotKit feature on the frontend —
+frontend tools, shared state, agent context, and generative UI components —
+visible to your LangGraph agent on every turn.
+
+<DemoCode file="src/agent/frontend-tools.ts" region="setup" />
+
+<Accordions>
+  <Accordion title="Install the SDK">
+    If `@copilotkit/sdk-js` isn't already in your project, add it so the
+    imports above resolve:
+
+    ```bash
+    npm install @copilotkit/sdk-js
+    ```
+
+  </Accordion>
+</Accordions>

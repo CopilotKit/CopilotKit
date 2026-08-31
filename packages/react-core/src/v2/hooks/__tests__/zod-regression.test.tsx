@@ -193,7 +193,7 @@ describe("defineToolCallRenderer Zod regression", () => {
 
     expect(renderer.name).toBe("*");
     // z.any() has vendor "zod" on ~standard
-    expect(renderer.args["~standard"].vendor).toBe("zod");
+    expect(renderer.args!["~standard"].vendor).toBe("zod");
   });
 
   it("named tool with Zod args preserves schema identity", () => {

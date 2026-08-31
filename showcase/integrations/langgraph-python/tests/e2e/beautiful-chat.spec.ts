@@ -169,10 +169,12 @@ test.describe("Beautiful Chat", () => {
     // `_design_a2ui_surface` (renamed from `render_a2ui` to avoid the A2UI
     // middleware's default tool-call intercept on `render_a2ui`);
     // both calls hit aimock fixtures
-    // (showcase/aimock/feature-parity.json — userMessage + toolName matchers
-    // differentiate primary vs secondary calls; a toolCallId match breaks the
-    // post-tool loop). The render_a2ui fixture ships a 3-metric + 2-chart
-    // dashboard tree against `copilotkit://app-dashboard-catalog`.
+    // (showcase/aimock/d4/langgraph-python/chat.json — userMessage + toolName
+    // matchers differentiate primary vs secondary calls; a toolCallId match
+    // breaks the post-tool loop). The render_a2ui fixture ships a 3-metric +
+    // 2-chart dashboard tree with NO `catalogId` in the streamed args — real
+    // models omit it per the tool-usage guide, so the route's
+    // `a2ui.defaultCatalogId` must resolve the page catalog.
     //
     // Visual fingerprint: a Metric label "Total Revenue", plus a recharts
     // ResponsiveContainer (the Pie/BarChart custom renderers wrap their
@@ -196,6 +198,13 @@ test.describe("Beautiful Chat", () => {
       timeout: 90_000,
     });
 
+    // Regression guard (#4733 / #4734 / #5425): the deployed Sales Dashboard
+    // used to surface "A2UI render error: Catalog not found: ..." when the
+    // model omitted `catalogId` and no `defaultCatalogId` was configured on
+    // the route. Hard-assert the error is absent regardless of whether the
+    // charts rendered — the error banner paints even when the surface fails.
+    await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
+
     // Soft assertion: if the full A2UI pipeline fires, recharts containers
     // should appear. When running against aimock-only (no secondary LLM),
     // only the text narration renders — so we don't hard-fail on missing
@@ -207,10 +216,6 @@ test.describe("Beautiful Chat", () => {
       .catch(() => false);
 
     if (chartsRendered) {
-      // Regression guard (#4733 / #4734): the deployed Sales Dashboard used
-      // to surface "A2UI render error: Catalog not found: ...". Assert the
-      // error string is absent so any future revert trips this test.
-      await expect(page.getByText(/Catalog not found/i)).toHaveCount(0);
       await expect(
         page.getByText(/Cannot create component .* without a type/i),
       ).toHaveCount(0);

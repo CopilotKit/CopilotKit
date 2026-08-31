@@ -139,6 +139,7 @@ _INSTRUCTION = (
     "turn. Use them when relevant."
 )
 
+# @region[agent-context-setup]
 readonly_state_agent_context_agent = LlmAgent(
     name="ReadonlyStateAgentContextAgent",
     model=get_model(),
@@ -147,3 +148,4 @@ readonly_state_agent_context_agent = LlmAgent(
     before_model_callback=_inject_context,
     after_model_callback=stop_on_terminal_text,
 )
+# @endregion[agent-context-setup]

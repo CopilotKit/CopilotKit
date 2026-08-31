@@ -12,13 +12,14 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/claude-agent-sdk-python/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import crypto from "node:crypto";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
@@ -26,7 +27,10 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit-mcp-apps/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit-mcp-apps/route] AGENT_URL: ${AGENT_URL}`);
 
-const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps` });
+const agents: Record<string, AbstractAgent> = {
+  "mcp-apps": createClaudeHttpAgent(`${AGENT_URL}/mcp-apps`),
+  "headless-complete": createClaudeHttpAgent(`${AGENT_URL}/headless-complete`),
+};
 
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
@@ -36,9 +40,7 @@ const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps` });
 // inline in the chat.
 const runtime = new CopilotRuntime({
   // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
-  agents: {
-    "mcp-apps": mcpAppsAgent,
-  },
+  agents,
   mcpApps: {
     servers: [
       {
@@ -56,12 +58,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-mcp-apps",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-mcp-apps",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
     const errorId = crypto.randomUUID();

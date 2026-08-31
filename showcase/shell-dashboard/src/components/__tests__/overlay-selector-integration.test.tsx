@@ -53,6 +53,10 @@ vi.mock("@/data/docs-status.json", () => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
+// A recent timestamp so green rows are not treated as stale by the
+// staleness downgrade in resolveCell (compares against Date.now()).
+const FRESH_OBSERVED_AT = new Date().toISOString();
+
 function makeStatusRow(
   dimension: string,
   slug: string,
@@ -68,8 +72,8 @@ function makeStatusRow(
     dimension,
     state,
     signal: null,
-    observed_at: "2026-04-20T00:00:00Z",
-    transitioned_at: "2026-04-20T00:00:00Z",
+    observed_at: FRESH_OBSERVED_AT,
+    transitioned_at: FRESH_OBSERVED_AT,
     fail_count: 0,
     first_failure_at: null,
   };
@@ -161,11 +165,13 @@ function makeTestingCtx(): CellContext {
 function makeCatalogCell(overrides?: Partial<CatalogCell>): CatalogCell {
   return {
     id: "next/chat-text",
+    manifestation: "integrated",
     integration: "next",
     integration_name: "Next.js",
     feature: "chat-text",
     feature_name: "Chat Text",
     status: "wired",
+    parity_tier: "at_parity",
     max_depth: 3,
     category: "chat-ui",
     category_name: "Chat & UI",
@@ -203,10 +209,10 @@ describe("Overlay selector integration — real UI components", () => {
     expect(queryByTestId("depth-chip")).not.toBeInTheDocument();
     expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
 
-    // No health badges (API, RT, CV)
+    // No health badges (API, UI, 1P)
     expect(queryByText("API")).not.toBeInTheDocument();
-    expect(queryByText("RT")).not.toBeInTheDocument();
-    expect(queryByText("CV")).not.toBeInTheDocument();
+    expect(queryByText("UI")).not.toBeInTheDocument();
+    expect(queryByText("1P")).not.toBeInTheDocument();
 
     // No docs indicators
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -236,7 +242,7 @@ describe("Overlay selector integration — real UI components", () => {
     expect(queryByText("</>")).not.toBeInTheDocument();
 
     // No health badges
-    expect(queryByText("RT")).not.toBeInTheDocument();
+    expect(queryByText("UI")).not.toBeInTheDocument();
 
     // No docs indicators
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -246,8 +252,22 @@ describe("Overlay selector integration — real UI components", () => {
   // -------------------------------------------------------------------------
   // 3. Health only — the critical case (no docs indicators must appear)
   // -------------------------------------------------------------------------
-  it("health only: API/RT/CV badges visible, NO docs indicators", () => {
-    const ctx = makeCtx();
+  it("health only: API/UI/1P badges visible, NO docs indicators", () => {
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry, so its d5 row resolves
+    // green and the 1P badge renders. An UNMAPPED feature's 1P badge is gray
+    // "?" and hidden by design (resolveD5Row returns null for unmapped
+    // features, matching resolveD5 / isD5Green) — "don't show tests that
+    // don't exist".
+    const ctx = makeCtx({
+      feature: {
+        id: "agentic-chat",
+        name: "Agentic Chat",
+        category: "chat-ui",
+        description: "Agentic chat feature",
+        kind: "primary",
+      },
+      liveStatus: buildLiveStatusMap("next", "agentic-chat"),
+    });
     const { getByTestId, getByText, queryByText, queryByTestId } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
     );
@@ -255,8 +275,8 @@ describe("Overlay selector integration — real UI components", () => {
     // Health layer present with real badges
     expect(getByTestId("health-layer")).toBeInTheDocument();
     expect(getByText("API")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
-    expect(getByText("CV")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
+    expect(getByText("1P")).toBeInTheDocument();
 
     // No docs indicators — this is the critical regression test for B2's fix
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -289,7 +309,7 @@ describe("Overlay selector integration — real UI components", () => {
     expect(queryByText("Demo")).not.toBeInTheDocument();
 
     // No health badges
-    expect(queryByText("RT")).not.toBeInTheDocument();
+    expect(queryByText("UI")).not.toBeInTheDocument();
 
     // No depth chip
     expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
@@ -311,7 +331,7 @@ describe("Overlay selector integration — real UI components", () => {
 
     // Nothing visible
     expect(queryByText("Demo")).not.toBeInTheDocument();
-    expect(queryByText("RT")).not.toBeInTheDocument();
+    expect(queryByText("UI")).not.toBeInTheDocument();
     expect(queryByText("docs-og")).not.toBeInTheDocument();
     expect(queryByTestId("depth-chip")).not.toBeInTheDocument();
   });
@@ -320,7 +340,20 @@ describe("Overlay selector integration — real UI components", () => {
   // 6. Health + Docs — both badges AND docs indicators visible
   // -------------------------------------------------------------------------
   it("health + docs: badges AND docs indicators both visible", () => {
-    const ctx = makeCtx();
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry so the 1P badge has a
+    // resolved (green) d5 row to render; an unmapped feature's 1P badge is
+    // hidden by design. The docs-status mock also covers `agentic-chat`, so
+    // the docs-og / docs-shell indicators still resolve.
+    const ctx = makeCtx({
+      feature: {
+        id: "agentic-chat",
+        name: "Agentic Chat",
+        category: "chat-ui",
+        description: "Agentic chat feature",
+        kind: "primary",
+      },
+      liveStatus: buildLiveStatusMap("next", "agentic-chat"),
+    });
     const { getByTestId, getByText, queryByText, queryByTestId } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health", "docs")} />,
     );
@@ -328,8 +361,8 @@ describe("Overlay selector integration — real UI components", () => {
     // Health layer
     expect(getByTestId("health-layer")).toBeInTheDocument();
     expect(getByText("API")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
-    expect(getByText("CV")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
+    expect(getByText("1P")).toBeInTheDocument();
 
     // Docs layer
     expect(getByTestId("docs-layer")).toBeInTheDocument();
@@ -352,7 +385,14 @@ describe("Overlay selector integration — real UI components", () => {
     const { getByTestId, getByText } = render(
       <ComposedCell
         ctx={ctx}
-        overlays={overlaySet("links", "depth", "health", "docs", "parity")}
+        overlays={overlaySet(
+          "links",
+          "depth",
+          "health",
+          "docs",
+          "parity",
+          "d6",
+        )}
         catalogCell={catalogCell}
       />,
     );
@@ -362,7 +402,7 @@ describe("Overlay selector integration — real UI components", () => {
     expect(getByTestId("depth-layer")).toBeInTheDocument();
     expect(getByTestId("depth-chip")).toBeInTheDocument();
     expect(getByTestId("health-layer")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
     expect(getByTestId("docs-layer")).toBeInTheDocument();
     expect(getByText("docs-og")).toBeInTheDocument();
     expect(getByText("docs-shell")).toBeInTheDocument();
@@ -370,7 +410,7 @@ describe("Overlay selector integration — real UI components", () => {
     // Verify stacking order: links, depth, health, docs
     const composedCell = getByTestId("composed-cell");
     const children = Array.from(composedCell.children);
-    expect(children.length).toBe(4); // parity adds no content layer
+    expect(children.length).toBe(4); // parity and d6 add no content layer
 
     // First child: links (contains "Demo")
     expect(children[0]?.textContent).toContain("Demo");
@@ -378,8 +418,8 @@ describe("Overlay selector integration — real UI components", () => {
     expect(
       children[1]?.querySelector("[data-testid='depth-chip']"),
     ).toBeTruthy();
-    // Third child: health (contains RT badge)
-    expect(children[2]?.textContent).toContain("RT");
+    // Third child: health (contains the UI badge — renamed from E2E)
+    expect(children[2]?.textContent).toContain("UI");
     // Fourth child: docs (contains docs-og)
     expect(children[3]?.textContent).toContain("docs-og");
   });
@@ -395,7 +435,7 @@ describe("Overlay selector integration — real UI components", () => {
 
     // Health badges present
     expect(getByTestId("health-layer")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
 
     // Docs explicitly absent — this is the bug B2 fixed: CellStatus used to
     // render DocsRow, so "health only" would still show docs indicators.
@@ -406,9 +446,9 @@ describe("Overlay selector integration — real UI components", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 9. Testing-kind features: CV badges hidden
+  // 9. Testing-kind features: 1P badges hidden
   // -------------------------------------------------------------------------
-  it("testing-kind feature with health: CV badges hidden, API/RT still shown", () => {
+  it("testing-kind feature with health: 1P badges hidden, API/BE still shown", () => {
     const ctx = makeTestingCtx();
     const { getByTestId, getByText, queryByText } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
@@ -417,12 +457,12 @@ describe("Overlay selector integration — real UI components", () => {
     // Health layer present
     expect(getByTestId("health-layer")).toBeInTheDocument();
 
-    // API and RT badges still visible for testing-kind
+    // API and BE badges still visible for testing-kind
     expect(getByText("API")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
 
-    // CV hidden for testing-kind features (CellStatus hides them)
-    expect(queryByText("CV")).not.toBeInTheDocument();
+    // 1P hidden for testing-kind features (CellStatus hides them)
+    expect(queryByText("1P")).not.toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
@@ -459,7 +499,7 @@ describe("Overlay selector integration — real UI components", () => {
 
     // Health badges
     expect(getByTestId("health-layer")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
 
     // Docs indicators
     expect(getByTestId("docs-layer")).toBeInTheDocument();
@@ -491,7 +531,7 @@ describe("Overlay selector integration — real UI components", () => {
 
     // Health badges
     expect(getByTestId("health-layer")).toBeInTheDocument();
-    expect(getByText("RT")).toBeInTheDocument();
+    expect(getByText("UI")).toBeInTheDocument();
 
     // No docs — critical: Assessment does NOT include docs
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -542,12 +582,18 @@ describe("Overlay selector integration — real UI components", () => {
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
     );
 
-    // With green live status rows, RT badge should show the green check
-    const rtBadge = getByText("RT");
-    expect(rtBadge).toBeInTheDocument();
-    // The badge label "✓" (green state) should appear as a sibling span
-    const rtContainer = rtBadge.closest("[class*='whitespace-nowrap']");
-    expect(rtContainer?.textContent).toContain("✓");
+    // With green live status rows, the UI badge (renamed from E2E) should show the green check
+    const e2eBadge = getByText("UI");
+    expect(e2eBadge).toBeInTheDocument();
+    // The badge label "✓" (green state) should appear as a sibling span within
+    // the badge container. Locate the container by the semantic `title`
+    // attribute (the tooltip) — the same stable structural path the cell-pieces
+    // suite uses (`span[title]`) — rather than keying off a cosmetic Tailwind
+    // utility class, which a styling refactor could rename with no behavior
+    // change.
+    const e2eContainer = e2eBadge.closest("span[title]");
+    expect(e2eContainer).not.toBeNull();
+    expect(e2eContainer?.textContent).toContain("✓");
   });
 
   // -------------------------------------------------------------------------
@@ -566,10 +612,13 @@ describe("Overlay selector integration — real UI components", () => {
 
     const chip = getByTestId("depth-chip");
     expect(chip).toBeInTheDocument();
-    // The depth chip renders "D<n>" text — with full green live status and
-    // health+agent+e2e+chat all green, deriveDepth should yield D4
-    const depthAttr = chip.getAttribute("data-depth");
-    expect(depthAttr).toBeTruthy();
-    expect(chip.textContent).toMatch(/^D[0-6]$/);
+    // The depth chip renders "D<n>" text. `chat-text` is NOT a CATALOG_TO_D5_KEY
+    // entry, so its structural ceiling is 4 (no D5 rung). With health+agent+e2e
+    // +chat all green the contiguous ladder reaches D4 exactly → deriveDepth
+    // MUST yield D4. Assert the specific depth (not just "some D0–D6"): a
+    // regression that returned D0/D2/D3 for this fixture would otherwise sail
+    // through a `/^D[0-6]$/` match.
+    expect(chip.getAttribute("data-depth")).toBe("4");
+    expect(chip.textContent).toBe("D4");
   });
 });

@@ -1,0 +1,223 @@
+---
+title: "useDefaultRenderTool"
+description: "Vue 3 composable that registers a wildcard default renderer for unhandled tool calls"
+---
+
+## Overview
+
+`useDefaultRenderTool` is a Vue 3 convenience composable, a thin wrapper around [`useRenderTool`](/reference/vue/hooks/useRenderTool) with `name: "*"`. It registers a catch-all renderer for tool calls that do not have a specific named renderer.
+
+- With no config, it registers CopilotKit's built-in default tool-call UI: an expandable card showing the tool name, status, arguments, and result.
+- With a `render` config, it replaces that default UI with your own wildcard renderer.
+
+In Vue, the renderer is a Vue render function or a Vue component (not JSX). It returns a `VNodeChild` (anything Vue can render: a VNode, a string, an array of VNodes, `null`, etc.). Whatever shape the underlying call site passes, your renderer always receives the documented `DefaultRenderProps`.
+
+<Callout type="info">
+  `useDefaultRenderTool` must be called within a component that has access to the
+  CopilotKit instance provided by `CopilotKitProvider`. Like all Vue composables,
+  call it synchronously inside `<script setup>` or a `setup()` function so its
+  reactive scope is bound to the component lifecycle.
+</Callout>
+
+## Signature
+
+```ts
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import type { Component, VNodeChild, WatchSource } from "vue";
+
+type DefaultRenderProps = {
+  name: string;
+  toolCallId: string;
+  parameters: unknown;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
+};
+
+function useDefaultRenderTool(
+  config?: {
+    render?:
+      | ((props: DefaultRenderProps) => VNodeChild)
+      | Component<DefaultRenderProps>;
+  },
+  deps?: WatchSource<unknown>[],
+): void;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="{ render?: RenderFn | Component }">
+  Optional configuration. Omit it entirely to register the built-in default
+  tool-call card.
+
+  <PropertyReference name="render" type="((props: DefaultRenderProps) => VNodeChild) | Component<DefaultRenderProps>">
+    A Vue render function or a Vue component used to render any unhandled tool
+    call. A render function receives `DefaultRenderProps` and returns a
+    `VNodeChild`. A component receives `DefaultRenderProps` as its props. If
+    omitted, CopilotKit's built-in expandable card is used.
+  </PropertyReference>
+</PropertyReference>
+
+<PropertyReference name="deps" type="WatchSource<unknown>[]">
+  Optional reactive dependencies. These are forwarded to `useRenderTool` and
+  added to the internal `watch` sources, so the renderer is re-registered when
+  any of them change. Pass refs, computeds, or getter functions, just like any
+  Vue `WatchSource`.
+</PropertyReference>
+
+## DefaultRenderProps
+
+The props your renderer receives. These are normalized from the framework's
+internal renderer props, so `parameters` is always populated (from `args` when
+needed) and `status` is always the string union below (mapped from the
+`ToolCallStatus` enum).
+
+<PropertyReference name="name" type="string">
+  The name of the tool that was called.
+</PropertyReference>
+
+<PropertyReference name="toolCallId" type="string">
+  The unique identifier for this tool call.
+</PropertyReference>
+
+<PropertyReference name="parameters" type="unknown">
+  The arguments passed to the tool. While the call is streaming
+  (`inProgress`), this may be partial.
+</PropertyReference>
+
+<PropertyReference name="status" type='"inProgress" | "executing" | "complete"'>
+  The lifecycle status of the tool call. `inProgress` while arguments stream in,
+  `executing` once arguments are complete and the tool runs, `complete` when a
+  result is available.
+</PropertyReference>
+
+<PropertyReference name="result" type="string | undefined">
+  The tool's result. `undefined` until `status` is `complete`.
+</PropertyReference>
+
+## Usage
+
+### Built-in default renderer
+
+Call the composable with no arguments to register CopilotKit's built-in
+expandable tool-call card.
+
+```vue
+<script setup lang="ts">
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+
+useDefaultRenderTool();
+</script>
+
+<template>
+  <!-- Unhandled tool calls render with the built-in default card -->
+</template>
+```
+
+### Custom wildcard renderer (render function)
+
+Provide a `render` function. It receives `DefaultRenderProps` and returns a
+`VNodeChild`. Use the `h` helper from Vue to build VNodes.
+
+```vue
+<script setup lang="ts">
+import { h } from "vue";
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+
+useDefaultRenderTool({
+  render: ({ name, status, result }) =>
+    h("div", [
+      h("strong", name),
+      `: ${status}`,
+      status === "complete" && result ? h("pre", result) : null,
+    ]),
+});
+</script>
+
+<template>
+  <!-- Unhandled tool calls render with the custom function above -->
+</template>
+```
+
+### Custom wildcard renderer (Vue component)
+
+Pass a Vue component instead of a function. It receives `DefaultRenderProps` as
+its props. Define `props` with `defineProps` so the values are typed.
+
+```vue
+<!-- ToolCallCard.vue -->
+<script setup lang="ts">
+defineProps<{
+  name: string;
+  toolCallId: string;
+  parameters: unknown;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
+}>();
+</script>
+
+<template>
+  <div :data-status="status">
+    <strong>{{ name }}</strong>
+    <span>{{ status }}</span>
+    <pre v-if="status === 'complete' && result">{{ result }}</pre>
+  </div>
+</template>
+```
+
+```vue
+<!-- App.vue -->
+<script setup lang="ts">
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+import ToolCallCard from "./ToolCallCard.vue";
+
+useDefaultRenderTool({ render: ToolCallCard });
+</script>
+
+<template>
+  <!-- Unhandled tool calls render with ToolCallCard -->
+</template>
+```
+
+### Re-registering on dependency changes
+
+Pass reactive `deps` to re-register the renderer when they change. The renderer
+itself should generally be stable, but any reactive source the renderer closes
+over can be listed here.
+
+```vue
+<script setup lang="ts">
+import { h, ref } from "vue";
+import { useDefaultRenderTool } from "@copilotkit/vue/v2";
+
+const compact = ref(false);
+
+useDefaultRenderTool(
+  {
+    render: ({ name, status }) =>
+      compact.value
+        ? h("span", `${name}: ${status}`)
+        : h("div", [h("strong", name), h("span", status)]),
+  },
+  [compact],
+);
+</script>
+
+<template>
+  <button @click="compact = !compact">Toggle layout</button>
+</template>
+```
+
+## Behavior
+
+- **Wildcard registration**: Internally calls `useRenderTool({ name: "*", render })`. The `"*"` name matches any tool call that has no specific named renderer.
+- **Default UI**: When `config.render` is omitted, an expandable card is rendered. It shows the tool name, a status label (`Running` while active, `Done` when complete), and, when expanded, the JSON-stringified arguments and the result.
+- **Prop normalization**: Your `render` is always wrapped so it receives the documented `DefaultRenderProps`, regardless of whether the call site passes raw internal props (`args` plus a `ToolCallStatus` enum) or already-adapted props (`parameters` plus a string-union status). Both render functions and components are wrapped this way.
+- **Status mapping**: The `ToolCallStatus` enum is mapped to the `"inProgress" | "executing" | "complete"` union. An unknown or future enum value falls back to `"inProgress"` and logs a one-time `console.warn` per distinct value.
+- **No cleanup removal**: Registered renderers are intentionally not removed on cleanup, so past tool calls keep rendering correctly in chat history.
+- **Return value**: The composable returns `void`.
+
+## Related
+
+- [`useRenderTool`](/reference/vue/hooks/useRenderTool) - register a renderer for a specific named tool, or the wildcard this composable wraps
+- [`useFrontendTool`](/reference/vue/hooks/useFrontendTool) - define a browser-side tool the agent can call
+- [`CopilotKitProvider`](/reference/vue/components/CopilotKitProvider) - provides the CopilotKit instance to descendant composables

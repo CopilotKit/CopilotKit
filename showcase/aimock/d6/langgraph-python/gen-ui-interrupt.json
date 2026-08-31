@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langgraph-python / gen-ui-interrupt",
+    "sourceFile": "harness/fixtures/d5/gen-ui-interrupt.json",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-interrupt sales-call pill — first leg: schedule_meeting tool call triggers Python agent's interrupt(...). The toolName gate ensures this matches only when schedule_meeting is in the tool list (the agent must declare it). Placed BEFORE the toolCallId resume-leg so the duplicate-userMessage dedup does not shadow the tool-emitting leg — mirrors the passing mastra/pydantic-ai ordering.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolName": "schedule_meeting",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Sure — let me check available times.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_sales_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "Sales intro call",
+              "attendee": "Sales team",
+              "slots": [
+                { "label": "Mon 10:00 AM", "iso": "2026-05-11T10:00:00Z" },
+                { "label": "Tue 2:00 PM", "iso": "2026-05-12T14:00:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt sales-call pill — second leg: confirmation after user picks a slot and resolve fires. Keyed by toolCallId so it only matches when the prior tool result is being fed back (last message is the tool result for this call).",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_schedule_sales_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill — first leg: schedule_meeting tool call. Placed BEFORE the toolCallId resume-leg so the tool-emitting leg is not shadowed.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolName": "schedule_meeting",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Got it — pulling up next-week slots.",
+        "toolCalls": [
+          {
+            "id": "call_d5_schedule_alice_001",
+            "name": "schedule_meeting",
+            "arguments": {
+              "topic": "1:1 with Alice — Q2 goals",
+              "attendee": "Alice",
+              "slots": [
+                { "label": "Wed 11:00 AM", "iso": "2026-05-13T11:00:00Z" },
+                { "label": "Thu 3:30 PM", "iso": "2026-05-14T15:30:00Z" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-interrupt alice-1on1 pill — second leg: confirmation after user picks a slot. Keyed by toolCallId so it only matches when the prior tool result is being fed back.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_schedule_alice_001",
+        "context": "langgraph-python"
+      },
+      "response": {
+        "content": "Scheduled: 1:1 with Alice locked in for the slot you picked."
+      }
+    }
+  ]
+}

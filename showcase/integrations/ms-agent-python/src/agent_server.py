@@ -9,6 +9,36 @@ from __future__ import annotations
 
 import os
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT agent_framework), so it is safe to run before the agent imports below.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module /
+# agent_framework / agent_framework_openai imports. The
+# ``OpenAIChatCompletionClient`` constructs its httpx client at
+# ``_build_chat_client()`` time below — which runs at module-import scope
+# (line ~79) — so the patch must be in place before that import resolves.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
+from agents._header_forwarding import (
+    HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
+# agent_framework dispatches SYNC tools (e.g. the declarative gen-ui
+# `generate_a2ui` tool, which makes a secondary OpenAI call) onto the
+# default ThreadPoolExecutor via loop.run_in_executor(...), which does NOT
+# propagate ContextVars to the worker thread. Without this, the
+# forwarded-header ContextVar set on the inbound request task is empty by
+# the time the secondary call's outbound httpx hook fires, and aimock
+# can't match the right fixture for the request.
+install_executor_contextvar_propagation()
+
 import uvicorn
 from agent_framework import BaseChatClient
 from agent_framework_openai import OpenAIChatCompletionClient
@@ -23,6 +53,10 @@ from agents.agent import create_agent
 from agents.voice_agent import create_voice_agent
 from agents.a2ui_dynamic import create_agent as create_a2ui_dynamic_agent
 from agents.a2ui_fixed import create_agent as create_a2ui_fixed_agent
+from agents.recovery_agent import (
+    A2UI_RECOVERY_CONFIG,
+    create_agent as create_a2ui_recovery_agent,
+)
 from agents.agent_config_agent import create_agent_config_agent
 from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.byoc_hashbrown_agent import create_byoc_hashbrown_agent
@@ -89,6 +123,7 @@ tool_rendering_reasoning_chain_agent = create_tool_rendering_reasoning_chain_age
 )
 a2ui_dynamic_agent = create_a2ui_dynamic_agent(chat_client)
 a2ui_fixed_agent = create_a2ui_fixed_agent(chat_client)
+a2ui_recovery_agent = create_a2ui_recovery_agent(chat_client)
 open_gen_ui_agent = create_open_gen_ui_agent(chat_client)
 open_gen_ui_advanced_agent = create_open_gen_ui_advanced_agent(chat_client)
 byoc_hashbrown_agent = create_byoc_hashbrown_agent(chat_client)
@@ -128,6 +163,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(HealthMiddleware)
 
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -135,6 +176,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # IMPORTANT: mount specific-path agents BEFORE the catch-all `/` agent.
 # `add_agent_framework_fastapi_endpoint(..., path="/")` installs a catch-all
@@ -164,6 +214,12 @@ add_agent_framework_fastapi_endpoint(
 )
 add_agent_framework_fastapi_endpoint(
     app=app, agent=a2ui_fixed_agent, path="/a2ui_fixed"
+)
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=a2ui_recovery_agent,
+    path="/a2ui_recovery",
+    a2ui_config=A2UI_RECOVERY_CONFIG,
 )
 add_agent_framework_fastapi_endpoint(
     app=app, agent=open_gen_ui_agent, path="/open-gen-ui"

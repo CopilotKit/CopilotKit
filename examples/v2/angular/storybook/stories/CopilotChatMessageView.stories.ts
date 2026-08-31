@@ -1,17 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
 import { CommonModule } from "@angular/common";
-import { Component, Injectable, input, signal } from "@angular/core";
+import {
+  Component,
+  Injectable,
+  input,
+  signal,
+  ChangeDetectionStrategy,
+} from "@angular/core";
+import type {
+  Message,
+  RenderToolCallConfig,
+  ToolRenderer,
+  AngularToolCall,
+} from "@copilotkit/angular";
 import {
   CopilotChatMessageView,
   CopilotChatMessageViewCursor,
   CopilotKit,
   provideCopilotKit,
   provideCopilotChatLabels,
-  Message,
-  RenderToolCallConfig,
-  ToolRenderer,
-  AngularToolCall,
 } from "@copilotkit/angular";
 import { ToolCallStatus } from "@copilotkit/core";
 import { z } from "zod"; // Schema validation
@@ -35,6 +43,8 @@ const meta: Meta<CopilotChatMessageView> = {
         CopilotChatMessageViewCursor,
       ],
       providers: [
+        CopilotKit,
+        provideCopilotKit({}),
         provideCopilotChatLabels({
           assistantMessageToolbarCopyMessageLabel: "Copy",
           assistantMessageToolbarCopyCodeLabel: "Copy",
@@ -285,7 +295,7 @@ type SearchArgs = z.infer<typeof searchArgsSchema>;
 // SearchToolRender component with explicit inputs
 @Component({
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style]="containerStyle">
       <div style="font-weight: bold; margin-bottom: 4px">🔍 Search Tool</div>
@@ -353,7 +363,7 @@ export class CalculatorCounterService {
 // CalculatorToolRender component with interactive counters
 @Component({
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div [style]="containerStyle">
       <div style="font-weight: bold; margin-bottom: 4px">🧮 Calculator</div>
@@ -507,7 +517,7 @@ class CalculatorToolRenderComponent implements ToolRenderer<CalculatorArgs> {
 // WildcardToolRender component for unmatched tools
 @Component({
   standalone: true,
-  imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       style="

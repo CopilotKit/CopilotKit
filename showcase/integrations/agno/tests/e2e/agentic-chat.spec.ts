@@ -1,73 +1,67 @@
 import { test, expect } from "@playwright/test";
 
+// Agentic Chat is the minimum-viable CopilotChat demo: a tiny page
+// that wraps `<CopilotChat>` plus three starter-prompt suggestions. The
+// contract here is "vanilla chat works end-to-end" — anything richer
+// belongs in dedicated demos (frontend-tools, tool-rendering, etc.).
 test.describe("Agentic Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat");
   });
 
-  test("page loads with chat input and background container", async ({
+  test("page loads with chat input and the three starter suggestions", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
+    for (const title of ["Write a sonnet", "Tell me a joke", "Is 17 prime?"]) {
+      await expect(page.getByRole("button", { name: title })).toBeVisible({
+        timeout: 15000,
+      });
+    }
+  });
+
+  test("sends a typed message and gets an assistant response", async ({
+    page,
+  }) => {
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Say hello in one word.");
+    await input.press("Enter");
+
     await expect(
-      page.locator('[data-testid="background-container"]'),
-    ).toBeVisible();
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
   });
 
-  test("background container has default background style", async ({
+  test("clicking a suggestion pill sends the message and gets a response", async ({
     page,
   }) => {
-    const bg = page.locator('[data-testid="background-container"]');
-    await expect(bg).toHaveCSS("background-color", "rgb(250, 250, 249)");
+    await page.getByRole("button", { name: "Tell me a joke" }).click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
   });
 
-  test("sends message and gets assistant response", async ({ page }) => {
+  test("multi-turn conversation maintains context", async ({ page }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill("Say hello");
+
+    await input.fill("My name is Alice.");
+    await input.press("Enter");
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 30000 });
+
+    // Wait for the chat to settle (suggestions reappear after the assistant
+    // finishes streaming) before sending the follow-up message.
+    await expect(
+      page.getByRole("button", { name: "Write a sonnet" }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await input.fill("What name did I just give you?");
     await input.press("Enter");
 
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
-      timeout: 30000,
-    });
-  });
-
-  test("weather request renders WeatherCard with location and stats", async ({
-    page,
-  }) => {
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("What is the weather in Tokyo?");
-    await input.press("Enter");
-
-    // WeatherCard renders as a rounded-2xl div with shadow-xl and gradient background
-    const weatherCard = page.locator('[data-testid="weather-card"]').first();
-    await expect(weatherCard).toBeVisible({ timeout: 45000 });
-
-    // Verify the card has weather detail sections (Humidity, Wind, Feels Like)
-    await expect(weatherCard.getByText("Humidity")).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(weatherCard.getByText("Wind")).toBeVisible({ timeout: 5000 });
-    await expect(weatherCard.getByText("Feels Like")).toBeVisible({
-      timeout: 5000,
-    });
-  });
-
-  test("background change request updates background style", async ({
-    page,
-  }) => {
-    const input = page.getByPlaceholder("Type a message");
-    await input.fill("Change the background to a blue gradient");
-    await input.press("Enter");
-
-    // Wait for the agent to respond and process the tool call
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
-      timeout: 30000,
-    });
-
-    // The background-container style should have changed from the default #fafaf9
-    const bg = page.locator('[data-testid="background-container"]');
-    await expect(bg).not.toHaveCSS("background-color", "rgb(250, 250, 249)", {
-      timeout: 15000,
-    });
+    const responses = page.locator('[data-testid="copilot-assistant-message"]');
+    await expect(responses.nth(1)).toBeVisible({ timeout: 30000 });
+    await expect(responses.nth(1)).toContainText(/Alice/i, { timeout: 5000 });
   });
 });

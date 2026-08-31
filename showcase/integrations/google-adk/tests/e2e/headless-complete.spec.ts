@@ -67,7 +67,7 @@ test.describe("Headless Chat (Complete)", () => {
 
     const assistant = page
       .locator('[data-testid="headless-message-assistant"]')
-      .first();
+      .last();
     await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
     await expect(assistant).toContainText("Tokyo is 22°C and partly cloudy.", {
       timeout: ASSERT_TIMEOUT,
@@ -87,7 +87,7 @@ test.describe("Headless Chat (Complete)", () => {
 
     const assistant = page
       .locator('[data-testid="headless-message-assistant"]')
-      .first();
+      .last();
     await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
     await expect(assistant).toContainText(
       "AAPL is trading at $189.42, up 1.27% on the day",
@@ -115,7 +115,7 @@ test.describe("Headless Chat (Complete)", () => {
     // assistant…".
     const assistant = page
       .locator('[data-testid="headless-message-assistant"]')
-      .first();
+      .last();
     await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
     await expect(assistant).toContainText("ship the demo on Friday", {
       timeout: ASSERT_TIMEOUT,
@@ -140,7 +140,7 @@ test.describe("Headless Chat (Complete)", () => {
 
     const assistant = page
       .locator('[data-testid="headless-message-assistant"]')
-      .first();
+      .last();
     await expect(assistant).toBeVisible({ timeout: ASSERT_TIMEOUT });
     await expect(assistant).toContainText(
       "Here is the chart of revenue over the last six months",

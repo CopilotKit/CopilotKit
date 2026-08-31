@@ -1,0 +1,68 @@
+name: plugin-skills-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/*/skills/**"
+      # Every directory under skills/, not an enumerated few. The check's
+      # orphan scan reads the whole mirror, so any skills/ directory can fail
+      # it — including a standalone skill that is missing from
+      # RESERVED_LIFECYCLE_SLUGS, which write mode then prunes. Listing
+      # individual slugs here left that case untested by the PR that
+      # introduced it and armed the failure for the next unrelated PR instead.
+      - "skills/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - "scripts/__tests__/public-skill-drift.test.ts"
+      - "scripts/release/public-api/manifest.v1.json"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+      # The plugin version pins to packages/runtime/package.json, so a release
+      # bump there must re-trigger the drift check or the pin silently rots.
+      - "packages/runtime/package.json"
+  pull_request:
+    paths:
+      - "packages/*/skills/**"
+      - "skills/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - "scripts/__tests__/public-skill-drift.test.ts"
+      - "scripts/release/public-api/manifest.v1.json"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+      - "packages/runtime/package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run sync script unit tests
+        run: pnpm exec vitest run scripts/__tests__/sync-plugin-skills.test.ts
+
+      - name: Check plugin skill mirror is in sync
+        run: pnpm check:plugin-skills
+
+      - name: Check public skill package contracts
+        run: pnpm exec vitest run scripts/__tests__/public-skill-drift.test.ts

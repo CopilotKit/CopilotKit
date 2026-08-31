@@ -1,13 +1,14 @@
 import {
   Component,
-  input,
-  output,
-  ViewChild,
+  DestroyRef,
   ElementRef,
   AfterViewInit,
-  OnDestroy,
+  input,
+  output,
   signal,
   computed,
+  inject,
+  viewChild,
   ChangeDetectionStrategy,
   ViewEncapsulation,
 } from "@angular/core";
@@ -18,26 +19,24 @@ import {
 
 @Component({
   selector: "copilot-chat-audio-recorder",
-  standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
     <div [class]="computedClass()">
       <canvas
         #canvasRef
-        class="w-full h-full"
+        class="cpk:w-full cpk:h-full"
         [style.imageRendering]="'pixelated'"
       ></canvas>
     </div>
   `,
-  styles: [],
   host: {
     "[class.copilot-chat-audio-recorder]": "true",
   },
 })
-export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
-  @ViewChild("canvasRef", { static: true })
-  canvasRef!: ElementRef<HTMLCanvasElement>;
+export class CopilotChatAudioRecorder implements AfterViewInit {
+  private readonly canvasRef =
+    viewChild.required<ElementRef<HTMLCanvasElement>>("canvasRef");
 
   inputClass = input<string | undefined>();
   inputShowControls = input<boolean>(false);
@@ -45,101 +44,134 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
   stateChange = output<AudioRecorderState>();
   error = output<AudioRecorderError>();
 
-  // Signals for state management
-  state = signal<AudioRecorderState>("idle");
-  showControls = signal<boolean>(false);
+  readonly state = signal<AudioRecorderState>("idle");
 
-  // Computed values
-  computedClass = computed(() => {
-    const baseClasses = "h-11 w-full px-5";
+  readonly computedClass = computed(() => {
+    const baseClasses = "cpk:h-11 cpk:w-full cpk:px-5";
     return `${baseClasses} ${this.inputClass() || ""}`;
   });
 
-  statusText = computed(() => {
-    switch (this.state()) {
-      case "recording":
-        return "Recording...";
-      case "processing":
-        return "Processing...";
-      default:
-        return "Ready";
-    }
-  });
+  // Capture resources
+  private mediaRecorder?: MediaRecorder;
+  private stream?: MediaStream;
+  private audioContext?: AudioContext;
+  private analyser?: AnalyserNode;
+  private audioChunks: Blob[] = [];
 
-  // Animation and canvas properties
+  // Guards the async window before `state` flips to "recording".
+  private starting = false;
+
+  // Waveform animation state
   private animationFrameId?: number;
+  private amplitudeHistory: number[] = [];
+  private scrollOffset = 0;
+  private smoothedAmplitude = 0;
+  private fadeOpacity = 0;
 
-  // Sync inputShowControls into internal signal
   constructor() {
-    // Use microtask to avoid constructor signal writes complaint in some setups
-    Promise.resolve().then(() => {
-      this.showControls.set(this.inputShowControls() ?? false);
-    });
+    inject(DestroyRef).onDestroy(() => this.dispose());
   }
 
   ngAfterViewInit(): void {
     this.startAnimation();
   }
 
-  ngOnDestroy(): void {
-    this.dispose();
+  /**
+   * Request microphone access and start recording.
+   */
+  async start(): Promise<void> {
+    if (this.starting || this.state() !== "idle") {
+      return;
+    }
+    this.starting = true;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.stream = stream;
+
+      // Wire an analyser for the live waveform.
+      const audioContext = new AudioContext();
+      this.audioContext = audioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      this.analyser = analyser;
+
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : MediaRecorder.isTypeSupported("audio/mp4")
+            ? "audio/mp4"
+            : "";
+
+      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
+      this.mediaRecorder = mediaRecorder;
+      this.audioChunks = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.start(100);
+      this.setState("recording");
+    } catch (err) {
+      this.cleanup();
+      const error = this.toRecorderError(err);
+      this.error.emit(error);
+      this.setState("idle");
+      throw error;
+    } finally {
+      this.starting = false;
+    }
   }
 
   /**
-   * Start recording audio
+   * Stop recording and resolve with the captured audio.
    */
-  async start(): Promise<void> {
-    try {
-      if (this.state() === "recording") {
+  stop(): Promise<Blob> {
+    return new Promise<Blob>((resolve, reject) => {
+      const mediaRecorder = this.mediaRecorder;
+      if (!mediaRecorder || this.state() !== "recording") {
+        reject(new AudioRecorderError("No active recording"));
         return;
       }
 
-      this.setState("recording");
-      this.startAnimation();
+      this.setState("processing");
 
-      // In a real implementation, this would start actual audio recording
-      // For now, we just simulate the recording state
-    } catch (err) {
-      const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to start recording",
-      );
-      this.error.emit(error);
-      this.setState("idle");
-      throw error;
-    }
+      mediaRecorder.onstop = () => {
+        const mimeType = mediaRecorder.mimeType || "audio/webm";
+        const audioBlob = new Blob(this.audioChunks, { type: mimeType });
+        this.cleanup();
+        this.setState("idle");
+        resolve(audioBlob);
+      };
+
+      mediaRecorder.onerror = () => {
+        this.cleanup();
+        const error = new AudioRecorderError("Recording failed");
+        this.error.emit(error);
+        this.setState("idle");
+        reject(error);
+      };
+
+      mediaRecorder.stop();
+    });
   }
 
-  /**
-   * Stop recording audio and return blob
-   */
-  async stop(): Promise<Blob> {
-    try {
-      this.setState("idle");
-      // Return empty blob - stub implementation
-      const emptyBlob = new Blob([], { type: "audio/webm" });
-      return emptyBlob;
-    } catch (err) {
-      const error = new AudioRecorderError(
-        err instanceof Error ? err.message : "Failed to stop recording",
-      );
-      this.error.emit(error);
-      this.setState("idle");
-      throw error;
-    }
-  }
-
-  /**
-   * Get current recorder state
-   */
   getState(): AudioRecorderState {
     return this.state();
   }
 
   /**
-   * Dispose of resources
+   * Release every capture/animation resource. Safe to call repeatedly.
    */
   dispose(): void {
-    this.stopAnimation();
+    this.cleanup();
   }
 
   private setState(state: AudioRecorderState): void {
@@ -147,18 +179,69 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
     this.stateChange.emit(state);
   }
 
-  private startAnimation(): void {
-    const canvas = this.canvasRef.nativeElement;
-    if (!canvas) return;
+  private toRecorderError(err: unknown): AudioRecorderError {
+    if (err instanceof Error && err.name === "NotAllowedError") {
+      return new AudioRecorderError("Microphone permission denied");
+    }
+    if (err instanceof Error && err.name === "NotFoundError") {
+      return new AudioRecorderError("No microphone found");
+    }
+    return new AudioRecorderError(
+      err instanceof Error ? err.message : "Failed to start recording",
+    );
+  }
 
+  private cleanup(): void {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = undefined;
+    }
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      try {
+        this.mediaRecorder.stop();
+      } catch {
+        // Ignore errors during cleanup
+      }
+    }
+    this.stream?.getTracks().forEach((track) => track.stop());
+    if (this.audioContext && this.audioContext.state !== "closed") {
+      this.audioContext.close().catch(() => {});
+    }
+    this.mediaRecorder = undefined;
+    this.stream = undefined;
+    this.audioContext = undefined;
+    this.analyser = undefined;
+    this.audioChunks = [];
+    this.amplitudeHistory = [];
+    this.scrollOffset = 0;
+    this.smoothedAmplitude = 0;
+    this.fadeOpacity = 0;
+  }
+
+  /** RMS amplitude from time-domain samples (128 is silence). */
+  private calculateAmplitude(dataArray: Uint8Array): number {
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const sample = (dataArray[i] ?? 128) / 128 - 1;
+      sum += sample * sample;
+    }
+    return Math.sqrt(sum / dataArray.length);
+  }
+
+  private startAnimation(): void {
+    const canvas = this.canvasRef().nativeElement;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const barWidth = 2;
+    const barGap = 1;
+    const barSpacing = barWidth + barGap;
+    const scrollSpeed = 1 / 3;
 
     const draw = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
 
-      // Update canvas dimensions if container resized
       if (
         canvas.width !== rect.width * dpr ||
         canvas.height !== rect.height * dpr
@@ -166,80 +249,80 @@ export class CopilotChatAudioRecorder implements AfterViewInit, OnDestroy {
         canvas.width = rect.width * dpr;
         canvas.height = rect.height * dpr;
         ctx.scale(dpr, dpr);
-        ctx.imageSmoothingEnabled = false;
       }
 
-      // Configuration
-      const barWidth = 2;
-      const minHeight = 2;
-      const maxHeight = 20;
-      const gap = 2;
-      const numSamples = Math.ceil(rect.width / (barWidth + gap));
+      const maxBars = Math.floor(rect.width / barSpacing) + 2;
 
-      // Get loudness data
-      const loudnessData = this.getLoudness(numSamples);
+      if (this.analyser && this.state() === "recording") {
+        if (this.amplitudeHistory.length === 0) {
+          this.amplitudeHistory = new Array(maxBars).fill(0);
+        }
 
-      // Clear canvas
+        if (this.fadeOpacity < 1) {
+          this.fadeOpacity = Math.min(1, this.fadeOpacity + 0.03);
+        }
+
+        this.scrollOffset += scrollSpeed;
+
+        const bufferLength = this.analyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+        this.analyser.getByteTimeDomainData(dataArray);
+        const rawAmplitude = this.calculateAmplitude(dataArray);
+
+        const attackSpeed = 0.12;
+        const decaySpeed = 0.08;
+        const speed =
+          rawAmplitude > this.smoothedAmplitude ? attackSpeed : decaySpeed;
+        this.smoothedAmplitude +=
+          (rawAmplitude - this.smoothedAmplitude) * speed;
+
+        if (this.scrollOffset >= barSpacing) {
+          this.scrollOffset -= barSpacing;
+          this.amplitudeHistory.push(this.smoothedAmplitude);
+          if (this.amplitudeHistory.length > maxBars) {
+            this.amplitudeHistory = this.amplitudeHistory.slice(-maxBars);
+          }
+        }
+      }
+
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      // Get current foreground color
       const computedStyle = getComputedStyle(canvas);
-      const currentForeground = computedStyle.color;
+      ctx.fillStyle = computedStyle.color;
+      ctx.globalAlpha = this.fadeOpacity;
 
-      // Draw bars
-      ctx.fillStyle = currentForeground;
       const centerY = rect.height / 2;
+      const maxAmplitude = rect.height / 2 - 2;
+      const history = this.amplitudeHistory;
 
-      for (let i = 0; i < loudnessData.length; i++) {
-        const sample = loudnessData[i] ?? 0;
-        const barHeight = Math.round(
-          sample * (maxHeight - minHeight) + minHeight,
-        );
-        const x = Math.round(i * (barWidth + gap));
-        const y = Math.round(centerY - barHeight / 2);
+      if (history.length > 0) {
+        const offset = this.scrollOffset;
+        const edgeFadeWidth = 12;
 
-        ctx.fillRect(x, y, barWidth, barHeight);
+        for (let i = 0; i < history.length; i++) {
+          const amplitude = history[i] ?? 0;
+          const scaledAmplitude = Math.min(amplitude * 4, 1);
+          const barHeight = Math.max(2, scaledAmplitude * maxAmplitude * 2);
+
+          const x = rect.width - (history.length - i) * barSpacing - offset;
+          const y = centerY - barHeight / 2;
+
+          if (x + barWidth > 0 && x < rect.width) {
+            let edgeOpacity = 1;
+            if (x < edgeFadeWidth) {
+              edgeOpacity = Math.max(0, x / edgeFadeWidth);
+            } else if (x > rect.width - edgeFadeWidth) {
+              edgeOpacity = Math.max(0, (rect.width - x) / edgeFadeWidth);
+            }
+            ctx.globalAlpha = this.fadeOpacity * edgeOpacity;
+            ctx.fillRect(x, y, barWidth, barHeight);
+          }
+        }
       }
 
       this.animationFrameId = requestAnimationFrame(draw);
     };
 
     draw();
-  }
-
-  private stopAnimation(): void {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = undefined;
-    }
-  }
-
-  private getLoudness(n: number): number[] {
-    const elapsed = Date.now() / 1000; // Use current timestamp directly
-    const samples: number[] = [];
-
-    for (let i = 0; i < n; i++) {
-      // Create a position that moves from left to right over time
-      const position = (i / n) * 10 + elapsed * 0.5; // Scroll speed (slower)
-
-      // Generate waveform using multiple sine waves for realism
-      const wave1 = Math.sin(position * 2) * 0.3;
-      const wave2 = Math.sin(position * 5 + elapsed) * 0.2;
-      const wave3 = Math.sin(position * 0.5 + elapsed * 0.3) * 0.4;
-
-      // Add some randomness for natural variation
-      const noise = (Math.random() - 0.5) * 0.1;
-
-      // Combine waves and add envelope for realistic amplitude variation
-      const envelope = Math.sin(elapsed * 0.7) * 0.5 + 0.5; // Slow amplitude modulation
-      let amplitude = (wave1 + wave2 + wave3 + noise) * envelope;
-
-      // Clamp to 0-1 range
-      amplitude = Math.max(0, Math.min(1, amplitude * 0.5 + 0.3));
-
-      samples.push(amplitude);
-    }
-
-    return samples;
   }
 }

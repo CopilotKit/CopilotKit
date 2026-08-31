@@ -10,17 +10,39 @@ event stream.
 """
 
 import os
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
-from dotenv import load_dotenv
+
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` CVDIAG loggers
+# actually EMIT, and resolves the verbosity tier + PB writer. It imports
+# pydantic/starlette only (NOT langroid / openai), so it is safe to run before
+# the httpx hook install below — it does not construct any LLM httpx client.
+import _shared.cvdiag_bootstrap  # noqa: F401  (first non-stdlib import — bootstrap side effects)
+
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+from starlette.responses import JSONResponse  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+
+# ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
+# imports. Langroid / openai / pydantic-ai-style adapters construct
+# httpx clients eagerly at agent-module import time.
+from agents._cvdiag_backend import CvdiagBackendMiddleware  # noqa: E402
+from agents._header_forwarding import (  # noqa: E402
+    HeaderForwardingHTTPMiddleware,
+    install_global_httpx_hook,
+)
+
+install_global_httpx_hook()
 
 from agents.agui_adapter import handle_run
+from agents.reasoning_agent import reasoning_app
 from agents.a2ui_fixed_agent import handle_run as handle_a2ui_fixed_schema
 from agents.byoc_hashbrown_agent import handle_run as handle_byoc_hashbrown
 from agents.byoc_json_render_agent import handle_run as handle_byoc_json_render
+from agents.gen_ui_agent import handle_run as handle_gen_ui_agent
 from agents.mcp_apps_agent import handle_run as handle_mcp_apps
 from agents.multimodal_agent import handle_run as handle_multimodal
 from agents.shared_state_read_write import (
@@ -45,6 +67,12 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(HealthMiddleware)
 
+# Capture inbound CopilotKit ``x-*`` headers (e.g. ``x-aimock-context``)
+# into a per-request ContextVar so any outbound LLM/provider httpx call
+# made inside the request scope copies them onto its outbound request.
+# Paired with ``install_global_httpx_hook`` at the top of this file.
+app.add_middleware(HeaderForwardingHTTPMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,11 +80,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
+
 
 @app.post("/")
 async def run_agent(request: Request):
     """AG-UI /run endpoint — streams SSE events."""
     return await handle_run(request)
+
+
+# Reasoning-aware sub-app. Langroid's stock unified adapter calls OpenAI
+# non-streaming and reads only message.content / message.tool_calls — it
+# drops the model's reasoning_content channel, so the reasoning-default /
+# reasoning-custom cells can never light up CopilotKit's reasoning slot via
+# the unified agent. This custom sub-app streams the chat-completions call
+# directly, captures delta.reasoning_content, and emits REASONING_MESSAGE_*
+# events. The HttpAgent posts to /reasoning/; the outer Mount strips
+# /reasoning and the inner Mount at "/" resolves ReasoningEndpoint. Mirrors
+# ag2's /reasoning mount.
+app.mount("/reasoning", reasoning_app)
 
 
 # Per-demo endpoints for cells that need state-aware behavior the unified
@@ -78,6 +127,19 @@ async def run_shared_state_read_write(request: Request):
     STATE_SNAPSHOT so the UI re-renders.
     """
     return await handle_shared_state_read_write(request)
+
+
+@app.post("/gen-ui-agent")
+async def run_gen_ui_agent(request: Request):
+    """Agentic Generative UI demo endpoint.
+
+    The agent owns a ``steps`` slice of shared state and walks each step
+    pending -> in_progress -> completed by repeatedly calling a custom
+    ``set_steps`` tool. Each call mutates local state and emits a fresh
+    STATE_SNAPSHOT so the UI's ``useAgent`` subscriber re-renders the
+    progress card in place.
+    """
+    return await handle_gen_ui_agent(request)
 
 
 @app.post("/subagents")

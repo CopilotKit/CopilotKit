@@ -61,6 +61,7 @@ generative_ui:
       - hitl
       - declarative-gen-ui
       - a2ui-fixed-schema
+      - a2ui-recovery
       - mcp-apps
       - tool-rendering
       - useComponent
@@ -79,6 +80,9 @@ generative_ui:
       - declarative-json-render
       - open-gen-ui
       - open-gen-ui-advanced
+      - background-agents
+      - observational-memory
+      - browser-use
 
 interaction_modalities:
   headless:

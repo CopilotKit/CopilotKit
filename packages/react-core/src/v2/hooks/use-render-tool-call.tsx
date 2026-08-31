@@ -1,12 +1,11 @@
 import React, { useCallback, useMemo, useSyncExternalStore } from "react";
-import { ToolCall, ToolMessage } from "@ag-ui/core";
+import type { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
-import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
-import { DefaultToolCallRenderer } from "./use-default-render-tool";
+import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
 export interface UseRenderToolCallProps {
   toolCall: ToolCall;
@@ -154,12 +153,18 @@ export function useRenderToolCall() {
         exactMatches[0] ||
         renderToolCalls.find((rc) => rc.name === "*");
 
-      // Fall back to the framework's built-in default tool-call renderer
-      // when neither a per-tool nor a wildcard renderer has been
-      // registered. This makes "zero custom renderers" demos paint tool
-      // calls out-of-the-box instead of going invisible.
-      const RenderComponent = (renderConfig?.render ??
-        defaultToolCallRenderAdapter) as ReactToolCallRenderer<unknown>["render"];
+      // No per-tool or wildcard renderer registered → render nothing.
+      // Showing an unhandled tool call is opt-in: register a named/wildcard
+      // renderer via useRenderTool, or call useDefaultRenderTool() for the
+      // built-in card. Auto-painting a default card here would leak internal
+      // tool names plus raw args/result JSON into every app's chat in
+      // production, so the card must be explicitly enabled.
+      if (!renderConfig) {
+        return null;
+      }
+
+      const RenderComponent =
+        renderConfig.render as ReactToolCallRenderer<unknown>["render"];
       const isExecuting = executingToolCallIds.has(toolCall.id);
 
       // Use the memoized ToolCallRenderer component to prevent unnecessary re-renders
@@ -177,32 +182,4 @@ export function useRenderToolCall() {
   );
 
   return renderToolCall;
-}
-
-// Adapter that bridges the ReactToolCallRenderer signature
-// (`{ name, args, status, result, toolCallId }`) to the
-// `DefaultToolCallRenderer` signature (`{ name, parameters, status,
-// result }`) so the latter can be used as a zero-config fallback when
-// no `*` renderer is registered.
-function defaultToolCallRenderAdapter(props: {
-  name: string;
-  args: unknown;
-  status: ToolCallStatus;
-  result: string | undefined;
-  toolCallId: string;
-}): React.ReactElement {
-  const status =
-    props.status === ToolCallStatus.Complete
-      ? "complete"
-      : props.status === ToolCallStatus.Executing
-        ? "executing"
-        : "inProgress";
-  return (
-    <DefaultToolCallRenderer
-      name={props.name}
-      parameters={props.args}
-      status={status}
-      result={props.result}
-    />
-  );
 }

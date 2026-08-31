@@ -409,7 +409,7 @@ describe("thread handlers", () => {
     // either branch (in-memory map mutation or platform no-op), so it
     // returns a plain Response rather than a Promise. The other handlers
     // in this suite are awaited because they either parse JSON or hit
-    // the Intelligence platform; this one does neither.
+    // CopilotKit Intelligence; this one does neither.
     it("clears in-memory threads and returns 204 for InMemoryAgentRunner", () => {
       const runner = new InMemoryAgentRunner();
       const clearThreadsSpy = vi.spyOn(runner, "clearThreads");
@@ -514,6 +514,7 @@ describe("thread handlers", () => {
       expect(body.messages).toEqual([{ id: "m1" }]);
       expect(intelligence.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       expect(identifyUser).toHaveBeenCalledWith(

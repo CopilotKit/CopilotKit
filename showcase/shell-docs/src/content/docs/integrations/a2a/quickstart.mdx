@@ -5,29 +5,10 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship A2A to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
-  surface="docs_a2a_quickstart"
-/>
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-
-<OpsPlatformCTA
-  variant="card"
-  title="Ship A2A to production"
-  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
+<IntelligenceOnboardingPrompt
+  feature="learning"
   surface="docs_a2a_quickstart"
 />
 
@@ -46,7 +27,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_a2a_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads, observability, and the inspector.
+        <SignupLink surface="docs_a2a_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -123,6 +104,11 @@ Before you begin, you'll need the following:
 
     </Step>
 
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
+
 </Steps>
 
 ## What's next?
@@ -137,3 +123,13 @@ Now that you have your basic agent setup, explore these advanced features:
     icon={<PaintbrushIcon />}
   />
 </Cards>
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>

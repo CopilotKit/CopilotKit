@@ -63,27 +63,30 @@ Rules:
 
 
 def build_byoc_json_render_agent():
-    """Build a dedicated Strands Agent for the byoc-json-render demo.
+    """Build a dedicated StrandsAgent for the byoc-json-render demo.
 
-    Mirrors build_byoc_hashbrown_agent() in sibling module. Not currently
-    wired into agent_server.py; the frontend injects this prompt via
-    useAgentContext so the shared agent produces the right output shape.
+    Returns an ``ag_ui_strands.StrandsAgent`` wrapper (mirrors
+    ``build_voice_agent`` / ``build_byoc_hashbrown_agent``) so it can be
+    mounted by ``create_strands_app`` and exposed as a dedicated AG-UI
+    endpoint. agent_server.py mounts it at ``/byoc-json-render`` and the
+    declarative-json-render route proxies there.
     """
+    # Deferred imports so this module remains importable before the
+    # agent_server import-order patches run. Mirrors build_voice_agent /
+    # build_byoc_hashbrown_agent: the OpenAI model is built via the shared
+    # agents.agent._build_model factory.
     from strands import Agent
-    from strands.models.openai import OpenAIModel
-    import os
+    from ag_ui_strands import StrandsAgent
 
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY must be set for the byoc-json-render Strands agent"
-        )
-    model = OpenAIModel(
-        client_args={"api_key": api_key},
-        model_id="gpt-4o-mini",
-    )
-    return Agent(
-        model=model,
+    from agents.agent import _build_model
+
+    strands_agent = Agent(
+        model=_build_model(),
         system_prompt=BYOC_JSON_RENDER_SYSTEM_PROMPT,
         tools=[],
+    )
+    return StrandsAgent(
+        agent=strands_agent,
+        name="byoc_json_render",
+        description="json-render flat-spec generator for the declarative-json-render demo.",
     )

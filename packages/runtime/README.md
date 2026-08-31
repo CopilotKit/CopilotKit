@@ -51,9 +51,79 @@
   </a>
 </p>
 
+## Trusted Inspector metadata
+
+An Intelligence-backed v2 runtime can proxy trusted project and license context
+to the Inspector. The runtime advertises this support with
+`inspectorMetadata: true` in its runtime-info response.
+
+| Runtime mode | Request                                                     |
+| ------------ | ----------------------------------------------------------- |
+| Multi-route  | `GET {basePath}/inspector-metadata`                         |
+| Single-route | `POST {basePath}` with `{ "method": "inspector/metadata" }` |
+
+A valid response is a sanitized `InspectorMetadataV1` JSON object with
+`Cache-Control: no-store, private`. Missing data, an unsupported schema, a
+non-Intelligence runtime, or a provider failure returns `204` with the same
+cache policy. This optional request never changes the main runtime connection
+state. The upstream Intelligence request has a five-second deadline; a timeout
+uses the same private `204` path.
+
+Runtime keeps `schemaVersion: 1` and returns the object normalized by Shared.
+Older producers may omit `usage.expiringSoonCount`, and `0` stays a known zero.
+If this optional leaf is malformed, Shared removes only the leaf and keeps valid
+base usage and sibling modules. Runtime does not calculate or cache expiry, and
+older consumers ignore the additive leaf.
+
+The Intelligence request uses the API key configured on the server-side
+`CopilotKitIntelligence` client. The proxy does not forward browser headers or
+cookies to Intelligence, and it does not expose provider error bodies to the
+browser. Browser headers and configured fetch credentials still apply between
+`@copilotkit/core` and your Copilot Runtime, so you can protect the runtime route
+with your normal app auth.
+
+Deploy the Intelligence producer before releasing a runtime that advertises the
+capability. New runtimes treat a `404` from an older Intelligence App API as
+compatible absence and return `204` to the client.
+
 ## Documentation
 
 To get started with CopilotKit, please check out the [documentation](https://docs.copilotkit.ai).
+
+## Intelligence identity and Memory
+
+An Intelligence Runtime supports web only, Channels only, or both. Web routes
+need `identifyUser(request)`. Each Channel has its own `identifyUser` policy in
+`createChannel`. A Channels-only Runtime omits the web callback and exposes no
+functional web routes.
+
+```ts
+const runtime = new CopilotRuntime({
+  agents,
+  intelligence,
+  identifyUser: authenticateApplicationUser,
+  channels: [supportChannel],
+  memory: {
+    access: async ({ request, user, consumer }) => {
+      const role = await roleFor(request, user);
+      if (role === "blocked") return null;
+      return consumer === "client"
+        ? { user: "read", project: "none" }
+        : { user: "read-write", project: "read" };
+    },
+  },
+});
+```
+
+The callback runs once per web request. Its user owns ordinary web Threads and
+is reused for agent and browser Memory policy. Adding `memory` exposes the
+browser Memory routes and agent tools under the same policy. A denial returns
+403; a policy error fails the request. Omitting `memory` hides the browser
+routes and does not attach Memory tools.
+
+`exposeMemoryRoutes` and
+`CopilotKitIntelligence({ enableEnterpriseLearning: true })` remain for one
+compatibility window. New code should use `memory.access`.
 
 ## Analytics & Privacy
 

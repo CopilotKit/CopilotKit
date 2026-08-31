@@ -4,6 +4,8 @@ icon: "lucide/Play"
 description: Decide which state properties are received and returned to the frontend.
 ---
 
+import AngularStateWorkflow from "@/snippets/shared/angular/shared-state-workflow.mdx";
+
 ## What is this?
 
 Not all state properties are relevant for frontend-backend sharing.
@@ -30,7 +32,6 @@ In addition, some state properties contain a lot of information. Syncing them ba
         "resources": []         # Internal use only
     }
     ```
-
   </Step>
   <Step>
     ### Organize state by purpose
@@ -66,16 +67,16 @@ In addition, some state properties contain a lot of information. Syncing them ba
             state = global_state.get("state", {})
             if state is None:
                 state = {}
-
+            
             state["answer"] = answer
-
+            
             # Emit state update to frontend
             ctx.write_event_to_stream(
                 StateSnapshotWorkflowEvent(snapshot=state)
             )
-
+            
             global_state["state"] = state
-
+        
         return f"Answer stored: {answer}"
 
     async def addResource(
@@ -95,13 +96,13 @@ In addition, some state properties contain a lot of information. Syncing them ba
             state = global_state.get("state", {})
             if state is None:
                 state = {}
-
+            
             resources = state.get("resources", [])
             resources.append(resource)
             state["resources"] = resources
-
+            
             global_state["state"] = state
-
+        
         return f"Resource added: {resource}"
 
     # Initialize the LLM
@@ -115,7 +116,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         1. Think through your answer
         2. Optionally use addResource to track any sources you reference
         3. Use answerQuestion to provide your final answer - this stores it in state for the user to see
-
+        
         Always use the answerQuestion tool to provide your response so it appears in the UI.
         """,
         backend_tools=[answerQuestion, addResource],
@@ -142,9 +143,9 @@ In addition, some state properties contain a lot of information. Syncing them ba
         return {"status": "healthy", "agent": "llamaindex"}
 
     if __name__ == "__main__":
+        import uvicorn
         uvicorn.run(app, host="localhost", port=8000)
     ```
-
   </Step>
   <Step>
     ### Use the state in your frontend
@@ -153,9 +154,12 @@ In addition, some state properties contain a lot of information. Syncing them ba
     - **answer**: Read from the agent's response
     - **resources**: Not accessible to the UI (internal agent use only)
 
+    <FrontendOnly frontend="react">
     ```tsx title="ui/app/page.tsx"
     "use client";
 
+    import { useState } from "react";
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -197,22 +201,22 @@ In addition, some state properties contain a lot of information. Syncing them ba
       return (
         <div style={{ padding: "2rem", fontFamily: "system-ui, sans-serif" }}>
           <h1>Q&A Assistant</h1>
-
+          
           <div style={{ marginBottom: "1rem" }}>
             <input
               type="text"
               value={inputQuestion}
               onChange={(e) => setInputQuestion(e.target.value)}
               placeholder="Enter your question..."
-              style={{
-                padding: "0.5rem",
-                width: "300px",
+              style={{ 
+                padding: "0.5rem", 
+                width: "300px", 
                 marginRight: "0.5rem",
                 borderRadius: "4px",
                 border: "1px solid #ccc"
               }}
             />
-            <button
+            <button 
               onClick={() => askQuestion(inputQuestion)}
               disabled={isLoading || !inputQuestion.trim()}
               style={{
@@ -236,11 +240,15 @@ In addition, some state properties contain a lot of information. Syncing them ba
       );
     }
     ```
+    </FrontendOnly>
+
+    <FrontendOnly frontend="angular">
+      <AngularStateWorkflow />
+    </FrontendOnly>
 
     <Callout type="warn" title="Important">
       The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
     </Callout>
-
   </Step>
   <Step>
     ### Give it a try!

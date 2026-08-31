@@ -75,6 +75,6 @@ describe("PackagesSection", () => {
       <PackagesSection liveStatus={emptyLiveStatus} connection="live" />,
     );
     const legend = getByTestId("packages-uwct-legend");
-    expect(legend.textContent).toBe("(U=Up, W=Wired, C=Chats, T=Tools)");
+    expect(legend.textContent).toBe("(U=Up, A=API (HTTP), C=Chats, T=Tools)");
   });
 });

@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for spring-ai / agent-config",
+    "sourceScript": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional — value-A turn. The prompt encodes the knob+value so aimock can key different responses per knob setting.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Good day. I am your CopilotKit assistant, configured to communicate in a professional tone. I am here to help you with any questions or tasks you may have. How may I assist you today?"
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual — value-B turn. Response must differ from professional to pass the diff assertion.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, keeping things chill and casual. What's up? Need help with anything? Just ask away!"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner — value-A turn.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "CopilotKit is a tool that helps you add AI chat features to your web apps. Think of it like adding a smart assistant to your website that can talk to users and help them get things done. You don't need to be an expert to use it!"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert — value-B turn. Response must differ from beginner.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "CopilotKit provides a React-based SDK with hooks like useCoAgent, useCopilotAction, and useCopilotReadable that integrate with LangGraph agents via the AG-UI protocol. The runtime proxies SSE event streams between the frontend and your agent backend, handling tool execution, state synchronization, and multi-agent orchestration out of the box."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise — value-A turn. Must be short.",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Agent context lets your frontend pass runtime config to the agent per turn."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed — value-B turn. Must be >= concise + 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "spring-ai"
+      },
+      "response": {
+        "content": "Agent context is a mechanism in CopilotKit that allows your frontend application to pass runtime configuration to the agent on every conversational turn. It works through the useAgentContext hook, which lets you define key-value pairs — such as tone, expertise level, and response length — that are forwarded to the agent's system prompt builder. The agent can then adapt its behavior dynamically based on these values, producing responses that match the user's preferences without requiring a separate configuration endpoint or a page reload. This enables highly personalized interactions where the same agent can serve different audiences with different communication styles."
+      }
+    }
+  ]
+}

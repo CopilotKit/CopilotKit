@@ -1,33 +1,24 @@
 """AG2 agent for the Declarative Generative UI (A2UI Dynamic Schema) demo.
 
-Mirrors the langgraph-python `a2ui_dynamic.py` pattern: the agent owns the
-`generate_a2ui` tool explicitly. When called, it invokes a secondary LLM
-bound to `render_a2ui` (tool_choice forced) using the registered client
-catalog injected via the runtime's `copilotkit.context`. The tool result
-returns an `a2ui_operations` container which the runtime's A2UI middleware
-detects and forwards to the frontend renderer.
+Option A (JS-runtime-injected A2UI): the agent wires a no-arg
+``generate_a2ui`` tool stub whose body raises loudly if called — the
+CopilotKit runtime middleware (``a2ui.injectA2UITool: true``, enabled by
+default in route.ts) intercepts the toolcall before it reaches Python and
+drives the secondary ``render_a2ui`` LLM pass itself.  The frontend renderer
+paints the emitted ``a2ui_operations``.
 
-The dedicated runtime route (`api/copilotkit-declarative-gen-ui/route.ts`)
-sets `injectA2UITool: false` so the runtime does not double-bind a second
-A2UI tool on top of this one.
+Reference: langgraph-python/src/agents/a2ui_dynamic.py (same pattern).
 """
 
 from __future__ import annotations
 
-import json
-import os
-from typing import Annotated
+import logging
 
-import openai
 from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from autogen.ag_ui import AGUIStream  # type: ignore[import-not-found]  # runtime-only submodule (ag2[ag-ui] extra); not present in static type stubs
 from fastapi import FastAPI
 
-from tools import (
-    build_a2ui_operations_from_tool_call,
-    RENDER_A2UI_TOOL_SCHEMA,
-)
-
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a demo assistant for Declarative Generative UI (A2UI — Dynamic "
@@ -41,49 +32,27 @@ SYSTEM_PROMPT = (
     "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
     "sources, portfolio allocation) and `BarChart` for comparisons across "
     "categories (quarterly revenue, headcount by team, signups per month). "
-    "`generate_a2ui` takes a single `context` argument summarising the "
-    "conversation. Keep chat replies to one short sentence; let the UI do "
+    "`generate_a2ui` takes no arguments and handles the rendering "
+    "automatically. Keep chat replies to one short sentence; let the UI do "
     "the talking."
 )
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str, "Conversation context summary the secondary LLM should design UI from"
-    ],
-) -> str:
+def generate_a2ui() -> str:
     """Generate dynamic A2UI components based on the conversation.
 
-    A secondary LLM designs the UI schema and data using the `render_a2ui`
-    tool schema. The result is returned as an `a2ui_operations` container
-    for the runtime A2UI middleware to detect and forward to the frontend.
+    Takes NO arguments. The CopilotKit runtime middleware
+    (``a2ui.injectA2UITool: true``) intercepts this toolcall before it
+    reaches the Python body and drives the secondary ``render_a2ui`` LLM
+    pass itself. If this body actually executes, the middleware is
+    misconfigured — raise loudly so the failure is visible.
     """
-    client = openai.OpenAI()
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {
-                "role": "user",
-                "content": "Generate a dynamic A2UI dashboard based on the conversation.",
-            },
-        ],
-        tools=[
-            {
-                "type": "function",
-                "function": RENDER_A2UI_TOOL_SCHEMA,
-            }
-        ],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+    raise RuntimeError(
+        "generate_a2ui called directly — the CopilotKit a2ui middleware "
+        "should intercept this call before it reaches the agent. "
+        "Check the route configuration at "
+        "app/api/copilotkit-declarative-gen-ui/route.ts."
     )
-
-    choice = response.choices[0]
-    if choice.message.tool_calls:
-        args = json.loads(choice.message.tool_calls[0].function.arguments)
-        result = build_a2ui_operations_from_tool_call(args)
-        return json.dumps(result)
-
-    return json.dumps({"error": "LLM did not call render_a2ui"})
 
 
 agent = ConversableAgent(

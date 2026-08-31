@@ -1,0 +1,34 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / reasoning",
+    "sourceFile": "d5-all.json",
+    "copiedFrom": "langgraph-python",
+    "created": "2026-05-21"
+  },
+  "fixtures": [
+    {
+      "_comment": "reasoning-default e2e test pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' Includes a `reasoning` field so aimock emits REASONING_MESSAGE_* events; without it the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label never lands.",
+      "match": {
+        "userMessage": "sky appears blue",
+        "turnIndex": 0,
+        "context": "langroid"
+      },
+      "response": {
+        "reasoning": "First, I considered that visible sunlight contains all wavelengths. Then I noted that air molecules scatter shorter wavelengths (blue) more efficiently than longer ones (Rayleigh scattering). At sunset the path through the atmosphere is much longer, so even more blue is scattered out and the remaining direct light skews red.",
+        "content": "Daytime sky looks blue because air molecules scatter short-wavelength light more strongly than long-wavelength light (Rayleigh scattering). At sunset the sun's light traverses far more atmosphere, scattering out most of the blue and leaving the remaining direct light dominated by red and orange wavelengths."
+      }
+    },
+    {
+      "_comment": "D5 reasoning-display probe (harness/src/probes/scripts/d5-reasoning-display.ts) sends 'show your reasoning step by step' verbatim. Mirrored from showcase/harness/fixtures/d5/reasoning-display.json so the bundled aimock has a match (the harness fixture file isn't loaded by the Docker-baked aimock).",
+      "match": {
+        "userMessage": "show your reasoning step by step",
+        "turnIndex": 0,
+        "context": "langroid"
+      },
+      "response": {
+        "reasoning": "First, I identified that the question requires step-by-step reasoning. Then I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response.",
+        "content": "Reasoning: first, I identified the question requires step-by-step thinking. Then, I broke it into sub-steps and worked through each one. Finally, I aggregated the partial answers into a single response. The reasoning block above the answer demonstrates intermediate-thought rendering."
+      }
+    }
+  ]
+}

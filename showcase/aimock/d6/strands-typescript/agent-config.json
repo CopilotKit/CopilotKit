@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for strands / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional pill — value-A. Response must differ from tone:casual below.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Good day. I am your professional CopilotKit assistant, configured to communicate in a formal and precise manner. I am here to assist you with any inquiries you may have regarding your project, documentation, or workflow. Please let me know how I can be of service."
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual pill — value-B. Must differ from tone:professional above.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Hey there! I'm your CopilotKit buddy, set to keep things chill and relaxed. Need help with anything? Just toss your question my way and we'll figure it out together — no stress."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner pill — value-A. Response must differ from expertise:expert below.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "CopilotKit is a toolkit that lets you add AI helpers to your app. Think of it like a smart assistant that lives inside your website. You connect it to your project and it can answer questions, run tasks, and update your page — all without you writing complicated AI code from scratch."
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert pill — value-B. Must differ from expertise:beginner above.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "CopilotKit is a React-native agent framework communicating over the AG-UI streaming protocol (SSE-based event bus). The runtime proxies LLM requests through Express/Hono middleware, supports multi-agent orchestration via ProxiedAgent, and exposes frontend tool registration through useCopilotAction. State synchronization uses useCopilotReadable for read-only context injection and useCopilotAction for bidirectional tool calls. The agent context you're configuring feeds into per-turn system prompt composition on the agent side."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise pill — value-A. Response must be shorter than responseLength:detailed below by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Agent context lets you pass frontend state to your agent on every turn. Set values via useAgentContext and read them in your agent's system prompt builder."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed concise response length by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "strands-typescript"
+      },
+      "response": {
+        "content": "Agent context is a CopilotKit mechanism that lets the frontend inject per-turn configuration into the agent's system prompt. On the React side, you call useAgentContext to set key-value pairs (tone, expertise level, response length, custom flags). These are serialized and forwarded to the runtime on every chat request as part of the forwarded properties. On the agent side — whether it is LangGraph, CrewAI, Strands, or a custom agent — the system prompt builder receives these values and can dynamically adjust its behavior. For example, setting tone to 'professional' causes the prompt to include formal-language instructions, while 'casual' relaxes the constraints. The expertise knob controls vocabulary complexity (beginner gets simplified analogies, expert gets technical depth). Response length controls verbosity targets in the prompt, steering the model toward concise or detailed output. This mechanism is decoupled from the model choice — the same agent can serve different user personas without code changes, purely through frontend-driven configuration."
+      }
+    }
+  ]
+}

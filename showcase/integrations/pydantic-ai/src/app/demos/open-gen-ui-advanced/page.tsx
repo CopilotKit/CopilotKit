@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Open-Ended Generative UI (Advanced)
- * ------------------------------------
+ * Open-Ended Generative UI
+ * ------------------------
  * The agent streams ONE `generateSandboxedUi` tool call; the runtime's
  * `OpenGenerativeUIMiddleware` (enabled by `openGenerativeUI: { agents: [...] }`
  * in `api/copilotkit-ogui/route.ts`) converts that stream into

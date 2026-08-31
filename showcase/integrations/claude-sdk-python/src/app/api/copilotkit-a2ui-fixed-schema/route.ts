@@ -7,19 +7,19 @@
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-a2ui-fixed-schema/route.ts
 // - src/agents/a2ui_fixed.py (the Claude Agent SDK backend)
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const a2uiFixedSchemaAgent = new HttpAgent({
-  url: `${AGENT_URL}/a2ui-fixed-schema`,
-});
+const a2uiFixedSchemaAgent = createClaudeHttpAgent(
+  `${AGENT_URL}/a2ui-fixed-schema`,
+);
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
@@ -36,17 +36,16 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-a2ui-fixed-schema",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-a2ui-fixed-schema",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
+    return internalRuntimeErrorResponse(
+      "/api/copilotkit-a2ui-fixed-schema",
+      error,
     );
   }
 };

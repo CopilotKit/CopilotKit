@@ -1,9 +1,10 @@
-import { AnthropicAdapter } from "../../../src/service-adapters/anthropic/anthropic-adapter";
+import { AnthropicAdapter } from "../../../src/v1-deprecated/service-adapters/anthropic/anthropic-adapter";
 import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
-} from "../../../src/graphql/types/converted";
+  Role,
+} from "../../../src/v1-deprecated/graphql/types/converted";
 
 // Mock only the Anthropic SDK, not our adapter
 vi.mock("@anthropic-ai/sdk", () => {
@@ -17,16 +18,16 @@ vi.mock("@anthropic-ai/sdk", () => {
 });
 
 // Mock the message classes
-vi.mock("../../../src/graphql/types/converted", () => {
+vi.mock("../../../src/v1-deprecated/graphql/types/converted", () => {
   class MockTextMessage {
     content: string;
     role: string;
     id: string;
 
-    constructor(role: string, content: string) {
-      this.role = role;
-      this.content = content;
-      this.id = "mock-text-" + Math.random().toString(36).substring(7);
+    constructor(options: { role: string; content: string }) {
+      this.role = options.role;
+      this.content = options.content;
+      this.id = "mock-text-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -76,7 +77,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(params: { actionExecutionId: string; result: string }) {
       this.actionExecutionId = params.actionExecutionId;
       this.result = params.result;
-      this.id = "mock-result-" + Math.random().toString(36).substring(7);
+      this.id = "mock-result-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -97,6 +98,13 @@ vi.mock("../../../src/graphql/types/converted", () => {
     TextMessage: MockTextMessage,
     ActionExecutionMessage: MockActionExecutionMessage,
     ResultMessage: MockResultMessage,
+    Role: {
+      assistant: "assistant",
+      developer: "developer",
+      system: "system",
+      tool: "tool",
+      user: "user",
+    },
   };
 });
 
@@ -140,8 +148,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Deduplication Logic", () => {
     it("should filter out duplicate result messages", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Set theme to orange");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Set theme to orange",
+      });
 
       // Tool execution
       const toolExecution = new ActionExecutionMessage({
@@ -173,7 +187,7 @@ describe("AnthropicAdapter", () => {
 
       await adapter.process({
         threadId: "test-thread",
-        model: "claude-3-5-sonnet-latest",
+        model: "claude-sonnet-4-6",
         messages: [
           systemMessage,
           userMessage,
@@ -233,7 +247,10 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should filter out invalid result messages without corresponding tool_use", async () => {
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       // Valid tool execution
       const validTool = new ActionExecutionMessage({
@@ -279,8 +296,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Fallback Response Logic", () => {
     it("should generate contextual fallback when Anthropic returns no content", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Set theme to orange");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Set theme to orange",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-123",
@@ -330,7 +353,10 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should use generic fallback when no tool result content available", async () => {
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-123",
@@ -377,8 +403,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Unknown Tool Use Handling", () => {
     it("should skip unknown tool_use blocks without crashing", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Do something");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Do something",
+      });
 
       // Mock Anthropic to return a stream with an unknown tool_use block
       mockAnthropicCreate.mockResolvedValue({
@@ -437,7 +469,6 @@ describe("AnthropicAdapter", () => {
           {
             name: "known_tool",
             description: "A known tool",
-            parameters: [],
             jsonSchema: '{"type":"object","properties":{}}',
           },
         ],
@@ -464,8 +495,14 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should trigger fallback when only unknown tool_use blocks are returned", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Do something");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Do something",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-prev",
@@ -520,7 +557,6 @@ describe("AnthropicAdapter", () => {
           {
             name: "known_tool",
             description: "A known tool",
-            parameters: [],
             jsonSchema: '{"type":"object","properties":{}}',
           },
         ],
@@ -583,8 +619,11 @@ describe("AnthropicAdapter max_tokens default", () => {
       }),
     };
 
-    const systemMessage = new TextMessage("system", "System message");
-    const userMessage = new TextMessage("user", "Hello");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
 
     await adapter.process({
       threadId: "test-thread",
@@ -628,8 +667,11 @@ describe("AnthropicAdapter max_tokens default", () => {
       }),
     };
 
-    const systemMessage = new TextMessage("system", "System message");
-    const userMessage = new TextMessage("user", "Hello");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
 
     await adapter.process({
       threadId: "test-thread",
@@ -641,5 +683,190 @@ describe("AnthropicAdapter max_tokens default", () => {
 
     const createCallArgs = mockAnthropicCreate.mock.calls[0][0];
     expect(createCallArgs.max_tokens).toBe(8192);
+  });
+
+  it("should pass an explicit model through to Anthropic unchanged", async () => {
+    const mockAnthropic = {
+      messages: {
+        create: vi.fn(),
+      },
+    };
+
+    const adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+
+    mockEventSource = {
+      stream: vi.fn((callback) => {
+        callback({
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        });
+        return Promise.resolve();
+      }),
+    };
+
+    const retiredModel = ["claude", "3", "7", "sonnet", "latest"].join("-");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
+
+    await adapter.process({
+      threadId: "test-thread",
+      model: retiredModel,
+      messages: [systemMessage, userMessage],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    expect(mockAnthropicCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: retiredModel }),
+    );
+  });
+});
+
+describe("AnthropicAdapter - same-role coalescing", () => {
+  let adapter: AnthropicAdapter;
+  let mockAnthropicCreate: any;
+  let mockEventSource: any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    const mockAnthropic = { messages: { create: vi.fn() } };
+    adapter = new AnthropicAdapter({ anthropic: mockAnthropic as any });
+    mockAnthropicCreate = mockAnthropic.messages.create;
+    mockAnthropicCreate.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+    mockEventSource = {
+      stream: vi.fn((cb) => {
+        cb({
+          sendTextMessageStart: vi.fn(),
+          sendTextMessageContent: vi.fn(),
+          sendTextMessageEnd: vi.fn(),
+          sendActionExecutionStart: vi.fn(),
+          sendActionExecutionArgs: vi.fn(),
+          sendActionExecutionEnd: vi.fn(),
+          complete: vi.fn(),
+        });
+        return Promise.resolve();
+      }),
+    };
+  });
+
+  it("merges TextMessage(assistant) + ActionExecutionMessage into a single Anthropic assistant message", async () => {
+    const systemMsg = new TextMessage({
+      role: Role.system,
+      content: "You are a helpful assistant.",
+    });
+    const userMsg = new TextMessage({
+      role: Role.user,
+      content: "Look something up for me.",
+    });
+    // A prior assistant turn that had both a text preamble and a tool call.
+    // CopilotKit stores these as separate messages.
+    const assistantText = new TextMessage({
+      role: Role.assistant,
+      content: "Let me check that.",
+    });
+    const toolExec = new ActionExecutionMessage({
+      id: "tool-abc",
+      name: "lookup",
+      arguments: { query: "example" },
+    });
+    const toolResult = new ResultMessage({
+      actionExecutionId: "tool-abc",
+      result: "Found it.",
+    });
+    const userFollowUp = new TextMessage({
+      role: Role.user,
+      content: "Thanks, what did you find?",
+    });
+
+    await adapter.process({
+      threadId: "t1",
+      messages: [
+        systemMsg,
+        userMsg,
+        assistantText,
+        toolExec,
+        toolResult,
+        userFollowUp,
+      ],
+      actions: [
+        {
+          name: "lookup",
+          description: "look up",
+          jsonSchema: '{"type":"object","properties":{}}',
+        },
+      ],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    const sentMessages: any[] = mockAnthropicCreate.mock.calls[0][0].messages;
+
+    // Find all assistant messages
+    const assistantMessages = sentMessages.filter(
+      (m: any) => m.role === "assistant",
+    );
+
+    // There must be exactly ONE assistant message for the text+tool turn (merged)
+    expect(assistantMessages).toHaveLength(1);
+
+    // That single assistant message must contain both a text block and a tool_use block
+    const blocks = assistantMessages[0].content as any[];
+    const textBlocks = blocks.filter((b: any) => b.type === "text");
+    const toolUseBlocks = blocks.filter((b: any) => b.type === "tool_use");
+    expect(textBlocks).toHaveLength(1);
+    expect(textBlocks[0].text).toBe("Let me check that.");
+    expect(toolUseBlocks).toHaveLength(1);
+    expect(toolUseBlocks[0].id).toBe("tool-abc");
+
+    // Confirm no two consecutive messages share the same role
+    for (let i = 1; i < sentMessages.length; i++) {
+      expect(sentMessages[i].role).not.toBe(sentMessages[i - 1].role);
+    }
+  });
+
+  it("does not merge alternating user/assistant messages (no regression)", async () => {
+    const systemMsg = new TextMessage({
+      role: Role.system,
+      content: "You are helpful.",
+    });
+    const user1 = new TextMessage({ role: Role.user, content: "Hi" });
+    const asst1 = new TextMessage({
+      role: Role.assistant,
+      content: "Hello!",
+    });
+    const user2 = new TextMessage({
+      role: Role.user,
+      content: "How are you?",
+    });
+
+    await adapter.process({
+      threadId: "t2",
+      messages: [systemMsg, user1, asst1, user2],
+      actions: [],
+      eventSource: mockEventSource,
+      forwardedParameters: {},
+    });
+
+    const sentMessages: any[] = mockAnthropicCreate.mock.calls[0][0].messages;
+    // Expect three messages: user, assistant, user — unchanged
+    expect(sentMessages).toHaveLength(3);
+    expect(sentMessages[0].role).toBe("user");
+    expect(sentMessages[1].role).toBe("assistant");
+    expect(sentMessages[2].role).toBe("user");
   });
 });

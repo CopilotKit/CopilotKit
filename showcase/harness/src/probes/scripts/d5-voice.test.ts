@@ -181,7 +181,9 @@ describe("d5-voice script", () => {
         evaluateValues: ["the weather in tokyo is 22°c and partly cloudy"],
       });
 
-      await expect(turn.assertions!(page)).resolves.toBeUndefined();
+      await expect(
+        turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+      ).resolves.toBeUndefined();
     });
 
     it("passes on temperature-only mention (matches the weather/tokyo/temperature OR cascade)", async () => {
@@ -195,7 +197,9 @@ describe("d5-voice script", () => {
         evaluateValues: ["current temperature: 22 degrees"],
       });
 
-      await expect(turn.assertions!(page)).resolves.toBeUndefined();
+      await expect(
+        turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+      ).resolves.toBeUndefined();
     });
 
     it("throws when the assistant transcript is unrelated to weather", async () => {
@@ -212,9 +216,9 @@ describe("d5-voice script", () => {
       // The assertion polls for up to 5s before giving up — give the
       // test enough headroom to observe the rejection rather than
       // racing it against vitest's default 5000ms timeout.
-      await expect(turn.assertions!(page)).rejects.toThrow(
-        /assistant transcript missing weather\/Tokyo content/,
-      );
+      await expect(
+        turn.assertions!(page, { bubbleIndex: 0, text: "" }),
+      ).rejects.toThrow(/assistant transcript missing weather\/Tokyo content/);
     }, 10_000);
   });
 });

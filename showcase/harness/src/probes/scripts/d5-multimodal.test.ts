@@ -1,11 +1,36 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
   SAMPLE_IMAGE_BUTTON_SELECTOR,
   SAMPLE_PDF_BUTTON_SELECTOR,
 } from "./d5-multimodal.js";
+
+interface MultimodalFixtureFile {
+  fixtures: Array<{
+    match: { userMessage?: string };
+    response: { content: string };
+  }>;
+}
+
+function loadCanonicalFixture(): MultimodalFixtureFile {
+  const here = fileURLToPath(import.meta.url);
+  const fixturePath = path.resolve(
+    path.dirname(here),
+    "..",
+    "..",
+    "..",
+    "fixtures",
+    "d5",
+    "multimodal.json",
+  );
+  return JSON.parse(readFileSync(fixturePath, "utf8")) as MultimodalFixtureFile;
+}
 
 function makePage(transcript: string): Page {
   return {
@@ -62,6 +87,30 @@ describe("d5-multimodal script", () => {
     expect(script?.fixtureFile).toBe("multimodal.json");
   });
 
+  it("keeps the canonical D5 fixture aligned with the actual sample assets", () => {
+    const fixture = loadCanonicalFixture();
+    expect(fixture.fixtures).toHaveLength(2);
+
+    expect(fixture.fixtures[0]!.match.userMessage).toBe(
+      "can you tell me what is in this demo image I just attached",
+    );
+    expect(fixture.fixtures[0]!.response.content.toLowerCase()).toContain(
+      "copilotkit logo",
+    );
+
+    expect(fixture.fixtures[1]!.match.userMessage).toBe(
+      "can you tell me what is in this demo pdf I just attached",
+    );
+    expect(fixture.fixtures[1]!.response.content.toLowerCase()).toContain(
+      "copilotkit quickstart",
+    );
+
+    const serialized = JSON.stringify(fixture).toLowerCase();
+    expect(serialized).not.toContain("small abstract test pattern");
+    expect(serialized).not.toContain("single test page");
+    expect(serialized).not.toContain("confirms the binary attachment");
+  });
+
   it("buildTurns produces two turns covering image + PDF", () => {
     const ctx: D5BuildContext = {
       integrationSlug: "langgraph-python",
@@ -70,8 +119,13 @@ describe("d5-multimodal script", () => {
     };
     const turns = buildTurns(ctx);
     expect(turns).toHaveLength(2);
-    expect(turns[0]!.input).toBe("describe the sample image");
-    expect(turns[1]!.input).toBe("summarize the sample document");
+    // These `input` values are auto-send button sentinels emitted by the
+    // in-app shim when the preFill hook clicks the sample-attachment
+    // buttons — they are NOT natural-language prompts the user types.
+    // Don't "fix" these expectations back to prose; the shim's auto-send
+    // path is what's under test here.
+    expect(turns[0]!.input).toBe("image-sample-button (auto-sent)");
+    expect(turns[1]!.input).toBe("pdf-sample-button (auto-sent)");
   });
 
   it("buildTurns wires preFill on both turns", () => {
@@ -120,7 +174,7 @@ describe("d5-multimodal script", () => {
     );
   });
 
-  it("turn-1 assertion succeeds when transcript references 'image'", async () => {
+  it("turn-1 assertion succeeds for the actual CopilotKit logo response", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -129,12 +183,45 @@ describe("d5-multimodal script", () => {
     const turns = buildTurns(ctx);
     await expect(
       turns[0]!.assertions!(
-        makePage("the image attachment shows a small abstract test pattern"),
+        makePage("the attached image is the copilotkit logo."),
+        { bubbleIndex: 0, text: "" },
       ),
     ).resolves.toBeUndefined();
   });
 
-  it("turn-1 assertion fails when transcript lacks 'image'", async () => {
+  it("turn-1 assertion rejects the fabricated abstract-pattern response", async () => {
+    const ctx: D5BuildContext = {
+      integrationSlug: "x",
+      featureType: "multimodal",
+      baseUrl: "https://x.test",
+    };
+    const turns = buildTurns(ctx);
+    await expect(
+      turns[0]!.assertions!(
+        makePage(
+          "The image attachment shows a small abstract test pattern used by the demo.",
+        ),
+        { bubbleIndex: 0, text: "" },
+      ),
+    ).rejects.toThrow(/missing expected phrase/);
+  }, 8_000);
+
+  it("turn-2 assertion requires the actual CopilotKit Quickstart response", async () => {
+    const ctx: D5BuildContext = {
+      integrationSlug: "x",
+      featureType: "multimodal",
+      baseUrl: "https://x.test",
+    };
+    const turns = buildTurns(ctx);
+    await expect(
+      turns[1]!.assertions!(
+        makePage("the attached pdf is the copilotkit quickstart guide."),
+        { bubbleIndex: 1, text: "" },
+      ),
+    ).resolves.toBeUndefined();
+  });
+
+  it("turn-1 assertion fails when transcript lacks the D6 phrase", async () => {
     const ctx: D5BuildContext = {
       integrationSlug: "x",
       featureType: "multimodal",
@@ -145,7 +232,10 @@ describe("d5-multimodal script", () => {
     // the assertion has time to exhaust its budget and throw the
     // missing-keyword error.
     await expect(
-      turns[0]!.assertions!(makePage("nothing here")),
-    ).rejects.toThrow(/missing keyword "image"/);
+      turns[0]!.assertions!(makePage("nothing here"), {
+        bubbleIndex: 0,
+        text: "",
+      }),
+    ).rejects.toThrow(/missing expected phrase "copilotkit logo"/);
   }, 8_000);
 });

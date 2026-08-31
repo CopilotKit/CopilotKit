@@ -4,7 +4,7 @@
  * with mode: "single-route".
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable, of } from "rxjs";
 
 import { telemetry } from "../telemetry";
@@ -20,12 +20,13 @@ function makeAgent(): AbstractAgent {
 function makeRuntime() {
   const runner = {
     run: () =>
-      new Observable((observer) => {
-        observer.next({});
+      new Observable<BaseEvent>((observer) => {
+        observer.next({} as BaseEvent);
         observer.complete();
         return () => undefined;
       }),
-    connect: () => of({}),
+    connect: () => of({} as BaseEvent),
+    isRunning: async () => false,
     stop: async () => true,
   };
   return new CopilotRuntime({

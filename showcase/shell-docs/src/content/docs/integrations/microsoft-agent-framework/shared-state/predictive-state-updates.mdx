@@ -71,122 +71,58 @@ Use predictive state updates when you want to:
   </Step>
 
   <Step>
-    ### Emit the intermediate state (tool-based predictive updates)
-    Configure AG-UI state management to treat tool arguments as predictive updates to `observed_steps`. As the LLM streams arguments for the tool call, AG-UI emits state delta events immediately.
+    ### Map tool calls to state
+    Configure AG-UI state management to map the `step_progress` tool arguments to `observed_steps`. The .NET adapter emits a state snapshot when it receives the completed tool call. The Python adapter can also stream partial tool arguments as state deltas.
 
     <Tabs groupId="language" items={[".NET", "Python"]}>
       <Tab value=".NET">
         ```csharp title="agent/Program.cs (excerpt)"
         using System.ComponentModel;
         using System.Text.Json;
-        using System.Text.Json.Serialization;
-        using Azure.AI.OpenAI;
-        using Azure.Identity;
+        using AGUI.Abstractions;
+        using AGUI.Server;
         using Microsoft.Agents.AI;
         using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
-        using Microsoft.AspNetCore.Http.Json;
         using Microsoft.Extensions.AI;
-        using Microsoft.Extensions.DependencyInjection;
-        using Microsoft.Extensions.Options;
+        using OpenAI;
+        using OpenAI.Chat;
 
         var builder = WebApplication.CreateBuilder(args);
-        builder.Services.AddAGUI();
-        // Register a source-generated serializer context for fast, typed JSON
-        builder.Services.ConfigureHttpJsonOptions(options =>
-            options.SerializerOptions.TypeInfoResolverChain.Add(AGUIDojoServerSerializerContext.Default));
-
+        builder.Services.AddAGUIServer();
         var app = builder.Build();
 
-        string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
-        string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+        string openAiApiKey = builder.Configuration["OPENAI_API_KEY"]
+            ?? throw new InvalidOperationException("Set OPENAI_API_KEY");
 
-        // Define a tool the LLM may call as it progresses to report partial steps
+        // Define a tool the LLM may call to report its progress
         [Description("Report current step progress.")]
         static string StepProgress([Description("Steps completed so far")] string[] steps)
             => "Progress received.";
 
-        // Create the base agent with the reporting tool
-        var baseAgent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
-            .GetChatClient(deployment)
-            .CreateAIAgent(
+        AITool stepProgress = AIFunctionFactory.Create(StepProgress, name: "step_progress");
+        var agent = new OpenAIClient(openAiApiKey)
+            .GetChatClient("gpt-5.4-mini")
+            .AsAIAgent(
                 name: "AGUIAssistant",
                 instructions: "You are a helpful assistant that may call the 'step_progress' tool to report intermediate steps.",
-                tools: [AIFunctionFactory.Create(StepProgress)]);
+                tools: [stepProgress]);
 
-        // Wrap with a streaming middleware that emits interim state snapshots (typed, source-generated).
-        // See the "Stream state from your agent" section in the Agent State guide for a full example of a DelegatingAIAgent
-        // that reads streaming updates and emits DataContent with an AgentStateSnapshot.
-        var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
-        AIAgent agent = new StateStreamingAgent(baseAgent, jsonOptions.Value.SerializerOptions);
-
-        app.MapAGUI("/", agent);
-        await app.RunAsync();
-
-        // Example: streaming agent wrapper emitting state snapshots (simplified)
-        internal sealed class StateStreamingAgent : DelegatingAIAgent
-        {
-            private readonly JsonSerializerOptions _jsonOptions;
-            public StateStreamingAgent(AIAgent inner, JsonSerializerOptions jsonOptions) : base(inner)
+        // Map the completed tool arguments to a shared-state snapshot
+        AGUIStreamOptions streamOptions = new AGUIStreamOptions()
+            .MapCall("step_progress", call =>
             {
-                _jsonOptions = jsonOptions;
-            }
-
-            public override async IAsyncEnumerable<AgentRunResponseUpdate> RunStreamingAsync(
-                IEnumerable<ChatMessage> messages,
-                AgentThread? thread = null,
-                AgentRunOptions? options = null,
-                [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-            {
-                var observedSteps = new List<string>();
-                await foreach (var update in this.InnerAgent.RunStreamingAsync(messages, thread, options, cancellationToken))
+                if (call.Arguments?.TryGetValue("steps", out object? steps) is not true)
                 {
-                    // Inspect streaming contents for function calls and collect step arguments as they arrive
-                    foreach (var content in update.Contents)
-                    {
-                        if (content is FunctionCallContent f
-                            && string.Equals(f.Name, "step_progress", StringComparison.OrdinalIgnoreCase)
-                            && f.Arguments is JsonElement args)
-                        {
-                            if (args.TryGetProperty("steps", out var stepsElement))
-                            {
-                                if (stepsElement.Deserialize(_jsonOptions.GetTypeInfo(typeof(string[]))) is string[] steps)
-                                {
-                                    observedSteps.Clear();
-                                    foreach (var s in steps)
-                                    {
-                                        observedSteps.Add(s);
-                                    }
-                                    // Emit a typed state snapshot into the AG‑UI stream
-                                    var snapshot = new AgentStateSnapshot { Steps = observedSteps };
-                                    byte[] stateBytes = JsonSerializer.SerializeToUtf8Bytes(
-                                        snapshot,
-                                        _jsonOptions.GetTypeInfo(typeof(AgentStateSnapshot)));
-                                    yield return new AgentRunResponseUpdate
-                                    {
-                                        Contents = [ new DataContent(stateBytes, "application/json") ]
-                                    };
-                                }
-                            }
-                        }
-                    }
-
-                    // Always forward the original update (text deltas / final tool results, etc.)
-                    yield return update;
+                    return [];
                 }
-            }
-        }
 
-        // Typed state snapshot for source-generated JSON
-        internal sealed class AgentStateSnapshot
-        {
-            [JsonPropertyName("observed_steps")]
-            public List<string> Steps { get; set; } = new();
-        }
+                JsonElement snapshot = JsonSerializer.SerializeToElement(
+                    new { observed_steps = steps });
+                return [new StateSnapshotEvent { Snapshot = snapshot }];
+            });
 
-        // Source-generated serializer context (register above via ConfigureHttpJsonOptions)
-        [JsonSerializable(typeof(AgentStateSnapshot))]
-        [JsonSerializable(typeof(string[]))]
-        internal sealed partial class AGUIDojoServerSerializerContext : JsonSerializerContext;
+        app.MapAGUIServer("/", agent).WithMetadata(streamOptions);
+        await app.RunAsync();
         ```
       </Tab>
       <Tab value="Python">
@@ -194,7 +130,7 @@ Use predictive state updates when you want to:
         from __future__ import annotations
         from typing import Annotated
         from agent_framework import Agent, SupportsChatGetResponse, tool
-        from agent_framework_ag_ui import AgentFrameworkAgent
+        from agent_framework.ag_ui import AgentFrameworkAgent
         from pydantic import Field
 
         # 1) Define state schema for AG-UI
@@ -240,44 +176,44 @@ Use predictive state updates when you want to:
       </Tab>
     </Tabs>
     <Callout>
-      With this configuration, AG-UI emits predictive state updates as soon as the model streams the tool arguments, without waiting for tool completion.
+      On .NET, `MapCall` maps the completed `FunctionCallContent` to a state
+      snapshot. Progressive .NET tool-argument updates require a provider-specific
+      extractor registered with `MapStreamingToolCallArguments`.
     </Callout>
 
   </Step>
 
   <Step>
-    ### Observe predictions on the client
-    Add a state renderer to observe the predicted `observed_steps` updates as they stream in.
+    ### Observe state on the client
+    Add a state renderer to observe the `observed_steps` updates as they arrive.
 
     ```tsx title="ui/app/page.tsx"
+    "use client";
+
+    import { useAgent } from "@copilotkit/react-core/v2";
 
     type AgentState = {
       observed_steps: string[];
     };
 
     export default function Page() {
-      // Access both predicted and final states
+      // Access the latest shared state
       const { agent } = useAgent({ agentId: "sample_agent" });
 
-      // Observe predictions (render inside the chat)
-      useAgent({
-        agentId: "sample_agent",
-        render: ({ state }) => {
-          if (!state.observed_steps?.length) return null;
-          return (
-            <div>
-              <h3>Current Progress:</h3>
-              <ul>
-                {state.observed_steps.map((step, i) => (
-                  <li key={i}>{step}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        },
-      });
+      // Read the agent's shared state
+      const progress =
+        agent.state?.observed_steps?.length ? (
+          <div>
+            <h3>Current Progress:</h3>
+            <ul>
+              {agent.state.observed_steps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null;
 
-      return <div>...</div>;
+      return <div>{progress}</div>;
     }
     ```
 

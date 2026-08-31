@@ -99,13 +99,16 @@ export function MdxCodeBlock(props: MdxCodeBlockProps) {
 
   return (
     <CodeBlock title={title}>
-      <Pre {...rest} className={className}>
+      <Pre {...rest} className={className} suppressHydrationWarning>
         {indentLeaked ? (
           // Fence body was uniformly indented (JSX-nested fence). Render
           // the dedented plain text so what's on screen matches what
           // gets copied. We lose token highlighting on these blocks, but
           // the alternative is indented-and-invalid code in the viewer.
-          <code className={`language-${language ?? "plaintext"}`}>
+          <code
+            className={`language-${language ?? "plaintext"}`}
+            suppressHydrationWarning
+          >
             {codeText}
           </code>
         ) : (

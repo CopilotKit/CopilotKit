@@ -31,7 +31,7 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
 
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/copilot-form-filling
+   cd CopilotKit/examples/v1/form-filling
    ```
 
 2. Install dependencies:
@@ -52,7 +52,7 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
      ```
    </details>
 
-3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://cloud.copilotkit.ai):
+3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://dashboard.operations.copilotkit.ai):
 
    ```
    NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY=your_copilotkit_api_key
@@ -166,4 +166,4 @@ Ready to build your own AI-powered form assistant? Check out these resources:
 
 [CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your own copilots.
 
-[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.
+[CopilotKit Cloud](https://dashboard.operations.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.

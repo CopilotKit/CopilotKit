@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for llamaindex / gen-ui-open",
+    "sourceScript": "d5-gen-ui-open.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "gen-ui-open pill — emit generateSandboxedUi tool call with a 3D axis visualization srcdoc payload. The D5 assertion checks for iframe[srcdoc] with length >= 100 chars. hasToolResult:false on initial prompt.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": false,
+        "context": "llamaindex"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_li_open_gen_ui_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D visualization…\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui}canvas{border-radius:8px}h3{color:#e2e8f0;text-align:center;margin-bottom:8px}\",\"html\":\"<div style='text-align:center'><h3>3D Axis — Model Airplane</h3><canvas id='c' width='300' height='250'></canvas></div>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');ctx.strokeStyle='#38bdf8';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(150,200);ctx.lineTo(150,50);ctx.stroke();ctx.strokeStyle='#f472b6';ctx.beginPath();ctx.moveTo(150,200);ctx.lineTo(50,230);ctx.stroke();ctx.strokeStyle='#a3e635';ctx.beginPath();ctx.moveTo(150,200);ctx.lineTo(270,230);ctx.stroke();ctx.fillStyle='#94a3b8';ctx.font='12px system-ui';ctx.fillText('Y (up)',155,48);ctx.fillText('X (right)',240,248);ctx.fillText('Z (depth)',30,248);ctx.fillStyle='#e2e8f0';ctx.beginPath();ctx.moveTo(130,120);ctx.lineTo(170,120);ctx.lineTo(190,140);ctx.lineTo(110,140);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(145,90);ctx.lineTo(155,90);ctx.lineTo(155,120);ctx.lineTo(145,120);ctx.closePath();ctx.fill();})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "gen-ui-open pill — follow-up after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "3D axis visualization",
+        "hasToolResult": true,
+        "context": "llamaindex"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — a model airplane positioned along the X, Y, and Z axes."
+      }
+    }
+  ]
+}

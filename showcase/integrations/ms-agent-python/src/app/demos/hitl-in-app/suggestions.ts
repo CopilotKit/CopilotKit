@@ -21,6 +21,7 @@ export function useHitlInAppSuggestions() {
           "Please escalate ticket #12347 to the payments team — Morgan Lee's payment is stuck.",
       },
     ],
+    consumerAgentId: "hitl-in-app",
     available: "always",
   });
 }

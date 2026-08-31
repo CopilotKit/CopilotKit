@@ -2,6 +2,8 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotPopupView } from "../CopilotPopupView";
+import type { CopilotModalHeader } from "../CopilotModalHeader";
+import type { CopilotChatToggleButtonProps } from "../CopilotChatToggleButton";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -64,12 +66,14 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
   describe("2. Property Passing - Header Slot", () => {
     describe("header slot", () => {
       it("should pass custom props to header", () => {
+        const headerProps: Partial<
+          React.ComponentProps<typeof CopilotModalHeader>
+        > & { "data-testid": string } = {
+          "data-testid": "custom-popup-header",
+        };
         const { container } = render(
           <TestWrapper>
-            <CopilotPopupView
-              messages={sampleMessages}
-              header={{ "data-testid": "custom-popup-header" }}
-            />
+            <CopilotPopupView messages={sampleMessages} header={headerProps} />
           </TestWrapper>,
         );
 
@@ -545,11 +549,14 @@ describe("CopilotPopupView Slot System E2E Tests", () => {
 
     describe("toggleButton slot - Props object", () => {
       it("should pass custom props to toggle button", () => {
+        const toggleButtonProps: Partial<CopilotChatToggleButtonProps> & {
+          "data-testid": string;
+        } = { "data-testid": "popup-custom-toggle" };
         const { container } = render(
           <TestWrapper>
             <CopilotPopupView
               messages={sampleMessages}
-              toggleButton={{ "data-testid": "popup-custom-toggle" }}
+              toggleButton={toggleButtonProps}
             />
           </TestWrapper>,
         );

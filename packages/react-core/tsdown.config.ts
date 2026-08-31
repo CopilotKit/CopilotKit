@@ -1,26 +1,113 @@
+/// <reference types="node" />
 import { defineConfig } from "tsdown";
+import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
 // Resolved path to src/v2/context.ts — used to redirect the headless build's
 // relative ../context imports to the external @copilotkit/react-core/v2/context
 // package path, ensuring a shared React context instance at runtime.
-const contextModulePath = path.resolve(import.meta.dirname, "src/v2/context");
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+const contextModulePath = path.resolve(configDir, "src/v2/context");
+
+// Post-process the emitted declaration files. tsdown/rolldown-plugin-dts leaves
+// two artifacts in the .d.ts/.d.cts/.d.mts output that break `attw` type
+// resolution but do not affect the JS bundles:
+//   1. Side-effect CSS imports (e.g. `import "./index.css"`) — TypeScript cannot
+//      resolve a `.css` file as a typed module (InternalResolutionError). The CSS
+//      import is intentionally kept in the JS so styles auto-load for bundler
+//      consumers; only the declarations are cleaned.
+//   2. The headless re-export of the externalized context module is emitted as a
+//      relative `./context` import, which is invalid in ESM declarations
+//      (extensionless). Rewrite it to the package subpath so it resolves under
+//      node16/nodenext/bundler — matching how the JS bundle externalizes it.
+// Run from `build:done` so it processes every format's declarations on disk,
+// independent of per-output plugin order (the esm `.d.mts` and cjs `.d.cts` are
+// emitted in separate passes).
+const postProcessDeclarations = (dir: string) => {
+  const cssImport = /^[ \t]*import\s+["'][^"']+\.css["'];?[ \t]*\r?\n/gm;
+  const contextImport = /from\s+["']\.\.?\/context["']/g;
+  const walk = (current: string) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.d\.[cm]?ts$/.test(entry.name)) {
+        const code = fs.readFileSync(full, "utf8");
+        const next = code
+          .replace(cssImport, "")
+          .replace(contextImport, 'from "@copilotkit/react-core/v2/context"');
+        if (next !== code) fs.writeFileSync(full, next);
+      }
+    }
+  };
+  if (fs.existsSync(dir)) walk(dir);
+};
+
+// Redirects any relative `../context` / `./context` import that resolves to
+// src/v2/context.ts onto the external `@copilotkit/react-core/v2/context`
+// package path.
+//
+// src/v2/context.ts is emitted as its own entry (dist/v2/context.*) so React
+// Native can consume it without dragging in the web bundle. Any build that ALSO
+// inlines it ends up running `createContext()` a second time, producing a
+// distinct context instance: `CopilotKitProvider` would publish to its inlined
+// copy while consumers importing from `@copilotkit/react-core/v2/context` read
+// the orphaned one and only ever see the defaults (e.g. `useLicenseContext()`
+// stuck at `status: null`). Externalizing keeps exactly one instance at runtime.
+//
+// The UMD builds deliberately skip this — they must stay self-contained.
+const externalizeContext = {
+  name: "externalize-context",
+  resolveId(source: string, importer?: string) {
+    // When any file imports ../context or ./context, redirect to
+    // the external package path so the context singleton is shared.
+    if (importer && /context(\.ts)?$/.test(source)) {
+      const resolved = path.resolve(path.dirname(importer), source);
+      if (
+        resolved === contextModulePath ||
+        resolved === contextModulePath + ".ts"
+      ) {
+        return {
+          id: "@copilotkit/react-core/v2/context",
+          external: true,
+        };
+      }
+    }
+    return null;
+  },
+};
 
 export default defineConfig([
   {
-    entry: ["src/index.tsx", "src/v2/index.ts"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+      "v2/index": "src/v2/index.ts",
+    },
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
     target: "es2022",
     outDir: "dist",
+    hooks: {
+      "build:done": () => postProcessDeclarations(path.resolve("dist")),
+    },
+    plugins: [externalizeContext],
     external: [
       "react",
       "react-dom",
       "@copilotkit/core",
       "@copilotkit/shared",
+      "@copilotkit/react-core/v2/context",
       "@copilotkit/web-inspector",
       "@copilotkit/a2ui-renderer",
+      // Keep @copilotkit/web-components (the Lit drawer element) + its subpaths
+      // external. The drawer wrapper loads it via a client-only dynamic import;
+      // bundling it inline ships a duplicate element + a second copy of lit-html,
+      // which bloats the library and breaks Vite consumers ("Identifier 'h' has
+      // already been declared") and risks double custom-element registration.
+      // (The self-contained UMD builds below intentionally keep it inlined.)
+      /^@copilotkit\/web-components(\/.*)?$/,
       "rxjs",
       /\.css$/,
     ],
@@ -66,28 +153,7 @@ export default defineConfig([
     sourcemap: true,
     target: "es2022",
     outDir: "dist/v2",
-    plugins: [
-      {
-        name: "externalize-context",
-        resolveId(source, importer) {
-          // When any file imports ../context or ./context, redirect to
-          // the external package path so the context singleton is shared.
-          if (importer && /context(\.ts)?$/.test(source)) {
-            const resolved = path.resolve(path.dirname(importer), source);
-            if (
-              resolved === contextModulePath ||
-              resolved === contextModulePath + ".ts"
-            ) {
-              return {
-                id: "@copilotkit/react-core/v2/context",
-                external: true,
-              };
-            }
-          }
-          return null;
-        },
-      },
-    ],
+    plugins: [externalizeContext],
     external: [
       "react",
       "@ag-ui/client",
@@ -101,11 +167,13 @@ export default defineConfig([
     ],
   },
   {
-    entry: ["src/index.tsx"],
+    entry: {
+      index: "src/v1-deprecated-compatibility.ts",
+    },
     format: ["umd"],
     globalName: "CopilotKitReactCore",
     sourcemap: true,
-    target: "es2018",
+    target: "es2020",
     outDir: "dist",
     external: [
       "react",
@@ -119,7 +187,6 @@ export default defineConfig([
       "zod",
       /\.css$/,
     ],
-    codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
@@ -143,7 +210,7 @@ export default defineConfig([
     format: ["umd"],
     globalName: "CopilotKitReactCoreV2",
     sourcemap: true,
-    target: "es2018",
+    target: "es2020",
     outDir: "dist/v2",
     external: [
       "react",
@@ -158,7 +225,6 @@ export default defineConfig([
       "zod",
       /\.css$/,
     ],
-    codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
       options.globals = {
@@ -183,7 +249,6 @@ export default defineConfig([
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
         "katex/dist/katex.min.css": "katexCss",
         streamdown: "streamdown",
-        "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",
       };

@@ -1,0 +1,69 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / agent-config",
+    "sourceFile": "d5-agent-config.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "agent-config tone:professional pill — value-A. Must differ from the tone:casual response below so the knob-diff assertion passes.",
+      "match": {
+        "userMessage": "tone:professional",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Good day. I am your AI assistant, configured to communicate in a professional tone. I am ready to assist you with any inquiries or tasks you may have. Please let me know how I can be of service."
+      }
+    },
+    {
+      "_comment": "agent-config tone:casual pill — value-B. Must differ from the tone:professional response.",
+      "match": {
+        "userMessage": "tone:casual",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Hey there! I'm your AI buddy, keeping things chill and casual. What's up? Ask me anything — happy to help out however I can!"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:beginner pill — value-A. Must differ from the expertise:expert response.",
+      "match": {
+        "userMessage": "expertise:beginner",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "CopilotKit is a tool that helps you add AI features to your web apps. Think of it like a smart assistant you can embed right into your website. It handles the tricky parts of talking to AI models so you can focus on building cool stuff. You just wrap your app in a special component, point it at an API endpoint, and the AI is ready to chat with your users!"
+      }
+    },
+    {
+      "_comment": "agent-config expertise:expert pill — value-B. Must differ from the expertise:beginner response.",
+      "match": {
+        "userMessage": "expertise:expert",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "CopilotKit provides a React-first agent framework with three composable layers: frontend hooks (useCoAgent, useCopilotAction, useCopilotReadable) that bridge UI state to an AG-UI event stream, a runtime adapter (Express/Hono) that multiplexes tool calls and manages context propagation, and agent runners (LangGraph, CrewAI, custom) that execute the agentic loop. The architecture decouples the rendering surface from the agent topology, enabling declarative tool registration, interrupt-based HITL flows, and streaming shared-state synchronization across multi-agent graphs."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:concise pill — value-A. Must be shorter than the responseLength:detailed response by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:concise",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Agent context lets the frontend pass runtime config (tone, expertise, response length) to the agent on every turn via useAgentContext."
+      }
+    },
+    {
+      "_comment": "agent-config responseLength:detailed pill — value-B. Must exceed the concise response by >= 80 chars.",
+      "match": {
+        "userMessage": "responseLength:detailed",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Agent context is a CopilotKit mechanism that lets the frontend pass runtime configuration — such as preferred tone, expertise level, and response length — to the agent on every turn via the useAgentContext hook. When the user changes a setting in the UI (for example, flipping the tone selector from 'professional' to 'casual'), the new value is included in the next request's forwarded properties. The agent's system-prompt builder reads these properties and adjusts its behavior accordingly, producing responses that reflect the user's current preferences without requiring a page reload or a new conversation thread. This makes the agent feel responsive to real-time user intent while keeping the configuration surface entirely on the frontend."
+      }
+    }
+  ]
+}

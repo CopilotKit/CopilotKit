@@ -51,14 +51,12 @@ const graphSpec = {
   multimodal: "./multimodal.ts:graph",
   agent_config_agent: "./agent-config.ts:graph",
   "agentic-chat-reasoning": "./reasoning-agent.ts:graph",
-  "reasoning-default-render": "./reasoning-agent.ts:graph",
   tool_rendering: "./tool-rendering.ts:graph",
-  "tool-rendering-default-catchall": "./tool-rendering.ts:graph",
-  "tool-rendering-custom-catchall": "./tool-rendering.ts:graph",
   "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",
   interrupt_agent: "./interrupt-agent.ts:graph",
   a2ui_dynamic: "./a2ui-dynamic.ts:graph",
   a2ui_fixed: "./a2ui-fixed.ts:graph",
+  a2ui_recovery: "./recovery-agent.ts:graph",
   mcp_apps: "./mcp-apps.ts:graph",
   frontend_tools: "./frontend-tools.ts:graph",
   frontend_tools_async: "./frontend-tools-async.ts:graph",
@@ -73,6 +71,7 @@ const graphSpec = {
   shared_state_streaming: "./shared-state-streaming.ts:graph",
   subagents: "./subagents.ts:graph",
   gen_ui_agent: "./gen-ui-agent.ts:graph",
+  gen_ui_tool_based: "./gen-ui-tool-based.ts:graph",
 };
 
 // Pre-warm schema cache before we accept traffic. This is what the official

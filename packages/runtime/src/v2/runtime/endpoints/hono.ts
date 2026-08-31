@@ -3,6 +3,29 @@ import type { CopilotRuntimeLike } from "../core/runtime";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import type { CopilotCorsConfig } from "../core/fetch-cors";
 import type { CopilotRuntimeHooks } from "../core/hooks";
+import type {
+  ActivateChannelEngine,
+  ChannelsControl,
+} from "../core/channel-manager";
+
+/**
+ * A Hono app that may also carry an optional {@link ChannelsControl} surface.
+ *
+ * Unlike the Node and Express wrappers — which own a process and therefore START
+ * managed-Channel activation at creation (OSS-641) — this wrapper stays LAZY:
+ * activation is triggered by the first `app.channels.ready()` and never before.
+ * A Hono app is multi-runtime and is our edge/serverless surface in practice:
+ * every Next.js App Router route handler in `examples/showcases/*` builds one at
+ * module scope, and those isolates freeze and recycle per request. Auto-starting
+ * there would mint a competing listener for the same Channel on every cold
+ * start, which is exactly what the lazy design exists to prevent (see the
+ * `createCopilotRuntimeHandler` TSDoc).
+ *
+ * So on a LONG-RUNNING Hono host (`@hono/node-server`, Bun, Deno) calling
+ * `await app.channels.ready()` once at startup is REQUIRED to connect declared
+ * Channels; on an edge/serverless host do NOT call it.
+ */
+export type CopilotHonoApp = Hono & { channels?: ChannelsControl };
 
 /**
  * CORS configuration for CopilotKit endpoints.
@@ -48,6 +71,20 @@ interface CopilotEndpointParams {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
+
+  /**
+   * Whether the underlying handler builds the control surface for the runtime's
+   * declared managed Channels. Defaults to `true`. Building it opens no
+   * connection — activation is deferred to the first `channels.ready()`. See
+   * `CopilotRuntimeHandlerOptions.activateChannels`.
+   */
+  activateChannels?: boolean;
+
+  /**
+   * @internal Test seam: inject a fake Channel activation engine. Forwarded
+   * to `createCopilotRuntimeHandler`. Not part of the public API.
+   */
+  __channelEngine?: ActivateChannelEngine;
 }
 /** @deprecated Use `createCopilotHonoHandler` instead. */
 export const createCopilotEndpoint = createCopilotHonoHandler;
@@ -58,18 +95,26 @@ export function createCopilotHonoHandler({
   mode = "multi-route",
   cors: corsConfig,
   hooks,
-}: CopilotEndpointParams) {
+  activateChannels,
+  __channelEngine,
+}: CopilotEndpointParams): CopilotHonoApp {
   const handler = createCopilotRuntimeHandler({
     runtime,
     basePath,
     mode,
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
+    activateChannels,
+    __channelEngine,
   });
 
   const app = new Hono();
 
-  return app.basePath(basePath).all("*", async (c) => handler(c.req.raw));
+  const scopedApp: CopilotHonoApp = app
+    .basePath(basePath)
+    .all("*", async (c) => handler(c.req.raw));
+  scopedApp.channels = handler.channels;
+  return scopedApp;
 }
 
 /**

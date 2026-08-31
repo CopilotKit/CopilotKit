@@ -9,12 +9,10 @@ import { useMemo, useState } from "react";
 import { StatsBar } from "./stats-bar";
 import { CoverageBar } from "./coverage-bar";
 import { ChipsExplainer } from "./chips-explainer";
-import { FilterChips, type FilterMode } from "./filter-chips";
-import {
-  CellMatrix,
-  type IntegrationInfo,
-  type FeatureInfo,
-} from "./cell-matrix";
+import { FilterChips } from "./filter-chips";
+import type { FilterMode } from "./filter-chips";
+import { CellMatrix } from "./cell-matrix";
+import type { IntegrationInfo, FeatureInfo } from "./cell-matrix";
 import { deriveDepth } from "./depth-utils";
 import { resolveCell } from "@/lib/live-status";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
@@ -131,9 +129,12 @@ export function CellsView({ catalog, liveStatus, connection }: CellsViewProps) {
     let maxDepth = 0;
     let regressions = 0;
     let failures = 0;
+    // Single `now` for the whole pass so `deriveDepth` and `resolveCell`
+    // agree on which green rows are stale.
+    const now = Date.now();
     for (const cell of catalog.cells) {
       if (cell.status !== "unshipped" && cell.status !== "unsupported") {
-        const d = deriveDepth(cell, liveStatus);
+        const d = deriveDepth(cell, liveStatus, now);
         if (d.achieved > maxDepth) maxDepth = d.achieved;
         if (d.isRegression) regressions++;
         // Count cells with red rollup as failures
@@ -142,6 +143,7 @@ export function CellsView({ catalog, liveStatus, connection }: CellsViewProps) {
             liveStatus,
             cell.integration,
             cell.feature,
+            { now },
           );
           if (cellState.rollup === "red") failures++;
         }

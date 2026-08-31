@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / byoc",
+    "sourceFile": "d5-byoc.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "byoc hashbrown pill — returns structured JSON that the BYOC renderer can parse into metric cards and charts. The response includes a render_a2ui tool call with a dashboard payload containing metrics and chart data.",
+      "match": {
+        "userMessage": "Show me a Q4 sales dashboard",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_render_dashboard_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"metric-card\",\"title\":\"Total Revenue\",\"value\":\"$2.4M\",\"change\":\"+12%\"},{\"type\":\"metric-card\",\"title\":\"New Customers\",\"value\":\"1,847\",\"change\":\"+8%\"},{\"type\":\"pie-chart\",\"title\":\"Revenue by Segment\",\"data\":[{\"label\":\"Enterprise\",\"value\":45},{\"label\":\"SMB\",\"value\":30},{\"label\":\"Consumer\",\"value\":25}]},{\"type\":\"bar-chart\",\"title\":\"Monthly Revenue\",\"data\":[{\"label\":\"Oct\",\"value\":720000},{\"label\":\"Nov\",\"value\":810000},{\"label\":\"Dec\",\"value\":870000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "byoc hashbrown pill — follow-up after render_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_byoc_render_dashboard_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Q4 sales dashboard rendered above — total revenue hit $2.4M (+12%), with 1,847 new customers. Enterprise leads at 45% of revenue, and December was the strongest month."
+      }
+    },
+    {
+      "_comment": "byoc json-render pill — alternative prompt for the json-render variant.",
+      "match": {
+        "userMessage": "Show me the sales dashboard with metrics and a revenue chart",
+        "hasToolResult": false,
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_byoc_json_render_001",
+            "name": "render_a2ui",
+            "arguments": "{\"components\":[{\"type\":\"metric-card\",\"title\":\"Revenue\",\"value\":\"$1.8M\",\"change\":\"+15%\"},{\"type\":\"bar-chart\",\"title\":\"Revenue Trend\",\"data\":[{\"label\":\"Q1\",\"value\":380000},{\"label\":\"Q2\",\"value\":420000},{\"label\":\"Q3\",\"value\":460000},{\"label\":\"Q4\",\"value\":540000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_d6_byoc_json_render_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Sales dashboard rendered with revenue metric and quarterly trend chart."
+      }
+    }
+  ]
+}

@@ -36,7 +36,14 @@ import { getIntegration } from "@/lib/registry";
  * `lib/registry.ts` and the manifest schema in
  * `showcase/shared/manifest.schema.json`.
  */
-type SupportedFlag = "a2ui_pattern" | "interrupt_pattern";
+type SupportedFlag =
+  | "a2ui_pattern"
+  | "a2ui_agent_form"
+  | "interrupt_pattern"
+  | "thread_persistence_pattern"
+  | "agent_config_pattern"
+  | "auth_pattern"
+  | "voice_backend_pattern";
 
 interface WhenFrameworkHasProps {
   /** Manifest field to read (e.g. `"a2ui_pattern"`). */

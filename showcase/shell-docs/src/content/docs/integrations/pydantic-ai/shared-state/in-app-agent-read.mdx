@@ -14,8 +14,7 @@ description: Read the realtime agent state in your native application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/pydantic-ai/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -32,7 +31,7 @@ state updates, you can reflect these updates natively in your application.
 <Steps>
   <Step>
     ### Run and connect your agent
-    <RunAndConnect />
+    <RunAndConnect components={props.components} />
   </Step>
   <Step>
     ### Define the Agent State
@@ -44,7 +43,12 @@ state updates, you can reflect these updates natively in your application.
 
     from pydantic import BaseModel
     from pydantic_ai import Agent, RunContext
-    from pydantic_ai.ag_ui import StateDeps
+    from pydantic_ai.ui import StateDeps
+    from pydantic_ai.ui.ag_ui import AGUIAdapter
+    from starlette.applications import Starlette
+    from starlette.requests import Request
+    from starlette.responses import Response
+    from starlette.routing import Route
 
 
     class AgentState(BaseModel):
@@ -76,9 +80,19 @@ state updates, you can reflect these updates natively in your application.
         )
 
 
-    app = agent.to_ag_ui(deps=StateDeps(AgentState()))
+    async def run_agent(request: Request) -> Response:
+        # Build the deps fresh on every request: `dispatch_request` writes the state
+        # the client sent into `deps.state`, so a shared instance leaks state between
+        # concurrent requests and users.
+        return await AGUIAdapter.dispatch_request(
+            request, agent=agent, deps=StateDeps(AgentState())
+        )
+
+
+    app = Starlette(routes=[Route("/", run_agent, methods=["POST"])])
 
     if __name__ == "__main__":
+        import uvicorn
         uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
 
@@ -89,6 +103,7 @@ state updates, you can reflect these updates natively in your application.
     optionally provide an initial state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -137,6 +152,8 @@ You can also render the agent's state in the chat UI. This is useful for informi
 more in-context way. To do this, you can use the `useAgent` hook with a `render` function.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
 // Define the agent state type, should match the actual state of your agent
 type AgentState = {
   language: "english" | "spanish";
@@ -157,13 +174,12 @@ function YourMainContent() {
 ```
 
 <Callout type="warn" title="Important">
-  The `name` parameter must exactly match the agent name you defined in your
-  CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
+  The `name` parameter must exactly match the agent name you defined in your CopilotRuntime configuration (e.g., `my_agent` from the quickstart).
 </Callout>
 
 <Callout type="info">
-  The `agent.state` in `useAgent` is reactive and will automatically update when
-  the agent's state changes.
+  The `agent.state` in `useAgent` is reactive and will automatically
+  update when the agent's state changes.
 </Callout>
 
 ## Intermediately Stream and Render Agent State

@@ -1,9 +1,19 @@
 import type { Metadata } from "next";
+import type React from "react";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import matter from "gray-matter";
+import { ChevronRight, LinkIcon } from "lucide-react";
+import remarkGfm from "remark-gfm";
+import {
+  rehypeCode,
+  rehypeCodeDefaultOptions,
+} from "fumadocs-core/mdx-plugins";
 import { PropertyReference } from "@/components/property-reference";
+import { MdxCodeBlock } from "@/components/mdx-code-block";
+import { transformerMeta } from "@/lib/rehype-code-meta";
 import {
   Callout,
   Cards,
@@ -11,6 +21,10 @@ import {
   Accordions,
   Accordion,
 } from "@/components/mdx-components";
+import {
+  MarkdownCopyButton,
+  ViewOptionsPopover,
+} from "@/components/ai/page-actions";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import {
   DocsPage,
@@ -19,43 +33,92 @@ import {
   DocsDescription,
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
-import type * as PageTree from "fumadocs-core/page-tree";
+import { ReferenceVersionSelector } from "@/components/reference-version-selector";
 import {
-  REFERENCE_CONTENT_DIR,
-  loadAllReferenceItems,
+  REFERENCE_VERSIONS,
+  buildReferencePageTree,
+  referenceHref,
   referenceStaticParams,
+  referenceVersionHref,
+  resolveReferencePage,
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
-import { safeReadFileSync } from "@/lib/safe-fs";
-import { getBaseUrl } from "@/lib/sitemap-helpers";
+import { buildDocMetadata } from "@/lib/seo-metadata";
+import { V1_DEPRECATION_NOTICE_USE_V2_INSTEAD } from "@/lib/v1-deprecation-use-v2-instead";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
 // is unambiguous and any future host aliases can't fragment indexing.
+// Title/description come from the page's MDX frontmatter so each API
+// reference page emits its own social card and SEO description rather
+// than inheriting the layout's generic site-wide values.
 export async function generateMetadata({
   params,
 }: {
   params: Promise<{ slug: string[] }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  return {
-    alternates: {
-      canonical: `${getBaseUrl()}/reference/${slug.join("/")}`,
-    },
-  };
+  const resolved = resolveReferencePage(slug);
+  const raw = resolved?.raw ?? null;
+  let title: string | undefined;
+  let description: string | undefined;
+  if (raw !== null) {
+    try {
+      const { data } = matter(raw);
+      if (typeof data.title === "string" && data.title.length > 0) {
+        title = data.title;
+      }
+      if (typeof data.description === "string" && data.description.length > 0) {
+        description = data.description;
+      }
+    } catch {
+      // Malformed frontmatter — fall back to slug-derived title.
+    }
+  }
+  return buildDocMetadata({
+    title: title ?? slug[slug.length - 1],
+    description,
+    canonicalPath: resolved
+      ? referenceHref(resolved.version, resolved.pageSlug)
+      : `/reference/${slug.join("/")}`,
+  });
 }
 
 // next-mdx-remote components map
 const mdxComponents = {
   PropertyReference,
+  // Render fenced code blocks through the same Shiki + Fumadocs CodeBlock
+  // chrome the main docs use (syntax highlighting + copy button), paired with
+  // the rehypeCode plugin wired into the MDXRemote options below.
+  pre: MdxCodeBlock,
   Callout,
   Cards,
   Card,
   Accordions,
   Accordion,
   OpsPlatformCTA,
+  LinkIcon,
+  Frame: ({ children }: { children: React.ReactNode }) => (
+    <div className="shell-docs-radius-surface my-6 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)]">
+      {children}
+    </div>
+  ),
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
+
+function buildGitHubUrl(absFilePath: string): string {
+  const marker = "/showcase/";
+  const idx = absFilePath.indexOf(marker);
+  const repoRelative =
+    idx >= 0 ? absFilePath.slice(idx + 1) : "showcase/shell-docs";
+  return `https://github.com/CopilotKit/CopilotKit/blob/main/${repoRelative}`;
+}
+
+function categoryLabel(pageSlug: string): string | null {
+  const category = pageSlug.split("/").filter(Boolean)[0];
+  if (!category) return null;
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
 
 export function generateStaticParams() {
   return referenceStaticParams();
@@ -67,15 +130,12 @@ export default async function ReferenceSlugPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug } = await params;
-  const slugPath = slug.join("/");
-  // slugPath is user-supplied (URL segments). Route the filesystem read
-  // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
-  // can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
-  if (raw === null) {
+  const resolved = resolveReferencePage(slug);
+  if (resolved === null) {
     notFound();
   }
 
+  const { version, pageSlug, contentSlug, filePath, raw } = resolved;
   let content = "";
   let data: Record<string, unknown> = {};
   try {
@@ -84,7 +144,7 @@ export default async function ReferenceSlugPage({
     data = parsed.data;
   } catch (err) {
     console.error(
-      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
+      `[reference] Failed to parse frontmatter in ${contentSlug}.mdx:`,
       err,
     );
     notFound();
@@ -92,35 +152,36 @@ export default async function ReferenceSlugPage({
 
   const cleanedContent = stripLeadingImports(content);
 
-  const allItems = loadAllReferenceItems();
   const title =
     typeof data.title === "string" && data.title.length > 0
       ? data.title
       : slug[slug.length - 1];
   const description =
     typeof data.description === "string" ? data.description : undefined;
-
-  // Build a Fumadocs PageTree from the reference items, grouped by
-  // category. Reference's IA is its own (Components / Hooks) — we don't
-  // share the docs nav tree here.
-  const pageTree: PageTree.Root = {
-    name: "Reference",
-    children: ["Components", "Hooks"].flatMap((cat) => [
-      { type: "separator" as const, name: cat },
-      ...allItems
-        .filter((i) => i.category === cat)
-        .map(
-          (item): PageTree.Item => ({
-            type: "page",
-            name: item.title,
-            url: `/reference/${item.slug}`,
-          }),
-        ),
-    ]),
-  };
+  const pageTree = buildReferencePageTree(version);
+  const markdownUrl = `${referenceHref(version, pageSlug).replace(/\/$/, "")}.mdx`;
+  const versionOptions = REFERENCE_VERSIONS.map((referenceVersion) => ({
+    version: referenceVersion,
+    href: referenceVersionHref(referenceVersion, pageSlug),
+  }));
+  const breadcrumbs = [
+    { label: "Reference", href: "/reference" },
+    { label: version, href: referenceVersionHref(version) },
+    ...(categoryLabel(pageSlug)
+      ? [{ label: categoryLabel(pageSlug) ?? "", href: null }]
+      : []),
+  ];
 
   return (
-    <ShellDocsLayout tree={pageTree}>
+    <ShellDocsLayout
+      tree={pageTree}
+      banner={
+        <ReferenceVersionSelector
+          activeVersion={version}
+          options={versionOptions}
+        />
+      }
+    >
       <DocsPage
         toc={[]}
         tableOfContent={{ enabled: false }}
@@ -128,28 +189,95 @@ export default async function ReferenceSlugPage({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="px-6 py-10 max-w-3xl mx-auto">
-          <div className="mb-8">
-            <div className="text-xs text-[var(--text-muted)] mb-2">
-              <Link
-                href="/reference"
-                className="hover:text-[var(--text-secondary)]"
-              >
-                Reference
-              </Link>
-              {" / "}
-              <span className="capitalize">{slug[0]}</span>
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
+            {breadcrumbs.map((crumb, i) => {
+              const isLast = i === breadcrumbs.length - 1;
+              const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+              return (
+                <Fragment key={`${crumb.label}-${i}`}>
+                  {i > 0 && (
+                    <ChevronRight
+                      className="size-3 shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {crumb.href && !isLast ? (
+                    <Link
+                      href={crumb.href}
+                      className={`${labelClass} transition-opacity hover:opacity-80`}
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={labelClass}>{crumb.label}</span>
+                  )}
+                </Fragment>
+              );
+            })}
+          </nav>
+
+          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+            {title}
+          </DocsTitle>
+          {description && (
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+              {description}
+            </DocsDescription>
+          )}
+
+          {version === "v1" && (
+            <div className="my-6">
+              <Callout type="warning">
+                <strong>{V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.title}</strong>{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.summary}{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.importGuidance}
+                <br />
+                <strong>
+                  {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.agentGuidance}
+                </strong>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.migrationHref}>
+                  Read the v1 to v2 migration guide.
+                </Link>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.exportMapHref}>
+                  Open the complete export map.
+                </Link>
+              </Callout>
             </div>
-            <DocsTitle className="text-2xl font-bold">{title}</DocsTitle>
-            {description && (
-              <DocsDescription className="text-sm mt-1">
-                {description}
-              </DocsDescription>
-            )}
+          )}
+
+          <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
+            <MarkdownCopyButton markdownUrl={markdownUrl} />
+            <ViewOptionsPopover
+              markdownUrl={markdownUrl}
+              githubUrl={buildGitHubUrl(filePath)}
+            />
           </div>
 
-          <DocsBody className="reference-content prose-sm">
-            <MDXRemote source={cleanedContent} components={mdxComponents} />
+          <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+
+          <DocsBody className="reference-content">
+            <MDXRemote
+              source={cleanedContent}
+              components={mdxComponents}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
+                },
+              }}
+            />
           </DocsBody>
         </div>
       </DocsPage>

@@ -177,7 +177,7 @@ export const MCPAppsActivityContentSchema = z.object({
   resourceUri: z.string(),
   serverHash: z.string(),
   serverId: z.string().optional(),
-  toolInput: z.record(z.unknown()).optional(),
+  toolInput: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type MCPAppsActivityContent = z.infer<
@@ -427,6 +427,12 @@ export const MCPAppsActivityRenderer = defineComponent({
               "sandbox",
               "allow-scripts allow-same-origin allow-forms",
             );
+            // Cross-frontend MCP-apps surface contract — same testid/title pair
+            // as react-core's MCPAppsActivityRenderer and Angular's
+            // copilot-mcp-apps-widget, so the shared harness probe can assert
+            // the surface mounted with one selector on every frontend.
+            iframe.setAttribute("data-testid", "mcp-app-iframe");
+            iframe.setAttribute("title", "Interactive MCP application");
 
             const sandboxReady = new Promise<void>((resolve) => {
               initialListener = (event: MessageEvent) => {

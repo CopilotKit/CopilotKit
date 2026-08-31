@@ -1,34 +1,15 @@
 "use client";
 
-/**
- * Shared State (Read + Write) demo — Spring AI port.
- *
- * Mirrors the LangGraph reference
- * (showcase/integrations/langgraph-python/src/app/demos/shared-state-read-write/)
- * against the Spring controller at `/shared-state-read-write/run`.
- *
- * - WRITE (UI -> agent): the sidebar form's `preferences` object is pushed
- *   into agent state via `agent.setState({ preferences, notes })`. On the
- *   next turn, the Spring agent reads it off the AG-UI envelope and injects
- *   it into the system prompt so the LLM adapts to tone, language, name,
- *   and interests.
- * - READ (agent -> UI): the agent calls its `set_notes` tool, which mutates
- *   `state.notes` and emits a STATE_SNAPSHOT. `useAgent({updates:
- *   [OnStateChanged]})` re-renders this page and the notes card reflects
- *   the new list immediately.
- */
-
 import React, { useEffect } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotChat,
+  CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
-import { PreferencesCard, Preferences } from "./preferences-card";
-import { NotesCard } from "./notes-card";
+import { Preferences } from "./preferences-card";
+import { DemoLayout } from "./demo-layout";
+import { useSharedStateReadWriteSuggestions } from "./suggestions";
 
 const INITIAL_PREFERENCES: Preferences = {
   name: "",
@@ -37,6 +18,10 @@ const INITIAL_PREFERENCES: Preferences = {
   interests: [],
 };
 
+// Shape of the bidirectional shared state.
+// - `preferences` is WRITTEN by the UI via agent.setState().
+// - `notes` is WRITTEN by the agent via its `set_notes` tool and READ
+//   by the UI via useAgent().
 interface RWAgentState {
   preferences: Preferences;
   notes: string[];
@@ -44,16 +29,14 @@ interface RWAgentState {
 
 export default function SharedStateReadWriteDemo() {
   return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit-shared-state-read-write"
-      agent="shared-state-read-write"
-    >
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read-write">
       <DemoContent />
     </CopilotKit>
   );
 }
 
 function DemoContent() {
+  // @region[use-agent]
   // @region[use-agent-read]
   // Subscribe the component to agent state changes. Any time the agent
   // mutates its state (e.g. via its `set_notes` tool) this hook fires,
@@ -63,29 +46,16 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
   // @endregion[use-agent-read]
+  // @endregion[use-agent]
 
-  useConfigureSuggestions({
-    suggestions: [
-      { title: "Greet me", message: "Say hi and introduce yourself." },
-      {
-        title: "Remember something",
-        message:
-          "Remember that I prefer morning meetings and that I don't eat dairy.",
-      },
-      {
-        title: "Plan a weekend",
-        message: "Suggest a weekend plan based on my interests.",
-      },
-    ],
-    available: "always",
-  });
+  useSharedStateReadWriteSuggestions();
 
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];
 
   // Seed initial preferences + empty notes into agent state once, so the
-  // Spring agent has something to read on the very first turn.
+  // agent has something to read on the very first turn.
   useEffect(() => {
     if (!agentState?.preferences) {
       agent.setState({
@@ -96,10 +66,12 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[set-state]
   // @region[use-agent-write]
-  // WRITE: every edit in the sidebar goes straight into agent state. On
-  // the agent's next turn, the Spring controller reads the same object off
-  // the AG-UI state envelope and adds it to the system prompt.
+  // WRITE: every edit in the sidebar goes straight into agent state.
+  // On the agent's next turn, `PreferencesInjectorMiddleware` reads this
+  // back out of state and adds it to the system prompt — so the UI's
+  // writes visibly steer the model.
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       preferences: next,
@@ -107,6 +79,7 @@ function DemoContent() {
     } as RWAgentState);
   };
   // @endregion[use-agent-write]
+  // @endregion[set-state]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {
@@ -114,23 +87,11 @@ function DemoContent() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
-      <aside className="p-4 md:w-[360px] md:shrink-0 overflow-y-auto space-y-4">
-        <PreferencesCard
-          value={preferences}
-          onChange={handlePreferencesChange}
-        />
-        <NotesCard notes={notes} onClear={handleClearNotes} />
-      </aside>
-      <main className="flex-1 flex flex-col min-h-0">
-        <CopilotChat
-          agentId="shared-state-read-write"
-          className="flex-1 min-h-0"
-          labels={{
-            chatInputPlaceholder: "Chat with the agent...",
-          }}
-        />
-      </main>
-    </div>
+    <DemoLayout
+      preferences={preferences}
+      notes={notes}
+      onPreferencesChange={handlePreferencesChange}
+      onClearNotes={handleClearNotes}
+    />
   );
 }

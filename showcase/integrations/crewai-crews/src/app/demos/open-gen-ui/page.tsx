@@ -2,44 +2,36 @@
 
 /**
  * Open-Ended Generative UI — minimal setup.
+ * -----------------------------------------
+ * The simplest possible example. Enabling `openGenerativeUI` in the
+ * runtime (see `src/app/api/copilotkit-ogui/route.ts`) is all that's
+ * needed — the runtime middleware streams agent-authored HTML + CSS to
+ * the built-in `OpenGenerativeUIActivityRenderer`, which mounts it
+ * inside a sandboxed iframe. No custom sandbox functions, no custom
+ * tools — just chat.
  *
- * Enabling `openGenerativeUI` in the runtime (see
- * `src/app/api/copilotkit-ogui/route.ts`) streams agent-authored HTML +
- * CSS through the built-in `OpenGenerativeUIActivityRenderer`, mounted
- * inside a sandboxed iframe.
+ * This page customises the LLM's visual-authoring prompt via
+ * `openGenerativeUI.designSkill` on the provider (see
+ * `VISUALIZATION_DESIGN_SKILL` in `./design-skill.ts`) so the cell
+ * showcases rich educational visualisations (3D axes, neural nets,
+ * algorithms).
  *
  * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useConfigureSuggestions,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-const VISUALIZATION_DESIGN_SKILL = `When generating UI with generateSandboxedUi, your goal is to produce a polished, intricate, EDUCATIONAL visualisation. Use inline SVG or canvas, CSS keyframe animations, clear labels and legends, and the semantic palette: indigo #6366f1 (accent), emerald #10b981 (success), amber #f59e0b (warning), rose #ef4444 (error), slate #64748b (neutral). Output initialHeight, 2-3 placeholderMessages, css, and html (single root container).`;
-
-const minimalSuggestions = [
-  {
-    title: "3D axis visualization (model airplane)",
-    message:
-      "Visualize pitch, yaw, and roll using a 3D model airplane. Render a simple airplane silhouette (SVG or CSS-3D) at the origin, with three labelled axes. Animate the airplane cycling through each rotation in turn with a legend.",
-  },
-  {
-    title: "How a neural network works",
-    message:
-      "Animate how a simple feed-forward neural network processes an input. Show 3 layers with connections whose thickness encodes weight magnitude. Animate activations pulsing forward input -> hidden -> output in a loop.",
-  },
-  {
-    title: "Quicksort visualization",
-    message:
-      "Visualize quicksort on an array of ~10 bars. Highlight the pivot in amber, compared elements in indigo, swapped in emerald; fade sorted elements to slate. Auto-advance through the sort.",
-  },
-];
+import { VISUALIZATION_DESIGN_SKILL } from "./design-skill";
+import { Chat } from "./chat";
 
 export default function OpenGenUiDemo() {
   // @region[minimal-provider-setup]
+  // Minimal Open Generative UI frontend: the built-in activity renderer is
+  // registered by CopilotKitProvider, so a plain <CopilotChat /> is enough —
+  // no custom tool renderers, no activity-renderer registration.
+  // We DO pass `openGenerativeUI.designSkill` to swap in visualisation-tuned
+  // guidance in place of the default shadcn design skill.
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
@@ -54,13 +46,4 @@ export default function OpenGenUiDemo() {
     </CopilotKit>
   );
   // @endregion[minimal-provider-setup]
-}
-
-function Chat() {
-  useConfigureSuggestions({
-    suggestions: minimalSuggestions,
-    available: "always",
-  });
-
-  return <CopilotChat agentId="open-gen-ui" className="flex-1 rounded-2xl" />;
 }

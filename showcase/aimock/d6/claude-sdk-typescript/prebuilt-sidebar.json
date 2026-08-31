@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-typescript / prebuilt-sidebar",
+    "sourceFile": "d5-prebuilt-sidebar.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "prebuilt-sidebar probe turn — sends 'hi from the sidebar test' and asserts the response lands inside the .copilotKitSidebar root.",
+      "match": {
+        "userMessage": "hi from the sidebar test",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Hello from the sidebar — the CopilotSidebar prebuilt component is wired up and reachable. Anything else you would like me to confirm from inside the sidebar?"
+      }
+    }
+  ]
+}

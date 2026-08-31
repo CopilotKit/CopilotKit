@@ -26,12 +26,12 @@ export interface A2UIComponentProps<T = any> {
 }
 
 /** @deprecated - v0.9 components are loaded by the catalog. */
-export type ComponentLoader<T = any> = () => Promise<{
+export type ComponentLoader<_T = any> = () => Promise<{
   default: any;
 }>;
 
 /** @deprecated - v0.9 uses Catalog instead of ComponentRegistration. */
-export interface ComponentRegistration<T = any> {
+export interface ComponentRegistration<_T = any> {
   component: any;
   lazy?: boolean;
 }

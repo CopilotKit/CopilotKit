@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/sdk-js",
-  "version": "1.57.3",
+  "version": "1.69.3",
   "private": false,
   "keywords": [
     "ai",
@@ -48,7 +48,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint sdk-js,sdk-js-langchain,sdk-js-langgraph,sdk-js-langgraph-middlewares",
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -59,8 +59,9 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/langgraph": "0.0.31",
-    "@copilotkit/shared": "workspace:*"
+    "@ag-ui/langgraph": "0.0.42",
+    "@copilotkit/shared": "workspace:*",
+    "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
     "@langchain/core": "^1.1.41",

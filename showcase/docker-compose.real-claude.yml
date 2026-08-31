@@ -1,0 +1,14 @@
+# Manual local override for trying the Claude SDK showcase demos against the
+# real Anthropic endpoint. Do not use this for D6/D5 replay runs; the default
+# docker-compose.local.yml intentionally routes provider traffic through AIMock.
+
+services:
+  claude-sdk-python:
+    environment:
+      ANTHROPIC_BASE_URL: https://api.anthropic.com
+      AIMOCK_URL: ""
+
+  claude-sdk-typescript:
+    environment:
+      ANTHROPIC_BASE_URL: https://api.anthropic.com
+      AIMOCK_URL: ""

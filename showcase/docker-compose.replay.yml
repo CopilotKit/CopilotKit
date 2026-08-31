@@ -24,9 +24,9 @@ services:
         "--fixtures",
         "/showcase-fixtures/d5-recorded",
         "--fixtures",
-        "/showcase-fixtures/d5-all.json",
+        "/showcase-fixtures/shared",
         "--fixtures",
-        "/showcase-fixtures/smoke.json",
+        "/showcase-fixtures/d4",
         "--fixtures",
-        "/showcase-fixtures/feature-parity.json",
+        "/showcase-fixtures/d6",
       ]

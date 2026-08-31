@@ -285,7 +285,7 @@ internal static class ReasoningAgentFactory
         var inner = new ChatClientAgent(
             chatClient,
             name: "ReasoningAgent",
-            description: SystemPrompt);
+            instructions: SystemPrompt);
 
         return new ReasoningAgent(inner, loggerFactory.CreateLogger<ReasoningAgent>());
     }

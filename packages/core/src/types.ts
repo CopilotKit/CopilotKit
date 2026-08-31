@@ -1,8 +1,10 @@
 import type { AbstractAgent, ToolCall } from "@ag-ui/client";
 import type {
+  InspectorMetadataV1,
   IntelligenceRuntimeInfo,
   RuntimeMode,
   RuntimeLicenseStatus,
+  ThreadEndpointRuntimeInfo,
 } from "@copilotkit/shared";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
 
@@ -16,7 +18,13 @@ export enum ToolCallStatus {
 }
 
 export type CopilotRuntimeTransport = "rest" | "single" | "auto";
-export type { RuntimeMode, IntelligenceRuntimeInfo, RuntimeLicenseStatus };
+export type {
+  InspectorMetadataV1,
+  RuntimeMode,
+  IntelligenceRuntimeInfo,
+  RuntimeLicenseStatus,
+  ThreadEndpointRuntimeInfo,
+};
 
 /**
  * Context passed to a frontend tool handler

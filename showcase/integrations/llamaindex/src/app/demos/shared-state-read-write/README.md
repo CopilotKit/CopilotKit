@@ -1,22 +1,25 @@
-# Shared State (Writing)
+# Shared State (Read + Write)
 
 ## What This Demo Shows
 
-Writing to agent state from UI
+Bidirectional shared state between the UI and the agent — both sides read and write the same state object.
+
+- **UI → agent**: a sidebar form (name, tone, language, interests) writes into `state.preferences` via `agent.setState(...)`. A backend middleware reads it every turn and injects it into the system prompt.
+- **agent → UI**: the agent's `set_notes` tool writes into `state.notes`; the sidebar's notes card re-renders whenever the agent updates it.
+- **Round-trip**: editing preferences in the sidebar visibly steers the agent's next reply (tone, language, addressing you by name).
 
 ## How to Interact
 
-Try asking your Copilot to:
+Edit your preferences in the sidebar first, then try:
 
-- "Add a task to buy groceries"
-- "Mark the first task as completed"
-- "Create three tasks for planning a trip"
+- "Say hi and introduce yourself."
+- "Remember that I prefer morning meetings and that I don't eat dairy."
+- "Suggest a weekend plan based on my interests."
 
-The agent modifies the shared state directly, and the frontend updates in real-time.
+Watch the agent's replies adapt to your preferences, and watch new notes appear in the sidebar as you ask it to remember things.
 
 ## Technical Details
 
-- **Bidirectional state** -- the agent can both read and write the same state the frontend displays
-- Agent tools return `Command(update={...})` to modify state, which syncs to the frontend via CopilotKit
-- The frontend calls `agent.setState()` for user-driven changes, and both paths update the same source of truth
-- This enables true collaborative interaction where user and agent manipulate the same data
+- `useAgent({ agentId, updates: [UseAgentUpdate.OnStateChanged] })` subscribes the page to every state mutation from the agent, so `state.notes` changes re-render the sidebar.
+- The same `agent.setState({ preferences, notes })` call handles UI writes — editing the form or clicking "Clear" on notes both flow through it.
+- On the backend (`src/agents/shared_state_read_write.py`), `PreferencesInjectorMiddleware.wrap_model_call` reads `request.state["preferences"]` and prepends a `SystemMessage` with the user's name, tone, language, and interests. The `set_notes` tool returns a `Command(update={"notes": ...})` to write back.

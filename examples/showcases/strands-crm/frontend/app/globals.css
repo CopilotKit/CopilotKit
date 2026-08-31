@@ -1,0 +1,93 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --radius: 0.75rem;
+  --background: #f7f7fb;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #eff6ff;
+  --accent-foreground: #1e3a8a;
+  --destructive: #e11d48;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #2563eb;
+  --risk-low: #059669;
+  --risk-medium: #d97706;
+  --risk-high: #e11d48;
+  /* Blue-led chart palette for the dependency-free SVG primitives. */
+  --chart-1: #2563eb;
+  --chart-2: #60a5fa;
+  --chart-3: #818cf8;
+  --chart-4: #38bdf8;
+  --chart-5: #a78bfa;
+  /* Soft WhiteUI-style card shadow. */
+  --shadow-card:
+    0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 12px rgba(16, 24, 40, 0.05);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+  /* Soften the default shadcn card shadow for a calmer WhiteUI surface.
+     Targets the card slot only; components keep their own utility classes. */
+  [data-slot="card"] {
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* Theme the embedded assistant so it matches the app (CopilotKit v2 uses
+   --cpk-* variables under the .cpk scope). Best-effort accent + font match;
+   verify in preview and adjust which --cpk-* color maps to the accent. */
+.cpk {
+  --cpk-font-sans: var(--font-sans);
+  --cpk-color-blue-500: var(--primary);
+  --cpk-radius-2xl: var(--radius);
+}
