@@ -230,7 +230,7 @@ export function createAngularConsumerManifest({
       "serve:ssr": "node dist/smoke/server/server.mjs",
     },
     dependencies: {
-      "@ag-ui/client": "0.0.57",
+      "@ag-ui/client": "0.0.58",
       "@angular/cdk": support.cdk,
       "@angular/common": support.angular,
       "@angular/core": support.angular,

@@ -56,8 +56,8 @@
     "attw": "attw --pack . --profile esm-only"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
     "@copilotkit/channels-ui": "workspace:~",
     "@copilotkit/core": "workspace:^",
     "@copilotkit/shared": "workspace:^",
