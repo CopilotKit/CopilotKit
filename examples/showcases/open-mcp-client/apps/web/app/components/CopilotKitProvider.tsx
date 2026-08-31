@@ -8,7 +8,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { DEFAULT_SERVERS, type McpServerEntry } from "../constants/mcpServers";
+import { DEFAULT_SERVERS } from "../constants/mcpServers";
+import type { McpServerEntry } from "../constants/mcpServers";
 import { TOOL_CALL_RENDERERS } from "./ToolCallRenderer";
 
 // ─── Shared context ───────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export function DynamicCopilotKitProvider({
         runtimeUrl="/api/mastra-agent"
         headers={headers}
         showDevConsole={false}
+        enableInspector={false}
         renderToolCalls={TOOL_CALL_RENDERERS}
       >
         {children}

@@ -20,6 +20,7 @@
         "headless-threads",
         "threads-lifecycle",
         "threads-import",
+        "threads-self-managed",
         "premium/threads-explained"
       ]
     },
@@ -51,9 +52,10 @@
     "---Observe & Operate---",
     "inspector",
     "vs-code-extension",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "premium/overview",
     "premium/managed-intelligence-platform",
+    "premium/connect-your-runtime",
     "premium/self-hosting",
     "premium/intelligence-platform",
     "---Deploy---",

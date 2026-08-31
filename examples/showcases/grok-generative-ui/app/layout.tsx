@@ -78,8 +78,8 @@ export default function RootLayout({
         />
       </head>
       <body>
-        {/* showDevConsole off: the inspector toast would sit in the recording. */}
-        <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
+        {/* Keep the Inspector out of recordings. */}
+        <CopilotKit runtimeUrl="/api/copilotkit" enableInspector={false}>
           {/* The composer is the page's own input, so it gets the page's voice. */}
           <CopilotChatConfigurationProvider
             labels={{ chatInputPlaceholder: "Ask what X thinks about…" }}

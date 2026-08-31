@@ -37,7 +37,6 @@
       {
         "command": "/triage",
         "description": "Triage this thread \u2014 summarize and propose Linear issues",
-        "usage_hint": "",
         "should_escape": false
       },
       {
@@ -49,7 +48,6 @@
       {
         "command": "/file-issue",
         "description": "Open a form to file a Linear issue",
-        "usage_hint": "",
         "should_escape": false
       }
     ]

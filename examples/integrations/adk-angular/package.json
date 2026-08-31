@@ -15,18 +15,17 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
     "@angular/cdk": "^21.2.13",
     "@angular/common": "^21.2.15",
     "@angular/compiler": "^21.2.15",
     "@angular/core": "^21.2.15",
     "@angular/platform-browser": "^21.2.15",
-    "@copilotkit/angular": "0.2.0",
-    "@copilotkit/core": "1.63.1",
-    "@copilotkit/runtime": "1.63.1",
-    "@copilotkit/shared": "1.63.1",
-    "@copilotkit/web-inspector": "1.63.1",
+    "@copilotkit/angular": "0.3.1",
+    "@copilotkit/core": "1.68.1",
+    "@copilotkit/runtime": "1.68.1",
+    "@copilotkit/shared": "1.68.1",
     "dotenv": "^16.4.5",
     "lucide-angular": "^0.577.0",
     "rxjs": "^7.8.1",
@@ -43,10 +42,14 @@
     "typescript": "~5.9.0"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
-    "@ag-ui/encoder": "0.0.57",
-    "@ag-ui/proto": "0.0.57",
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
+    "@ag-ui/encoder": "0.0.58",
+    "@ag-ui/proto": "0.0.58",
+    "@copilotkit/a2ui-renderer": "1.68.1",
+    "@copilotkit/core": "1.68.1",
+    "@copilotkit/shared": "1.68.1",
+    "@copilotkit/web-components": "1.68.1",
     "lucide-angular": "^0.577.0"
   }
 }

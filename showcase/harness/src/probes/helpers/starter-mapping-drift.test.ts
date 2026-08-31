@@ -19,7 +19,8 @@
  * matrix lives in a Playwright spec outside this pnpm workspace and the
  * column list is the on-disk integration directory set, so both are parsed
  * via `fs` rather than imported. The set of starters with NO column
- * (`EXCLUDED_STARTERS`) is empty by design (all 12 map), but is kept
+ * (`EXCLUDED_STARTERS`) contains the TypeScript Strands starter until its
+ * live Railway service is provisioned. The other 12 starters map normally.
  * explicit so a future no-column starter can be excluded deliberately
  * instead of silently failing coverage.
  */
@@ -36,11 +37,13 @@ const STARTER_SPEC_FILE = resolve(
 const INTEGRATIONS_DIR = resolve(__dirname, "../../../../integrations");
 
 /**
- * Starters intentionally probed but with no dashboard column. Empty by
- * design (§a: 12 mapped, 0 excluded), but kept explicit so a deliberate
- * future exclusion is distinguishable from an accidental dropped mapping.
+ * Starters intentionally probed but with no live Railway service. The
+ * TypeScript Strands starter remains covered by the PR and scheduled smoke
+ * matrix, but does not claim live-fleet coverage before provisioning exists.
  */
-const EXCLUDED_STARTERS: ReadonlySet<string> = new Set<string>();
+const EXCLUDED_STARTERS: ReadonlySet<string> = new Set<string>([
+  "strands-typescript",
+]);
 
 /** Parse the `slug:` values out of the `STARTERS` array in the smoke spec. */
 function parseSmokeMatrixSlugs(): string[] {

@@ -60,6 +60,7 @@ _a2ui_tools_by_thread: dict[str, Any] = {}
 # checkpointer). Collisions across concurrent context-less runs are an
 # acceptable edge — the deployed path always carries a thread id.
 _DEFAULT_THREAD_KEY = "__copilotkit_a2ui_default__"
+_FRONTEND_TOOL_RESULT_CONTENT = json.dumps({"status": "forwarded_to_frontend"})
 
 
 def _current_thread_id() -> "str | None":
@@ -599,6 +600,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
         _ensure_httpx_hook(request.model)
+        request = request.override(messages=list(request.messages))
+        self._restore_intercepted_tool_call_history(
+            request.messages,
+            request.state.get("copilotkit", {}),
+        )
+        self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
         request = self._apply_app_context_note(request)
 
@@ -642,6 +649,14 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
            the duplicate toolResult IDs. We keep the real result (non-interrupted)
            over the placeholder, falling back to the last occurrence if both look
            real.
+
+        Content-block syncing covers both provider shapes: Anthropic `tool_use`
+        blocks (keyed on block["id"]) and OpenAI Responses `function_call`
+        blocks (keyed on block["call_id"]; block["id"] on those is the item id,
+        not the call id). Orphaned `function_call` blocks make langchain-openai
+        re-emit them as Responses input items with no matching
+        function_call_output, which OpenAI rejects with
+        "No tool output found for function call call_...".
         """
         # 4. Deduplicate ToolMessages by tool_call_id before all other processing.
         #    patch_orphan_tool_calls adds "…was interrupted before completion."
@@ -699,26 +714,36 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
             tool_calls = getattr(msg, "tool_calls", None) or []
 
-            # 1. Sync content with tool_calls: remove tool_use content blocks
-            #    that aren't in msg.tool_calls (e.g. stripped by after_model
-            #    but content blocks left behind in checkpoint).
+            # 1. Sync content with tool_calls: remove tool_use (Anthropic) and
+            #    function_call (OpenAI Responses) content blocks that aren't in
+            #    msg.tool_calls (e.g. stripped by after_model but content blocks
+            #    left behind in checkpoint).
+            def _orphan_tool_block(block, tc_ids):
+                if not isinstance(block, dict):
+                    return False
+                btype = block.get("type")
+                if btype == "tool_use":
+                    return block.get("id") not in tc_ids
+                if btype == "function_call":
+                    return block.get("call_id") not in tc_ids
+                return False
+
             if tool_calls and isinstance(msg.content, list):
                 tc_ids = {tc.get("id") for tc in tool_calls}
                 msg.content = [
                     block
                     for block in msg.content
-                    if not (
-                        isinstance(block, dict)
-                        and block.get("type") == "tool_use"
-                        and block.get("id") not in tc_ids
-                    )
+                    if not _orphan_tool_block(block, tc_ids)
                 ]
             elif not tool_calls and isinstance(msg.content, list):
-                # No tool_calls at all — strip ALL tool_use content blocks
+                # No tool_calls at all — strip ALL tool_use / function_call blocks
                 msg.content = [
                     block
                     for block in msg.content
-                    if not (isinstance(block, dict) and block.get("type") == "tool_use")
+                    if not (
+                        isinstance(block, dict)
+                        and block.get("type") in ("tool_use", "function_call")
+                    )
                 ]
 
             if not tool_calls:
@@ -746,15 +771,23 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     tc for tc in tool_calls if tc.get("id") in adjacent_tc_ids
                 ]
 
-                # Also strip matching content blocks
+                # Also strip matching content blocks (tool_use + function_call)
                 if isinstance(msg.content, list):
                     msg.content = [
                         block
                         for block in msg.content
                         if not (
                             isinstance(block, dict)
-                            and block.get("type") == "tool_use"
-                            and block.get("id") in unanswered_ids
+                            and (
+                                (
+                                    block.get("type") == "tool_use"
+                                    and block.get("id") in unanswered_ids
+                                )
+                                or (
+                                    block.get("type") == "function_call"
+                                    and block.get("call_id") in unanswered_ids
+                                )
+                            )
                         )
                     ]
 
@@ -798,6 +831,138 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
         return messages
 
+    @staticmethod
+    def _frontend_tool_result_message(tool_call: dict[str, Any]) -> ToolMessage | None:
+        tool_call_id = tool_call.get("id")
+        if not tool_call_id:
+            return None
+
+        return ToolMessage(
+            content=_FRONTEND_TOOL_RESULT_CONTENT,
+            tool_call_id=tool_call_id,
+            name=tool_call.get("name"),
+            id=f"copilotkit-fe-tool-result-{tool_call_id}",
+        )
+
+    @staticmethod
+    def _copy_ai_message_with_tool_calls(
+        message: AIMessage,
+        tool_calls: list[dict[str, Any]],
+    ) -> AIMessage:
+        if hasattr(message, "model_copy"):
+            return message.model_copy(update={"tool_calls": tool_calls})
+        return message.copy(update={"tool_calls": tool_calls})
+
+    @classmethod
+    def _restore_intercepted_tool_call_history(
+        cls,
+        messages: list,
+        copilotkit_state: dict[str, Any],
+    ) -> bool:
+        """Rehydrate intercepted FE tool calls with synthetic results.
+
+        ``after_model`` strips FE calls so the backend ToolNode only executes
+        backend calls. Once backend ToolMessages have been appended, the next
+        LLM call still needs to see the full assistant turn, including the FE
+        calls it already made. Synthetic ToolMessages make that restored
+        request history valid for providers that require every tool call to be
+        answered.
+        """
+        intercepted_tool_calls = copilotkit_state.get("intercepted_tool_calls")
+        original_message_id = copilotkit_state.get("original_ai_message_id")
+        original_tool_calls = copilotkit_state.get("original_tool_calls")
+
+        if not intercepted_tool_calls or not original_message_id:
+            return False
+
+        intercepted_by_id = {
+            call.get("id"): call
+            for call in intercepted_tool_calls
+            if isinstance(call, dict) and call.get("id")
+        }
+        if not intercepted_by_id:
+            return False
+
+        for idx, msg in enumerate(messages):
+            if not isinstance(msg, AIMessage) or msg.id != original_message_id:
+                continue
+
+            changed = False
+            existing_tool_calls = list(getattr(msg, "tool_calls", None) or [])
+            existing_tool_call_ids = {
+                call.get("id")
+                for call in existing_tool_calls
+                if isinstance(call, dict) and call.get("id")
+            }
+            missing_tool_calls = [
+                call
+                for call in intercepted_tool_calls
+                if (
+                    isinstance(call, dict)
+                    and call.get("id") not in existing_tool_call_ids
+                )
+            ]
+
+            if original_tool_calls:
+                full_tool_calls = list(original_tool_calls)
+            else:
+                full_tool_calls = [*existing_tool_calls, *missing_tool_calls]
+
+            if missing_tool_calls or full_tool_calls != existing_tool_calls:
+                messages[idx] = cls._copy_ai_message_with_tool_calls(
+                    msg,
+                    full_tool_calls,
+                )
+                changed = True
+
+            tool_messages_end = idx + 1
+            while tool_messages_end < len(messages) and isinstance(
+                messages[tool_messages_end], ToolMessage
+            ):
+                tool_messages_end += 1
+
+            existing_tool_messages = messages[idx + 1 : tool_messages_end]
+            tool_messages_by_id: dict[str, ToolMessage] = {}
+            for tool_message in existing_tool_messages:
+                tool_call_id = getattr(tool_message, "tool_call_id", None)
+                if tool_call_id and tool_call_id not in tool_messages_by_id:
+                    tool_messages_by_id[tool_call_id] = tool_message
+
+            ordered_tool_messages = []
+            used_tool_message_ids = set()
+            for tool_call in full_tool_calls:
+                if not isinstance(tool_call, dict):
+                    continue
+
+                tool_call_id = tool_call.get("id")
+                if not tool_call_id:
+                    continue
+
+                tool_message = tool_messages_by_id.get(tool_call_id)
+                if tool_message is None and tool_call_id in intercepted_by_id:
+                    tool_message = cls._frontend_tool_result_message(tool_call)
+                    if tool_message is not None:
+                        changed = True
+
+                if tool_message is not None:
+                    ordered_tool_messages.append(tool_message)
+                    used_tool_message_ids.add(tool_call_id)
+
+            ordered_tool_messages.extend(
+                tool_message
+                for tool_message in existing_tool_messages
+                if getattr(tool_message, "tool_call_id", None)
+                not in used_tool_message_ids
+            )
+
+            if ordered_tool_messages != existing_tool_messages:
+                messages[idx + 1 : tool_messages_end] = ordered_tool_messages
+                changed = True
+
+            return changed
+
+        return False
+
     async def awrap_model_call(
         self,
         request: ModelRequest,
@@ -805,6 +970,11 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     ) -> ModelResponse:
         _extract_forwarded_headers_from_config()
         _ensure_httpx_hook(request.model)
+        request = request.override(messages=list(request.messages))
+        self._restore_intercepted_tool_call_history(
+            request.messages,
+            request.state.get("copilotkit", {}),
+        )
         self._fix_messages_for_bedrock(request.messages)
         request = self._apply_state_note(request)
         request = self._apply_app_context_note(request)
@@ -926,11 +1096,12 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         if not frontend_tool_calls:
             return None
 
-        # Create updated AIMessage with only backend tool calls
-        updated_ai_message = AIMessage(
-            content=last_message.content,
-            tool_calls=backend_tool_calls,
-            id=last_message.id,
+        # Keep only backend calls for the ToolNode. The full assistant turn is
+        # restored with synthetic FE ToolMessages before the next model call,
+        # then as an orphaned FE call before the agent exits.
+        updated_ai_message = self._copy_ai_message_with_tool_calls(
+            last_message,
+            backend_tool_calls,
         )
 
         return {
@@ -938,6 +1109,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             "copilotkit": {
                 "intercepted_tool_calls": frontend_tool_calls,
                 "original_ai_message_id": last_message.id,
+                "original_tool_calls": tool_calls,
             },
         }
 
@@ -969,24 +1141,27 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         messages = state.get("messages", [])
         updated_messages = []
 
-        for msg in messages:
-            if isinstance(msg, AIMessage) and msg.id == original_message_id:
-                existing_tool_calls = getattr(msg, "tool_calls", None) or []
+        for message in messages:
+            if isinstance(message, AIMessage) and message.id == original_message_id:
+                restored_tool_calls = copilotkit_state.get("original_tool_calls") or [
+                    *(message.tool_calls or []),
+                    *intercepted_tool_calls,
+                ]
                 updated_messages.append(
-                    AIMessage(
-                        content=msg.content,
-                        tool_calls=[*existing_tool_calls, *intercepted_tool_calls],
-                        id=msg.id,
+                    self._copy_ai_message_with_tool_calls(
+                        message,
+                        list(restored_tool_calls),
                     )
                 )
             else:
-                updated_messages.append(msg)
+                updated_messages.append(message)
 
         return {
             "messages": updated_messages,
             "copilotkit": {
                 "intercepted_tool_calls": None,
                 "original_ai_message_id": None,
+                "original_tool_calls": None,
             },
         }
 

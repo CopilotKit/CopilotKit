@@ -1,5 +1,5 @@
 // Pure, Bolt-free Slack ingress semantics. Shared by the local Slack adapter's
-// Bolt listener AND the Intelligence-side webhook ingress (OSS-362), so the
+// Bolt listener AND the Intelligence-side webhook ingress, so the
 // platform-specific parsing (mention stripping, stable event-id derivation,
 // real-user-message filtering, field extraction) lives in ONE place instead of
 // being duplicated. No `@slack/bolt`, no Slack credentials, no network.

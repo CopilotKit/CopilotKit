@@ -1,12 +1,13 @@
-import { Component, Input } from "@angular/core";
-import { CommonModule } from "@angular/common";
+import { Component, Input, ChangeDetectionStrategy } from "@angular/core";
+
 import { FormsModule } from "@angular/forms";
 import type { ChatState } from "@copilotkit/angular";
 
 @Component({
   selector: "custom-input",
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [FormsModule],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     <div
       [class]="inputClass"

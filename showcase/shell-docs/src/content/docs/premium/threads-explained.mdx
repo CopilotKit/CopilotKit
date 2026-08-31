@@ -5,10 +5,8 @@ icon: "lucide/MessageSquareMore"
 doc_type: explanation
 ---
 
-<OpsPlatformCTA
-  variant="inline"
-  title="Want to see threads in your own app?"
-  body="Persistent threads ship with the Enterprise Intelligence Platform on the free Developer tier."
+<IntelligenceOnboardingPrompt
+  feature="threads"
   surface="docs_learn_threads"
 />
 
@@ -38,7 +36,7 @@ From a developer's perspective, threads involve three things:
 |-------------|-------------|
 | Frontend thread API | Lists, renames, archives, and deletes threads. Supports pagination and stays in sync across tabs and devices via WebSocket. |
 | `CopilotChat` with `threadId` | Connects to a specific thread, loads its history, and streams new events in realtime. |
-| `CopilotRuntime` | Server-side layer that executes agents, stores thread data on the Enterprise Intelligence Platform, and relays events to connected clients. |
+| `CopilotRuntime` | Server-side layer that executes agents, stores thread data in CopilotKit Intelligence, and relays events to connected clients. |
 
 You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 
@@ -65,7 +63,7 @@ The client-side steps (minting a `threadId`, hydrating history on load, and swit
 
 ### Persistence and replay
 
-As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread on the Enterprise Intelligence Platform. It stores the raw event stream rather than a snapshot of the final message list, so a returning client can be restored to the exact state it left, and can fetch only the events it missed rather than reloading the whole history.
+As an agent runs, the runtime writes each event (messages, tool calls, and state updates) to the thread in CopilotKit Intelligence. It stores the raw event stream rather than a snapshot of the final message list, so a returning client can be restored to the exact state it left, and can fetch only the events it missed rather than reloading the whole history.
 
 When a client opens an existing thread, the platform checks whether a run is in progress:
 
@@ -81,7 +79,7 @@ The frontend thread client maintains a WebSocket subscription for thread metadat
 ### Future runs and native persistence
 
 Importing history is a one-time adoption step. Afterward, future conversations
-that run through CopilotKit are persisted to Enterprise Intelligence. When the
+that run through CopilotKit are persisted to CopilotKit Intelligence. When the
 agent also keeps a durable LangGraph checkpointer or LangGraph Platform
 deployment wired, the same runs continue through LangGraph's native persistence.
 An ADK agent behaves similarly when it remains connected to a durable session
@@ -90,7 +88,7 @@ service that retains its sessions.
 That coordinated future persistence lets teams retain native framework storage
 and analytics while adding the Rich Threads experience for users. It is not a
 general replication link between databases: frontend thread operations such as
-rename, archive, and delete change the Enterprise Intelligence thread and do not
+rename, archive, and delete change the CopilotKit Intelligence thread and do not
 mutate records in LangGraph, ADK, or another native store.
 
 ### Pessimistic updates

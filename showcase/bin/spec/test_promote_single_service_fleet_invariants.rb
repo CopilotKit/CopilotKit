@@ -251,6 +251,23 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         Railway::PromoteCommand.new(argv + ["--non-interactive", "--yes"])
     end
 
+    # No live service is single-environment today. Inject a minimal synthetic
+    # SSOT record so the parity behavior for future staging-first rollouts stays
+    # covered without coupling this unit test to whichever slug is currently in
+    # that rollout phase.
+    def build_cmd_with_staging_only_ssot_service(service)
+        cmd = build_cmd([])
+        live_ssot_lookup = cmd.method(:ssot_service)
+        cmd.define_singleton_method(:ssot_service) do |name|
+            if name == service
+                { "name" => name, "onlyEnvironment" => "staging" }
+            else
+                live_ssot_lookup.call(name)
+            end
+        end
+        cmd
+    end
+
     # Zero the promote retry back-off for the duration of the block so the 3x
     # eventual-consistency retry loop in pin_and_verify doesn't add real wall
     # time. RETRY_DELAY_SEC is a process-global constant, so this is a global
@@ -423,6 +440,44 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         sid, image = pinned.first
         assert_equal "prod-docs", sid
         assert_equal "ghcr.io/copilotkit/docs@sha256:NEW_DOCS", image
+    end
+
+    # Full-fleet parity tolerates only environment asymmetry explicitly modeled
+    # by the SSOT. This keeps a staging-first rollout from blocking the documented
+    # no-argument promote path without hiding unknown fleet drift.
+    def test_full_fleet_parity_tolerates_ssot_declared_staging_only_service
+        service = "showcase-staging-only-fixture"
+        staging = {
+            "services" => [{ "name" => service }],
+        }
+        prod = { "services" => [] }
+
+        cmd = build_cmd_with_staging_only_ssot_service(service)
+        findings = cmd.check_service_set_parity(staging, prod)
+
+        assert_empty findings
+    end
+
+    def test_full_fleet_parity_still_refuses_unknown_staging_only_service
+        staging = { "services" => [{ "name" => "showcase-rogue" }] }
+        prod = { "services" => [] }
+
+        findings = build_cmd([]).check_service_set_parity(staging, prod)
+
+        assert_equal ["REFUSE: services in staging not in prod: showcase-rogue"], findings
+    end
+
+    def test_targeted_promote_still_refuses_ssot_declared_staging_only_service
+        service = "showcase-staging-only-fixture"
+        staging = { "services" => [{ "name" => service }] }
+        prod = { "services" => [] }
+
+        cmd = build_cmd_with_staging_only_ssot_service(service)
+        findings = cmd.check_service_set_parity(
+            staging, prod, target: service,
+        )
+
+        assert_equal ["REFUSE: services in staging not in prod: #{service}"], findings
     end
 
     # ── Single-service promote must TOLERATE unrelated prod-only services.

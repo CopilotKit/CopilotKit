@@ -396,11 +396,22 @@ describe("migration docs", () => {
 });
 
 describe("cookbook nav", () => {
+  it("uses the real Claude mark instead of a text placeholder", () => {
+    const claudeLogo = fs.readFileSync(
+      path.resolve(CONTENT_DIR, "../../../public/logos/claude.svg"),
+      "utf8",
+    );
+
+    expect(claudeLogo).toContain("<path");
+    expect(claudeLogo).not.toContain("<text");
+  });
+
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(6);
+    expect(navTree).toHaveLength(7);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -415,6 +426,7 @@ describe("cookbook nav", () => {
     ).toEqual([
       ["Overview", "cookbook/index"],
       ["Daytona", "cookbook/daytona"],
+      ["Claude Managed Agents", "cookbook/claude-managed-agents"],
       ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
@@ -429,12 +441,14 @@ describe("cookbook nav", () => {
       "page",
       "page",
       "page",
+      "page",
     ]);
     expect(
       pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
     ).toEqual([
       "/cookbook",
       "/cookbook/daytona",
+      "/cookbook/claude-managed-agents",
       "/cookbook/oracle-agent-spec-memory",
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
@@ -514,6 +528,10 @@ describe("framework nav", () => {
       { title: "Thread & History Lifecycle", slug: "threads-lifecycle" },
       { title: "Synchronize Thread History", slug: "threads-import" },
       {
+        title: "Self-Managed Persistence",
+        slug: "threads-self-managed",
+      },
+      {
         title: "Threads & Persistence Architecture",
         slug: "premium/threads-explained",
       },
@@ -582,7 +600,7 @@ describe("framework nav", () => {
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
       expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
       expect(source).toContain(
-        "does not need an Enterprise Intelligence URL or API key",
+        "does not need a CopilotKit Intelligence URL or API key",
       );
     }
 
@@ -617,7 +635,7 @@ describe("framework nav", () => {
     );
     expect(headless).toContain("adding a custom thread UI to an existing app");
     expect(headless).toContain(
-      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+      "Your `CopilotRuntime` must be connected to CopilotKit Intelligence",
     );
     expect(headless).not.toContain("npx copilotkit@latest init");
   });
@@ -651,7 +669,7 @@ describe("framework nav", () => {
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+  it("uses the generated Intelligence section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
@@ -659,11 +677,12 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "Enterprise Intelligence Platform",
-      "Cloud-Hosted Enterprise Intelligence",
-      "Self-Hosting Enterprise Intelligence",
-      "Enterprise Intelligence Architecture",
+    expect(sectionPages(navTree, "Intelligence")).toEqual([
+      "CopilotKit Intelligence",
+      "Cloud-hosted CopilotKit Intelligence",
+      "Connect your runtime to Intelligence",
+      "Self-host CopilotKit Intelligence",
+      "CopilotKit Intelligence architecture",
     ]);
   });
 });

@@ -32,7 +32,7 @@ function useAgentContext(context: AgentContextInput): void;
 </PropertyReference>
 
   <PropertyReference name="value" type="JsonSerializable" required>
-    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Object values are serialized automatically.
+    The context value to provide. Must be JSON-serializable: `string`, `number`, `boolean`, `null`, arrays, or plain objects with string keys and serializable values. Anything that is not already a string is stringified with `JSON.stringify` before it is sent, so the agent receives a JSON string rather than the value you passed: see [What the agent receives](#what-the-agent-receives).
   </PropertyReference>
 </PropertyReference>
 
@@ -132,11 +132,66 @@ function Sidebar() {
 }
 ```
 
+## What the agent receives
+
+Every registered entry reaches the agent as `{ description, value }`, and `value` is a **JSON string**: not the object or array you passed. The AG-UI protocol types it as a string, so this is not an implementation detail you can ignore when writing the agent.
+
+Registering this:
+
+```tsx
+useAgentContext({
+  description: "Incident dashboard records",
+  value: [{ id: "INC-1041", severity: "sev1" }],
+});
+```
+
+delivers this to the agent:
+
+```json
+{
+  "description": "Incident dashboard records",
+  "value": "[{\"id\":\"INC-1041\",\"severity\":\"sev1\"}]"
+}
+```
+
+Parse it before reading any field. In a Python agent:
+
+```python
+import json
+
+def dashboard_records(context):
+    entry = next(
+        (item for item in context if item["description"] == "Incident dashboard records"),
+        None,
+    )
+    return None if entry is None else json.loads(entry["value"])
+```
+
+In a TypeScript agent:
+
+```ts
+const entry = context.find(
+  (item) => item.description === "Incident dashboard records",
+);
+const records = entry ? JSON.parse(entry.value) : undefined;
+```
+
+Where that context list surfaces in your agent depends on your framework's AG-UI adapter: see your integration's guide for the field it populates.
+
+<Callout type="warn">
+  Do not type-check `value` against the shape you registered.
+  `isinstance(entry["value"], list)` in Python, or `Array.isArray(entry.value)`
+  in TypeScript, can never be true, because `value` is always a string on the
+  wire. An agent that reads such a failed check as "no context was sent" will
+  refuse every request while the app is registering context correctly, and the
+  two cases are indistinguishable from the UI.
+</Callout>
+
 ## Behavior
 
 - **Mount/Unmount lifecycle**: The context is registered when the component mounts and automatically removed when it unmounts. There is no manual cleanup required.
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
-- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors.
+- **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors. Strings are sent through unchanged; every other value is stringified, so the agent always reads a string: see [What the agent receives](#what-the-agent-receives).
 - **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
 - **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
 

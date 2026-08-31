@@ -20,7 +20,7 @@ import {
 } from "react";
 
 /**
- * A conversation thread managed by the Intelligence platform.
+ * A conversation thread managed by CopilotKit Intelligence.
  *
  * Each thread has a unique `id`, an optional human-readable `name`, and
  * timestamp fields tracking creation and update times.
@@ -45,7 +45,7 @@ export interface Thread {
  * Configuration for the {@link useThreads} hook.
  *
  * Thread operations are scoped to the runtime-authenticated user and the
- * provided agent on the Intelligence platform.
+ * provided agent on CopilotKit Intelligence.
  */
 export interface UseThreadsInput {
   /** The ID of the agent whose threads to list and manage. */
@@ -192,10 +192,10 @@ function useThreadStoreSelector<T>(
 }
 
 /**
- * React hook for listing and managing Intelligence platform threads.
+ * React hook for listing and managing CopilotKit Intelligence threads.
  *
  * On mount the hook fetches the thread list for the runtime-authenticated user
- * and the given `agentId`. When the Intelligence platform exposes a WebSocket
+ * and the given `agentId`. When CopilotKit Intelligence exposes a WebSocket
  * URL, it also opens a realtime subscription so the `threads` array stays
  * current without polling — thread creates, renames, archives, and deletes
  * from any client are reflected immediately.
@@ -242,7 +242,7 @@ export function useThreads({
 
   const [store] = useState(() =>
     ɵcreateThreadStore({
-      fetch: globalThis.fetch,
+      fetch: copilotkit.ɵruntimeFetch,
     }),
   );
 

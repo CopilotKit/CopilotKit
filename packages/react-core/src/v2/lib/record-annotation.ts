@@ -33,7 +33,7 @@ export interface RecordAnnotationArgs {
    */
   headers: Record<string, string>;
   /**
-   * The annotation discriminant understood by the Intelligence platform.
+   * The annotation discriminant understood by CopilotKit Intelligence.
    * `"user_action"` records a UI interaction for the self-learning loop.
    */
   type: string;

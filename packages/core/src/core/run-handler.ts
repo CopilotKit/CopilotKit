@@ -13,7 +13,9 @@ import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
 import { CopilotKitCoreErrorCode } from "./core";
 import { AgentThreadLockedError } from "../intelligence-agent";
 import type { FrontendTool } from "../types";
+import { isAbortError } from "../utils/abort-error";
 import type { CopilotKitCoreContinuationHandoff } from "./state-manager";
+import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
@@ -392,8 +394,8 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    const incomingThreadId = agent.threadId ?? null;
     try {
-      const incomingThreadId = agent.threadId ?? null;
       const restoreKey = this.getConnectRestoreKey(agent);
       const isFreshRestore =
         incomingThreadId !==
@@ -462,16 +464,15 @@ export class RunHandler {
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
-      // Silently ignore abort errors (e.g. from navigation during active requests)
-      const isAbort =
-        connectError.name === "AbortError" ||
-        connectError.message === "Fetch is aborted" ||
-        connectError.message === "signal is aborted without reason" ||
-        connectError.message === "component unmounted";
-      if (!isAbort) {
+      // Silently ignore abort errors (e.g. from navigation during active
+      // requests).
+      if (!isAbortError(connectError)) {
         const context: Record<string, any> = {};
         if (agent.agentId) {
           context.agentId = agent.agentId;
+        }
+        if (incomingThreadId) {
+          context.threadId = incomingThreadId;
         }
         await this._internal.emitError({
           error: connectError,
@@ -775,50 +776,9 @@ export class RunHandler {
   }
 
   private isFrontendPlaceholderResult(message: Message): boolean {
-    if (message.role !== "tool") {
-      return false;
-    }
-
-    const normalized = this.normalizeToolResultContent(message.content);
-    return normalized === "Forwarded to client";
-  }
-
-  private normalizeToolResultContent(content: unknown): string | null {
-    if (typeof content === "string") {
-      return content.trim();
-    }
-
-    if (Array.isArray(content)) {
-      const text = content
-        .flatMap((part) => {
-          if (typeof part === "string") {
-            return [part];
-          }
-          if (
-            part &&
-            typeof part === "object" &&
-            "text" in part &&
-            typeof (part as { text?: unknown }).text === "string"
-          ) {
-            return [(part as { text: string }).text];
-          }
-          return [];
-        })
-        .join("")
-        .trim();
-      return text.length > 0 ? text : null;
-    }
-
-    if (
-      content &&
-      typeof content === "object" &&
-      "text" in content &&
-      typeof (content as { text?: unknown }).text === "string"
-    ) {
-      return (content as { text: string }).text.trim();
-    }
-
-    return null;
+    return (
+      message.role === "tool" && isForwardedToClientPlaceholder(message.content)
+    );
   }
 
   /**

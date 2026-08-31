@@ -194,6 +194,10 @@ const fetchMock = vi.fn();
 // assignment leaks the mock across test files in the same vitest worker.
 vi.stubGlobal("fetch", fetchMock);
 
+const runtimeFetchMock = vi.fn((...args: unknown[]) =>
+  (fetchMock as (...a: unknown[]) => unknown)(...args),
+);
+
 function getMockSockets(): MockSocketLike[] {
   return phoenix.sockets;
 }
@@ -215,6 +219,7 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
       },
+      ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
       registerThreadStore: vi.fn(),
       unregisterThreadStore: vi.fn(),
     },
@@ -265,6 +270,7 @@ describe("useThreads", () => {
   beforeEach(() => {
     phoenix.sockets.splice(0);
     fetchMock.mockReset();
+    runtimeFetchMock.mockClear();
     // Reset before re-priming. setupCopilotKit() uses mockReturnValue, so a
     // future test that uses mockReturnValueOnce would otherwise leak any
     // un-consumed queued returns into the next test.
@@ -309,6 +315,28 @@ describe("useThreads", () => {
     const socket = getMockSockets()[0];
     expect(socket.connected).toBe(true);
     expect(socket.channels[0].topic).toBe("user_meta:jc-1");
+  });
+
+  it("routes thread requests through the core's instrumented fetch", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(runtimeFetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/threads?agentId=agent-1"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(runtimeFetchMock.mock.calls.length).toBe(
+      fetchMock.mock.calls.length,
+    );
   });
 
   it("stores fetch failures in error state", async () => {
@@ -373,6 +401,7 @@ describe("useThreads", () => {
         headers: {},
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore,
         unregisterThreadStore,
       },
@@ -397,6 +426,7 @@ describe("useThreads", () => {
           realtimeMetadata: false,
         },
         intelligence: undefined,
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -424,6 +454,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: undefined,
         intelligence: undefined,
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -461,6 +492,7 @@ describe("useThreads", () => {
           realtimeMetadata: false,
         },
         intelligence: undefined,
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -854,6 +886,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore,
         unregisterThreadStore,
       },
@@ -891,6 +924,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: undefined,
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -932,6 +966,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
+        ɵruntimeFetch: runtimeFetchMock as unknown as typeof fetch,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
