@@ -1,0 +1,11 @@
+{
+  "name": "webmcp-spike",
+  "private": true,
+  "type": "module",
+  "description": "Throwaway feasibility spike for prds/webmcp-usefrontendtool-integration.md. NOT part of the pnpm workspace and not shipped.",
+  "scripts": { "test": "vitest run --config vitest.config.mjs" },
+  "devDependencies": {
+    "@testing-library/react": "^14", "jsdom": "^25", "react": "^18",
+    "react-dom": "^18", "vitest": "^2", "zod": "^3", "zod-to-json-schema": "^3"
+  }
+}
