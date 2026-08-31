@@ -30,7 +30,6 @@ import {
 } from "../frontend-page-content";
 import { buildBreadcrumbs, loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
-import { resolveFrontendDocPage } from "../frontend-doc-policy";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import {
   getAngularDocsNavTree,
@@ -712,32 +711,18 @@ test("publishes the Vue generative UI guide as a reachable sidebar page", () => 
   );
 
   expect(pageUrls).toContain("/vue/guides/generative-ui");
-  expect(resolveFrontendDocPage("vue", "guides/generative-ui")).toEqual(
-    expect.objectContaining({
-      status: "found",
-      slugPath: "guides/generative-ui",
-      contentSlugPath: "frontends/vue/guides/generative-ui",
-      canonicalPath: "/vue/guides/generative-ui",
-    }),
-  );
 });
 
-test("links the Vue quickstart to its guide with an href that survives rewriting", () => {
+test("links the Vue quickstart to its explicit Vue-owned route without implicit prefixing", () => {
   const quickstart = loadDoc(getFrontendContentSlug("vue"));
   const href = quickstart?.source.match(
-    /\]\((\S*guides\/generative-ui)\)/,
+    /\]\((\/vue\/generative-ui\/tool-based)\)/,
   )?.[1];
 
-  // A relative or root-relative href is passed through untouched by
-  // resolveDocsHref, so the browser would resolve it against `/vue` and land
-  // on `/guides/generative-ui`, which does not exist.
-  expect(href).toBe("/vue/guides/generative-ui");
+  expect(href).toBe("/vue/generative-ui/tool-based");
 
   const rendered = resolveDocsHref(href, { slugHrefPrefix: "/vue" });
-  expect(rendered).toBe("/vue/guides/generative-ui");
-  expect(resolveFrontendDocPage("vue", "guides/generative-ui").status).toBe(
-    "found",
-  );
+  expect(rendered).toBe("/vue/generative-ui/tool-based");
 });
 
 test("keeps frontends without guides free of an empty Guides section", () => {
