@@ -36,10 +36,11 @@ const schema = z.object({
     .describe("Carousel heading. Defaults to 'This week'."),
   items: z
     .array(catalogItemSchema)
-    .min(1)
     .max(10)
     .optional()
-    .describe("Catalog slides. Defaults to the sample shoes / hat / bottle."),
+    .describe(
+      "Catalog slides. Omit this, or pass an empty list, to post the sample shoes / hat / bottle catalog.",
+    ),
 });
 
 export type CatalogItem = z.infer<typeof catalogItemSchema>;
@@ -116,7 +117,8 @@ export const renderCarouselTool = defineChannelTool({
   description:
     "Post a product carousel that mixes native channel UI with React snapshots. " +
     "Each slide has a React ProductCard image, native text, and a Buy button. " +
-    "Call this when the user asks for a carousel, catalog, or mixed React + channels UI demo.",
+    "When the user asks for a carousel, catalog, or sample slides in plain text, " +
+    "call this with no arguments to post the sample catalog.",
   parameters: schema,
   async handler(args, { thread }) {
     return renderCatalogCarousel(thread, args);
