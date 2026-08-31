@@ -372,9 +372,6 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../../packages/react-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
@@ -463,9 +460,6 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../../packages/react-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
@@ -789,9 +783,6 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../../packages/react-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
@@ -833,8 +824,14 @@ importers:
         version: 2.6.0
       tailwindcss-animate:
         specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.9.0))
+        version: 1.0.7(tailwindcss@4.1.18)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
     devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.18
+        version: 4.1.18
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.3
@@ -851,8 +848,8 @@ importers:
         specifier: ^8
         version: 8.5.6
       tailwindcss:
-        specifier: ^3.4.1
-        version: 3.4.19(tsx@4.21.0)(yaml@2.9.0)
+        specifier: ^4.1.18
+        version: 4.1.18
       typescript:
         specifier: ^5
         version: 5.9.2
@@ -862,15 +859,9 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../../packages/react-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
-      '@copilotkit/runtime-client-gql':
-        specifier: workspace:*
-        version: link:../../../packages/runtime-client-gql
       clsx:
         specifier: ^1.2.1
         version: 1.2.1
@@ -892,7 +883,13 @@ importers:
       tailwind-merge:
         specifier: ^1.13.2
         version: 1.14.0
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
     devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.13
+        version: 4.1.18
       '@types/node':
         specifier: ^20
         version: 20.19.27
@@ -906,8 +903,8 @@ importers:
         specifier: ^8
         version: 8.5.6
       tailwindcss:
-        specifier: ^3.4.1
-        version: 3.4.19(tsx@4.21.0)(yaml@2.9.0)
+        specifier: ^4.1.13
+        version: 4.1.18
       typescript:
         specifier: ^5
         version: 5.9.2
@@ -917,9 +914,6 @@ importers:
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
-      '@copilotkit/react-ui':
-        specifier: workspace:*
-        version: link:../../../packages/react-ui
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
@@ -980,9 +974,6 @@ importers:
       next:
         specifier: ^16.0.10
         version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
-      openai:
-        specifier: ^4.85.1
-        version: 4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76)
       react:
         specifier: 19.2.3
         version: 19.2.3
@@ -1000,11 +991,17 @@ importers:
         version: 2.6.0
       tailwindcss-animate:
         specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.9.0))
+        version: 1.0.7(tailwindcss@4.1.18)
       vaul:
         specifier: ^1.1.1
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
     devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.18
+        version: 4.1.18
       '@types/leaflet':
         specifier: ^1.9.14
         version: 1.9.21
@@ -1024,8 +1021,8 @@ importers:
         specifier: ^8
         version: 8.5.6
       tailwindcss:
-        specifier: ^3.4.1
-        version: 3.4.19(tsx@4.21.0)(yaml@2.9.0)
+        specifier: ^4.1.18
+        version: 4.1.18
       typescript:
         specifier: ^5
         version: 5.9.2

@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 body {
   font-family: Arial, Helvetica, sans-serif;
@@ -89,18 +88,8 @@ body {
   background-color: #e0e9fd;
 }
 
-.copilotKitResponseButton {
-  background-color: transparent;
-  color: var(--copilot-kit-secondary-color);
-  border: 0px;
-}
-
 .copilotKitInput {
   background-color: white;
-}
-
-.copilotKitMessageControlButton {
-  color: #6766fc;
 }
 
 .copilotKitInput > textarea {
@@ -108,6 +97,6 @@ body {
   color: black;
 }
 
-.copilotKitInput > .copilotKitInputControls > button:not([disabled]) {
-  color: var(--copilot-kit-secondary-color);
+.copilotKitInput button:not([disabled]) {
+  color: var(--primary);
 }

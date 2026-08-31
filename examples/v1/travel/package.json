@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/react-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-checkbox": "^1.1.1",
@@ -34,23 +33,24 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.414.0",
     "next": "14.2.35",
-    "openai": "^4.85.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-leaflet": "^4.2.1",
     "shiki": "^3.20.0",
     "tailwind-merge": "^2.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "vaul": "^1.1.1"
+    "vaul": "^1.1.1",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
     "@types/leaflet": "^1.9.14",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.1",
     "@types/react-dom": "19.0.2",
     "concurrently": "^8.2.2",
     "postcss": "^8",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5"
   },
   "nx": {

@@ -1,22 +1,19 @@
-import { createContext, useContext, ReactNode, useState } from "react";
-import {
+import { createContext, useContext, useState } from "react";
+import type { ReactNode } from "react";
+import { defaultOrders } from "@/lib/types";
+import type {
   Car,
   ContactInfo,
   CardInfo,
   Order,
-  defaultOrders,
   FinancingInfo,
 } from "@/lib/types";
+import { stageInstructions } from "@/lib/system-prompt";
+import type { Stage } from "@/lib/system-prompt";
 
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
-export type Stage =
-  | "buildCar"
-  | "getContactInfo"
-  | "sellFinancing"
-  | "getFinancingInfo"
-  | "getPaymentInfo"
-  | "confirmOrder";
+export type { Stage } from "@/lib/system-prompt";
 
 interface GlobalState {
   stage: Stage;
@@ -63,7 +60,7 @@ export function GlobalStateProvider({ children }: { children: ReactNode }) {
     null,
   );
 
-  useCopilotReadable({
+  useAgentContext({
     description: "Currently Specified Information",
     value: {
       contactInfo,
@@ -72,6 +69,15 @@ export function GlobalStateProvider({ children }: { children: ReactNode }) {
       financingInfo,
       orders,
       currentStage: stage,
+    },
+  });
+
+  useAgentContext({
+    description:
+      "Instructions for the current stage. Follow these instructions before responding.",
+    value: {
+      currentStage: stage,
+      instructions: stageInstructions[stage],
     },
   });
 

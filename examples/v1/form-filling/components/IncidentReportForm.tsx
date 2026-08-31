@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +37,8 @@ import {
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
+import { incidentDateSchema, parseIncidentDate } from "@/lib/incident-date";
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -76,6 +77,7 @@ export function IncidentReportForm() {
       impactLevel: "",
     },
   });
+  const formValues = useWatch({ control: form.control });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
@@ -91,86 +93,70 @@ export function IncidentReportForm() {
     });
   }
 
-  useCopilotReadable(
-    {
-      description:
-        "The security incident report form fields and their current values",
-      value: form,
+  useAgentContext({
+    description:
+      "The security incident report form fields and their current values",
+    value: {
+      name: formValues.name ?? "",
+      email: formValues.email ?? "",
+      incidentType: formValues.incidentType ?? "",
+      date: formValues.date?.toISOString() ?? "",
+      description: formValues.description ?? "",
+      impactLevel: formValues.impactLevel ?? "",
+      suggestedActions: formValues.suggestedActions ?? "",
     },
-    [form],
-  );
+  });
 
-  useCopilotAction({
+  useFrontendTool({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
-    parameters: [
-      {
-        name: "fullName",
-        type: "string",
-        required: true,
-        description: "The full name of the person reporting the incident",
-      },
-      {
-        name: "email",
-        type: "string",
-        required: true,
-        description: "The email address of the person reporting the incident",
-      },
-      {
-        name: "description",
-        type: "string",
-        required: true,
-        description: "The description of the incident",
-      },
-      {
-        name: "date",
-        type: "string",
-        required: true,
-        description: "The date of the incident",
-      },
-      {
-        name: "impactLevel",
-        type: "string",
-        required: true,
-        description: "The impact level of the incident",
-      },
-      {
-        name: "incidentType",
-        type: "string",
-        required: true,
-        description:
-          "The type of incident, must be one of the following: phishing, malware, data_breach, unauthorized_access, ddos, other",
-      },
-      {
-        name: "incidentLevel",
-        type: "string",
-        required: true,
-        description:
-          "The severity of the incident, must be one of the following: low, medium, high, critical",
-      },
-      {
-        name: "incidentDescription",
-        type: "string",
-        required: true,
-        description:
-          "The description of the incident, be as detailed as possible. At least 30 words.",
-      },
-      {
-        name: "suggestedActions",
-        type: "string",
-        required: true,
-        description:
-          "The suggested actions to take based on the incident, be as detailed as possible in a bulleted list.",
-      },
-    ],
+    parameters: z.object({
+      fullName: z
+        .string()
+        .describe("The full name of the person reporting the incident"),
+      email: z
+        .string()
+        .email()
+        .describe("The email address of the person reporting the incident"),
+      date: incidentDateSchema.describe(
+        "The date of the incident in YYYY-MM-DD format",
+      ),
+      incidentType: z
+        .enum([
+          "phishing",
+          "malware",
+          "data_breach",
+          "unauthorized_access",
+          "ddos",
+          "other",
+        ])
+        .describe("The type of incident"),
+      incidentLevel: z
+        .enum(["low", "medium", "high", "critical"])
+        .describe("The severity of the incident"),
+      incidentDescription: z
+        .string()
+        .describe(
+          "A detailed description of the incident of at least 30 words",
+        ),
+      suggestedActions: z
+        .string()
+        .describe("Detailed suggested actions in a bulleted list"),
+    }),
     handler: async (action) => {
+      const incidentDate = parseIncidentDate(action.date);
+      if (!incidentDate) {
+        return "The incident date must be a valid date in YYYY-MM-DD format.";
+      }
+
       form.setValue("name", action.fullName);
       form.setValue("email", action.email);
       form.setValue("description", action.incidentDescription);
-      form.setValue("date", new Date(action.date));
+      form.setValue("date", incidentDate);
       form.setValue("impactLevel", action.incidentLevel);
       form.setValue("incidentType", action.incidentType);
       form.setValue("suggestedActions", action.suggestedActions);
+      return "Updated the incident report form.";
     },
   });
 

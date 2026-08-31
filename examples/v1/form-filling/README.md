@@ -2,6 +2,8 @@
 
 Transform tedious form-filling into natural conversations. Your AI assistant asks the right questions, understands context, and completes forms for you—no more field-by-field drudgery.
 
+This example uses CopilotKit v2. If you are upgrading an existing app, follow the [v2 migration guide](https://docs.copilotkit.ai/migrate/v2).
+
 [Click here for a running example](https://copilotkit.ai/examples/form-filling-copilot)
 
 <div align="center">
@@ -52,10 +54,10 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
      ```
    </details>
 
-3. Create a `.env` file in the project root and add your [Copilot Cloud Public API Key](https://dashboard.operations.copilotkit.ai):
+3. Create a `.env` file in the project root and add your [OpenAI API key](https://platform.openai.com/api-keys):
 
    ```
-   NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY=your_copilotkit_api_key
+   OPENAI_API_KEY=your_openai_api_key
    ```
 
 4. Start the development server:
@@ -97,9 +99,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <CopilotKit
-          publicApiKey={process.env.NEXT_PUBLIC_COPILOT_PUBLIC_API_KEY}
-        >
+        <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
           {children}
         </CopilotKit>
       </body>
@@ -108,54 +108,76 @@ export default function RootLayout({
 }
 ```
 
-### CopilotReadable
+### Agent Context
 
 This provides the form fields and their current values to the AI so it understands the current state of the form and session.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
 
 ```tsx
-useCopilotReadable({
+useAgentContext({
   description: "The security incident form fields and their current values",
-  value: formState,
+  value: {
+    name: formValues.name ?? "",
+    email: formValues.email ?? "",
+    incidentType: formValues.incidentType ?? "",
+    date: formValues.date?.toISOString() ?? "",
+    description: formValues.description ?? "",
+    impactLevel: formValues.impactLevel ?? "",
+    suggestedActions: formValues.suggestedActions ?? "",
+  },
 });
 ```
 
 <em>[app/page.tsx](./app/page.tsx)</em>
 
 ```tsx
-useCopilotReadable({
+useAgentContext({
   description: "The current user information",
   value: retrieveUserInfo(),
 });
 ```
 
-### CopilotAction
+### Frontend Tool
 
 This allows the AI to update the form fields.
 
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
 
 ```tsx
-useCopilotAction({
+useFrontendTool({
   name: "fillIncidentReportForm",
   description: "Fill out the incident report form",
-  parameters: [
-    {
-      name: "fullName",
-      type: "string",
-      required: true,
-      description: "The full name of the person reporting the incident",
-    },
-    // other parameters ...
-  ],
+  parameters: z.object({
+    fullName: z.string(),
+    email: z.string().email(),
+    date: incidentDateSchema,
+    incidentType: z.enum([
+      "phishing",
+      "malware",
+      "data_breach",
+      "unauthorized_access",
+      "ddos",
+      "other",
+    ]),
+    incidentLevel: z.enum(["low", "medium", "high", "critical"]),
+    incidentDescription: z.string(),
+    suggestedActions: z.string(),
+  }),
   handler: async (action) => {
+    const incidentDate = parseIncidentDate(action.date);
+    if (!incidentDate) {
+      return "The incident date must be a valid date in YYYY-MM-DD format.";
+    }
+
     form.setValue("name", action.fullName);
     form.setValue("email", action.email);
     form.setValue("description", action.incidentDescription);
-    form.setValue("date", new Date(action.date));
+    form.setValue("date", incidentDate);
     form.setValue("impactLevel", action.incidentLevel);
     form.setValue("incidentType", action.incidentType);
+    form.setValue("suggestedActions", action.suggestedActions);
+    return "Updated the incident report form.";
   },
 });
 ```

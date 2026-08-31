@@ -1,24 +1,66 @@
 import { ResearchCanvas } from "@/components/ResearchCanvas";
+import { Progress } from "@/components/Progress";
 import { useModelSelectorContext } from "@/lib/model-selector-provider";
-import { AgentState } from "@/lib/types";
-import { useCoAgent } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
-import { useCopilotChatSuggestions } from "@copilotkit/react-ui";
+import type { AgentState } from "@/lib/types";
+import {
+  CopilotChat,
+  useAgent,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+import { useEffect } from "react";
+import type { CSSProperties } from "react";
+
+function normalizeAgentState(value: unknown, model: string): AgentState {
+  const state =
+    value !== null && typeof value === "object"
+      ? (value as Partial<AgentState>)
+      : {};
+
+  return {
+    model: state.model ?? model,
+    research_question: state.research_question ?? "",
+    resources: state.resources ?? [],
+    report: state.report ?? "",
+    logs: state.logs ?? [],
+  };
+}
 
 export default function Main() {
   const { model, agent } = useModelSelectorContext();
-  const { state, setState } = useCoAgent<AgentState>({
-    name: agent,
-    initialState: {
-      model,
-      research_question: "",
-      resources: [],
-      report: "",
-      logs: [],
-    },
+  const { agent: researchAgent, isReady } = useAgent({
+    agentId: agent,
   });
+  const state = normalizeAgentState(researchAgent.state, model);
 
-  useCopilotChatSuggestions({
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    researchAgent.setState(normalizeAgentState(researchAgent.state, model));
+  }, [isReady, model, researchAgent]);
+
+  useEffect(() => {
+    if (!isReady) {
+      return;
+    }
+
+    const subscription = researchAgent.subscribe({
+      onRunInitialized: ({ state: runState }) => ({
+        state: {
+          ...normalizeAgentState(runState, model),
+          logs: [],
+        },
+      }),
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isReady, model, researchAgent]);
+
+  useConfigureSuggestions({
+    consumerAgentId: agent,
+    providerAgentId: agent,
+    available: "before-first-message",
     instructions: "Lifespan of penguins",
   });
 
@@ -35,28 +77,29 @@ export default function Main() {
         <div className="flex-1 overflow-hidden">
           <ResearchCanvas />
         </div>
-        <div
-          className="w-[500px] h-full flex-shrink-0"
-          style={
-            {
-              "--copilot-kit-background-color": "#E0E9FD",
-              "--copilot-kit-secondary-color": "#6766FC",
-              "--copilot-kit-separator-color": "#b8b8b8",
-              "--copilot-kit-primary-color": "#FFFFFF",
-              "--copilot-kit-contrast-color": "#000000",
-              "--copilot-kit-secondary-contrast-color": "#000",
-            } as any
-          }
-        >
+        <div className="w-[500px] h-full flex flex-col flex-shrink-0">
+          {state.logs.length > 0 && (
+            <div className="border-b border-[#b8b8b8] bg-[#E0E9FD] p-4">
+              <Progress logs={state.logs} />
+            </div>
+          )}
           <CopilotChat
-            className="h-full"
-            onSubmitMessage={async (message) => {
-              // clear the logs before starting the new research
-              setState({ ...state, logs: [] });
-              await new Promise((resolve) => setTimeout(resolve, 30));
-            }}
+            agentId={agent}
+            className="min-h-0 flex-1"
+            style={
+              {
+                "--background": "#E0E9FD",
+                "--foreground": "#000000",
+                "--primary": "#6766FC",
+                "--primary-foreground": "#FFFFFF",
+                "--border": "#b8b8b8",
+                "--input": "#b8b8b8",
+                "--ring": "#6766FC",
+              } as CSSProperties
+            }
             labels={{
-              initial: "Hi! How can I assist you with your research today?",
+              welcomeMessageText:
+                "Hi! How can I assist you with your research today?",
             }}
           />
         </div>

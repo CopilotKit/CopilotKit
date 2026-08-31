@@ -1,5 +1,21 @@
-import { UserMessageProps, AssistantMessageProps } from "@copilotkit/react-ui";
-import { Markdown } from "@copilotkit/react-ui";
+import type {
+  AssistantMessage as AgUiAssistantMessage,
+  Message,
+  UserMessage as AgUiUserMessage,
+} from "@copilotkit/react-core/v2";
+import type { ReactNode } from "react";
+
+interface UserMessageProps {
+  message: AgUiUserMessage;
+}
+
+interface AssistantMessageProps {
+  message: AgUiAssistantMessage;
+  messages?: Message[];
+  isRunning?: boolean;
+  markdownRenderer: ReactNode;
+  toolCallsView: ReactNode;
+}
 
 function normalizeMarkdownContent(content: unknown): string {
   if (typeof content === "string") return content;
@@ -56,10 +72,14 @@ export function UserMessage({ message }: UserMessageProps) {
 
 export function AssistantMessage({
   message,
-  subComponent,
-  isLoading,
+  messages,
+  isRunning,
+  markdownRenderer,
+  toolCallsView,
 }: AssistantMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
+  const isLatestMessage = messages?.[messages.length - 1]?.id === message.id;
+  const showLoading = Boolean(isRunning && isLatestMessage);
 
   return (
     <div className="flex items-start gap-4 px-6 py-4">
@@ -102,21 +122,21 @@ export function AssistantMessage({
       </div>
 
       {/* Message */}
-      {(message || isLoading) && (
+      {(content || showLoading) && (
         <div className="relative py-2 px-4 rounded-2xl rounded-tl-sm max-w-[80%] text-sm leading-relaxed bg-white border border-neutral-200 shadow-sm">
           <div className="font-medium text-pink-600 mb-1">Fio</div>
-          {isLoading ? (
+          {showLoading ? (
             <div className="flex items-center gap-2 p-1">
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-2 h-2 bg-pink-600 rounded-full animate-bounce" />
             </div>
           ) : (
-            <>{content && <Markdown content={content} />}</>
+            markdownRenderer
           )}
         </div>
       )}
-      {subComponent}
+      {toolCallsView}
     </div>
   );
 }
