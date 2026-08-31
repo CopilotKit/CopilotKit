@@ -561,6 +561,18 @@ export class DeliveryAdapter implements PlatformAdapter {
     if (target.delivery.adapter === "slack") {
       if (hasManagedSlackFile(ir)) {
         await waitForManagedSlackFile();
+        // Takumi can idle the delivery join for minutes. A status packet
+        // rejoins on packet_out_of_order without closing the path, so the
+        // carousel post can use the fresh join.
+        try {
+          await target.claimedDelivery.effect(
+            mintId("response_"),
+            { kind: "slack.thread.status", status: "is thinking…" },
+            { charge: false, bestEffort: true },
+          );
+        } catch {
+          // Status is best-effort. The carousel post still runs.
+        }
       }
       return withManagedSlackFileRetry(send);
     }
