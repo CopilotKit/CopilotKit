@@ -41,6 +41,51 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  it("parses the platform's error code off a real 404 response body", async () => {
+    // The CLIENT BOUNDARY, on purpose. The handler tests construct
+    // PlatformRequestError directly, which proves the branch but not that the
+    // platform's nested `{ error: { code } }` envelope actually reaches it. If
+    // the envelope shape ever moves, this is what notices — the handler tests
+    // would keep passing against a code nothing produces any more.
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      text: async () =>
+        JSON.stringify({
+          error: {
+            code: "THREAD_NOT_FOUND",
+            message: "Thread not found.",
+            category: "not_found",
+            retryable: false,
+          },
+        }),
+    });
+
+    await expect(
+      client.getThread({ threadId: "thread-1", userId: "user-1" }),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: "THREAD_NOT_FOUND",
+    });
+  });
+
+  it("leaves the code undefined when a 404 body is not the platform envelope", async () => {
+    // A proxy's HTML error page is still a 404. It must not resolve to a code,
+    // because an unrecognised failure has to stay loud rather than read as
+    // "this thing is absent".
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 404,
+      statusText: "Not Found",
+      text: async () => "<html><body>404 Not Found</body></html>",
+    });
+
+    await expect(
+      client.getThread({ threadId: "thread-1", userId: "user-1" }),
+    ).rejects.toMatchObject({ status: 404, code: undefined });
+  });
+
   it("strips trailing slash from apiUrl", async () => {
     const c = new CopilotKitIntelligence({
       apiUrl: "https://api.example.com/",
