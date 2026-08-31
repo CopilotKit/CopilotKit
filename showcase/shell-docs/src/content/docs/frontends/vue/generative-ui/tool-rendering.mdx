@@ -1,0 +1,86 @@
+---
+title: Tool Call Rendering
+icon: "lucide/Server"
+description: Render backend tool calls with status-aware Vue components.
+---
+
+## What is this?
+
+Tool rendering changes how an existing agent/backend tool call appears. The backend still owns and executes the tool; Vue receives its arguments, lifecycle status, and serialized result and renders a component in the chat.
+
+Use it for progress, operational transparency, and rich results. The renderer name must exactly match the backend tool name.
+
+## Add a default renderer
+
+Call `useDefaultRenderTool()` in a descendant component to show CopilotKit's built-in expandable card for every otherwise-unhandled tool. Without a named or wildcard renderer, ordinary tool calls are not shown as cards.
+
+```vue title="src/components/AgentExperience.vue"
+<script setup lang="ts">
+import { CopilotChat, useDefaultRenderTool } from "@copilotkit/vue/v2";
+
+useDefaultRenderTool();
+</script>
+
+<template><CopilotChat /></template>
+```
+
+## Render one backend tool
+
+```vue title="src/components/WeatherToolCard.vue"
+<script setup lang="ts">
+defineProps<{
+  parameters: { city?: string };
+  status: "inProgress" | "executing" | "complete";
+  result?: string;
+}>();
+</script>
+
+<template>
+  <p v-if="status !== 'complete'">Checking {{ parameters.city ?? "…" }}</p>
+  <article v-else>
+    <strong>{{ parameters.city }}</strong>
+    <pre>{{ result }}</pre>
+  </article>
+</template>
+```
+
+```vue title="src/components/AgentExperience.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { CopilotChat, useDefaultRenderTool, useRenderTool } from "@copilotkit/vue/v2";
+import WeatherToolCard from "./WeatherToolCard.vue";
+
+useRenderTool({
+  name: "get_weather",
+  parameters: z.object({ city: z.string() }),
+  render: WeatherToolCard,
+});
+
+useDefaultRenderTool(); // wildcard fallback for every other tool
+</script>
+
+<template><CopilotChat /></template>
+```
+
+`parameters` is partial while arguments stream. Read required fields only after the status advances from `inProgress`. The result is a string when status is `complete`; parse it only if your backend deliberately returns a documented serialized shape.
+
+If the renderer closes over reactive values, pass Vue watch sources as the second argument:
+
+```ts
+useRenderTool({ name: "get_weather", parameters, render: WeatherToolCard }, [locale]);
+```
+
+Finally, mount the registration component beneath the provider:
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import AgentExperience from "./components/AgentExperience.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit"><AgentExperience /></CopilotKitProvider>
+</template>
+```
+
+The matching backend must expose `get_weather` and return its result through the agent runtime. The Vue renderer does not create or execute that backend tool.

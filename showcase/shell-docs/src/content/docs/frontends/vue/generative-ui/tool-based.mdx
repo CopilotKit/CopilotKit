@@ -1,0 +1,66 @@
+---
+title: Components as Tools
+icon: "lucide/LayoutDashboard"
+description: Let your agent display typed Vue components by calling them as tools.
+---
+
+## What is this?
+
+`useComponent` exposes an ordinary Vue component to the agent as a display-only frontend tool. The tool has no handler and performs no server-side operation: the agent chooses it, fills its schema, and CopilotKit passes those values to the component as props.
+
+Use this for cards, charts, tables, previews, and summaries. If a real backend tool must execute, use [Tool Call Rendering](/vue/generative-ui/tool-rendering). If the user must approve or answer before the run continues, use [Human-in-the-loop](/vue/human-in-the-loop).
+
+## Define the component
+
+```vue title="src/components/WeatherCard.vue"
+<script setup lang="ts">
+defineProps<{ city: string; temperature: number; condition: string }>();
+</script>
+
+<template>
+  <article>
+    <strong>{{ city }}</strong>
+    <p>{{ temperature }}° · {{ condition }}</p>
+  </article>
+</template>
+```
+
+## Register it below the provider
+
+Vue composables execute during component setup, so the component calling `useComponent` must be a descendant of `CopilotKitProvider`.
+
+```vue title="src/components/AgentExperience.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { CopilotChat, useComponent } from "@copilotkit/vue/v2";
+import WeatherCard from "./WeatherCard.vue";
+
+useComponent({
+  name: "show_weather",
+  description: "Display the weather for one city.",
+  parameters: z.object({
+    city: z.string(),
+    temperature: z.number(),
+    condition: z.string(),
+  }),
+  render: WeatherCard,
+});
+</script>
+
+<template><CopilotChat /></template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import AgentExperience from "./components/AgentExperience.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <AgentExperience />
+  </CopilotKitProvider>
+</template>
+```
+
+The `name` and `description` are sent to the agent. Use a specific verb-like name and describe when the component is useful. The model supplies the props, so validate consequential data against application state rather than treating a well-formed card as proof that the values are authorized or current.

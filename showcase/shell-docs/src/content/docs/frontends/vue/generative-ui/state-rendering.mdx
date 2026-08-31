@@ -1,0 +1,55 @@
+---
+title: State Rendering
+icon: "lucide/Bot"
+description: Render streamed agent state in Vue as progress, drafts, or structured output.
+---
+
+## What is this?
+
+State rendering is ordinary Vue UI driven by the current AG-UI agent state. Use it for progress, drafts, dashboards, and structured results outside the message list.
+
+The frontend only renders updates the agent sends. Configure your backend or adapter to emit `STATE_SNAPSHOT`/state updates (or use its state-streaming middleware) before expecting token-by-token state in Vue.
+
+## Subscribe in a descendant component
+
+`useAgent` returns an `agent` ref. Read `agent.value?.state` in script or let templates unwrap the ref. Keep the provider in an ancestor SFC.
+
+```vue title="src/components/ResearchProgress.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+
+type ResearchState = { status?: string; draft?: string; completed?: number; total?: number };
+
+const { agent } = useAgent({
+  agentId: "researcher",
+  updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+});
+
+const state = computed(() => (agent.value?.state ?? {}) as ResearchState);
+</script>
+
+<template>
+  <section aria-live="polite">
+    <p>{{ state.status ?? "Idle" }}</p>
+    <progress :value="state.completed ?? 0" :max="state.total ?? 1" />
+    <article v-if="state.draft">{{ state.draft }}</article>
+  </section>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import ResearchProgress from "./components/ResearchProgress.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ResearchProgress />
+    <CopilotChat agent-id="researcher" />
+  </CopilotKitProvider>
+</template>
+```
+
+Treat agent state as untrusted external data. Validate it before using it for privileged actions, and avoid putting secrets in state that is streamed to the browser.

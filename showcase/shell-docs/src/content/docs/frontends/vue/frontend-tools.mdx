@@ -1,0 +1,60 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Let an agent invoke typed functions that execute in the user's Vue application.
+---
+
+## What is this?
+
+Frontend tools run in the browser. They can update Vue state, use browser APIs, call an application endpoint, or interact with an installed UI library. Their return value is sent to the agent as the tool result.
+
+Use them only for work that belongs in the user's browser. Privileged mutations, secret-bearing API calls, and authorization decisions belong on a trusted backend.
+
+## Register a tool below the provider
+
+```vue title="src/components/DashboardAgent.vue"
+<script setup lang="ts">
+import { ref } from "vue";
+import { z } from "zod";
+import { CopilotChat, useFrontendTool } from "@copilotkit/vue/v2";
+
+const severity = ref("all");
+
+useFrontendTool(
+  {
+    name: "filter_incidents",
+    description: "Filter the visible incident list by severity.",
+    parameters: z.object({
+      severity: z.enum(["all", "sev1", "sev2", "sev3"]),
+    }),
+    handler: async ({ severity: nextSeverity }) => {
+      severity.value = nextSeverity;
+      return { applied: true, severity: nextSeverity };
+    },
+  },
+  [severity],
+);
+</script>
+
+<template>
+  <p>Current filter: {{ severity }}</p>
+  <CopilotChat />
+</template>
+```
+
+The second argument is an array of Vue watch sources, not a React dependency array. Include refs or getters read by the registration so the handler sees current values.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import DashboardAgent from "./components/DashboardAgent.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <DashboardAgent />
+  </CopilotKitProvider>
+</template>
+```
+
+Your agent discovers the name, description, and parameter schema through the runtime connection. Make descriptions narrow, validate inputs, and ask for explicit confirmation before irreversible actions. For a tool that must wait for a user's answer, use `useHumanInTheLoop` instead.

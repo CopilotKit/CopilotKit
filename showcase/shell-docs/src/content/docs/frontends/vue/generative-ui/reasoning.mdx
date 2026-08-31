@@ -1,0 +1,56 @@
+---
+title: Reasoning
+icon: "lucide/Brain"
+description: Surface the agent's reasoning in Vue chat with the built-in card or a scoped slot.
+hideTOC: true
+---
+
+## What is this?
+
+When an agent emits AG-UI `REASONING_MESSAGE_*` events, `CopilotChat` renders them as first-class reasoning messages. Vue includes the same zero-configuration reasoning card as the React chat: it expands while content streams, then collapses behind a completed label.
+
+Reasoning is produced by the model and forwarded by your agent/runtime. The Vue frontend cannot make a model emit reasoning; select a reasoning-capable model and make sure your adapter forwards AG-UI reasoning events.
+
+## When should I use this?
+
+Use reasoning UI to show progress on long tasks, help users understand multi-step work, or inspect an agent during development. Avoid presenting private chain-of-thought as a security boundary: only emit reasoning content that is safe for the end user to see.
+
+## Default rendering
+
+No Vue registration is required. Put the chat under `CopilotKitProvider`; reasoning events use `CopilotChatReasoningMessage` automatically.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <main style="height: 100dvh"><CopilotChat /></main>
+  </CopilotKitProvider>
+</template>
+```
+
+## Custom rendering
+
+Use the `reasoning-message` scoped slot when the built-in card does not fit your product. The slot receives `message`, the complete `messages` list, and `isRunning`.
+
+```vue title="src/AgentChat.vue"
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotChat>
+    <template #reasoning-message="{ message, isRunning }">
+      <aside class="reasoning" aria-live="polite">
+        <strong>{{ isRunning ? "Thinking…" : "Reasoning" }}</strong>
+        <p>{{ message.content }}</p>
+      </aside>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+Render `AgentChat` as a descendant of the provider from the first example. The slot is the Vue customization boundary; React `messageView.reasoningMessage` component/sub-slot objects are not Vue APIs.
+

@@ -1,0 +1,55 @@
+---
+title: "MCP Apps"
+icon: "lucide/Monitor"
+description: Render sandboxed interactive resources returned by MCP servers in Vue chat.
+---
+
+## What is this?
+
+MCP Apps associate MCP tools with UI resources. CopilotKit's runtime middleware resolves the resource and emits an `mcp-apps` activity message; Vue's built-in `MCPAppsActivityRenderer` displays it in a sandboxed iframe and handles supported app-to-agent messages.
+
+This is not frontend-only configuration. You need an MCP Apps server, runtime middleware configuration, and a Vue chat connected to that runtime.
+
+## Configure the runtime
+
+```ts title="server.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: "https://mcp.example.com/mcp",
+        serverId: "support-tools",
+      },
+    ],
+  },
+});
+```
+
+Use `type: "sse"` for an SSE server and add server-side headers there when authentication is required. Keep credentials on the runtime; do not expose private MCP tokens in Vue code.
+
+Always assign a stable `serverId`. Persisted activity messages refer back to the server; deriving identity from a URL makes history restoration fragile when environment URLs change.
+
+## Mount the Vue chat
+
+No renderer registration is necessary. `CopilotKitProvider` always registers the Vue MCP Apps renderer.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <main style="height: 100dvh"><CopilotChat /></main>
+  </CopilotKitProvider>
+</template>
+```
+
+MCP App UI is re-derived from replayed conversation activity. Durable restoration therefore also requires server-side thread/event persistence, such as CopilotKit Intelligence; the iframe itself is not stored as a separate artifact.
+
+The renderer uses an iframe sandbox, but you should still trust and authorize MCP servers like any other remote application dependency. Restrict server access and review the app's requested capabilities before production use.
+
