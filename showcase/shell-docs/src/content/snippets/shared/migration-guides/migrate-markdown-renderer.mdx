@@ -44,48 +44,68 @@ The built-in renderer escapes raw HTML and sanitizes link/image URLs (only `http
 
 ## Migrate with your AI assistant
 
-The fastest way to restore rich rendering is to hand the migration to your coding agent. Paste the prompt below into Claude Code, Cursor, Copilot, or similar — run from your project root — and it will detect your framework, install the renderer, wire it up, and verify the dev warning is gone. The manual recipes in the rest of this guide are there if you'd rather do it by hand.
+Copy the prompt below. Paste it into Claude Code, Cursor, Copilot, or a similar coding agent. Run the agent from your project root.
+
+The agent will move this app onto CopilotKit's built-in streaming renderer. It will plug in Streamdown only if you still need syntax highlighting, math, or diagrams. Manual recipes are below if you want to do the work yourself.
 
 ````text
-My CopilotKit upgrade changed the default Markdown renderer. CopilotKit no longer
-bundles Streamdown — assistant messages now use a lightweight built-in streaming
-renderer that supports GFM, tables, autolinks, and citations, but NOT syntax
-highlighting, math (KaTeX), or diagrams (mermaid). I want to restore rich rendering.
+My CopilotKit upgrade removed the bundled Streamdown markdown engine.
+Assistant messages now use CopilotKit's built-in streaming renderer
+(@copilotkit/markdown-renderer): GFM, tables, autolinks, citations,
+streaming-safe updates. It does NOT do syntax highlighting, KaTeX math,
+or mermaid diagrams.
+
+Migrate this repo to that new approach. Do not treat Streamdown as a
+CopilotKit dependency. The app owns any extra renderer.
 
 Do the following in this repo:
 
-1. Detect which CopilotKit frontend I use: @copilotkit/react-core (React),
-   @copilotkit/vue (Vue), or @copilotkit/react-native (React Native).
-2. Ask me which to restore (default: Streamdown for full parity with the old
-   behavior; alternatively react-markdown + remark/rehype plugins).
-3. Install the renderer package:
-   - React → streamdown   (or react-markdown remark-gfm remark-math rehype-katex rehype-highlight)
-   - Vue → streamdown-vue
-   - React Native → react-native-streamdown
-4. Create a renderer component that satisfies CopilotKit's contract — a component
-   taking { content: string; isStreaming?: boolean; className?: string } (only
-   `content` is required). For React, import the MarkdownRendererProps type from
-   @copilotkit/react-core/v2. Example (Streamdown, React):
+1. Detect which CopilotKit frontend I use:
+   @copilotkit/react-core (React), @copilotkit/vue (Vue), or
+   @copilotkit/react-native (React Native).
+2. Keep the built-in renderer as the default. Do not install Streamdown,
+   streamdown-vue, react-native-streamdown, or katex until I confirm
+   step 3.
+3. Ask me: do I need syntax highlighting, KaTeX math, or mermaid
+   diagrams in assistant messages?
+   - If no: do not set markdownRenderer on CopilotKitProvider. The
+     built-in renderer is enough. Skip to step 6.
+   - If yes: install one package only:
+     React -> streamdown
+     Vue -> streamdown-vue
+     React Native -> react-native-streamdown
+     (If I already use react-markdown + remark/rehype plugins, keep
+     those instead of Streamdown.)
+     Then add a module-scope renderer component that takes
+     { content: string; isStreaming?: boolean; className?: string }
+     (only `content` is required). For React, type it as
+     MarkdownRendererProps from @copilotkit/react-core/v2.
+     Example (Streamdown, React):
 
-   ```tsx
-   import { Streamdown } from "streamdown";
-   import type { MarkdownRendererProps } from "@copilotkit/react-core/v2";
+     ```tsx
+     import { Streamdown } from "streamdown";
+     import type { MarkdownRendererProps } from "@copilotkit/react-core/v2";
 
-   export function StreamdownRenderer({ content }: MarkdownRendererProps) {
-     return <Streamdown>{content}</Streamdown>;
-   }
-   ```
+     export function StreamdownRenderer({ content }: MarkdownRendererProps) {
+       return <Streamdown>{content}</Streamdown>;
+     }
+     ```
 
-   For react-markdown, pass my plugins through remarkPlugins/rehypePlugins.
-5. Wire it onto the provider via the markdownRenderer prop (React/RN:
-   markdownRenderer={StreamdownRenderer}; Vue: :markdown-renderer="StreamdownRenderer").
-   Define the renderer at MODULE SCOPE, NOT inline — an inline function/object has a
-   new identity each render and remounts the markdown subtree, discarding streaming
-   state. If I load KaTeX/highlight.js, also add their stylesheets.
-6. Show me the diff and confirm the dev-time "built-in markdown renderer" warning
-   no longer fires.
-
-Don't change anything else. Keep my existing CopilotKit config and provider props.
+     Wire it on CopilotKitProvider:
+     React/RN: markdownRenderer={StreamdownRenderer}
+     Vue: :markdown-renderer="StreamdownRenderer"
+     Define the renderer at MODULE SCOPE, never inline. An inline
+     function gets a new identity each render and remounts the markdown
+     subtree, which drops streaming state.
+     If KaTeX or highlight.js styles are required, add those
+     stylesheets in MY app, not inside CopilotKit.
+4. Vue only: delete every import and call of useKatexStyles. That
+   export is removed from @copilotkit/vue.
+5. Remove streamdown / streamdown-vue / react-native-streamdown / katex
+   from package.json only if MY app no longer imports them after this
+   change.
+6. Show me the diff. Do not change other CopilotKit config or provider
+   props.
 ````
 
 ## Restoring Streamdown rendering
