@@ -28,6 +28,7 @@ const fakes = vi.hoisted(() => {
     })),
     bot: {
       onMention: vi.fn(),
+      onMessage: vi.fn(),
       onModalSubmit: vi.fn(),
       onThreadStarted: vi.fn(),
     },
@@ -51,6 +52,10 @@ vi.mock("@copilotkit/runtime/v2/node", () => ({
   createCopilotNodeListener: fakes.createCopilotNodeListener,
 }));
 vi.mock("./tools/index.js", () => ({ appTools: [] }));
+vi.mock("./tools/render-carousel.js", () => ({
+  isCarouselRequest: () => false,
+  renderCatalogCarousel: vi.fn(),
+}));
 vi.mock("./context/app-context.js", () => ({ appContext: [] }));
 vi.mock("./commands/index.js", () => ({ appCommands: [] }));
 vi.mock("./sender-context.js", () => ({ senderContext: vi.fn() }));
