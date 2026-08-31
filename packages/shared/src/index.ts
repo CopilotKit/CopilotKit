@@ -106,7 +106,8 @@ export function createLicenseContextValue(
   const activeEntitlement = featureAuthority?.active ? featureAuthority : null;
   const resolvedStatus = activeEntitlement
     ? "valid"
-    : readyEntitlement?.source === "managedOrgSubscription"
+    : readyEntitlement?.source === "managedOrgSubscription" ||
+        readyEntitlement?.source === "awsMarketplaceDeploymentLicense"
       ? "none"
       : featureAuthority
         ? (status ?? "none")

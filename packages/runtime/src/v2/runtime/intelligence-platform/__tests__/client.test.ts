@@ -149,6 +149,24 @@ test("getRuntimeEntitlements normalizes an inactive self-hosted App API response
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+test("getRuntimeEntitlements accepts an AWS Marketplace App API response", async () => {
+  const client = runtimeEntitlementsClient();
+  const response = {
+    status: "ready",
+    entitlement: {
+      source: "awsMarketplaceDeploymentLicense",
+      active: true,
+      features: { deployment_via_helm_chart: true },
+      limits: { "threads.max_count": 25_000 },
+      planCode: "enterprise",
+    },
+  } as const;
+  fetchMock.mockReturnValue(jsonResponse(response));
+
+  await expect(client.getRuntimeEntitlements()).resolves.toEqual(response);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
 test("recursive forbidden-key control detects identity and credential leaks", () => {
   const leakedProjection = {
     organizationId: "org-leaked",
