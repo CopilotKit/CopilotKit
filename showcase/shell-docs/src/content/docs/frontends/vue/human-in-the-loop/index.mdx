@@ -72,10 +72,10 @@ The picker UI can use static candidate slots, live availability, a calendar API,
 
 With a runtime interrupt, the pause is enforced by the graph itself: a node interrupts with a serializable payload, the run suspends, the client receives the payload, renders a UI, and resumes the run with the user's answer. CopilotKit's `useInterrupt` composable and `CopilotChat`'s `#interrupt` slot form the Vue render contract.
 
-See the [`useInterrupt` deep dive](/human-in-the-loop/useInterrupt) for the full walkthrough, including the backend contract and Vue slot wiring.
+See the [`useInterrupt` deep dive](/vue/human-in-the-loop/useInterrupt) for the full walkthrough, including the backend contract and Vue slot wiring.
 
 ## Going headless
 
-Both patterns above can drive custom UI. For runtime interrupts, set `renderInChat: false` and use the reactive state returned by `useInterrupt`; for a frontend-tool pause, let the Promise-returning HITL tool drive application state. See the [headless interrupts guide](/human-in-the-loop/headless) for the interrupt path.
+Both patterns above can drive custom UI. For runtime interrupts, set `renderInChat: false` and use the reactive state returned by `useInterrupt`; for a frontend-tool pause, let the Promise-returning HITL tool drive application state. See the [headless interrupts guide](/vue/human-in-the-loop/headless) for the interrupt path.
 
 <IntegrationGrid path="human-in-the-loop" />

@@ -4,7 +4,7 @@ icon: "lucide/LayoutDashboard"
 description: "Read agent.state with useAgent and render it in your main view or canvas."
 ---
 
-[Shared state](/shared-state) is most powerful when the agent's state shows up in your application UI, such as a dashboard, document canvas, map, or table. Because `agent.state` is plain data exposed through a Vue ref, you can subscribe from any descendant component and render it however you like.
+[Shared state](/vue/shared-state) is most powerful when the agent's state shows up in your application UI, such as a dashboard, document canvas, map, or table. Because `agent.state` is plain data exposed through a Vue ref, you can subscribe from any descendant component and render it however you like.
 
 ## The pattern
 
@@ -68,7 +68,7 @@ watchEffect(() => {
 
 The `initialState` value is UI-owned initial state for this example. It makes the canvas visible before the agent writes state. The effect sets only `undefined` fields and preserves all other state. If the backend owns the initial state, define it in the shared-state setup for that framework.
 
-Every time the agent mutates its state, whether from a tool call, node transition, or [streamed update](/shared-state/streaming), `useAgent` updates the ref and Vue re-renders this component. The chat can be in a sidebar, a popup, or absent entirely; your canvas updates the same way.
+Every time the agent mutates its state, whether from a tool call, node transition, or [streamed update](/vue/shared-state/streaming), `useAgent` updates the ref and Vue re-renders this component. The chat can be in a sidebar, a popup, or absent entirely; your canvas updates the same way.
 
 ## Put it anywhere in your layout
 
@@ -113,7 +113,7 @@ function toggleItem(id: string) {
 }
 ```
 
-This is the same two-way channel described in [Shared State](/shared-state). The only difference is that the reads and writes happen in your application's main surface rather than in the chat.
+This is the same two-way channel described in [Shared State](/vue/shared-state). The only difference is that the reads and writes happen in your application's main surface rather than in the chat.
 
 ## Tips
 
@@ -123,7 +123,7 @@ This is the same two-way channel described in [Shared State](/shared-state). The
 
 ## Related
 
-- [Shared State](/shared-state): the full read/write model and the underlying `useAgent` subscription.
-- [State streaming](/shared-state/streaming): stream a tool argument into a state key so the canvas fills in token-by-token.
-- [Agent read-only context](/shared-state/agent-readonly): push UI values *to* the agent without letting it write back.
+- [Shared State](/vue/shared-state): the full read/write model and the underlying `useAgent` subscription.
+- [State streaming](/vue/shared-state/streaming): stream a tool argument into a state key so the canvas fills in token-by-token.
+- [Agent read-only context](/vue/shared-state/agent-readonly): push UI values *to* the agent without letting it write back.
 - [`useAgent` reference](/reference/vue/hooks/useAgent): full composable signature and options.

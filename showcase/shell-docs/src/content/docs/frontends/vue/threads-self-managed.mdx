@@ -8,7 +8,7 @@ doc_type: explanation
 
 A common question is: _how do I point CopilotKit's threads at my own database instead of CopilotKit Intelligence?_
 
-The honest answer is that you cannot, because there is no such extension point. CopilotKit does not define a bring-your-own thread backend endpoint spec. [Rich Threads](/threads) — `useThreads`, the [Threads Drawer](/prebuilt-components/copilot-threads-drawer), cross-device sync, and replayable event history — are a capability of [CopilotKit Intelligence](/premium/overview), not an interface with a swappable implementation.
+The honest answer is that you cannot, because there is no such extension point. CopilotKit does not define a bring-your-own thread backend endpoint spec. [Rich Threads](/threads) — `useThreads`, the [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer), cross-device sync, and replayable event history — are a capability of [CopilotKit Intelligence](/premium/overview), not an interface with a swappable implementation.
 
 What you *can* do without the platform is persist conversations yourself. That path works, but it looks different from Rich Threads, and the tradeoffs matter.
 
@@ -38,7 +38,7 @@ Do not let CopilotKit mint the id. Mint it, store it, and pass it in. That id is
 <CopilotChat agent-id="my-agent" :thread-id="conversationId" />
 ```
 
-An auto-minted id is recreated on component remount, which silently starts a new conversation. See [Thread lifecycle](/threads-lifecycle#how-the-threadid-is-created) for the precedence rules.
+An auto-minted id is recreated on component remount, which silently starts a new conversation. See [Thread lifecycle](/vue/threads-lifecycle#how-the-threadid-is-created) for the precedence rules.
 
 ### 2. Persist at the framework layer
 
@@ -129,7 +129,7 @@ If you have existing conversations in a framework store and want them as Rich Th
 
 ## Related
 
-- [Thread lifecycle](/threads-lifecycle) — how ids are minted, hydrated, and switched.
+- [Thread lifecycle](/vue/threads-lifecycle) — how ids are minted, hydrated, and switched.
 - [Thread authorization](/auth#thread-authorization) — scope threads to their owner.
 - [OSS vs CopilotKit Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits.
 - [Rich Threads](/threads) — what the platform-backed path looks like.

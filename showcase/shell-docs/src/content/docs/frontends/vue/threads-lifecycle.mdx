@@ -10,7 +10,7 @@ doc_type: explanation
 Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`. This page explains the full client lifecycle: how the id is created, how prior history is restored, how to switch or start threads, and where CopilotKit's threads end and your agent framework's own persistence begins.
 
 <Callout type="info">
-  This page describes the Vue v2 composables and components imported from `@copilotkit/vue/v2`. The Vue v1 API behaves differently; see [v1 vs v2](#v1-vs-v2).
+  This page describes the current Vue v2 composables and components imported from `@copilotkit/vue/v2`.
 </Callout>
 
 ## The lifecycle at a glance
@@ -198,14 +198,9 @@ MCP Apps render through activity messages, and rendering is a client-side concer
 
 If the server-side store replays the thread's tool-call and activity history, the Vue renderer runs again during hydration. There is no separate MCP Apps store to configure.
 
-## v1 vs v2
-
-- **v2** (`@copilotkit/vue/v2`): `useThreads` returns the platform thread list; `threadId` lives per chat or chat configuration; read and mutate messages through `useAgent().agent` refs; there is no `initialMessages` prop.
-- **v1** (`@copilotkit/vue` legacy APIs): do not assume the v2 thread-list, per-chat id, or message APIs. Follow the legacy reference for the installed version.
-
 ## See also
 
-- [Headless Threads](/headless-threads) — the full Vue `useThreads` API.
+- [Headless Threads](/vue/headless-threads) — the full Vue `useThreads` API.
 - [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, and realtime sync.
 - [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a history sidebar.
 - [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform.

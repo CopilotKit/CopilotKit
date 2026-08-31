@@ -20,7 +20,7 @@ If your project was created from a CopilotKit CLI starter, the Drawer and its sh
 
 Under the hood, the Vue component is an SSR-safe wrapper around the self-contained `copilotkit-threads-drawer` web component. It is fed by [`useThreads`](/reference/vue/hooks/useThreads) and the current chat configuration.
 
-Prefer to build your own thread UI? The same data and actions are available through `useThreads`; see [Headless Threads](/headless-threads). Thread **rename** is one of those headless actions: the prebuilt drawer covers archive, unarchive, and delete, so use your own rows when rename is required.
+Prefer to build your own thread UI? The same data and actions are available through `useThreads`; see [Headless Threads](/vue/headless-threads). Thread **rename** is one of those headless actions: the prebuilt drawer covers archive, unarchive, and delete, so use your own rows when rename is required.
 
 ## When should I use this?
 
@@ -33,7 +33,7 @@ Use the drawer when you want:
 
 It requires CopilotKit Intelligence because threads are stored and synchronized server-side. <SignupLink surface="docs_drawer">Get a free developer account</SignupLink> to set that up.
 
-For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
+For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user).
 
 <OpsPlatformCTA
   variant="inline"
@@ -120,6 +120,6 @@ Threads require CopilotKit Intelligence. Without a valid Threads license, the dr
 ## Related
 
 - [Rich Threads overview](/threads): compare thread UI and deployment paths.
-- [Headless Threads](/headless-threads): build a custom UI with the `useThreads` data layer.
+- [Headless Threads](/vue/headless-threads): build a custom UI with the `useThreads` data layer.
 - [Threads Drawer reference (Vue)](/reference/vue/components/CopilotThreadsDrawer).
 - [CopilotChat](/reference/vue/components/CopilotChat): the chat the drawer connects to.

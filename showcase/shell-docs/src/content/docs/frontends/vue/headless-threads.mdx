@@ -12,7 +12,7 @@ CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. T
 <IntelligenceOnboardingPrompt feature="threads" surface="docs_threads" />
 
 <Callout type="info" title="Prebuilt thread UI: Threads Drawer">
-  If your app came from a CopilotKit CLI starter, it may already include the prebuilt **[Threads Drawer](/prebuilt-components/copilot-threads-drawer)**. Keep it for the shortest path to a production thread switcher. Use the `useThreads` steps below when adding custom thread UI or replacing the Drawer with your own layout and interactions, including thread rename.
+  If your app came from a CopilotKit CLI starter, it may already include the prebuilt **[Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer)**. Keep it for the shortest path to a production thread switcher. Use the `useThreads` steps below when adding custom thread UI or replacing the Drawer with your own layout and interactions, including thread rename.
 </Callout>
 
 ## When should I use this?
@@ -28,7 +28,7 @@ CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. T
 - The current `@copilotkit/vue` v2 package
 - A model provider key supported by your runtime
 
-For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) before exposing thread lists or lifecycle actions.
+For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) before exposing thread lists or lifecycle actions.
 
 ## Implementation
 
@@ -186,7 +186,7 @@ For multi-user applications, configure the runtime to [scope Rich Threads to the
 
 ## Next steps
 
-- **Prebuilt UI:** [Threads Drawer](/prebuilt-components/copilot-threads-drawer) — the drop-in Vue thread switcher.
+- **Prebuilt UI:** [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) — the drop-in Vue thread switcher.
 - **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay and realtime sync.
 - **Production self-hosting:** [Self-host CopilotKit Intelligence](/premium/self-hosting).
 - **API reference:** [`useThreads`](/reference/vue/hooks/useThreads) — parameters, return values, and types.

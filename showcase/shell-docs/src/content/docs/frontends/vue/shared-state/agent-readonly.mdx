@@ -71,9 +71,9 @@ import WorkspaceContext from "./components/WorkspaceContext.vue";
 
 Because the agent never sees a setter or mutation tool for these values, the context registration itself cannot update them. That makes `useAgentContext` the right tool whenever the value is an input rather than a shared workspace both sides edit.
 
-When you need both reads *and* writes, use full **[Shared State](/shared-state)**: `useAgent()` exposes `agent.state` and the same agent's `setState(...)` mutation path when the runtime supports shared state.
+When you need both reads *and* writes, use full **[Shared State](/vue/shared-state)**: `useAgent()` exposes `agent.state` and the same agent's `setState(...)` mutation path when the runtime supports shared state.
 
 ## Related
 
-- **[Shared State (overview)](/shared-state)** — bidirectional reads and writes.
-- **[State streaming](/shared-state/streaming)** — stream agent-written state back to the UI during a run.
+- **[Shared State (overview)](/vue/shared-state)** — bidirectional reads and writes.
+- **[State streaming](/vue/shared-state/streaming)** — stream agent-written state back to the UI during a run.

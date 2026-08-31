@@ -8,7 +8,7 @@ description: Let your agent render rich Vue components directly in the chat by c
 
 Tool-based Generative UI is the simplest form of Generative UI: you register a Vue component with `useComponent`, and CopilotKit exposes it to the agent as a tool. When the agent calls the tool, CopilotKit renders your component inline in the chat, passing the tool's arguments straight through as typed props.
 
-Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a real backend tool in a custom UI, tool-based GenUI is the component. There is no handler, no user interaction, no server-side execution. The agent decides when to show it, populates the data, and CopilotKit paints it.
+Unlike [tool rendering](/vue/generative-ui/tool-rendering), which wraps a real backend tool in a custom UI, tool-based GenUI is the component. There is no handler, no user interaction, no server-side execution. The agent decides when to show it, populates the data, and CopilotKit paints it.
 
 ## When should I use this?
 
@@ -19,7 +19,7 @@ Use `useComponent` when you want to:
 - Render previews, status indicators, or visual summaries
 - Let the agent present information beyond plain text
 
-For components that need user interaction, see [Human-in-the-loop](/human-in-the-loop). For operational transparency around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
+For components that need user interaction, see [Human-in-the-loop](/vue/human-in-the-loop). For operational transparency around a real backend tool, see [Tool rendering](/vue/generative-ui/tool-rendering).
 
 ## How it works in code
 

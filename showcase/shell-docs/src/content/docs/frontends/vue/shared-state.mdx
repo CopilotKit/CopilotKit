@@ -94,7 +94,7 @@ This is what makes the channel two-way: the UI doesn't just observe the agent, i
 
 Because `agent.state` is plain data exposed through a Vue ref, the UI layer is ordinary Vue. The example above wires the agent's outputs into a list and feeds user edits back through `setState`.
 
-Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render agent state in your main view or canvas, not just inside the chat panel. See **[Render agent state in your app](/shared-state/rendering-in-app)** for the full main-view pattern.
+Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render agent state in your main view or canvas, not just inside the chat panel. See **[Render agent state in your app](/vue/shared-state/rendering-in-app)** for the full main-view pattern.
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -116,7 +116,7 @@ By default, agent state only updates *between* backend checkpoints, so a long-ru
 
 <Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
 
-See **[State streaming](/shared-state/streaming)** for the full walkthrough, including the corresponding `useAgent` subscription on the frontend.
+See **[State streaming](/vue/shared-state/streaming)** for the full walkthrough, including the corresponding `useAgent` subscription on the frontend.
 
 ## Read-only context
 
@@ -124,6 +124,6 @@ When a value is **UI-owned** and the agent should read it but never write it bac
 
 `useAgentContext` is a separate read-only capability; it does not replace the bidirectional `agent.state` / `agent.setState(...)` contract above.
 
-See **[Agent read-only context](/shared-state/agent-readonly)** for the full pattern.
+See **[Agent read-only context](/vue/shared-state/agent-readonly)** for the full pattern.
 
 <IntegrationGrid path="shared-state" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />
