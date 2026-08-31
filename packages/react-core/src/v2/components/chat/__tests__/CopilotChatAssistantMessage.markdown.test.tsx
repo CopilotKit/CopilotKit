@@ -29,7 +29,7 @@ const SlotRenderer = ({ content }: { content: string }) => (
 );
 
 describe("CopilotChatAssistantMessage markdown resolution", () => {
-  it("uses BasicMarkdownRenderer by default", () => {
+  it("uses the built-in streaming renderer by default", () => {
     wrap(<CopilotChatAssistantMessage message={msg} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hi");
   });

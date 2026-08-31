@@ -311,6 +311,7 @@ export default function Index() {
             type="button"
             onClick={() => setMarkdownMode("built-in")}
             className={toolbarButtonClass(markdownMode === "built-in")}
+            aria-pressed={markdownMode === "built-in"}
           >
             Built-in (streaming)
           </button>
@@ -318,6 +319,7 @@ export default function Index() {
             type="button"
             onClick={() => setMarkdownMode("custom")}
             className={toolbarButtonClass(markdownMode === "custom")}
+            aria-pressed={markdownMode === "custom"}
           >
             Custom (config)
           </button>
@@ -325,6 +327,7 @@ export default function Index() {
             type="button"
             onClick={() => setMarkdownMode("streamdown")}
             className={toolbarButtonClass(markdownMode === "streamdown")}
+            aria-pressed={markdownMode === "streamdown"}
           >
             Streamdown
           </button>

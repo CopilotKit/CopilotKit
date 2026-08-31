@@ -246,6 +246,10 @@ export default defineConfig([
         "@radix-ui/react-tooltip": "RadixReactTooltip",
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
         "@lit-labs/react": "LitLabsReact",
+        "@copilotkit/markdown-renderer": "CopilotKitMarkdownRenderer",
+        "@copilotkit/markdown-renderer/react": "CopilotKitMarkdownRendererReact",
+        "@copilotkit/web-components/threads-drawer":
+          "CopilotKitWebComponentsThreadsDrawer",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",
       };

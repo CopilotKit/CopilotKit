@@ -164,12 +164,12 @@ import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
 } from "@copilotkit/markdown-renderer/react";
-import { codeToHtml } from "shiki";
 
 const nodeRenderers = createStreamingMarkdownNodeRenderers({
-  codeBlock: ({ node, children }) => (
+  codeBlock: ({ node }) => (
     <pre className="shiki">
-      <code dangerouslySetInnerHTML={{ __html: highlight(node.text, node.info) }} />
+      {/* shiki's codeToHtml is async. Highlight in your app, then pass HTML here. */}
+      <code>{node.text}</code>
     </pre>
   ),
 });
@@ -213,7 +213,7 @@ function CustomRenderer({ content, isComplete }) {
 
 ### `createStreamingMarkdownNodeRenderers`
 
-A helper that creates a type-safe `nodeRenderers` map. Pass an object keyed by `StreamingMarkdownNodeType`; unspecified node types fall back to the default renderer.
+A helper that creates a type-safe `nodeRenderers` map. Pass an object keyed by `StreamingMarkdownNodeRendererKey` (camelCase keys such as `codeBlock`). Unspecified node types fall back to the default renderer. Do not use kebab-case AST types such as `code-block` as keys.
 
 ```tsx
 import { createStreamingMarkdownNodeRenderers } from "@copilotkit/markdown-renderer/react";

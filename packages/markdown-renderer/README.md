@@ -1,15 +1,25 @@
 # @copilotkit/markdown-renderer
 
-A zero-dependency streaming markdown parser and React renderer for CopilotKit. The root entry point exposes a framework-agnostic streaming markdown parser; the `/react` entry point exposes `StreamingMarkdownRenderer`, a React component for rendering incrementally-streamed markdown text.
+A zero-dependency streaming Markdown parser with framework renderers for CopilotKit. The root entry point exposes the framework-agnostic parser. The `/react`, `/vue`, and `/react-native` entry points each expose a `StreamingMarkdownRenderer` for incrementally streamed Markdown text.
 
 ## Usage
 
 ```ts
-// Streaming markdown parser (no React dependency)
-import {} from "@copilotkit/markdown-renderer";
+// Streaming Markdown parser (no framework dependency)
+import {
+  createStreamingMarkdownParserState,
+  parseStreamingMarkdownChunk,
+  finalizeStreamingMarkdown,
+} from "@copilotkit/markdown-renderer";
 
 // React renderer
 import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";
+
+// Vue renderer
+import { StreamingMarkdownRenderer as VueStreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+
+// React Native renderer
+import { StreamingMarkdownRenderer as NativeStreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react-native";
 ```
 
 > **Note:** This package is under active development. APIs will be documented once stabilized.

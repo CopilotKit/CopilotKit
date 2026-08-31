@@ -360,7 +360,7 @@ export function ReactMarkdownRenderer({ content }: MarkdownRendererProps) {
 }
 ```
 
-Pass `ReactMarkdownRenderer` to `CopilotKitProvider`'s `markdownRenderer` (or the per-message slot) exactly like the Streamdown example above. The same approach works in Vue with [`vue-markdown-render`](https://www.npmjs.com/package/vue-markdown-render) and its remark/rehype plugins.
+Pass `ReactMarkdownRenderer` to `CopilotKitProvider`'s `markdownRenderer` (or the per-message slot) exactly like the Streamdown example above. The same pattern works in Vue with [`vue-markdown-render`](https://www.npmjs.com/package/vue-markdown-render) and **markdown-it** plugins (that package does not use remark/rehype).
 
 ## Override the renderer for a single message (React)
 
