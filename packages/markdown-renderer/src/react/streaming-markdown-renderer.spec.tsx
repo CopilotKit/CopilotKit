@@ -418,6 +418,28 @@ test("StreamingMarkdownRenderer renders unresolved citations without links", () 
   expect(citationText).toBe("1");
 });
 
+test("StreamingMarkdownRenderer does not pass unsanitized URLs to onLinkClick", () => {
+  const urls: string[] = [];
+  const { container } = render(
+    <StreamingMarkdownRenderer
+      isComplete
+      onLinkClick={(_event, url) => {
+        urls.push(url);
+      }}
+    >
+      {
+        "[a](javascript:alert(1))\n\n<javascript:alert(2)>\n\n[b](https://example.com)"
+      }
+    </StreamingMarkdownRenderer>,
+  );
+
+  for (const anchor of container.querySelectorAll("a")) {
+    fireEvent.click(anchor);
+  }
+
+  expect(urls).toEqual(["https://example.com"]);
+});
+
 test("StreamingMarkdownRenderer drops javascript: and data:text/html hrefs on links", () => {
   const { container } = render(
     <StreamingMarkdownRenderer isComplete>

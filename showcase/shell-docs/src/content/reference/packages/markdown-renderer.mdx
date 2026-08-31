@@ -283,7 +283,7 @@ import type {
 </PropertyReference>
 
 <PropertyReference name="nodeRenderers" type="VueStreamingMarkdownNodeRenderers">
-  Optional map of node-type keys to custom Vue render functions. Each function receives `(node: StreamingMarkdownAstNode, defaultVNode: VNode | string | null)` and can return a replacement VNode or the `defaultVNode` to keep the default. Supported keys: `paragraph`, `heading`, `blockquote`, `list`, `list-item`, `codeBlock`, `table`, `table-row`, `table-cell`, `thematic-break`, `em`, `strong`, `strikethrough`, `inline-code`, `hard-break`, `link`, `image`, `autolink`, `citation`.
+  Optional map of node-type keys to custom Vue render functions. Each function receives `(node: StreamingMarkdownAstNode, defaultVNode: VNode | string | null)` and can return a replacement VNode or the `defaultVNode` to keep the default. Keys are camelCase (`VueStreamingMarkdownNodeRendererKey`), matching the React renderer: `paragraph`, `heading`, `blockquote`, `list`, `listItem`, `codeBlock`, `table`, `tableRow`, `tableCell`, `thematicBreak`, `em`, `strong`, `strikethrough`, `inlineCode`, `hardBreak`, `link`, `image`, `autolink`, `citation`.
 </PropertyReference>
 
 ### Usage

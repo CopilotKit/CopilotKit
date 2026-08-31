@@ -105,7 +105,7 @@ function renderNode(
 ): VNode | string | null {
   // Helper: apply a nodeRenderers override if one is registered for this node type.
   function withOverride(
-    key: string,
+    key: VueStreamingMarkdownNodeRendererKey,
     defaultVNode: VNode | string | null,
   ): VNode | string | null {
     const override = nodeRenderers?.[key];
@@ -188,7 +188,7 @@ function renderNode(
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride("list-item", defaultVNode);
+      return withOverride("listItem", defaultVNode);
     }
 
     case "code-block": {
@@ -197,7 +197,6 @@ function renderNode(
         {
           "data-streaming-markdown-node": "code-block",
           "data-node-open": String(!node.closed),
-          class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3",
         },
         [h("code", { "data-code-info": node.info ?? undefined }, node.text)],
       );
@@ -225,7 +224,7 @@ function renderNode(
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride("table-row", defaultVNode);
+      return withOverride("tableRow", defaultVNode);
     }
 
     case "table-cell": {
@@ -241,7 +240,7 @@ function renderNode(
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride("table-cell", defaultVNode);
+      return withOverride("tableCell", defaultVNode);
     }
 
     case "thematic-break": {
@@ -249,7 +248,7 @@ function renderNode(
         "data-streaming-markdown-node": "thematic-break",
         "data-node-open": String(!node.closed),
       });
-      return withOverride("thematic-break", defaultVNode);
+      return withOverride("thematicBreak", defaultVNode);
     }
 
     case "text": {
@@ -301,7 +300,7 @@ function renderNode(
         },
         node.text,
       );
-      return withOverride("inline-code", defaultVNode);
+      return withOverride("inlineCode", defaultVNode);
     }
 
     case "soft-break": {
@@ -313,7 +312,7 @@ function renderNode(
         "data-streaming-markdown-node": "hard-break",
         "data-node-open": String(!node.closed),
       });
-      return withOverride("hard-break", defaultVNode);
+      return withOverride("hardBreak", defaultVNode);
     }
 
     case "link": {
@@ -413,11 +412,38 @@ export type VueStreamingMarkdownNodeRenderer = (
 ) => VNode | string | null;
 
 /**
+ * Supported key names for Vue `nodeRenderers`.
+ * CamelCase, matching `StreamingMarkdownNodeRendererKey` on the React renderer.
+ *
+ * @public
+ */
+export type VueStreamingMarkdownNodeRendererKey =
+  | "paragraph"
+  | "heading"
+  | "blockquote"
+  | "list"
+  | "listItem"
+  | "codeBlock"
+  | "table"
+  | "tableRow"
+  | "tableCell"
+  | "thematicBreak"
+  | "em"
+  | "strong"
+  | "strikethrough"
+  | "inlineCode"
+  | "hardBreak"
+  | "image"
+  | "link"
+  | "autolink"
+  | "citation";
+
+/**
  * Optional map of node-type renderer keys to custom Vue render functions.
  * @public
  */
 export type VueStreamingMarkdownNodeRenderers = Partial<
-  Record<string, VueStreamingMarkdownNodeRenderer>
+  Record<VueStreamingMarkdownNodeRendererKey, VueStreamingMarkdownNodeRenderer>
 >;
 
 // ---------------------------------------------------------------------------
@@ -468,9 +494,9 @@ export const StreamingMarkdownRenderer = defineComponent({
      * Optional map of node-type keys to custom Vue render functions.
      * Each function receives the AST node and the default VNode and can return
      * a replacement VNode (or the defaultVNode to keep the default).
-     * Supported keys: paragraph, heading, blockquote, list, list-item, codeBlock,
-     * table, table-row, table-cell, thematic-break, em, strong, strikethrough,
-     * inline-code, hard-break, link, image, autolink, citation.
+     * Supported keys: paragraph, heading, blockquote, list, listItem, codeBlock,
+     * table, tableRow, tableCell, thematicBreak, em, strong, strikethrough,
+     * inlineCode, hardBreak, link, image, autolink, citation.
      */
     nodeRenderers: {
       type: Object as PropType<VueStreamingMarkdownNodeRenderers>,

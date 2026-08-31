@@ -1,5 +1,6 @@
 import { mount } from "@vue/test-utils";
 import { describe, it, expect } from "vitest";
+import { h } from "vue";
 import { StreamingMarkdownRenderer } from "../streaming-markdown-renderer";
 
 describe("StreamingMarkdownRenderer (Vue)", () => {
@@ -49,5 +50,26 @@ describe("StreamingMarkdownRenderer (Vue)", () => {
       props: { content: "# Partial", isComplete: false },
     });
     expect(w.find("h1").text()).toContain("Partial");
+  });
+
+  it("applies camelCase nodeRenderers keys such as listItem", () => {
+    const w = mount(StreamingMarkdownRenderer, {
+      props: {
+        content: "- item",
+        isComplete: true,
+        nodeRenderers: {
+          listItem: () => h("li", { "data-override": "listItem" }, "over"),
+        },
+      },
+    });
+    expect(w.find("li").attributes("data-override")).toBe("listItem");
+    expect(w.find("li").text()).toBe("over");
+  });
+
+  it("does not emit CopilotKit Tailwind classes on code blocks", () => {
+    const w = mount(StreamingMarkdownRenderer, {
+      props: { content: "```\nx\n```", isComplete: true },
+    });
+    expect(w.find("pre").classes().join(" ")).not.toContain("cpk:");
   });
 });

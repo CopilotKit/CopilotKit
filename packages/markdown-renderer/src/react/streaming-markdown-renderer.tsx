@@ -811,14 +811,15 @@ function renderContainerNode(
     return renderWithOverride(node, context, defaultNode, children);
   }
 
+  const href = sanitizeHref(node.url);
   const defaultNode = (
     <a
       key={node.id}
-      href={sanitizeHref(node.url)}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title={node.title}
-      onClick={handleLinkClick(context, node, node.url)}
+      onClick={href ? handleLinkClick(context, node, href) : undefined}
       data-streaming-markdown-node={node.type}
       data-node-open={String(!node.closed)}
     >
@@ -928,13 +929,14 @@ function renderNode(
   }
 
   if (node.type === "autolink") {
+    const href = sanitizeHref(node.url);
     const defaultNode = (
       <a
         key={node.id}
-        href={sanitizeHref(node.url)}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={handleLinkClick(context, node, node.url)}
+        onClick={href ? handleLinkClick(context, node, href) : undefined}
         data-streaming-markdown-node={node.type}
         data-node-open={String(!node.closed)}
       >
