@@ -3,7 +3,7 @@ import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 import { ToolCallStatus } from "@copilotkit/core";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
 
@@ -113,8 +113,16 @@ export function useHumanInTheLoop<
   useFrontendTool(frontendTool, deps);
 
   // Human-in-the-loop tools should remove their renderer on unmount
-  // since they can't respond to user interactions anymore
-  useEffect(() => {
+  // since they can't respond to user interactions anymore.
+  //
+  // This MUST stay a layout effect to match `useFrontendTool`, which registers
+  // the renderer in its own layout effect. React runs every cleanup in a phase
+  // before any effect of that same phase, but it runs the whole layout phase
+  // ahead of the whole passive phase. If this teardown were passive while the
+  // registration is layout, a keyed remount would order the outgoing
+  // instance's removal *after* the incoming instance's registration and delete
+  // the renderer that had just been added, leaving the tool unrenderable.
+  useLayoutEffect(() => {
     return () => {
       copilotkit.removeHookRenderToolCall(tool.name, tool.agentId);
     };
