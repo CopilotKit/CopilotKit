@@ -691,9 +691,9 @@ export class ClaimedChannelDelivery {
         );
       } catch (error) {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
-        // A long local render (Takumi) can leave the delivery topic stale.
-        // The gateway then rejects the next packet as out of order. A join
-        // starts seq at 0, so retry the payload as a new seq-0 packet.
+        // Redis nextSeq survives join. packet_out_of_order means the push seq
+        // does not match Redis, or the one packet slot is not applied yet.
+        // Rejoin and retry the exact packet. Do not reset seq to 0.
         const outOfOrder =
           error instanceof RealtimeGatewayPushError &&
           error.code === "packet_out_of_order";
@@ -725,23 +725,17 @@ export class ClaimedChannelDelivery {
           refreshed.deliveryExpiresAt,
           refreshed.capabilities,
         );
-        if (outOfOrder) {
-          this.nextSeq = 0;
-          pendingPacket = this.buildPacket(packet.payload);
-        } else {
-          pendingPacket = packet;
-        }
+        pendingPacket = packet;
         this.unacknowledgedPacket = pendingPacket;
         if (
-          pendingPacket.payload.kind === "slack.stream.append" &&
-          pendingPacket.payload.fullText !== undefined &&
+          packet.payload.kind === "slack.stream.append" &&
+          packet.payload.fullText !== undefined &&
           !refreshed.capabilities?.includes(
             SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY,
           )
         ) {
-          const { fullText: _fullText, ...legacyPayload } =
-            pendingPacket.payload;
-          pendingPacket = { ...pendingPacket, payload: legacyPayload };
+          const { fullText: _fullText, ...legacyPayload } = packet.payload;
+          pendingPacket = { ...packet, payload: legacyPayload };
           this.unacknowledgedPacket = pendingPacket;
         }
       }
