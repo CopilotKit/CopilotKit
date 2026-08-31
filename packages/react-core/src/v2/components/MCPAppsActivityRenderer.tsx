@@ -487,9 +487,23 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           }
 
           // Lazily load the ext-apps bridge so it stays out of the base bundle
-          // (see the import-type note at the top of this file).
-          const { AppBridge, PostMessageTransport } =
-            await import("@modelcontextprotocol/ext-apps/app-bridge");
+          // (see the import-type note at the top of this file). Wrap the import
+          // so a missing or version-skewed peer surfaces as an actionable error
+          // naming the packages and the install command, instead of an opaque
+          // module-resolution rejection deep inside this effect.
+          let AppBridge: typeof import("@modelcontextprotocol/ext-apps/app-bridge").AppBridge;
+          let PostMessageTransport: typeof import("@modelcontextprotocol/ext-apps/app-bridge").PostMessageTransport;
+          try {
+            ({ AppBridge, PostMessageTransport } =
+              await import("@modelcontextprotocol/ext-apps/app-bridge"));
+          } catch (importErr) {
+            throw new Error(
+              "MCP Apps require '@modelcontextprotocol/ext-apps' and its peer " +
+                "'@modelcontextprotocol/sdk'. Install them with: npm install " +
+                "@modelcontextprotocol/ext-apps @modelcontextprotocol/sdk",
+              { cause: importErr },
+            );
+          }
           if (!mounted) {
             return;
           }
