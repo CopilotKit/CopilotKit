@@ -2419,17 +2419,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\anthropic\\anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "export class AnthropicAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\anthropic\\anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "constructor parameter AnthropicAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\anthropic\\anthropic-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/anthropic/anthropic-adapter.ts",
             "selector": "interface AnthropicAdapterParams public properties"
           }
         }
@@ -2451,17 +2451,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\bedrock\\bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "export class BedrockAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\bedrock\\bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "constructor parameter BedrockAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\bedrock\\bedrock-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/bedrock/bedrock-adapter.ts",
             "selector": "interface BedrockAdapterParams public properties"
           }
         }
@@ -2478,12 +2478,12 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\empty\\empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "export class EmptyAdapter"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\empty\\empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "class EmptyAdapter has no constructor configuration"
           }
         }
@@ -2500,12 +2500,12 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\empty\\empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "export const ExperimentalEmptyAdapter"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\empty\\empty-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/empty/empty-adapter.ts",
             "selector": "class EmptyAdapter has no constructor configuration"
           }
         }
@@ -2525,17 +2525,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\experimental\\ollama\\ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "export class ExperimentalOllamaAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\experimental\\ollama\\ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "constructor parameter OllamaAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\experimental\\ollama\\ollama-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/experimental/ollama/ollama-adapter.ts",
             "selector": "interface OllamaAdapterOptions public properties"
           }
         }
@@ -2557,17 +2557,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\google\\google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "export class GoogleGenerativeAIAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\google\\google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "constructor parameter GoogleGenerativeAIAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\google\\google-genai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/google/google-genai-adapter.ts",
             "selector": "interface GoogleGenerativeAIAdapterOptions public properties"
           }
         }
@@ -2589,17 +2589,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\groq\\groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "export class GroqAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\groq\\groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "constructor parameter GroqAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\groq\\groq-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/groq/groq-adapter.ts",
             "selector": "interface GroqAdapterParams public properties"
           }
         }
@@ -2619,17 +2619,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\langchain\\langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "export class LangChainAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\langchain\\langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "constructor parameter LangChainAdapterOptions"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\langchain\\langchain-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/langchain/langchain-adapter.ts",
             "selector": "interface LangChainAdapterOptions public properties"
           }
         }
@@ -2653,17 +2653,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "export class OpenAIAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "constructor parameter OpenAIAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-adapter.ts",
             "selector": "interface OpenAIAdapterParams public properties"
           }
         }
@@ -2688,17 +2688,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "export class OpenAIAssistantAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "constructor parameter OpenAIAssistantAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\openai\\openai-assistant-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/openai/openai-assistant-adapter.ts",
             "selector": "interface OpenAIAssistantAdapterParams public properties"
           }
         }
@@ -2719,17 +2719,17 @@
           },
           "symbol": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\unify\\unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "export class UnifyAdapter"
           },
           "configurationType": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\unify\\unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "constructor parameter UnifyAdapterParams"
           },
           "configurationKeys": {
             "kind": "typescript-ast",
-            "path": "packages\\runtime\\src\\v1-deprecated\\service-adapters\\unify\\unify-adapter.ts",
+            "path": "packages/runtime/src/v1-deprecated/service-adapters/unify/unify-adapter.ts",
             "selector": "interface UnifyAdapterParams public properties"
           }
         }
