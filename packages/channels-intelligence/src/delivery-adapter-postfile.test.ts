@@ -3,6 +3,7 @@ import type { RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
+import { Slack } from "@copilotkit/channels-slack";
 import {
   ChannelFileDeliveryUnknownError,
   DeliveryAdapter,
@@ -391,6 +392,56 @@ describe("DeliveryAdapter.postFile", () => {
         title: "Weekly report",
       },
     );
+  });
+});
+
+describe("DeliveryAdapter.post", () => {
+  it("retries Slack post when the gateway reports an unready slack_file", async () => {
+    vi.useFakeTimers();
+    const unready = new ChannelProviderDeliveryError(
+      "provider_call_failed",
+      "failed",
+      {
+        category: "validation",
+        provider: "slack",
+        operation: "chat.postMessage",
+        effectKind: "slack.message.create",
+        providerCode: "invalid_blocks",
+        validationMessages: [
+          "invalid field at /blocks/1/elements/0/hero_image/slack_file.id/slack_file",
+        ],
+        retryable: false,
+        deliveryId: "dlv_postfile_01",
+      },
+    );
+    const effect = vi
+      .fn()
+      .mockRejectedValueOnce(unready)
+      .mockResolvedValueOnce({
+        providerReference: "pref_v1_message_ready_01",
+        providerMessageId:
+          "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(replyTarget(session), [
+        Slack.Block.Section({
+          text: Slack.Object.MarkdownText({ text: "hi" }),
+        }),
+      ]);
+      await vi.advanceTimersByTimeAsync(200);
+      const ref = await pending;
+      expect(effect).toHaveBeenCalledTimes(2);
+      expect(ref.id).toBe(
+        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

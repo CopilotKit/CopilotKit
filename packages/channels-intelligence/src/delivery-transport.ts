@@ -383,11 +383,17 @@ export class ClaimedChannelDelivery {
               `Channel provider effect failed with ${error ?? "provider_failed"}`,
             );
           }
-          this.effectsClosed = true;
+          const details = parseProviderDeliveryDetails(result.details);
+          // Slack can reject Block Kit slack_file before it finishes processing
+          // the upload. Direct Slack retries that post. Keep this delivery open
+          // so the adapter can send the same blocks again.
+          if (!isUnreadySlackFileDeliveryDetails(details)) {
+            this.effectsClosed = true;
+          }
           throw new ChannelProviderDeliveryError(
             error ?? "provider_failed",
             status,
-            parseProviderDeliveryDetails(result.details),
+            details,
           );
         }
         const capabilityError =
@@ -804,6 +810,16 @@ function parseProviderDeliveryDetails(
     return undefined;
   }
   return value as unknown as ChannelProviderDeliveryDetails;
+}
+
+/** Slack rejected a Block Kit slack_file because the upload is not ready yet. */
+export function isUnreadySlackFileDeliveryDetails(
+  details: ChannelProviderDeliveryDetails | undefined,
+): boolean {
+  if (details?.providerCode !== "invalid_blocks") return false;
+  return details.validationMessages.some((message) =>
+    message.includes("slack_file"),
+  );
 }
 
 function restorePreparedTriggerFiles(
