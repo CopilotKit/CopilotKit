@@ -23,9 +23,9 @@
     "@angular/core": "^21.2.15",
     "@angular/platform-browser": "^21.2.15",
     "@copilotkit/angular": "0.3.1",
-    "@copilotkit/core": "1.68.1",
-    "@copilotkit/runtime": "1.68.1",
-    "@copilotkit/shared": "1.68.1",
+    "@copilotkit/core": "1.69.3",
+    "@copilotkit/runtime": "1.69.3",
+    "@copilotkit/shared": "1.69.3",
     "dotenv": "^16.4.5",
     "lucide-angular": "^0.577.0",
     "rxjs": "^7.8.1",
@@ -46,10 +46,10 @@
     "@ag-ui/core": "0.0.58",
     "@ag-ui/encoder": "0.0.58",
     "@ag-ui/proto": "0.0.58",
-    "@copilotkit/a2ui-renderer": "1.68.1",
-    "@copilotkit/core": "1.68.1",
-    "@copilotkit/shared": "1.68.1",
-    "@copilotkit/web-components": "1.68.1",
+    "@copilotkit/a2ui-renderer": "1.69.3",
+    "@copilotkit/core": "1.69.3",
+    "@copilotkit/shared": "1.69.3",
+    "@copilotkit/web-components": "1.69.3",
     "lucide-angular": "^0.577.0"
   }
 }
