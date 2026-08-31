@@ -63,17 +63,22 @@ check_command() {
 validate_remote_override() {
   local name="$1"
   local value="$2"
-  local example="$3"
+  local required_scheme="$3"
+  local example="$4"
   if [[ -n "$value" && "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1|host\.docker\.internal)([:/]|$) ]]; then
     echo "ERROR: $name must be a non-local endpoint reachable from AWS (for example, $example). Set it in .env or prefix the deploy command."
+    exit 1
+  fi
+  if [[ -n "$value" && ! "$value" =~ ^${required_scheme}:// ]]; then
+    echo "ERROR: $name must use $required_scheme:// (for example, $example). Set it in .env or prefix the deploy command."
     exit 1
   fi
 }
 check_command aws
 check_command uv
 if [ "$SKIP_BACKEND" = false ]; then
-  validate_remote_override INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" "https://intelligence.example.com"
-  validate_remote_override INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" "wss://gateway.example.com"
+  validate_remote_override INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" https "https://intelligence.example.com"
+  validate_remote_override INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" wss "wss://gateway.example.com"
   check_command node
   check_command docker
 fi

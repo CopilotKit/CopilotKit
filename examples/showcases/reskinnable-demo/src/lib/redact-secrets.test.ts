@@ -10,7 +10,7 @@ import { envSecretNeedles, redactSecrets } from "./redact-secrets";
 /** Distinctive on purpose: asserting against `localhost` proves little. */
 const API_URL = "http://memory.internal.example:7250";
 const WS_URL = "ws://gateway.internal.example:7253";
-const API_KEY = "cpk_s2PRVSED_seed0privat0longtoken01";
+const API_KEY = "cpk-s2PRVSED_seed0_privat0longtoken01";
 const LICENSE = "eyJhbGciOiJFZERTQSJ9.license-payload.sig";
 const OPENAI_KEY = "sk-proj-abcdef0123456789";
 
