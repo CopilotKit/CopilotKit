@@ -20,7 +20,6 @@ import {
 } from "./showcase-tools.js";
 import { confirmWriteTool } from "../human-in-the-loop/index.js";
 import { showcaseTools } from "../showcase/index.js";
-import { chartTool, diagramTool } from "./render-visuals.js";
 import type { ChannelTool } from "@copilotkit/channels";
 
 /**
@@ -46,10 +45,6 @@ export const appTools: ChannelTool[] = [
   // Showcase features (each also has a slash command in app/commands): PR
   // review radar, weekly OSS pulse, Linear cycle standup.
   ...showcaseTools,
-  // Generic data-viz tools: turn structured data (e.g. an uploaded CSV) into a
-  // chart, or a process into a flow diagram. Both post branded images.
-  chartTool,
-  diagramTool,
 ];
 
 export {

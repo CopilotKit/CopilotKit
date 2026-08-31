@@ -1,10 +1,10 @@
 /**
- * Showcase features — each renders CopilotKit-branded cards (Tailwind classes,
- * resolved from the compiled brand stylesheet — see app/render/brand.ts) +
- * `@copilotkit/channels/charts` as images via Takumi, and each is triggerable
- * BOTH ways: a `defineChannelTool` (the agent calls it from a natural-language
- * prompt) and a `defineChannelCommand` (a deterministic slash command). Both
- * paths share one `render*` fn.
+ * Showcase features — each renders a CopilotKit-branded card (Tailwind classes,
+ * resolved from the compiled brand stylesheet — see app/render/brand.ts) as
+ * an image via Takumi, and each is triggerable BOTH ways: a
+ * `defineChannelTool` (the agent calls it from a natural-language prompt) and
+ * a `defineChannelCommand` (a deterministic slash command). Both paths share
+ * one `render*` fn.
  *
  *   1. PR review radar   — `/prs`     / "show the PR radar"        (GitHub)
  *   2. Weekly OSS pulse  — `/pulse`   / "weekly pulse"            (GitHub + npm)

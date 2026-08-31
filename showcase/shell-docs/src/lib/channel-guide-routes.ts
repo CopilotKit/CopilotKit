@@ -74,12 +74,6 @@ export const CHANNEL_GUIDE_ROUTES = [
     section: "build",
   },
   {
-    slug: "charts",
-    sourceSlug: "channels/charts",
-    navTitle: "Charts",
-    section: "build",
-  },
-  {
     slug: "interactive",
     sourceSlug: "channels/interactive",
     navTitle: "Interactive messages and approvals",
