@@ -343,6 +343,86 @@ describe("normalizeSlackEvent", () => {
     });
   });
 
+  it("ignores a revision that leaves the text alone", () => {
+    // What Slack sends when a reply lands in the message's thread: same text,
+    // no `edited` stamp, a fresh `event_ts` the engine's dedup cannot collapse.
+    // Answering it revises the message again, which is the loop.
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            subtype: "message_changed",
+            channel: "C1",
+            event_ts: "101.2",
+            message: {
+              user: "U2",
+              text: "<@BOT> say hi",
+              ts: "100.1",
+            },
+            previous_message: {
+              user: "U2",
+              text: "<@BOT> say hi",
+              ts: "100.1",
+            },
+          },
+        },
+        "BOT",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("ignores a revision with no edit stamp and nothing to compare against", () => {
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            subtype: "message_changed",
+            channel: "C1",
+            event_ts: "101.2",
+            message: {
+              user: "U2",
+              text: "<@BOT> say hi",
+              ts: "100.1",
+            },
+          },
+        },
+        "BOT",
+      ),
+    ).toBeUndefined();
+  });
+
+  it("keeps a revision whose text a person actually changed", () => {
+    expect(
+      normalizeSlackEvent(
+        {
+          event: {
+            type: "message",
+            subtype: "message_changed",
+            channel: "C1",
+            event_ts: "101.2",
+            message: {
+              user: "U2",
+              text: "<@BOT> say hi in French",
+              ts: "100.1",
+              edited: { ts: "101.2" },
+            },
+            previous_message: {
+              user: "U2",
+              text: "<@BOT> say hi",
+              ts: "100.1",
+            },
+          },
+        },
+        "BOT",
+      ),
+    ).toMatchObject({
+      userText: "say hi in French",
+      operation: { kind: "updated", mentioned: true, revisionId: "101.2" },
+    });
+  });
+
   it("maps a slash command", () => {
     const n = normalizeSlackEvent({
       command: "/triage",
