@@ -30,6 +30,7 @@ import {
 } from "../frontend-page-content";
 import { buildBreadcrumbs, loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { resolveFrontendDocPage } from "../frontend-doc-policy";
 import { resolveDocsHref } from "../docs-link-rewrite";
 import {
   getAngularDocsNavTree,
