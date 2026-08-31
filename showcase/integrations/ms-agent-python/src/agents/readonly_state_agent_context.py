@@ -19,7 +19,6 @@ from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
 
-
 SYSTEM_PROMPT = dedent(
     """
     You are a helpful, concise assistant. The frontend may provide
@@ -62,8 +61,8 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
 
     LangGraph gets this behavior from CopilotKitMiddleware. The MS Agent
     adapter receives the AG-UI `context` entries in `input_data`, so this
-    shim appends them to the wrapped agent's instruction string before
-    delegating to the standard Agent Framework runner.
+    shim adds them to a request-local message before delegating to the
+    standard Agent Framework runner.
     """
 
     async def run(  # type: ignore[override]
@@ -76,22 +75,24 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
                 yield event
             return
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
+        messages = input_data.get("messages")
+        if not isinstance(messages, list) or len(messages) == 0:
             async for event in super().run(input_data):
                 yield event
             return
 
-        previous_instructions = options.get("instructions")
-        options["instructions"] = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        request_input = dict(input_data)
+        request_input["messages"] = [
+            {
+                "id": f"{input_data.get('runId') or 'request'}-app-context",
+                "role": "system",
+                "content": context_prompt,
+            },
+            *messages,
+        ]
+
+        async for event in super().run(request_input):
+            yield event
 
 
 def create_readonly_state_agent_context(

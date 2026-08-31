@@ -132,24 +132,59 @@ This context can then be shared with your AG-UI server and agent logic.
           <Tab value="Python">
             ```python title="main.py (excerpt)"
 
-            from agent_framework import Agent, SupportsChatGetResponse
-            from agent_framework.ag_ui import AgentFrameworkAgent
+            from collections.abc import AsyncGenerator
+            from typing import Any
+
+            from ag_ui.core import BaseEvent
+            from agent_framework import Agent, BaseChatClient
+            from agent_framework_ag_ui import AgentFrameworkAgent
 
 
-            def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
-                """
-                Minimal agent for agent app context demo (frontend context is forwarded automatically).
-                """
+            class ContextAwareAgent(AgentFrameworkAgent):
+                """Add app context to this request without mutating the shared agent."""
+
+                async def run(
+                    self,
+                    input_data: dict[str, Any],
+                ) -> AsyncGenerator[BaseEvent, None]:
+                    context = input_data.get("context")
+                    messages = input_data.get("messages")
+
+                    if isinstance(context, list) and isinstance(messages, list) and messages:
+                        context_lines = [
+                            f"{item['description']}: {item['value']}"
+                            for item in context
+                            if isinstance(item, dict)
+                            and item.get("description") is not None
+                            and item.get("value") is not None
+                        ]
+                        if context_lines:
+                            request_input = dict(input_data)
+                            request_input["messages"] = [
+                                {
+                                    "id": f"{input_data.get('runId', 'request')}-app-context",
+                                    "role": "system",
+                                    "content": "Application context:\n" + "\n".join(context_lines),
+                                },
+                                *messages,
+                            ]
+                            input_data = request_input
+
+                    async for event in super().run(input_data):
+                        yield event
+
+
+            def create_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
                 base_agent = Agent(
                     name="sample_agent",
                     instructions="You are a helpful assistant.",
                     client=chat_client,
                 )
 
-                return AgentFrameworkAgent(
+                return ContextAwareAgent(
                     agent=base_agent,
                     name="CopilotKitMicrosoftAgentFrameworkAgent",
-                    description="Assistant using app context forwarded from the frontend.",
+                    description="Assistant using request-local app context.",
                     require_confirmation=False,
                 )
             ```
