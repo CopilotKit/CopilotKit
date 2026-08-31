@@ -78,7 +78,7 @@ function CatalogCarousel({
         {items.map((item) => (
           <CarouselCard key={item.name}>
             <Header>{item.name}</Header>
-            <Render alt={item.name} width={400}>
+            <Render alt={item.name} width={320}>
               <ProductCard
                 name={item.name}
                 price={item.price}
