@@ -12,7 +12,6 @@ const fakes = vi.hoisted(() => {
     ready,
     stop,
     listener,
-    closeBrowser: vi.fn(async () => {}),
     createCopilotNodeListener: vi.fn(() => listener),
     // Captures the options `new CopilotRuntime(...)` was constructed with so
     // the test can assert the runtime carries `channels`.
@@ -29,6 +28,7 @@ const fakes = vi.hoisted(() => {
     })),
     bot: {
       onMention: vi.fn(),
+      onMessage: vi.fn(),
       onModalSubmit: vi.fn(),
       onThreadStarted: vi.fn(),
     },
@@ -59,7 +59,9 @@ vi.mock("./modals/file-issue.js", () => ({
   fileIssueSubmit: vi.fn(),
   FILE_ISSUE_CALLBACK: "file-issue",
 }));
-vi.mock("./render/browser.js", () => ({ closeBrowser: fakes.closeBrowser }));
+vi.mock("./render/brand.js", () => ({
+  loadBrandRender: vi.fn(async () => ({ stylesheets: [], fonts: [] })),
+}));
 
 const envKeys = [
   "AGENT_URL",
@@ -133,7 +135,6 @@ describe("managed channel entrypoint", () => {
     sigterm!();
     await vi.waitFor(() => expect(exit).toHaveBeenCalled());
     expect(fakes.stop).toHaveBeenCalledOnce();
-    expect(fakes.closeBrowser).toHaveBeenCalledOnce();
     // stop() threw, so shutdown exits nonzero.
     expect(exit).toHaveBeenCalledWith(1);
   });
@@ -163,5 +164,41 @@ describe("managed channel entrypoint", () => {
         expect.objectContaining({ apiKey: "cpk-legacy" }),
       ),
     );
+  });
+
+  it("runs the agent when the user asks for a carousel in plain text", async () => {
+    for (const key of envKeys) previousEnv.set(key, process.env[key]);
+    vi.resetModules();
+    fakes.bot.onMention.mockClear();
+    process.env.AGENT_URL = "http://agent.test/run";
+    process.env.INTELLIGENCE_API_KEY = "cpk-test";
+
+    vi.spyOn(process, "on").mockImplementation(
+      (() => process) as typeof process.on,
+    );
+    vi.spyOn(process, "exit").mockImplementation(
+      (() => undefined as never) as typeof process.exit,
+    );
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await import("./managed.js");
+
+    const onTurn = fakes.bot.onMention.mock.calls[0]?.[0] as (args: {
+      thread: {
+        runAgent: ReturnType<typeof vi.fn>;
+        post: ReturnType<typeof vi.fn>;
+      };
+      message: { text: string };
+    }) => Promise<void>;
+    const runAgent = vi.fn().mockResolvedValue(undefined);
+    const post = vi.fn();
+    await onTurn({
+      thread: { runAgent, post },
+      message: { text: "show me a product carousel" },
+    });
+
+    expect(runAgent).toHaveBeenCalledOnce();
+    expect(post).not.toHaveBeenCalled();
   });
 });

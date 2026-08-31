@@ -1,10 +1,9 @@
 import { CdkTrapFocus } from "@angular/cdk/a11y";
 import { NgComponentOutlet } from "@angular/common";
+import type { ElementRef, Type } from "@angular/core";
 import {
   ChangeDetectionStrategy,
   Component,
-  ElementRef,
-  Type,
   afterNextRender,
   computed,
   input,

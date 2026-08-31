@@ -1,15 +1,9 @@
-import {
-  makeEnvironmentProviders,
-  type EnvironmentProviders,
-} from "@angular/core";
+import { makeEnvironmentProviders } from "@angular/core";
+import type { EnvironmentProviders } from "@angular/core";
 import { ɵCOPILOTKIT_BUILT_IN_ACTIVITY_RENDERERS } from "@copilotkit/angular";
 import { mcpAppsActivityRendererConfig } from "./mcp-apps-activity-renderer";
-import {
-  DEFAULT_MCP_APPS_CONFIG,
-  MCP_APPS_CONFIG,
-  type MCPAppsConfig,
-  type MCPAppsHostInfo,
-} from "./mcp-apps-config";
+import { DEFAULT_MCP_APPS_CONFIG, MCP_APPS_CONFIG } from "./mcp-apps-config";
+import type { MCPAppsConfig, MCPAppsHostInfo } from "./mcp-apps-config";
 
 export type { MCPAppsConfig, MCPAppsHostInfo } from "./mcp-apps-config";
 export { DEFAULT_MCP_APPS_CONFIG, MCP_APPS_CONFIG } from "./mcp-apps-config";

@@ -1,5 +1,5 @@
-import { Message } from "@ag-ui/client";
-import { Type, TemplateRef } from "@angular/core";
+import type { Message } from "@ag-ui/client";
+import type { Type, TemplateRef } from "@angular/core";
 
 // Context interfaces for template slots
 export interface MessageViewContext {

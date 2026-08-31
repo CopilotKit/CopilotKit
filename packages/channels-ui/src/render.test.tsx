@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { isValidElement } from "react";
 import { renderToIR } from "./render.js";
+import { Render } from "./components.js";
 import type { ChannelNode } from "./ir.js";
 
 function Card(props: { title: string }): ChannelNode {
@@ -65,5 +67,20 @@ describe("renderToIR", () => {
         },
       },
     ]);
+  });
+
+  it("keeps Render children as React elements so a host button is not flattened", () => {
+    const [node] = renderToIR(
+      <Render alt="card">
+        <button>Buy</button>
+      </Render>,
+    );
+    const child = node!.props.children;
+    expect(isValidElement(child)).toBe(true);
+    expect((child as { type: unknown }).type).toBe("button");
+    expect((child as { $$typeof: unknown }).$$typeof).toBeDefined();
+    expect((child as { props: { children: unknown } }).props.children).toBe(
+      "Buy",
+    );
   });
 });

@@ -74,6 +74,59 @@ describe("renderTelegram", () => {
     const out = renderTelegram([node("image", { url: "u", alt: "a" })] as any);
     expect(out.photos).toEqual([{ url: "u", caption: "a" }]);
   });
+  it("collects stagedBytes into photos instead of a url", () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const out = renderTelegram([
+      node("image", { stagedBytes: bytes, alt: "hat" }),
+    ] as any);
+    expect(out.photos).toEqual([{ bytes, caption: "hat" }]);
+  });
+  it("prefers stagedBytes when a url is also present", () => {
+    const bytes = new Uint8Array([9, 8, 7]);
+    const out = renderTelegram([
+      node("image", {
+        stagedBytes: bytes,
+        url: "https://example.com/hat.png",
+        alt: "hat",
+      }),
+    ] as any);
+    expect(out.photos).toEqual([{ bytes, caption: "hat" }]);
+  });
+  it("collects a two-slide carousel as two photos", () => {
+    const a = new Uint8Array([1]);
+    const out = renderTelegram([
+      node("carousel", {}, [
+        node("image", { url: "https://a.png", alt: "A" }),
+        node("image", { stagedBytes: a, alt: "B" }),
+      ]),
+    ] as any);
+    expect(out.photos).toEqual([
+      { url: "https://a.png", caption: "A" },
+      { bytes: a, caption: "B" },
+    ]);
+    expect(out.inlineKeyboard).toBeUndefined();
+  });
+  it("puts carousel card header/section on the caption and buttons on that photo", () => {
+    const onClick = Object.assign(() => {}, { id: "ck:buy" });
+    const out = renderTelegram([
+      node("carousel", {}, [
+        node("carouselCard", {}, [
+          node("header", {}, text("Shoes")),
+          node("image", { url: "https://shoes.png", alt: "Red shoes" }),
+          node("section", {}, text("On sale")),
+          node("button", { onClick, value: "buy-shoes" }, text("Buy")),
+        ]),
+      ]),
+    ] as any);
+    expect(out.photos).toEqual([
+      {
+        url: "https://shoes.png",
+        caption: "Shoes\nOn sale",
+        keyboard: [[{ text: "Buy", callbackData: "ck:buy" }]],
+      },
+    ]);
+    expect(out.inlineKeyboard).toBeUndefined();
+  });
   it("ignores unknown nodes (total renderer)", () => {
     expect(() => renderTelegram([node("mystery", {})] as any)).not.toThrow();
   });

@@ -210,7 +210,9 @@ describe("TeamsAdapter.postFile", () => {
       altText: "Sev counts",
     });
 
-    expect(res).toEqual({ ok: true, fileId: "msg-9" });
+    // Teams posts the attachment as an activity, so the id it returns is a real
+    // message id — reported as `messageId`, not as a media handle.
+    expect(res).toEqual({ ok: true, messageId: "msg-9" });
     const sent = sendActivity.mock.calls[0]![0];
     const attachment = sent.attachments[0];
     expect(attachment.contentType).toBe("image/png");
@@ -228,6 +230,24 @@ describe("TeamsAdapter.postFile", () => {
     );
     expect(res.ok).toBe(false);
     expect(res.error).toBeDefined();
+  });
+});
+
+describe("TeamsAdapter.stageFile", () => {
+  it("returns a PNG data URL without posting a message", async () => {
+    const adapter = new TeamsAdapter({});
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const res = await adapter.stageFile(
+      { conversationKey: "conv-1", reference: {} },
+      {
+        bytes,
+        filename: "render-hat.png",
+        altText: "Hat",
+      },
+    );
+    expect(res).toEqual({
+      dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+    });
   });
 });
 

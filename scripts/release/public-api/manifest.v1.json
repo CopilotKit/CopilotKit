@@ -292,6 +292,7 @@
             "selector": "exports[\".\"]"
           }
         },
+
         {
           "importPath": "@copilotkit/channels/discord",
           "exportKey": "./discord",
@@ -463,9 +464,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -518,6 +521,7 @@
             "selector": "exports[\".\"]"
           }
         },
+
         {
           "importPath": "@copilotkit/channels-core/jsx-dev-runtime",
           "exportKey": "./jsx-dev-runtime",
@@ -563,9 +567,11 @@
       ],
       "compatibility": {
         "peerDependencies": {
+          "react": ">=18",
           "vitest": "^4.0.0"
         },
         "optionalPeerDependencies": [
+          "react",
           "vitest"
         ],
         "provenance": [
@@ -895,7 +901,24 @@
         }
       ],
       "compatibility": {
-        "provenance": []
+        "peerDependencies": {
+          "react": "^18.0.0 || ^19.0.0"
+        },
+        "optionalPeerDependencies": [
+          "react"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/channels-ui/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
       },
       "provenance": {
         "name": {

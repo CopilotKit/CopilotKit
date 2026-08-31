@@ -1,4 +1,5 @@
-import { ComponentFixture, TestBed } from "@angular/core/testing";
+import type { ComponentFixture } from "@angular/core/testing";
+import { TestBed } from "@angular/core/testing";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { CopilotA2UIActivityRenderer } from "../a2ui-activity-renderer";
 import { COPILOT_KIT_CONFIG } from "../../../config";

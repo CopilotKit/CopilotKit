@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { InputFile } from "grammy";
 import { telegram } from "../adapter.js";
 
 function fakeApi() {
@@ -7,7 +8,19 @@ function fakeApi() {
     editMessageText: vi.fn(async () => true),
     deleteMessage: vi.fn(async () => true),
     setMyCommands: vi.fn(async () => true),
-    sendPhoto: vi.fn(async () => ({ message_id: 12, chat: { id: 9 } })),
+    sendPhoto: vi.fn(
+      async (
+        _chatId: number,
+        _photo: InputFile | string,
+        _other?: { caption?: string },
+      ) => ({ message_id: 12, chat: { id: 9 } }),
+    ),
+    sendMediaGroup: vi.fn(async () => [{ message_id: 13, chat: { id: 9 } }]),
+    sendDocument: vi.fn(async () => ({
+      message_id: 14,
+      chat: { id: 9 },
+      document: { file_id: "doc1" },
+    })),
     sendChatAction: vi.fn(async () => true),
     editForumTopic: vi.fn(async () => true),
   };
@@ -207,9 +220,122 @@ describe("TelegramAdapter", () => {
     );
     // The empty sendMessage must be skipped (Telegram rejects empty text).
     expect((a as any).bot.api.sendMessage).not.toHaveBeenCalled();
-    expect((a as any).bot.api.sendPhoto).toHaveBeenCalled();
+    expect((a as any).bot.api.sendPhoto).toHaveBeenCalledWith(
+      9,
+      "https://example.com/cat.png",
+      expect.objectContaining({ caption: "cat" }),
+    );
+    expect((a as any).bot.api.sendMediaGroup).not.toHaveBeenCalled();
     // The returned ref must reference the actually-posted photo message.
     expect(ref).toMatchObject({ chatId: 9, messageId: 12 });
+  });
+
+  it("stageFile returns the bytes and does not hit the network", async () => {
+    const a = telegram({ token: "t" });
+    const api = fakeApi();
+    (a as any).bot = { api };
+    const bytes = new Uint8Array([1, 2, 3]);
+    const res = await a.stageFile!({ chatId: 9 } as any, {
+      bytes,
+      filename: "render-hat.png",
+      altText: "Hat",
+    });
+    expect(res).toEqual({ bytes });
+    expect(api.sendPhoto).not.toHaveBeenCalled();
+    expect(api.sendDocument).not.toHaveBeenCalled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+    expect(api.sendMediaGroup).not.toHaveBeenCalled();
+  });
+
+  it("post() sends staged bytes as sendPhoto InputFile", async () => {
+    const a = telegram({ token: "t" });
+    const api = fakeApi();
+    (a as any).bot = { api };
+    const bytes = new Uint8Array([9, 8, 7]);
+    const ref: any = await a.post(
+      { chatId: 9 } as any,
+      [{ type: "image", props: { stagedBytes: bytes, alt: "hat" } }] as any,
+    );
+    expect(api.sendMessage).not.toHaveBeenCalled();
+    expect(api.sendMediaGroup).not.toHaveBeenCalled();
+    expect(api.sendPhoto).toHaveBeenCalledTimes(1);
+    expect(api.sendPhoto.mock.calls[0]![1]).toBeInstanceOf(InputFile);
+    expect(api.sendPhoto.mock.calls[0]![2]).toMatchObject({ caption: "hat" });
+    expect(ref).toMatchObject({ chatId: 9, messageId: 12 });
+  });
+
+  it("post() sends two button-less photos as a sendMediaGroup album", async () => {
+    const a = telegram({ token: "t" });
+    const api = fakeApi();
+    (a as any).bot = { api };
+    const ref: any = await a.post(
+      { chatId: 9 } as any,
+      [
+        { type: "image", props: { url: "https://a.png", alt: "A" } },
+        { type: "image", props: { url: "https://b.png", alt: "B" } },
+      ] as any,
+    );
+    expect(api.sendMessage).not.toHaveBeenCalled();
+    expect(api.sendPhoto).not.toHaveBeenCalled();
+    expect(api.sendMediaGroup).toHaveBeenCalledTimes(1);
+    expect(api.sendMediaGroup).toHaveBeenCalledWith(
+      9,
+      [
+        { type: "photo", media: "https://a.png", caption: "A" },
+        { type: "photo", media: "https://b.png", caption: "B" },
+      ],
+      {},
+    );
+    expect(ref).toMatchObject({ chatId: 9, messageId: 13 });
+  });
+
+  it("post() sends a carousel card with a button as its own photo + keyboard", async () => {
+    const a = telegram({ token: "t" });
+    const api = fakeApi();
+    (a as any).bot = { api };
+    await a.post(
+      { chatId: 9 } as any,
+      [
+        {
+          type: "carousel",
+          props: {
+            children: [
+              {
+                type: "carouselCard",
+                props: {
+                  children: [
+                    {
+                      type: "image",
+                      props: { url: "https://shoes.png", alt: "Red shoes" },
+                    },
+                    {
+                      type: "button",
+                      props: {
+                        onClick: { id: "ck:buy" },
+                        value: "buy-shoes",
+                        children: { type: "text", props: { value: "Buy" } },
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ] as any,
+    );
+    expect(api.sendMediaGroup).not.toHaveBeenCalled();
+    expect(api.sendPhoto).toHaveBeenCalledTimes(1);
+    expect(api.sendPhoto).toHaveBeenCalledWith(
+      9,
+      "https://shoes.png",
+      expect.objectContaining({
+        caption: "Red shoes",
+        reply_markup: {
+          inline_keyboard: [[{ text: "Buy", callback_data: "ck:buy" }]],
+        },
+      }),
+    );
   });
 
   it("createRunRenderer streaming degrades to plain text on a parse error", async () => {

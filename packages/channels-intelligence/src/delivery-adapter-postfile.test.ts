@@ -3,6 +3,7 @@ import type { RunAgentInput } from "@ag-ui/client";
 import { EMPTY } from "rxjs";
 import { describe, expect, it, vi } from "vitest";
 import { ChannelDeliveryTerminatedError } from "@copilotkit/channels-core";
+import { Slack } from "@copilotkit/channels-slack";
 import {
   ChannelFileDeliveryUnknownError,
   DeliveryAdapter,
@@ -391,5 +392,238 @@ describe("DeliveryAdapter.postFile", () => {
         title: "Weekly report",
       },
     );
+  });
+});
+
+const READY_SLACK_MESSAGE = {
+  providerReference: "pref_v1_message_ready_01",
+  providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+} as const;
+
+const STAGED_HAT_IMAGE = [
+  {
+    type: "image" as const,
+    props: { fileId: "fileref_stage_01", alt: "Hat" },
+  },
+];
+
+describe("DeliveryAdapter.post", () => {
+  it("waits, then sends a Slack status, then posts a staged file", async () => {
+    vi.useFakeTimers();
+    const effect = vi.fn().mockResolvedValue({ ...READY_SLACK_MESSAGE });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(
+        replyTarget(session),
+        STAGED_HAT_IMAGE,
+      );
+      await Promise.resolve();
+      expect(effect).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2400);
+      const ref = await pending;
+      expect(effect).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/^response_/),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+      expect(effect.mock.calls[1]?.[1]).toMatchObject({
+        kind: "slack.message.create",
+      });
+      expect(ref.id).toBe(READY_SLACK_MESSAGE.providerMessageId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("still posts a staged Slack file when the status packet fails", async () => {
+    vi.useFakeTimers();
+    const effect = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new RealtimeGatewayPushError("packet", "packet_out_of_order", {
+          reason: "packet_out_of_order",
+        }),
+      )
+      .mockResolvedValueOnce({ ...READY_SLACK_MESSAGE });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(
+        replyTarget(session),
+        STAGED_HAT_IMAGE,
+      );
+      await vi.advanceTimersByTimeAsync(2400);
+      const ref = await pending;
+      expect(effect.mock.calls[1]?.[1]).toMatchObject({
+        kind: "slack.message.create",
+      });
+      expect(ref.id).toBe(READY_SLACK_MESSAGE.providerMessageId);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries Slack post when the gateway reports an unready slack_file", async () => {
+    vi.useFakeTimers();
+    const unready = new ChannelProviderDeliveryError(
+      "provider_call_failed",
+      "failed",
+      {
+        category: "validation",
+        provider: "slack",
+        operation: "chat.postMessage",
+        effectKind: "slack.message.create",
+        providerCode: "invalid_blocks",
+        validationMessages: [
+          "invalid field at /blocks/1/elements/0/hero_image/slack_file.id/slack_file",
+        ],
+        retryable: false,
+        deliveryId: "dlv_postfile_01",
+      },
+    );
+    const effect = vi
+      .fn()
+      .mockRejectedValueOnce(unready)
+      .mockResolvedValueOnce({
+        providerReference: "pref_v1_message_ready_01",
+        providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(replyTarget(session), [
+        Slack.Block.Section({
+          text: Slack.Object.MarkdownText({ text: "hi" }),
+        }),
+      ]);
+      await vi.advanceTimersByTimeAsync(200);
+      const ref = await pending;
+      expect(effect).toHaveBeenCalledTimes(2);
+      expect(ref.id).toBe("pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("DeliveryAdapter.keepAlive", () => {
+  it("sends a Slack status, then pings again before the carousel wait", async () => {
+    vi.useFakeTimers();
+    const effect = vi.fn().mockResolvedValue({
+      providerReference: "pref_v1_message_ready_01",
+      providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+    const adapter = makeAdapter();
+    const target = replyTarget(session);
+
+    try {
+      await adapter.keepAlive(target);
+      expect(effect).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(/^response_/),
+        { kind: "slack.thread.status", status: "is thinking…" },
+        { charge: false, bestEffort: true },
+      );
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(effect).toHaveBeenCalledTimes(2);
+      const pending = adapter.post(target, STAGED_HAT_IMAGE);
+      await vi.advanceTimersByTimeAsync(2400);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("DeliveryAdapter.stageFile", () => {
+  it("stores Slack bytes and returns the handle without posting a file", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("fileref_stage_01"),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).resolves.toEqual({ fileId: "fileref_stage_01" });
+    expect(session.uploadFile).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+        filename: "hat.png",
+        altText: "Hat",
+      },
+    );
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("throws when Slack upload fails so the carousel post cannot continue", async () => {
+    const session = {
+      uploadFile: vi.fn().mockRejectedValue(new Error("upload config missing")),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).rejects.toThrow("upload config missing");
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("throws when Slack upload returns no handle", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue(""),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).rejects.toThrow("Channel stageFile: upload returned no handle");
+    expect(session.effect).not.toHaveBeenCalled();
+  });
+
+  it("returns a Teams data URI and does not upload or post", async () => {
+    const session = {
+      uploadFile: vi.fn(),
+      effect: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session, "teams"), {
+        bytes,
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).resolves.toEqual({
+      dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}`,
+    });
+    expect(session.uploadFile).not.toHaveBeenCalled();
+    expect(session.effect).not.toHaveBeenCalled();
   });
 });

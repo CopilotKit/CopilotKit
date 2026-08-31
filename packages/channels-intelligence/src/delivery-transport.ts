@@ -42,6 +42,7 @@ const DEFAULT_MAX_PENDING_DELIVERIES = 32;
 const DEFERRED_CLAIM_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
+const PACKET_SEQ_RECOVERY_MAX = 8;
 
 export type ChannelDeliveryAdapter = "slack" | "teams";
 
@@ -383,11 +384,17 @@ export class ClaimedChannelDelivery {
               `Channel provider effect failed with ${error ?? "provider_failed"}`,
             );
           }
-          this.effectsClosed = true;
+          const details = parseProviderDeliveryDetails(result.details);
+          // Slack can reject Block Kit slack_file before it finishes processing
+          // the upload. Direct Slack retries that post. Keep this delivery open
+          // so the adapter can send the same blocks again.
+          if (!isUnreadySlackFileDeliveryDetails(details)) {
+            this.effectsClosed = true;
+          }
           throw new ChannelProviderDeliveryError(
             error ?? "provider_failed",
             status,
-            parseProviderDeliveryDetails(result.details),
+            details,
           );
         }
         const capabilityError =
@@ -616,16 +623,21 @@ export class ClaimedChannelDelivery {
         // reconnects; permanent non-cleanup failures seal further effects
         // but leave the path open for terminal + stream.stop packets.
         const acknowledgement = await this.sendExactPacket(packet);
-        this.assertExactAcknowledgement(packet, acknowledgement);
+        const sentPacket = this.unacknowledgedPacket ?? packet;
+        this.assertExactAcknowledgement(sentPacket, acknowledgement);
         this.unacknowledgedPacket = undefined;
-        this.nextSeq += 1;
+        this.nextSeq = sentPacket.seq + 1;
         return acknowledgement.result;
       } catch (error) {
         this.unacknowledgedPacket = undefined;
+        const outOfOrder =
+          error instanceof RealtimeGatewayPushError &&
+          error.code === "packet_out_of_order";
         if (
           !isCleanupPacket &&
           !bestEffort &&
-          payload.kind !== "slack.thread.status"
+          payload.kind !== "slack.thread.status" &&
+          !outOfOrder
         ) {
           this.effectsClosed = true;
         }
@@ -680,7 +692,20 @@ export class ClaimedChannelDelivery {
         );
       } catch (error) {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
-        if (error instanceof RealtimeGatewayPushError) throw error;
+        // Redis nextSeq survives join. packet_out_of_order means the push seq
+        // does not match Redis, or the one packet slot is not applied yet.
+        // Rejoin and retry the exact packet. Do not reset seq to 0.
+        const outOfOrder =
+          error instanceof RealtimeGatewayPushError &&
+          error.code === "packet_out_of_order";
+        if (error instanceof RealtimeGatewayPushError && !outOfOrder) {
+          throw error;
+        }
+        if (outOfOrder && attempt >= 1) {
+          const recovered = await this.recoverPacketSeq(packet.payload);
+          if (recovered) return recovered;
+          throw error;
+        }
         // Claim/join validation failures are permanent — do not thrash reconnect.
         if (
           error instanceof TypeError ||
@@ -704,6 +729,7 @@ export class ClaimedChannelDelivery {
           refreshed.capabilities,
         );
         pendingPacket = packet;
+        this.unacknowledgedPacket = pendingPacket;
         if (
           packet.payload.kind === "slack.stream.append" &&
           packet.payload.fullText !== undefined &&
@@ -713,10 +739,55 @@ export class ClaimedChannelDelivery {
         ) {
           const { fullText: _fullText, ...legacyPayload } = packet.payload;
           pendingPacket = { ...packet, payload: legacyPayload };
+          this.unacknowledgedPacket = pendingPacket;
         }
       }
     }
     throw new Error("Channel delivery ownership expired");
+  }
+
+  /**
+   * Redis nextSeq is not in the join reply. After an exact retry still
+   * returns packet_out_of_order, try the payload at seq 0..8 until Redis
+   * accepts one.
+   */
+  private async recoverPacketSeq(
+    payload: ChannelDeliveryPayload,
+  ): Promise<ChannelDeliveryPacketAck | undefined> {
+    for (let seq = 0; seq <= PACKET_SEQ_RECOVERY_MAX; seq += 1) {
+      throwIfStopped(this.signal);
+      this.nextSeq = seq;
+      const candidate = this.buildPacket(payload);
+      this.unacknowledgedPacket = candidate;
+      try {
+        const acknowledgement = (await this.channel.push(
+          PACKET_EVENT,
+          candidate,
+        )) as ChannelDeliveryPacketAck;
+        this.assertExactAcknowledgement(candidate, acknowledgement);
+        if (acknowledgement.phase !== "retry_wait") {
+          return acknowledgement;
+        }
+        const retryAtMs = Date.parse(acknowledgement.retryAt ?? "");
+        await waitUnlessStopped(
+          Math.max(0, retryAtMs - Date.now()),
+          this.signal,
+        );
+        const retried = (await this.channel.push(
+          PACKET_EVENT,
+          candidate,
+        )) as ChannelDeliveryPacketAck;
+        this.assertExactAcknowledgement(candidate, retried);
+        if (retried.phase !== "retry_wait") return retried;
+      } catch (error) {
+        const recoverable =
+          error instanceof RealtimeGatewayPushError &&
+          (error.code === "packet_out_of_order" ||
+            error.code === "packet_conflict");
+        if (!recoverable) throw error;
+      }
+    }
+    return undefined;
   }
 
   private assertExactAcknowledgement(
@@ -804,6 +875,16 @@ function parseProviderDeliveryDetails(
     return undefined;
   }
   return value as unknown as ChannelProviderDeliveryDetails;
+}
+
+/** Slack rejected a Block Kit slack_file because the upload is not ready yet. */
+export function isUnreadySlackFileDeliveryDetails(
+  details: ChannelProviderDeliveryDetails | undefined,
+): boolean {
+  if (details?.providerCode !== "invalid_blocks") return false;
+  return details.validationMessages.some((message) =>
+    message.includes("slack_file"),
+  );
 }
 
 function restorePreparedTriggerFiles(

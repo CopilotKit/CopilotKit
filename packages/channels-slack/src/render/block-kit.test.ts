@@ -367,6 +367,84 @@ describe("renderBlockKit", () => {
     expect(block.element.action_id).toBe("ck:ms");
   });
 
+  it("renders a filled carousel IR as Slack cards with slack_file heroes", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "carousel",
+        props: {
+          children: [
+            {
+              type: "image",
+              props: { alt: "Hat", slackFileId: "F1" },
+            },
+            {
+              type: "carouselCard",
+              props: {
+                children: [
+                  {
+                    type: "header",
+                    props: {
+                      children: [{ type: "text", props: { value: "Shoes" } }],
+                    },
+                  },
+                  {
+                    type: "image",
+                    props: { alt: "Red shoes", slackFileId: "F2" },
+                  },
+                  {
+                    type: "section",
+                    props: {
+                      children: [{ type: "text", props: { value: "On sale" } }],
+                    },
+                  },
+                  {
+                    type: "button",
+                    props: {
+                      onClick: { id: "ck:buy" },
+                      value: "buy-shoes",
+                      children: [{ type: "text", props: { value: "Buy" } }],
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    expect(blocks[0]).toMatchObject({
+      type: "carousel",
+      elements: [
+        {
+          type: "card",
+          hero_image: { type: "image", slack_file: { id: "F1" } },
+        },
+        {
+          type: "card",
+          title: { type: "mrkdwn" },
+          actions: [{ type: "button" }],
+        },
+      ],
+    });
+  });
+
+  it("renders an image with only a url via image_url", () => {
+    expect(
+      renderBlockKit([
+        {
+          type: "image",
+          props: { url: "https://example.com/hat.png", alt: "Hat" },
+        },
+      ]),
+    ).toEqual([
+      {
+        type: "image",
+        image_url: "https://example.com/hat.png",
+        alt_text: "Hat",
+      },
+    ]);
+  });
+
   it("keeps source order when a multi-select is mixed with a button", () => {
     const blocks = renderBlockKit([
       {

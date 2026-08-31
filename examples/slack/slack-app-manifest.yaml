@@ -37,6 +37,18 @@ features:
     - command: /file-issue
       description: Open a form to file a Linear issue
       should_escape: false
+    - command: /prs
+      description: Show the PR review radar (open PRs needing review)
+      should_escape: false
+    - command: /pulse
+      description: Show the weekly OSS pulse (stars, downloads, issues)
+      should_escape: false
+    - command: /standup
+      description: Show the current Linear cycle standup
+      should_escape: false
+    - command: /carousel
+      description: Post a demo carousel of React product cards
+      should_escape: false
 oauth_config:
   scopes:
     user:

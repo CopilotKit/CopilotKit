@@ -8,9 +8,10 @@ import {
   safeChannelErrorMetadata,
 } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
-import type {
-  RealtimeGatewayDeliveryChannel,
-  RealtimeGatewaySession,
+import {
+  RealtimeGatewayPushError,
+  type RealtimeGatewayDeliveryChannel,
+  type RealtimeGatewaySession,
 } from "./realtime-gateway.js";
 import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 
@@ -1093,6 +1094,159 @@ test("retries the exact packet after reconnect and calls no second sequence", as
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
+function outOfOrderError(): RealtimeGatewayPushError {
+  return new RealtimeGatewayPushError("packet", "packet_out_of_order", {
+    reason: "packet_out_of_order",
+  });
+}
+
+test("rejoins and retries the same seq after packet_out_of_order", async () => {
+  const first = channel();
+  const second = channel();
+  vi.mocked(first.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve(acknowledgement(packet)),
+    )
+    .mockRejectedValueOnce(outOfOrderError());
+  vi.mocked(second.push).mockImplementation((_event, packet) => {
+    const body = packet as { seq: number };
+    if (body.seq !== 1) {
+      return Promise.reject(outOfOrderError());
+    }
+    return Promise.resolve(acknowledgement(packet));
+  });
+  const reconnect = vi.fn().mockResolvedValue({
+    channel: second,
+    owner: {
+      ownerGeneration: 8,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+  });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    first,
+    reconnect,
+  );
+
+  await session.effect("response_01", {
+    kind: "slack.thread.status",
+    status: "is thinking…",
+  });
+  const result = await session.effect("response_02", {
+    kind: "slack.message.create",
+    text: "Hello",
+  });
+
+  const original = vi.mocked(first.push).mock.calls[1]![1] as {
+    seq: number;
+    packetId: string;
+  };
+  const retried = vi.mocked(second.push).mock.calls[0]![1] as {
+    seq: number;
+    packetId: string;
+  };
+  expect(original.seq).toBe(1);
+  expect(retried.seq).toBe(1);
+  expect(retried.packetId).toBe(original.packetId);
+  expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
+test("recovers Redis seq after packet_out_of_order rejects the exact retry", async () => {
+  const first = channel();
+  const second = channel();
+  vi.mocked(first.push).mockRejectedValue(outOfOrderError());
+  vi.mocked(second.push).mockImplementation((_event, packet) => {
+    const body = packet as { seq: number };
+    if (body.seq !== 3) {
+      return Promise.reject(outOfOrderError());
+    }
+    return Promise.resolve(acknowledgement(packet));
+  });
+  const reconnect = vi.fn().mockResolvedValue({
+    channel: second,
+    owner: {
+      ownerGeneration: 8,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+  });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    first,
+    reconnect,
+  );
+
+  const result = await session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "Hello",
+  });
+
+  const accepted = vi
+    .mocked(second.push)
+    .mock.calls.map((call) => call[1] as { seq: number })
+    .find((packet) => packet.seq === 3);
+  expect(accepted?.seq).toBe(3);
+  expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
+test("keeps the packet path open after packet_out_of_order is exhausted", async () => {
+  const first = channel();
+  const second = channel();
+  const third = channel();
+  vi.mocked(first.push).mockRejectedValue(outOfOrderError());
+  vi.mocked(second.push).mockRejectedValue(outOfOrderError());
+  const reconnect = vi
+    .fn()
+    .mockResolvedValueOnce({
+      channel: second,
+      owner: {
+        ownerGeneration: 8,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+    })
+    .mockResolvedValueOnce({
+      channel: third,
+      owner: {
+        ownerGeneration: 9,
+        runtimeInstanceId: "rti_runtime_01",
+      },
+      deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+    });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    first,
+    reconnect,
+  );
+
+  await expect(
+    session.effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).rejects.toBeInstanceOf(RealtimeGatewayPushError);
+
+  await expect(
+    session.effect("response_02", {
+      kind: "slack.message.create",
+      text: "World",
+    }),
+  ).resolves.toEqual({ providerReference: "pref_v1_message_01" });
+});
+
 test("polls the same packet after a retry-wait result", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
@@ -1263,7 +1417,6 @@ test("stop aborts an active retry wait and leaves its delivery topic", async () 
 
 test("still sends a failed terminal when complete terminal fails", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   let terminalAttempts = 0;
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
     const body = packet as { payload?: { kind?: string } };
@@ -1347,7 +1500,6 @@ test("refreshes owner generation on packets after reconnect", async () => {
 
 test("closes the packet path after a permanent push failure", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   vi.mocked(deliveryChannel.push).mockRejectedValue(
     new RealtimeGatewayPushError("packet", "conflict", "sequence conflict"),
   );
@@ -1378,7 +1530,6 @@ test("closes the packet path after a permanent push failure", async () => {
 
 test("still allows stream.stop after a permanent non-terminal failure", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   let pushCount = 0;
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
     pushCount += 1;
@@ -1715,6 +1866,62 @@ test("surfaces a failed provider result as an already-terminal error", async () 
     retryable: false,
   });
   expect(session.hasProviderOutput()).toBe(false);
+});
+
+test("keeps effects open after an unready Slack file so the post can retry", async () => {
+  const details = {
+    category: "validation",
+    provider: "slack",
+    operation: "chat.postMessage",
+    effectKind: "slack.message.create",
+    providerCode: "invalid_blocks",
+    validationMessages: [
+      "invalid field at /blocks/1/elements/0/hero_image/slack_file.id/slack_file",
+    ],
+    retryable: false,
+    deliveryId: "dlv_delivery_01",
+  } as const;
+  const deliveryChannel = channel();
+  vi.mocked(deliveryChannel.push)
+    .mockImplementationOnce((_event, packet) =>
+      Promise.resolve(
+        acknowledgement(packet, {
+          phase: "failed",
+          result: {
+            error: "provider_call_failed",
+            status: "failed",
+            details,
+          },
+        }),
+      ),
+    )
+    .mockImplementation((_event, packet) =>
+      Promise.resolve(acknowledgement(packet)),
+    );
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryChannel,
+    vi.fn(),
+  );
+
+  const error = await session
+    .effect("response_01", {
+      kind: "slack.message.create",
+      text: "Hello",
+    })
+    .catch((caught: unknown) => caught);
+  expect(error).toBeInstanceOf(ChannelProviderDeliveryError);
+
+  await expect(
+    session.effect("response_02", {
+      kind: "slack.message.create",
+      text: "Hello",
+    }),
+  ).resolves.toMatchObject({ providerReference: "pref_v1_message_01" });
 });
 
 test("keeps effects open after a best-effort provider failure", async () => {

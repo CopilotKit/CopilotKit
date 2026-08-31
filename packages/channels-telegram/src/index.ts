@@ -55,6 +55,7 @@ export type {
   ReplyTarget,
   TelegramMessageRef,
   TelegramInlineButton,
+  TelegramPhoto,
   TelegramPayload,
   TelegramAdapterOptions,
 } from "./types.js";

@@ -4,8 +4,8 @@ import {
   MCPAppsQueueThreadChangedError,
   MCPAppsRequestQueue,
   MCPAppsQueueTimeoutError,
-  type MCPAppsQueueAgent,
 } from "../mcp-apps-request-queue";
+import type { MCPAppsQueueAgent } from "../mcp-apps-request-queue";
 
 function deferred<T>(): {
   promise: Promise<T>;
