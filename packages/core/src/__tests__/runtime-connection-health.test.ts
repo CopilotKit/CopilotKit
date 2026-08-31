@@ -1536,6 +1536,48 @@ describe("runtime connection health (OSS-904)", () => {
 
   // --- a configuration change while the status is red ----------------------
 
+  it("replaces a same-id proxy when a new runtime connects from the error state", async () => {
+    const core = await bootConnectedCore();
+    const oldAgent = core.getAgent("default")!;
+    oldAgent.threadId = "thread-on-runtime-a";
+
+    takeRuntimeDown();
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    core.setRuntimeUrl(ALT_RUNTIME_URL);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    const newAgent = core.getAgent("default")!;
+    expect(newAgent).not.toBe(oldAgent);
+    expect(newAgent.threadId).toBe("thread-on-runtime-a");
+    expect(newAgent.messages).toHaveLength(0);
+    expect(altInfoCalls).toBe(1);
+
+    altRunHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    altInfoHandler = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Error);
+
+    altRunHandler = async () => sseResponse();
+    altInfoHandler = async () =>
+      jsonResponse({
+        version: "runtime-b-recovered",
+        agents: { helper: { description: "helper", capabilities: {} } },
+      });
+    await runOnce(core);
+    await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
+
+    expect(Object.keys(core.agents).sort()).toEqual(["default", "helper"]);
+    expect(core.getAgent("default")).toBe(newAgent);
+    expect(newAgent.threadId).toBe("thread-on-runtime-a");
+    expect(newAgent.messages).toHaveLength(0);
+  });
+
   it("keeps the conversation and a way out when the transport changes while the status is error", async () => {
     const core = await bootConnectedCore();
     const agent = core.getAgent("default")!;
@@ -1565,7 +1607,8 @@ describe("runtime connection health (OSS-904)", () => {
     bringRuntimeUp();
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
-    expect(core.getAgent("default")).toBe(agent);
+    expect(core.getAgent("default")).not.toBe(agent);
+    expect(core.getAgent("default")?.messages).toEqual(agent.messages);
   });
 
   it("keeps the conversation and a way out when a configuration change lands in the window recovery creates", async () => {
@@ -1606,7 +1649,8 @@ describe("runtime connection health (OSS-904)", () => {
     bringRuntimeUp();
     await runOnce(core);
     await waitForStatus(core, CopilotKitCoreRuntimeConnectionStatus.Connected);
-    expect(core.getAgent("default")).toBe(agent);
+    expect(core.getAgent("default")).not.toBe(agent);
+    expect(core.getAgent("default")?.messages).toEqual(agent.messages);
   });
 
   it("still discards runtime knowledge when a configuration change fails from a healthy connection", async () => {

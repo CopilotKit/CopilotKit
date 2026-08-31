@@ -232,3 +232,7 @@ configures it through `provideCopilotKit({ enableInspector: false })`.
 Legacy `showDevConsole` props no longer control the Inspector. Use
 `enableInspector` in every browser framework. Native iOS and Android
 applications do not have a built-in Inspector yet.
+
+Inspector telemetry uses its own browser identity and direct delivery path. It
+works whether or not the Runtime has `CPK_TELEMETRY_ID`, and it follows the
+existing telemetry opt-outs.

@@ -4,6 +4,7 @@ import type {
   RuntimeInfo,
   RuntimeMode,
   RuntimeLicenseStatus,
+  RuntimeEntitlementResponse,
   IntelligenceRuntimeInfo,
   InspectorMetadataV1,
   ThreadEndpointRuntimeInfo,
@@ -73,6 +74,18 @@ function withJsonContentType(headers: Record<string, string>): Headers {
   return requestHeaders;
 }
 
+const RUNTIME_ENTITLEMENT_RETRY_DELAY_MS = 5_000;
+
+interface RuntimeConnectionAttempt {
+  key: string;
+  generation: number;
+}
+
+interface RuntimeAgentConnection {
+  runtimeUrl: string;
+  transport: CopilotRuntimeTransport;
+}
+
 export interface CopilotKitCoreAddAgentParams {
   id: string;
   agent: AbstractAgent;
@@ -116,7 +129,15 @@ export class AgentRegistry {
   // Tracks an in-flight `/info` connection so concurrent calls targeting the
   // same runtime (url + requested transport) collapse to a single request
   // instead of each firing their own. See #5801.
-  private _connectionInFlight?: { key: string; promise: Promise<void> };
+  private _connectionInFlight?: {
+    attempt: RuntimeConnectionAttempt;
+    promise: Promise<void>;
+  };
+  private _runtimeConnectionGeneration = 0;
+  private _activeRuntimeConnectionAttempt?: RuntimeConnectionAttempt;
+  private _runtimeEntitlementRetryTimer?: ReturnType<typeof setTimeout>;
+  private _runtimeEntitlementRetryAttemptedKey?: string;
+  private _runtimeEntitlementRetryPendingKey?: string;
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
@@ -145,7 +166,12 @@ export class AgentRegistry {
   private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
   private _licenseStatus?: RuntimeLicenseStatus;
+  private _runtimeEntitlements?: RuntimeEntitlementResponse;
   private _telemetryDisabled: boolean = false;
+  private remoteAgentConnections = new WeakMap<
+    ProxiedCopilotRuntimeAgent,
+    RuntimeAgentConnection
+  >();
 
   private runtimeFetch?: typeof fetch;
   private runtimeProbeInFlight: boolean = false;
@@ -236,6 +262,17 @@ export class AgentRegistry {
     return this._licenseStatus;
   }
 
+  /** Structured Runtime entitlement authority advertised by `/info`. */
+  get runtimeEntitlements(): RuntimeEntitlementResponse | undefined {
+    return this._runtimeEntitlements;
+  }
+
+  get runtimeEntitlementRetryPending(): boolean {
+    return (
+      this._runtimeEntitlementRetryPendingKey === this.runtimeConnectionKey()
+    );
+  }
+
   get telemetryDisabled(): boolean {
     return this._telemetryDisabled;
   }
@@ -268,6 +305,11 @@ export class AgentRegistry {
 
     this.invalidateInspectorMetadataConnection();
     this.abandonRuntimeHealthProbe();
+    this.resetRuntimeEntitlementRetry();
+    // Runtime authority is scoped to the target that advertised it. Clear it
+    // before subscribers observe the replacement target connecting.
+    this._licenseStatus = undefined;
+    this._runtimeEntitlements = undefined;
     this._runtimeUrl = normalizedRuntimeUrl;
 
     // Deferred construction (see CopilotKitCore.connect / #5801): record the URL
@@ -321,6 +363,7 @@ export class AgentRegistry {
 
     this.invalidateInspectorMetadataConnection();
     this.abandonRuntimeHealthProbe();
+    this.resetRuntimeEntitlementRetry();
     this._requestedTransport = runtimeTransport;
     this._runtimeTransport = runtimeTransport;
     void this.updateRuntimeConnection({
@@ -898,9 +941,18 @@ export class AgentRegistry {
 
   private async fetchRuntimeInfoWithTimeout(
     abortController: AbortController,
+    runtimeUrl = this.runtimeUrl,
+    runtimeTransport = this._runtimeTransport,
   ): Promise<RuntimeInfoFetchResult> {
+    if (!runtimeUrl) {
+      throw new Error("Runtime URL is not set");
+    }
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const request = this.fetchRuntimeInfo(abortController.signal);
+    const request = this.fetchRuntimeInfo(
+      runtimeUrl,
+      runtimeTransport,
+      abortController.signal,
+    );
     void request.catch(() => {});
     try {
       const timedOut = new Promise<never>((_resolve, reject) => {
@@ -1012,14 +1064,28 @@ export class AgentRegistry {
     // requested transport) is already running, reuse it instead of starting a
     // second `/info` request. A change to a different target supersedes it. See
     // #5801.
-    const key = `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+    const key = this.runtimeConnectionKey();
     const inFlight = this._connectionInFlight;
-    if (inFlight && inFlight.key === key) {
+    if (
+      inFlight &&
+      inFlight.attempt.key === key &&
+      this.isCurrentRuntimeConnection(inFlight.attempt)
+    ) {
       return inFlight.promise;
     }
 
-    const promise = this.performRuntimeConnection(options);
-    this._connectionInFlight = { key, promise };
+    const attempt = {
+      key,
+      generation: ++this._runtimeConnectionGeneration,
+    };
+    this._activeRuntimeConnectionAttempt = attempt;
+    const promise = this.performRuntimeConnection({
+      attempt,
+      runtimeUrl: this._runtimeUrl,
+      transport: this._runtimeTransport,
+      options,
+    });
+    this._connectionInFlight = { attempt, promise };
     void promise.finally(() => {
       if (this._connectionInFlight?.promise === promise) {
         this._connectionInFlight = undefined;
@@ -1028,10 +1094,114 @@ export class AgentRegistry {
     return promise;
   }
 
-  private async performRuntimeConnection(
-    options?: RuntimeConnectionOptions,
+  /** Return the stable key that scopes connection and entitlement retries. */
+  private runtimeConnectionKey(): string {
+    return `${this._runtimeUrl ?? ""}::${this._requestedTransport}`;
+  }
+
+  /** Return whether a proxy still targets this Runtime connection. */
+  private canReuseRuntimeAgent(
+    agent: ProxiedCopilotRuntimeAgent,
+    runtimeUrl: string | undefined,
+    transport: CopilotRuntimeTransport,
+  ): boolean {
+    if (!runtimeUrl) {
+      return false;
+    }
+    const connection = this.remoteAgentConnections.get(agent);
+    return (
+      connection?.runtimeUrl === runtimeUrl.replace(/\/$/, "") &&
+      connection.transport === transport
+    );
+  }
+
+  /** Return whether an async attempt still owns the active Runtime state. */
+  private isCurrentRuntimeConnection(
+    attempt: RuntimeConnectionAttempt,
+  ): boolean {
+    return (
+      this._activeRuntimeConnectionAttempt?.generation === attempt.generation &&
+      this.runtimeConnectionKey() === attempt.key
+    );
+  }
+
+  /** Cancel a pending entitlement retry and allow a new target to retry. */
+  private resetRuntimeEntitlementRetry(): void {
+    if (this._runtimeEntitlementRetryTimer !== undefined) {
+      clearTimeout(this._runtimeEntitlementRetryTimer);
+      this._runtimeEntitlementRetryTimer = undefined;
+    }
+    this._runtimeEntitlementRetryAttemptedKey = undefined;
+    this._runtimeEntitlementRetryPendingKey = undefined;
+  }
+
+  /** Schedule one retry after Runtime's short failed-entitlement cache. */
+  private updateRuntimeEntitlementRetry(
+    runtimeEntitlements: RuntimeEntitlementResponse | undefined,
+    attempt: RuntimeConnectionAttempt,
+  ): void {
+    if (!this.isCurrentRuntimeConnection(attempt)) {
+      return;
+    }
+    const { key } = attempt;
+    if (
+      runtimeEntitlements?.status === "ready" ||
+      runtimeEntitlements?.error.retryable !== true
+    ) {
+      this.resetRuntimeEntitlementRetry();
+      return;
+    }
+    if (this._runtimeEntitlementRetryTimer !== undefined) {
+      return;
+    }
+    if (this._runtimeEntitlementRetryAttemptedKey === key) {
+      this._runtimeEntitlementRetryPendingKey = undefined;
+      return;
+    }
+
+    this._runtimeEntitlementRetryAttemptedKey = key;
+    this._runtimeEntitlementRetryPendingKey = key;
+    this._runtimeEntitlementRetryTimer = setTimeout(() => {
+      this._runtimeEntitlementRetryTimer = undefined;
+      void this.executeRuntimeEntitlementRetry(attempt).catch(
+        (error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : JSON.stringify(error);
+          logger.warn(
+            `Failed to retry runtime info (${this.runtimeUrl}/info): ${message}`,
+          );
+        },
+      );
+    }, RUNTIME_ENTITLEMENT_RETRY_DELAY_MS);
+  }
+
+  /** Start the bounded retry after the original connection has settled. */
+  private async executeRuntimeEntitlementRetry(
+    attempt: RuntimeConnectionAttempt,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    const inFlight = this._connectionInFlight;
+    if (inFlight?.attempt.generation === attempt.generation) {
+      await inFlight.promise;
+    }
+    if (!this._runtimeUrl || !this.isCurrentRuntimeConnection(attempt)) {
+      return;
+    }
+    await this.updateRuntimeConnection();
+  }
+
+  private async performRuntimeConnection({
+    attempt,
+    runtimeUrl,
+    transport,
+    options,
+  }: {
+    attempt: RuntimeConnectionAttempt;
+    runtimeUrl: string | undefined;
+    transport: CopilotRuntimeTransport;
+    options?: RuntimeConnectionOptions;
+  }): Promise<void> {
+    const { key } = attempt;
+    if (!runtimeUrl) {
       this.invalidateInspectorMetadataConnection();
       this.setRuntimeConnectionStatus(
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
@@ -1045,12 +1215,17 @@ export class AgentRegistry {
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
+      this._licenseStatus = undefined;
+      this._runtimeEntitlements = undefined;
       this.remoteAgents = {};
       this._agents = this.localAgents;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Disconnected,
       );
+      if (!this.isCurrentRuntimeConnection(attempt)) {
+        return;
+      }
       await this.notifyAgentsChanged();
       return;
     }
@@ -1065,6 +1240,9 @@ export class AgentRegistry {
     await this.notifyRuntimeStatusChanged(
       CopilotKitCoreRuntimeConnectionStatus.Connecting,
     );
+    if (!this.isCurrentRuntimeConnection(attempt)) {
+      return;
+    }
 
     try {
       if (
@@ -1075,11 +1253,16 @@ export class AgentRegistry {
       }
       const { runtimeInfo: runtimeInfoResponse, resolvedTransport } =
         options?.recovery
-          ? await this.fetchRuntimeInfoWithTimeout(new AbortController())
-          : await this.fetchRuntimeInfo();
+          ? await this.fetchRuntimeInfoWithTimeout(
+              new AbortController(),
+              runtimeUrl,
+              transport,
+            )
+          : await this.fetchRuntimeInfo(runtimeUrl, transport);
       if (
+        !this.isCurrentRuntimeConnection(attempt) ||
         inspectorMetadataConnectionGeneration !==
-        this.inspectorMetadataConnectionGeneration
+          this.inspectorMetadataConnectionGeneration
       ) {
         return;
       }
@@ -1094,30 +1277,31 @@ export class AgentRegistry {
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
-            // Reuse the already-registered instance for ids that are still
-            // present. A re-connection (an /info re-settle, a header/config or
-            // transport change) re-runs this method, but the runtime agent for
-            // a given id is the SAME logical agent — minting a fresh instance
-            // would discard its accumulated `messages`/`threadId` and its live
-            // subscriptions. Downstream (e.g. the `use-agent` memo) keys on the
-            // instance identity returned by `getAgent(id)`, so replacing it
-            // unmounts an already-rendered conversation. Only re-apply what the
-            // registry owns (headers + credentials) in place; the proxy
-            // re-resolves its own runtime mode/intelligence via `/info`.
+            // Preserve a live proxy only when its baked request routes still
+            // match this connection. A new Runtime URL or resolved transport
+            // needs a new proxy so agent traffic cannot keep using the old
+            // target.
             const existing = Object.prototype.hasOwnProperty.call(
               this.remoteAgents,
               id,
             )
               ? this.remoteAgents[id]
               : undefined;
-            if (existing instanceof ProxiedCopilotRuntimeAgent) {
+            if (
+              existing instanceof ProxiedCopilotRuntimeAgent &&
+              this.canReuseRuntimeAgent(
+                existing,
+                runtimeUrl,
+                this._runtimeTransport,
+              )
+            ) {
               this.applyHeadersToAgent(existing);
               this.applyCredentialsToAgent(existing);
               this.applyRuntimeFetchToAgent(existing);
               return [id, existing];
             }
             const agent = new ProxiedCopilotRuntimeAgent({
-              runtimeUrl: this.runtimeUrl,
+              runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
               description: description,
               transport: this._runtimeTransport,
@@ -1130,6 +1314,15 @@ export class AgentRegistry {
             this.applyHeadersToAgent(agent);
             this.applyRuntimeFetchToAgent(agent);
             this.mintedThreadIds.set(agent, agent.threadId);
+            if (options?.preserveOnFailure === true && existing) {
+              agent.threadId = existing.threadId;
+              agent.setState(existing.state);
+              agent.setMessages([...existing.messages]);
+            }
+            this.remoteAgentConnections.set(agent, {
+              runtimeUrl,
+              transport: this._runtimeTransport,
+            });
             return [id, agent];
           },
         ),
@@ -1162,11 +1355,19 @@ export class AgentRegistry {
       this._openGenerativeUIEnabled =
         runtimeInfoResponse.openGenerativeUIEnabled ?? false;
       this._licenseStatus = runtimeInfoResponse.licenseStatus;
+      this._runtimeEntitlements = runtimeInfoResponse.runtimeEntitlements;
+      this.updateRuntimeEntitlementRetry(
+        runtimeInfoResponse.runtimeEntitlements,
+        attempt,
+      );
       this._telemetryDisabled = runtimeInfoResponse.telemetryDisabled ?? false;
 
       await this.notifyRuntimeStatusChanged(
         CopilotKitCoreRuntimeConnectionStatus.Connected,
       );
+      if (!this.isCurrentRuntimeConnection(attempt)) {
+        return;
+      }
       await this.notifyAgentsChanged();
       if (
         inspectorMetadataConnectionGeneration !==
@@ -1182,10 +1383,18 @@ export class AgentRegistry {
       }
     } catch (error) {
       if (
+        !this.isCurrentRuntimeConnection(attempt) ||
         inspectorMetadataConnectionGeneration !==
-        this.inspectorMetadataConnectionGeneration
+          this.inspectorMetadataConnectionGeneration
       ) {
         return;
+      }
+      const boundedEntitlementRetryFailed =
+        this._runtimeEntitlementRetryTimer === undefined &&
+        this._runtimeEntitlementRetryAttemptedKey === key &&
+        this._runtimeEntitlementRetryPendingKey === key;
+      if (boundedEntitlementRetryFailed) {
+        this._runtimeEntitlementRetryPendingKey = undefined;
       }
       if (options?.preserveOnFailure) {
         if (
@@ -1214,6 +1423,14 @@ export class AgentRegistry {
         this._a2uiEnabled = false;
         this._a2uiAgents = undefined;
         this._openGenerativeUIEnabled = false;
+        // A failed bounded retry must settle the authority that caused it. Keep
+        // that retryable result so consumers can distinguish terminal denial
+        // from the initial loading window. Other connection failures still
+        // clear stale Runtime authority.
+        if (!boundedEntitlementRetryFailed) {
+          this._licenseStatus = undefined;
+          this._runtimeEntitlements = undefined;
+        }
         this.remoteAgents = {};
         this._agents = this.localAgents;
 
@@ -1226,7 +1443,7 @@ export class AgentRegistry {
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
       logger.warn(
-        `Failed to load runtime info (${this.runtimeUrl}/info): ${message}`,
+        `Failed to load runtime info (${runtimeUrl}/info): ${message}`,
       );
       const runtimeError =
         error instanceof Error ? error : new Error(String(error));
@@ -1234,20 +1451,17 @@ export class AgentRegistry {
         error: runtimeError,
         code: CopilotKitCoreErrorCode.RUNTIME_INFO_FETCH_FAILED,
         context: {
-          runtimeUrl: this.runtimeUrl,
+          runtimeUrl,
         },
       });
     }
   }
 
   private async fetchRuntimeInfo(
+    runtimeUrl: string,
+    runtimeTransport: CopilotRuntimeTransport,
     signal?: AbortSignal,
   ): Promise<RuntimeInfoFetchResult> {
-    const runtimeUrl = this.runtimeUrl;
-    if (!runtimeUrl) {
-      throw new Error("Runtime URL is not set");
-    }
-
     const baseHeaders = (this.core as unknown as CopilotKitCoreFriendsAccess)
       .headers;
     const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
@@ -1256,7 +1470,6 @@ export class AgentRegistry {
       ...baseHeaders,
     };
 
-    const runtimeTransport = this._runtimeTransport;
     if (runtimeTransport === "single") {
       return {
         runtimeInfo: await this.fetchRuntimeInfoSingle(
