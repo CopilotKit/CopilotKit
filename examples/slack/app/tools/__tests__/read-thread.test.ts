@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { readThreadTool } from "../read-thread.js";
-import type { ThreadMessage } from "@copilotkit/bot-ui";
+import type { ThreadMessage } from "@copilotkit/channels";
 
-/** The ctx a BotTool handler receives. */
+/** The ctx a ChannelTool handler receives. */
 type HandlerCtx = Parameters<typeof readThreadTool.handler>[1];
 
 /**
  * Build a fake handler ctx. The handler only touches
- * `thread.getMessages()`; the other `BotToolContext` fields are unused by
+ * `thread.getMessages()`; the other `ChannelToolContext` fields are unused by
  * this tool, so we cast the minimal literal to the handler ctx type.
  */
 function makeCtx(messages: ThreadMessage[]): HandlerCtx {
@@ -19,12 +19,12 @@ describe("read_thread tool", () => {
   it("returns the thread messages in a normalized shape", async () => {
     const ctx = makeCtx([
       {
-        user: { id: "UALICE", name: "Alice" },
+        user: { id: "UALICE", kind: "human", name: "Alice" },
         text: "checkout is 500ing",
         ts: "1700000000.000100",
       },
       {
-        user: { id: "UBOT", name: "Triage Bot" },
+        user: { id: "UBOT", kind: "bot", name: "Triage Bot" },
         text: "looking into it",
         ts: "1700000000.000200",
         isBot: true,

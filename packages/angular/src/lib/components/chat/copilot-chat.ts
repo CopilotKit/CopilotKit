@@ -7,6 +7,7 @@ import {
   effect,
   ChangeDetectorRef,
   Injector,
+  TemplateRef,
   Type,
   computed,
   inject,
@@ -33,6 +34,8 @@ import { injectAgentStore } from "../../agent";
 import { CopilotKit } from "../../copilotkit";
 import { ChatState } from "../../chat-state";
 import { transcribeAudio } from "../../transcription";
+import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
+import { connectActiveThread } from "../../active-thread-connector";
 
 /**
  * CopilotChat component - Angular equivalent of React's <CopilotChat>
@@ -57,11 +60,21 @@ import { transcribeAudio } from "../../transcription";
     >
       <copilot-chat-view
         [messages]="messages()"
+        [state]="agentState()"
         [agentId]="resolvedAgentId()"
         [autoScroll]="true"
         [messageViewClass]="'cpk:w-full'"
         [showCursor]="showCursor()"
         [inputComponent]="inputComponent()"
+        [assistantMessageComponent]="assistantMessageComponent()"
+        [assistantMessageTemplate]="assistantMessageTemplate()"
+        [assistantMessageClass]="assistantMessageClass()"
+        [reasoningMessageComponent]="reasoningMessageComponent()"
+        [reasoningMessageTemplate]="reasoningMessageTemplate()"
+        [reasoningMessageClass]="reasoningMessageClass()"
+        [messageViewChildrenComponent]="messageViewChildrenComponent()"
+        [messageViewChildrenTemplate]="messageViewChildrenTemplate()"
+        [messageViewChildrenClass]="messageViewChildrenClass()"
         [hasExplicitThreadId]="hasExplicitThreadId()"
       >
       </copilot-chat-view>
@@ -83,22 +96,51 @@ export class CopilotChat extends ChatState {
   readonly agentId = input<string | undefined>();
   readonly threadId = input<string | undefined>();
   readonly inputComponent = input<Type<any> | undefined>();
+  /** Component used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each assistant message in the prebuilt chat. */
+  readonly assistantMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom assistant-message renderer. */
+  readonly assistantMessageClass = input<string | undefined>();
+  /** Component used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageComponent = input<Type<any> | undefined>();
+  /** Template used to render each reasoning message in the prebuilt chat. */
+  readonly reasoningMessageTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to the default or custom reasoning-message renderer. */
+  readonly reasoningMessageClass = input<string | undefined>();
+  /** Component rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenComponent = input<Type<any> | undefined>();
+  /** Template rendered after the transcript messages and before the cursor. */
+  readonly messageViewChildrenTemplate = input<TemplateRef<any> | undefined>();
+  /** Class forwarded to custom transcript-children renderers. */
+  readonly messageViewChildrenClass = input<string | undefined>();
   readonly attachmentsConfig = input<AttachmentsConfig | undefined>(undefined, {
     alias: "attachments",
   });
+  /**
+   * Ambient chat configuration, when a {@link provideCopilotChatConfiguration}
+   * provider is in scope. Absent (`null`) for standalone
+   * `<copilot-chat [threadId]>` usage, which has no provider — resolved via the
+   * optional inject so the component does not throw without one.
+   */
+  private readonly config = inject(COPILOT_CHAT_CONFIGURATION, {
+    optional: true,
+  });
   protected readonly resolvedAgentId = computed(
-    () => this.agentId() ?? DEFAULT_AGENT_ID,
+    () => this.agentId() ?? this.config?.agentId() ?? DEFAULT_AGENT_ID,
   );
   readonly agentStore = injectAgentStore(this.resolvedAgentId);
   private readonly copilotKit = inject(CopilotKit);
-  // readonly chatConfig = injectChatConfig();
   readonly cdr = inject(ChangeDetectorRef);
   readonly injector = inject(Injector);
   private readonly destroyRef = inject(DestroyRef);
 
   protected messages = computed(() => this.agentStore().messages());
+  protected agentState = computed(() => this.agentStore().state());
   protected isRunning = computed(() => this.agentStore().isRunning());
-  protected hasExplicitThreadId = computed(() => Boolean(this.threadId()));
+  protected readonly hasExplicitThreadId =
+    this.config?.hasExplicitThreadId ??
+    computed(() => Boolean(this.threadId()));
   protected readonly agentRef = computed(() => this.agentStore().agent);
   protected readonly resolvedThreadId = computed(
     () => this.threadId() || this.generatedThreadId,
@@ -165,28 +207,70 @@ export class CopilotChat extends ChatState {
       this.copilotKit.reloadSuggestions(agentId);
     });
 
-    effect((onCleanup) => {
-      const agent = this.agentRef();
-      const threadId = this.resolvedThreadId();
-
-      agent.threadId = threadId;
-
-      if (!this.hasExplicitThreadId()) return;
-
-      let detached = false;
-      const abortController = new AbortController();
-      if (agent instanceof HttpAgent) {
-        agent.abortController = abortController;
-      }
-
-      void this.connectToAgent(agent, () => detached);
-
-      onCleanup(() => {
-        detached = true;
-        abortController.abort();
-        void agent.detachActiveRun().catch(() => {});
+    if (this.config) {
+      // A set `[threadId]` input seeds the ambient config so the input
+      // actually drives the active thread (not just the welcome flag). When
+      // the config is controlled by a host-provided `threadId` option,
+      // `setActiveThreadId` no-ops — so a controlled config wins over the
+      // input, matching React's prop-precedence. When `[threadId]` is unset,
+      // the effect does nothing and the config drives as before.
+      effect(() => {
+        const inputThreadId = this.threadId();
+        if (inputThreadId) {
+          this.config!.setActiveThreadId(inputThreadId, { explicit: true });
+        }
       });
-    });
+
+      // Ambient configuration drives the active thread: the connector pins
+      // `agent.threadId` from the config's resolved thread signal and connects
+      // on explicit switches (or clears messages on a fresh thread).
+      //
+      // The connector receives the RAW `core.connectAgent` and owns the loading
+      // cursor + abort + detach lifecycle, matching the standalone
+      // `connectToAgent` path exactly: cursor on at connect start, off when the
+      // connect settles (guarded against a superseded run). Connect errors still
+      // surface via the AgentStore's run/error subscription, not here.
+      connectActiveThread(
+        this.config,
+        this.agentStore,
+        (params) => this.copilotKit.core.connectAgent(params),
+        {
+          onConnectStart: () => {
+            this.showCursor.set(true);
+            this.cdr.markForCheck();
+          },
+          onConnectSettle: () => {
+            this.showCursor.set(false);
+            this.cdr.markForCheck();
+          },
+        },
+      );
+    } else {
+      // Standalone `<copilot-chat [threadId]>` usage with no configuration
+      // provider: the active thread is input-driven exactly as before.
+      effect((onCleanup) => {
+        const agent = this.agentRef();
+        const threadId = this.resolvedThreadId();
+
+        agent.threadId = threadId;
+
+        if (!this.hasExplicitThreadId()) return;
+
+        let detached = false;
+        const abortController = new AbortController();
+        if (agent instanceof HttpAgent) {
+          agent.abortController = abortController;
+        }
+
+        void this.connectToAgent(agent, () => detached);
+
+        onCleanup(() => {
+          detached = true;
+          abortController.abort();
+          void agent.detachActiveRun().catch(() => {});
+        });
+      });
+    }
   }
 
   private async connectToAgent(

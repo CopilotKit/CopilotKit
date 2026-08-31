@@ -34,8 +34,6 @@ import {
 } from "fumadocs-ui/page";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { ReferenceVersionSelector } from "@/components/reference-version-selector";
-import { EarlyAccessGate } from "@/components/early-access-gate";
-import { getEarlyAccessGate } from "@/lib/early-access";
 import {
   REFERENCE_VERSIONS,
   buildReferencePageTree,
@@ -46,6 +44,7 @@ import {
 } from "@/lib/reference-items";
 import { stripLeadingImports } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
+import { V1_DEPRECATION_NOTICE_USE_V2_INSTEAD } from "@/lib/v1-deprecation-use-v2-instead";
 
 // Self-canonical for /reference/<slug>. Reference pages are not
 // per-framework, but we still emit a canonical so the production URL
@@ -190,99 +189,98 @@ export default async function ReferenceSlugPage({
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        {/* The whole `bot` reference section documents the Slack bot
-            SDK, so it sits behind the same early-access gate as the
-            Slack guide. */}
-        <MaybeEarlyAccessGate gate={version === "bot" ? "slack" : undefined}>
-          <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
-            <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
-              {breadcrumbs.map((crumb, i) => {
-                const isLast = i === breadcrumbs.length - 1;
-                const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
-                return (
-                  <Fragment key={`${crumb.label}-${i}`}>
-                    {i > 0 && (
-                      <ChevronRight
-                        className="size-3 shrink-0"
-                        aria-hidden="true"
-                      />
-                    )}
-                    {crumb.href && !isLast ? (
-                      <Link
-                        href={crumb.href}
-                        className={`${labelClass} transition-opacity hover:opacity-80`}
-                      >
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span className={labelClass}>{crumb.label}</span>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </nav>
+        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+          <nav className="mb-2 flex flex-wrap items-center gap-1 text-[11px] font-medium leading-none text-[var(--text-muted)]">
+            {breadcrumbs.map((crumb, i) => {
+              const isLast = i === breadcrumbs.length - 1;
+              const labelClass = `truncate ${isLast ? "text-[var(--text)] font-medium" : ""}`;
+              return (
+                <Fragment key={`${crumb.label}-${i}`}>
+                  {i > 0 && (
+                    <ChevronRight
+                      className="size-3 shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+                  {crumb.href && !isLast ? (
+                    <Link
+                      href={crumb.href}
+                      className={`${labelClass} transition-opacity hover:opacity-80`}
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={labelClass}>{crumb.label}</span>
+                  )}
+                </Fragment>
+              );
+            })}
+          </nav>
 
-            <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
-              {title}
-            </DocsTitle>
-            {description && (
-              <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
-                {description}
-              </DocsDescription>
-            )}
+          <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
+            {title}
+          </DocsTitle>
+          {description && (
+            <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+              {description}
+            </DocsDescription>
+          )}
 
-            <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-              <MarkdownCopyButton markdownUrl={markdownUrl} />
-              <ViewOptionsPopover
-                markdownUrl={markdownUrl}
-                githubUrl={buildGitHubUrl(filePath)}
-              />
+          {version === "v1" && (
+            <div className="my-6">
+              <Callout type="warning">
+                <strong>{V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.title}</strong>{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.summary}{" "}
+                {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.importGuidance}
+                <br />
+                <strong>
+                  {V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.agentGuidance}
+                </strong>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.migrationHref}>
+                  Read the v1 to v2 migration guide.
+                </Link>{" "}
+                <Link href={V1_DEPRECATION_NOTICE_USE_V2_INSTEAD.exportMapHref}>
+                  Open the complete export map.
+                </Link>
+              </Callout>
             </div>
+          )}
 
-            <hr className="border-t border-[var(--border)] mt-2 mb-6" />
-
-            <DocsBody className="reference-content">
-              <MDXRemote
-                source={cleanedContent}
-                components={mdxComponents}
-                options={{
-                  mdxOptions: {
-                    remarkPlugins: [remarkGfm],
-                    rehypePlugins: [
-                      [
-                        rehypeCode,
-                        {
-                          fallbackLanguage: "plaintext",
-                          transformers: [
-                            ...(rehypeCodeDefaultOptions.transformers ?? []),
-                            transformerMeta(),
-                          ],
-                        },
-                      ],
-                    ],
-                  },
-                }}
-              />
-            </DocsBody>
+          <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
+            <MarkdownCopyButton markdownUrl={markdownUrl} />
+            <ViewOptionsPopover
+              markdownUrl={markdownUrl}
+              githubUrl={buildGitHubUrl(filePath)}
+            />
           </div>
-        </MaybeEarlyAccessGate>
+
+          <hr className="border-t border-[var(--border)] mt-2 mb-6" />
+
+          <DocsBody className="reference-content">
+            <MDXRemote
+              source={cleanedContent}
+              components={mdxComponents}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [
+                    [
+                      rehypeCode,
+                      {
+                        fallbackLanguage: "plaintext",
+                        transformers: [
+                          ...(rehypeCodeDefaultOptions.transformers ?? []),
+                          transformerMeta(),
+                        ],
+                      },
+                    ],
+                  ],
+                },
+              }}
+            />
+          </DocsBody>
+        </div>
       </DocsPage>
     </ShellDocsLayout>
   );
-}
-
-/**
- * Server-side gate hook-up — mirrors the helper in `docs-page-view.tsx`.
- * Absent or unknown gate ids render children directly so ungated
- * reference versions never mount the client-side gate component.
- */
-function MaybeEarlyAccessGate({
-  gate,
-  children,
-}: {
-  gate?: string;
-  children: React.ReactNode;
-}) {
-  if (!gate || !getEarlyAccessGate(gate)) return <>{children}</>;
-  return <EarlyAccessGate gate={gate}>{children}</EarlyAccessGate>;
 }

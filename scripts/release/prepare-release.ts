@@ -12,60 +12,12 @@ import {
   computeNextStableVersion,
   bumpPackages,
   getPackagesForScope,
-  type BumpLevel,
 } from "./lib/versions.js";
-import {
-  getChangesSummary,
-  type ChangesSummary,
-  type Commit,
-} from "./lib/changes.js";
-import { ROOT, loadConfig, type ReleaseScope } from "./lib/config.js";
-
-function generateRawReleaseNotes(
-  version: string,
-  scope: ReleaseScope,
-  summary: ChangesSummary,
-): string {
-  const lines: string[] = [];
-  const label = scope === "monorepo" ? "" : ` (${scope})`;
-  lines.push(`## v${version}${label}`, "");
-
-  if (summary.commits.length === 0) {
-    lines.push("No changes since last release.");
-    return lines.join("\n");
-  }
-
-  const features: Commit[] = [];
-  const fixes: Commit[] = [];
-  const other: Commit[] = [];
-
-  for (const c of summary.commits) {
-    if (/^feat[:(]/.test(c.subject)) features.push(c);
-    else if (/^fix[:(]/.test(c.subject)) fixes.push(c);
-    else other.push(c);
-  }
-
-  if (features.length > 0) {
-    lines.push("### Features", "");
-    for (const c of features)
-      lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
-    lines.push("");
-  }
-
-  if (fixes.length > 0) {
-    lines.push("### Fixes", "");
-    for (const c of fixes) lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
-    lines.push("");
-  }
-
-  if (other.length > 0) {
-    lines.push("### Other Changes", "");
-    for (const c of other) lines.push(`- ${c.subject} (${c.hash.slice(0, 7)})`);
-    lines.push("");
-  }
-
-  return lines.join("\n");
-}
+import type { BumpLevel } from "./lib/versions.js";
+import { getChangesSummary } from "./lib/changes.js";
+import { generateRawReleaseNotes } from "./lib/release-notes.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
 
 // Valid scopes come from release.config.json — the single source of truth.
 const VALID_SCOPES = Object.keys(loadConfig().scopes);
@@ -103,7 +55,7 @@ function main() {
   console.log(`Bump level: ${bumpLevel}`);
   console.log(`Next version: ${nextVersion}`);
 
-  const summary = getChangesSummary();
+  const summary = getChangesSummary(scope);
   console.log(
     `\nCommits since ${summary.lastTag || "beginning"}: ${summary.commitCount}`,
   );

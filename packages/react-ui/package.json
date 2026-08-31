@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-ui",
-  "version": "1.61.2",
+  "version": "1.69.3",
   "private": false,
   "keywords": [
     "ai",
@@ -43,7 +43,7 @@
   },
   "scripts": {
     "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/v2',{recursive:true});fs.cpSync('./src/v2/styles.css','./dist/v2/index.css')\"",
-    "build": "tsdown && pnpm run build:css",
+    "build": "tsdown && node ../../scripts/deprecations/v1-dist-notices.mjs --entrypoint react-ui && pnpm run build:css",
     "size": "size-limit",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "dev": "tsdown --watch",
@@ -61,7 +61,7 @@
     "@copilotkit/shared": "workspace:*",
     "@headlessui/react": "^2.2.9",
     "react-markdown": "^10.1.0",
-    "react-syntax-highlighter": "^15.6.1",
+    "react-syntax-highlighter": "^16.1.1",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",

@@ -5,13 +5,17 @@ x-integration-defaults: &integration-defaults
   env_file: .env
   environment:
     - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
-    - OPENAI_BASE_URL=http://aimock:4010/v1
+    # Defaults to the in-network aimock replay. Override in .env (e.g.
+    # OPENAI_BASE_URL=https://api.openai.com/v1) to run a real-LLM cell such as
+    # browser-use against live OpenAI. Default unchanged, so aimock replay for
+    # every other cell is unaffected.
+    - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
-    - ANTHROPIC_BASE_URL=http://aimock:4010
+    - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
-    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
+    - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL:-http://aimock:4010}
     - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
-    - AIMOCK_URL=http://aimock:4010
+    - AIMOCK_URL=${AIMOCK_URL:-http://aimock:4010}
     - GitHubToken=${GitHubToken:-gh-mock-local-dev}
     - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
   depends_on:
@@ -313,9 +317,14 @@ services:
       start_period: 30s
 
   harness-pool-worker:
-    build:
-      context: ../
-      dockerfile: showcase/harness/Dockerfile
+    # Reuses the image built by harness-control-plane (same Dockerfile; the
+    # worker vs control-plane role is selected at runtime via HARNESS_ROLE).
+    # It must NOT declare its own `build:` — two services building the same
+    # `image:` tag race under the parallel `docker buildx bake` path (the
+    # default in recent Compose) and fail the whole build with
+    # `image "...showcase-harness:local": already exists`. Having a single
+    # build owner (control-plane) makes the build deterministic on every
+    # toolchain (bake or classic, cold or warm).
     image: showcase-harness:local
     # NO fixed container_name: the worker is the scalable unit of the fleet
     # (`--scale harness-pool-worker=N`, N from HARNESS_POOL_COUNT). A fixed
@@ -440,6 +449,17 @@ services:
     volumes:
       - ./integrations/crewai-crews/src:/app/src
 
+  crewai-conversational-flows:
+    <<: *integration-defaults
+    build: ./integrations/crewai-conversational-flows
+    image: showcase-crewai-conversational-flows:local
+    container_name: showcase-crewai-conversational-flows
+    ports:
+      - "3120:10000"
+    profiles: ["crewai-conversational-flows", "all"]
+    volumes:
+      - ./integrations/crewai-conversational-flows/src:/app/src
+
   pydantic-ai:
     <<: *integration-defaults
     build: ./integrations/pydantic-ai
@@ -522,6 +542,43 @@ services:
     build: ./integrations/strands-typescript
     image: showcase-strands-typescript:local
     container_name: showcase-strands-typescript
+    # CVDIAG backend emitter + writer-role PocketBase persistence for the
+    # AGENT-SIDE emitter (src/agent/cvdiag-backend-strands.ts). The agent
+    # process (entrypoint.sh: `cd /app/src/agent && npm start`) inherits the
+    # container env, so these reach it. The emitter is gated OFF by default; we
+    # enable it here so backend.* boundaries persist to cvdiag_events for the
+    # dashboard / `bin/showcase cvdiag classify`. CVDIAG_WRITER_KEY is the local
+    # PocketBase seed password (pb_migrations/1779990200_create_cvdiag_events.js
+    # seedKey -> role "writer").
+    #
+    # NOTE: a service-level `environment:` does NOT deep-merge with the
+    # `<<: *integration-defaults` anchor's `environment:` — YAML merge keys make
+    # the explicit list OVERRIDE the anchored one wholesale (verified via
+    # `docker compose config`). So the anchor's entries are RE-LISTED verbatim
+    # here, then the three CVDIAG vars appended. Keep the re-listed block in sync
+    # with x-integration-defaults; do NOT drop entries to "simplify" or the
+    # service loses OPENAI_BASE_URL etc. (`env_file: .env` DOES survive the merge
+    # independently, so it is not re-listed.)
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
+      - OPENAI_BASE_URL=http://aimock:4010/v1
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
+      - ANTHROPIC_BASE_URL=http://aimock:4010
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
+      - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL:-http://aimock:4010}
+      - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
+      - AIMOCK_URL=http://aimock:4010
+      - GitHubToken=${GitHubToken:-gh-mock-local-dev}
+      - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
+      - CVDIAG_BACKEND_EMITTER=1
+      - CVDIAG_PB_URL=http://pocketbase:8090
+      - CVDIAG_WRITER_KEY=cvdiagwriterpass123
+    # Persisting CVDIAG rows requires PocketBase to be up alongside aimock.
+    depends_on:
+      aimock:
+        condition: service_healthy
+      pocketbase:
+        condition: service_healthy
     ports:
       - "3119:10000"
     profiles: ["strands-typescript", "all"]

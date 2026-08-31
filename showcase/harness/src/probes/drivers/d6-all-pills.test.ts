@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import {
   BrowserDisconnectedError,
   createE2eFullDriver,
@@ -8,6 +8,7 @@ import {
   FEATURE_CONCURRENCY_D6,
   openGuardedContext,
   parseFailureClassifier,
+  resolveAimockStrictHeaders,
   Semaphore,
 } from "./d6-all-pills.js";
 import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
@@ -33,6 +34,16 @@ import type {
   ProbeResultWriter,
 } from "../../types/index.js";
 
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    new Response(null, { status: 204 }),
+  );
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 // Driver tests for the e2e-full (D6) ProbeDriver.
 //
 // We mock the browser, the registry (via the registerD5Script + clear
@@ -40,6 +51,20 @@ import type {
 // disk). Each test populates the registry with the script(s) it needs.
 
 // --- Page / browser fakes -------------------------------------------------
+
+describe("resolveAimockStrictHeaders", () => {
+  it("keeps strict replay as the default", () => {
+    expect(resolveAimockStrictHeaders({})).toEqual({
+      "X-AIMock-Strict": "true",
+    });
+  });
+
+  it("omits the strict header only for an explicit live validation run", () => {
+    expect(resolveAimockStrictHeaders({ SHOWCASE_AIMOCK_STRICT: "0" })).toEqual(
+      {},
+    );
+  });
+});
 
 interface PageScript {
   throwOnGoto?: Error;
@@ -292,6 +317,61 @@ describe("e2e-full driver", () => {
   });
 
   describe("happy path", () => {
+    it("clears backend thread state once without changing a green result when cleanup rejects", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const browser = makeBrowser();
+      let browserClosed = false;
+      browser.close = async () => {
+        browserClosed = true;
+      };
+      const driver = createE2eFullDriver({
+        launcher: async () => browser,
+        scriptLoader: noopScriptLoader(),
+      });
+      const fetchSpy = vi.mocked(globalThis.fetch);
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      fetchSpy.mockImplementationOnce(async () => {
+        expect(browserClosed).toBe(true);
+        throw new Error("thread clear rejected");
+      });
+
+      const result = await driver.run(makeCtx(), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://backend.example.com",
+        publicUrl: "https://public.example.com",
+        features: ["agentic-chat"],
+      });
+
+      expect(result).toMatchObject({
+        key: "e2e_d6:showcase-test-slug",
+        state: "green",
+        signal: {
+          shape: "package",
+          slug: "test-slug",
+          backendUrl: "https://backend.example.com",
+          total: 1,
+          passed: 1,
+          failed: [],
+        },
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://backend.example.com/api/copilotkit-voice/threads/clear",
+        {
+          method: "POST",
+          signal: expect.any(AbortSignal),
+        },
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        "probe.e2e.threads-clear-failed",
+        expect.objectContaining({
+          slug: "test-slug",
+          err: "thread clear rejected",
+        }),
+      );
+    });
+
     it("runs registered features and emits aggregate green", async () => {
       registerD5Script(makeScript(["agentic-chat"]));
 
@@ -468,6 +548,68 @@ describe("e2e-full driver", () => {
       );
       expect(redAbortCells.length).toBeGreaterThan(0);
     }, 20_000);
+
+    // B4 (finish-and-report): post-B2/B3 a run can FINISH-AND-REPORT after a
+    // graceful drain (the drain signal is no longer the run's hard-cancel; the
+    // run keeps going until grace-expiry fires the SEPARATE `runAbort`, which
+    // becomes `ctx.abortSignal`). So a feature that RUNS TO COMPLETION while
+    // the worker is draining — and returns a LEGITIMATE red (a genuine test
+    // failure, errorClass `goto-error`, NOT `abort`) — MUST report that real
+    // terminal red. Suppression is scoped to ABORTED runs only (the
+    // `ctx.abortSignal.aborted` + `errorClass === "abort"` conjuncts), so the
+    // mere presence of `drainReason: "shutdown"` must NOT swallow a finished
+    // run's honest red. This pins the aborted-only contract: a draining worker
+    // that finishes its in-flight cell paints the real result, red or green.
+    it("B4: a FINISHED run's legitimate red is REPORTED (not suppressed) while drainReason=shutdown and the abort signal has NOT fired", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      // The feature runs to completion and FAILS with a genuine goto-error
+      // (errorClass != "abort"). It is finished, not aborted.
+      const driver = createE2eFullDriver({
+        launcher: async () =>
+          makeBrowser({ pageScript: { throwOnGoto: new Error("nav boom") } }),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Fleet-shaped ctx: the worker stamps `drainReason: "shutdown"` (the
+      // drain signal FIRED) but the run's hard-cancel signal (`ctx.abortSignal`
+      // = runAbort, the grace-expiry abort) has NOT fired — the run finished
+      // within grace. This is exactly the finish-and-report surface.
+      const runAbort = new AbortController(); // never aborted: run finished in grace
+
+      const result = await driver.run(
+        makeCtx({
+          writer,
+          abortSignal: runAbort.signal,
+          drainReason: "shutdown",
+        }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        },
+      );
+
+      // The finished run's REAL terminal result must surface: aggregate red…
+      expect(result.state).toBe("red");
+      // …and the per-cell side-emit for the finished-red feature must be
+      // REPORTED, not drain-suppressed (its errorClass is the honest
+      // failure class, not "abort").
+      const featureRed = sideEmits.find(
+        (r) => r.key === "d6:test-slug/agentic-chat" && r.state === "red",
+      );
+      expect(featureRed).toBeDefined();
+      expect(
+        (featureRed!.signal as { errorClass?: string }).errorClass,
+      ).not.toBe("abort");
+    });
   });
 
   // Regression guard: the dashboard reads the integration-scoped aggregate

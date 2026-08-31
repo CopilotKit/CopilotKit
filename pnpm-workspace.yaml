@@ -9,12 +9,36 @@ packages:
   - "examples/v2/react-native/*"
   - "examples/v2/runtime/*"
   - "examples/showcases/generative-ui-playground"
-  - "examples/showcases/banking"
+  # NOTE: `examples/showcases/reskinnable-demo` is intentionally NOT part of
+  # this pnpm workspace, for the same reason as `showcase/shell-dashboard`
+  # below: it ships its own lockfile and installs its `@copilotkit/*` and
+  # `@ag-ui/*` dependencies from npm rather than from `workspace:*`.
+  #
+  # It has to. Its agent is a Python deep agent whose subagents are only
+  # representable over AG-UI on the canary line
+  # (`@ag-ui/* 0.0.59-canary.1786716392.0` + `@copilotkit/* 1.62.2-canary…`) —
+  # the released `@ag-ui/client` 0.0.57 rejects `SUBAGENT_*` events in the HTTP
+  # transport before any middleware runs and kills the whole stream. Pinning
+  # those canaries as ROOT overrides would impose an unreleased protocol on
+  # every package in the monorepo for one app's benefit; keeping the demo out of
+  # the workspace confines them to the app that needs them.
+  #
+  # ⚠ KNOWN GAP, tracked as a follow-up: Nx discovers projects THROUGH the pnpm
+  # workspace (there is no `workspaceLayout` in `nx.json`), so removing the demo
+  # here also removes it from the repo-wide `nx run-many -t build`
+  # (`static_compat.yml`) and `-t check-types` (`static_quality.yml`) sweeps —
+  # verified: `nx show project deep-agents` and the other standalone showcases
+  # return "Could not find project". No workflow names this demo, so it is
+  # currently unbuilt and untype-checked in CI. It needs its own workflow job
+  # (`pnpm install && pnpm build && pnpm typecheck` in its directory), which is
+  # NOT in this change. Run the four gates locally until that lands.
   - "examples/slack"
+  - "examples/teams"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
   - "showcase/harness"
   - "showcase/eval-webhook"
+  - "showcase/angular"
   # NOTE: `showcase/shell-dashboard` is intentionally NOT part of this
   # pnpm workspace. It's a flat, standalone Next.js app that ships its
   # own package-lock.json and is built with `npm ci` (see its Dockerfile).

@@ -514,6 +514,32 @@ describe("buildProbeInvoker", () => {
     // timeout ProbeResult as soon as the AbortController fires, rather
     // than waiting for the driver's promise to settle. This is the
     // load-bearing contract: a misbehaved driver cannot stall the tick.
+    //
+    // DETERMINISM (was a wall-clock flake): the prior version measured
+    // `Date.now()` around `await invoker()` and asserted
+    // `elapsed < 100ms`, on the theory that a regression awaiting the
+    // driver's full 80ms sleep would blow past the bound. But the driver
+    // sleep (80ms) and the bound (100ms) were only 20ms apart, so on a
+    // loaded host the harness/promise-settle overhead alone pushed
+    // `elapsed` to 100-150ms and the assertion failed INTERMITTENTLY even
+    // though the timeout LOGIC was correct (the synthetic timeout result
+    // was returned and the slow driver never resolved). Real wall-clock
+    // duration is not the invariant under test.
+    //
+    // We now drive the timeout with FAKE timers and assert the BEHAVIOR
+    // directly: advance fake time to exactly the timeout boundary
+    // (timeout_ms=20) — NOT to the driver's 80ms sleep — and confirm the
+    // invoker returns a synthetic timeout `error` result WITHOUT the slow
+    // driver ever having resolved. That proves the invoker times out fast
+    // (does not await the driver) with zero dependence on real-clock
+    // overhead. The driver's 80ms timer is left pending: a regression that
+    // awaited `driverPromise` instead would never settle while only 20ms
+    // of fake time has elapsed, so `await invocation` would hang to the
+    // per-test timeout — the exact failure mode we want to catch.
+    vi.useFakeTimers();
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const inputSchema = z.object({ key: z.string() }).passthrough();
     let driverResolved = false;
     const driver: ProbeDriver = {
@@ -539,28 +565,27 @@ describe("buildProbeInvoker", () => {
       targets: [{ key: "smoke:ignores-abort" }],
     };
     const { writer, writes } = mkWriter();
-    const start = Date.now();
-    await buildProbeInvoker(cfg, {
+    const invocation = buildProbeInvoker(cfg, {
       driver,
       schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
     })();
-    const elapsed = Date.now() - start;
+    // Advance fake time to the timeout boundary (20ms) — well short of
+    // the driver's 80ms sleep. `advanceTimersByTimeAsync` flushes the
+    // microtask queue between timer fires so the invoker's Promise.race
+    // resolves on the timeout branch and the invocation settles
+    // deterministically.
+    await vi.advanceTimersByTimeAsync(cfg.timeout_ms!);
+    await invocation;
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
-    // The invoker must return promptly on timeout — NOT wait for the
-    // driver's 80ms sleep to complete. Allow ample slack for CI jitter:
-    // we care that the invoker isn't blocking on the driver's full
-    // 80ms sleep, not that it returns inside any particular tight bound.
-    // 100ms is well under the 80ms+race-settle absolute lower bound for
-    // a regression where the invoker awaited driverPromise instead.
-    expect(elapsed).toBeLessThan(100);
-    // The slow driver has NOT fired its setTimeout callback yet at the
-    // time the invoker returned (timeout_ms=20 < driver-sleep=80), so
-    // this assertion is deterministic: we read driverResolved
-    // synchronously after `await invoker()` returns.
+    // The slow driver's 80ms timer never fired (we advanced only 20ms of
+    // fake time before the invoker returned), so its body — which sets
+    // `driverResolved = true` — never ran. This is the load-bearing
+    // invariant: the invoker returned on TIMEOUT, not by awaiting the
+    // driver's full sleep.
     expect(driverResolved).toBe(false);
   });
 

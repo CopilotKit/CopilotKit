@@ -70,6 +70,8 @@ from agno.agent import Agent, RemoteAgent
 from agno.models.message import Message
 from agno.os import AgentOS
 from agno.os.interfaces.agui import AGUI
+
+# TODO: migrate to agno 2.6.20+ API once agui.utils replacement is identified
 from agno.os.interfaces.agui.utils import (
     async_stream_agno_response_as_agui_events,
     extract_agui_user_input,

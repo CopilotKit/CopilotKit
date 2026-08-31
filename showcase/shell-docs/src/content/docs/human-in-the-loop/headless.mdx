@@ -31,7 +31,7 @@ matching `resume` payload — no chat surface required.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-On Microsoft Agent Framework there's no native interrupt primitive,
+For promise-based integrations there is no native interrupt primitive,
 so the headless variant uses `useFrontendTool` with a Promise-based
 handler. The handler exposes its pending payload via React state — so
 a separate "app surface" can render the picker outside the chat — and
@@ -45,8 +45,8 @@ mechanism.
 > **Not available on this framework.** Headless interrupts are built on
 > top of `useInterrupt` / `useFrontendTool` patterns that require the
 > runtime to expose either a native `interrupt(...)` primitive
-> (LangGraph) or a Promise-resolving frontend-tool path (Microsoft Agent
-> Framework). For all other integrations, use
+> (LangGraph) or a Promise-resolving frontend-tool path. For all other
+> integrations, use
 > [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls.

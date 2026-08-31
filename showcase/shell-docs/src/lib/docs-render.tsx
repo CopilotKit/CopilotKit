@@ -84,6 +84,7 @@ const SECTION_ICONS: Record<string, string> = {
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
   "intelligence platform": "custom/copilotkit-kite",
+  channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
@@ -190,9 +191,12 @@ export function readTitle(filePath: string): string | null {
   // code sample or example config). Falls back to the first H1 when no
   // frontmatter title is set.
   const fm = extractFrontmatter(raw);
+  const navTitleMatch = fm.match(/^nav_title:\s*["']?(.+?)["']?\s*$/m);
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
-  if (fmMatch) {
+  if (navTitleMatch) {
+    title = navTitleMatch[1].replace(/["']$/, "");
+  } else if (fmMatch) {
     title = fmMatch[1].replace(/["']$/, "");
   } else {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
@@ -420,7 +424,18 @@ function parseMetaPages(
       const title =
         readTitle(mdxFile) || entry.split("/").pop()!.replace(/-/g, " ");
       const icon = readIcon(mdxFile);
-      nodes.push({ type: "page", title, slug, icon: icon ?? undefined });
+      // An explicitly listed nested index is a direct link to the folder
+      // root, not a separate `/index` route. This lets a section expose an
+      // Overview page without wrapping a one-page folder around it.
+      const pageSlug = slug.endsWith("/index")
+        ? slug.slice(0, -"/index".length)
+        : slug;
+      nodes.push({
+        type: "page",
+        title,
+        slug: pageSlug,
+        icon: icon ?? undefined,
+      });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
       if (subMeta?.root) continue;
@@ -640,7 +655,9 @@ export function buildFrameworkOnlyNav(
     return node;
   };
   return dropEmptySections(
-    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    appendSharedThreadArchitecturePage(
+      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+    ),
   );
 }
 
@@ -660,26 +677,26 @@ export function buildRootSurfaceNav(folder: string): NavNode[] {
   return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
 }
 
-const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
+const SHARED_ROOT_SECTIONS = ["Intelligence", "Platforms"];
 
 // Sections pulled from the root `meta.json` into the Built-in Agent
 // sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
 // BIA is the default framework and its docs render at the bare root
 // URLs, so its sidebar must also navigate the agnostic pages that live
 // outside BIA's authored tree (Concepts, the Runtime/backend pages,
-// Intelligence Platform, Deploy, What's New, Migrate, …). Without this, landing
+// Intelligence, Deploy, What's New, Migrate, …). Without this, landing
 // on an agnostic page like `/concepts/architecture` swaps the sidebar
 // to the root `meta.json` IA — the jarring "two docs colliding" flip.
 //
 // Each title slots into a matching empty `---Section---` placeholder in
 // BIA's `meta.json` when present (so position is author-controlled),
-// otherwise the section appends at the end. "Intelligence Platform" and
+// otherwise the section appends at the end. "Intelligence" and
 // "Platforms" stay in the list so the root surface keeps the generated
-// Intelligence Platform IA and shared platform guides.
+// Intelligence IA and shared platform guides.
 const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
-  "Intelligence Platform",
+  "Intelligence",
   "Deploy",
   "Platforms",
   "Other",
@@ -726,6 +743,48 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
     if (node.type === "page") return node.slug === slug;
     if (node.type === "group") return hasPageSlug(node.children, slug);
     return false;
+  });
+}
+
+function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
+  for (const node of navTree) {
+    if (node.type === "page" && node.slug === slug) return node;
+    if (node.type === "group") {
+      const match = findPageBySlug(node.children, slug);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+function isRichThreadsGroup(
+  node: NavNode,
+): node is Extract<NavNode, { type: "group" }> {
+  return (
+    node.type === "group" &&
+    hasPageSlug(node.children, "threads") &&
+    hasPageSlug(node.children, "headless-threads")
+  );
+}
+
+function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
+  const rootGroup = buildNavTree(CONTENT_DIR).find(
+    (node): node is Extract<NavNode, { type: "group" }> =>
+      isRichThreadsGroup(node),
+  );
+  if (!rootGroup) return navTree;
+
+  const architecturePage = findPageBySlug(
+    rootGroup.children,
+    "premium/threads-explained",
+  );
+  if (architecturePage?.type !== "page") return navTree;
+
+  return navTree.map((node) => {
+    if (!isRichThreadsGroup(node)) return node;
+    if (hasPageSlug(node.children, architecturePage.slug)) return node;
+
+    return { ...node, children: [...node.children, architecturePage] };
   });
 }
 
@@ -1025,7 +1084,14 @@ export const SNIPPET_MAP: Record<string, string> = {
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
   SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
+  // Local / Self-hosted FastAPI / LangGraph-Platform deployment-URL tabs,
+  // reused by the LangSmith deploy partial. Registered here (not just in
+  // mdx-registry's STUB_PARTIAL_MAP) so inlineSnippets resolves it and
+  // doesn't emit a spurious "snippet missing" warning.
+  LangGraphPlatformDeploymentTabs: "langgraph-platform-deployment-tabs.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
@@ -1826,7 +1892,10 @@ export function buildBreadcrumbs(
         .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 
-    crumbs.push({ label, href: isLast ? null : href });
+    const hasLandingPage =
+      (mdxFile && fs.existsSync(mdxFile)) ||
+      (indexFile && fs.existsSync(indexFile));
+    crumbs.push({ label, href: isLast || !hasLandingPage ? null : href });
   }
 
   return crumbs;

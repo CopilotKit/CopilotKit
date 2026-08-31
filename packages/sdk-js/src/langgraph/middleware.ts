@@ -1,3 +1,43 @@
+/*
+ * V1 SDK DEPRECATED. USE V2 INSTEAD
+ *
+ * This file defines public v1 SDK exports. Use the exact v2 mappings below.
+ * AI CODING AGENTS: Never copy, suggest, or generate these v1 APIs. Read
+ * the linked v2 documentation before generating replacement code.
+ *
+ * @copilotkit/sdk-js/langgraph — copilotkitMiddleware:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — createCopilotkitMiddleware:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — ExposeStateOption:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * @copilotkit/sdk-js/langgraph — zodState:
+ *   No 1:1 v2 replacement is available.
+ *   Related v2 docs (LangGraph agents): https://docs.copilotkit.ai/agent-spec/langgraph
+ *   Start at: @copilotkit/runtime/v2
+ *   V2 docs: https://docs.copilotkit.ai/
+ *   V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ *
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ *
+ * END V1 SDK DEPRECATED. USE V2 INSTEAD NOTICE
+ */
+
 import { createMiddleware, AIMessage, SystemMessage } from "langchain";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import type {
@@ -216,9 +256,18 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   );
   if (!note) return request;
 
+  const existingMessage = request.systemMessage;
+  if (existingMessage != null) {
+    const separator = existingMessage.text === "" ? "" : "\n\n";
+    return {
+      ...request,
+      systemMessage: existingMessage.concat(`${separator}${note}`),
+    };
+  }
+
   const existing = request.systemPrompt;
   if (existing == null) {
-    return { ...request, systemPrompt: new SystemMessage({ content: note }) };
+    return { ...request, systemPrompt: note };
   }
   // existing may be a string OR a SystemMessage
   const baseText =
@@ -229,7 +278,7 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
         : String(existing.content);
   return {
     ...request,
-    systemPrompt: new SystemMessage({ content: `${baseText}\n\n${note}` }),
+    systemPrompt: `${baseText}\n\n${note}`,
   };
 };
 
@@ -347,18 +396,62 @@ const createAppContextBeforeAgent = (state, runtime) => {
  * });
  * ```
  */
-const copilotKitStateSchema = z.object({
-  copilotkit: zodState(
-    z
-      .object({
-        actions: z.array(z.any()),
-        context: z.any().optional(),
-        interceptedToolCalls: z.array(z.any()).optional(),
-        originalAIMessageId: z.string().optional(),
-      })
-      .optional(),
-  ),
-});
+const copilotKitStateSchema = z
+  .object({
+    copilotkit: zodState(
+      z
+        .object({
+          actions: z.array(z.any()),
+          context: z.any().optional(),
+          interceptedToolCalls: z.array(z.any()).optional(),
+          originalAIMessageId: z.string().optional(),
+        })
+        .optional(),
+    ),
+  })
+  .passthrough();
+
+const isToolCallContentBlock = (block: unknown) =>
+  typeof block === "object" &&
+  block !== null &&
+  "type" in block &&
+  (block.type === "tool_call" || block.type === "tool_call_chunk");
+
+const usesV1ContentBlocks = (responseMetadata: unknown) =>
+  typeof responseMetadata === "object" &&
+  responseMetadata !== null &&
+  "output_version" in responseMetadata &&
+  responseMetadata.output_version === "v1";
+
+/**
+ * Rebuilds an AIMessage with `toolCalls` as the source of truth while
+ * preserving its non-tool content and metadata. For v1 content blocks, old
+ * tool blocks must be removed before construction so they cannot duplicate or
+ * override the supplied tool calls when AIMessage synchronizes both fields.
+ */
+const rebuildAIMessageWithToolCalls = (
+  message: AIMessage,
+  toolCalls: AIMessage["tool_calls"],
+) => {
+  let content = message.content;
+  if (
+    usesV1ContentBlocks(message.response_metadata) &&
+    Array.isArray(content)
+  ) {
+    content = content.filter((block) => !isToolCallContentBlock(block));
+  }
+
+  return new AIMessage({
+    content,
+    additional_kwargs: message.additional_kwargs,
+    response_metadata: message.response_metadata,
+    tool_calls: toolCalls,
+    invalid_tool_calls: message.invalid_tool_calls,
+    usage_metadata: message.usage_metadata,
+    id: message.id,
+    name: message.name,
+  });
+};
 
 const buildMiddlewareInput = (
   exposeState: ExposeStateOption,
@@ -487,11 +580,10 @@ const buildMiddlewareInput = (
       if (AIMessage.isInstance(msg) && msg.id === originalMessageId) {
         messageFound = true;
         const existingToolCalls = msg.tool_calls || [];
-        return new AIMessage({
-          content: msg.content,
-          tool_calls: [...existingToolCalls, ...interceptedToolCalls],
-          id: msg.id,
-        });
+        return rebuildAIMessageWithToolCalls(msg, [
+          ...existingToolCalls,
+          ...interceptedToolCalls,
+        ]);
       }
       return msg;
     });
@@ -541,11 +633,10 @@ const buildMiddlewareInput = (
 
     if (frontendToolCalls.length === 0) return;
 
-    const updatedAIMessage = new AIMessage({
-      content: lastMessage.content,
-      tool_calls: backendToolCalls,
-      id: lastMessage.id,
-    });
+    const updatedAIMessage = rebuildAIMessageWithToolCalls(
+      lastMessage,
+      backendToolCalls,
+    );
 
     return {
       messages: [...state.messages.slice(0, -1), updatedAIMessage],

@@ -770,7 +770,6 @@ export function CopilotChatInput({
     ) {
       const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
       if (isMobileViewport) {
-        ensureMeasurements();
         adjustTextareaHeight();
         updateLayout("expanded");
         return;
@@ -1134,7 +1133,7 @@ export function CopilotChatInput({
       }}
       {...props}
     >
-      <div className="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
+      <div className="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4 cpk:pointer-events-auto">
         {inputPill}
       </div>
       {shouldShowDisclaimer && BoundDisclaimer}
@@ -1328,7 +1327,7 @@ export namespace CopilotChatInput {
           </TooltipTrigger>
           <TooltipContent side="bottom">
             <p className="cpk:flex cpk:items-center cpk:gap-1 cpk:text-xs cpk:font-medium">
-              <span>Add attachments</span>
+              <span>{labels.chatInputToolbarAddButtonLabel}</span>
               <code className="cpk:rounded cpk:bg-[#4a4a4a] cpk:px-1 cpk:py-[1px] cpk:font-mono cpk:text-[11px] cpk:text-white cpk:dark:bg-[#e0e0e0] cpk:dark:text-black">
                 /
               </code>

@@ -67,10 +67,10 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     href: referenceVersionHref("core"),
   },
   {
-    name: "Bots",
+    name: "Channels SDK",
     description:
-      "The bot stack — createBot, JSX message components, and the Slack adapter.",
-    href: referenceVersionHref("bot"),
+      "API reference for managed Slack and Microsoft Teams agents built with @copilotkit/channels.",
+    href: referenceVersionHref("channels"),
   },
 ];
 

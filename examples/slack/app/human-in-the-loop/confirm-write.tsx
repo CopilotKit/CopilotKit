@@ -22,8 +22,8 @@ import {
   Context,
   Actions,
   Button,
-} from "@copilotkit/bot-ui";
-import type { InteractionContext } from "@copilotkit/bot-ui";
+} from "@copilotkit/channels";
+import type { InteractionContext } from "@copilotkit/channels";
 
 export interface ConfirmWriteProps {
   /** Short imperative title of the write, e.g. 'Create Linear issue'. */

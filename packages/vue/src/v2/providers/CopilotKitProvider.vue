@@ -15,7 +15,7 @@ import type {
   CopilotKitCoreSubscriber,
   FrontendTool,
 } from "@copilotkit/core";
-import { schemaToJsonSchema } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
@@ -34,7 +34,8 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
+import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
+import type { VueInspectorOpenRequest } from "./keys";
 import { MARKDOWN_RENDERER_KEY } from "./markdown-renderer";
 import {
   LicenseContextKey,
@@ -54,7 +55,6 @@ import type {
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-
 // Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
 // Defined locally to avoid pulling React dependencies from a2ui-renderer.
 const viewerTheme: Record<string, unknown> = {};
@@ -104,32 +104,34 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   renderCustomMessages: () => [],
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
-  showDevConsole: false,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  enableInspector: undefined,
 });
 
 const shouldRenderInspector = ref(false);
 
-const updateInspectorVisibility = () => {
-  if (props.showDevConsole === true) {
-    shouldRenderInspector.value = true;
-    return;
-  }
-  if (props.showDevConsole === "auto") {
-    if (typeof window === "undefined") {
-      shouldRenderInspector.value = false;
-      return;
-    }
-    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-    shouldRenderInspector.value = localhostHosts.has(window.location.hostname);
-    return;
-  }
-  shouldRenderInspector.value = false;
-};
+function updateInspectorVisibility(): void {
+  shouldRenderInspector.value = shouldEnableInspector({
+    enableInspector: props.enableInspector,
+    isBrowser: true,
+    isDevelopment: process.env.NODE_ENV === "development",
+  });
+}
 
-watch(() => props.showDevConsole, updateInspectorVisibility, {
-  immediate: true,
+onMounted(updateInspectorVisibility);
+watch(() => props.enableInspector, updateInspectorVisibility);
+
+const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
+const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+
+function openInspector(request: VueInspectorOpenRequest) {
+  inspectorOpenRequest.value = { ...request };
+}
+
+provide(InspectorKey, {
+  isInspectorEnabled,
+  openInspector,
 });
 
 const initialFrontendTools = props.frontendTools;
@@ -296,6 +298,21 @@ const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
+// A catalog passed to the provider is enough to turn A2UI on: render the
+// surfaces locally and forward the catalog signal so the runtime injects the
+// render tool — no runtime-side `a2ui` config required.
+const a2uiCatalogProvided = computed(() => !!props.a2ui?.catalog);
+const a2uiActive = computed(
+  () => runtimeA2UIEnabled.value || a2uiCatalogProvided.value,
+);
+// Forward a per-run signal when the provider has an A2UI catalog so the
+// runtime can turn A2UI on (and inject the render tool) without a separate
+// `a2ui.injectA2UITool` flag on the runtime.
+const resolvedProperties = computed(() =>
+  a2uiCatalogProvided.value
+    ? { ...props.properties, a2uiCatalogAvailable: true }
+    : props.properties,
+);
 const sandboxFunctions = computed<readonly SandboxFunction[]>(
   () => props.openGenerativeUI?.sandboxFunctions ?? [],
 );
@@ -344,7 +361,7 @@ const builtInActivityRenderers = computed<
     });
   }
 
-  if (runtimeA2UIEnabled.value) {
+  if (a2uiActive.value) {
     renderers.unshift(
       createA2UIMessageRenderer({
         theme: props.a2ui?.theme ?? viewerTheme,
@@ -385,7 +402,7 @@ const createCopilotKit = () => {
           : "auto",
     headers: mergedHeaders.value,
     credentials: props.credentials,
-    properties: props.properties,
+    properties: resolvedProperties.value,
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
     renderToolCalls: allRenderToolCalls.value,
@@ -504,7 +521,7 @@ function syncRuntimeConfig() {
   );
   copilotkit.value.setHeaders(mergedHeaders.value);
   copilotkit.value.setCredentials(props.credentials);
-  copilotkit.value.setProperties(props.properties);
+  copilotkit.value.setProperties(resolvedProperties.value);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
   copilotkit.value.setDebug(props.debug);
   applyDefaultThrottleMs(copilotkit.value);
@@ -515,7 +532,7 @@ watch(
     () => chatApiEndpoint.value,
     () => mergedHeaders.value,
     () => props.credentials,
-    () => props.properties,
+    () => resolvedProperties.value,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
     () => props.debug,
@@ -550,11 +567,11 @@ const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
 const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
 
 // A2UI tool call renderer (progress indicator) — auto-registered when A2UI enabled
-registerA2UIBuiltInToolCallRenderer(copilotkit, () => runtimeA2UIEnabled.value);
+registerA2UIBuiltInToolCallRenderer(copilotkit, () => a2uiActive.value);
 
 // A2UI catalog context, schema, and generation/design guidelines
 registerA2UICatalogContext(copilotkit, {
-  enabled: () => runtimeA2UIEnabled.value,
+  enabled: () => a2uiActive.value,
   catalog: () => props.a2ui?.catalog,
   includeSchema: () => props.a2ui?.includeSchema ?? true,
 });
@@ -643,7 +660,7 @@ const showExpiringBanner = computed(
   <CopilotKitInspector
     v-if="shouldRenderInspector"
     :core="copilotkit"
-    :default-anchor="props.inspectorDefaultAnchor"
+    :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />

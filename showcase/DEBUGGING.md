@@ -598,6 +598,26 @@ for slug in sorted(stats):
 
 **Key insight**: If ALL integrations flap at similar rates (50-70% green), the problem is systemic (probe infrastructure), not per-integration code bugs. If only one integration is consistently red while others are green, it's a real code bug in that integration.
 
+### Strategy 10: A red/BE✗ cell does NOT mean the feature is broken — it's often staleness
+
+**When**: A coverage-dashboard cell renders red, or BE✗, or is capped at D3, but the app looks fine (page renders, agent responds). FIRST suspect freshness and harness throughput — not the app.
+
+**Why the dashboard verdict ≠ a single DB row.** The dashboard is LIVE: it renders each cell's depth via `resolveD3`/`resolveD4`/`resolveD5`/`resolveD6` in `shell-dashboard/src/lib/cell-model.ts`. The per-cell **BE (D4) flag = `resolveD4` = WORST-OF(`chat:<slug>`, `tools:<slug>`)**, then folded through a **staleness window**. A green row OLDER than its window folds to stale and renders red / not-credited. Windows live in `shell-dashboard/src/lib/staleness.ts`: `D4_STALE_AFTER_MS = 60m`; D3/D5/D6 and the family aggregates use `E2E_STALE_AFTER_MS = 6h`; liveness uses `LIVENESS_STALE_AFTER_MS`.
+
+So reading ONE PocketBase row (e.g. `chat:<slug>`) is NOT the dashboard's flag — it ignores `tools:<slug>` AND ignores staleness, and will FALSELY report "BE green" when the dashboard correctly shows BE✗. To reproduce the verdict you must apply worst-of-the-contributing-rows + the staleness fold exactly as `resolveD4`/`resolveD6` do.
+
+**Root failure mode**: if a probe SWEEP takes longer than the staleness window, cells the sweep hasn't re-touched go stale and render red EVEN WHEN THE APP IS FINE. This happens when the worker pool is starved/under-capacity or the fleet is large. From a real 2026-06-26 prod incident — observed family sweep durations vs periods: d5 = 41m (period 15m), e2e-smoke = 45m (15m), e2e-demos = 97m (60m), d6 = 127m (60m). With the worker pool starved to ~1 worker (concurrency = `numReplicas × HARNESS_POOL_COUNT`), the D4 sweep blew past its 60m window → ~13 integration columns showed BE✗ / capped at D3 while the apps were healthy. Scaling workers (Railway `numReplicas` + `HARNESS_POOL_COUNT`) so a full sweep finishes within the window restored them.
+
+**Prod-vs-staging disparity is frequently THIS, not a code difference.** Both envs run the same demos; if one env's harness can't complete sweeps within the staleness windows (starved workers / slow sweeps), its cells go stale-red while the healthy env stays green. Check harness throughput before concluding a regression.
+
+**Diagnostic checklist** (so the next person doesn't waste a day):
+
+1. Red cell capped at D3 with BE✗ → FIRST check freshness + worker throughput, not the app. Pull `https://showcase-harness-production.up.railway.app/api/runs` (`families[]` gives `lastRun.finishedAt` + `durationMs` + `periodMs` + `workers`). If a family's `durationMs` > its staleness window, you're in the staleness trap.
+2. Compare the failing cell's underlying row `observed_at` age to its `*_STALE_AFTER_MS`. An OLD green folded to stale → throughput/staleness, not a regression.
+3. Only after ruling out staleness, treat BE✗ as a real agent-round-trip failure.
+4. Worker concurrency = `numReplicas × HARNESS_POOL_COUNT` (Railway env on the harness-workers service). The browser-pool `MAX_CONTEXTS` (e.g. 40) is usually NOT the binding constraint.
+5. Remediation when sweeps exceed the window: scale worker concurrency so sweeps finish in-window, OR widen the staleness window (`staleness.ts` `D4_STALE_AFTER_MS`) if sweeps legitimately take longer than the current window.
+
 ## Integration Patterns
 
 These are canonical. Do not deviate.
@@ -704,6 +724,10 @@ Earned by bugs. Do not repeat.
 - **NEVER** add a backend tool for something that should be a frontend HITL tool.
 - **NEVER** use `--direct` for cell-flip value-tests. It bypasses the queue/worker
   pipeline staging actually runs and has misled investigations in the past.
+- **NEVER** conclude a red/BE✗ cell means the app is broken without first ruling out
+  staleness. A green row older than its `*_STALE_AFTER_MS` window folds to stale-red
+  even when the app is healthy. Reading one PocketBase row also ignores the worst-of
+  fold and staleness — it is NOT the dashboard's flag. See D5 Strategy 10.
 
 ## Aimock Fixture Deployment
 

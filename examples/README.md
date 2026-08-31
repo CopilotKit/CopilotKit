@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 48 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 52 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -14,7 +14,7 @@ cd examples/<category>/<name>
 
 ---
 
-## Integrations (17)
+## Integrations (20)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -30,6 +30,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [ms-agent-framework-python](./integrations/ms-agent-framework-python/) | CopilotKit with Microsoft Agent Framework (Python/FastAPI, AG-UI protocol)           |
 | [ms-agent-framework-dotnet](./integrations/ms-agent-framework-dotnet/) | CopilotKit with Microsoft Agent Framework (.NET/C#, AG-UI protocol)                  |
 | [strands-python](./integrations/strands-python/)                       | Starter template with a Strands investment analyst agent                             |
+| [strands-typescript](./integrations/strands-typescript/)               | Starter template using AWS Strands (TypeScript), AG-UI, and CopilotKit               |
 | [mcp-apps](./integrations/mcp-apps/)                                   | Integration of MCP Apps with CopilotKit using Three.js                               |
 | [adk](./integrations/adk/)                                             | Starter template using Google ADK with an investment analyst agent                   |
 | [agent-spec](./integrations/agent-spec/)                               | Starter for Agent Spec with A2UI-powered frontend tool rendering                     |
@@ -37,6 +38,8 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [agno](./integrations/agno/)                                           | Starter template using Agno with an investment analyst agent                         |
 | [crewai-crews](./integrations/crewai-crews/)                           | Starter template for building AI agents using CrewAI Crews                           |
 | [a2a-middleware](./integrations/a2a-middleware/)                       | Multi-agent starter with A2A Protocol and AG-UI Protocol (LangGraph + ADK)           |
+| [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
+| [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 
 ## Canvas (7)
 
@@ -52,18 +55,19 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
 
-## Showcases (24)
+## Showcases (25)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [banking](./showcases/banking/)                                         | Banking app demo with authorization, multiple operations, and generative UI                                         |
+| [reskinnable-demo](./showcases/reskinnable-demo/)                       | Runtime-reskinnable demo — banking and airline skins over one shell, agent and all                                  |
 | [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
 | [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)                                     |
 | [deep-agents-job-search](./showcases/deep-agents-job-search/)           | Job application assistant — resume parsing, skill extraction, DeepAgents orchestration                              |
 | [generative-ui](./showcases/generative-ui/)                             | Generative UI for agentic apps — AG-UI protocol showcase                                                            |
 | [generative-ui-playground](./showcases/generative-ui-playground/)       | Playground for static GenUI, MCP Apps, and A2UI generative UI types                                                 |
+| [grok-generative-ui](./showcases/grok-generative-ui/)                   | grok-4.6 searches X server-side, then composes the dashboard from real components                                   |
 | [mcp-apps](./showcases/mcp-apps/)                                       | MCP Apps demo — airline booking, hotel booking, investment simulator, kanban board                                  |
 | [research-canvas](./showcases/research-canvas/)                         | ANA (Agent Native Application) — research canvas with Tavily search and LangGraph                                   |
 | [mcp-demo](./showcases/mcp-demo/)                                       | Working Memory — MCP server-client integration for project management (Linear)                                      |

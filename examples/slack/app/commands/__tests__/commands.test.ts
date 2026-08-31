@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import { renderToIR } from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { appCommands } from "../index.js";
-import type { CommandContext } from "@copilotkit/bot";
+import type { CommandContext } from "@copilotkit/channels";
 
-function tags(node: BotNode | unknown, acc: string[] = []): string[] {
+function tags(node: ChannelNode | unknown, acc: string[] = []): string[] {
   if (!node || typeof node !== "object") return acc;
-  const n = node as BotNode;
+  const n = node as ChannelNode;
   if (typeof n.type === "string") acc.push(n.type);
-  for (const c of (n.props?.children as BotNode[] | undefined) ?? []) {
+  for (const c of (n.props?.children as ChannelNode[] | undefined) ?? []) {
     tags(c, acc);
   }
   return acc;
@@ -98,11 +98,12 @@ describe("example slash commands", () => {
       text: "Login button is broken",
       options: {},
       user: { id: "U1", name: "Ada" },
+      actor: { id: "U1", kind: "human", name: "Ada" },
       platform: "slack",
     } as never);
     expect(postEphemeral).toHaveBeenCalledTimes(1);
-    const [user, , opts] = postEphemeral.mock.calls[0]!;
-    expect(user).toEqual({ id: "U1", name: "Ada" });
+    const [actor, , opts] = postEphemeral.mock.calls[0]!;
+    expect(actor).toEqual({ id: "U1", kind: "human", name: "Ada" });
     expect(opts).toEqual({ fallbackToDM: true });
   });
 
@@ -119,6 +120,24 @@ describe("example slash commands", () => {
       platform: "slack",
     } as never);
     expect(post).toHaveBeenCalledWith(expect.stringContaining("Usage"));
+    expect(postEphemeral).not.toHaveBeenCalled();
+  });
+
+  it("/preview refuses a private reply when the provider actor is missing", async () => {
+    const preview = appCommands.find((c) => c.name === "preview")!;
+    const postEphemeral = vi.fn();
+    const post = vi.fn().mockResolvedValue({ id: "1" });
+    await preview.handler({
+      thread: { postEphemeral, post } as never,
+      command: "preview",
+      text: "Login button is broken",
+      options: {},
+      user: { id: "customer-42", name: "Ada" },
+      platform: "slack",
+    } as never);
+    expect(post).toHaveBeenCalledWith(
+      expect.stringContaining("can't send a private preview"),
+    );
     expect(postEphemeral).not.toHaveBeenCalled();
   });
 
@@ -197,6 +216,7 @@ describe("example slash commands", () => {
       text: "Login broken",
       options: {},
       user: { id: "U1", name: "Ada" },
+      actor: { id: "U1", kind: "human", name: "Ada" },
       platform: "discord",
     } as never);
     expect(postEphemeral).toHaveBeenCalledTimes(1);
@@ -216,6 +236,7 @@ describe("example slash commands", () => {
       text: "Login broken",
       options: {},
       user: { id: "U1", name: "Ada" },
+      actor: { id: "U1", kind: "human", name: "Ada" },
       platform: "discord",
     } as never);
     expect(postEphemeral).toHaveBeenCalledTimes(1);

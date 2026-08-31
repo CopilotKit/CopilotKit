@@ -40,7 +40,11 @@ export async function handleGetRuntimeInfo({
   threadEndpointsEnabled = true,
 }: HandleGetRuntimeInfoParameters) {
   try {
-    const agents = await resolveAgents(runtime.agents, request);
+    const webEnabled =
+      !isIntelligenceRuntime(runtime) || runtime.identifyUser !== undefined;
+    const agents = webEnabled
+      ? await resolveAgents(runtime.agents, request)
+      : {};
 
     const agentEntries = await Promise.all(
       Object.entries(agents).map(async ([name, agent]) => {
@@ -76,17 +80,24 @@ export async function handleGetRuntimeInfo({
     const runtimeInfo: RuntimeInfo = {
       version: VERSION,
       agents: agentsDict,
-      audioFileTranscriptionEnabled: !!runtime.transcriptionService,
+      audioFileTranscriptionEnabled:
+        webEnabled && !!runtime.transcriptionService,
       mode: runtime.mode,
       threadEndpoints: resolveThreadEndpointInfo(
         runtime,
-        threadEndpointsEnabled,
+        threadEndpointsEnabled && webEnabled,
       ),
-      ...(isIntelligenceRuntime(runtime)
+      // Advertised unconditionally. Multi-route runtimes expose the dedicated
+      // POST /agent/:agentId/suggest path; single-route clients fall back to a
+      // client-side run (they don't construct the single-route envelope for
+      // suggest). The flag lets multi-route clients detect the stateless path.
+      suggestions: webEnabled,
+      ...(isIntelligenceRuntime(runtime) && webEnabled
         ? {
             intelligence: {
               wsUrl: runtime.intelligence.ɵgetClientWsUrl(),
             },
+            inspectorMetadata: true,
           }
         : {}),
       // Legacy flat flag, kept for older clients. The `a2ui` object below is
@@ -94,8 +105,8 @@ export async function handleGetRuntimeInfo({
       // boolean discards (see CopilotKit/CopilotKit#5369). Both go through the
       // shared isA2UIEnabled() predicate so an explicit `enabled: false`
       // disables a2ui here exactly as it does on the run path.
-      a2uiEnabled: isA2UIEnabled(runtime.a2ui),
-      ...(isA2UIEnabled(runtime.a2ui)
+      a2uiEnabled: webEnabled && isA2UIEnabled(runtime.a2ui),
+      ...(webEnabled && isA2UIEnabled(runtime.a2ui)
         ? {
             a2ui: {
               enabled: true,
@@ -103,7 +114,7 @@ export async function handleGetRuntimeInfo({
             },
           }
         : {}),
-      openGenerativeUIEnabled: !!runtime.openGenerativeUI,
+      openGenerativeUIEnabled: webEnabled && !!runtime.openGenerativeUI,
       ...(isIntelligenceRuntime(runtime)
         ? { licenseStatus: resolveLicenseStatus(runtime) }
         : {}),

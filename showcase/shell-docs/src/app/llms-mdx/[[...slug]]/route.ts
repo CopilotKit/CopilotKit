@@ -3,11 +3,17 @@ import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import { resolveAngularDoc } from "@/lib/angular-doc-navigation";
 import {
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
 } from "@/lib/frontend-page-content";
-import { isFrontendId, parseFrontendRoutePath } from "@/lib/frontend-options";
+import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
+import {
+  isChannelFrontend,
+  isFrontendId,
+  parseFrontendRoutePath,
+} from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 import {
   getDocsFolder,
@@ -65,6 +71,7 @@ export async function GET(
 
   const body = renderPageToLlmText(resolved.page, {
     framework: resolved.framework,
+    ...(resolved.frontend ? { frontend: resolved.frontend } : {}),
   });
   if (!body) {
     return new NextResponse("Not found", { status: 404 });
@@ -81,6 +88,7 @@ export async function GET(
 interface ResolvedPage {
   page: LlmPage;
   framework?: string;
+  frontend?: FrontendPageId;
 }
 
 type FrontendPageId = Exclude<FrontendId, "react">;
@@ -109,10 +117,89 @@ function resolvePage(slug: string[]): ResolvedPage | null {
       getIntegrations().map((integration) => integration.slug),
     );
     const frontendRest = frontendRoute?.slugPath ?? rest;
-    const activeBackendFramework =
+    const scopedBackendFramework =
       frontendRoute?.backend === ROOT_FRAMEWORK
         ? undefined
         : (frontendRoute?.backend ?? undefined);
+    const selectedFramework = isChannelFrontend(frontend)
+      ? (frontendRoute?.backend ?? ROOT_FRAMEWORK)
+      : scopedBackendFramework;
+    const selectedFrameworkDocsMode = getDocsMode(
+      selectedFramework ?? ROOT_FRAMEWORK,
+    );
+
+    // Hidden frameworks must fail closed before any generic root/framework
+    // fallback can accidentally make a scoped Markdown URL reachable.
+    if (isChannelFrontend(frontend) && selectedFrameworkDocsMode === "hidden") {
+      return null;
+    }
+
+    if (isChannelFrontend(frontend)) {
+      if (!frontendRest) {
+        const doc = loadDoc("channels");
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: "channels",
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
+      if (frontendRest === "connect") {
+        const contentSlug = getFrontendContentSlug(frontend);
+        const doc = loadDoc(contentSlug);
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: contentSlug,
+            framework: selectedFramework,
+            frontend,
+          },
+          framework: selectedFramework,
+          frontend,
+        };
+      }
+
+      const channelGuide = resolveChannelGuideRoute({
+        frontend,
+        framework: selectedFramework,
+        slugPath: frontendRest,
+        frameworkDocsMode: selectedFrameworkDocsMode,
+      });
+      if (channelGuide) {
+        const doc = loadDoc(channelGuide.sourceSlug);
+        if (!doc) return null;
+
+        return {
+          page: {
+            url,
+            title: doc.fm.title,
+            description: doc.fm.description,
+            filePath: doc.filePath,
+            loadSlug: channelGuide.sourceSlug,
+            framework: channelGuide.framework,
+            frontend: channelGuide.frontend,
+          },
+          framework: channelGuide.framework,
+          frontend: channelGuide.frontend,
+        };
+      }
+    }
+
     if (isFrontendGuidanceSlug(frontendRest)) {
       const contentSlug = getFrontendGuidanceContentSlug(frontend);
       const doc = loadDoc(contentSlug);
@@ -125,9 +212,11 @@ function resolvePage(slug: string[]): ResolvedPage | null {
           description: doc.fm.description,
           filePath: doc.filePath,
           loadSlug: contentSlug,
-          framework: activeBackendFramework,
+          framework: selectedFramework,
+          frontend,
         },
-        framework: activeBackendFramework,
+        framework: selectedFramework,
+        frontend,
       };
     }
 
@@ -143,18 +232,51 @@ function resolvePage(slug: string[]): ResolvedPage | null {
           description: doc.fm.description,
           filePath: doc.filePath,
           loadSlug: contentSlug,
-          framework: activeBackendFramework,
+          framework: selectedFramework,
+          frontend,
         },
-        framework: activeBackendFramework,
+        framework: selectedFramework,
+        frontend,
       };
     }
 
-    if (activeBackendFramework) {
-      return resolveFrameworkScopedPage(
-        activeBackendFramework,
+    if (frontend === "angular") {
+      const resolution = resolveAngularDoc(
+        scopedBackendFramework ?? null,
+        frontendRest,
+      );
+      if (!resolution) return null;
+      const doc = loadDoc(resolution.contentSlugPath);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: resolution.contentSlugPath,
+          framework: resolution.framework,
+          frontend,
+        },
+        framework: resolution.framework,
+        frontend,
+      };
+    }
+
+    if (scopedBackendFramework) {
+      const resolved = resolveFrameworkScopedPage(
+        scopedBackendFramework,
         frontendRest || "index",
         url,
       );
+      return resolved
+        ? {
+            ...resolved,
+            page: { ...resolved.page, frontend },
+            frontend,
+          }
+        : null;
     }
 
     const contentSlug = (() => {
@@ -173,9 +295,11 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         description: doc.fm.description,
         filePath: doc.filePath,
         loadSlug: contentSlug,
-        framework: activeBackendFramework,
+        framework: selectedFramework,
+        frontend,
       },
-      framework: activeBackendFramework,
+      framework: selectedFramework,
+      frontend,
     };
   }
 
@@ -253,6 +377,8 @@ function resolveFrameworkScopedPage(
 ): ResolvedPage | null {
   const docsFolder = getDocsFolder(framework);
   const docsMode = getDocsMode(framework);
+  if (docsMode === "hidden") return null;
+
   const rootSlugPath = tail;
   const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
 
@@ -264,6 +390,9 @@ function resolveFrameworkScopedPage(
     docsMode === "authored" || tail === "quickstart"
       ? [frameworkSlugPath, rootSlugPath]
       : [rootSlugPath, frameworkSlugPath];
+  if (tail === "index") {
+    candidateOrder.push(`integrations/${docsFolder}/quickstart`);
+  }
 
   for (const candidate of candidateOrder) {
     const doc = loadDoc(candidate);

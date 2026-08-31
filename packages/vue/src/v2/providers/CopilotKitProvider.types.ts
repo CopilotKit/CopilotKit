@@ -21,7 +21,7 @@ export interface CopilotKitProviderProps {
   publicApiKey?: string;
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of Enterprise Intelligence Platform features.
+   * Signed license token for offline verification of CopilotKit Intelligence features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
@@ -38,7 +38,17 @@ export interface CopilotKitProviderProps {
     sandboxFunctions?: SandboxFunction[];
     designSkill?: string;
   };
+  /**
+   * @deprecated This prop no longer controls the Inspector. Use
+   * `enableInspector` instead.
+   */
   showDevConsole?: boolean | "auto";
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;
@@ -59,15 +69,6 @@ export interface CopilotKitProviderProps {
    * a per-message slot still wins.
    */
   markdownRenderer?: MarkdownRendererValue;
-  /**
-   * Default anchor corner for the inspector button and window.
-   * Only used on first load before the user drags to a custom position.
-   * Defaults to `{ horizontal: "right", vertical: "top" }`.
-   */
-  inspectorDefaultAnchor?: {
-    horizontal: "left" | "right";
-    vertical: "top" | "bottom";
-  };
   /**
    * Enable debug logging for the client-side event pipeline.
    *

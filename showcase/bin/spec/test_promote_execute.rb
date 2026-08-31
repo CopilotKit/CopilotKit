@@ -19,7 +19,7 @@ class PromoteExecuteTest < Minitest::Test
         def query(q, vars = {})
             @calls << [q, vars]
             if q.include?("serviceInstanceUpdate")
-                @pinned_image = vars[:image]
+                @pinned_image = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 # New deployment spawned; returns the new deployment id.
@@ -59,7 +59,7 @@ class PromoteExecuteTest < Minitest::Test
         # Find the `image:` arg passed to the serviceInstanceUpdate mutation.
         def pinned_image
             row = @calls.find { |q, _| q.include?("serviceInstanceUpdate") }
-            row && row[1][:image]
+            row && row[1].dig(:input, :source, :image)
         end
     end
 

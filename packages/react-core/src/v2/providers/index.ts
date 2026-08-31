@@ -9,6 +9,7 @@ export {
 export {
   CopilotKitProvider,
   useCopilotKit,
+  useLicenseContext,
   type CopilotKitProviderProps,
   type CopilotKitContextValue,
 } from "./CopilotKitProvider";

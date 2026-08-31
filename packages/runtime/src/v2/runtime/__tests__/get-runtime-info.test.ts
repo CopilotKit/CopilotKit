@@ -1,5 +1,6 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
@@ -7,7 +8,7 @@ import type {
 import type { AgentRunner } from "../runner/agent-runner";
 import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, test, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
 
 // Mock transcription service
@@ -69,6 +70,7 @@ describe("handleGetRuntimeInfo", () => {
     openGenerativeUI: undefined,
     mode: "intelligence",
     debug: { enabled: false, events: false, lifecycle: false, verbose: false },
+    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
     intelligence: new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",
@@ -78,6 +80,7 @@ describe("handleGetRuntimeInfo", () => {
     generateThreadNames: true,
     lockTtlSeconds: 20,
     lockHeartbeatIntervalSeconds: 15,
+    channels: [],
     ...overrides,
   });
 
@@ -101,6 +104,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: false,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -128,6 +132,7 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -167,10 +172,42 @@ describe("handleGetRuntimeInfo", () => {
       audioFileTranscriptionEnabled: true,
       mode: "sse",
       threadEndpoints: inMemoryThreadEndpoints,
+      suggestions: true,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
     });
+  });
+
+  it("advertises the stateless suggestions capability", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
+  });
+
+  it("advertises suggestions for an Intelligence runtime", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.suggestions).toBe(true);
   });
 
   it("detects local thread endpoints from the runner capability flag", async () => {
@@ -542,4 +579,41 @@ describe("handleGetRuntimeInfo", () => {
       message: "Failed to get agents",
     });
   });
+});
+
+test("get-runtime-info advertises inspector metadata without fetching it", async () => {
+  const intelligence = new CopilotKitIntelligence({
+    apiUrl: "https://runtime.example",
+    wsUrl: "wss://runtime.example",
+    apiKey: "server-api-key",
+  });
+  const getInspectorMetadata = vi.spyOn(intelligence, "getInspectorMetadata");
+  const runtime = new CopilotRuntime({
+    agents: {},
+    intelligence,
+    identifyUser: async () => ({ id: "user-1", name: "User One" }),
+  });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data.inspectorMetadata).toBe(true);
+  expect(getInspectorMetadata).not.toHaveBeenCalled();
+});
+
+test("get-runtime-info omits inspector metadata for an SSE runtime", async () => {
+  const runtime = new CopilotRuntime({ agents: {} });
+
+  const response = await handleGetRuntimeInfo({
+    runtime,
+    request: new Request("https://example.com/info"),
+  });
+  const data = await response.json();
+
+  expect(response.status).toBe(200);
+  expect(data).not.toHaveProperty("inspectorMetadata");
 });

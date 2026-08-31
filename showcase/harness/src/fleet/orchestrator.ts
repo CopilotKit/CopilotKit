@@ -41,13 +41,12 @@ import type { Logger } from "../types/index.js";
 import type { FleetRoleConfig } from "./role-config.js";
 import type { FleetQueueClient } from "./contracts.js";
 import { buildWorkerHealthServer } from "./worker/worker-health.js";
-import {
-  startWorkerLoop,
-  safeLog,
-  type PayloadToDriverInput,
-  type ServiceJobDriver,
-  type DriverRegistry,
-  type WorkerLoopHandle,
+import { startWorkerLoop, safeLog } from "./worker/worker-loop.js";
+import type {
+  PayloadToDriverInput,
+  ServiceJobDriver,
+  DriverRegistry,
+  WorkerLoopHandle,
 } from "./worker/worker-loop.js";
 import {
   createD6PayloadToInput,
@@ -143,6 +142,16 @@ export interface RunWorkerOptions {
    * guards a throwing/rejecting impl.
    */
   onCurrentJobChange?: (currentJobId: string | null) => void;
+  /**
+   * Injectable process-exit for the loop's WORKER_MAX_JOBS recycle, forwarded
+   * verbatim to `startWorkerLoop`. Production (orchestrator.ts `runWorker`)
+   * injects a RICHER exit that runs the same deregister-first graceful teardown
+   * as SIGTERM (`drainFleetWorker` — roster delete + pool shutdown) BEFORE
+   * exiting cleanly, so a recycled worker never leaves a stale roster row for
+   * fleet-health to reclaim (~180s → transient false-red). When omitted the
+   * loop defaults to a bare clean `process.exit` (which does NOT deregister).
+   */
+  exit?: () => void;
   /**
    * Override the per-service driver (tests inject a fake). Defaults to the real
    * pooled d6 driver wired onto the constructed `BrowserPool`.
@@ -283,6 +292,10 @@ export async function runWorker(
       heartbeatMs: opts.heartbeatMs,
       pollIntervalMs: opts.pollIntervalMs,
       onCurrentJobChange: opts.onCurrentJobChange,
+      // Forward the injectable recycle exit. Production injects a richer exit
+      // that deregisters (drainFleetWorker) before exiting cleanly; when
+      // omitted the loop falls back to a bare clean process.exit.
+      exit: opts.exit,
     });
   } catch (err) {
     // Loop construction is synchronous and shouldn't throw, but if it does,

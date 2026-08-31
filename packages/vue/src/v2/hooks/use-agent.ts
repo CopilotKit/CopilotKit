@@ -26,9 +26,7 @@ const ALL_UPDATES: UseAgentUpdate[] = [
   UseAgentUpdate.OnRunStatusChanged,
 ];
 
-export interface UseAgentProps {
-  agentId?: MaybeRefOrGetter<string | undefined>;
-  threadId?: MaybeRefOrGetter<string | undefined>;
+interface UseAgentPropsBase {
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for re-renders triggered by
@@ -55,65 +53,73 @@ export interface UseAgentProps {
   throttleMs?: MaybeRefOrGetter<number | undefined>;
 }
 
-function cloneForThread(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  const clone = source.clone();
-  if (clone === source) {
-    throw new Error(
-      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
-        "clone() must return a new, independent object.",
-    );
-  }
-
-  clone.threadId = threadId;
-  clone.setMessages([]);
-  clone.setState({});
-  if (clone instanceof HttpAgent) {
-    clone.headers = { ...headers };
-  }
-  return clone;
+/**
+ * Thread-scoped variant. `agentId`, `runtimeAgentId` and `threadId` are a matched
+ * set: together they give this hook a private proxied agent — registered under the
+ * local `agentId`, routing outbound to `runtimeAgentId` — that is safe to pin a
+ * thread onto. Mirrors React's `UseAgentThreadScopedProps`.
+ */
+interface UseAgentThreadScopedProps {
+  /**
+   * The *local* registry id to register this hook's proxied agent under. Required
+   * here: the usual fallbacks (chat configuration, then `DEFAULT_AGENT_ID`) name
+   * agents that already exist, and registering over one of those throws.
+   */
+  agentId: MaybeRefOrGetter<string>;
+  /**
+   * The runtime agent to route outbound requests to while this hook exposes a
+   * distinct local `agentId`. Registers a proxied agent via
+   * `CopilotKitCore.registerProxiedAgent`, so several frontend agents (e.g. one
+   * per open thread) can mount against one runtime agent.
+   *
+   * REQUIRES `threadId` — a private agent with no thread to scope behaves like
+   * the shared one, minus a registration and a local id to keep unique.
+   */
+  runtimeAgentId: MaybeRefOrGetter<string>;
+  /**
+   * Thread to scope the agent's run to. Written onto the underlying agent, so
+   * `/agent/run`, `/agent/connect` and `/agent/stop` address this thread.
+   *
+   * REQUIRES `runtimeAgentId` — an agent resolved by `agentId` alone is shared,
+   * so a per-hook thread written onto it would clobber every other holder.
+   */
+  threadId: MaybeRefOrGetter<string>;
 }
 
-export const globalThreadCloneMap = new WeakMap<
-  AbstractAgent,
-  Map<string, AbstractAgent>
->();
-
-export function getThreadClone(
-  registryAgent: AbstractAgent | undefined | null,
-  threadId: string | undefined | null,
-): AbstractAgent | undefined {
-  if (!registryAgent || !threadId) return undefined;
-  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
+/**
+ * Default variant: no thread scoping. Binds to the shared agent registered under
+ * `agentId` and takes its thread from the surrounding chat configuration, gated
+ * on `hasExplicitThreadId`. Mirrors React's `UseAgentUnscopedProps`.
+ *
+ * `threadId` and `runtimeAgentId` are typed `undefined` rather than omitted so
+ * that supplying either alone matches *neither* branch — that is the type-level
+ * enforcement of the all-or-nothing rule.
+ */
+interface UseAgentUnscopedProps {
+  /**
+   * Agent to bind to. Resolution precedence: this property, then the surrounding
+   * chat configuration's agentId, then the global default.
+   */
+  agentId?: MaybeRefOrGetter<string | undefined>;
+  /** Requires `runtimeAgentId`. See {@link UseAgentThreadScopedProps.threadId}. */
+  threadId?: undefined;
+  /** Requires `threadId`. See {@link UseAgentThreadScopedProps.runtimeAgentId}. */
+  runtimeAgentId?: undefined;
 }
 
-function getOrCreateThreadClone(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  let byThread = globalThreadCloneMap.get(source);
-  if (!byThread) {
-    byThread = new Map();
-    globalThreadCloneMap.set(source, byThread);
-  }
-
-  const existing = byThread.get(threadId);
-  if (existing) {
-    existing.threadId = threadId;
-    if (existing instanceof HttpAgent) {
-      existing.headers = { ...headers };
-    }
-    return existing;
-  }
-
-  const clone = cloneForThread(source, threadId, headers);
-  byThread.set(threadId, clone);
-  return clone;
-}
+/**
+ * Props for {@link useAgent}. Two valid shapes, nothing in between:
+ *
+ * - **Bind to an agent** — `useAgent()`, `useAgent({ agentId })`. The shared
+ *   registry instance; the thread comes from the chat configuration.
+ * - **Bind a private agent to a thread** —
+ *   `useAgent({ agentId, runtimeAgentId, threadId })`. All three required.
+ *
+ * So `{ agentId, threadId }`, `{ agentId, runtimeAgentId }` and
+ * `{ runtimeAgentId, threadId }` are all compile errors, matching React.
+ */
+export type UseAgentProps = UseAgentPropsBase &
+  (UseAgentThreadScopedProps | UseAgentUnscopedProps);
 
 /**
  * Resolves and subscribes to a CopilotKit agent for the current Vue scope.
@@ -128,10 +134,64 @@ function getOrCreateThreadClone(
  * ```
  */
 export function useAgent(props: UseAgentProps = {}) {
-  const agentId = computed(() => toValue(props.agentId) ?? DEFAULT_AGENT_ID);
+  // `threadId`, `runtimeAgentId` and an explicit `agentId` are all-or-nothing.
+  // UseAgentProps rejects a partial set at compile time; these are the runtime
+  // backstop for callers TypeScript doesn't reach (plain JS, `as any`). Same
+  // three checks, same messages, as React's useAgent.
+  const hasThreadId = props.threadId !== undefined;
+  const hasRuntimeAgentId = props.runtimeAgentId !== undefined;
+  const hasAgentId = props.agentId !== undefined;
+
+  if (hasThreadId && !hasRuntimeAgentId) {
+    throw new Error(
+      "useAgent: `threadId` requires `runtimeAgentId`. A threadId is written onto a " +
+        "single agent, but an agent resolved by agentId alone is shared, so scoping a " +
+        "thread to it would clobber other useAgent callers. Pass a distinct local `agentId` " +
+        'and the runtime agent to route to, e.g. useAgent({ agentId: "chat-1", ' +
+        'runtimeAgentId: "assistant", threadId }).',
+    );
+  }
+
+  if (hasRuntimeAgentId && !hasThreadId) {
+    throw new Error(
+      "useAgent: `runtimeAgentId` requires `threadId`. A proxied agent exists to scope a " +
+        "thread to a private instance; without a threadId it behaves like the shared agent " +
+        "while adding a registration and a local agentId to keep unique. Either pass the " +
+        "thread, or bind to the agent directly with useAgent({ agentId }).",
+    );
+  }
+
+  if (hasRuntimeAgentId && !hasAgentId) {
+    throw new Error(
+      "useAgent: `runtimeAgentId` requires an explicit `agentId`. The proxied agent is " +
+        "registered under `agentId`, and the usual fallbacks (chat configuration, then " +
+        `"${DEFAULT_AGENT_ID}") name agents that already exist — registering over one throws ` +
+        "or shadows it. Pick a local id for this hook, e.g. " +
+        'useAgent({ agentId: "chat-1", runtimeAgentId: "assistant", threadId }).',
+    );
+  }
+
+  // After the guards, all three are present or none are.
+  const isThreadScoped = hasRuntimeAgentId;
+
   const chatConfig = useCopilotChatConfiguration();
-  const threadId = computed(
-    () => toValue(props.threadId) ?? chatConfig.value?.threadId,
+  const agentId = computed(
+    () =>
+      toValue(props.agentId) ?? chatConfig.value?.agentId ?? DEFAULT_AGENT_ID,
+  );
+  const runtimeAgentId = computed(() =>
+    isThreadScoped ? toValue(props.runtimeAgentId) : undefined,
+  );
+  // Mirrors React: an explicit `threadId` prop wins, otherwise the chat
+  // configuration's thread, gated on `hasExplicitThreadId` so a
+  // ThreadsProvider-minted placeholder UUID doesn't overwrite the agent's own
+  // auto-minted one (both are random and useless to the backend).
+  const resolvedThreadId = computed(
+    () =>
+      toValue(props.threadId) ??
+      (chatConfig.value?.hasExplicitThreadId
+        ? chatConfig.value.threadId
+        : undefined),
   );
   const { copilotkit } = useCopilotKit();
   const updateFlags = computed(() => props.updates ?? ALL_UPDATES);
@@ -162,22 +222,79 @@ export function useAgent(props: UseAgentProps = {}) {
     return provisional;
   };
 
+  // On the thread-scoped path this hook owns an agent registered under
+  // `agentId` that routes to `runtimeAgentId`. Register/unregister as one
+  // balanced watcher — the cleanup runs both when the ids change and when the
+  // scope is disposed. Mirrors React's registration effect, including its dep
+  // set (core identity plus the two ids).
+  const registeredProxy = shallowRef<AbstractAgent | null>(null);
+  if (isThreadScoped) {
+    watch(
+      [agentId, runtimeAgentId, () => copilotkit.value],
+      ([id, rtId], _old, onCleanup) => {
+        const { agent: proxy, unregister } =
+          copilotkit.value.registerProxiedAgent({
+            agentId: id as string,
+            runtimeAgentId: rtId as string,
+          });
+        provisionalAgentCache.delete(id as string);
+        registeredProxy.value = proxy;
+        onCleanup(() => {
+          unregister();
+          registeredProxy.value = null;
+        });
+      },
+      { immediate: true },
+    );
+  }
+
   const resolveAgent = () => {
     const id = agentId.value;
-    const resolvedThreadId = threadId.value;
-    const cacheKey = resolvedThreadId ? `${id}:${resolvedThreadId}` : id;
     const core = copilotkit.value;
+
+    // Proxied path: this hook registered its own agent, so bypass the shared
+    // registry lookup. Until registration lands, hand back a provisional proxy
+    // so `agent` is never null and its identity stays stable.
+    if (isThreadScoped) {
+      const proxy = registeredProxy.value;
+      if (proxy) {
+        provisionalAgentCache.delete(id);
+        const shouldForceUpdate = agent.value === proxy;
+        agent.value = proxy;
+        subscriptionAgent.value = proxy;
+        if (shouldForceUpdate) triggerRef(agent);
+        return;
+      }
+
+      const cachedProxy = provisionalAgentCache.get(id);
+      if (cachedProxy) {
+        cachedProxy.headers = { ...core.headers };
+        agent.value = cachedProxy;
+        subscriptionAgent.value = cachedProxy;
+        return;
+      }
+
+      const provisionalProxy = new ProxiedCopilotRuntimeAgent({
+        runtimeUrl: core.runtimeUrl,
+        agentId: id,
+        runtimeAgentId: runtimeAgentId.value as string,
+        transport: core.runtimeTransport,
+        runtimeMode: "pending",
+      });
+      provisionalProxy.headers = { ...core.headers };
+      provisionalAgentCache.set(id, provisionalProxy);
+      agent.value = provisionalProxy;
+      subscriptionAgent.value = provisionalProxy;
+      return;
+    }
+
     const existing = core.getAgent(id);
     if (existing) {
-      provisionalAgentCache.delete(cacheKey);
       provisionalAgentCache.delete(id);
 
-      const resolvedAgent = resolvedThreadId
-        ? getOrCreateThreadClone(existing, resolvedThreadId, core.headers)
-        : existing;
-      const shouldForceUpdate = agent.value === resolvedAgent;
-      agent.value = resolvedAgent;
-      subscriptionAgent.value = resolvedAgent;
+      const shouldForceUpdate = agent.value === existing;
+      agent.value = existing;
+      subscriptionAgent.value = existing;
       if (shouldForceUpdate) {
         triggerRef(agent);
       }
@@ -193,12 +310,9 @@ export function useAgent(props: UseAgentProps = {}) {
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting ||
         status === CopilotKitCoreRuntimeConnectionStatus.Error)
     ) {
-      const cached = provisionalAgentCache.get(cacheKey);
+      const cached = provisionalAgentCache.get(id);
       if (cached) {
         cached.headers = { ...core.headers };
-        if (resolvedThreadId) {
-          cached.threadId = resolvedThreadId;
-        }
         agent.value = cached;
         subscriptionAgent.value = cached;
         return;
@@ -210,10 +324,7 @@ export function useAgent(props: UseAgentProps = {}) {
         core.runtimeTransport,
         core.headers,
       );
-      if (resolvedThreadId) {
-        provisional.threadId = resolvedThreadId;
-      }
-      provisionalAgentCache.set(cacheKey, provisional);
+      provisionalAgentCache.set(id, provisional);
       agent.value = provisional;
       subscriptionAgent.value = provisional;
       return;
@@ -235,6 +346,7 @@ export function useAgent(props: UseAgentProps = {}) {
   watch(
     [
       agentId,
+      registeredProxy,
       () => copilotkit.value.agents,
       () => copilotkit.value.runtimeConnectionStatus,
       () => copilotkit.value.runtimeUrl,
@@ -245,9 +357,27 @@ export function useAgent(props: UseAgentProps = {}) {
             a.localeCompare(b),
           ),
         ),
-      threadId,
     ],
     resolveAgent,
+    { immediate: true },
+  );
+
+  // Pin the resolved thread onto the current agent. AbstractAgent auto-mints a
+  // UUID when none is given, so without this the agent would ship its own random
+  // id in /agent/run, /agent/connect and /agent/stop. Deps are deliberately just
+  // the agent and the thread — matching React — so status/header churn cannot
+  // re-fire this and overwrite a thread `CopilotChat` pinned for its own chat.
+  // `() => agent.value`, not `agent`: Vue sets `forceTrigger` when any array
+  // watch source is a shallow ref, which would re-run this on every
+  // `triggerRef(agent)` — i.e. every streamed message — and re-pin a thread that
+  // `CopilotChat` may have deliberately overridden for the chat it renders. A
+  // getter fires only when the identity actually changes.
+  watch(
+    [() => agent.value, resolvedThreadId],
+    ([currentAgent, threadId]) => {
+      if (!currentAgent || !threadId) return;
+      currentAgent.threadId = threadId as string;
+    },
     { immediate: true },
   );
 

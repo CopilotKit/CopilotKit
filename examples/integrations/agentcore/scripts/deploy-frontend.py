@@ -12,8 +12,19 @@ Deploys the React frontend to AWS Amplify by:
 4. Packaging and uploading to S3
 5. Triggering Amplify deployment
 
-Requires: Python 3.11+, AWS CLI, npm, Node.js
-No external Python dependencies - uses standard library only.
+Requires: Python 3.8+ (the floor this script enforces below), AWS CLI, npm, Node.js
+No external Python dependencies - uses standard library only, so uv is optional:
+`uv run scripts/deploy-frontend.py <stack-name>` and
+`python3 scripts/deploy-frontend.py <stack-name>` behave identically. The
+deploy-langgraph.sh / deploy-strands.sh wrappers call it through uv.
+
+This is the CDK variant. For a Terraform deployment use
+infra-terraform/scripts/deploy-frontend.py instead — this one reads
+`aws cloudformation describe-stacks`, which a Terraform stack does not have.
+
+Usage:
+    cd examples/integrations/agentcore
+    uv run scripts/deploy-frontend.py <stack-name>
 """
 
 import atexit
@@ -451,8 +462,9 @@ def main() -> int:
 
     if not stack_name:
         log_error("Stack name is required")
-        log_info("Usage: python deploy-frontend.py <stack-name>")
-        log_info("   or: STACK_NAME=your-stack ./deploy-frontend.py")
+        log_info("Usage: uv run scripts/deploy-frontend.py <stack-name>")
+        log_info("   or: STACK_NAME=your-stack uv run scripts/deploy-frontend.py")
+        log_info("   (run from examples/integrations/agentcore/)")
         return 1
 
     # Fetch CDK outputs

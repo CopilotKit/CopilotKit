@@ -1,6 +1,5 @@
 "use client";
 
-// @region[bar-chart-renderer]
 import React from "react";
 import {
   CopilotChat,
@@ -20,6 +19,7 @@ export default function ControlledGenUiDemo() {
 }
 
 function Chat() {
+  // @region[bar-chart-renderer]
   useComponent({
     name: "render_bar_chart",
     description: "Display a bar chart with labeled numeric values.",

@@ -1,8 +1,8 @@
 """PydanticAI agent for the Beautiful Chat flagship demo.
 
 Ports the behaviour of showcase/integrations/langgraph-python/src/agents/beautiful_chat.py
-to PydanticAI while staying within what `agent.to_ag_ui()` currently
-supports. The frontend cell exercises:
+to PydanticAI while staying within what PydanticAI's AG-UI adapter
+currently supports. The frontend cell exercises:
 
 - shared todo state (managed via a `manage_todos` tool that emits a
   StateSnapshotEvent — PydanticAI does not emit per-token state-streaming
@@ -29,7 +29,7 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.ag_ui import StateDeps
+from pydantic_ai.ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 from ag_ui.core import EventType, StateSnapshotEvent
 
@@ -177,19 +177,26 @@ def search_flights(
     """
     operations = [
         {
-            "type": "create_surface",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "catalogId": FLIGHT_CATALOG_ID,
+            "version": "v0.9",
+            "createSurface": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "catalogId": FLIGHT_CATALOG_ID,
+            },
         },
         {
-            "type": "update_components",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "components": FLIGHT_SCHEMA,
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "components": FLIGHT_SCHEMA,
+            },
         },
         {
-            "type": "update_data_model",
-            "surfaceId": FLIGHT_SURFACE_ID,
-            "data": {"flights": flights},
+            "version": "v0.9",
+            "updateDataModel": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "path": "/",
+                "value": {"flights": flights},
+            },
         },
     ]
     return json.dumps({"a2ui_operations": operations})

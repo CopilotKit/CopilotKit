@@ -147,6 +147,31 @@ export const RESULT_WRITE_MAX_ATTEMPTS = 3;
 export const RESULT_WRITE_RETRY_DELAY_MS = 250;
 
 /**
+ * Max times the reaper RE-CLAIMS an orphaned in-flight (claimed/running) row
+ * whose lease has lapsed and whose created-age is past its family's stale
+ * window. Below the cap, reclaim WINS over the long-expired carve-out (G1d):
+ * the row is re-queued to pending and re-run rather than silently deleted, so
+ * an abrupt worker bounce (SIGKILL past grace / OOM / crash) is non-LOSSY. At
+ * or above the cap the row is treated as terminally expired (claim-deleted, no
+ * re-run) so a poison job that crashes the worker every run cannot re-queue
+ * forever.
+ *
+ * The counter is `consecutive_orphan_count` — the number of CONSECUTIVE
+ * re-orphans of THIS job (i.e. sweeper re-queues that were never followed by
+ * a terminal done/failed). It is bumped ONLY by the sweeper re-queue path
+ * (fleet-claim release CAS with target "pending") and reset to 0 on every
+ * terminal release (done|failed) or fresh claim. It is NOT bumped by the
+ * peer-worker expired-lease steal (claim CAS `wasExpiredSteal` branch), so a
+ * healthy long-lived job that accrues peer steals does NOT consume its reclaim
+ * budget. The lifetime steal+requeue tally remains the separate `reclaim_count`
+ * column (dashboard diagnostic).
+ *
+ * Exported so the cap test pins THIS constant rather than a magic number that
+ * could drift from the implementation (mirrors RESULT_WRITE_MAX_ATTEMPTS).
+ */
+export const MAX_RECLAIM_ATTEMPTS = 3;
+
+/**
  * Default multiple of a family's production period after which an unclaimed
  * pending job is STALE (its family has enqueued ~3 fresher batches since; the
  * job's eventual result would be ancient data). Tunable via
@@ -302,12 +327,30 @@ interface ProbeJobRecord extends JobView {
   /** The serialized per-service work (migration 1779989500 adds this column). */
   payload?: unknown;
   /** PB system timestamp (space-separated date form) — the stale-pending
-   * sweep's age anchor. */
+   * sweep's age anchor when the row has NEVER been reclaimed (no
+   * `requeued_at`). A re-queue does NOT touch `created`, so a reclaimed row's
+   * age is anchored on `requeued_at` instead (see `staleAgeAnchorMs`). */
   created?: string;
   /** Result-flow columns (migration 1779989700) — read by report()'s
    * retry-idempotency guard before any rewrite. */
   result?: unknown;
   result_processed?: boolean;
+  /** Durable per-job lifetime reclaim tally (migration 1779990200) — bumped by
+   * the fleet-claim CAS on every expired-lease steal AND every sweeper re-queue.
+   * Dashboard diagnostic: `reclaim_count > 0` → `jobs.reclaimed`. Never reset. */
+  reclaim_count?: number;
+  /** CONSECUTIVE re-orphan counter (migration 1779990400) — bumped ONLY by the
+   * sweeper re-queue path (fleet-claim release CAS, target "pending"); reset to
+   * 0 on every terminal release (done|failed). NOT bumped by the claim CAS's
+   * expired-lease steal, so a healthy long-lived job that accrues peer steals
+   * does NOT exhaust the MAX_RECLAIM_ATTEMPTS budget. This is what the reaper
+   * uses for the cap check. */
+  consecutive_orphan_count?: number;
+  /** Re-anchor timestamp (migration 1779990300) — stamped by the fleet-claim
+   * release CAS on every pending re-queue. Re-anchors the stale-age clock so a
+   * just-reclaimed row is NOT immediately claim-deleted off its (renewal-immune)
+   * `created` age, dissolving the long-expired carve-out's honesty bind. */
+  requeued_at?: string;
 }
 
 /**
@@ -588,6 +631,38 @@ export function leaseExpired(
   const t = Date.parse(String(leaseExpiresAt).replace(PB_DATE_SEP_RE, "$1T"));
   if (Number.isNaN(t)) return true;
   return t <= nowMs;
+}
+
+/**
+ * Parse a PB date column (space-separated form) to epoch ms, anchored exactly
+ * like `leaseExpired` so the stale-age math agrees with the lease math. Returns
+ * NaN for a null/empty/unparseable value — the caller decides what NaN means
+ * (the stale-pending drain SKIPS such a row; the lease-phase carve-out treats
+ * an unparseable `created` as a no-carve-out conservative re-queue).
+ */
+function pbDateMs(value: string | null | undefined): number {
+  return Date.parse(String(value ?? "").replace(PB_DATE_SEP_RE, "$1T"));
+}
+
+/**
+ * The stale-age anchor for a probe-jobs row, in epoch ms. A re-queue does NOT
+ * touch PB's renewal-immune `created`, so a reclaimed row carries a
+ * `requeued_at` stamped by the release CAS — age it off THAT (its effective
+ * "back in flight" time) so the next sweep does not measure a just-reclaimed
+ * row against its ORIGINAL enqueue time and immediately claim-delete it. This
+ * re-anchoring is what dissolves the long-expired carve-out's honesty bind:
+ * the row is genuinely young again, so re-queueing it emits a "back in flight"
+ * signal the next sweep does NOT falsify. Falls back to `created` for a row
+ * that has never been reclaimed (absent `requeued_at`), preserving pre-migration
+ * row parity. Returns NaN only when BOTH anchors are unparseable.
+ */
+function staleAgeAnchorMs(row: {
+  created?: string;
+  requeued_at?: string;
+}): number {
+  const requeuedMs = pbDateMs(row.requeued_at);
+  if (!Number.isNaN(requeuedMs)) return requeuedMs;
+  return pbDateMs(row.created);
 }
 
 /**
@@ -1543,6 +1618,7 @@ export function createFleetQueueClient(
                 `queue-client: cannot verify existing result for job ${input.jobId} (worker ${input.workerId}) before retry rewrite — refusing to blind-write (a rewrite could un-latch result_processed and double-count): ${
                   err instanceof Error ? err.message : String(err)
                 }`,
+                { cause: err },
               );
             }
             if (existing === null) {
@@ -1738,25 +1814,22 @@ export function createFleetQueueClient(
     // states and filter by lease in-process.
     //
     // ONE SWEEP OF GRACE: rows the lease phase re-queues below are tracked
-    // and EXCLUDED from this call's stale-pending phase. The stale phase
-    // ages off PB's system `created` (the ORIGINAL enqueue time — re-queue
-    // does not touch it), so a long-claimed job would otherwise be re-queued
-    // ("back in flight" per the worker-reclaimed-pending comm error) and
-    // then immediately claimed-and-deleted by the SAME call — falsifying the
-    // comm error and nulling downstream aggregate-key resolution on the
-    // deleted row. ACROSS calls the protection is split by HOW LONG the
-    // lease has been expired: a RECENTLY-expired lease (within the stale
-    // window) is re-queued, and the stale phase's RECENT-LEASE heuristic
-    // (see drainStalePending) protects it on later sweeps — the release
-    // hook retains the expired lease on re-queue, so a recently-in-flight
-    // row is not expired off its original `created` age by the NEXT sweep.
-    // A lease expired LONGER than the stale window on a stale-aged row is
-    // PAST that heuristic's reach: re-queueing it would emit a "back in
-    // flight" signal the NEXT sweep falsifies by claim-deleting the row —
-    // so the lease phase claim-deletes it DIRECTLY (G1d), with no comm
-    // error (the work is discarded, not re-run). (Re-anchoring the age to
-    // the re-queue time would need a column; the retained lease is the
-    // schema-free approximation.)
+    // and EXCLUDED from this call's stale-pending phase (the in-process
+    // same-call protection). ACROSS calls the protection is the `requeued_at`
+    // RE-ANCHOR: the release CAS stamps `requeued_at = now` on every pending
+    // re-queue, and BOTH the stale phases (this lease-phase carve-out and
+    // drainStalePending) age off `staleAgeAnchorMs` = `requeued_at ?? created`.
+    // So a re-queued row is measured from its re-queue time — genuinely young
+    // again — and the NEXT sweep does NOT claim-delete it off its renewal-immune
+    // `created` age. This DISSOLVES the old honesty bind that forced the
+    // long-expired carve-out to delete-rather-than-re-queue a stale-aged row:
+    // re-queueing now emits a "back in flight" signal the next sweep HONORS.
+    // The carve-out (G1d, below) therefore no longer deletes on the FIRST
+    // expired sweep — it RE-CLAIMS until `consecutive_orphan_count` reaches
+    // MAX_RECLAIM_ATTEMPTS, only then claim-deleting a row that keeps
+    // re-orphaning (a poison job) so the queue cannot loop forever. The
+    // lease-based RECENT-LEASE heuristic in drainStalePending is retained as a
+    // SECONDARY guard for pre-migration rows that lack `requeued_at`.
     //
     // MASS-CRASH PAGING: with >CLAIM_CANDIDATE_PAGE claimed/running rows
     // (mass worker crash), an UNSORTED single page left the contents to PB's
@@ -1825,43 +1898,49 @@ export function createFleetQueueClient(
       // ownership, and the special-case + comm-error attribution below must
       // reflect who HELD the expired lease, not the post-release row.
       const holder = row.claimed_by;
-      // LONG-EXPIRED CARVE-OUT (G1d): a row that is ALREADY
-      // stale-expirable — created-age past its family's stale window AND
-      // its lease expired LONGER than that window — is past the
-      // recent-lease heuristic's protection (see the header). Re-queueing
-      // it would emit a "back in flight" comm error the NEXT sweep
-      // falsifies by claim-deleting the row off its original `created`
-      // age. Delete it HERE, claim-first like the stale phase (the claim
-      // CAS admits an expired-lease claimed/running row — its reclaim
-      // safety net — so the delete stays race-free). No comm error and no
-      // reclaimed++: the work is discarded, not re-run. The carve-out
-      // requires a PARSEABLE created — an unparseable created stays on
-      // the conservative re-queue path below, and that COMPOSES honestly:
-      // the stale phase skips unparseable-created rows too, so the
-      // re-queued row stays claimable and "back in flight" stays true. An
-      // UNPARSEABLE (or empty) lease is the opposite: it carries no
-      // recent-flight evidence EITHER phase can honor — the stale phase's
-      // recent-lease protection needs a finite lease — so re-queueing
-      // would emit a "back in flight" signal the next sweep falsifies by
-      // claim-deleting the row off its stale created age. Treat it as
-      // long-expired and delete it HERE, so the emitted signal (none)
-      // matches the eventual outcome (discard). Sweeper-held rows
-      // (stale garbage mid-deletion, 60s lease) are always RECENTLY
-      // expired, so they keep their silent re-queue retry contract.
+      // LONG-EXPIRED CARVE-OUT (G1d), INVERTED to RECLAIM-WINS (§4.2): a row
+      // that is stale-expirable — its STALE-AGE (anchored on `requeued_at` if
+      // it has been reclaimed, else `created`) past its family's window AND
+      // its lease expired LONGER than that window — used to be claim-DELETED
+      // here, dropping orphaned in-flight work on an abrupt worker bounce. It
+      // is now RE-CLAIMED to pending (the path below) until its `consecutive_orphan_count`
+      // reaches MAX_RECLAIM_ATTEMPTS, so a bounce is NON-LOSSY (the work
+      // re-runs; idempotent probes make at-least-once safe). The honesty bind
+      // the original carve-out dodged — re-queueing a `created`-stale row emits
+      // a "back in flight" signal the NEXT sweep falsifies by claim-deleting it
+      // off its renewal-immune `created` age — is DISSOLVED by `requeued_at`:
+      // the release CAS re-anchors the stale-age clock on re-queue, so the
+      // next sweep measures the row from its re-queue time (genuinely young
+      // again) and does NOT delete it. The carve-out fires ONLY at the
+      // attempt cap: a row reclaimed MAX_RECLAIM_ATTEMPTS times that is STILL
+      // stale-expirable (a poison job that re-orphans every run) is deleted
+      // claim-first like the stale phase (the claim CAS admits an expired-lease
+      // claimed/running row — its reclaim safety net — so the delete stays
+      // race-free), with no comm error and no reclaimed++ (the work is
+      // discarded, not re-run) so it cannot re-queue forever. An UNPARSEABLE
+      // stale-age anchor stays on the conservative re-queue path below (the
+      // stale phase skips unparseable-anchor rows too, so "back in flight"
+      // stays true). Sweeper-held rows (stale garbage mid-deletion, 60s lease)
+      // keep their silent re-queue retry contract.
       if (staleExpiryPeriods > 0 && holder !== STALE_PENDING_SWEEPER_ID) {
         const family = probeKeyFamily(row.probe_key);
         const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
-        const createdMs = Date.parse(
-          String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-        );
-        const leaseMs = Date.parse(
-          String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-        );
+        const anchorMs = staleAgeAnchorMs(row);
+        const leaseMs = pbDateMs(row.lease_expires_at);
         const staleExpirable =
-          !Number.isNaN(createdMs) &&
-          nowMs - createdMs > maxAgeMs &&
+          !Number.isNaN(anchorMs) &&
+          nowMs - anchorMs > maxAgeMs &&
           (!Number.isFinite(leaseMs) || leaseMs <= nowMs - maxAgeMs);
-        if (staleExpirable) {
+        // RECLAIM-WINS-UNTIL-CAP: only delete a stale-expirable row once it
+        // has exhausted its reclaim budget; below the cap it falls through to
+        // the re-queue path (reclaim WINS over the carve-out).
+        // `consecutive_orphan_count` is the CONSECUTIVE re-orphan tally —
+        // bumped ONLY by the sweeper re-queue path and reset on terminal
+        // done|failed — so a healthy long-lived job that accrues peer steals
+        // (expired-lease claim steals) does NOT exhaust its budget (absent → 0
+        // for pre-migration rows, i.e. no consecutive orphans yet).
+        const reclaimAttempts = row.consecutive_orphan_count ?? 0;
+        if (staleExpirable && reclaimAttempts >= MAX_RECLAIM_ATTEMPTS) {
           // PER-ROW containment mirrors the stale phase: a thrown claim is
           // indeterminate (skip this sweep; the row is unchanged for the
           // next), a lost claim means a peer acted on the row, and a
@@ -1898,8 +1977,8 @@ export function createFleetQueueClient(
             continue;
           }
           // COUNT-NAME CAVEAT: despite the name, `expiredPending` here
-          // counts a CLAIMED/RUNNING row (long-expired lease, stale
-          // created-age) deleted by this carve-out — not just stale
+          // counts a CLAIMED/RUNNING row (long-expired lease, stale-aged)
+          // deleted by this carve-out at the reclaim cap — not just stale
           // PENDING rows from the drain phase. The shared contract doc
           // (`SweepResult.expiredPending` in contracts.ts) documents this
           // lease-phase carve-out explicitly — the two sides agree.
@@ -1910,6 +1989,7 @@ export function createFleetQueueClient(
             family,
             workerId: holder,
             maxAgeMs,
+            reclaimAttempts,
           });
           continue;
         }
@@ -2123,47 +2203,40 @@ export function createFleetQueueClient(
             logger.debug("queue-client.sweep-stale-grace", { jobId: row.id });
             continue;
           }
-          // Age off PB's system `created` (space-separated date form —
-          // normalize with the SAME anchored rewrite as leaseExpired). Unlike
-          // the lease path, an unparseable value is conservatively SKIPPED:
-          // delete is destructive, and "never wedge the queue" doesn't apply —
-          // a pending row is claimable regardless.
-          const createdMs = Date.parse(
-            String(row.created ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-          );
-          if (Number.isNaN(createdMs)) {
+          // Age off the STALE-AGE ANCHOR (`requeued_at` if the row has been
+          // reclaimed, else PB's system `created`) — the SAME anchored rewrite
+          // as leaseExpired. Unlike the lease path, an unparseable anchor is
+          // conservatively SKIPPED: delete is destructive, and "never wedge the
+          // queue" doesn't apply — a pending row is claimable regardless.
+          const anchorMs = staleAgeAnchorMs(row);
+          if (Number.isNaN(anchorMs)) {
             logger.warn("queue-client.sweep-stale-unparseable-created", {
               jobId: row.id,
               created: row.created ?? null,
+              requeuedAt: row.requeued_at ?? null,
             });
             continue;
           }
           const family = probeKeyFamily(row.probe_key);
           const maxAgeMs = staleExpiryPeriods * stalePeriodMsFor(family);
-          const ageMs = nowMs - createdMs;
+          const ageMs = nowMs - anchorMs;
           if (ageMs <= maxAgeMs) continue;
-          // RECENT-LEASE HEURISTIC (no schema change): the age above is
-          // anchored on PB `created`, which a re-queue does NOT touch — so
-          // a job that legitimately ran LONGER than its family's STALE
-          // WINDOW (`maxAgeMs` = expiryPeriods × the family period — 3
-          // periods by default, NOT one) comes back from the lease sweep
-          // already "stale" and would be claim-deleted by the NEXT sweep
-          // before any plausible re-run (the dashboard then permanently
-          // shows "re-queued" for silently-discarded work). The release
-          // hook RETAINS the expired lease_expires_at on a pending
-          // re-queue, so a PARSEABLE lease within that stale window means
-          // the row was IN FLIGHT recently and its `created`-based age is
-          // stale evidence — skip it; it expires normally once a full
-          // stale window passes with no re-claim. (A `requeued_at` column
-          // would be exact; the retained lease is the schema-free
-          // approximation.) Tradeoff: a sweeper-claimed row whose delete
-          // failed also carries a recent (60s) lease after its silent
-          // re-queue, so stale GARBAGE can linger up to one extra stale
-          // window before the retry delete — harmless, and the
+          // RECENT-LEASE HEURISTIC (secondary, retained): the PRIMARY age
+          // re-anchor is `requeued_at` (above) — a job re-queued by the lease
+          // sweep gets its stale-age clock reset, so it is YOUNG again and the
+          // `ageMs <= maxAgeMs` check above already skips it (this is what
+          // dissolves the carve-out's honesty bind). This lease-based heuristic
+          // stays as a secondary guard for the cross-call window of a
+          // PRE-MIGRATION row (no `requeued_at`) whose retained expired lease is
+          // its only "recently in flight" evidence: a PARSEABLE lease within the
+          // stale window means the row was in flight recently and its
+          // `created`-based age is stale evidence — skip it; it expires normally
+          // once a full stale window passes with no re-claim. Tradeoff: a
+          // sweeper-claimed row whose delete failed also carries a recent (60s)
+          // lease after its silent re-queue, so stale GARBAGE can linger up to
+          // one extra stale window before the retry delete — harmless, and the
           // self-healing contract still holds.
-          const leaseMs = Date.parse(
-            String(row.lease_expires_at ?? "").replace(PB_DATE_SEP_RE, "$1T"),
-          );
+          const leaseMs = pbDateMs(row.lease_expires_at);
           if (Number.isFinite(leaseMs) && leaseMs > nowMs - maxAgeMs) {
             logger.debug("queue-client.sweep-stale-recent-lease-skip", {
               jobId: row.id,

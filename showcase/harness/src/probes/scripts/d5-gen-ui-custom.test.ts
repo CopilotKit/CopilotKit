@@ -6,12 +6,20 @@ import type {
 } from "../helpers/d5-registry.js";
 
 /**
- * Tests for the D5 gen-UI (custom) script. The script now branches on
- * integrationSlug:
- *   - `langgraph-python` sends "Show me a pie chart..." and asserts
- *     SVG donut chart shape.
- *   - All others send "Write me a haiku about nature" and assert
- *     the HaikuCard rendering.
+ * Tests for the D5 gen-UI (custom) script.
+ *
+ * The probe is a SHARED probe (Showcase iron rule 1): it must run the
+ * SAME contract for every `gen-ui-tool-based` integration — no
+ * per-slug branching. Every integration:
+ *   - sends "Show me a pie chart of revenue by category"
+ *   - asserts the SVG donut/pie chart shape
+ *   - asserts the second-leg narration mentions the chart
+ *
+ * The former slug-allowlist (`CHART_INTEGRATIONS`) that routed a
+ * handful of slugs down the pie-chart path and everyone else down an
+ * obsolete `generate_haiku` / HaikuCard path is GONE. All 21
+ * gen-ui-tool-based pages register `render_bar_chart` +
+ * `render_pie_chart`, so the shared contract is the pie-chart contract.
  *
  * Module-cache caveat: see the headless test file's preamble — same
  * `vi.resetModules()` + dynamic-import dance to keep the registry
@@ -68,6 +76,52 @@ function syntheticCtx(
   return { bubbleIndex, text };
 }
 
+const PIE_CHART_MESSAGE = "Show me a pie chart of revenue by category";
+
+/**
+ * A cross-section of gen-ui-tool-based slugs spanning both families of
+ * the OLD allowlist: chart integrations that were already on the
+ * pie-chart path, and integrations that USED to take the obsolete
+ * haiku path. Every one must now select the SAME (pie-chart) contract.
+ */
+const GEN_UI_SLUGS = [
+  "langgraph-python", // was on the allowlist (chart)
+  "ms-agent-python", // was on the allowlist (chart)
+  "ms-agent-dotnet", // was NOT on the allowlist (formerly haiku)
+  "pydantic-ai", // was NOT on the allowlist (formerly haiku)
+  "langgraph-typescript", // was NOT on the allowlist (formerly haiku)
+  "agno", // was NOT on the allowlist (formerly haiku)
+] as const;
+
+/**
+ * Build a pie-chart-shaped assertion page: first evaluate resolves the
+ * gen-UI component selector, second resolves a healthy SVG shape.
+ */
+function makePieChartPage(shape: {
+  hasSvg: boolean;
+  circleCount: number;
+  pathCount: number;
+  rectCount: number;
+  drawingChildren: number;
+}): Page {
+  let evalCount = 0;
+  return makeAssertionPage({
+    evaluateImpl: () => {
+      evalCount++;
+      if (evalCount === 1) return { selector: '[role="article"] svg' };
+      return shape;
+    },
+  });
+}
+
+const HEALTHY_SVG = {
+  hasSvg: true,
+  circleCount: 5,
+  pathCount: 0,
+  rectCount: 0,
+  drawingChildren: 5,
+};
+
 describe("d5-gen-ui-custom script", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -83,55 +137,54 @@ describe("d5-gen-ui-custom script", () => {
     );
   });
 
-  it("buildTurns sends pie chart message for langgraph-python", async () => {
+  // --- Shared contract: EVERY slug gets the pie-chart prompt ---
+
+  it("buildTurns sends the pie chart message for a formerly-non-allowlisted slug (ms-agent-dotnet)", async () => {
     const { script } = await loadFreshRegistry();
     const turns = script.buildTurns({
-      integrationSlug: "langgraph-python",
+      integrationSlug: "ms-agent-dotnet",
       featureType: "gen-ui-custom",
-      baseUrl: "https://showcase-langgraph-python.example.com",
+      baseUrl: "https://showcase-ms-agent-dotnet.example.com",
     });
     expect(turns).toHaveLength(1);
-    expect(turns[0]!.input).toBe("Show me a pie chart of revenue by category");
+    expect(turns[0]!.input).toBe(PIE_CHART_MESSAGE);
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 
-  it("buildTurns sends haiku message for non-langgraph-python integrations", async () => {
+  it("NO slug selects a different probe contract — every gen-ui-tool-based slug sends the pie chart message", async () => {
     const { script } = await loadFreshRegistry();
-    const turns = script.buildTurns({
-      integrationSlug: "agno",
-      featureType: "gen-ui-custom",
-      baseUrl: "https://showcase-agno.example.com",
-    });
-    expect(turns).toHaveLength(1);
-    expect(turns[0]!.input).toBe("Write me a haiku about nature");
-    expect(typeof turns[0]!.assertions).toBe("function");
+    for (const slug of GEN_UI_SLUGS) {
+      const turns = script.buildTurns({
+        integrationSlug: slug,
+        featureType: "gen-ui-custom",
+        baseUrl: `https://showcase-${slug}.example.com`,
+      });
+      expect(turns, `slug ${slug} should build exactly one turn`).toHaveLength(
+        1,
+      );
+      expect(
+        turns[0]!.input,
+        `slug ${slug} must send the shared pie chart message`,
+      ).toBe(PIE_CHART_MESSAGE);
+    }
   });
 
-  // --- Pie chart path (langgraph-python) ---
+  // --- Pie chart shape + narration assertions run for EVERY slug ---
 
-  it("pie chart: assertion FAILS when the rendered component has no <svg>", async () => {
+  it("pie chart: assertion FAILS when the rendered component has no <svg> (ms-agent-dotnet)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "langgraph-python",
+      integrationSlug: "ms-agent-dotnet",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;
 
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) {
-          return { selector: '[data-testid="gen-ui-card"]' };
-        }
-        return {
-          hasSvg: false,
-          circleCount: 0,
-          pathCount: 0,
-          rectCount: 0,
-          drawingChildren: 0,
-        };
-      },
+    const page = makePieChartPage({
+      hasSvg: false,
+      circleCount: 0,
+      pathCount: 0,
+      rectCount: 0,
+      drawingChildren: 0,
     });
 
     await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
@@ -139,27 +192,20 @@ describe("d5-gen-ui-custom script", () => {
     );
   });
 
-  it("pie chart: assertion FAILS when SVG has too few drawing children", async () => {
+  it("pie chart: assertion FAILS when SVG has too few drawing children (pydantic-ai)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "langgraph-python",
+      integrationSlug: "pydantic-ai",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;
 
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) return { selector: '[role="article"] svg' };
-        return {
-          hasSvg: true,
-          circleCount: 1,
-          pathCount: 0,
-          rectCount: 0,
-          drawingChildren: 1,
-        };
-      },
+    const page = makePieChartPage({
+      hasSvg: true,
+      circleCount: 1,
+      pathCount: 0,
+      rectCount: 0,
+      drawingChildren: 1,
     });
 
     await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
@@ -167,31 +213,15 @@ describe("d5-gen-ui-custom script", () => {
     );
   });
 
-  it("pie chart: assertion FAILS when assistant follow-up is missing expected tokens", async () => {
+  it("pie chart: assertion FAILS when assistant follow-up is missing expected tokens (ms-agent-dotnet)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "langgraph-python",
+      integrationSlug: "ms-agent-dotnet",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;
 
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) return { selector: '[role="article"] svg' };
-        if (evalCount === 2) {
-          return {
-            hasSvg: true,
-            circleCount: 5,
-            pathCount: 0,
-            rectCount: 0,
-            drawingChildren: 5,
-          };
-        }
-        return "Done — let me know if you want anything else.";
-      },
-    });
+    const page = makePieChartPage(HEALTHY_SVG);
 
     await expect(
       turn.assertions!(
@@ -201,31 +231,15 @@ describe("d5-gen-ui-custom script", () => {
     ).rejects.toThrow(/missing tokens/);
   });
 
-  it("pie chart: assertion PASSES on a healthy donut render with full narration", async () => {
+  it("pie chart: assertion PASSES on a healthy donut render with full narration (ms-agent-dotnet)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "langgraph-python",
+      integrationSlug: "ms-agent-dotnet",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;
 
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) return { selector: '[role="article"] svg' };
-        if (evalCount === 2) {
-          return {
-            hasSvg: true,
-            circleCount: 5,
-            pathCount: 0,
-            rectCount: 0,
-            drawingChildren: 5,
-          };
-        }
-        return "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books.";
-      },
-    });
+    const page = makePieChartPage(HEALTHY_SVG);
 
     await expect(
       turn.assertions!(
@@ -237,133 +251,23 @@ describe("d5-gen-ui-custom script", () => {
     ).resolves.toBeUndefined();
   });
 
-  // --- Haiku card path (all non-LGP integrations) ---
-
-  it("haiku: assertion FAILS when no card or component renders", async () => {
+  it("pie chart: assertion PASSES for the langgraph-python control (chart integration)", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
-      integrationSlug: "agno",
+      integrationSlug: "langgraph-python",
       featureType: "gen-ui-custom",
       baseUrl: "https://example.com",
     })[0]!;
 
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) {
-          // Cascade matched a generic selector
-          return { selector: '[data-message-role="assistant"]' };
-        }
-        // No haiku card or rendered component found
-        return { found: false };
-      },
-    });
-
-    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
-      /no haiku card or rendered component/,
-    );
-  });
-
-  it("haiku: assertion FAILS when haiku card has zero children (empty wrapper)", async () => {
-    const { script } = await loadFreshRegistry();
-    const turn = script.buildTurns({
-      integrationSlug: "mastra",
-      featureType: "gen-ui-custom",
-      baseUrl: "https://example.com",
-    })[0]!;
-
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) {
-          return { selector: '[data-testid="haiku-card"]' };
-        }
-        // Haiku card found but empty
-        return {
-          found: true,
-          selector: '[data-testid="haiku-card"]',
-          childCount: 0,
-          hasText: false,
-          japaneseLineCount: 0,
-          englishLineCount: 0,
-        };
-      },
-    });
-
-    await expect(turn.assertions!(page, syntheticCtx())).rejects.toThrow(
-      /zero children/,
-    );
-  });
-
-  it("haiku: assertion PASSES on a healthy haiku card render (no narration check)", async () => {
-    // Haiku integrations use `useFrontendTool` with `followUp: false`,
-    // so there is no second-leg narration. Only the structural check
-    // (card rendered with children + text) is asserted.
-    const { script } = await loadFreshRegistry();
-    const turn = script.buildTurns({
-      integrationSlug: "agno",
-      featureType: "gen-ui-custom",
-      baseUrl: "https://example.com",
-    })[0]!;
-
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) {
-          return { selector: '[data-testid="haiku-card"]' };
-        }
-        // assertHaikuCardShape: card found with children and text
-        return {
-          found: true,
-          selector: '[data-testid="haiku-card"]',
-          childCount: 3,
-          hasText: true,
-          japaneseLineCount: 3,
-          englishLineCount: 3,
-        };
-      },
-    });
+    const page = makePieChartPage(HEALTHY_SVG);
 
     await expect(
-      turn.assertions!(page, syntheticCtx()),
-    ).resolves.toBeUndefined();
-  });
-
-  it("haiku: assertion PASSES with fallback selector (no testid)", async () => {
-    // Some integrations might render the component without testids.
-    // The probe falls back to generic assistant message selectors.
-    const { script } = await loadFreshRegistry();
-    const turn = script.buildTurns({
-      integrationSlug: "langgraph-typescript",
-      featureType: "gen-ui-custom",
-      baseUrl: "https://example.com",
-    })[0]!;
-
-    let evalCount = 0;
-    const page = makeAssertionPage({
-      evaluateImpl: () => {
-        evalCount++;
-        if (evalCount === 1) {
-          return { selector: '[data-message-role="assistant"]' };
-        }
-        // Fallback: no haiku-card testid, but assistant message
-        // wrapper has children and text
-        return {
-          found: true,
-          selector: '[data-message-role="assistant"]',
-          childCount: 2,
-          hasText: true,
-          japaneseLineCount: 0,
-          englishLineCount: 0,
-        };
-      },
-    });
-
-    await expect(
-      turn.assertions!(page, syntheticCtx()),
+      turn.assertions!(
+        page,
+        syntheticCtx(
+          "Here is your pie chart of revenue by category — Electronics leads.",
+        ),
+      ),
     ).resolves.toBeUndefined();
   });
 });

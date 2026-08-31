@@ -6,6 +6,7 @@ import {
   leaseExpired,
   PB_DATE_SEP_RE,
   PoisonedBacklogCountError,
+  MAX_RECLAIM_ATTEMPTS,
   RESULT_WRITE_MAX_ATTEMPTS,
   RESULT_WRITE_RETRY_DELAY_MS,
   PRUNE_TERMINAL_MAX_AGE_MS,
@@ -117,6 +118,17 @@ interface JobRow extends JobView {
   family?: string;
   /** PB system column; seeded by prune tests (real PB stamps it on create). */
   created?: string;
+  /** Durable per-job lifetime reclaim tally (migration 1779990200) the
+   * fleet-claim CAS bumps on every expired-lease steal AND sweeper re-queue.
+   * Dashboard diagnostic only — NOT the cap signal. */
+  reclaim_count?: number;
+  /** CONSECUTIVE re-orphan counter (migration 1779990400) — bumped ONLY by the
+   * sweeper re-queue path and reset on terminal done|failed. The reaper reads
+   * THIS (not reclaim_count) for the MAX_RECLAIM_ATTEMPTS cap check. */
+  consecutive_orphan_count?: number;
+  /** Re-anchor timestamp (migration 1779990300) the release CAS stamps on a
+   * pending re-queue; the reaper's stale-age anchor for a reclaimed row. */
+  requeued_at?: string;
 }
 
 /**
@@ -2958,48 +2970,92 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(store.find((r) => r.id === "long-runner")).toBeUndefined();
     });
 
-    it("an UNPARSEABLE lease on a stale-aged expired row is claim-DELETED in the lease phase — two sweeps compose honestly (no falsified 'back in flight')", async () => {
-      // COMPOSE HOLE: the long-expired carve-out used to require a FINITE
-      // parsed lease, so an expired claimed/running row with an
-      // unparseable lease_expires_at fell to the conservative re-queue —
-      // emitting worker-reclaimed-pending ("back in flight"). But the NEXT
-      // sweep's recent-lease protection ALSO requires a finite lease, so
-      // the re-queued row was claim-DELETED off its stale created age —
-      // the dashboard permanently showed "re-queued" for silently
-      // discarded work. An unparseable lease carries NO recent-flight
-      // evidence either phase can honor, so the lease phase must treat it
-      // as long-expired and delete directly: the emitted signal (none)
-      // matches the eventual outcome (discard).
+    it("an UNPARSEABLE lease on a stale-aged orphan below the cap is RE-QUEUED — requeued_at re-anchors so the next sweep does NOT falsify 'back in flight' (layer a)", async () => {
+      // COMPOSE HOLE, now closed by requeued_at: the carve-out USED to delete
+      // an expired claimed/running row with an unparseable lease, because
+      // re-queueing it emitted "back in flight" yet the NEXT sweep's
+      // (lease-based) recent-lease protection could not read the junk lease,
+      // so the row was claim-deleted off its stale `created` age — falsifying
+      // the signal. The reclaimable-leases re-anchor removes the lease from
+      // the cross-sweep protection entirely: a re-queued row carries
+      // requeued_at, and the next sweep ages it off THAT (genuinely young),
+      // not the unparseable lease. So an unparseable-lease orphan below the
+      // cap is now RE-CLAIMED (non-lossy) and the signal HOLDS — the lease's
+      // parseability no longer matters.
       const junkLease: CreatedJobRow = {
         ...jobView({
           id: "junk-lease",
           probe_key: "d6:a",
           status: "running",
           claimed_by: "worker-dead",
-          // Unparseable: leaseExpired(NaN) → expired (never wedge), but
-          // neither the carve-out's finite-lease check nor the stale
-          // phase's recent-lease protection could read it.
+          // Unparseable: leaseExpired(NaN) → expired (never wedge). Its
+          // parseability is now irrelevant to the cross-sweep protection.
           lease_expires_at: "not-a-date",
         }),
         payload: samplePayload({ probeKey: "d6:a" }),
         created: new Date(T - 4 * HOUR).toISOString(), // > 3 × 60min window
+        reclaim_count: 0,
       };
       const { pb, store } = makePagingPb([junkLease]);
-      const releasedPending: string[] = [];
-      const claim: JobClaimClient = {
-        // CAS-faithful claim: admits pending rows AND claimed/running rows
-        // whose lease has expired (the hook's reclaim safety net).
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      // Sweep 1: RE-CLAIMED (non-lossy), an honest "back in flight" gray.
+      const first = await q.sweepExpired(T);
+      const row = store.find((r) => r.id === "junk-lease");
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toEqual(["junk-lease"]);
+      expect(first.commErrors).toHaveLength(1);
+      expect(first.commErrors[0].kind).toBe("worker-reclaimed-pending");
+      expect(first.reclaimed).toBe(1);
+      expect(first.expiredPending).toBe(0);
+      expect(row?.requeued_at).toBe(new Date(T).toISOString());
+
+      // Sweep 2 a stale-window later: the row is still pending and still stale
+      // by `created`, but YOUNG by requeued_at — so it is NOT claim-deleted.
+      // The signal from sweep 1 stands (the unparseable lease never mattered).
+      const second = await q.sweepExpired(T + MIN);
+      expect(store.find((r) => r.id === "junk-lease")?.status).toBe("pending");
+      expect(second.expiredPending).toBe(0);
+      expect(second.reclaimed).toBe(0);
+    });
+
+    /**
+     * Hook-faithful CAS over the paging store for the reclaimable-leases
+     * tests: `claimJob` admits pending rows AND expired-lease claimed/running
+     * rows (the reclaim safety net), and `releaseJob(..., "pending")` mirrors
+     * the fleet-claim.pb.js release CAS — it bumps the durable `reclaim_count`
+     * tally and stamps `requeued_at = now` (the stale-age re-anchor). Without
+     * those two field writes the reaper's attempt cap and honesty-bind
+     * dissolution would not be exercised, so this fake models them exactly as
+     * the server does.
+     */
+    function makeReclaimClaim(
+      store: CreatedJobRow[],
+      nowMs: number,
+      sink?: { releasedPending: string[] },
+    ): JobClaimClient {
+      return {
         async claimJob(jobId, workerId): Promise<ClaimResult> {
           const r = store.find((x) => x.id === jobId);
           if (!r) return { won: false };
-          const reclaimable =
-            r.status === "pending" ||
-            (["claimed", "running"].includes(r.status) &&
-              leaseExpired(r.lease_expires_at, T));
+          const wasExpiredSteal =
+            ["claimed", "running"].includes(r.status) &&
+            leaseExpired(r.lease_expires_at, nowMs);
+          const reclaimable = r.status === "pending" || wasExpiredSteal;
           if (!reclaimable) return { won: false };
           r.status = "claimed";
           r.claimed_by = workerId;
           r.version += 1;
+          // Mirror the claim CAS: an expired-lease steal bumps the LIFETIME
+          // reclaim tally (`reclaim_count`) but does NOT touch the consecutive
+          // re-orphan counter (`consecutive_orphan_count`). A plain pending
+          // claim bumps neither.
+          if (wasExpiredSteal) {
+            r.reclaim_count = (r.reclaim_count ?? 0) + 1;
+            // consecutive_orphan_count is intentionally NOT bumped here.
+          }
           return { won: true, job: { ...r } };
         },
         renewLease: vi.fn(
@@ -3008,44 +3064,38 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
           const r = store.find((x) => x.id === jobId);
           if (!r || r.claimed_by !== workerId) return { released: false };
-          if (status === "pending") releasedPending.push(jobId);
+          if (status === "pending") {
+            sink?.releasedPending.push(jobId);
+            // Mirror the release CAS: bump BOTH tallies and re-anchor.
+            // `reclaim_count` is the lifetime diagnostic; `consecutive_orphan_count`
+            // is the cap counter (sweeper re-queue path only).
+            r.reclaim_count = (r.reclaim_count ?? 0) + 1;
+            r.consecutive_orphan_count = (r.consecutive_orphan_count ?? 0) + 1;
+            r.requeued_at = new Date(nowMs).toISOString();
+          } else {
+            // Terminal release: reset the consecutive counter so a LATER
+            // re-orphan starts with a fresh budget. Lifetime tally is NOT reset.
+            r.consecutive_orphan_count = 0;
+          }
           r.status = status;
           r.claimed_by = "";
           r.version += 1;
           return { released: true, job: { ...r } };
         },
       };
-      const q = createFleetQueueClient({ pb, claim, logger });
+    }
 
-      // Sweep 1: deleted directly — no re-queue, no "back in flight" comm
-      // error to falsify, counted with the stale expiries.
-      const first = await q.sweepExpired(T);
-      expect(store.find((r) => r.id === "junk-lease")).toBeUndefined();
-      expect(releasedPending).toEqual([]);
-      expect(first.commErrors).toHaveLength(0);
-      expect(first.reclaimed).toBe(0);
-      expect(first.expiredPending).toBe(1);
-
-      // Sweep 2: nothing left to act on — the phases composed in ONE sweep
-      // instead of sweep 1 promising a re-run sweep 2 silently revokes.
-      const second = await q.sweepExpired(T);
-      expect(second.commErrors).toHaveLength(0);
-      expect(second.expiredPending).toBe(0);
-      expect(second.reclaimed).toBe(0);
-    });
-
-    it("a LONG-expired lease on a stale-aged row is claim-DELETED in the lease phase — never re-queued with a 'back in flight' signal the next sweep falsifies (G1d)", async () => {
-      // CROSS-SWEEP FALSIFICATION: a row whose lease expired BEYOND the
-      // family's stale window is past every protection the re-queue path
-      // offers — the per-call grace evaporates with the call, and the stale
-      // phase's recent-lease heuristic only covers leases expired WITHIN the
-      // window. Re-queueing it emits worker-reclaimed-pending ("back in
-      // flight"), and the NEXT sweep claim-deletes the very row that signal
-      // promised was re-running — the dashboard permanently shows
-      // "re-queued" for silently-discarded work. If the row is ALREADY
-      // stale-expirable (created-age past the window AND lease expired
-      // longer than the window), delete it claim-first like the stale phase
-      // — no comm error (the work is being discarded, not re-run).
+    it("RECLAIM-WINS (layer a): a stale-aged long-expired orphan below the reclaim cap is RE-QUEUED (not dropped) — the abrupt-bounce floor", async () => {
+      // RED→GREEN PROOF (proposal §5). A worker died mid-sweep leaving an
+      // in-flight (running) row whose lease expired LONGER than the family's
+      // stale window AND whose created-age is past that window. TODAY (the
+      // long-expired carve-out G1d, pre-fix) this row is claim-DELETED:
+      // reclaimed=0, expiredPending=1, the work silently dropped. AFTER the
+      // fix reclaim WINS until MAX_RECLAIM_ATTEMPTS: the orphan is re-queued
+      // to pending (reclaimed=1, expiredPending=0), its reclaim_count bumped
+      // and requeued_at stamped, so it RE-RUNS. The honesty bind is dissolved
+      // by requeued_at (see the next-sweep test below), so the "back in
+      // flight" comm error is honest.
       const longDead: CreatedJobRow = {
         ...jobView({
           id: "long-dead",
@@ -3057,66 +3107,237 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         }),
         payload: samplePayload({ probeKey: "d6:a" }),
         created: new Date(T - 8 * HOUR).toISOString(), // stale-aged
+        // Never reclaimed before — below the cap.
+        reclaim_count: 0,
       };
-      // CONTRAST: a recently-expired lease (1min ago) on an equally
-      // stale-aged row keeps today's re-queue + comm-error path — the
-      // recent-lease heuristic protects it across sweeps.
-      const recentDead: CreatedJobRow = {
-        ...jobView({
-          id: "recent-dead",
-          probe_key: "d6:b",
-          status: "running",
-          claimed_by: "worker-dead",
-          lease_expires_at: new Date(T - MIN).toISOString(),
-        }),
-        payload: samplePayload({ probeKey: "d6:b" }),
-        created: new Date(T - 4 * HOUR).toISOString(),
-      };
-      const { pb, store } = makePagingPb([longDead, recentDead]);
-      const releasedPending: string[] = [];
-      const claim: JobClaimClient = {
-        // CAS-faithful claim: admits pending rows AND claimed/running rows
-        // whose lease has expired (the hook's reclaim safety net — the
-        // lease-phase delete claims a long-dead claimed/running row).
-        async claimJob(jobId, workerId): Promise<ClaimResult> {
-          const r = store.find((x) => x.id === jobId);
-          if (!r) return { won: false };
-          const reclaimable =
-            r.status === "pending" ||
-            (["claimed", "running"].includes(r.status) &&
-              leaseExpired(r.lease_expires_at, T));
-          if (!reclaimable) return { won: false };
-          r.status = "claimed";
-          r.claimed_by = workerId;
-          r.version += 1;
-          return { won: true, job: { ...r } };
-        },
-        renewLease: vi.fn(
-          async (): Promise<RenewResult> => ({ renewed: false }),
-        ),
-        async releaseJob(jobId, workerId, status): Promise<ReleaseResult> {
-          const r = store.find((x) => x.id === jobId);
-          if (!r || r.claimed_by !== workerId) return { released: false };
-          if (status === "pending") releasedPending.push(jobId);
-          r.status = status;
-          r.claimed_by = "";
-          r.version += 1;
-          return { released: true, job: { ...r } };
-        },
-      };
+      const { pb, store } = makePagingPb([longDead]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
       const q = createFleetQueueClient({ pb, claim, logger });
 
       const sweep = await q.sweepExpired(T);
 
-      // The long-dead row was DELETED (no re-queue, no comm error, not
-      // counted as reclaimed) and counted with the stale expiries.
-      expect(store.find((r) => r.id === "long-dead")).toBeUndefined();
-      expect(releasedPending).not.toContain("long-dead");
-      expect(sweep.commErrors.map((e) => e.jobId)).toEqual(["recent-dead"]);
+      // RE-CLAIMED, not dropped: the row survives as pending and re-runs.
+      const row = store.find((r) => r.id === "long-dead");
+      expect(row).toBeDefined();
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toContain("long-dead");
+      // Telemetry flips: the orphan is reclaimed, NOT expired-deleted.
       expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(0);
+      // Honest "back in flight" gray, attributed to the dead holder.
+      expect(sweep.commErrors).toHaveLength(1);
+      expect(sweep.commErrors[0].kind).toBe("worker-reclaimed-pending");
+      expect(sweep.commErrors[0].jobId).toBe("long-dead");
+      // The reclaim tally was bumped and the stale-age clock re-anchored.
+      expect(row?.reclaim_count).toBe(1);
+      expect(row?.requeued_at).toBe(new Date(T).toISOString());
+    });
+
+    it("ATTEMPT CAP (layer a): a stale-aged long-expired orphan AT MAX_RECLAIM_ATTEMPTS consecutive orphans is claim-DELETED — a poison job cannot re-queue forever", async () => {
+      // The reclaim-wins inversion is bounded: a row that has already been
+      // reclaimed MAX_RECLAIM_ATTEMPTS times CONSECUTIVELY (consecutive_orphan_count
+      // at cap) and STILL re-orphaned (it crashes the worker every run) falls
+      // through to the carve-out delete — no re-queue, no comm error, counted
+      // with the stale expiries — so the queue cannot loop on a genuinely poison
+      // job.
+      const poison: CreatedJobRow = {
+        ...jobView({
+          id: "poison",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(),
+        // Already at the cap: consecutive re-orphans, never completed.
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS,
+      };
+      const { pb, store } = makePagingPb([poison]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // DELETED (terminal): no re-queue, no comm error, counted as expired.
+      expect(store.find((r) => r.id === "poison")).toBeUndefined();
+      expect(sink.releasedPending).not.toContain("poison");
+      expect(sweep.commErrors).toHaveLength(0);
+      expect(sweep.reclaimed).toBe(0);
       expect(sweep.expiredPending).toBe(1);
-      // The recently-expired row took today's path: re-queued to pending.
-      expect(store.find((r) => r.id === "recent-dead")?.status).toBe("pending");
+      expect(logger.warn).toHaveBeenCalledWith(
+        "queue-client.sweep-lease-stale-deleted",
+        expect.objectContaining({
+          jobId: "poison",
+          reclaimAttempts: MAX_RECLAIM_ATTEMPTS,
+        }),
+      );
+    });
+
+    it("HONESTY BIND DISSOLVED (layer a): the sweep AFTER a reclaim does NOT falsify the 'back in flight' signal — requeued_at re-anchors the stale-age clock", async () => {
+      // The carve-out USED to delete-rather-than-reclaim precisely because the
+      // NEXT sweep would age a re-queued row off its renewal-immune `created`
+      // and claim-delete it — falsifying the just-emitted "back in flight"
+      // gray. With requeued_at the next sweep ages the row off its RE-QUEUE
+      // time: still pending, still stale by `created`, but YOUNG by
+      // requeued_at, so drainStalePending SKIPS it (no delete). The signal
+      // holds. Sweep 1 reclaims; sweep 2 (a stale-window later) must NOT
+      // delete the still-pending row.
+      const longDead: CreatedJobRow = {
+        ...jobView({
+          id: "long-dead",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(),
+        reclaim_count: 0,
+      };
+      const { pb, store } = makePagingPb([longDead]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      // Sweep 1 at T: reclaim to pending, requeued_at = T.
+      const sweep1 = await q.sweepExpired(T);
+      expect(sweep1.reclaimed).toBe(1);
+      expect(sweep1.expiredPending).toBe(0);
+      const afterReclaim = store.find((r) => r.id === "long-dead");
+      expect(afterReclaim?.status).toBe("pending");
+      expect(afterReclaim?.requeued_at).toBe(new Date(T).toISOString());
+
+      // Sweep 2 a stale-window later (T + 1min): the row is STILL pending and
+      // STILL stale by its 8h-old `created`, but requeued_at = T makes it only
+      // 1min old by the re-anchor — far inside the 3h window — so it is NOT
+      // claim-deleted. The "back in flight" signal from sweep 1 stands.
+      const T2 = T + MIN;
+      const sweep2 = await q.sweepExpired(T2);
+      expect(store.find((r) => r.id === "long-dead")?.status).toBe("pending");
+      expect(sweep2.expiredPending).toBe(0);
+    });
+
+    // ── P1-A RED-GREEN REGRESSION ────────────────────────────────────────────
+    // A job that has accrued N benign peer steals over its lifetime (high
+    // reclaim_count) but ZERO consecutive sweeper re-orphans must be RE-QUEUED
+    // on its first real orphan — NOT deleted. Pre-fix this was broken because
+    // the cap used `reclaim_count` (bumped by both steal + re-queue paths), so
+    // a long-lived job with many peer steals would hit the cap and get
+    // claim-DELETED on its first fresh orphan.
+    it("P1-A CAP SCOPE: a job with benign peer steals (high reclaim_count) but no consecutive orphans is RE-QUEUED on its first fresh orphan, never deleted", async () => {
+      // Simulate a job that has been stolen by peers 3 times (reclaim_count=3
+      // — already AT the old cap) but has consecutive_orphan_count=0 (never
+      // been re-queued by the sweeper — it always re-ran successfully).
+      const longLived: CreatedJobRow = {
+        ...jobView({
+          id: "long-lived",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          // Lease expired 4h ago — LONGER than the 3h (3×60min) stale window.
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(), // stale-aged
+        // LIFETIME tally at the old-cap value (3 benign steals).
+        reclaim_count: MAX_RECLAIM_ATTEMPTS,
+        // But ZERO consecutive sweeper re-orphans: should NOT be deleted.
+        consecutive_orphan_count: 0,
+      };
+      const { pb, store } = makePagingPb([longLived]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Must be RE-QUEUED (non-lossy), not deleted.
+      const row = store.find((r) => r.id === "long-lived");
+      expect(row).toBeDefined();
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toContain("long-lived");
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(0);
+      // consecutive_orphan_count was 0 before → 1 after first sweeper re-queue.
+      expect(row?.consecutive_orphan_count).toBe(1);
+      // lifetime tally still increases (the re-queue path bumps it too).
+      expect(row?.reclaim_count).toBe(MAX_RECLAIM_ATTEMPTS + 1);
+    });
+
+    // ── P1-B LOW-BOUNDARY TEST ───────────────────────────────────────────────
+    // The LOW boundary of the cap must be pinned: a row at consecutive_orphan_count
+    // = MAX-1 (= 2) must be RE-QUEUED (pending), never deleted. Without this
+    // test, a mutation `>= MAX` → `>= MAX-1` (delete one attempt too early)
+    // passes all other tests undetected.
+    it("P1-B CAP LOW BOUNDARY: a stale-aged orphan at consecutive_orphan_count = MAX-1 is RE-QUEUED (not deleted) — the low boundary is pinned", async () => {
+      const nearCap: CreatedJobRow = {
+        ...jobView({
+          id: "near-cap",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(),
+        // ONE BELOW the cap (= 2 when MAX = 3): must be RE-QUEUED.
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS - 1,
+      };
+      const { pb, store } = makePagingPb([nearCap]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Must be RE-QUEUED at MAX-1 (not at cap yet).
+      const row = store.find((r) => r.id === "near-cap");
+      expect(row).toBeDefined();
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toContain("near-cap");
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(0);
+      // Counter now at MAX_RECLAIM_ATTEMPTS (cap) — NEXT orphan would be deleted.
+      expect(row?.consecutive_orphan_count).toBe(MAX_RECLAIM_ATTEMPTS);
+    });
+
+    // ── STEAL-BUDGET PIN ─────────────────────────────────────────────────────
+    // Explicit test that an expired-lease steal (peer claim of an abandoned row)
+    // does NOT increment consecutive_orphan_count — steals must never consume
+    // the reclaim budget.
+    it("peer-worker expired-lease steal does NOT consume the consecutive_orphan_count budget (steals bump lifetime reclaim_count only)", async () => {
+      // A row with consecutive_orphan_count near the cap but with an
+      // expired-lease that will be claimed (stolen) by a peer worker.
+      const contested: CreatedJobRow = {
+        ...jobView({
+          id: "contested",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-old",
+          // Lease expired but NOT stale-aged — so the carve-out does NOT apply;
+          // this tests the claim steal path in isolation.
+          lease_expires_at: new Date(T - 5 * MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        // Recent: not stale-aged, won't hit the carve-out.
+        created: new Date(T - 10 * MIN).toISOString(),
+        reclaim_count: 2,
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS - 1,
+      };
+      const store = [contested];
+      // Claim the row as a "peer" via the fake's claimJob (the steal path).
+      const claim = makeReclaimClaim(store, T);
+      const result = await claim.claimJob("contested", "worker-peer", 30);
+      expect(result.won).toBe(true);
+
+      const row = store.find((r) => r.id === "contested");
+      // Lifetime tally bumped by the steal.
+      expect(row?.reclaim_count).toBe(3);
+      // Consecutive budget NOT consumed by the steal.
+      expect(row?.consecutive_orphan_count).toBe(MAX_RECLAIM_ATTEMPTS - 1);
     });
 
     it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {

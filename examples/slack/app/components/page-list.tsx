@@ -6,11 +6,17 @@
  * The agent searches Notion via MCP and passes the pages it wants to
  * surface; the Slack formatting lives here.
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
+ * Authored with the `@copilotkit/channels-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import { Context, Divider, Header, Message, Section } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import {
+  Context,
+  Divider,
+  Header,
+  Message,
+  Section,
+} from "@copilotkit/channels";
+import type { ChannelNode } from "@copilotkit/channels";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({
@@ -39,8 +45,8 @@ export type PageListProps = z.infer<typeof pageListSchema>;
 type Page = z.infer<typeof pageSchema>;
 
 /** Render a list of Notion pages as a Block Kit card. */
-export function PageList({ heading, pages }: PageListProps): BotNode {
-  const rows: BotNode[] = [];
+export function PageList({ heading, pages }: PageListProps): ChannelNode {
+  const rows: ChannelNode[] = [];
   pages.forEach((page: Page, i: number) => {
     const titleLink = page.url
       ? `[**${page.title}**](${page.url})`

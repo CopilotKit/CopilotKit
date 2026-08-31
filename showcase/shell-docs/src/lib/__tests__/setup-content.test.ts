@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { resolveBundledSetupConcept, setupContentKey } from "../setup-content";
 import type { SetupContentBundle } from "../setup-content";
+import { getDocsMode, getIntegrations } from "../registry";
+import setupContentData from "@/data/setup-content.json";
 
 const bundle: SetupContentBundle = {
   version: 1,
@@ -39,5 +41,180 @@ describe("setup content bundle", () => {
     expect(
       resolveBundledSetupConcept("langgraph-python", "missing", bundle),
     ).toBe(null);
+  });
+
+  it("bundles non-empty Claude Agent SDK setup content for rendered quickstarts", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+
+    for (const framework of ["claude-sdk-python", "claude-sdk-typescript"]) {
+      const source = resolveBundledSetupConcept(
+        framework,
+        "agent-setup",
+        setupContent,
+      );
+
+      expect(source, framework).toContain("ClaudeAgentAdapter");
+      expect(source, framework).toMatch(/```|~~~/);
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    }
+  });
+
+  it("bundles the Google ADK state-streaming termination setup", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "google-adk",
+      "state-streaming-setup",
+      setupContent,
+    );
+
+    expect(source).toContain("after_model_callback=stop_on_terminal_text");
+    expect(source).toContain("shared_chat.py");
+    expect(source).not.toContain("def stop_on_terminal_text(");
+    expect(source).not.toContain("<DemoCode");
+    expect(source).not.toContain("@region[");
+  });
+
+  it.each([
+    [
+      "claude-sdk-python",
+      [
+        "create_sdk_mcp_server(",
+        'options["mcp_servers"]',
+        'options["allowed_tools"]',
+        "ClaudeAgentAdapter(",
+        "sdk_tool_handler",
+        "register this schema as an executable backend tool",
+      ],
+    ],
+    [
+      "claude-sdk-typescript",
+      [
+        "createSdkMcpServer({",
+        "mcpServers: backendToolServer.mcpServers",
+        "allowedTools: backendToolServer.allowedTools",
+        "new ClaudeAgentAdapter({",
+        "sdkTool(",
+        "register this schema as an executable backend tool",
+      ],
+    ],
+  ])(
+    "bundles executable tool-rendering wiring for %s",
+    (framework, expectedIdentifiers) => {
+      const setupContent = setupContentData as SetupContentBundle;
+      const source = resolveBundledSetupConcept(
+        framework,
+        "tool-rendering-setup",
+        setupContent,
+      );
+
+      for (const identifier of expectedIdentifiers) {
+        expect(source, `${framework}: ${identifier}`).toContain(identifier);
+      }
+      expect(source, framework).not.toContain("<DemoCode");
+      expect(source, framework).not.toContain("@region[");
+    },
+  );
+
+  it("bundles the Claude TypeScript fixed-schema backend wiring", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = resolveBundledSetupConcept(
+      "claude-sdk-typescript",
+      "a2ui-fixed-schema-setup",
+      setupContent,
+    );
+
+    expect(source).toContain('if (toolName === "display_flight")');
+    expect(source).toContain("shouldUseClaudeAgentSdk({");
+    expect(source).toContain("runWithClaudeAgentSdk({");
+    expect(source).toContain("new ClaudeAgentAdapter({");
+    expect(source).toContain("createSdkMcpServer({");
+    expect(source).toContain("mcpServers: backendToolServer.mcpServers");
+    expect(source).toContain("allowedTools: backendToolServer.allowedTools");
+    expect(source).toContain("mcp__copilotkit__display_flight");
+    expect(source).toContain(
+      "toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[]",
+    );
+    expect(source).not.toContain("no MCP server");
+    expect(source).not.toContain("<DemoCode");
+
+    const publicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "claude-sdk-typescript");
+    for (const framework of publicFrameworks) {
+      expect(
+        resolveBundledSetupConcept(
+          framework,
+          "a2ui-fixed-schema-setup",
+          setupContent,
+        ),
+        framework,
+      ).toBe(null);
+    }
+  });
+
+  it("resolves Channels agent setup for all 19 public framework choices", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const publicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug);
+
+    expect(publicFrameworks).toHaveLength(19);
+    for (const framework of publicFrameworks) {
+      const source = resolveBundledSetupConcept(
+        framework,
+        "channels-agent-setup",
+        setupContent,
+      );
+
+      expect(source, framework).toBeTypeOf("string");
+      expect(source?.trim().length, framework).toBeGreaterThan(0);
+      expect(source, framework).toMatch(/```|~~~/);
+      expect(source, framework).not.toContain("<DemoCode");
+    }
+  });
+
+  it("does not let framework handoffs undo the provider quickstart's exact Runtime pin", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const channelSetups = Object.values(setupContent.concepts).filter(
+      (entry) => entry.concept === "channels-agent-setup",
+    );
+
+    expect(channelSetups).toHaveLength(19);
+    for (const { framework, source } of channelSetups) {
+      const runtimeInstalls =
+        source.match(
+          /^\s*npm\s+(?:install|i)\b[^\n]*@copilotkit\/runtime[^\n]*$/gm,
+        ) ?? [];
+      const nonExactInstalls = runtimeInstalls.filter(
+        (command) => !/\s--save-exact(?:\s|$)/.test(command),
+      );
+
+      expect(nonExactInstalls, framework).toEqual([]);
+    }
+  });
+
+  it("keeps framework-specific Channels handoffs aligned with their quickstarts", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+    const source = (framework: string) =>
+      resolveBundledSetupConcept(
+        framework,
+        "channels-agent-setup",
+        setupContent,
+      ) ?? "";
+
+    expect(source("ag2")).toContain("AGENT_URL=http://localhost:8000/weather");
+    expect(source("google-adk")).toContain("AGENT_URL=http://localhost:8000/");
+    expect(source("google-adk")).toContain(
+      "# AGENT_URL=http://localhost:8000/default",
+    );
+    expect(source("langgraph-fastapi")).toContain("LangGraphHttpAgent");
+    expect(source("langgraph-fastapi")).not.toContain("LangGraphAgent({");
+    expect(source("mastra")).toContain("/api/copilotkit/agent/myAgent/run");
+    expect(source("mastra")).not.toContain("weatherAgent");
+    expect(source("crewai-crews")).not.toContain(
+      "[CrewAI Crews quickstart](/crewai-crews/quickstart)",
+    );
   });
 });

@@ -10,9 +10,18 @@ import {
   resolveAgents,
 } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
-import { extractForwardableHeaders } from "../header-utils";
+import {
+  INTELLIGENCE_MEMORY_GRANT_HEADER,
+  INTELLIGENCE_USER_ID_HEADER,
+} from "../../intelligence-platform/client";
+import {
+  mergeForwardableHeaders,
+  resolveForwardHeadersPolicy,
+} from "../header-utils";
+import { resolveMcpAppsServers } from "./mcp-apps-servers";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
+import { resolveWebMemory } from "./memory-policy";
+import { errorResponse } from "./json-response";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -30,6 +39,22 @@ export interface ConnectRequestBody extends RunAgentInput {
   lastSeenEventId?: string | null;
 }
 
+/**
+ * Resolve `agentId` against the runtime's agents and return a per-request
+ * clone of the matching agent.
+ *
+ * Dual return contract — both callers (`handle-run.ts`, `handle-connect.ts`)
+ * depend on it:
+ * - Returns a cloned `AbstractAgent` when the agent exists.
+ * - Returns a 404 `Response` (`{ error: "Agent not found", ... }`) when the
+ *   agent is unknown. Callers MUST `instanceof Response`-check the result and
+ *   return it directly; this doubles as the connect/run path's agent-existence
+ *   guard, so skipping the check would let unknown agent ids slip through.
+ *
+ * The clone is what subsequent per-request mutation (middleware attach,
+ * `agent.headers` merge) operates on, leaving the shared agent registration
+ * untouched.
+ */
 export async function cloneAgentForRequest(
   runtime: CopilotRuntimeLike,
   agentId: string,
@@ -100,13 +125,7 @@ export function configureAgentForRequest(params: {
   }
 
   if (runtime.mcpApps?.servers?.length) {
-    const mcpServers = runtime.mcpApps.servers
-      .filter((server) => !server.agentId || server.agentId === agentId)
-      .map((server) => {
-        const mcpServer = { ...server };
-        delete mcpServer.agentId;
-        return mcpServer;
-      });
+    const mcpServers = resolveMcpAppsServers(runtime.mcpApps.servers, agentId);
 
     if (mcpServers.length > 0 && typeof agent.use === "function") {
       agent.use(new MCPAppsMiddleware({ mcpServers }));
@@ -122,14 +141,28 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  agent.headers = {
-    ...agent.headers,
-    ...extractForwardableHeaders(request),
-  };
+  // Forward eligible inbound headers onto the outgoing agent call under the
+  // runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
+  // known infra/proxy/platform headers stripped by the default denylist —
+  // #5712), but let headers the server explicitly configured on the agent WIN
+  // on collision (case-insensitively): a server-set service-to-service token
+  // (e.g. an IAM bearer) must never be silently overridden by a
+  // browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
+  // for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
+  agent.headers = mergeForwardableHeaders(
+    agent.headers,
+    request,
+    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
+    // interface (non-breaking minor release). Concrete runtimes always set it;
+    // a policy-less external implementor falls back to the default resolved
+    // policy (default-on denylist) so behavior stays identical and never derefs
+    // undefined.
+    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
+  );
 }
 
 /**
- * Attach the Intelligence platform's MCP tools to the agent run when
+ * Attach CopilotKit Intelligence's MCP tools to the agent run when
  * `CopilotKitIntelligence` was constructed with
  * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
  * tools are available uniformly across agent frameworks (not just
@@ -152,13 +185,14 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   runtime: CopilotRuntimeLike;
   request: Request;
   agent: AbstractAgent;
-}): Promise<void> {
+}): Promise<void | Response> {
   const { runtime, request } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
   if (
     !isIntelligenceRuntime(runtime) ||
-    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.()
+    (runtime.memory === undefined &&
+      !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.())
   ) {
     return;
   }
@@ -167,6 +201,12 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   // middleware — surface it rather than silently shipping a run with none
   // of the tools the operator opted into.
   if (typeof agent.use !== "function") {
+    if (runtime.memory) {
+      return errorResponse(
+        "Memory is configured, but this agent does not support middleware",
+        500,
+      );
+    }
     logger.warn(
       "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
         "does not support middleware (no `.use()` method); Intelligence tools were " +
@@ -176,7 +216,9 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   }
 
   const userResult = await resolveIntelligenceUser({ runtime, request });
-  if (userResult instanceof Response) return;
+  if (userResult instanceof Response) return userResult;
+  const access = await resolveWebMemory(runtime, request, userResult, "agent");
+  if (access instanceof Response) return access;
 
   agent.use(
     new MCPMiddleware([
@@ -187,6 +229,13 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         headers: {
           Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
           [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+          ...(runtime.memory
+            ? {
+                [INTELLIGENCE_MEMORY_GRANT_HEADER]: JSON.stringify(
+                  access.grant,
+                ),
+              }
+            : {}),
         },
       },
     ]),

@@ -8,18 +8,18 @@
 
 [Docs](https://docs.copilotkit.ai/?ref=github_readme) ·
 [Examples](https://www.copilotkit.ai/examples) ·
-[Enterprise Intelligence Platform](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
+[CopilotKit Intelligence](https://go.copilotkit.ai/enterprise-intelligence-platform) ·
 [Discord](https://discord.gg/6dffbvGU3D?ref=github_readme)
 
 </div>
 
 Build **agent-native applications** — on any framework, on any surface.
 
-Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and beyond the browser.
+Generative UI, shared state, and human-in-the-loop workflows for React, Angular, Vue, React Native — and in Slack and Microsoft Teams.
 
 </div>
 
-[![CopilotKit](https://github.com/user-attachments/assets/aeb56c28-c766-44a5-810c-5d999bb6a32a)](https://go.copilotkit.ai/copilotkit-docs)
+[![Bring Your Own Agent. Any Channel. — CopilotKit and AG-UI connect any agent framework to Slack, Microsoft Teams, Discord, WhatsApp, Telegram, Google Chat, iMessage, and SMS.](assets/bring-your-own-agent-any-channel.png)](https://go.copilotkit.ai/copilotkit-docs)
 
 <div align="center" style="display:flex;justify-content:start;gap:16px;height:20px;margin: 0;">
   <a href="https://www.npmjs.com/package/@copilotkit/react-core" target="_blank">
@@ -51,13 +51,13 @@ Generative UI, shared state, and human-in-the-loop workflows for React, Angular,
 
 ---
 
-## What is CopilotKit
+## What is CopilotKit?
 
 CopilotKit is a best-in-class SDK for building full-stack agentic applications, Generative UI, and chat applications.
 
-What started as a React library is now a **multi-platform agentic framework**: the same agent can power your web app, your mobile app, and your team's Slack workspace.
+What started as a React library is now the **horizontal layer between your agents and your users**: the same agent can power your web app, your mobile app, and your team's Slack or Microsoft Teams workspace.
 
-We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** - adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
+We are the company behind the **[AG-UI Protocol](https://github.com/ag-ui-protocol/ag-ui)** — adopted by Google, LangChain, AWS, Microsoft, Mastra, PydanticAI, and more!
 
 ## Quick Start
 
@@ -98,34 +98,33 @@ https://github.com/user-attachments/assets/72b7b4f3-b6e7-460c-a932-5746fe3c8db3
 
 One agent backend. Every frontend.
 
-| Platform                                    | Status       | Get Started                                                                                                 |
-| ------------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------- |
-| ⚛️ React / Next.js                          | ✅ GA        | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                          |
-| 🅰️ Angular                                  | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular) |
-| 💚 Vue                                      | ✅ Supported | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue)     |
-| 📱 React Native                             | ✅ Supported | [Quickstart](https://docs.copilotkit.ai/react-native)                                                       |
-| 💬 Slack / MS Teams / Discord / Google Chat | 🟡 Beta      | [Request early access](https://go.copilotkit.ai/beyond-the-web-form)                                        |
+| Platform                                                        | Status         | Get Started                                                                                             |
+| --------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------- |
+| ⚛️ React / Next.js                                              | ✅ GA          | [Quickstart](https://docs.copilotkit.ai/built-in-agent/quickstart)                                      |
+| 🅰️ Angular                                                      | ✅ Supported   | [Source Code & Quickstart](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular)         |
+| 💚 Vue                                                          | ✅ Supported   | [Source Code - Quickstart coming soon](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) |
+| 📱 React Native                                                 | ✅ Supported   | [Quickstart](https://docs.copilotkit.ai/react-native)                                                   |
+| 💬 Slack / Microsoft Teams                                      | ✅ Supported   | [Channels](https://www.copilotkit.ai/channels) · [Quickstart](https://docs.copilotkit.ai/slack)         |
+| 🔜 Discord / WhatsApp / Telegram / Google Chat / iMessage / SMS | 🟡 Coming soon | [Channels](https://www.copilotkit.ai/channels)                                                          |
 
-Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework.
+Your agent logic stays the same — AG-UI handles the wire protocol, CopilotKit handles the UI layer for each framework and channel.
 
-## 💬 Beyond the Browser: Slack & Microsoft Teams (Discord, Google Chat coming soon...)
+## 💬 Channels: One Agent, Every Chat App
 
-Your agents can run and generate Generative UI beyond the web app (**[Learn more](https://www.copilotkit.ai/integrations)**).
+<img width="1920" height="1080" alt="Write it once, run every channel" src="https://github.com/user-attachments/assets/883e5ede-0387-4ae8-a361-48da3adf8f22" />
 
-CopilotKit now lets you deploy the **same agent** to the places your users already work:
+The **Channels SDK** takes the agent you already built and drops it into the chat apps your users live in — same tools, same shared state, same human-in-the-loop, no rewrite (**[Learn more](https://www.copilotkit.ai/channels)**).
 
 - **Slack** – Agents as first-class Slack apps: threads, tool calls, and human-in-the-loop approvals right in the channel.
 - **Microsoft Teams** – Bring agentic workflows to the enterprise, where your org already lives.
 
-🔒 **Early access:** We're onboarding teams now.
-
-👉 **[Request early access →](https://go.copilotkit.ai/beyond-the-web-form)**
+👉 **[Explore Channels →](https://www.copilotkit.ai/channels)**
 
 ## 🧠 Self-Learning Agents
 
-Improve your procuct by learning over time.
+Improve your product by learning over time.
 
-With **Continuous Learning from Human Feedback (CLHF)**, part of the [CopilotKit Intelligence Platform](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
+With **Continuous Learning from Human Feedback (CLHF)**, part of [CopilotKit Intelligence](https://www.copilotkit.ai/copilotkit-intelligence), agents improve with every interaction:
 
 - **In-context reinforcement learning** – Agents automatically improve from user interactions, no model fine-tuning required.
 - **Automatic prompt augmentation** – Agent behavior adapts based on recent interactions and outcomes.
@@ -228,7 +227,7 @@ npx create-ag-ui-app my-agent-app
   Read the Docs →
   </a> </br>
     <a href="https://dashboard.operations.copilotkit.ai?ref=github_readme" target="_blank">
-   Try the Enterprise Intelligence Platform →
+   Try CopilotKit Intelligence →
   </a>
 <h3>Stay up to date with our latest releases!</h3>
   <a href="https://www.linkedin.com/company/copilotkit/" target="_blank">

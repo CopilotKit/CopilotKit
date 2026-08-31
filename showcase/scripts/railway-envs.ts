@@ -139,6 +139,118 @@ export type ProbeDriver =
   | "starter";
 
 /**
+ * Provisioning configuration for the `harness-workers` pool fleet. Carried on
+ * `ServiceEntry.workerProvisioning` and ONLY populated for `harness-workers`.
+ *
+ * The worker model is strictly 1-worker-per-replica: Railway runs ONE worker
+ * process per replica container (keyed on HOSTNAME), so the REAL live worker
+ * count equals the EFFECTIVE replica count. `HARNESS_POOL_COUNT` is the
+ * control-plane's informational "expected worker count" hint — it does NOT fork
+ * additional workers per replica and MUST NOT be treated as a multiplier or fork
+ * factor. The authoritative concurrency knob per worker is
+ * `BROWSER_POOL_MAX_CONTEXTS`.
+ *
+ * EFFECTIVE REPLICA COUNT — `multiRegionConfig.<region>.numReplicas`, NOT the
+ * top-level `numReplicas`. The harness-workers service is single-region
+ * (us-west2), and Railway derives the LIVE running replica count from the
+ * per-region `multiRegionConfig.us-west2.numReplicas` field. The top-level
+ * `numReplicas` is the legacy/aggregate knob; on a multiRegion service it is
+ * Railway-maintained to mirror the region sum but it is NOT the field the
+ * deploy honors. The SSOT therefore models `multiRegionConfig.us-west2.
+ * numReplicas` as the authoritative `effectiveReplicas` and keeps the
+ * top-level `numReplicas` only as a documented mirror. Verified live
+ * 2026-06-26 via the Railway GraphQL `environment.config` staged-config read:
+ * BOTH envs carry `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`.
+ *
+ * This is a DECLARE-AND-VERIFY record. The tooling (`emit-railway-envs-json.ts`,
+ * `bin/railway`) is VERIFY-ONLY with respect to the replica count — it does not
+ * write replica counts to Railway. Applying a replica-count change is a MANUAL
+ * operation (Railway Dashboard > Service > Settings > Replicas, which edits the
+ * per-region `multiRegionConfig.us-west2.numReplicas`, or the Railway GraphQL
+ * API). See `showcase/RAILWAY.md` for the manual procedure.
+ */
+export interface WorkerProvisioning {
+  /**
+   * EFFECTIVE replica count — the AUTHORITATIVE worker-count field. This is the
+   * `multiRegionConfig.us-west2.numReplicas` value Railway actually uses to
+   * derive the LIVE running replica count for this single-region (us-west2)
+   * service. The drift gate watches THIS field because it is the one that
+   * drives reality; the top-level `numReplicas` mirror below does NOT (Railway
+   * keeps it in sync as an aggregate, but the deploy honors the per-region
+   * config). Strictly 1:1 with live worker processes — each replica runs
+   * exactly ONE worker process (keyed on HOSTNAME). `HARNESS_POOL_COUNT` is
+   * informational only.
+   */
+  effectiveReplicas: number;
+  /**
+   * Top-level Railway `numReplicas` field for this env. Retained as a
+   * DOCUMENTED MIRROR of `effectiveReplicas` (Railway keeps it equal to the
+   * region sum on a multiRegion service), NOT as an authoritative knob — the
+   * deploy honors `multiRegionConfig.<region>.numReplicas` (`effectiveReplicas`).
+   * Kept here so the SSOT records both and makes the effective-vs-mirror
+   * distinction explicit. For harness-workers (single region) it always equals
+   * `effectiveReplicas`.
+   */
+  numReplicas: number;
+  /**
+   * Per-worker in-process concurrency budget: the `BROWSER_POOL_MAX_CONTEXTS`
+   * env var that caps how many Playwright browser contexts each worker may hold
+   * open simultaneously. NOT a per-fleet total; the fleet-wide budget is
+   * `effectiveReplicas × BROWSER_POOL_MAX_CONTEXTS`.
+   */
+  BROWSER_POOL_MAX_CONTEXTS: number;
+  /**
+   * INFORMATIONAL ONLY — the `HARNESS_POOL_COUNT` env var forwarded to each
+   * worker as a control-plane "expected worker count" hint. The worker code
+   * does NOT fork additional processes per pool count; it runs exactly one
+   * process per replica. The authoritative concurrency knob is
+   * `BROWSER_POOL_MAX_CONTEXTS`. This field is recorded here purely for
+   * operational visibility / config-audit purposes.
+   */
+  HARNESS_POOL_COUNT?: number;
+  /**
+   * DEPLOY-ROLLOVER CAPACITY FLOOR (seconds) — the Railway
+   * `serviceInstance.overlapSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`). Railway keeps the OLD deployment
+   * serving for this many seconds after the NEW deployment goes Active, so the
+   * live worker count never dips during a rollover (no staleness dip while new
+   * workers boot, register on the roster, and start claiming). This is PURE
+   * RAILWAY CONFIG — there is no custom rolling-restart code; the mechanism is
+   * the service setting alone. Composes with the layer-(b) graceful drain
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) and the layer-(a) reaper backstop. See
+   * `showcase/RAILWAY.md` "Deploy rollover" for the rationale and how to apply
+   * it (GraphQL `serviceInstanceUpdate` / dashboard). DECLARE-AND-VERIFY: the
+   * tooling is verify-only with respect to this field; applying it is a manual
+   * Railway operation.
+   */
+  overlapSeconds?: number;
+  /**
+   * GRACEFUL-DRAIN WINDOW (seconds) — the Railway
+   * `serviceInstance.drainingSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`): the SIGTERM→SIGKILL window the
+   * platform grants a draining worker before hard-killing it. Sized to HOST the
+   * shipped composed worker-drain budget (layer b): the 3s deregister cap
+   * (`DRAIN_DEREGISTER_TIMEOUT_MS`) + the 90s finish-and-report grace
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) + the small serial teardown remainder, all
+   * of which must fit under `PLATFORM_STOP_GRACE_MS` (180s). Keeping this ≥
+   * `PLATFORM_STOP_GRACE_MS` lets a worker finish and report its in-flight cell
+   * before the kill instead of having the drain cut short. PURE RAILWAY CONFIG
+   * (no custom code). See `showcase/RAILWAY.md` "Deploy rollover" + the
+   * `PLATFORM_STOP_GRACE_MS` doc in `worker-loop.ts` (the C3 requirement). If the
+   * layer-(b) grace is retuned, raise this in lockstep.
+   */
+  drainingSeconds?: number;
+  /**
+   * Railway deployment restart policy for routine worker recycling. The
+   * harness-workers fleet exits cleanly after planned max-job teardown and
+   * relies on Railway, not an internal supervisor, to start the replacement.
+   * This SSOT intentionally records ONLY the policy type; do not add
+   * restartPolicyMaxRetries for the worker.
+   */
+  restartPolicyType: "ALWAYS";
+}
+
+/**
  * Per-env configuration for a service. One of these lives under each key of
  * `ServiceEntry.environments`. A service that exists in only one env has a
  * single key here (no placeholder for the missing env).
@@ -170,6 +282,20 @@ export interface EnvironmentConfig {
   instanceId: string;
   /** Public host (no scheme). Omitted for domainless workers. */
   domain?: string;
+  /**
+   * Env-scoped PRIVATE Railway networking host (no scheme), e.g.
+   * `showcase-aimock.railway.internal`. Railway bills traffic to the public
+   * `*.up.railway.app` `domain` as egress even intra-project, but private
+   * `*.railway.internal` networking is FREE and env-scoped (staging resolves
+   * to the staging instance, prod to prod). When present, cross-service
+   * serviceRefs resolve to THIS host (via `ssot_target_host` preferring it)
+   * so the ~20 demo backends reach aimock over free private networking
+   * instead of billed public egress. The public `domain` is KEPT for health
+   * probes / external reachability. Same private DNS name in BOTH envs —
+   * env-scoping (not the name) provides the staging/prod isolation.
+   * OPTIONAL; omitted ⇒ serviceRefs fall back to the public `domain`.
+   */
+  internalDomain?: string;
   /** Probe this env in verify-deploy? Defaults to true when omitted. */
   probe?: boolean;
   /** Per-env GHCR repo-name override. Defaults to the service name. */
@@ -181,9 +307,57 @@ export interface EnvironmentConfig {
   healthcheckPath?: string;
 }
 
+/**
+ * Railway auto-updates policy for a service in ONE env — the tracked SSOT form
+ * of the Railway `source.autoUpdates` setting. This is PER-ENV (see
+ * {@link AutoUpdatesByEnv}) to support a staging-first rollout. Both staging
+ * and prod are now managed-"disabled" (prod was migrated off "unmanaged" once
+ * its live autoUpdates were flipped to disabled).
+ *
+ * - "minor"     — Railway's ENABLED form (`source.autoUpdates.type = "minor"`):
+ *                 Railway watches the GHCR registry and AUTO-redeploys the
+ *                 service whenever a new image is pushed. This is a SECOND,
+ *                 implicit deploy path competing with the CI-explicit redeploy.
+ * - "disabled"  — no registry auto-watch. The CI-explicit redeploy
+ *                 (`redeploy-env.ts` / the promote path) is the SINGLE deploy
+ *                 path. This is a MANAGED policy: the sibling drift gate
+ *                 (`verify-autoupdates.ts`) ENFORCES it against live Railway
+ *                 config (a live-enabled service in a "disabled" env fails).
+ * - "unmanaged" — NOT yet under drift-gate management. The gate SKIPS an
+ *                 "unmanaged" env entirely: it does not read, compare, or flag
+ *                 the live value, and the env is not counted toward the gate's
+ *                 zero-checked floor. Use this for an env whose live
+ *                 autoUpdates are heterogeneous and must be left completely
+ *                 alone until a deliberate migration flips it to "disabled".
+ *
+ * autoUpdates was previously tracked NOWHERE in the SSOT, which is how the
+ * live fleet drifted incoherently (24 services "minor" / 17 none). Tracking it
+ * per-env turns the policy into a positive, drift-checkable invariant for the
+ * MANAGED (concrete-"disabled") envs while explicitly marking the not-yet-
+ * migrated envs "unmanaged" so the gate leaves them untouched.
+ */
+export type AutoUpdatesPolicy = "disabled" | "minor" | "unmanaged";
+
+/**
+ * Per-env auto-updates policy, keyed by the SAME env names as
+ * `ServiceEntry.environments` ("prod" / "staging" / …). Every env a service
+ * declares carries its own {@link AutoUpdatesPolicy}. Today both staging and
+ * prod are managed-"disabled" (drift-gate enforced); prod was migrated off
+ * "unmanaged" once its live autoUpdates were flipped to disabled.
+ */
+export type AutoUpdatesByEnv = Record<EnvName, AutoUpdatesPolicy>;
+
 export interface ServiceEntry {
   /** Railway service ID (env-independent). */
   serviceId: string;
+  /**
+   * Railway auto-updates policy, PER-ENV. REQUIRED. Today every showcase
+   * service is `{ staging: "disabled", prod: "disabled" }`: both envs are
+   * drift-gate-enforced to "disabled" so the CI-explicit redeploy is the single
+   * deploy path. Prod was migrated off "unmanaged" once its live autoUpdates
+   * were flipped to disabled. See {@link AutoUpdatesByEnv}.
+   */
+  autoUpdates: AutoUpdatesByEnv;
   /**
    * Per-env configuration, keyed by env name ("prod" / "staging" / …).
    * A service present in only one env carries only that key.
@@ -205,13 +379,12 @@ export interface ServiceEntry {
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` except the `gateIgnore` `harness-workers` entry — the
-   * historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` — the historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
    * name); use the optional `gateIgnore: true` field only for
-   * deliberately-untracked third-party / domainless / single-env services.
+   * deliberately-untracked third-party or domainless services.
    */
   gateValidated: boolean;
   /**
@@ -252,7 +425,8 @@ export interface ServiceEntry {
    * a service with this name that is not WS4-managed). Default: false.
    *
    * Intentionally narrow: this exists for deliberately-untracked
-   * third-party relays, domainless workers, or single-env services. The
+   * third-party relays or domainless workers. Single-env services are fully
+   * supported by the gate: only their declared environments are validated. The
    * default for every WS4-managed service is `false` (omitted).
    */
   gateIgnore?: boolean;
@@ -346,6 +520,36 @@ export interface ServiceEntry {
      */
     repoNameOverride?: { prod?: string; staging?: string };
   };
+  /**
+   * Harness-worker fleet provisioning record. ONLY populated on the
+   * `harness-workers` entry — all other services omit this field.
+   *
+   * These values match CURRENT LIVE REALITY as of 2026-06-26, VERIFIED via the
+   * Railway GraphQL `environment.config` staged-config read (both envs carry
+   * `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`):
+   *   prod:    effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *   staging: effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *
+   * EFFECTIVE FIELD: `effectiveReplicas` models `multiRegionConfig.us-west2.
+   * numReplicas` — the field Railway actually honors for this single-region
+   * service. The top-level `numReplicas` is a documented mirror only. The drift
+   * gate asserts `effectiveReplicas`.
+   *
+   * PROD/STAGING PARITY ACHIEVED: B-reconcile scaled prod harness-workers to 6
+   * replicas (both the top-level field AND `multiRegionConfig.us-west2.
+   * numReplicas`) to match staging (6). Prod and staging are now at parity
+   * (6/6). The earlier prod=3 state and the staging config-field-vs-live drift
+   * (config=2 / live=6) are both RESOLVED: the live staged config now reads 6
+   * in both envs, verified above.
+   *
+   * See the `WorkerProvisioning` interface (above) for the 1-worker-per-replica
+   * model, the effective-vs-mirror replica distinction, and HARNESS_POOL_COUNT
+   * informational semantics.
+   */
+  workerProvisioning?: {
+    prod: WorkerProvisioning;
+    staging: WorkerProvisioning;
+  };
 }
 
 /**
@@ -366,6 +570,7 @@ export const SERVICES: Record<
 > = {
   aimock: {
     serviceId: "0fa0435d-8a66-46f0-84fd-e4250b580013",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "showcase-aimock",
@@ -385,6 +590,11 @@ export const SERVICES: Record<
         instanceId: "5801d8be-5ad9-4eff-9c9c-7be61d9a023e",
         healthcheckPath: "/health",
         domain: "showcase-aimock-production.up.railway.app",
+        // Private env-scoped host the ~20 demo backends route LLM traffic
+        // at (FREE intra-env networking; the public `domain` above is
+        // billed egress and kept only for health probes). aimock binds
+        // 0.0.0.0:4010; serviceRefs resolve to `http://<this>:4010`.
+        internalDomain: "showcase-aimock.railway.internal",
         probe: true,
         repoName: "showcase-aimock",
       },
@@ -392,6 +602,10 @@ export const SERVICES: Record<
         instanceId: "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
         healthcheckPath: "/health",
         domain: "aimock-staging.up.railway.app",
+        // Same private DNS name as prod — Railway env-scopes the resolution
+        // (staging → staging aimock instance), so demo backends stay
+        // env-local without a per-env host string.
+        internalDomain: "showcase-aimock.railway.internal",
         probe: true,
         repoName: "showcase-aimock",
       },
@@ -399,6 +613,7 @@ export const SERVICES: Record<
   },
   dashboard: {
     serviceId: "4d5dfd74-be61-40b2-8564-b53b7dd4c15b",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-dashboard",
@@ -428,6 +643,7 @@ export const SERVICES: Record<
   },
   docs: {
     serviceId: "7badfb8d-4228-414c-9145-b4026803714f",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-docs",
@@ -456,6 +672,7 @@ export const SERVICES: Record<
   },
   dojo: {
     serviceId: "7ad1ece7-2228-49cd-8a78-bddf30322907",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell-dojo",
@@ -478,6 +695,7 @@ export const SERVICES: Record<
   },
   harness: {
     serviceId: "3a14bfed-0537-4d71-897b-7c593dca161d",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "showcase-harness",
@@ -511,55 +729,55 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    // Pool-fleet worker. Workers now run in BOTH staging and prod: the
-    // prod worker is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker,
-    // pool count 2). This SSOT entry, however, still only models the STAGING
-    // instance — a `prod` env entry has NOT yet been backfilled here, so the
-    // entry currently declares staging only. Under the env-map schema we
-    // simply OMIT the prod key (no placeholder ID is needed). gateIgnore
-    // skips both gate directions; ciBuilt:false because the worker has no
-    // build slot of its own — but `imageOf: "harness"` (below) puts it in the
-    // staging redeploy scope whenever the shared showcase-harness image is
-    // rebuilt. To bring the live prod worker under this SSOT, add a `prod`
-    // env entry with its real serviceInstance ID, flip gateIgnore off, and
-    // set gateValidated: true (the imageOf expansion is env-aware and will
-    // start covering prod automatically once the prod env entry exists).
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    // Pool-fleet worker. Workers run in BOTH staging and prod: the prod worker
+    // is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker, pool
+    // count 2) and is now BACKFILLED as a `prod` env entry below (real
+    // serviceInstance ID `7c48ee43-…`). ciBuilt:false because the worker has
+    // no build slot of its own — but `imageOf: "harness"` (below) puts it in
+    // the redeploy scope of BOTH envs whenever the shared showcase-harness
+    // image is rebuilt. Before this backfill the entry modeled only staging,
+    // so the env-aware `imageOf` expansion (redeploy-env.ts:278) SILENTLY
+    // SKIPPED the prod worker on a `showcase-harness:latest` rebuild — the
+    // prod worker kept its stale 2026-06-19 image (a 1-demo `registry.json`
+    // for `ms-agent-harness-dotnet` → missing `UI` badge → D0). Declaring the
+    // prod env here closes that gap: a rebuild now bounces the prod worker too.
     ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. As modeled
-    // here the worker is single-env (staging only) and domainless (it pulls
-    // jobs from the control-plane queue rather than serving HTTP), so it does
-    // not fit the symmetric dual-env / public-domain shape the gate validates.
-    // (The live prod worker exists on Railway but is not yet an SSOT prod env
-    // — see the entry header above.) Listing
-    // it here (with gateIgnore) is what clears the "untracked Railway
-    // service" failure — findUntrackedServices treats any SSOT entry as
-    // known — WITHOUT triggering a false "missing from prod" failure from
-    // findMissingServices (which only checks gateValidated:true entries).
-    gateValidated: false,
-    gateIgnore: true,
+    // gateValidated: true — the worker is now a modeled dual-env service, so
+    // the image-ref gate validates its `showcase-harness` image refs in both
+    // envs (findMissingServices checks gateValidated:true entries; both env
+    // entries carry an explicit `repoName: "showcase-harness"`). gateIgnore is
+    // dropped: the SSOT now fully models the live Railway service in both envs,
+    // so neither the SSOT→Railway nor the Railway→SSOT gate direction needs an
+    // opt-out.
+    gateValidated: true,
     probeDriver: "harness",
-    // Tier-1 verification fleet. This SSOT entry declares no prod env below
-    // (only the staging instance is modeled, though a prod worker is live on
-    // Railway — see the entry header), so computePromoteClosure records it as
-    // skipped-with-reason rather than promoting it; the tier survives for when
-    // the prod worker is backfilled as a `prod` env entry here.
+    // Tier-1 verification fleet. With the prod env declared below,
+    // computePromoteClosure now promotes the prod worker alongside the
+    // harness control-plane (rather than recording it skipped-with-reason).
     promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
     // no `harness-workers` build slot. Hence ciBuilt:false, with the
-    // consumption modeled explicitly via imageOf so the staging redeploy
-    // after a successful `showcase-harness` build bounces the worker too
-    // (it used to be silently skipped, leaving it on the stale image). The
-    // repoName override points at `showcase-harness` so the image-ref shape
-    // resolves correctly if the gate ever validates it.
+    // consumption modeled explicitly via imageOf so the redeploy after a
+    // successful `showcase-harness` build bounces the worker in EVERY env it
+    // declares (it used to be silently skipped in prod, leaving it on the
+    // stale image). The per-env repoName override points at `showcase-harness`
+    // so the image-ref shape resolves correctly.
     imageOf: "harness",
     //
-    // No public domain (queue worker, not HTTP-exposed) and probe disabled:
-    // verify-deploy skips probe:false services, and the schema no longer
-    // requires a domain, so we OMIT it rather than point at a borrowed host.
+    // No public domain (queue worker, not HTTP-exposed) and probe disabled in
+    // both envs: verify-deploy skips probe:false services, and the schema does
+    // not require a domain, so we OMIT it rather than point at a borrowed host.
     environments: {
+      prod: {
+        instanceId: "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+        healthcheckPath: "/health",
+        probe: false,
+        repoName: "showcase-harness",
+      },
       staging: {
         instanceId: "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
         healthcheckPath: "/health",
@@ -567,22 +785,75 @@ export const SERVICES: Record<
         repoName: "showcase-harness",
       },
     },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The
-    // emitter fills the absent prod env's prodInstanceId from serviceId and
-    // both domains from the legacy borrowed control-plane harness hosts so
-    // the generated JSON stays byte-identical. None of these are read by TS.
+    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The prod
+    // env is now real, so its prodInstanceId/repoName come straight from the
+    // env map; the only remaining compat shim is the borrowed control-plane
+    // hosts for the domainless worker's `domains{}` block (probe:false in both
+    // envs, so these hosts are never dereferenced at runtime — they exist only
+    // to keep the generated JSON's `domains` shape byte-stable). Not read by TS.
     legacyJsonCompat: {
       domains: {
         prod: "showcase-harness-production.up.railway.app",
         staging: "harness-staging-2ee4.up.railway.app",
       },
-      // The absent prod env carried a placeholder repoName in the legacy
-      // JSON; restore it so repoNameOverride stays {prod, staging}.
-      repoNameOverride: { prod: "showcase-harness" },
+    },
+    // Worker-fleet provisioning (SSOT). Values = CURRENT LIVE REALITY (2026-06-26),
+    // verified via the Railway GraphQL environment.config staged-config read.
+    // 1-worker-per-replica model: the EFFECTIVE replica count IS the worker count
+    // (strictly 1:1). The authoritative field is `effectiveReplicas` =
+    // multiRegionConfig.us-west2.numReplicas — the value Railway honors. The
+    // top-level `numReplicas` is a documented mirror only (always equal here,
+    // single-region). HARNESS_POOL_COUNT is INFORMATIONAL ONLY — it does NOT
+    // fork workers. Per-worker concurrency knob is BROWSER_POOL_MAX_CONTEXTS.
+    //
+    // PARITY ACHIEVED (B-reconcile): prod was scaled 3 → 6 to match staging, in
+    // BOTH the top-level numReplicas and multiRegionConfig.us-west2.numReplicas.
+    // Live staged config now reads {"us-west2":{"numReplicas":6}} in both envs.
+    //   prod:    effectiveReplicas=6 → 6 live workers.
+    //   staging: effectiveReplicas=6 → 6 live workers.
+    // The earlier staging config-field-vs-live drift (config=2 / live=6) is also
+    // resolved: the staged config field now reads 6.
+    workerProvisioning: {
+      prod: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor.
+        HARNESS_POOL_COUNT: 3,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
+      },
+      staging: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor. Live staging value is 2
+        // (verified via the variables read); it does not gate the worker count.
+        HARNESS_POOL_COUNT: 2,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
+        restartPolicyType: "ALWAYS",
+      },
     },
   },
   pocketbase: {
     serviceId: "ba11e854-d695-4738-9a45-2b0776788824",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     // pocketbase is a first-party ghcr.io/copilotkit/ image whose GHCR
     // repo name is `showcase-pocketbase` (NOT `pocketbase`). It is now
     // built+pushed by showcase_build.yml (the `pocketbase` matrix slot,
@@ -615,6 +886,7 @@ export const SERVICES: Record<
   },
   shell: {
     serviceId: "40eea0da-6071-4ea8-bdb9-39afb19225ec",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "shell",
@@ -639,6 +911,7 @@ export const SERVICES: Record<
   },
   "showcase-ag2": {
     serviceId: "4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ag2",
@@ -666,6 +939,7 @@ export const SERVICES: Record<
   },
   "showcase-agno": {
     serviceId: "32cab80b-e329-45bd-9c73-c4e1ddc94305",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "agno",
@@ -693,6 +967,7 @@ export const SERVICES: Record<
   },
   "showcase-built-in-agent": {
     serviceId: "f4f8371a-bc46-45b2-b6d4-9c9af608bdbf",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "built-in-agent",
@@ -720,16 +995,27 @@ export const SERVICES: Record<
   },
   "showcase-claude-sdk-python": {
     serviceId: "b122ab65-9854-4cb2-a68e-b50ff13f7481",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-python",
     probeDriver: "agent",
     // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
     // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
-    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
-    // by the Stage-2 Ruby preflight (never copied).
+    // into the closure. The service-refs are ASSERTED prod→prod by the Stage-2
+    // Ruby preflight (never copied). The claude-sdk agent SDK reads
+    // ANTHROPIC_BASE_URL (see src/agents/claude_agent_sdk_adapter.py and the
+    // aimock-wiring probe's claude-sdk pattern), so it must be pinned at aimock
+    // alongside OPENAI_BASE_URL — otherwise a drifted ANTHROPIC_BASE_URL would
+    // silently bypass aimock and hit the real Anthropic API (non-deterministic
+    // results that look like flapping). This is SSOT hygiene: the var is
+    // already set correctly on the live service; declaring the ref makes the
+    // preflight assert it and refuse a cross-env leak.
     runtimeDeps: ["aimock"],
-    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    serviceRefs: [
+      { key: "OPENAI_BASE_URL", target: "aimock" },
+      { key: "ANTHROPIC_BASE_URL", target: "aimock" },
+    ],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
@@ -747,6 +1033,7 @@ export const SERVICES: Record<
   },
   "showcase-claude-sdk-typescript": {
     serviceId: "18a98727-5700-44aa-b497-b60795dbbd6a",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "claude-sdk-typescript",
@@ -772,8 +1059,45 @@ export const SERVICES: Record<
       },
     },
   },
+  "showcase-crewai-conversational-flows": {
+    serviceId: "11859593-da4e-486c-a810-6cdffeff9750",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
+    // Built and pushed by showcase_build.yml's ALL_SERVICES matrix. The
+    // production build workflow entry and dispatch name are added together,
+    // so this service belongs in CI_BUILT_SERVICES and follows the same
+    // staging redeploy path as the other showcase integrations.
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "crewai-conversational-flows",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic at
+    // the env-local aimock, so a cluster promote pulls aimock (tier-0) into the
+    // closure — same wiring as its `showcase-crewai-crews` sibling.
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    // The production serviceInstance was provisioned from staging via Railway
+    // environment sync, then deployed and health-verified. Both env entries
+    // below are read verbatim from the live Railway service so the image-ref
+    // gate and promote workflow now manage the integration in both envs.
+    environments: {
+      prod: {
+        instanceId: "209031fe-2e02-4fbb-8f12-1276457d1916",
+        healthcheckPath: "/api/health",
+        domain:
+          "showcase-crewai-conversational-flows-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "3d44daba-b417-4c6c-a366-d1b94e5fe8fa",
+        healthcheckPath: "/api/health",
+        domain: "showcase-crewai-conversational-flows-staging.up.railway.app",
+        probe: true,
+      },
+    },
+  },
   "showcase-crewai-crews": {
     serviceId: "0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "crewai-crews",
@@ -801,6 +1125,7 @@ export const SERVICES: Record<
   },
   "showcase-google-adk": {
     serviceId: "87f60507-5a3d-4b8a-9e23-2b1de85d939c",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "google-adk",
@@ -828,6 +1153,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-fastapi": {
     serviceId: "06cccb5c-59f4-46b5-8adc-7113e77011a4",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-fastapi",
@@ -855,6 +1181,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-python": {
     serviceId: "90d03214-4569-41b0-b4c1-6438a8a7b203",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-python",
@@ -882,6 +1209,7 @@ export const SERVICES: Record<
   },
   "showcase-langgraph-typescript": {
     serviceId: "66246d3b-a18e-46f0-be51-5f3ff7a36e5a",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langgraph-typescript",
@@ -909,6 +1237,7 @@ export const SERVICES: Record<
   },
   "showcase-langroid": {
     serviceId: "6dd9cb0a-66cc-46f1-972e-7cd74756157d",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "langroid",
@@ -936,6 +1265,7 @@ export const SERVICES: Record<
   },
   "showcase-llamaindex": {
     serviceId: "285386e8-492d-4cb8-b632-0a7d4607378f",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "llamaindex",
@@ -963,6 +1293,7 @@ export const SERVICES: Record<
   },
   "showcase-mastra": {
     serviceId: "d7979eb7-2405-4aab-ad21-438f4a1b08af",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "mastra",
@@ -990,6 +1321,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-dotnet": {
     serviceId: "beeb2dd6-87a4-4599-aa07-0578f7bd6519",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-dotnet",
@@ -1017,6 +1349,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-harness-dotnet": {
     serviceId: "6343d7f9-6c3f-4c8d-9a6e-79f03d2f1e37",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-harness-dotnet",
@@ -1044,6 +1377,7 @@ export const SERVICES: Record<
   },
   "showcase-ms-agent-python": {
     serviceId: "655db75a-af8d-427d-a4f9-441570ae5003",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "ms-agent-python",
@@ -1071,6 +1405,7 @@ export const SERVICES: Record<
   },
   "showcase-pydantic-ai": {
     serviceId: "0a106173-2282-4887-a994-0ca276a99d69",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "pydantic-ai",
@@ -1098,6 +1433,7 @@ export const SERVICES: Record<
   },
   "showcase-spring-ai": {
     serviceId: "eed5d041-91be-4282-b414-beea00843401",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "spring-ai",
@@ -1125,6 +1461,7 @@ export const SERVICES: Record<
   },
   "showcase-strands": {
     serviceId: "92e1cfad-ad53-403f-ab2b-5ab380832232",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "strands",
@@ -1150,23 +1487,17 @@ export const SERVICES: Record<
       },
     },
   },
-  // STAGING-ONLY (for now). The TypeScript sibling of `showcase-strands`
-  // ships to staging first; its prod instance is intentionally NOT yet
-  // provisioned. Under the env-map schema the entry declares only `staging`
-  // (no prod key, no placeholder ID). gateIgnore skips BOTH image-ref-gate
-  // directions so a prod-less, not-yet-pinned service does not trip
-  // findMissingServices / findUntrackedServices; gateValidated is therefore
-  // false. ciBuilt:true keeps it in the staging redeploy scope so a
-  // main-merge build of its image bounces the staging instance. When prod is
-  // later provisioned + promoted via showcase_promote.yml, convert this to
-  // the dual-env `showcase-strands` shape: add a `prod` env entry with its
-  // real serviceInstance ID, flip gateValidated:true, drop gateIgnore, and
-  // remove the legacyJsonCompat prod-domain placeholder below.
+  // The TypeScript sibling of `showcase-strands`. Now provisioned in BOTH
+  // staging and prod (dual-env `showcase-strands` shape): the prod
+  // serviceInstance was created + deployed + health-verified, so the entry
+  // declares a real `prod` env, gateValidated:true (verify-railway-image-refs
+  // validates both drift directions), gateIgnore dropped, and the
+  // legacyJsonCompat prod-domain placeholder removed.
   "showcase-strands-typescript": {
     serviceId: "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
-    gateValidated: false,
-    gateIgnore: true,
+    gateValidated: true,
     dispatchName: "strands-typescript",
     probeDriver: "agent",
     // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
@@ -1176,22 +1507,17 @@ export const SERVICES: Record<
     runtimeDeps: ["aimock"],
     serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
+      prod: {
+        instanceId: "8a50728e-6119-43c4-b59c-d9535b6717a4",
+        healthcheckPath: "/api/health",
+        domain: "showcase-strands-typescript-production.up.railway.app",
+        probe: true,
+      },
       staging: {
         instanceId: "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
         healthcheckPath: "/api/health",
         domain: "showcase-strands-typescript-staging.up.railway.app",
         probe: true,
-      },
-    },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The
-    // emitter fills the absent prod env's prodInstanceId from serviceId and
-    // the missing prod domain from this borrowed staging host so the
-    // generated JSON keeps its legacy {prod,staging} shape. Neither is read
-    // by any TS accessor (no prod env => never dereferenced; probe.prod is
-    // emitted false).
-    legacyJsonCompat: {
-      domains: {
-        prod: "showcase-strands-typescript-staging.up.railway.app",
       },
     },
   },
@@ -1244,6 +1570,7 @@ export const SERVICES: Record<
   // prod→prod by the Stage-2 Ruby preflight (never copied).
   "starter-adk": {
     serviceId: "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-adk",
@@ -1268,6 +1595,7 @@ export const SERVICES: Record<
   },
   "starter-agno": {
     serviceId: "5ab3c37e-18a5-44e5-8329-26243dd98da8",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-agno",
@@ -1292,6 +1620,7 @@ export const SERVICES: Record<
   },
   "starter-crewai-crews": {
     serviceId: "2a9a4230-e6cd-4c1d-92a5-36e5c624371a",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-crewai-crews",
@@ -1316,6 +1645,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-fastapi": {
     serviceId: "6ae57213-52ea-4fea-b4a0-7bc304cbc80e",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-fastapi",
@@ -1340,6 +1670,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-js": {
     serviceId: "d044c3e5-bb27-4d5e-a2bf-e3b382981372",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-js",
@@ -1364,6 +1695,7 @@ export const SERVICES: Record<
   },
   "starter-langgraph-python": {
     serviceId: "10dca514-7c8f-4a32-9708-9f29a944da36",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-langgraph-python",
@@ -1388,6 +1720,7 @@ export const SERVICES: Record<
   },
   "starter-llamaindex": {
     serviceId: "3255b27f-ea84-44b7-b587-b1687b409363",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-llamaindex",
@@ -1412,6 +1745,7 @@ export const SERVICES: Record<
   },
   "starter-mastra": {
     serviceId: "6548403e-3fee-4443-9d59-d8b041a3d43a",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-mastra",
@@ -1436,6 +1770,7 @@ export const SERVICES: Record<
   },
   "starter-ms-agent-framework-dotnet": {
     serviceId: "1b4c5296-97f6-463d-90af-6e04d7919957",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-ms-agent-framework-dotnet",
@@ -1460,6 +1795,7 @@ export const SERVICES: Record<
   },
   "starter-ms-agent-framework-python": {
     serviceId: "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-ms-agent-framework-python",
@@ -1484,6 +1820,7 @@ export const SERVICES: Record<
   },
   "starter-pydantic-ai": {
     serviceId: "c01d0d24-af88-4631-8a9a-23cffef2b36a",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-pydantic-ai",
@@ -1508,6 +1845,7 @@ export const SERVICES: Record<
   },
   "starter-strands-python": {
     serviceId: "321735ab-c14d-4e45-a1c2-e47f2b29d774",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: true,
     gateValidated: true,
     dispatchName: "starter-strands-python",
@@ -1532,6 +1870,7 @@ export const SERVICES: Record<
   },
   webhooks: {
     serviceId: "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
+    autoUpdates: { staging: "disabled", prod: "disabled" },
     ciBuilt: false,
     gateValidated: true,
     dispatchName: "webhooks",
@@ -1795,6 +2134,26 @@ export function isTrackedService(serviceName: string): boolean {
 }
 
 /**
+ * Resolve the `WorkerProvisioning` record for a (serviceName, env) pair, or
+ * `undefined` when the service declares no `workerProvisioning` or has no
+ * entry for the given env. Returns undefined (rather than throwing) on unknown
+ * service, missing field, or undeclared env — the caller decides whether absence
+ * is an error (the drift-gate test requires it to be non-null for
+ * `harness-workers`).
+ *
+ * Only `harness-workers` carries this field today. Use it to read the
+ * authoritative `numReplicas` and `BROWSER_POOL_MAX_CONTEXTS` for a given env.
+ */
+export function workerProvisioningFor(
+  serviceName: string,
+  env: "prod" | "staging",
+): WorkerProvisioning | undefined {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return undefined;
+  return entry.workerProvisioning?.[env];
+}
+
+/**
  * Resolve a `showcase_build.yml` `dispatch_name` (e.g. `mastra`,
  * `shell-dashboard`, `showcase-aimock`) to the canonical SSOT key
  * (e.g. `showcase-mastra`, `dashboard`, `aimock`). Returns undefined
@@ -1962,7 +2321,7 @@ export function computePromoteClosure(
   const skipped: ClosureSkip[] = [];
   for (const key of closure) {
     const entry = services[key];
-    // No prod env → cannot be promoted (the staging-only worker today).
+    // No prod env → cannot be promoted (a staging-only service today).
     const envs = entry.environments ?? {};
     if (!Object.hasOwn(envs, "prod")) {
       skipped.push({

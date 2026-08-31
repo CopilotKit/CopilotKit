@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import type { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
@@ -18,6 +19,7 @@ describe("handleConnectAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: () =>
           new Observable<BaseEvent>((subscriber) => {
@@ -321,11 +323,85 @@ describe("handleConnectAgent", () => {
       });
     });
 
-    it("returns 404 when connect planning is not available", async () => {
+    it("reports an unreachable platform as 502, not 404", async () => {
+      // A thrown error with no status never reached the platform: a socket
+      // timeout, DNS failure, or connection reset. 404 would assert the thread
+      // does not exist and send the caller to investigate the wrong thing.
       const platform = {
         ɵconnectThread: vi
           .fn()
-          .mockRejectedValue(new Error("No active connect plan")),
+          .mockRejectedValue(new Error("connect ECONNREFUSED 10.0.0.1:4201")),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request failed");
+      // The real cause reaches the caller instead of only server-side stderr.
+      expect(body.message).toBe("connect ECONNREFUSED 10.0.0.1:4201");
+    });
+
+    it("passes a platform 500 through instead of relabelling it 404", async () => {
+      // Regression from a production incident. Redis filled, app-api returned
+      // 500 on the join-code write, and the browser was told the connect plan
+      // was not available with a 404. The platform was up and the request was
+      // retryable; the reported status said neither.
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 500"), {
+            status: 500,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(500);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request failed");
+      expect(body.message).toBe("Intelligence platform error 500");
+    });
+
+    it("passes a platform 503 through so the caller knows to retry", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Service Unavailable"), {
+            status: 503,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(503);
+    });
+
+    it("still reports a genuine platform 404 as 404", async () => {
+      // The rejection branch must keep working: a real not-found is not the same
+      // as an unreachable platform, and widening the pass-through must not blur
+      // the two.
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("thread not found"), {
+            status: 404,
+          }),
+        ),
       };
       const runtime = createIntelligenceRuntime(platform);
 
@@ -337,7 +413,8 @@ describe("handleConnectAgent", () => {
 
       expect(response.status).toBe(404);
       const body = await response.json();
-      expect(body.error).toBe("Connect plan not available");
+      expect(body.error).toBe("Connect request rejected");
+      expect(body.message).toBe("thread not found");
     });
 
     it("preserves platform not found errors when connect fails with 404", async () => {
@@ -406,7 +483,7 @@ describe("handleConnectAgent", () => {
       expect(body.error).toBe("Connect request rejected");
     });
 
-    it("does not forward replay cursors to the credentials-only intelligence platform connect", async () => {
+    it("does not forward replay cursors to the credentials-only CopilotKit Intelligence connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };

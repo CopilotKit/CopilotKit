@@ -30,6 +30,8 @@ import {
   hydrateProbeLastRuns,
   verifyWorkerRegistered,
   drainFleetWorker,
+  makeRecycleExit,
+  latchOnce,
   DRAIN_DEREGISTER_TIMEOUT_MS,
 } from "./orchestrator.js";
 import { runWorker as runFleetWorker } from "./fleet/orchestrator.js";
@@ -60,7 +62,7 @@ import {
   E2E_SMOKE_DRIVER_KIND,
 } from "./fleet/worker/payload-mapper.js";
 import type { WorkerRegistryReadPb } from "./orchestrator.js";
-import type { State, ProbeResult } from "./types/index.js";
+import type { State, ProbeResult, Logger } from "./types/index.js";
 import type {
   StatusWriter,
   OverlayWriteOutcome,
@@ -3207,7 +3209,7 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     await worker.stop();
   });
 
-  it("deregisters BEFORE teardown completes, never reports the abandoned job, and latches out the post-deregister job-settle heartbeat", async () => {
+  it("deregisters BEFORE teardown completes, reports the run that settles within grace (finish-and-report), and latches out the post-deregister job-settle heartbeat", async () => {
     // Shrink the drain grace (like test A) so the assertion is insensitive to
     // the default's value and the grace detach stays fast under test.
     vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
@@ -3260,17 +3262,24 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     await vi.waitFor(() => expect(events).toContain("roster-delete"));
     expect(events).not.toContain("teardown-complete");
 
-    // …then the wedged teardown "completes" the run GREEN. The drain signal
-    // (not stop() completion) keys the report-skip, so it is still abandoned.
+    // …then the wedged teardown "completes" the run GREEN. This release lands
+    // BEFORE the 200ms drain grace expires, so the run FINISHES under its own
+    // steam — `runAbort` never fires (worker-loop.ts:1353) — and layer (b)
+    // falls through to the finish-and-report path. This is the intended
+    // finish-and-report behavior: a drained run that settles within grace
+    // produces a usable terminal result and IS reported; only a run that
+    // overruns past grace (genuinely abandoned — see sibling test A) is left
+    // unreported. The report decision keys on `abortedWithoutResult`
+    // (grace-expiry runAbort), NOT on the drain signal.
     //
     // GRACE-RACE NOTE: with the 200ms grace stubbed above, stop() either (a)
     // observes the released run settle first, or (b) detaches at grace expiry
-    // while the release's microtasks land moments later. BOTH outcomes are
-    // safe for the assertions below: the roster delete already happened (so
-    // the roster-delete < teardown-complete ordering holds either way), the
-    // report-skip keys on the drain SIGNAL (so the green settle is never
-    // reported in either branch), and `teardown-complete` is pushed by the
-    // driver's own settle, not by stop() resolving.
+    // while the release's microtasks land moments later. BOTH outcomes report
+    // the green terminal: the released run settled within grace so `runAbort`
+    // never fired in either branch. The roster delete already happened (so the
+    // roster-delete < teardown-complete ordering holds either way), and
+    // `teardown-complete` is pushed by the driver's own settle, not by stop()
+    // resolving.
     release();
     await drainPromise;
 
@@ -3287,7 +3296,12 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     expect(events.indexOf("roster-delete")).toBeLessThan(
       events.indexOf("teardown-complete"),
     );
-    expect(reportSpy).not.toHaveBeenCalled();
+    // The released run settled GREEN within the drain grace, so layer (b)
+    // reports the real terminal (finish-and-report), mirroring the canonical
+    // worker-loop.test.ts "settles green after drain (before grace-expiry) is
+    // REPORTED" assertion.
+    expect(reportSpy).toHaveBeenCalledTimes(1);
+    expect(reportSpy.mock.calls[0]![0].result.aggregateState).toBe("green");
     // The run-settle heartbeat fired AFTER deregister was latched out: the
     // delete is the LAST roster write — no resurrection upsert follows it.
     expect(settled[settled.length - 1]).toBe("delete");
@@ -3587,6 +3601,186 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
       workerId: "worker-drain-idle",
       abandoningJobId: null,
     });
+  });
+});
+
+/**
+ * `makeRecycleExit` — the WORKER_MAX_JOBS recycle `exit` dep injected into the
+ * worker loop. It must run the deregister-first graceful teardown
+ * (`gracefulTeardown` → `drainFleetWorker`) BEFORE exiting with success, and it
+ * must ALWAYS exit 1 if teardown rejects — otherwise a failed drain would strand
+ * a recycled worker that never surrenders to the platform restart policy.
+ */
+describe("makeRecycleExit — deregister BEFORE process.exit", () => {
+  const silentLogger: Logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+
+  it("runs gracefulTeardown (deregister) BEFORE process-exit and exits 0 when teardown fulfills", async () => {
+    const order: string[] = [];
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      order.push("teardown");
+    });
+    const processExit = vi.fn((code: number): void => {
+      order.push(`exit:${code}`);
+    });
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit();
+
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(0));
+    // Teardown ran FIRST, then the exit — the ordering the roster-row fix needs.
+    expect(order).toEqual(["teardown", "exit:0"]);
+    expect(gracefulTeardown).toHaveBeenCalledTimes(1);
+  });
+
+  it("exits 1 when gracefulTeardown REJECTS (finally-guaranteed restart)", async () => {
+    const processExit = vi.fn<(code: number) => void>();
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      throw new Error("deregister blew up");
+    });
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit();
+
+    // The rejected teardown does not swallow the exit — Railway still restarts.
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(1));
+  });
+
+  it("still exits 1 if the logger throws while reporting a rejected teardown", async () => {
+    const processExit = vi.fn<(code: number) => void>();
+    const gracefulTeardown = vi.fn(async (): Promise<void> => {
+      throw new Error("deregister blew up");
+    });
+    const throwingLogger: Logger = {
+      info: () => {},
+      warn: () => {},
+      error: () => {
+        throw new Error("logger blew up");
+      },
+      debug: () => {},
+    };
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: throwingLogger,
+      processExit,
+    });
+
+    exit();
+
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledWith(1));
+  });
+});
+
+/**
+ * TEARDOWN ONCE-LATCH (`latchOnce`) — `gracefulTeardown` in `runWorker` is
+ * reachable from BOTH the WORKER_MAX_JOBS recycle exit (`makeRecycleExit`) AND
+ * the SIGTERM/SIGINT handler (bootFleet's `drainAndExit` → the handle's
+ * `stop()`). The signal handler's own `draining` guard protects only its own
+ * re-entry, NOT a recycle firing concurrently with a SIGTERM — so without a
+ * latch the shared deregister + pool.shutdown sequence would run TWICE. These
+ * tests compose the REAL `makeRecycleExit` + `latchOnce` + `drainFleetWorker`
+ * exactly as `runWorker` wires them and pin the once-only invariant.
+ */
+describe("teardown once-latch (recycle + SIGTERM do not double-teardown)", () => {
+  const silentLogger: Logger = {
+    info: () => {},
+    warn: () => {},
+    error: () => {},
+    debug: () => {},
+  };
+
+  function makeTeardownSpies() {
+    const registration = {
+      stop: vi.fn(),
+      deregister: vi.fn(async () => {}),
+    };
+    const shutdownPool = vi.fn(async () => {});
+    const worker = { drain: vi.fn(), stop: vi.fn(async () => {}) };
+    return { registration, shutdownPool, worker };
+  }
+
+  it("runs drainFleetWorker's deregister + pool shutdown EXACTLY ONCE when the recycle exit and the SIGTERM stop() both fire", async () => {
+    const { registration, shutdownPool, worker } = makeTeardownSpies();
+    // EXACT runWorker wiring: one shared latched teardown behind both callers.
+    const gracefulTeardown = latchOnce(() =>
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    );
+    const processExit = vi.fn<(code: number) => void>();
+    const exit = makeRecycleExit({
+      gracefulTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    // Fire the zero-arg recycle exit (path 1) and the handle's stop() (path 2
+    // — SIGTERM) concurrently, then await both settling.
+    exit(); // makeRecycleExit calls gracefulTeardown() then processExit(0)
+    await gracefulTeardown(); // the handle's stop() awaits the same teardown
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
+
+    // The shared teardown ran once: deregister (roster delete) and pool shutdown
+    // each fired exactly once despite two callers. Pre-latch this was 2 each.
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+    expect(worker.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("MUTATION GUARD: without the latch (raw thunk) the same two callers double-teardown", async () => {
+    // This is the RED the latch fixes: wiring the two callers to the RAW,
+    // un-latched teardown thunk makes drainFleetWorker run twice — proving the
+    // test above is non-vacuous (it fails if `latchOnce` is removed).
+    const { registration, shutdownPool, worker } = makeTeardownSpies();
+    const rawTeardown = () =>
+      drainFleetWorker({ worker, registration, shutdownPool });
+    const processExit = vi.fn<(code: number) => void>();
+    const exit = makeRecycleExit({
+      gracefulTeardown: rawTeardown,
+      logger: silentLogger,
+      processExit,
+    });
+
+    exit();
+    await rawTeardown();
+    await vi.waitFor(() => expect(processExit).toHaveBeenCalledTimes(1));
+
+    expect(registration.deregister).toHaveBeenCalledTimes(2);
+    expect(shutdownPool).toHaveBeenCalledTimes(2);
+  });
+
+  it("memoizes a REJECTING teardown so a second caller observes the same failure without re-running it", async () => {
+    // A teardown that rejects (e.g. worker.stop() threw) is memoized too: the
+    // second caller awaits the SAME rejected promise rather than re-running a
+    // partial teardown. drainFleetWorker still ran its deregister + pool
+    // shutdown exactly once.
+    const { registration, shutdownPool } = makeTeardownSpies();
+    const worker = {
+      drain: vi.fn(),
+      stop: vi.fn(async () => {
+        throw new Error("teardown exploded");
+      }),
+    };
+    const gracefulTeardown = latchOnce(() =>
+      drainFleetWorker({ worker, registration, shutdownPool }),
+    );
+
+    await expect(gracefulTeardown()).rejects.toThrow("teardown exploded");
+    await expect(gracefulTeardown()).rejects.toThrow("teardown exploded");
+
+    expect(registration.deregister).toHaveBeenCalledTimes(1);
+    expect(shutdownPool).toHaveBeenCalledTimes(1);
+    expect(worker.stop).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -5361,10 +5555,10 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.producer).toBe(demos);
 
-    // deep: :05/:20/:35/:50 (e2e-deep.yml).
+    // deep: :00/:30 (e2e-deep.yml).
     expect(FLEET_PRODUCER_DEEP_SCHEDULE_ID).toBe("fleet-producer-e2e-deep");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
       FLEET_PRODUCER_DEEP_CRON,
@@ -5397,7 +5591,7 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
   });
 });
@@ -5674,7 +5868,7 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
       expect(byId.get("fleet-job-producer")).toBe("40 * * * *");
       expect(byId.get("fleet-producer-e2e-smoke")).toBe("*/15 * * * *");
       expect(byId.get("fleet-producer-e2e-demos")).toBe("10 * * * *");
-      expect(byId.get("fleet-producer-e2e-deep")).toBe("5,20,35,50 * * * *");
+      expect(byId.get("fleet-producer-e2e-deep")).toBe("*/30 * * * *");
 
       // The in-process HTTP probe families still register alongside (additive).
       const probeEntries = registered.filter((r) => r.id.startsWith("probe:"));

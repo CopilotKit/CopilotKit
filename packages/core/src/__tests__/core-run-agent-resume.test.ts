@@ -34,4 +34,16 @@ describe("CopilotKitCore.runAgent resume forwarding", () => {
     expect(agent.runAgent).toHaveBeenCalledTimes(1);
     expect(agent.runAgent.mock.calls[0][0].resume).toBeUndefined();
   });
+
+  it("forwards a caller-supplied runId to agent.runAgent", async () => {
+    const core = new CopilotKitCore({});
+    const agent = makeAgent();
+
+    await core.runAgent({ agent, runId: "run-local-1" });
+
+    expect(agent.runAgent).toHaveBeenCalledTimes(1);
+    expect(agent.runAgent.mock.calls[0][0]).toMatchObject({
+      runId: "run-local-1",
+    });
+  });
 });

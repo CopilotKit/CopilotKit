@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 import { cn } from "../../lib/utils";
 import {
@@ -39,6 +39,30 @@ export type CopilotModalHeaderProps = Omit<
   children?: (props: HeaderChildrenPayload) => React.ReactNode;
 };
 
+/**
+ * Reactively tracks whether the viewport is in the mobile range (≤767px) — the
+ * same breakpoint the drawer + chat coordination use. SSR-safe: starts `false`
+ * (desktop) so the server render and first client render agree, then syncs on
+ * mount and on resize.
+ */
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+    const mql = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mql.matches);
+    update();
+    mql.addEventListener("change", update);
+    return () => mql.removeEventListener("change", update);
+  }, []);
+  return isMobile;
+}
+
 export function CopilotModalHeader({
   title,
   titleContent,
@@ -55,10 +79,15 @@ export function CopilotModalHeader({
     CopilotChatDefaultLabels.modalHeaderTitle;
   const resolvedTitle = title ?? fallbackTitle;
 
-  // The thread-list launcher renders ONLY when a <CopilotDrawer> wrapper has
-  // registered with the chat configuration. Chats with no drawer get no
-  // launcher and no behavior change.
-  const drawerRegistered = configuration?.drawerRegistered ?? false;
+  // The thread-list launcher renders ONLY when a <CopilotThreadsDrawer> wrapper has
+  // registered with the chat configuration AND the viewport is mobile. On
+  // desktop the drawer is an in-flow, persistent panel (it ignores `open`), so
+  // an "open the drawer" launcher there is a dead no-op — it only does anything
+  // for the mobile off-canvas drawer. Chats with no drawer get no launcher and
+  // no behavior change.
+  const isMobile = useIsMobileViewport();
+  const drawerRegistered =
+    (configuration?.drawerRegistered ?? false) && isMobile;
 
   const handleClose = useCallback(() => {
     configuration?.setModalOpen?.(false);
@@ -166,7 +195,7 @@ export namespace CopilotModalHeader {
 
   /**
    * The thread-list launcher button. Rendered in the header ONLY when a
-   * `<CopilotDrawer>` wrapper has registered with the chat configuration; it
+   * `<CopilotThreadsDrawer>` wrapper has registered with the chat configuration; it
    * toggles the drawer open state. The stable `data-testid` is the focus-return
    * target for the drawer wrapper on cancel/back/backdrop/Escape.
    */
@@ -175,7 +204,7 @@ export namespace CopilotModalHeader {
   > = ({ className, ...props }) => (
     <button
       type="button"
-      data-testid="copilot-drawer-launcher"
+      data-testid="copilot-threads-drawer-launcher"
       className={cn(
         "cpk:inline-flex cpk:size-8 cpk:items-center cpk:justify-center cpk:rounded-full cpk:text-muted-foreground cpk:transition cpk:cursor-pointer",
         "cpk:hover:bg-muted cpk:hover:text-foreground cpk:focus-visible:outline-none cpk:focus-visible:ring-2 cpk:focus-visible:ring-ring",

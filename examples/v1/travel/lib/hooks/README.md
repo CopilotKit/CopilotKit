@@ -14,7 +14,7 @@ For more information on how to use `useCoAgent`, check out the [reading](https:/
 
 This hook allows us to render state from the CoAgent in a custom way. In this example, we're rendering `search_progress` which is emitted to us from the CoAgent as it conducts a search for places.
 
-In order for this to work, we need to have the CoAgent emit the `search_progress` state, which you can see being done in [agent/travel/search.py](../../../agent/travel/search.py).
+In order for this to work, we need to have the CoAgent emit the `search_progress` state, which you can see being done in [agent/travel/search.py](../../agent/src/search.py).
 
 ```python
     # ...

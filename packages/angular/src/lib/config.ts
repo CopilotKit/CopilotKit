@@ -22,11 +22,23 @@ export interface A2UIConfig {
   catalog?: Catalog<LitComponentImplementation>;
   loadingComponent?: () => LitRenderable;
   includeSchema?: boolean;
+  recovery?: A2UIRecoveryOptions;
+}
+
+export interface A2UIRecoveryOptions {
+  /** Delay before revealing a transient retry. Defaults to 2000ms. */
+  showAfterMs?: number;
+  /** Attempt number that reveals retry state immediately. Defaults to 2. */
+  showAfterAttempts?: number;
+  /** Client diagnostic visibility, overridden by server lifecycle content. */
+  debugExposure?: "hidden" | "collapsed" | "verbose";
 }
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  /** Fetch credentials mode used for CopilotKit runtime requests. */
+  credentials?: RequestCredentials;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;
@@ -37,8 +49,16 @@ export interface CopilotKitConfig {
   suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  /** Opt in to a text-only renderer for otherwise unknown tool calls. */
+  defaultToolRendering?: boolean;
   a2ui?: A2UIConfig;
   openGenerativeUI?: OpenGenerativeUIConfig;
+  /**
+   * Disable the CopilotKit Inspector in development.
+   * The Inspector is enabled by default in development browser builds and is
+   * always disabled in production and during server rendering.
+   */
+  enableInspector?: boolean;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";

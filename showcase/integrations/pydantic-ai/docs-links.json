@@ -31,7 +31,7 @@
     },
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/multi-agent-flows",
-      "shell_docs_path": "/multi-agent/subagents"
+      "shell_docs_path": "/multi-agent-flows"
     }
   }
 }

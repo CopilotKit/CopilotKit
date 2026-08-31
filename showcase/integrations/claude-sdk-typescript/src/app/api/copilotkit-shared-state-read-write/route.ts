@@ -15,16 +15,16 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const sharedStateAgent = new HttpAgent({
-  url: `${AGENT_URL}/shared-state-read-write`,
-});
+const sharedStateAgent = createClaudeHttpAgent(
+  `${AGENT_URL}/shared-state-read-write`,
+);
 
 const agents: Record<string, AbstractAgent> = {
   "shared-state-read-write": sharedStateAgent,
@@ -38,12 +38,12 @@ const runtime = new CopilotRuntime({
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-shared-state-read-write",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime,
+      basePath: "/api/copilotkit-shared-state-read-write",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     // Log full stack server-side, return only an opaque error id to the
     // client. Returning `error.message` / `error.stack` over the wire leaks

@@ -131,7 +131,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 920 cells (46 features x 20 integrations); metadata.total_cells excludes docs-only", () => {
+  it("cross-join produces 1050 cells (50 features x 21 integrations); metadata.total_cells excludes docs-only", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -145,24 +145,27 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    // 47 features × 20 integrations = 940 cells. The catalog emits cells
+    // 50 features × 21 integrations = 1050 cells. The catalog emits cells
     // uniformly for all (integration × feature) pairs; deprecated-feature
     // visibility is controlled at the dashboard layer via the "Show
     // deprecated" toggle in feature-grid.tsx so the catalog stays
-    // shape-stable. The 47 includes 2 byoc legacy IDs (`byoc-hashbrown`,
+    // shape-stable. The 50 includes 2 byoc legacy IDs (`byoc-hashbrown`,
     // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
-    // that langgraph-python uses for the visible URL slugs, and the
-    // ADK-only `a2ui-recovery` feature (wired for google-adk, unshipped
-    // for every other integration).
-    expect(integrated.length).toBe(940);
+    // that langgraph-python uses for the visible URL slugs, the
+    // `a2ui-recovery` feature (wired for google-adk + langgraph-{python,
+    // fastapi,typescript} + strands{,-typescript}; unshipped elsewhere),
+    // and the 3 Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`; unshipped for every other
+    // integration).
+    expect(integrated.length).toBe(1050);
     expect(starters.length).toBe(0);
-    expect(catalog.cells.length).toBe(940);
-    // total_cells excludes docs-only features (currently 1 feature x 20 integrations = 20)
-    expect(catalog.metadata.total_cells).toBe(920);
-    expect(catalog.metadata.docs_only).toBe(20);
+    expect(catalog.cells.length).toBe(1050);
+    // total_cells excludes docs-only features (currently 1 feature x 21 integrations = 21)
+    expect(catalog.metadata.total_cells).toBe(1029);
+    expect(catalog.metadata.docs_only).toBe(21);
   });
 
-  it("LGP has 47 cells: 36 wired + 1 stub + 8 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 50 cells: 37 wired + 1 stub + 10 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -180,10 +183,14 @@ describe("Catalog Generator", () => {
     // since both are in the registry, and the LGP cells for the legacy
     // IDs are `unshipped` because LGP's manifest only declares the
     // renamed form) + 1 unshipped for `threadid-frontend-tool-roundtrip`
-    // (built-in-agent-only feature; LGP doesn't declare it) + 1 unshipped
-    // for `a2ui-recovery` (ADK-only feature; LGP doesn't declare it).
+    // (built-in-agent-only feature; LGP doesn't declare it). `a2ui-recovery`
+    // is now WIRED for LGP (the recovery demo shipped across langgraph +
+    // strands), so it no longer counts toward unshipped.
     // Dashboard's "Show deprecated" toggle hides deprecated rows by default.
-    expect(lgpCells.length).toBe(47);
+    // +3 unshipped for the Mastra-only features (`background-agents`,
+    // `observational-memory`, `browser-use`) that LGP does not declare,
+    // taking unshipped 7 -> 10 and the LGP cell total 47 -> 50.
+    expect(lgpCells.length).toBe(50);
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
@@ -193,11 +200,12 @@ describe("Catalog Generator", () => {
     // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
     // (both previously `wired`) into `not_supported_features`, so they now
     // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
-    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip, then
-    // 7 -> 8 with the ADK-only `a2ui-recovery` feature (LGP doesn't declare it).
-    expect(wired.length).toBe(36);
+    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip. Then the
+    // a2ui-recovery demo shipped for LGP (wired), so wired rises 36 -> 37 and
+    // unshipped drops 8 -> 7.
+    expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(8);
+    expect(unshipped.length).toBe(10);
     expect(unsupported.length).toBe(2);
   });
 
@@ -246,7 +254,13 @@ describe("Catalog Generator", () => {
     // crewai-crews wired count moved with the blitz; assert the lower bound
     // (the partial tier requires intersection >= 3 with the reference's
     // wired set, which crewai-crews comfortably exceeds post-blitz).
-    expect(crewaiWired.length).toBeGreaterThanOrEqual(30);
+    // Was 30; now 29 because `multimodal` moved from `features` to
+    // `not_supported_features` in this integration's manifest (no `/multimodal`
+    // route exists on its agent server — see the note there), so that cell is
+    // `unsupported` rather than `wired`. This bound only guards against the
+    // wired set collapsing below what the partial tier needs, so tracking the
+    // manifest here is correct.
+    expect(crewaiWired.length).toBeGreaterThanOrEqual(29);
 
     const tier = crewaiCells[0].parity_tier;
     expect(["at_parity", "partial"]).toContain(tier);
@@ -261,7 +275,7 @@ describe("Catalog Generator", () => {
 
     expect(catalog.metadata).toBeDefined();
     // total_cells excludes docs-only features
-    expect(catalog.metadata.total_cells).toBe(920);
+    expect(catalog.metadata.total_cells).toBe(1029);
 
     // Headline counts exclude docs-only cells; must sum to total_cells.
     expect(
@@ -280,7 +294,7 @@ describe("Catalog Generator", () => {
     ).toBe(catalog.cells.length);
     expect(catalog.metadata.wired).toBeGreaterThanOrEqual(490);
     expect(catalog.metadata.unsupported).toBeGreaterThanOrEqual(0);
-    expect(catalog.metadata.docs_only).toBe(20);
+    expect(catalog.metadata.docs_only).toBe(21);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped/unsupported", () => {

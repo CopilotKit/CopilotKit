@@ -7,6 +7,7 @@
 
 import React from "react";
 import type { Metadata } from "next";
+import { IntelligenceOnboardingPrompt } from "@/components/intelligence-onboarding-prompt";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
 import {
@@ -153,7 +154,13 @@ function DocsOverview() {
           </div>
         </section>
 
-        <div className="space-y-10 pt-8">
+        <div className="space-y-10 pt-4">
+          <div className="[&>section]:!my-0">
+            <IntelligenceOnboardingPrompt
+              feature="learning"
+              surface="docs_landing_learning"
+            />
+          </div>
           <LandingSampleTabs />
           <DocsLandingNext />
         </div>

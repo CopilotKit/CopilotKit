@@ -9,7 +9,7 @@
  *
  * Running this at build time means the drawer's bundled defaults cannot drift
  * away from react-core's theme: a token change in react-core re-derives here.
- * The output is a checked-in generated file (`src/drawer/generated-tokens.ts`)
+ * The output is a checked-in generated file (`src/threads-drawer/generated-tokens.ts`)
  * so the package still builds and tests run without invoking the script, and so
  * drift is visible in code review as a diff to that file.
  *
@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import {
   extractLightThemeBlock,
   parseCustomProperties,
-} from "../src/drawer/token-extraction";
+} from "../src/threads-drawer/token-extraction";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(dirname, "..");
@@ -33,7 +33,7 @@ const GLOBALS_CSS = path.join(
   "packages/react-core/src/v2/styles/globals.css",
 );
 
-const OUTPUT = path.join(packageDir, "src/drawer/generated-tokens.ts");
+const OUTPUT = path.join(packageDir, "src/threads-drawer/generated-tokens.ts");
 
 /**
  * The react-core token names (without leading `--`) that the drawer derives its
@@ -59,6 +59,10 @@ const TOKEN_MAP: ReadonlyArray<
   ["radius", "radius"],
 ];
 
+function formatObjectKey(key: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
+}
+
 function main(): void {
   const css = readFileSync(GLOBALS_CSS, "utf8");
   const block = extractLightThemeBlock(css, GLOBALS_CSS);
@@ -73,7 +77,9 @@ function main(): void {
           `react-core globals.css changed shape — update TOKEN_MAP in generate-tokens.ts.`,
       );
     }
-    entries.push(`  "${drawerToken}": ${JSON.stringify(value)},`);
+    entries.push(
+      `  ${formatObjectKey(drawerToken)}: ${JSON.stringify(value)},`,
+    );
   }
 
   const file = `/**
@@ -91,7 +97,8 @@ export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
 ${entries.join("\n")}
 } as const satisfies Record<string, string>;
 
-export type GeneratedDrawerTokenKey = keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
+export type GeneratedDrawerTokenKey =
+  keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
 `;
 
   writeFileSync(OUTPUT, file, "utf8");

@@ -1,4 +1,7 @@
 {
   "title": "Other",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": ["contributing", "telemetry"]
 }

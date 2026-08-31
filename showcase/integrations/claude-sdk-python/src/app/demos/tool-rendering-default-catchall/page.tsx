@@ -2,20 +2,27 @@
 
 // Tool Rendering — DEFAULT CATCH-ALL variant (simplest).
 //
-// The backend exposes a handful of mock tools (get_weather, search_flights,
-// etc.) and the frontend ONLY opts into CopilotKit's built-in default
-// tool-call card — no per-tool renderers, no custom wildcard UI.
+// This cell is the simplest point in the three-way progression. The
+// backend exposes a handful of mock tools (get_weather, search_flights,
+// get_stock_price, roll_dice) and the frontend ONLY opts into
+// CopilotKit's built-in default tool-call card — no per-tool renderers,
+// no custom wildcard UI.
 //
 // `useDefaultRenderTool()` (called with no config) registers the built-
-// in `DefaultToolCallRenderer` under the `*` wildcard.
+// in `DefaultToolCallRenderer` under the `*` wildcard. That renderer
+// shows the tool name, a live status pill (Running → Done), and a
+// collapsible "Arguments / Result" section that fills in as the call
+// progresses. Without this hook the runtime has NO `*` renderer, so
+// `useRenderToolCall` falls through to `null` and tool calls are
+// invisible — the user only sees the assistant's final text summary.
 
 import React from "react";
 import {
+  CopilotKit,
   CopilotChat,
-  useConfigureSuggestions,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
+import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
@@ -36,27 +43,12 @@ function Chat() {
   // @region[default-catchall-zero-config]
   // Opt in to CopilotKit's built-in default tool-call card. Called with
   // no config so the package-provided `DefaultToolCallRenderer` is used
-  // as the wildcard renderer.
+  // as the wildcard renderer — this is the "out-of-the-box" UI the cell
+  // is meant to showcase.
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Check financial data",
-        message: "Show me the latest financial data.",
-      },
-    ],
-    available: "always",
-  });
+  useSuggestions();
 
   return (
     <CopilotChat

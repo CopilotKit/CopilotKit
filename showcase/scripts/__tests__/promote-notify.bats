@@ -168,3 +168,74 @@ PARTIAL_FIXTURE() {
   [[ "$output" != *"::warning::"* ]] || fail "expected NO warning when both posts succeed, got: $output"
   [[ "$output" == *"outcome=partial"* ]] || fail "expected the trailing outcome line (proves the OSS post ran), got: $output"
 }
+
+# ---------- outcome reaction on the init message ----------
+# The workflow adds an emoji REACTION to the ORIGINAL init post reflecting the
+# net run outcome (success ✅ white_check_mark / partial ⚠️ warning / total ❌
+# x) so operators see the result at a glance without opening the thread. No
+# real Slack call happens in the dry-run, so it EMITS the reaction it WOULD add
+# as a `--- reactions.add ---` block. These tests run the dry-run as a
+# subprocess per fixture and assert the emitted reaction name.
+
+FIXTURE() {
+  echo "$BATS_TEST_DIRNAME/../../test-fixtures/promote-notify/$1"
+}
+
+@test "reaction: success outcome adds white_check_mark to the init message" {
+  local fixture
+  fixture="$(FIXTURE success.json)"
+  [ -f "$fixture" ] || fail "fixture not found: $fixture"
+  run bash "$HELPER" --file "$fixture"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status; output: $output"
+  [[ "$output" == *"--- reactions.add ---"* ]] || fail "expected a reactions.add block, got: $output"
+  [[ "$output" == *"name: white_check_mark"* ]] || fail "expected name: white_check_mark, got: $output"
+}
+
+@test "reaction: partial outcome adds warning to the init message" {
+  local fixture
+  fixture="$(FIXTURE partial.json)"
+  [ -f "$fixture" ] || fail "fixture not found: $fixture"
+  run bash "$HELPER" --file "$fixture"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status; output: $output"
+  [[ "$output" == *"--- reactions.add ---"* ]] || fail "expected a reactions.add block, got: $output"
+  [[ "$output" == *"name: warning"* ]] || fail "expected name: warning, got: $output"
+}
+
+@test "reaction: total-failure outcome adds x to the init message" {
+  local fixture
+  fixture="$(FIXTURE total-failure.json)"
+  [ -f "$fixture" ] || fail "fixture not found: $fixture"
+  run bash "$HELPER" --file "$fixture"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status; output: $output"
+  [[ "$output" == *"--- reactions.add ---"* ]] || fail "expected a reactions.add block, got: $output"
+  [[ "$output" == *"name: x"* ]] || fail "expected name: x, got: $output"
+}
+
+# ---------- anti-drift parity guard for the reaction mapping ----------
+# The dry-run inlines the SAME outcome→reaction-name case mapping the .yml uses.
+# The suite sources only the .sh mirror, so a yml-only edit to the mapping would
+# drift undetected. Extract the three mapping arms from BOTH files (modulo
+# leading indent) and assert they are identical — mirroring the
+# slack_alert_posted_ok anti-drift guard above. Drift => CI failure.
+
+@test "reaction: yml and sh reaction-name mapping is identical (anti-drift)" {
+  local root yml sh
+  root="$BATS_TEST_DIRNAME/../../../.github/workflows"
+  yml="$root/showcase_promote_notify.yml"
+  sh="$root/showcase_promote_notify.dry-run.sh"
+  [ -f "$yml" ] || fail "yml not found: $yml"
+  [ -f "$sh" ]  || fail "sh mirror not found: $sh"
+
+  extract_map() {
+    grep -E 'reaction_name="(white_check_mark|warning|x)"' "$1" | sed 's/^[[:space:]]*//'
+  }
+  local yml_map sh_map
+  yml_map=$(extract_map "$yml")
+  sh_map=$(extract_map "$sh")
+
+  [ -n "$yml_map" ] || fail "could not extract reaction-name mapping from $yml"
+  [ -n "$sh_map" ]  || fail "could not extract reaction-name mapping from $sh"
+
+  [ "$yml_map" = "$sh_map" ] || fail "reaction-name mapping drifted between yml and sh mirror:
+$(diff <(printf '%s\n' "$sh_map") <(printf '%s\n' "$yml_map"))"
+}

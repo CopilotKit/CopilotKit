@@ -46,6 +46,7 @@ from agents.byoc_hashbrown_agent import byoc_hashbrown_router
 from agents.byoc_json_render_agent import byoc_json_render_router
 from agents.gen_ui_agent import gen_ui_agent_router
 from agents.gen_ui_tool_based_agent import gen_ui_tool_based_router
+from agents.frontend_tools_async_agent import frontend_tools_async_router
 from agents.hitl_in_app_agent import hitl_in_app_router
 from agents.hitl_in_chat_agent import hitl_in_chat_router
 from agents.mcp_apps_agent import mcp_apps_router
@@ -120,6 +121,7 @@ app.include_router(open_gen_ui_advanced_router, prefix="/open-gen-ui-advanced")
 app.include_router(mcp_apps_router, prefix="/mcp-apps")
 app.include_router(gen_ui_tool_based_router, prefix="/gen-ui-tool-based")
 app.include_router(gen_ui_agent_router, prefix="/gen-ui-agent")
+app.include_router(frontend_tools_async_router, prefix="/frontend-tools-async")
 app.include_router(beautiful_chat_router, prefix="/beautiful-chat")
 app.include_router(hitl_in_chat_router, prefix="/hitl-in-chat")
 app.include_router(hitl_in_app_router, prefix="/hitl-in-app")

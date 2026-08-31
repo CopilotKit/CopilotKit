@@ -9,7 +9,18 @@
     "build-with-agents",
     "---Basics---",
     "prebuilt-components",
-    "threads",
+    {
+      "title": "Rich Threads",
+      "defaultOpen": true,
+      "pages": [
+        "threads",
+        "prebuilt-components/copilot-threads-drawer",
+        "headless-threads",
+        "threads-lifecycle",
+        "threads-import",
+        "threads-self-managed"
+      ]
+    },
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",
@@ -19,10 +30,11 @@
     "frontend-tools", "shared-state", "agent-app-context",
     "---Mastra---",
     "...human-in-the-loop",
+    "background-tasks",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",
-    "---Intelligence Platform---",
+    "---Intelligence---",
     "---Troubleshooting---",
     "...troubleshooting",
     "---Other---",

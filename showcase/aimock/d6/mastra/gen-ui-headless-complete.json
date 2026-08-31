@@ -57,7 +57,7 @@
           {
             "id": "call_d5_headless_weather_001",
             "name": "get_weather",
-            "arguments": "{\"location\":\"Tokyo\"}"
+            "arguments": "{\"location\":\"Tokyo\",\"temperature\":68,\"conditions\":\"Sunny\",\"humidity\":55,\"wind_speed\":10}"
           }
         ]
       }

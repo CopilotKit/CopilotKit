@@ -595,8 +595,8 @@ describe("projectRunBatch", () => {
 // ───────────────────────────────────────────────────────────────────────
 
 describe("periodMsFromCron", () => {
-  it('periodMs computed from the resolved cron: "5,20,35,50 * * * *" -> 900000', () => {
-    expect(periodMsFromCron("5,20,35,50 * * * *")).toBe(900_000);
+  it('periodMs computed from the resolved cron: "*/30 * * * *" -> 1800000', () => {
+    expect(periodMsFromCron("*/30 * * * *")).toBe(1_800_000);
     expect(periodMsFromCron("40 * * * *")).toBe(3_600_000);
     expect(periodMsFromCron("*/15 * * * *")).toBe(900_000);
   });
@@ -619,6 +619,7 @@ describe("projectWorker", () => {
       capacity_max: 24,
       current_job_id: "",
       last_heartbeat_at: iso(-100),
+      registered_at: iso(-3_600_000),
       ...overrides,
     };
   }
@@ -669,9 +670,30 @@ describe("projectWorker", () => {
       workerId: "worker-railway-abc",
       health: "online",
       lastHeartbeatAt: iso(-100),
+      registeredAt: iso(-3_600_000),
       currentJobId: null,
       capacity: { inUse: 1, available: 23, max: 24 },
     });
+  });
+
+  it("projects registered_at to registeredAt, falling back to '' when the column is absent", () => {
+    // The bounce signal the §7.4 banner / §9 monitor grace off; an absent
+    // column (pre-migration / never-registered row) projects to "" (no
+    // bounce instant), which disables the grace and preserves prior behavior.
+    expect(
+      projectWorker(
+        workerRow({ registered_at: iso(-7_200_000) }),
+        STALE_AFTER_MS,
+        NOW_MS,
+      ).registeredAt,
+    ).toBe(iso(-7_200_000));
+    expect(
+      projectWorker(
+        workerRow({ registered_at: undefined }),
+        STALE_AFTER_MS,
+        NOW_MS,
+      ).registeredAt,
+    ).toBe("");
   });
 
   it("maps an empty current_job_id to null and a set one to its value", () => {
@@ -714,8 +736,8 @@ describe("createMemoizedFamilySummary", () => {
     expect(d6.periodMs).toBe(300_000);
     // The deep family resolves its own (non-overridden) cron.
     const d5 = familyEntry(summary, "d5");
-    expect(d5.schedule).toBe("5,20,35,50 * * * *");
-    expect(d5.periodMs).toBe(900_000);
+    expect(d5.schedule).toBe("*/30 * * * *");
+    expect(d5.periodMs).toBe(1_800_000);
   });
 
   it("serializes the scheduler's nextRunAt per family (null when unknown)", async () => {
@@ -1064,6 +1086,7 @@ describe("createMemoizedFamilySummary", () => {
           capacity_max: 24,
           current_job_id: "",
           last_heartbeat_at: iso(-1_000),
+          registered_at: iso(-5_000),
         },
       ],
     });
@@ -1075,6 +1098,8 @@ describe("createMemoizedFamilySummary", () => {
         workerId: "worker-railway-abc",
         health: "online",
         lastHeartbeatAt: iso(-1_000),
+        // The bounce signal the §7.4 banner / §9 monitor grace off.
+        registeredAt: iso(-5_000),
         currentJobId: null,
         capacity: { inUse: 0, available: 24, max: 24 },
       },

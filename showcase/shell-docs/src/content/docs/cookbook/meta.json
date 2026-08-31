@@ -4,8 +4,10 @@
   "pages": [
     "index",
     "daytona",
+    "claude-managed-agents",
     "oracle-agent-spec-memory",
     "arcade",
-    "angular-adk-agentic-app"
+    "angular-adk-agentic-app",
+    "openbox-governed-copilotkit"
   ]
 }

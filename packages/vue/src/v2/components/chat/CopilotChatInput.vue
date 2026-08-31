@@ -963,7 +963,7 @@ onBeforeUnmount(() => {
     v-bind="rootAttrs"
   >
     <div
-      class="cpk:pointer-events-auto cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-0 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4"
+      class="cpk:pointer-events-auto cpk:mx-auto cpk:max-w-3xl cpk:px-4 cpk:py-0 cpk:@3xl:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-4"
     >
       <slot
         name="layout"

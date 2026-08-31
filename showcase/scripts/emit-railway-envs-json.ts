@@ -49,7 +49,11 @@ import {
   STAGING_ENV_ID,
   computePromoteClosure,
 } from "./railway-envs";
-import type { ClosurePlan } from "./railway-envs";
+import type {
+  AutoUpdatesPolicy,
+  ClosurePlan,
+  WorkerProvisioning,
+} from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
   new URL(".", import.meta.url).pathname,
@@ -66,9 +70,21 @@ interface Emitted {
     stagingInstanceId: string;
     ciBuilt: boolean;
     gateValidated: boolean;
+    // Present only when the SSOT declares exactly one environment. Ruby uses
+    // this explicit marker to distinguish intentional fleet asymmetry from
+    // unknown live Railway drift during a full-fleet promote.
+    onlyEnvironment?: string;
     dispatchName?: string;
     repoNameOverride?: { prod?: string; staging?: string };
     domains: { staging: string; prod: string };
+    // Env-scoped PRIVATE Railway networking hosts (`*.railway.internal`).
+    // Emitted ONLY for services that declare an `internalDomain` in the SSOT
+    // (today: aimock). The Ruby serviceRef assertion (`ssot_target_host`)
+    // PREFERS this over the public `domains` host so demo backends route LLM
+    // traffic over free intra-env networking instead of billed public egress.
+    // Omitted (whole object absent) when neither env declares one — the frozen
+    // per-service shape is preserved for every other service.
+    internalDomains?: { staging?: string; prod?: string };
     probe: { staging: boolean; prod: boolean; driver: string };
     // --- Promote-closure fields (ADDITIVE, U2). Appended AFTER the frozen
     // legacy keys above so the Ruby/jq legacy shape stays byte-identical. ---
@@ -95,6 +111,20 @@ interface Emitted {
     // sending `null`). The whole `healthcheckPath` object is omitted when
     // NEITHER env declares one, so live-null services keep the frozen shape.
     healthcheckPath?: { prod?: string; staging?: string };
+    // Worker-fleet provisioning record (ADDITIVE, SSOT). Only present for
+    // `harness-workers`; omitted for all other services. The drift-gate test
+    // (`harness-workers-provisioning.test.ts`) asserts that the SSOT
+    // `effectiveReplicas` values (multiRegionConfig.us-west2.numReplicas — the
+    // field Railway honors) match this committed snapshot — the authoritative
+    // worker-count source. The top-level `numReplicas` mirror rides along.
+    workerProvisioning?: {
+      prod: WorkerProvisioning;
+      staging: WorkerProvisioning;
+    };
+    // Railway auto-updates policy (ADDITIVE, PER-ENV). ALWAYS emitted with both
+    // env keys so the sibling drift gate can enforce the managed policies.
+    // Today both staging and prod are "disabled" for every service.
+    autoUpdates: { staging: AutoUpdatesPolicy; prod: AutoUpdatesPolicy };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -131,6 +161,9 @@ function projectServiceToLegacyJson(
 ): Emitted["services"][number] {
   const prodEnv = entry.environments.prod;
   const stagingEnv = entry.environments.staging;
+  const declaredEnvironments = Object.keys(entry.environments);
+  const onlyEnvironment =
+    declaredEnvironments.length === 1 ? declaredEnvironments[0] : undefined;
 
   // Real per-env repoName wins; the legacy-compat shim fills an env the
   // env-map schema omits (a single-env worker's absent env still carried a
@@ -150,6 +183,22 @@ function projectServiceToLegacyJson(
   const compatDomains = entry.legacyJsonCompat?.domains;
   const prodDomain = prodEnv?.domain ?? compatDomains?.prod ?? "";
   const stagingDomain = stagingEnv?.domain ?? compatDomains?.staging ?? "";
+
+  // Private env-scoped networking hosts. Additive: emitted only when at least
+  // one env declares an `internalDomain` (today: aimock), and each env key is
+  // conditionally spread so a single-env internal host stays minimal. Every
+  // other service omits the whole object, preserving its frozen shape.
+  const prodInternal = prodEnv?.internalDomain;
+  const stagingInternal = stagingEnv?.internalDomain;
+  const internalDomains =
+    prodInternal !== undefined || stagingInternal !== undefined
+      ? {
+          ...(stagingInternal !== undefined
+            ? { staging: stagingInternal }
+            : {}),
+          ...(prodInternal !== undefined ? { prod: prodInternal } : {}),
+        }
+      : undefined;
 
   // Per-env healthcheckPath: mirror the per-env-flat ({prod, staging}) legacy
   // shape used by domains/repoNameOverride. Each env key is conditionally
@@ -179,9 +228,15 @@ function projectServiceToLegacyJson(
     stagingInstanceId: stagingEnv?.instanceId ?? entry.serviceId,
     ciBuilt: entry.ciBuilt,
     gateValidated: entry.gateValidated,
+    ...(onlyEnvironment !== undefined ? { onlyEnvironment } : {}),
     dispatchName: entry.dispatchName,
     repoNameOverride,
     domains: { staging: stagingDomain, prod: prodDomain },
+    // Private networking hosts, appended AFTER `domains` (additive). Emitted
+    // only when the SSOT declares an `internalDomain`; omitted otherwise so
+    // every non-aimock service keeps its frozen shape and the golden test
+    // (which projects only LEGACY_KEYS) is unaffected.
+    ...(internalDomains !== undefined ? { internalDomains } : {}),
     probe: {
       staging: stagingEnv ? (stagingEnv.probe ?? true) : false,
       prod: prodEnv ? (prodEnv.probe ?? true) : false,
@@ -205,6 +260,22 @@ function projectServiceToLegacyJson(
     // golden test projects only LEGACY_KEYS so this stays byte-safe; omitted
     // entirely for live-null services so their frozen shape is preserved.
     ...(healthcheckPath !== undefined ? { healthcheckPath } : {}),
+    // Worker-fleet provisioning (ADDITIVE). Only emitted for `harness-workers`;
+    // omitted for all other services so the frozen per-service shape is
+    // preserved. The drift-gate test (`harness-workers-provisioning.test.ts`)
+    // asserts SSOT effectiveReplicas matches this committed snapshot — compare
+    // SSOT vs. snapshot, never vs. a live Railway API call.
+    ...(entry.workerProvisioning !== undefined
+      ? { workerProvisioning: entry.workerProvisioning }
+      : {}),
+    // Railway auto-updates policy, appended LAST (additive) — PER-ENV. ALWAYS
+    // present with both env keys — the golden test projects only LEGACY_KEYS,
+    // so this stays byte-safe there, and the drift gate reads the per-env
+    // policy (enforces "disabled" envs, skips "unmanaged" ones).
+    autoUpdates: {
+      staging: entry.autoUpdates.staging,
+      prod: entry.autoUpdates.prod,
+    },
   };
 }
 

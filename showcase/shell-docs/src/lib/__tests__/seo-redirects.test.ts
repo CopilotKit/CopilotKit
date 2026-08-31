@@ -2,6 +2,28 @@ import { describe, expect, it } from "vitest";
 import { matchesSeoRedirectSource, seoRedirects } from "../seo-redirects";
 
 describe("seoRedirects", () => {
+  it("consolidates Conversational Flow URLs under CrewAI", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "CF-mode-root",
+          source: "/crewai-conversational-flows",
+          destination: "/crewai-flows/conversational-flows",
+        },
+        {
+          id: "CF-mode-wild",
+          source: "/crewai-conversational-flows/:path*",
+          destination: "/crewai-flows/:path*",
+        },
+        {
+          id: "CF-mode-parity",
+          source: "/crewai-conversational-flows/feature-parity",
+          destination: "/crewai-flows/conversational-flows",
+        },
+      ]),
+    );
+  });
+
   it("redirects old DeepAgents integration URLs to the framework root", () => {
     expect(seoRedirects).toContainEqual({
       id: "INT-wild×deepagents",
@@ -64,7 +86,7 @@ describe("seoRedirects", () => {
     );
   });
 
-  it("redirects retired Intelligence Platform observability URLs to overview pages", () => {
+  it("redirects retired Intelligence observability URLs to overview pages", () => {
     expect(seoRedirects).toEqual(
       expect.arrayContaining([
         {

@@ -2,25 +2,20 @@
  * D5 — gen-ui-interrupt script.
  *
  * Drives `/demos/gen-ui-interrupt`. The agent's `schedule_meeting`
- * tool calls LangGraph's `interrupt(...)`; the frontend's
- * `useInterrupt` renders the `<TimePickerCard>` inline. The user
- * picks a slot — that calls `resolve(...)` which resumes the run.
+ * tool either calls LangGraph's `interrupt(...)` or is registered as
+ * a frontend human-in-the-loop tool. The frontend renders the
+ * `<TimePickerCard>` inline, and choosing a slot resumes the run.
  *
  * Genuine assertion: send the pill prompt; assert
  * `[data-testid="time-picker-card"]` mounts; click the first slot
- * (`[data-testid="time-picker-slot"]`); assert
- * `[data-testid="time-picker-picked"]` mounts (the card flips into
- * the booked-confirmation state). The picked-state mount is the
- * downstream signal that the agent resumed and the resolve callback
- * fired — a regression that drops `resolve` (or where the Card never
- * renders the picked state) catches here, not by reading the
- * transcript.
+ * (`[data-testid="time-picker-slot"]`); assert the picker visibly
+ * resolves and the resumed run finishes. Waiting for both signals,
+ * rather than the card's synchronous local picked state alone, proves
+ * the tool result completed before the next turn starts.
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import {
   FIRST_SIGNAL_TIMEOUT_MS,
@@ -40,6 +35,72 @@ export const GEN_UI_INTERRUPT_PILLS = [
     prompt: "Schedule a 1:1 with Alice next week to review Q2 goals.",
   },
 ] as const;
+
+interface AssistantContinuationState {
+  count: number;
+  lastText: string;
+  pickedTestid: boolean;
+  runningNow: boolean | null;
+  runStartCount: number;
+  lastStoppedAtMs: number;
+  runsFinished: number;
+  sample: string;
+}
+
+/** Read the same assistant-message cascade used by the conversation runner. */
+async function readAssistantContinuationState(
+  page: Page,
+): Promise<AssistantContinuationState> {
+  return (await page.evaluate(() => {
+    const win = globalThis as unknown as {
+      document: {
+        querySelector(sel: string): unknown;
+        querySelectorAll(
+          sel: string,
+        ): ArrayLike<{ textContent: string | null }>;
+        body: { textContent: string | null };
+      };
+      __hk_copilotRunning?: {
+        runningNow?: boolean | null;
+        runStartCount?: number;
+        lastStoppedAtMs?: number;
+      };
+      __hk_runsFinished?: number;
+    };
+    const selectors = [
+      '[data-testid="copilot-assistant-message"]',
+      '[role="article"]:not([data-message-role="user"])',
+      '[data-message-role="assistant"]',
+    ];
+    let nodes: ArrayLike<{ textContent: string | null }> = { length: 0 };
+    for (const selector of selectors) {
+      const found = win.document.querySelectorAll(selector);
+      if (found.length > 0) {
+        nodes = found;
+        break;
+      }
+    }
+    const running = win.__hk_copilotRunning;
+    return {
+      count: nodes.length,
+      lastText:
+        nodes.length > 0
+          ? (nodes[nodes.length - 1]?.textContent ?? "").toLowerCase()
+          : "",
+      pickedTestid: !!win.document.querySelector(
+        '[data-testid="time-picker-picked"]',
+      ),
+      runningNow: running?.runningNow ?? null,
+      runStartCount: running?.runStartCount ?? 0,
+      lastStoppedAtMs: running?.lastStoppedAtMs ?? 0,
+      runsFinished: win.__hk_runsFinished ?? 0,
+      sample: (win.document.body.textContent ?? "")
+        .slice(-200)
+        .replace(/\s+/g, " ")
+        .trim(),
+    };
+  })) as AssistantContinuationState;
+}
 
 export function buildInterruptAssertion(
   pillTag: string,
@@ -64,52 +125,51 @@ export function buildInterruptAssertion(
         `${tag}: expected [data-testid="time-picker-slot"] within ${SIBLING_TIMEOUT_MS}ms`,
       );
     }
+    const baseline = await readAssistantContinuationState(page);
     await clickByJs(page, slotSelector);
-    // Step 3: assert that the picker resolved — accept either the
-    // `time-picker-picked` testid OR the visible "Booked" badge text
-    // OR the agent's resume continuation appearing as a new assistant
-    // message after the click. The picked-state Card mounts
-    // transiently between the slot click and the agent resume; with a
-    // fast resume the testid can unmount before the 5s poll sees it,
-    // so we widen the accepted signal to "anything that proves the
-    // resolve callback fired and propagated downstream."
+    // Step 3: require both a visible resolution and an authoritative run
+    // completion. The card's local `time-picker-picked` state flips
+    // synchronously and only proves that its click handler ran; starting pill
+    // 2 at that point races the still-running pill-1 tool result. Some native
+    // interrupt backends resolve the existing card without adding another
+    // assistant bubble, while frontend-tool backends add a confirmation
+    // continuation, so either UI signal is valid once the resumed run ends.
     const deadline = Date.now() + 30_000;
     let lastSnap = "";
+    let pickedObserved = false;
+    let sseCompletionObservedAt = 0;
     while (Date.now() < deadline) {
-      const signal = await page.evaluate(() => {
-        const win = globalThis as unknown as {
-          document: {
-            querySelector(sel: string): unknown;
-            body: { textContent: string | null };
-          };
-        };
-        const pickedTestid = !!win.document.querySelector(
-          '[data-testid="time-picker-picked"]',
-        );
-        const text = (win.document.body.textContent ?? "").toLowerCase();
-        const bookedBadge = text.includes("booked");
-        // Resume continuation — the canonical fixture's follow-up
-        // assistant content for the schedule_meeting tool result.
-        const scheduledNarration =
-          text.includes("scheduled") || text.includes("confirmed");
-        const sample = (win.document.body.textContent ?? "")
-          .slice(-200)
-          .replace(/\s+/g, " ")
-          .trim();
-        return { pickedTestid, bookedBadge, scheduledNarration, sample };
-      });
-      if (
-        signal.pickedTestid ||
-        signal.bookedBadge ||
-        signal.scheduledNarration
-      ) {
+      const signal = await readAssistantContinuationState(page);
+      const scheduledNarration =
+        signal.lastText.includes("booked") ||
+        signal.lastText.includes("scheduled") ||
+        signal.lastText.includes("confirmed");
+      pickedObserved ||= signal.pickedTestid;
+      const resolvedUiObserved =
+        pickedObserved || (signal.count > baseline.count && scheduledNarration);
+      const resumedRunStopped =
+        signal.runStartCount > baseline.runStartCount &&
+        signal.runningNow === false &&
+        signal.lastStoppedAtMs > baseline.lastStoppedAtMs &&
+        Date.now() - signal.lastStoppedAtMs >= 500;
+      const sseCompletionObserved = signal.runsFinished > baseline.runsFinished;
+      if (sseCompletionObserved) {
+        sseCompletionObservedAt ||= Date.now();
+      } else {
+        sseCompletionObservedAt = 0;
+      }
+      const resumedRunFinished =
+        resumedRunStopped ||
+        (sseCompletionObservedAt > 0 &&
+          Date.now() - sseCompletionObservedAt >= 500);
+      if (resolvedUiObserved && resumedRunFinished) {
         return;
       }
       lastSnap = signal.sample;
       await new Promise<void>((r) => setTimeout(r, 250));
     }
     throw new Error(
-      `${tag}: post-pick signal never landed within 30s — neither [data-testid="time-picker-picked"] mounted, "Booked" badge text rendered, nor the agent's "scheduled / confirmed" continuation appeared. Recent body tail: ${JSON.stringify(lastSnap.slice(-200))}`,
+      `${tag}: post-pick resolution never settled within 30s — expected the picked state or a new booked/scheduled/confirmed assistant bubble plus either a stopped run lifecycle or a new RUN_FINISHED event after the slot response (pickedObserved=${pickedObserved}). Recent body tail: ${JSON.stringify(lastSnap.slice(-200))}`,
     );
   };
 }

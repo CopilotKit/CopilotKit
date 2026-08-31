@@ -3,11 +3,10 @@
 // Headless Interrupt cell — demonstrates `useHeadlessInterrupt`.
 //
 // Layout: chat on the right, empty app surface on the left. The user
-// triggers the agent from a chat suggestion. When the backend calls
-// `schedule_meeting`, LangGraph's `interrupt()` surfaces via the hook
-// and we render a time-picker popup IN THE APP SURFACE (left pane) —
-// not inside the chat. Picking a slot resolves the interrupt, the
-// popup vanishes, and the agent confirms back in chat.
+// triggers the agent from a chat suggestion. When the Claude backend surfaces
+// a scheduling payload, we render a time-picker popup IN THE APP SURFACE
+// (left pane) -- not inside the chat. Picking a slot resolves the pending
+// interaction, the popup vanishes, and the agent confirms back in chat.
 
 // @region[headless-useinterrupt-primitives]
 import React, { useEffect, useMemo, useRef, useState } from "react";

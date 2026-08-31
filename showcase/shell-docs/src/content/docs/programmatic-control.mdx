@@ -17,10 +17,9 @@ exposes three primitives that cover every triggering pattern:
 - `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
 - `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })` to drive interrupt resolution from arbitrary UI.
 
-Every example on this page is pulled from two live cells:
-`headless-complete` (full chat surface, shown here for the message-send
-path) and `interrupt-headless` (button-driven interrupt resolver, shown
-here for the subscribe + resume path).
+The send-and-stop example below is intentionally self-contained. The
+later subscription and interrupt examples are pulled from the live
+`interrupt-headless` cell.
 
 ## When should I use this?
 
@@ -36,14 +35,48 @@ Use programmatic control when you want to:
 
 <FrameworkSetup concept="programmatic-control-setup" />
 
-The message-send path in `headless-complete` is the canonical pattern:
-append a user message with `agent.addMessage`, then call
-`copilotkit.runAgent({ agent })`. The same `handleStop` calls
-`copilotkit.stopAgent({ agent })` to cancel mid-run. Note the
-`connectAgent` effect at the top, which opens the backend session on
-mount so the very first `runAgent` doesn't race the handshake.
+The canonical pattern is to append a user message with
+`agent.addMessage`, then call `copilotkit.runAgent({ agent })`. Use
+`copilotkit.stopAgent({ agent })` to cancel an in-flight run.
 
-<Snippet region="page-send-message" title="frontend/src/app/page.tsx — connect, send, stop" />
+```tsx title="frontend/src/app/agent-trigger.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+
+export function AgentTrigger({ agentId }: { agentId: string }) {
+  const { agent } = useAgent({ agentId });
+  const { copilotkit } = useCopilotKit();
+
+  const run = async () => {
+    if (agent.isRunning) return;
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "Summarize the latest sales data",
+    });
+
+    try {
+      await copilotkit.runAgent({ agent });
+    } catch (error) {
+      console.error("CopilotKit runAgent failed:", error);
+    }
+  };
+
+  return (
+    <>
+      <button onClick={run} disabled={agent.isRunning}>
+        Run agent
+      </button>
+      <button
+        onClick={() => copilotkit.stopAgent({ agent })}
+        disabled={!agent.isRunning}
+      >
+        Stop
+      </button>
+    </>
+  );
+}
+```
 
 ### `copilotkit.runAgent()` vs `agent.runAgent()`
 
@@ -58,7 +91,8 @@ Both methods trigger the agent, but they operate at different levels:
 object accepts every AG-UI lifecycle callback: `onCustomEvent`,
 `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming
 deltas. Use it to drive custom progress UI, forward events to
-analytics, or catch LangGraph `interrupt(...)` events and resume with a payload (the pattern below).
+analytics, or catch framework pause/resume events and resolve them with
+a payload (the pattern below).
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="native">
 
@@ -82,15 +116,15 @@ hook would power a modal, a toast, a sidebar form, or a voice UI.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-## Resolving an MS Agent tool call from a button
+## Resolving a frontend tool call from a button
 
-On Microsoft Agent Framework there's no native interrupt primitive —
+For promise-based integrations there is no native interrupt primitive —
 the demo uses `useFrontendTool` with a Promise-based handler instead.
-The handler stages its `resolve` callback and pending payload via
-React state, the app surface renders the picker outside the chat, and
-the user's pick resolves the Promise that the agent's tool call is
-awaiting. Same UX, different mechanism — the agent never knows it's
-talking to a button grid instead of a chat picker:
+The handler stages its `resolve` callback and pending payload via React
+state, the app surface renders the picker outside the chat, and the
+user's pick resolves the Promise that the agent's tool call is awaiting.
+Same UX, different mechanism — the agent never knows it's talking to a
+button grid instead of a chat picker:
 
 <Snippet region="headless-promise-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — useFrontendTool + Promise resolver" />
 
@@ -108,8 +142,8 @@ UI.
 > **Interrupt-style pause/resume isn't available on this framework.**
 > The headless interrupt pattern shown above requires the underlying
 > runtime to expose either a native `interrupt(...)` primitive
-> (LangGraph) or a Promise-resolving frontend-tool path (Microsoft
-> Agent Framework). For all other integrations, drive pauses through
+> (LangGraph) or a Promise-resolving frontend-tool path. For all other
+> integrations, drive pauses through
 > [`useHumanInTheLoop`](./human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls. The `agent.addMessage`,

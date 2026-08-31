@@ -1,0 +1,100 @@
+{
+  "linux/amd64": {
+    "created": "2026-07-23T22:25:42.012273172Z",
+    "architecture": "amd64",
+    "os": "linux",
+    "config": {
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      ],
+      "Entrypoint": [
+        "/uv"
+      ],
+      "WorkingDir": "/io",
+      "Labels": {
+        "org.opencontainers.image.created": "2026-07-23T22:28:16.183Z",
+        "org.opencontainers.image.description": "An extremely fast Python package and project manager, written in Rust.",
+        "org.opencontainers.image.licenses": "Apache-2.0",
+        "org.opencontainers.image.revision": "3010295ae7ff572de459987ad70db315a62ecd61",
+        "org.opencontainers.image.source": "https://github.com/astral-sh/uv",
+        "org.opencontainers.image.title": "uv",
+        "org.opencontainers.image.url": "https://github.com/astral-sh/uv",
+        "org.opencontainers.image.version": "0.11.32"
+      }
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:81a65fa34f88e0793f14565f725c7dec549e190666eb9ed0ad513a2bfd576038",
+        "sha256:4ae3102690388395c3aaa4493c5a6833a31b8f8dc1aadce655ca81ceb2ce1050"
+      ]
+    },
+    "history": [
+      {
+        "created": "2026-07-23T22:25:41.808624669Z",
+        "created_by": "COPY /uv /uvx / # buildkit",
+        "comment": "buildkit.dockerfile.v0"
+      },
+      {
+        "created": "2026-07-23T22:25:42.012273172Z",
+        "created_by": "WORKDIR /io",
+        "comment": "buildkit.dockerfile.v0"
+      },
+      {
+        "created": "2026-07-23T22:25:42.012273172Z",
+        "created_by": "ENTRYPOINT [\"/uv\"]",
+        "comment": "buildkit.dockerfile.v0",
+        "empty_layer": true
+      }
+    ]
+  },
+  "linux/arm64": {
+    "created": "2026-07-23T22:27:22.450846246Z",
+    "architecture": "arm64",
+    "os": "linux",
+    "config": {
+      "Env": [
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      ],
+      "Entrypoint": [
+        "/uv"
+      ],
+      "WorkingDir": "/io",
+      "Labels": {
+        "org.opencontainers.image.created": "2026-07-23T22:28:16.183Z",
+        "org.opencontainers.image.description": "An extremely fast Python package and project manager, written in Rust.",
+        "org.opencontainers.image.licenses": "Apache-2.0",
+        "org.opencontainers.image.revision": "3010295ae7ff572de459987ad70db315a62ecd61",
+        "org.opencontainers.image.source": "https://github.com/astral-sh/uv",
+        "org.opencontainers.image.title": "uv",
+        "org.opencontainers.image.url": "https://github.com/astral-sh/uv",
+        "org.opencontainers.image.version": "0.11.32"
+      }
+    },
+    "rootfs": {
+      "type": "layers",
+      "diff_ids": [
+        "sha256:b1b868be42df9d6e3d52e8f3464d0772ec331fecd7f6eef4d3b1b00f897e5c47",
+        "sha256:5d4c563880b400374bd4921794388a2b40c78bdf719da35378b30b6c835cc72c"
+      ]
+    },
+    "history": [
+      {
+        "created": "2026-07-23T22:27:22.209381294Z",
+        "created_by": "COPY /uv /uvx / # buildkit",
+        "comment": "buildkit.dockerfile.v0"
+      },
+      {
+        "created": "2026-07-23T22:27:22.450846246Z",
+        "created_by": "WORKDIR /io",
+        "comment": "buildkit.dockerfile.v0"
+      },
+      {
+        "created": "2026-07-23T22:27:22.450846246Z",
+        "created_by": "ENTRYPOINT [\"/uv\"]",
+        "comment": "buildkit.dockerfile.v0",
+        "empty_layer": true
+      }
+    ]
+  }
+}

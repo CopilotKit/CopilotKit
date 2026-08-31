@@ -40,6 +40,28 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # separate process, so no build step beyond Next.js bundling.
 COPY --chown=app:app --from=frontend /app/src/mastra ./src/mastra
 
+# Dev-mode (`showcase up mastra --dev`) support: the dev overlay bind-mounts
+# only ./src and runs `next dev`, which RE-COMPILES from source at request
+# time and therefore must resolve the tsconfig path aliases itself — `@/*`
+# (-> ./src/*) and `@copilotkit/showcase-shared-tools` (-> ./shared-tools).
+# `next start` (prod) doesn't need these (they're baked into .next), but
+# without them `next dev` fails with "Module not found: Can't resolve
+# '@/mastra'" and every agent route 500s. Mirrors langgraph-typescript's
+# runner stage, which likewise bakes shared-tools/ for dev.
+COPY --chown=app:app --from=frontend /app/tsconfig.json ./
+COPY --chown=app:app shared-tools/ ./shared-tools/
+
+# NOTE (Browser Use demo — /demos/browser-use, OSS-91):
+# That demo drives a real LOCAL headless Chromium via Playwright's `browse_web`
+# tool. The browser binary is NOT installed here on purpose — it would add
+# several hundred MB + system libraries to every deploy for a single
+# non-deterministic, real-LLM cell. The `browse_web` tool degrades gracefully
+# (returns a structured error the agent relays) when the binary is missing, so
+# the rest of the image works unchanged. To enable a live browse in this image,
+# install the browser + its OS deps in the runner stage, e.g.:
+#   RUN npx playwright install --with-deps chromium
+# (see qa/browser-use.md for the full runtime requirements).
+
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh

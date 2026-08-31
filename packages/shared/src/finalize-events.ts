@@ -1,4 +1,5 @@
-import { BaseEvent, EventType, RunErrorEvent } from "@ag-ui/client";
+import type { BaseEvent, RunErrorEvent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "./utils";
 
 interface FinalizeRunOptions {
@@ -79,14 +80,25 @@ export function finalizeRunEvents(
     }
   }
 
-  const hasRunFinished = events.some(
-    (event) => event.type === EventType.RUN_FINISHED,
+  const hasTerminalEvent = events.some(
+    (event) =>
+      event.type === EventType.RUN_FINISHED ||
+      event.type === EventType.RUN_ERROR,
   );
-  const hasRunError = events.some(
-    (event) => event.type === EventType.RUN_ERROR,
-  );
-  const hasTerminalEvent = hasRunFinished || hasRunError;
-  const terminalEventMissing = !hasTerminalEvent;
+
+  // Once a run has emitted a terminal event (RUN_FINISHED or RUN_ERROR), the
+  // AG-UI spec forbids any further events for that run — the verifier rejects a
+  // trailing TEXT_MESSAGE_END / TOOL_CALL_END with "the run has already
+  // errored/finished with '…'. No further events can be sent." (issue #5812).
+  // These finalization events are streamed *after* everything the agent already
+  // emitted, so appending closers here would place them after that terminal.
+  // When a terminal already exists we therefore append nothing: any message or
+  // tool call still open when the terminal arrived is implicitly closed by the
+  // terminal on the client. We only synthesize closers + a terminal for a
+  // stream that ended abruptly without a terminal of its own (below).
+  if (hasTerminalEvent) {
+    return appended;
+  }
 
   for (const messageId of openMessageIds) {
     const endEvent = {
@@ -107,7 +119,7 @@ export function finalizeRunEvents(
       appended.push(endEvent);
     }
 
-    if (terminalEventMissing && !info.hasResult) {
+    if (!info.hasResult) {
       const resultEvent = {
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
@@ -132,22 +144,20 @@ export function finalizeRunEvents(
     }
   }
 
-  if (terminalEventMissing) {
-    if (stopRequested) {
-      const finishedEvent = {
-        type: EventType.RUN_FINISHED,
-      } as BaseEvent;
-      events.push(finishedEvent);
-      appended.push(finishedEvent);
-    } else {
-      const errorEvent: RunErrorEvent = {
-        type: EventType.RUN_ERROR,
-        message: resolvedAbruptMessage,
-        code: "INCOMPLETE_STREAM",
-      };
-      events.push(errorEvent);
-      appended.push(errorEvent);
-    }
+  if (stopRequested) {
+    const finishedEvent = {
+      type: EventType.RUN_FINISHED,
+    } as BaseEvent;
+    events.push(finishedEvent);
+    appended.push(finishedEvent);
+  } else {
+    const errorEvent: RunErrorEvent = {
+      type: EventType.RUN_ERROR,
+      message: resolvedAbruptMessage,
+      code: "INCOMPLETE_STREAM",
+    };
+    events.push(errorEvent);
+    appended.push(errorEvent);
   }
 
   return appended;

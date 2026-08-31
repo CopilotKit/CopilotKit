@@ -16,6 +16,7 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { createStateEventNormalizer } from "../state-delta";
 
 /**
  * Converts an AI SDK `fullStream` into AG-UI `BaseEvent` objects.
@@ -35,10 +36,12 @@ export async function* convertAISDKStream(
   fullStream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
   pendingInterrupts?: Interrupt[],
+  initialState?: unknown,
 ): AsyncGenerator<BaseEvent> {
   let messageId = randomUUID();
   let reasoningMessageId = randomUUID();
   let isInReasoning = false;
+  const normalizeStateEvent = createStateEventNormalizer(initialState);
 
   const toolCallStates = new Map<
     string,
@@ -338,7 +341,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_SNAPSHOT,
                 snapshot,
               };
-              yield stateSnapshotEvent;
+              for (const event of normalizeStateEvent(stateSnapshotEvent)) {
+                yield event;
+              }
             }
           } else if (
             toolName === "AGUISendStateDelta" &&
@@ -352,7 +357,9 @@ export async function* convertAISDKStream(
                 type: EventType.STATE_DELTA,
                 delta,
               };
-              yield stateDeltaEvent;
+              for (const event of normalizeStateEvent(stateDeltaEvent)) {
+                yield event;
+              }
             }
           }
 

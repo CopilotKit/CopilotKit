@@ -11,7 +11,7 @@ import { cn } from "../../utils";
 import { CopilotChatSuggestionPill } from "./copilot-chat-suggestion-pill";
 
 const suggestionViewClass = cn(
-  "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:sm:px-0",
+  "cpk:flex cpk:flex-wrap cpk:items-center cpk:gap-1.5 cpk:sm:gap-2 cpk:pl-0 cpk:pr-4 cpk:@3xl:px-0",
   "cpk:pointer-events-none",
 );
 

@@ -11,6 +11,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["*.ts", "lib/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": ["*.ts", "lib/**/*.ts", "../cvdiag/**/*.ts"],
+  "exclude": ["node_modules", "**/*.test.ts"]
 }

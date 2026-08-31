@@ -1,20 +1,21 @@
 ---
-title: "Enterprise Intelligence Architecture"
-description: "Architecture of the Enterprise Intelligence Platform — how CopilotKit runtimes connect to platform projects, durable threads, realtime sync, operational history, and cloud-hosted or self-hosted deployments."
+title: "CopilotKit Intelligence architecture"
+description: "CopilotKit Intelligence architecture — how CopilotKit runtimes connect to platform projects, durable threads, realtime sync, operational history, and cloud-hosted or self-hosted deployments."
 icon: "lucide/Server"
 doc_type: explanation
 premium: true
 ---
 
-The Enterprise Intelligence Platform is the platform backend behind production CopilotKit capabilities such as durable threads, realtime sync, project-scoped history, the hosted web app, and operational visibility. This page explains the mental model that applies to both [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) and [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
+CopilotKit Intelligence is the platform backend behind production CopilotKit capabilities such as durable threads, realtime sync, project-scoped history, the hosted web app, and operational visibility. This page explains the mental model that applies to both [Cloud-hosted CopilotKit Intelligence](/premium/managed-intelligence-platform) and [Self-host CopilotKit Intelligence](/premium/self-hosting).
 
-For a product-level map of features and hosting options, start with the [Enterprise Intelligence Platform overview](/premium/overview). For Kubernetes installation, go straight to [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
+For a product-level map of features and hosting options, start with the [CopilotKit Intelligence overview](/premium/overview). To wire an existing runtime to the platform, see [Connect your runtime to Intelligence](/premium/connect-your-runtime). For Kubernetes installation, go straight to [Self-host CopilotKit Intelligence](/premium/self-hosting).
 
 <OpsPlatformCTA
   variant="inline"
-  title="Start with Cloud-Hosted Enterprise Intelligence"
+  title="Start with cloud-hosted CopilotKit Intelligence"
   body="Create a hosted project, get a project API key, and inspect persistent threads before deciding whether self-hosting is required."
-  ctaLabel="Create a free account"
+  ctaLabel="Start managed onboarding"
+  href="https://dashboard.operations.copilotkit.ai/"
   surface="docs_premium_intelligence_architecture_intro"
 />
 
@@ -22,11 +23,11 @@ For a product-level map of features and hosting options, start with the [Enterpr
 
 A CopilotKit app has three layers:
 
-- **Frontend** — your React UI calls CopilotKit hooks and renders chat, generative UI, tools, and thread controls.
+- **Frontend** — your application uses the CopilotKit frontend SDK to render chat, generative UI, tools, and thread controls.
 - **Runtime** — your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
-- **Enterprise Intelligence Platform** — a platform service that stores durable thread data, indexes operational history, serves project-scoped APIs, and powers dashboard surfaces.
+- **CopilotKit Intelligence** — a platform service that stores durable thread data, indexes operational history, serves project-scoped APIs, and powers dashboard surfaces.
 
-The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses the Enterprise Intelligence Platform when a capability needs durable platform state.
+The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses CopilotKit Intelligence when a capability needs durable platform state.
 
 ## Project boundaries
 
@@ -40,7 +41,7 @@ Project API keys are issued per project. Threads, events, and dashboard history 
 
 ## Threads and event history
 
-Threads are stored as durable platform records. When your UI uses `useThreads`, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
+Threads are stored as durable platform records. When your UI uses its thread-management API, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
 
 The platform stores event history so a conversation can be replayed after reloads and resumed across devices. That is what separates platform-backed threads from an in-memory chat transcript.
 
@@ -50,24 +51,24 @@ For the thread lifecycle itself, see [Threads & Persistence Architecture](/premi
 
 Realtime sync keeps thread metadata and active conversation state aligned across clients. When enabled, clients subscribe to platform-backed updates so changes such as renames, archives, and active-run status can appear without a page reload.
 
-The important application-level contract is simple: your app uses the same hooks, while the runtime points at the platform endpoint for the selected deployment.
+The important application-level contract is simple: your app uses the same frontend APIs, while the runtime points at the platform endpoint for the selected deployment.
 
 ## Inspection and operational history
 
 The platform also gives teams operational visibility into agent behavior. The cloud-hosted web app exposes project history, thread detail pages, event timelines, API key management, and plan management.
 
-For the cloud-hosted dashboard flow, see [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform).
+For the cloud-hosted dashboard flow, see [Cloud-hosted CopilotKit Intelligence](/premium/managed-intelligence-platform).
 
 ## Hosting model
 
-Cloud-hosted and self-hosted Enterprise Intelligence share the same application contract:
+Cloud-hosted and self-hosted CopilotKit Intelligence share the same application contract:
 
 | Deployment | What changes | What stays the same |
 |---|---|---|
-| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
-| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend APIs, runtime APIs, AG-UI agent connection, and thread APIs. |
 
-Self-hosting changes operational ownership. It does not require a different React integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
+Self-hosting changes operational ownership. It does not require a different frontend integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
 
 ## Error handling model
 
@@ -82,7 +83,7 @@ Common debugging checks:
 
 ## Next steps
 
-- **Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — features, hosting options, and where to go next
-- **Cloud-hosted guide:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plan management
-- **Self-hosted guide:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — install and operate the platform in Kubernetes
+- **Platform overview:** [CopilotKit Intelligence](/premium/overview) — features, hosting options, and where to go next
+- **Cloud-hosted guide:** [Cloud-hosted CopilotKit Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plan management
+- **Self-hosted guide:** [Self-host CopilotKit Intelligence](/premium/self-hosting) — install and operate the platform in Kubernetes
 - **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay, realtime sync, and thread lifecycle semantics

@@ -67,6 +67,17 @@ export interface Integration {
    */
   a2ui_pattern?: "schema-loading" | "schema-inline" | "llm-driven" | null;
   /**
+   * Whether the A2UI docs should additionally show how to attach the
+   * fixed-schema tool to a hand-built graph rather than the cell's agent
+   * factory. Set only where the rendered snippet's language matches the
+   * integration's own — `langgraph-typescript` is deliberately left unset
+   * because the snippet is Python.
+   *
+   * - `langgraph-state-graph`: render the Python `StateGraph` + `ToolNode`
+   *   form next to the `create_agent` snippet.
+   */
+  a2ui_agent_form?: "langgraph-state-graph" | null;
+  /**
    * Implementation pattern for `gen-ui-interrupt` / `interrupt-headless`.
    * Set only when at least one is wired.
    *
@@ -77,8 +88,8 @@ export interface Integration {
    */
   interrupt_pattern?: "native" | "promise-based" | null;
   /**
-   * Framework-specific pattern for aligning Enterprise Intelligence
-   * Platform threads with an external framework's own persistence/session
+   * Framework-specific pattern for aligning CopilotKit Intelligence threads
+   * with an external framework's own persistence/session
    * identifiers.
    *
    * - `langgraph`: explicit CopilotKit thread IDs are forwarded as AG-UI
@@ -96,6 +107,7 @@ export interface Integration {
     | "microsoft-agent-framework"
     | "runtime-onrequest"
     | null;
+  voice_backend_pattern?: "adk-fastapi-agent-path" | null;
   sort_order?: number;
   managed_platform?: { name: string; url: string };
   animated_preview_url?: string | null;
@@ -213,8 +225,9 @@ export function getDocsMode(slug: string): "generated" | "authored" | "hidden" {
  *   in-page `<Tabs>` and `<TailoredContent>` handling the per-variant
  *   code examples. The URL slug determines which tab opens by default
  *   (see TAB_DEFAULTS_BY_SLUG below).
- * - `microsoft-agent-framework/` serves both `ms-agent-dotnet` and
- *   `ms-agent-python`, same in-page-tabs pattern.
+ * - `microsoft-agent-framework/` serves `ms-agent-dotnet`,
+ *   `ms-agent-python`, and `ms-agent-harness-dotnet`, same in-page-tabs
+ *   pattern.
  * - `google-adk` / `strands` are legacy renames — the slug changed in
  *   the registry but the docs folder still uses the earlier name.
  *
@@ -231,6 +244,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
+  "ms-agent-harness-dotnet": "microsoft-agent-framework",
 };
 
 export function getDocsFolder(slug: string): string {
@@ -276,6 +290,9 @@ const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
   },
   "ms-agent-python": {
     "language_microsoft-agent-framework_agent": "Python",
+  },
+  "ms-agent-harness-dotnet": {
+    "language_microsoft-agent-framework_agent": ".NET",
   },
 };
 
@@ -324,7 +341,7 @@ export function getDemo(
 const CATEGORY_LABELS: Record<string, string> = {
   popular: "Most Popular",
   "agent-framework": "Agent Frameworks",
-  "enterprise-platform": "Intelligence Platform",
+  "enterprise-platform": "Intelligence",
   "provider-sdk": "Provider SDKs",
   protocol: "Protocols & Standards",
   emerging: "Emerging",

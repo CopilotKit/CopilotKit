@@ -13,6 +13,7 @@ import type {
   FamilySummaryResponse,
   InflightState,
   RunBatch,
+  WorkerView,
 } from "./run-view.js";
 import type { ProducerSchedule } from "./control-plane.js";
 import type { JobProducer } from "./job-producer.js";
@@ -136,8 +137,27 @@ function withD6(
   );
 }
 
-function response(families: FamilySummaryEntry[]): FamilySummaryResponse {
-  return { families, workers: [] };
+function response(
+  families: FamilySummaryEntry[],
+  workers: WorkerView[] = [],
+): FamilySummaryResponse {
+  return { families, workers };
+}
+
+/**
+ * A worker strip entry whose `registeredAt` is the post-bounce drain signal
+ * the grace window keys off. Only the fields the monitor reads are pinned;
+ * the rest mirror a healthy online worker.
+ */
+function workerView(registeredAtMs: number): WorkerView {
+  return {
+    workerId: "worker-railway-abc",
+    health: "online",
+    lastHeartbeatAt: iso(registeredAtMs),
+    registeredAt: iso(registeredAtMs),
+    currentJobId: null,
+    capacity: { inUse: 0, available: 24, max: 24 },
+  };
 }
 
 function makeFakeStore(): AlertStateStore & {
@@ -406,6 +426,231 @@ describe("family-silence monitor — silence alert", () => {
     });
     await monitor.tick(now);
     expect(posts).toEqual([]);
+  });
+});
+
+describe("family-silence monitor — post-bounce drain grace window", () => {
+  // A NORMAL harness deploy rebuilds the shared `showcase-harness` image and
+  // bounces the pool workers (PR #5715). After the bounce the workers
+  // re-register (fresh `registered_at`), the producers re-arm, and each
+  // family is mid-sweep — `lastSuccessAt` legitimately still points at the
+  // PRE-bounce success and so reads stale against the 3×period silence gate.
+  // Without a bounce-keyed grace this trips a FALSE silence alert during the
+  // expected drain. The grace window is `BOUNCE_GRACE_PERIOD_MULTIPLIER`
+  // (=2) × period since the freshest worker `registeredAt`: long enough for
+  // the family to land its first post-bounce success, after which a still-
+  // silent family is a GENUINE outage and alerts as before.
+
+  it("RED→GREEN: a recent fleet bounce suppresses the silence alert during the drain window", async () => {
+    // lastSuccessAt is 4×period stale (the elapsed-time gate fires), but the
+    // freshest worker re-registered just before the first evaluated tick, so
+    // every observed silent tick falls inside the 2×period bounce grace and
+    // the consecutive-tick gate can never reach threshold.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD; // 4×period since lastSuccess
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    // Bounce at t1 − 1 min: t1/t2/t3 are all inside t1 + 2×period grace.
+    const bounceMs = t1 - 60_000;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toEqual([]);
+  });
+
+  it("GREEN: a genuinely silent family STILL alerts once the bounce grace has elapsed", async () => {
+    // Same shape, but the bounce is OLD (well before lastSuccessAt) — the
+    // family has had many full periods since the last (re)start to land a
+    // success and has not, so this is a real outage and must still fire.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const bounceMs = BASE - 10 * PERIOD; // ancient — grace long elapsed
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+    expect(posts[0]).toContain(`no successful run since ${iso(lastSuccessMs)}`);
+  });
+
+  it("GREEN: an empty worker strip (no bounce signal) preserves today's alerting", async () => {
+    // Defensive: when no workers are registered (PB strip empty / pre-fix
+    // payloads), there is no bounce instant to grace against, so the monitor
+    // behaves exactly as before — a stale family still alerts.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+  });
+});
+
+describe("family-silence monitor — bounce-grace window edge (2×period boundary)", () => {
+  // Pin the exact 2×period boundary of the bounce grace. The suppression
+  // predicate is `nowMs - bounceMs < BOUNCE_GRACE_PERIOD_MULTIPLIER × period`
+  // (strict <), evaluated per-tick against the freshest worker registration.
+  //
+  // To make this a GENUINE pin of the 2× term (not merely a "grace exists"
+  // smoke test), the FINAL tick must straddle the 2×period edge while the
+  // consecutive-silent counter has ALREADY been primed to threshold−1 by
+  // earlier ticks — so the boundary tick is the deciding 3rd observation.
+  // The earlier (priming) ticks see an ANCIENT bounce that is outside the
+  // grace at ANY positive multiplier (so they bind identically whether the
+  // term is 1, 2, or 3 and reliably advance the counter 1→2); the final tick
+  // sees a FRESH bounce placed exactly 1 min inside 2×period. That asymmetry
+  // is realistic: the old registration is the pre-deploy worker, and a fresh
+  // image-rebuild bounce (PR #5715) re-registers the worker just before the
+  // last observed tick. The bounce is always in the PAST of the tick that
+  // reads it (positive elapsed), never future-dated.
+
+  it("a bounce JUST INSIDE 2×period (deciding 3rd tick) suppresses the alert", async () => {
+    // lastSuccessAt is 2×period before BASE so every tick observes ≥4×period
+    // of silence — the elapsed-time gate fires on all three. t1/t2 read an
+    // ancient bounce (10×period old → outside grace at any multiplier) and so
+    // advance the consecutive-silent counter to 2. The fresh bounce served on
+    // the t3 read sits 1 min inside the 2×period edge:
+    //   t3 − freshBounceMs = 2×period − 60s.
+    // At BOUNCE_GRACE_PERIOD_MULTIPLIER = 2 that is < 2×period → INSIDE →
+    // the deciding 3rd tick is suppressed, the counter resets, no alert.
+    // This is the load-bearing pin: mutate the multiplier to 1 and the same
+    // 2×period − 60s elapsed becomes ≥ 1×period → OUTSIDE → the 3rd silent
+    // tick posts the alert and this expectation flips RED.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD; // 4×period since lastSuccess
+    const t2 = BASE + 3 * PERIOD; // 5×period
+    const t3 = BASE + 4 * PERIOD; // 6×period
+    const oldBounceMs = BASE - 10 * PERIOD; // ancient → outside grace always
+    const freshBounceMs = t3 - (2 * PERIOD - 60_000); // 1 min inside 2×period
+    const d6 = {
+      lastSuccessAt: iso(lastSuccessMs),
+      lastRun: batch({
+        enqueuedAt: iso(lastSuccessMs - 120_000),
+        finishedAt: iso(lastSuccessMs),
+      }),
+    };
+    let call = 0;
+    const { monitor, posts } = makeMonitor({
+      // t1/t2 reads (calls 0,1) see the ancient pre-deploy registration; the
+      // t3 read (call 2) sees the fresh post-bounce registration.
+      get: async () => {
+        const bounceMs = call++ < 2 ? oldBounceMs : freshBounceMs;
+        return response(withD6(t3, d6), [workerView(bounceMs)]);
+      },
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toEqual([]);
+  });
+
+  it("a bounce JUST OUTSIDE 2×period on every tick lets the alert fire", async () => {
+    // Same shape, but the bounce is old enough that EVERY tick is past the
+    // 2×period grace by ≥1 min: t1 - bounce = 2×period + 60s > 2×period →
+    // outside on t1, and t2/t3 are even further out. With grace lapsed on all
+    // three ticks the consecutive-silent counter reaches threshold and posts.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const bounceMs = t1 - (2 * PERIOD + 60_000);
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+  });
+
+  it("grace does NOT apply when the bounce predates last-success + 1 period (the family already succeeded after the bounce)", async () => {
+    // Intent: the grace covers the post-bounce DRAIN — the gap before the
+    // family lands its first success after a (re)start. If the family ALREADY
+    // succeeded well after the bounce (lastSuccessAt is more than one period
+    // newer than the bounce) the drain is over; a subsequent silence is a
+    // GENUINE outage and the stale bounce must not re-grant grace. Here the
+    // bounce is 5×period old while lastSuccessAt is only 2×period old — i.e.
+    // lastSuccess is ~3 periods AFTER the bounce, comfortably past
+    // last-success+1period — so the grace window (2×period since the OLD
+    // bounce) has long elapsed and the alert fires.
+    const bounceMs = BASE - 5 * PERIOD;
+    const lastSuccessMs = BASE - 2 * PERIOD; // 3 periods after the bounce
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
   });
 });
 

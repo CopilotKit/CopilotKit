@@ -24,8 +24,6 @@ using OpenAI;
 /// </summary>
 public class ByocHashbrownAgentFactory
 {
-    private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";
-
     private const string SystemPrompt = @"You are a sales analytics assistant that replies by emitting a single JSON
 object consumed by a streaming JSON parser on the frontend.
 
@@ -86,17 +84,13 @@ Example response (sales dashboard):
 
         _logger = loggerFactory.CreateLogger<ByocHashbrownAgentFactory>();
 
-        var githubToken = configuration["GitHubToken"]
-            ?? throw new InvalidOperationException(
-                "GitHubToken not found in configuration. " +
-                "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-                "or get it using: gh auth token");
+        var apiKey = ApiKeyResolver.ResolveApiKey(configuration);
 
-        var endpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL") ?? DefaultOpenAiEndpoint;
+        var endpoint = ApiKeyResolver.ResolveEndpoint(configuration);
         _logger.LogInformation("ByocHashbrownAgent using OpenAI endpoint: {Endpoint}", endpoint);
 
         _openAiClient = new(
-            new ApiKeyCredential(githubToken),
+            new ApiKeyCredential(apiKey),
             AimockHeaderPolicy.CreateOpenAIClientOptions(endpoint));
     }
 
@@ -104,12 +98,21 @@ Example response (sales dashboard):
     {
         var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
 
-        // `description` on ChatClientAgent is passed to the chat client as the
-        // system-instruction equivalent, so it steers the model to emit a
-        // single <ui>...</ui> envelope for every response.
+        // Mirror langgraph-python: force JSON-object mode so the frontend's
+        // useJsonParser does not receive prose/code fences and bail to null.
+        // System prompts must go through `Instructions` (not Description) —
+        // Description is agent metadata only and is not sent to the model.
         return new ChatClientAgent(
             chatClient,
-            name: "ByocHashbrownAgent",
-            description: SystemPrompt);
+            new ChatClientAgentOptions
+            {
+                Name = "ByocHashbrownAgent",
+                Description = "Hashbrown structured UI demo agent",
+                Instructions = SystemPrompt,
+                ChatOptions = new ChatOptions
+                {
+                    ResponseFormat = ChatResponseFormat.Json,
+                },
+            });
     }
 }

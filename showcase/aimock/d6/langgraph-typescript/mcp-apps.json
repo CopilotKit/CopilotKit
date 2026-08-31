@@ -2,7 +2,6 @@
   "_meta": {
     "description": "D6 fixtures for langgraph-typescript / mcp-apps",
     "sourceFile": "d5-all.json",
-    "copiedFrom": "langgraph-python",
     "created": "2026-05-21"
   },
   "fixtures": [
@@ -55,5 +54,8 @@
         "content": "Sketched a simple system diagram for you above — three boxes (frontend, runtime, agent) connected by arrows showing the request flow. Ask if you'd like a different shape or more detail."
       }
     }
-  ]
+  ],
+  "meta": {
+    "copiedFrom": "langgraph-python"
+  }
 }

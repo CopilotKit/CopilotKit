@@ -110,7 +110,7 @@ describe("L1-E withCvdiagBackend: 11 backend boundaries", () => {
       "backend.sse.event",
       "backend.agent.exit",
       "backend.response.complete",
-    ]) {
+    ] as const) {
       expect(boundaries.has(expected)).toBe(true);
     }
     // Every emitted row is layer=backend with the integration slug.

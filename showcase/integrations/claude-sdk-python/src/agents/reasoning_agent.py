@@ -32,12 +32,9 @@ from ag_ui.core import (
     TextMessageStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 
-# Extended-thinking budget for the native reasoning channel. Anthropic
-# requires max_tokens > budget_tokens when thinking is enabled.
-_THINKING_BUDGET_TOKENS = 1024
-
-# System prompt for the NATIVE extended-thinking path (the default).
+# System prompt for the native adaptive-thinking path (the default).
 # Extended thinking is always enabled below, so the model already emits its
 # step-by-step plan on the native `thinking` channel — which we forward as
 # REASONING_MESSAGE_*. We must NOT also instruct the model to wrap a plan in
@@ -171,25 +168,23 @@ async def run_reasoning_agent(
         ReasoningMessageStartEvent,
     )
 
-    # Extended thinking enabled so Claude streams native thinking blocks.
+    # Adaptive thinking enabled so Claude streams native thinking blocks.
     # Overridable via ANTHROPIC_REASONING_MODEL (falling back to
     # ANTHROPIC_MODEL). Under aimock replay the thinking channel comes from
     # the fixture's `reasoning` field regardless of the model name.
     reasoning_model = os.getenv(
         "ANTHROPIC_REASONING_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-8"),
     )
+    reasoning_model = normalize_claude_model(reasoning_model)
 
     try:
         async with client.messages.stream(
             model=reasoning_model,
-            max_tokens=_THINKING_BUDGET_TOKENS + 2048,
+            max_tokens=3072,
             system=system,
             messages=messages,
-            thinking={
-                "type": "enabled",
-                "budget_tokens": _THINKING_BUDGET_TOKENS,
-            },
+            thinking={"type": "adaptive"},
         ) as stream:
             async for event in stream:
                 etype = type(event).__name__

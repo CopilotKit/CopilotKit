@@ -12,7 +12,6 @@ import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
 import { createLicenseContextValue } from "@copilotkit/shared";
-import { RenderToolProvider } from "./hooks/RenderToolContext";
 import { MarkdownRendererProvider } from "./components/MarkdownRendererContext";
 import type { MarkdownRendererValue } from "./components/MarkdownRendererContext";
 
@@ -243,11 +242,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        <RenderToolProvider>
-          <MarkdownRendererProvider renderer={markdownRenderer}>
-            {children}
-          </MarkdownRendererProvider>
-        </RenderToolProvider>
+        <MarkdownRendererProvider renderer={markdownRenderer}>
+          {children}
+        </MarkdownRendererProvider>
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

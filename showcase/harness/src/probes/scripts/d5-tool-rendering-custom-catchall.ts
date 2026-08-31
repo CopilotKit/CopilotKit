@@ -130,7 +130,7 @@ export async function probeCustomCatchall(
   // Why this affects ONLY this probe: `findAssistantBubbleAt` and
   // `readCascadeStateLast` pass a `number` (bubble index) via the same
   // mechanism and work correctly — verified by the conversation runner's
-  // `settled text` log reading bubble idx=3's prose successfully. The
+  // settled metadata reading bubble idx=3's prose successfully. The
   // bubble-index path being green vs the string-arg path being undef
   // hints at a serialization-layer behavior we did not fully nail down
   // (Playwright + tsc + the harness build chain). The defensive fix

@@ -65,6 +65,7 @@ function makeStore(id = "store-a"): ɵThreadStore & { __testId: string } {
       threads: vi.fn(),
       isLoading: vi.fn(),
       error: vi.fn(),
+      fetchMoreError: vi.fn(),
       hasNextPage: vi.fn(),
       isFetchingNextPage: vi.fn(),
       isMutating: vi.fn(),

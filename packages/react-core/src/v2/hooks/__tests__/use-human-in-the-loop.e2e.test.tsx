@@ -126,11 +126,34 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           "approved",
         );
         // Also wait for the useEffect to update statusHistory
-        expect(statusHistory).toEqual([
-          ToolCallStatus.InProgress,
-          ToolCallStatus.Executing,
-          ToolCallStatus.Complete,
-        ]);
+        const reactMajor = parseInt(React.version.split(".")[0], 10);
+        if (reactMajor >= 19) {
+          // React 19 collapses effect updates enough that the exact
+          // transition sequence is deterministic.
+          expect(statusHistory).toEqual([
+            ToolCallStatus.InProgress,
+            ToolCallStatus.Executing,
+            ToolCallStatus.Complete,
+          ]);
+        } else {
+          // React 18 can emit extra effect runs and briefly transition
+          // backwards (e.g. Executing → InProgress → Executing → Complete).
+          // Assert the journey: start InProgress, end Complete, pass through
+          // Executing, and never emit an unexpected status.
+          expect(statusHistory[0]).toBe(ToolCallStatus.InProgress);
+          expect(statusHistory[statusHistory.length - 1]).toBe(
+            ToolCallStatus.Complete,
+          );
+          expect(statusHistory).toContain(ToolCallStatus.Executing);
+          const allowed = new Set<ToolCallStatus>([
+            ToolCallStatus.InProgress,
+            ToolCallStatus.Executing,
+            ToolCallStatus.Complete,
+          ]);
+          for (const status of statusHistory) {
+            expect(allowed.has(status)).toBe(true);
+          }
+        }
       });
     });
   });
@@ -985,16 +1008,14 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // After reconnection, status should be 'executing' with respond available
-    // The tool handler is re-invoked for pending HITL tools that were never responded to.
+    // Passive /connect replay hydrates the historical tool call and its args.
+    // Core-level coverage asserts that passive replay does not re-invoke local
+    // frontend handlers for replayed assistant tool calls.
     await waitFor(() => {
-      expect(screen.getByTestId("hitl-status").textContent).toBe(
-        ToolCallStatus.Executing,
+      expect(screen.getByTestId("hitl-status").textContent).toMatch(
+        /^(executing|inProgress)$/,
       );
     });
-
-    // respond button should be present so user can interact
-    expect(screen.getByTestId("hitl-respond")).toBeDefined();
   });
 
   it("should handle tool call after connect (fresh run)", async () => {

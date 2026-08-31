@@ -20,30 +20,9 @@ import { SERVICES, repoNameFor } from "../railway-envs";
 import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
-  it("is optional on the type and defaults to falsy when unset", () => {
-    // Every real SSOT entry has gateIgnore unset (undefined / falsy),
-    // EXCEPT two deliberately gateIgnore:true entries:
-    //   - the staging-only `harness-workers` pool-fleet worker (no public
-    //     domain, does not fit the symmetric dual-env shape the gate
-    //     validates);
-    //   - the staging-only `showcase-strands-typescript` integration (prod
-    //     not yet provisioned, so it omits the prod env and is gate-ignored
-    //     until promoted dual-env).
-    // See their SSOT entries in railway-envs.ts for the rationale.
-    // S2: the 12 starter-<slug> services are NO LONGER gate-ignored — they
-    // are fully gate-managed (gateValidated, no gateIgnore), so they fall
-    // into the default-falsy branch below exactly like every showcase-* agent.
-    const GATE_IGNORED = new Set([
-      "harness-workers",
-      "showcase-strands-typescript",
-    ]);
-    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
+  it("is unset for every SSOT-managed service", () => {
     for (const [name, entry] of Object.entries(SERVICES)) {
-      const gi = (entry as ServiceEntry).gateIgnore;
-      if (isGateIgnored(name)) {
-        expect(gi, `${name} gateIgnore`).toBe(true);
-        continue;
-      }
+      const gi = entry.gateIgnore;
       expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
     }
   });
@@ -118,6 +97,7 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
+      autoUpdates: { staging: "disabled", prod: "disabled" },
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
@@ -263,24 +243,13 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 41 services in the SSOT (29 showcase/infra + 12 starter-*)", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(41);
+  it("has 42 services in the SSOT (30 showcase/infra + 12 starter-*)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(42);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // Intentional gateValidated:false entries (both gateIgnore:true): the
-    // staging-only `harness-workers` (no public domain) and the staging-only
-    // `showcase-strands-typescript` (prod not yet provisioned). S2 brought
-    // the 12 starter-<slug> services UNDER the gate (gateValidated:true), so
-    // they are no longer holdouts — every OTHER service, starters included,
-    // must be gateValidated:true.
-    const GATE_IGNORED = new Set([
-      "harness-workers",
-      "showcase-strands-typescript",
-    ]);
-    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     const unvalidated = Object.entries(SERVICES)
-      .filter(([name, entry]) => !entry.gateValidated && !isGateIgnored(name))
+      .filter(([, entry]) => !entry.gateValidated)
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -298,20 +267,52 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("findMissingServices treats all 39 gateValidated services as targets (27 showcase/infra + 12 starters)", () => {
+  it("findMissingServices treats every gateValidated service as a target, per the envs it declares", () => {
     // With nothing "present", every gateValidated service should appear in
-    // the missing set. After S2 brought the 12 starter-<slug> services under
-    // the gate (gateValidated:true, dual-env), that means all 39 — the 27
-    // showcase/infra gateValidated services plus the 12 starters. (The
-    // gateIgnore entry harness-workers is NOT gateValidated and so is not
-    // required here.)
+    // the missing set for each env it DECLARES. All dual-env gateValidated
+    // services (the 30 showcase/infra + 12 starters) now carry both prod and
+    // staging and are demanded in BOTH envs.
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(39);
-    expect(missingStaging).toHaveLength(39);
-    // The 12 starters are now demanded in BOTH envs.
+    expect(missingProd).toHaveLength(42);
+    expect(missingStaging).toHaveLength(42);
+    // CrewAI Conversational Flows is now required in both envs.
+    expect(missingStaging).toContain("showcase-crewai-conversational-flows");
+    expect(missingProd).toContain("showcase-crewai-conversational-flows");
+    // The 12 starters are still demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");
+  });
+
+  it("validates dual-env CrewAI image refs against its canonical GHCR repo", () => {
+    const service = "showcase-crewai-conversational-flows";
+    const stagingRepo = repoNameFor(service, "staging");
+    const prodRepo = repoNameFor(service, "prod");
+
+    expect(
+      validateImage(`ghcr.io/copilotkit/${stagingRepo}:latest`, {
+        env: "staging",
+        repoName: stagingRepo,
+      }),
+    ).toBeNull();
+    expect(
+      validateImage("ghcr.io/copilotkit/showcase-wrong:latest", {
+        env: "staging",
+        repoName: stagingRepo,
+      })?.reason,
+    ).toMatch(/repo name mismatches expected/);
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}@sha256:${"a".repeat(64)}`, {
+        env: "prod",
+        repoName: prodRepo,
+      }),
+    ).toBeNull();
+    expect(
+      validateImage(`ghcr.io/copilotkit/${prodRepo}:latest`, {
+        env: "prod",
+        repoName: prodRepo,
+      })?.reason,
+    ).toMatch(/prod must be pinned/);
   });
 });
 

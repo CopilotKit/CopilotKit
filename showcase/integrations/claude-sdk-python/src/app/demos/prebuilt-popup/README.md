@@ -20,7 +20,7 @@ The agent replies with streaming tokens — it's the default neutral assistant, 
 
 ## Technical Details
 
-- `CopilotKit` wires the page to the runtime with `runtimeUrl="/api/copilotkit"` and `agent="prebuilt-popup"`, which resolves to the default `graph` in `src/agents/main.py` (a plain `create_agent` with no tools)
+- `CopilotKit` wires the page to the runtime with `runtimeUrl="/api/copilotkit"` and `agent="prebuilt-popup"`, which resolves to the shared Claude Agent SDK backend
 - `CopilotPopup` is rendered alongside the main content with `agentId="prebuilt-popup"`, `defaultOpen={true}`, and a `labels={{ chatInputPlaceholder: "..." }}` override
 - `useConfigureSuggestions` registers a single starter chip
 - This is the minimal wiring needed to drop an agentic popup onto any existing page — contrast with `prebuilt-sidebar`, which docks instead of floats

@@ -1586,6 +1586,152 @@ describe("buildStarterBadge — 5-state cell vocabulary (§d)", () => {
   });
 });
 
+describe("buildStarterBadge — two-miss tolerance for SOFT errorClass (pool-fleet step C)", () => {
+  // The starter-smoke driver keys failures by class (mirror of harness
+  // `StarterFailureClass`): SOFT = `transport-error` / `aborted` (transient
+  // transport / cold-start / abort hiccups), HARD = `smoke-failed` (a real
+  // HTTP-level content regression). A SOFT miss must NOT flip the cell red on
+  // the FIRST occurrence — the producer's `fail_count` (the persisted
+  // consecutive-red counter: 1 on green→red, incremented on sustained red,
+  // 0 on red→green) gates the flip: tolerate while `fail_count <= 1`, flip on
+  // `fail_count >= 2` (two consecutive misses). HARD failures flip immediately
+  // regardless of `fail_count`.
+  //
+  // A tolerated soft miss renders AMBER `~` (degraded), NOT green: the probe
+  // literally just failed, so claiming a green ✓ would be a false-green lie
+  // (the codebase guards against false-green everywhere). Amber says
+  // "transient, not yet actionable" — distinct from both the flap-to-red and
+  // the dishonest green.
+
+  function softRedRow(
+    errorClass: "transport-error" | "aborted",
+    failCount: number,
+  ): StatusRow {
+    return row("starter:agno/agent", "starter", "red", {
+      signal: { errorClass },
+      fail_count: failCount,
+      first_failure_at: FRESH_OBSERVED_AT,
+    });
+  }
+
+  it("(a) single SOFT transport-error miss (fail_count=1) is TOLERATED — does NOT flip red", () => {
+    const b = buildStarterBadge(
+      "agent",
+      true,
+      softRedRow("transport-error", 1),
+      NOW,
+      "live",
+    );
+    expect(b.tone).not.toBe("red");
+    expect(b.label).not.toBe("✗");
+    // Tolerated → amber `~`, not a dishonest green ✓.
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+  });
+
+  it("(a') single SOFT aborted miss (fail_count=1) is TOLERATED — does NOT flip red", () => {
+    const b = buildStarterBadge(
+      "agent",
+      true,
+      softRedRow("aborted", 1),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+  });
+
+  it("(a'') a SOFT first failure with fail_count=0 (legacy/edge) is also tolerated (<= 1)", () => {
+    // fail_count is 1 on the first green→red tick, but guard the boundary: a
+    // legacy/edge row reporting 0 must still be treated as a single soft miss.
+    const b = buildStarterBadge(
+      "agent",
+      true,
+      softRedRow("transport-error", 0),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("amber");
+    expect(b.label).toBe("~");
+  });
+
+  it("(b) TWO consecutive SOFT misses (fail_count=2) FLIP to red ✗", () => {
+    const b = buildStarterBadge(
+      "agent",
+      true,
+      softRedRow("transport-error", 2),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("(b') three+ consecutive SOFT misses (fail_count=3) stay red ✗", () => {
+    const b = buildStarterBadge(
+      "agent",
+      true,
+      softRedRow("aborted", 3),
+      NOW,
+      "live",
+    );
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("(c) a HARD smoke-failed miss FLIPS immediately (fail_count=1, no tolerance)", () => {
+    const hard = row("starter:agno/agent", "starter", "red", {
+      signal: { errorClass: "smoke-failed" },
+      fail_count: 1,
+      first_failure_at: FRESH_OBSERVED_AT,
+    });
+    const b = buildStarterBadge("agent", true, hard, NOW, "live");
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("(d) a SOFT miss followed by a GREEN tick renders green (producer reset fail_count→0)", () => {
+    // After recovery the producer rewrites state→green and fail_count→0. The
+    // dashboard reads the recovered row directly; the soft-miss counter is
+    // gone, so the cell renders a clean green ✓. (No dashboard-side counter to
+    // reset — the producer owns the consecutive-failure count.)
+    const recovered = row("starter:agno/agent", "starter", "green", {
+      signal: {},
+      fail_count: 0,
+      first_failure_at: null,
+    });
+    const b = buildStarterBadge("agent", true, recovered, NOW, "live");
+    expect(b.tone).toBe("green");
+    expect(b.label).toBe("✓");
+  });
+
+  it("a red row with NO errorClass flips immediately (tolerance only softens EXPLICIT soft classes)", () => {
+    // Conservative: we only soften when the producer explicitly tags the
+    // failure transient. An untagged red is treated as a hard fail (preserves
+    // the pre-existing red-row behaviour).
+    const untagged = row("starter:agno/agent", "starter", "red", {
+      signal: {},
+      fail_count: 1,
+    });
+    const b = buildStarterBadge("agent", true, untagged, NOW, "live");
+    expect(b.tone).toBe("red");
+    expect(b.label).toBe("✗");
+  });
+
+  it("tolerance never applies to an UNSUPPORTED column (🚫 wins over soft red)", () => {
+    const b = buildStarterBadge(
+      "agent",
+      false,
+      softRedRow("transport-error", 1),
+      NOW,
+      "live",
+    );
+    expect(b.label).toBe("🚫");
+    expect(b.tone).not.toBe("red");
+    expect(b.tone).not.toBe("amber");
+  });
+});
+
 describe("starter rows are informational — excluded from resolveCell rollup", () => {
   it("a red starter row does NOT make the feature-cell rollup red", () => {
     // resolveCell only reads health + e2e (+ informational badges). A starter

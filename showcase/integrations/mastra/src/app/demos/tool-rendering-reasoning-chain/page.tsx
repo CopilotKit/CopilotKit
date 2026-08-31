@@ -128,7 +128,14 @@ function Chat() {
       },
       {
         title: "Chain of dice rolls",
-        message: "Roll a 20-sided die for me and compare it to a smaller one.",
+        // Say "d20" not "Roll a 20-sided die": aimock loads d4 before d6 and
+        // matchFixture returns the FIRST substring match, so the d4 agentic-chat
+        // fixture (userMessage "Roll a 20-sided die", no reasoning) would shadow
+        // this demo's first leg and push the reasoning a step late (renders as
+        // trailing thinking under replay). "d20" keeps the unique tail
+        // "compare it to a smaller one" that the reasoning-chain fixtures match
+        // while dodging the d4 shadow. Real-LLM order was always correct.
+        message: "Roll a d20 for me and compare it to a smaller one.",
       },
       {
         title: "Flights + destination weather",

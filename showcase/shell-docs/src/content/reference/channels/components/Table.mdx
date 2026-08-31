@@ -1,0 +1,36 @@
+---
+title: Table, Row, and Cell
+description: Render tabular data with portable Channels table primitives.
+---
+
+`Table` groups `Row` and `Cell` children.
+
+```tsx
+import { Cell, Row, Table } from "@copilotkit/channels/ui";
+
+<Table
+  columns={[
+    { header: "Service", align: "left" },
+    { header: "p95", align: "right" },
+  ]}
+>
+  <Row>
+    <Cell>Checkout</Cell>
+    <Cell>1.8s</Cell>
+  </Row>
+</Table>;
+```
+
+## Props
+
+| Component | Prop | Type | Description |
+| --- | --- | --- | --- |
+| `Table` | `columns` | `{ header: string; align?: "left" \| "center" \| "right" }[]` | Optional header and alignment metadata. |
+| `Table` | `children` | `BotChildren` | `Row` children. |
+| `Row` | `children` | `BotChildren` | `Cell` children. |
+| `Cell` | `children` | `BotChildren` | Cell text. |
+
+Managed Slack renders a native table block. Managed Teams renders an Adaptive
+Card 1.5 table. Both renderers clamp rows, columns, and cell text to provider
+budgets. Keep a short textual summary outside the table for clients that cannot
+display the native structure.

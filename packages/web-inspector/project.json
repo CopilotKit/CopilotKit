@@ -1,0 +1,32 @@
+{
+  "name": "@copilotkit/web-inspector",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "packages/web-inspector/src",
+  "projectType": "library",
+  "targets": {
+    "dev:standalone": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          {
+            "command": "pnpm run dev:css",
+            "forwardAllArgs": false
+          },
+          {
+            "command": "pnpm exec vite dev dev --config dev/vite.config.ts --host 127.0.0.1 --port 5177",
+            "forwardAllArgs": true
+          }
+        ],
+        "parallel": true,
+        "cwd": "packages/web-inspector"
+      },
+      "dependsOn": [
+        {
+          "target": "build:css",
+          "projects": "self"
+        }
+      ],
+      "cache": false
+    }
+  }
+}

@@ -8,11 +8,12 @@ and what state updates the middleware emits):
   the agent's own tools when the model is called. When there are no frontend
   tools the request reaches the model unchanged.
 * App context from ``state["copilotkit"]["context"]`` (or ``runtime.context``)
-  becomes a ``SystemMessage`` containing ``"App Context:\\n<json>"``. Empty
-  context is a no-op. Re-running ``before_agent`` does not duplicate the note.
+  is appended to ``ModelRequest.system_message`` as ``"App Context:\\n<json>"``.
+  Empty context is a no-op. ``before_agent`` does not mutate message history.
 * ``after_model`` peels frontend tool calls off the last AIMessage so the
-  ToolNode does not try to execute them; ``after_agent`` re-attaches them
-  before the run ends.
+  ToolNode does not try to execute them; later model calls re-attach them with
+  synthetic ToolMessages, while ``after_agent`` persists them as orphans for
+  the real frontend result.
 * The ``expose_state`` opt-in surfaces user state into ``request.system_message``
   as a ``"Current agent state:"`` note. Default is off; reserved internal
   keys, underscore-prefixed keys, and empty values are filtered out; an
@@ -30,19 +31,30 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from ag_ui.core import RunAgentInput, UserMessage
+from pydantic import Field
+from typing_extensions import TypedDict
+from langchain.agents import create_agent
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
+    BaseMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
 )
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langgraph.constants import END, START
+from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents.middleware import ModelRequest
+from langgraph.graph import StateGraph
 
 from copilotkit.copilotkit_lg_middleware import (
     CopilotKitMiddleware,
     _extract_forwarded_headers_from_config,
 )
 from copilotkit.header_propagation import get_forwarded_headers, set_forwarded_headers
+from copilotkit.langgraph_agui_agent import LangGraphAGUIAgent
 
 
 # ---------------------------------------------------------------------------
@@ -58,13 +70,15 @@ def _make_request(
     messages: list[Any] | None = None,
 ) -> ModelRequest:
     """Build a ModelRequest with sensible defaults for testing."""
+    runtime = MagicMock(name="runtime")
+    runtime.context = None
     return ModelRequest(
         model=MagicMock(name="model"),
         messages=messages if messages is not None else [],
         system_message=system_message,
         tools=tools if tools is not None else [],
         state=state if state is not None else {"messages": []},
-        runtime=MagicMock(name="runtime"),
+        runtime=runtime,
     )
 
 
@@ -85,6 +99,39 @@ def _run_wrap(middleware: CopilotKitMiddleware, request: ModelRequest):
     result = middleware.wrap_model_call(request, handler)
     assert handler.received is not None, "handler must be called"
     return handler.received, result
+
+
+class _RecordingToolAwareChatModel(BaseChatModel):
+    """Minimal model that records the messages/tools LangChain bound to it."""
+
+    bound_tools: list[Any] = Field(default_factory=list)
+    last_messages: list[BaseMessage] = Field(default_factory=list)
+
+    @property
+    def _llm_type(self) -> str:
+        return "recording-tool-aware-chat-model"
+
+    def bind_tools(self, tools, *, tool_choice=None, **kwargs):
+        self.bound_tools = list(tools)
+        return self
+
+    def _generate(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager=None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self.last_messages = list(messages)
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content="ok"))])
+
+
+class _ParentState(TypedDict):
+    messages: list[Any]
+
+
+class _ParentContext(TypedDict, total=False):
+    copilotkit: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +178,215 @@ def test_frontend_tools_merge_does_not_mutate_input_request():
     # The override(...) contract is to return a fresh request — the original
     # tools list must not have grown.
     assert [t["name"] for t in request.tools] == ["backend"]
+
+
+# ---------------------------------------------------------------------------
+# _get_copilotkit_context — fallback to LangGraph runtime carriers
+# ---------------------------------------------------------------------------
+
+
+def test_get_copilotkit_context_returns_state_level_when_present(monkeypatch):
+    """When state["copilotkit"] has actions, return it unchanged."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_one"}],
+            "context": "some context",
+        }
+    }
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == state["copilotkit"]
+
+
+def test_get_copilotkit_context_falls_back_to_langgraph_context(monkeypatch):
+    """When state lacks copilotkit, prefer config.context.copilotkit."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_context"}],
+        "context": [{"description": "viewer role", "value": "admin"}],
+    }
+
+    def mock_get_config():
+        return {"context": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_falls_back_to_configurable_when_context_missing(
+    monkeypatch,
+):
+    """Older configurable-only carriers still work as a fallback."""
+    middleware = CopilotKitMiddleware()
+    config_copilotkit = {
+        "actions": [{"name": "fe_from_configurable"}],
+        "context": [{"description": "workspace", "value": "prod"}],
+    }
+
+    def mock_get_config():
+        return {"configurable": {"copilotkit": config_copilotkit}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context({})
+
+    assert result == config_copilotkit
+
+
+def test_get_copilotkit_context_prefers_state_over_runtime_carriers(monkeypatch):
+    """State-level copilotkit takes precedence over config/context fallbacks."""
+    middleware = CopilotKitMiddleware()
+    state = {
+        "copilotkit": {
+            "actions": [{"name": "fe_state"}],
+        }
+    }
+
+    def mock_get_config():
+        return {
+            "configurable": {
+                "copilotkit": {
+                    "actions": [{"name": "fe_config"}],
+                }
+            }
+        }
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    result = middleware._get_copilotkit_context(state)
+
+    assert result["actions"][0]["name"] == "fe_state"
+
+
+def test_get_copilotkit_context_returns_empty_dict_when_not_found(monkeypatch):
+    """When copilotkit is not in state or config, return empty dict."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        return {"configurable": {}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_get_copilotkit_context_handles_missing_config(monkeypatch):
+    """When get_config raises, return empty state copilotkit."""
+    middleware = CopilotKitMiddleware()
+
+    def mock_get_config():
+        raise RuntimeError("No active context")
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    state = {}
+    result = middleware._get_copilotkit_context(state)
+
+    assert result == {}
+
+
+def test_wrap_model_call_injects_frontend_tools_from_context_bridge(monkeypatch):
+    """wrap_model_call uses the runtime context bridge when state lacks copilotkit."""
+    middleware = CopilotKitMiddleware()
+    backend_tool = {"name": "backend_tool"}
+    fe_tools = [{"name": "fe_from_context"}]
+
+    def mock_get_config():
+        return {"context": {"copilotkit": {"actions": fe_tools}}}
+
+    monkeypatch.setattr(
+        "langgraph.config.get_config",
+        mock_get_config,
+    )
+
+    # State has no copilotkit key, but config does.
+    request = _make_request(state={"messages": []}, tools=[backend_tool])
+
+    seen, _ = _run_wrap(middleware, request)
+
+    seen_names = [t["name"] for t in seen.tools]
+    assert "backend_tool" in seen_names
+    assert "fe_from_context" in seen_names
+
+
+def test_real_subgraph_context_bridge_reaches_child_agent():
+    """A real AG-UI run carries tools and app context into a child agent."""
+    model = _RecordingToolAwareChatModel()
+    middleware = CopilotKitMiddleware()
+    child_agent = create_agent(
+        model=model,
+        tools=[],
+        middleware=[middleware],
+        context_schema=_ParentContext,
+    )
+    parent = StateGraph(_ParentState, context_schema=_ParentContext)
+    parent.add_node("child", child_agent)
+    parent.add_edge(START, "child")
+    parent.add_edge("child", END)
+    agent = LangGraphAGUIAgent(
+        name="parent", graph=parent.compile(checkpointer=MemorySaver())
+    )
+
+    async def consume_run():
+        return [
+            event
+            async for event in agent.run(
+                RunAgentInput(
+                    thread_id="t-1",
+                    run_id="r-1",
+                    state={},
+                    messages=[UserMessage(id="m-1", content="hi")],
+                    tools=[
+                        {
+                            "name": "frontend_lookup",
+                            "description": "frontend tool",
+                        }
+                    ],
+                    context=[
+                        {
+                            "description": "viewer role",
+                            "value": "admin",
+                        }
+                    ],
+                    forwarded_props={},
+                )
+            )
+        ]
+
+    asyncio.run(consume_run())
+
+    assert model.last_messages, "child model should receive the parent run"
+    assert [tool.get("name") for tool in model.bound_tools] == ["frontend_lookup"]
+    system_messages = [
+        msg for msg in model.last_messages if isinstance(msg, SystemMessage)
+    ]
+    assert system_messages, "middleware should inject an app-context system message"
+    assert any("App Context:" in msg.content for msg in system_messages)
+    assert any("admin" in msg.content for msg in system_messages)
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +629,52 @@ def test_expose_state_allowlist_never_surfaces_forwarded_headers():
 
 
 # ---------------------------------------------------------------------------
+# App Context system prompt injection
+# ---------------------------------------------------------------------------
+
+
+def test_wrap_model_call_appends_app_context_to_existing_system_message():
+    middleware = CopilotKitMiddleware()
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("previous turn")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        },
+        messages=[HumanMessage("previous turn")],
+        system_message=SystemMessage(content="You are a helpful assistant."),
+    )
+
+    seen, _ = _run_wrap(middleware, request)
+
+    assert seen.system_message is not None
+    body = seen.system_message.content
+    assert isinstance(body, str)
+    assert "You are a helpful assistant." in body
+    assert "App Context:" in body
+    assert "admin" in body
+    assert body.index("You are a helpful assistant.") < body.index("App Context:")
+    assert all(
+        "App Context:" not in (m.content if isinstance(m.content, str) else "")
+        for m in seen.messages
+    )
+
+
+def test_before_agent_does_not_inject_app_context_into_message_state():
+    middleware = CopilotKitMiddleware()
+    state = {
+        "messages": [HumanMessage("hi")],
+        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
+    }
+    runtime = MagicMock(name="runtime", context=None)
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
 # Async wrapper parity
 # ---------------------------------------------------------------------------
 
@@ -408,16 +710,15 @@ def test_async_wrap_mirrors_sync_behavior_for_state_and_tools():
 
 
 # ---------------------------------------------------------------------------
-# before_agent — App Context injection
+# App Context injection
 # ---------------------------------------------------------------------------
 
 
-def _system_contents(messages: list[Any]) -> list[str]:
-    return [
-        m.content if isinstance(m.content, str) else str(m.content)
-        for m in messages
-        if isinstance(m, SystemMessage)
-    ]
+def _system_message_text(request: ModelRequest) -> str:
+    assert request.system_message is not None
+    content = request.system_message.content
+    assert isinstance(content, str)
+    return content
 
 
 def test_before_agent_no_context_returns_no_update():
@@ -430,23 +731,25 @@ def test_before_agent_no_context_returns_no_update():
     assert result is None
 
 
-def test_before_agent_injects_app_context_system_message():
+def test_wrap_model_call_injects_app_context_system_message():
     middleware = CopilotKitMiddleware()
-    state = {
-        "messages": [HumanMessage("hi")],
-        "copilotkit": {"context": [{"description": "viewer role", "value": "admin"}]},
-    }
-    runtime = MagicMock(name="runtime", context=None)
+    request = _make_request(
+        state={
+            "messages": [HumanMessage("hi")],
+            "copilotkit": {
+                "context": [{"description": "viewer role", "value": "admin"}]
+            },
+        }
+    )
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("admin" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "App Context:" in body
+    assert "admin" in body
 
 
-def test_before_agent_idempotent_does_not_duplicate_context():
+def test_before_agent_repeated_calls_do_not_mutate_messages():
     middleware = CopilotKitMiddleware()
     state = {
         "messages": [HumanMessage("hi")],
@@ -457,25 +760,20 @@ def test_before_agent_idempotent_does_not_duplicate_context():
     first = middleware.before_agent(state, runtime) or state
     second = middleware.before_agent(first, runtime) or first
 
-    sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
-    app_context_messages = [
-        m
-        for m in sys_messages
-        if isinstance(m.content, str) and m.content.startswith("App Context:")
-    ]
-    assert len(app_context_messages) == 1
+    assert first is state
+    assert second is state
+    assert second["messages"] == [HumanMessage("hi")]
 
 
-def test_before_agent_uses_runtime_context_when_state_context_empty():
+def test_wrap_model_call_uses_runtime_context_when_state_context_empty():
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(name="runtime", context="route=/dashboard")
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = "route=/dashboard"
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
-    assert any("/dashboard" in s for s in sys_contents)
+    body = _system_message_text(seen)
+    assert "/dashboard" in body
 
 
 def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context():
@@ -518,36 +816,33 @@ def test_before_agent_strips_copilotkit_forwarded_headers_from_runtime_context()
     )
 
 
-def test_before_agent_strips_forwarded_headers_but_keeps_real_app_context():
+def test_wrap_model_call_strips_forwarded_headers_but_keeps_real_app_context():
     """When ``runtime.context`` contains both a genuine app key AND the
     transport-only ``copilotkit_forwarded_headers`` wrapper, the App Context
-    system message must still be injected with the real key, but the forwarded
+    system note must still be injected with the real key, but the forwarded
     headers must be filtered out.
     """
     middleware = CopilotKitMiddleware()
-    state = {"messages": [HumanMessage("hi")], "copilotkit": {}}
-    runtime = MagicMock(
-        name="runtime",
-        context={
-            "user_tier": "pro",
-            "copilotkit_forwarded_headers": {
-                "x-aimock-context": "showcase/d6",
-            },
+    request = _make_request(state={"messages": [HumanMessage("hi")], "copilotkit": {}})
+    request.runtime.context = {
+        "user_tier": "pro",
+        "copilotkit_forwarded_headers": {
+            "x-aimock-context": "showcase/d6",
         },
-    )
+    }
 
-    result = middleware.before_agent(state, runtime)
+    seen, _ = _run_wrap(middleware, request)
 
-    assert result is not None
-    sys_contents = _system_contents(result["messages"])
+    body = _system_message_text(seen)
     # The genuine app context is still surfaced.
-    assert any("App Context:" in s for s in sys_contents)
-    assert any("user_tier" in s and "pro" in s for s in sys_contents)
+    assert "App Context:" in body
+    assert "user_tier" in body
+    assert "pro" in body
     # The transport-layer wrapper is stripped from the rendered prompt.
-    assert not any("copilotkit_forwarded_headers" in s for s in sys_contents), (
+    assert "copilotkit_forwarded_headers" not in body, (
         "copilotkit_forwarded_headers must be filtered out of the App Context message"
     )
-    assert not any("x-aimock-context" in s for s in sys_contents), (
+    assert "x-aimock-context" not in body, (
         "forwarded header values must never appear in a system prompt"
     )
 
@@ -583,6 +878,9 @@ def test_after_model_intercepts_frontend_tool_calls_and_leaves_backend_alone():
         content="",
         tool_calls=[backend_call, frontend_call],
         id="ai-1",
+        name="assistant-name",
+        additional_kwargs={"provider": "test-provider"},
+        response_metadata={"finish_reason": "tool_calls"},
     )
     state = {
         "messages": [HumanMessage("hi"), ai],
@@ -596,12 +894,186 @@ def test_after_model_intercepts_frontend_tool_calls_and_leaves_backend_alone():
     last = result["messages"][-1]
     assert isinstance(last, AIMessage)
     assert [tc["name"] for tc in last.tool_calls] == ["backend_search"]
+    assert last.name == "assistant-name"
+    assert last.additional_kwargs == {"provider": "test-provider"}
+    assert last.response_metadata == {"finish_reason": "tool_calls"}
     intercepted = result["copilotkit"]["intercepted_tool_calls"]
     assert len(intercepted) == 1
     assert intercepted[0]["id"] == "2"
     assert intercepted[0]["name"] == "navigate"
     assert intercepted[0]["args"] == {"path": "/x"}
     assert result["copilotkit"]["original_ai_message_id"] == "ai-1"
+    assert [tc["id"] for tc in result["copilotkit"]["original_tool_calls"]] == [
+        "1",
+        "2",
+    ]
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_next_model_call_sees_request_scoped_frontend_tool_history(use_async):
+    middleware = CopilotKitMiddleware()
+    fe_tool = {"function": {"name": "navigate"}}
+    backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
+    frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
+    initial_state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(
+                content="",
+                tool_calls=[backend_call, frontend_call],
+                id="ai-1",
+                name="assistant-name",
+                additional_kwargs={"provider": "test-provider"},
+                response_metadata={"finish_reason": "tool_calls"},
+            ),
+        ],
+        "copilotkit": {"actions": [fe_tool]},
+    }
+
+    after_model = middleware.after_model(initial_state, MagicMock(name="runtime"))
+    assert after_model is not None
+
+    messages = [
+        *after_model["messages"],
+        ToolMessage(content='{"hits": 1}', tool_call_id="1"),
+    ]
+    state = {
+        "messages": messages,
+        "copilotkit": {
+            **initial_state["copilotkit"],
+            **after_model["copilotkit"],
+        },
+    }
+    request = _make_request(state=state, messages=messages)
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    ai = next(m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1")
+    assert [tc["id"] for tc in ai.tool_calls] == ["1", "2"]
+    assert ai.name == "assistant-name"
+    assert ai.additional_kwargs == {"provider": "test-provider"}
+    assert ai.response_metadata == {"finish_reason": "tool_calls"}
+
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == ["1", "2"]
+    assert tool_messages[0].content == '{"hits": 1}'
+    assert json.loads(tool_messages[1].content) == {"status": "forwarded_to_frontend"}
+
+    persisted_ai = next(
+        m for m in messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in persisted_ai.tool_calls] == ["1"]
+    persisted_tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in persisted_tool_messages] == ["1"]
+
+
+def test_next_model_call_preserves_multiple_frontend_tool_calls_in_order():
+    middleware = CopilotKitMiddleware()
+    fe_tools = [{"name": "select_tab"}, {"name": "navigate"}]
+    tool_calls = [
+        {"id": "fe-1", "name": "select_tab", "args": {"tab": "overview"}},
+        {"id": "be-1", "name": "backend_search", "args": {"q": "hi"}},
+        {"id": "be-2", "name": "backend_fetch", "args": {"id": "42"}},
+        {"id": "fe-2", "name": "navigate", "args": {"path": "/x"}},
+    ]
+    initial_state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=tool_calls, id="ai"),
+        ],
+        "copilotkit": {"actions": fe_tools},
+    }
+
+    after_model = middleware.after_model(initial_state, MagicMock(name="runtime"))
+    assert after_model is not None
+    assert [tc["id"] for tc in after_model["messages"][-1].tool_calls] == [
+        "be-1",
+        "be-2",
+    ]
+
+    messages = [
+        *after_model["messages"],
+        ToolMessage(content="ok", tool_call_id="be-1"),
+        ToolMessage(content="ok", tool_call_id="be-2"),
+    ]
+    state = {
+        "messages": messages,
+        "copilotkit": {
+            **initial_state["copilotkit"],
+            **after_model["copilotkit"],
+        },
+    }
+    request = _make_request(state=state, messages=messages)
+
+    seen, _ = _run_wrap(middleware, request)
+
+    ai = next(m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai")
+    assert [tc["id"] for tc in ai.tool_calls] == ["fe-1", "be-1", "be-2", "fe-2"]
+
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == [
+        "fe-1",
+        "be-1",
+        "be-2",
+        "fe-2",
+    ]
+    assert json.loads(tool_messages[0].content) == {"status": "forwarded_to_frontend"}
+    assert json.loads(tool_messages[-1].content) == {"status": "forwarded_to_frontend"}
+
+
+def test_next_model_call_preserves_frontend_history_when_backend_tool_errors():
+    middleware = CopilotKitMiddleware()
+    fe_tool = {"name": "navigate"}
+    backend_call = {"id": "be-1", "name": "backend_search", "args": {"q": "hi"}}
+    frontend_call = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+    initial_state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(
+                content="",
+                tool_calls=[backend_call, frontend_call],
+                id="ai",
+            ),
+        ],
+        "copilotkit": {"actions": [fe_tool]},
+    }
+
+    after_model = middleware.after_model(initial_state, MagicMock(name="runtime"))
+    assert after_model is not None
+
+    messages = [
+        *after_model["messages"],
+        ToolMessage(content="backend failed", tool_call_id="be-1", status="error"),
+    ]
+    state = {
+        "messages": messages,
+        "copilotkit": {
+            **initial_state["copilotkit"],
+            **after_model["copilotkit"],
+        },
+    }
+    request = _make_request(state=state, messages=messages)
+
+    seen, _ = _run_wrap(middleware, request)
+
+    ai = next(m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai")
+    assert [tc["id"] for tc in ai.tool_calls] == ["be-1", "fe-1"]
+
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == ["be-1", "fe-1"]
+    assert tool_messages[0].content == "backend failed"
+    assert getattr(tool_messages[0], "status", None) == "error"
+    assert json.loads(tool_messages[1].content) == {"status": "forwarded_to_frontend"}
 
 
 # ---------------------------------------------------------------------------
@@ -622,15 +1094,18 @@ def test_after_agent_no_intercepted_returns_no_update():
 
 def test_after_agent_restores_intercepted_tool_calls_on_original_message():
     middleware = CopilotKitMiddleware()
-    intercepted = [{"id": "2", "name": "navigate", "args": {"path": "/x"}}]
+    backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
+    frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
     state = {
         "messages": [
             HumanMessage("hi"),
-            AIMessage(content="", id="ai-1"),
+            AIMessage(content="", tool_calls=[backend_call], id="ai-1"),
+            ToolMessage(content="ok", tool_call_id="1"),
         ],
         "copilotkit": {
-            "intercepted_tool_calls": intercepted,
+            "intercepted_tool_calls": [frontend_call],
             "original_ai_message_id": "ai-1",
+            "original_tool_calls": [backend_call, frontend_call],
         },
     }
     runtime = MagicMock(name="runtime")
@@ -641,9 +1116,13 @@ def test_after_agent_restores_intercepted_tool_calls_on_original_message():
     restored_ai = next(
         m for m in result["messages"] if isinstance(m, AIMessage) and m.id == "ai-1"
     )
-    assert [tc["name"] for tc in restored_ai.tool_calls] == ["navigate"]
+    assert [tc["id"] for tc in restored_ai.tool_calls] == ["1", "2"]
+
+    tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == ["1"]
     assert result["copilotkit"]["intercepted_tool_calls"] is None
     assert result["copilotkit"]["original_ai_message_id"] is None
+    assert result["copilotkit"]["original_tool_calls"] is None
 
 
 # ---------------------------------------------------------------------------
@@ -669,7 +1148,7 @@ def test_bedrock_fix_strips_unanswered_tool_calls_from_ai_message():
     assert [tc["id"] for tc in repaired_ai.tool_calls] == ["answered"]
 
 
-def test_bedrock_fix_dedupes_tool_messages_with_shared_id():
+def test_sync_wrap_dedupes_tool_messages_with_shared_id():
     """Real result wins over an interrupted placeholder for the same id."""
     ai = AIMessage(
         content="",
@@ -683,9 +1162,10 @@ def test_bedrock_fix_dedupes_tool_messages_with_shared_id():
     real = ToolMessage(content='{"hits": 3}', tool_call_id="tc-1")
     messages: list[Any] = [HumanMessage("hi"), ai, placeholder, real]
 
-    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+    request = _make_request(state={"messages": messages}, messages=messages)
+    seen, _ = _run_wrap(CopilotKitMiddleware(), request)
 
-    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
     assert len(tool_messages) == 1
     assert tool_messages[0].content == '{"hits": 3}'
 
@@ -706,6 +1186,362 @@ def test_bedrock_fix_repairs_string_args_to_dicts():
 
     repaired = next(m for m in messages if isinstance(m, AIMessage))
     assert repaired.tool_calls[0]["args"] == {"q": "hello"}
+
+
+def test_bedrock_fix_strips_orphan_function_call_content_blocks_no_tool_calls():
+    """When tool_calls is empty (e.g. after_model intercepted the frontend tool),
+    any leftover OpenAI Responses 'function_call' content block must be stripped
+    so langchain-openai doesn't re-emit it as an unanswered Responses input
+    item ("No tool output found for function call call_..." 400 from OpenAI).
+    """
+    ai = AIMessage(
+        content=[
+            {"type": "text", "text": "calling tool"},
+            {
+                "type": "function_call",
+                "call_id": "call_orphan",
+                "name": "frontend_action",
+                "arguments": "{}",
+                "id": "fc_item_1",
+            },
+        ],
+        id="ai-1",
+    )
+    messages: list[Any] = [HumanMessage("hi"), ai]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    repaired = next(m for m in messages if isinstance(m, AIMessage))
+    assert isinstance(repaired.content, list)
+    types_left = [b.get("type") for b in repaired.content if isinstance(b, dict)]
+    assert "function_call" not in types_left
+    assert "text" in types_left
+
+
+def test_bedrock_fix_strips_orphan_function_call_blocks_when_tool_calls_partial():
+    """function_call content blocks whose call_id isn't in tool_calls must
+    be removed alongside their tool_calls peers."""
+    ai = AIMessage(
+        content=[
+            {
+                "type": "function_call",
+                "call_id": "call_kept",
+                "name": "search",
+                "arguments": "{}",
+            },
+            {
+                "type": "function_call",
+                "call_id": "call_orphan",
+                "name": "frontend_action",
+                "arguments": "{}",
+            },
+        ],
+        tool_calls=[{"id": "call_kept", "name": "search", "args": {}}],
+        id="ai-1",
+    )
+    answered = ToolMessage(content="ok", tool_call_id="call_kept")
+    messages: list[Any] = [HumanMessage("hi"), ai, answered]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    repaired = next(m for m in messages if isinstance(m, AIMessage))
+    call_ids = [
+        b.get("call_id")
+        for b in repaired.content
+        if isinstance(b, dict) and b.get("type") == "function_call"
+    ]
+    assert call_ids == ["call_kept"]
+
+
+def _function_call_block(call_id: str, name: str, arguments: str) -> dict[str, Any]:
+    return {
+        "type": "function_call",
+        "call_id": call_id,
+        "name": name,
+        "arguments": arguments,
+        "id": f"fc_{call_id}",
+    }
+
+
+def _function_call_ids(message: AIMessage) -> list[str]:
+    return [
+        b.get("call_id")
+        for b in message.content
+        if isinstance(b, dict) and b.get("type") == "function_call"
+    ]
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_next_model_call_keeps_answered_function_call_blocks_on_restore(use_async):
+    """The restore path must not over-strip: when the intercepted frontend
+    call is restored with its synthetic result (and the backend call has its
+    real result), the equivalent `function_call` content blocks stay in the
+    request-scoped history — they are answered, so langchain-openai can pair
+    each Responses input item with its function_call_output.
+    """
+    middleware = CopilotKitMiddleware()
+    fe_tool = {"function": {"name": "navigate"}}
+    backend_call = {"id": "1", "name": "backend_search", "args": {"q": "hi"}}
+    frontend_call = {"id": "2", "name": "navigate", "args": {"path": "/x"}}
+    initial_state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(
+                content=[
+                    {"type": "text", "text": "calling tools"},
+                    _function_call_block("1", "backend_search", '{"q": "hi"}'),
+                    _function_call_block("2", "navigate", '{"path": "/x"}'),
+                ],
+                tool_calls=[backend_call, frontend_call],
+                id="ai-1",
+            ),
+        ],
+        "copilotkit": {"actions": [fe_tool]},
+    }
+
+    after_model = middleware.after_model(initial_state, MagicMock(name="runtime"))
+    assert after_model is not None
+    # after_model strips tool_calls but leaves the content blocks behind
+    stripped_ai = after_model["messages"][-1]
+    assert [tc["id"] for tc in stripped_ai.tool_calls] == ["1"]
+    assert _function_call_ids(stripped_ai) == ["1", "2"]
+
+    messages = [
+        *after_model["messages"],
+        ToolMessage(content='{"hits": 1}', tool_call_id="1"),
+    ]
+    state = {
+        "messages": messages,
+        "copilotkit": {**initial_state["copilotkit"], **after_model["copilotkit"]},
+    }
+    request = _make_request(state=state, messages=messages)
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    seen_ai = next(
+        m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in seen_ai.tool_calls] == ["1", "2"]
+    assert _function_call_ids(seen_ai) == ["1", "2"]
+    tool_messages = [m for m in seen.messages if isinstance(m, ToolMessage)]
+    assert [m.tool_call_id for m in tool_messages] == ["1", "2"]
+    assert json.loads(tool_messages[1].content) == {"status": "forwarded_to_frontend"}
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+def test_replayed_cancelled_turn_strips_orphan_function_call_blocks(use_async):
+    """Regression for #6676: a run cancelled mid-turn persists the assistant
+    turn with its Responses `function_call` content blocks but without any
+    ToolMessage — the backend tool never ran and the intercept state was
+    never written. On replay, the model must receive a history with no
+    orphaned `function_call` blocks: langchain-openai would otherwise
+    serialize them as Responses input items with no matching
+    function_call_output, and OpenAI rejects every subsequent turn with
+    400 "No tool output found for function call call_...".
+    """
+    middleware = CopilotKitMiddleware()
+    poisoned_ai = AIMessage(
+        content=[
+            {"type": "text", "text": "calling tools"},
+            _function_call_block("1", "backend_search", '{"q": "hi"}'),
+            _function_call_block("2", "navigate", '{"path": "/x"}'),
+        ],
+        # after_model already stripped the frontend call; the run was
+        # cancelled before the backend tool produced a ToolMessage.
+        tool_calls=[{"id": "1", "name": "backend_search", "args": {"q": "hi"}}],
+        id="ai-1",
+    )
+    messages: list[Any] = [HumanMessage("hi"), poisoned_ai]
+    state = {
+        "messages": messages,
+        "copilotkit": {"actions": [{"function": {"name": "navigate"}}]},
+    }
+    request = _make_request(state=state, messages=messages)
+
+    if use_async:
+        received: dict[str, ModelRequest] = {}
+
+        async def handler(req: ModelRequest):
+            received["req"] = req
+            return "ok"
+
+        asyncio.run(middleware.awrap_model_call(request, handler))
+        seen = received["req"]
+    else:
+        seen, _ = _run_wrap(middleware, request)
+
+    seen_ai = next(
+        m for m in seen.messages if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert _function_call_ids(seen_ai) == []
+    types_left = [b.get("type") for b in seen_ai.content if isinstance(b, dict)]
+    assert "text" in types_left
+    # the unanswered backend call is stripped as well — every tool call the
+    # model sees must have an answer
+    assert seen_ai.tool_calls == []
+    assert not any(isinstance(m, ToolMessage) for m in seen.messages)
+
+
+# ---------------------------------------------------------------------------
+# Checkpoint roundtrip — orphan-handoff contract
+# ---------------------------------------------------------------------------
+# These tests exercise the full checkpoint roundtrip path:
+# 1. after_agent leaves FE tool call as orphan (no ToolMessage)
+# 2. Checkpoint saved with orphan state
+# 3. Checkpoint loaded; patch_orphan_tool_calls adds _INTERRUPTED_PAT placeholder
+# 4. Real frontend result arrives (appended to messages)
+# 5. _fix_messages_for_bedrock dedupes: real result replaces placeholder
+#
+# The key invariant is that after_agent MUST NOT persist synthetic
+# ToolMessages — only the tool_calls are restored to the AIMessage.
+
+
+def test_checkpoint_roundtrip_placeholder_replaced_by_real_result():
+    """Simulates checkpoint restore with patch_orphan_tool_calls placeholder,
+    then real FE result arriving — the Bedrock fix should replace the
+    placeholder with the real result, keeping the result adjacent to the
+    AIMessage.
+    """
+    # State after checkpoint restore: patch_orphan_tool_calls added a
+    # placeholder for the orphan FE tool call. The real result is appended
+    # at the end (e.g. by the AG-UI adapter or add_messages).
+    ai = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": "be-1", "name": "backend_search", "args": {}},
+            {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}},
+        ],
+        id="ai-1",
+    )
+    backend_result = ToolMessage(content='{"hits": 3}', tool_call_id="be-1")
+    # patch_orphan_tool_calls injects this pattern for orphan tool calls
+    placeholder = ToolMessage(
+        content="Tool call 'navigate' with id 'fe-1' was interrupted before completion.",
+        tool_call_id="fe-1",
+    )
+    # Real FE result arrives later, appended at end
+    real_fe_result = ToolMessage(
+        content='{"navigated_to": "/x"}',
+        tool_call_id="fe-1",
+    )
+    messages: list[Any] = [
+        HumanMessage("hi"),
+        ai,
+        backend_result,
+        placeholder,
+        real_fe_result,
+    ]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    # The real result should replace the placeholder at the adjacent position
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 2, "Should have backend + FE results only"
+    assert tool_messages[0].tool_call_id == "be-1"
+    assert tool_messages[0].content == '{"hits": 3}'
+    assert tool_messages[1].tool_call_id == "fe-1"
+    assert tool_messages[1].content == '{"navigated_to": "/x"}'
+
+
+def test_checkpoint_roundtrip_multiple_fe_calls_with_placeholders():
+    """Multiple FE tool calls, all orphaned after turn 1, each gets a
+    placeholder from patch_orphan_tool_calls. Real results arrive for all.
+    """
+    ai = AIMessage(
+        content="",
+        tool_calls=[
+            {"id": "fe-1", "name": "select_tab", "args": {"tab": "overview"}},
+            {"id": "be-1", "name": "search", "args": {"q": "hi"}},
+            {"id": "fe-2", "name": "navigate", "args": {"path": "/x"}},
+        ],
+        id="ai-1",
+    )
+    placeholder_fe1 = ToolMessage(
+        content="Tool call 'select_tab' with id 'fe-1' was interrupted before completion.",
+        tool_call_id="fe-1",
+    )
+    backend_result = ToolMessage(content='{"hits": 5}', tool_call_id="be-1")
+    placeholder_fe2 = ToolMessage(
+        content="Tool call 'navigate' with id 'fe-2' was interrupted before completion.",
+        tool_call_id="fe-2",
+    )
+    real_fe1 = ToolMessage(content='{"tab": "overview"}', tool_call_id="fe-1")
+    real_fe2 = ToolMessage(content='{"path": "/x"}', tool_call_id="fe-2")
+    messages: list[Any] = [
+        HumanMessage("hi"),
+        ai,
+        placeholder_fe1,
+        backend_result,
+        placeholder_fe2,
+        real_fe1,  # appended later
+        real_fe2,  # appended later
+    ]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 3, "Should have 3 results: fe-1, be-1, fe-2"
+    # The dedup replaces placeholders with real results
+    assert all(
+        "was interrupted before completion" not in m.content for m in tool_messages
+    ), "All placeholders should be replaced"
+    ids = [m.tool_call_id for m in tool_messages]
+    assert set(ids) == {"fe-1", "be-1", "fe-2"}
+
+
+def test_after_agent_leaves_fe_call_orphaned_for_checkpoint():
+    """Verify that after_agent does not add any ToolMessage for FE calls —
+    the FE tool call is left orphaned so the checkpoint can receive the real
+    frontend result later via add_messages merge.
+    """
+    middleware = CopilotKitMiddleware()
+    backend_call = {"id": "be-1", "name": "search", "args": {"q": "hi"}}
+    frontend_call = {"id": "fe-1", "name": "navigate", "args": {"path": "/x"}}
+    # State after backend execution + mid-loop model calls complete
+    state = {
+        "messages": [
+            HumanMessage("hi"),
+            AIMessage(content="", tool_calls=[backend_call], id="ai-1"),
+            ToolMessage(content="ok", tool_call_id="be-1"),
+        ],
+        "copilotkit": {
+            "intercepted_tool_calls": [frontend_call],
+            "original_ai_message_id": "ai-1",
+            "original_tool_calls": [backend_call, frontend_call],
+        },
+    }
+    runtime = MagicMock(name="runtime")
+
+    result = middleware.after_agent(state, runtime)
+
+    assert result is not None
+    # AIMessage should have both tool_calls restored
+    restored_ai = next(
+        m for m in result["messages"] if isinstance(m, AIMessage) and m.id == "ai-1"
+    )
+    assert [tc["id"] for tc in restored_ai.tool_calls] == ["be-1", "fe-1"]
+
+    # Critical: only the backend ToolMessage should exist — the FE call is
+    # left as an orphan for the real frontend result to fill.
+    tool_messages = [m for m in result["messages"] if isinstance(m, ToolMessage)]
+    assert len(tool_messages) == 1, "Only backend ToolMessage should exist"
+    assert tool_messages[0].tool_call_id == "be-1"
+    # No synthetic FE ToolMessage should be present
+    assert not any(
+        "forwarded_to_frontend" in str(m.content)
+        for m in result["messages"]
+        if isinstance(m, ToolMessage)
+    ), "No synthetic FE ToolMessage should be in after_agent output"
 
 
 # ---------------------------------------------------------------------------

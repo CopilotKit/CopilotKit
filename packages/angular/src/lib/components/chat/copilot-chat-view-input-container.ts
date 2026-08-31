@@ -44,7 +44,7 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
         </div>
       }
 
-      <div class="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:sm:px-0">
+      <div class="cpk:max-w-3xl cpk:mx-auto cpk:py-0 cpk:px-4 cpk:@3xl:px-0">
         <copilot-slot
           [slot]="input()"
           [context]="{ inputClass: inputClass() }"

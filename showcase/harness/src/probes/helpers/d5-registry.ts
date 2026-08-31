@@ -64,13 +64,19 @@ export type D5FeatureType =
   // Frontend-tools family — sync vs async result settling.
   | "frontend-tools"
   | "frontend-tools-async"
-  // Reasoning family — reasoning/thinking block + final answer.
-  | "reasoning-display"
+  | "threadid-frontend-tool-roundtrip"
+  // Reasoning family — custom slot and built-in/default slot are separate
+  // probe identities so an integration declaring both must pass both routes.
+  | "reasoning-custom"
+  | "reasoning-default"
   // State family — streaming state updates and read-only agent context.
   | "shared-state-streaming"
   | "readonly-state-context"
   // Generative-UI family — declarative, A2UI fixed-schema, open-shape, agent-driven.
   | "gen-ui-declarative"
+  // A2UI error recovery — the validate->retry recovery loop made
+  // visible (heal vs. exhaust). Drives `/demos/a2ui-recovery`.
+  | "a2ui-recovery"
   | "gen-ui-a2ui-fixed"
   | "gen-ui-open"
   | "gen-ui-open-advanced"
@@ -94,7 +100,7 @@ export type D5FeatureType =
   // Tool-rendering with reasoning chain — combines per-tool renderers
   // (WeatherCard / FlightListCard / catchall) with a `reasoningMessage`
   // slot rendering reasoning tokens. Distinct from `tool-rendering`
-  // (no reasoning) and `reasoning-display` (no per-tool renderers).
+  // (no reasoning) and the reasoning display probes (no per-tool renderers).
   | "tool-rendering-reasoning-chain"
   // BYOC family — bring-your-own-component structured-output rendering
   // (one literal covers hashbrown + json-render via preNavigateRoute).
@@ -114,7 +120,10 @@ export type D5FeatureType =
   | "beautiful-chat-pie-chart"
   | "beautiful-chat-bar-chart"
   | "beautiful-chat-search-flights"
-  | "beautiful-chat-schedule-meeting";
+  | "beautiful-chat-schedule-meeting"
+  | "background-agents"
+  | "observational-memory"
+  | "browser-use-smoke";
 
 /**
  * Closed-set runtime mirror of `D5FeatureType`. Kept in lock-step with
@@ -142,10 +151,13 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "agent-config",
   "frontend-tools",
   "frontend-tools-async",
-  "reasoning-display",
+  "threadid-frontend-tool-roundtrip",
+  "reasoning-custom",
+  "reasoning-default",
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",
+  "a2ui-recovery",
   "gen-ui-a2ui-fixed",
   "gen-ui-open",
   "gen-ui-open-advanced",
@@ -162,6 +174,9 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "beautiful-chat-bar-chart",
   "beautiful-chat-search-flights",
   "beautiful-chat-schedule-meeting",
+  "background-agents",
+  "observational-memory",
+  "browser-use-smoke",
 ] as const satisfies readonly D5FeatureType[];
 
 /**
@@ -235,7 +250,7 @@ export interface D5RouteContext {
  */
 export interface D5Script {
   featureTypes: D5FeatureType[];
-  fixtureFile: string;
+  fixtureFile?: string;
   buildTurns: (ctx: D5BuildContext) => ConversationTurn[];
   preNavigateRoute?: (
     featureType: D5FeatureType,

@@ -19,10 +19,15 @@
 #   .github/workflows/stable-release.yml   — create-pr `scope` input (release / create-pr)
 #   .github/workflows/canary.yml           — one-click canary orchestrator `scope` input
 #
-# Sentinel exception: none of the workflows uses a non-scope sentinel option
-# (no `all` / `canary` pseudo-scope — an empty/omitted scope is handled
-# outside the options list). If a sentinel is ever introduced, add it to
-# SENTINELS below so it is excluded from the equality check.
+# Sentinel exception: `all` is a non-scope sentinel option (see ALL_SCOPES in
+# scripts/release/lib/config.ts) that publishes every scope under one shared
+# canary id. It is excluded from the scope-equality check via SENTINELS, and
+# separately pinned per workflow by check_sentinel_placement: REQUIRED in the
+# two canary-capable workflows (canary.yml dispatches publish-release.yml, so a
+# value missing from either dropdown fails the dispatch) and FORBIDDEN in
+# stable-release.yml (a stable release is single-scope by construction — its tag,
+# release branch, and npm links all derive from one scope name). If another
+# sentinel is ever introduced, add it to SENTINELS and give it a placement rule.
 #
 # Secondary projection guarded here: publish-release.yml's `notify` job has a
 # `Resolve npm URL for scope` step whose `case "$SCOPE"` maps a dispatch
@@ -45,8 +50,8 @@ PUBLISH_WF="$REPO_ROOT/.github/workflows/publish-release.yml"
 STABLE_WF="$REPO_ROOT/.github/workflows/stable-release.yml"
 CANARY_WF="$REPO_ROOT/.github/workflows/canary.yml"
 
-# Documented non-scope sentinel options to ignore (none today). Space-separated.
-SENTINELS=""
+# Documented non-scope sentinel options to ignore. Space-separated.
+SENTINELS="all"
 
 for f in "$CONFIG" "$PUBLISH_WF" "$STABLE_WF" "$CANARY_WF"; do
   if [ ! -f "$f" ]; then
@@ -219,7 +224,7 @@ check_notify_case() {
     in_case && /^[[:space:]]*#/ { next }
     # Arm-shaped lines only: the entire line before the closing ")" must be
     # pattern characters — extended to allow space and surrounding quotes so
-    # we accept legal forms like `"angular")` and `bot | bot-slack)`. We use a
+    # we accept legal forms like `"angular")` and `channels | channels-slack)`. We use a
     # negated class that still excludes `=`, `$`, `(`, `:`, `/` (and `)` since
     # `)` is the terminator) so body lines like `FOO=$(cmd)` or
     # `path: /tmp/foo)` cannot match.
@@ -231,7 +236,7 @@ check_notify_case() {
       if (line == "*") next
       # Alternation: a|b|c — split on `|` and emit each pattern. Strip
       # surrounding whitespace and surrounding quotes (single or double) from
-      # each alternative so `"angular"` and `bot | bot-slack` both yield the
+      # each alternative so `"angular"` and `channels | channels-slack` both yield the
       # bare scope name. The '"'"' pattern is how a single quote is embedded
       # inside a single-quoted shell heredoc (see line ~95 above).
       n = split(line, arr, "|")
@@ -270,10 +275,55 @@ check_notify_case() {
   return 0
 }
 
+# Verify WHERE a sentinel option is offered. check_workflow strips sentinels
+# before comparing, which also hides a sentinel that has leaked into a workflow
+# where it is invalid (or vanished from one that needs it) — this restores that
+# coverage per file.
+#
+# Args: <display name> <workflow file> <sentinel> <required|forbidden>
+check_sentinel_placement() {
+  local name="$1" file="$2" sentinel="$3" expectation="$4"
+  local opts
+  opts=$(extract_scope_options "$file")
+
+  # Same distinction as check_workflow: zero options is a PARSER failure, not a
+  # verdict about the sentinel.
+  if [ -z "$opts" ]; then
+    echo "ERROR: parser could not find scope options in $file ($name) while checking '$sentinel' placement." >&2
+    return 1
+  fi
+
+  if printf '%s\n' "$opts" | grep -Fxq -- "$sentinel"; then
+    if [ "$expectation" = "forbidden" ]; then
+      echo "ERROR: $name offers the '$sentinel' sentinel, which is invalid there." >&2
+      echo "Fix: remove '$sentinel' from the 'scope' input 'options:' list in $file." >&2
+      echo "A stable release is single-scope by construction: its git tag, release branch," >&2
+      echo "and npm/Slack links all derive from one scope name, and scopes carry" >&2
+      echo "independent version lines. Multi-scope publishing is canary-only." >&2
+      return 1
+    fi
+    echo "OK: $name offers the '$sentinel' sentinel"
+    return 0
+  fi
+
+  if [ "$expectation" = "required" ]; then
+    echo "ERROR: $name is missing the '$sentinel' sentinel option." >&2
+    echo "Fix: add '$sentinel' to the 'scope' input 'options:' list in $file." >&2
+    echo "canary.yml dispatches publish-release.yml with the selected scope, so a" >&2
+    echo "value absent from EITHER dropdown is rejected at dispatch time." >&2
+    return 1
+  fi
+  echo "OK: $name does not offer the '$sentinel' sentinel"
+  return 0
+}
+
 rc=0
 check_workflow "publish-release.yml" "$PUBLISH_WF" || rc=1
 check_workflow "stable-release.yml"  "$STABLE_WF"  || rc=1
 check_workflow "canary.yml"          "$CANARY_WF"  || rc=1
+check_sentinel_placement "publish-release.yml" "$PUBLISH_WF" "all" required  || rc=1
+check_sentinel_placement "canary.yml"          "$CANARY_WF"  "all" required  || rc=1
+check_sentinel_placement "stable-release.yml"  "$STABLE_WF"  "all" forbidden || rc=1
 check_notify_case "$PUBLISH_WF" || rc=1
 
 if [ "$rc" -ne 0 ]; then

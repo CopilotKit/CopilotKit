@@ -38,10 +38,12 @@ import { getIntegration } from "@/lib/registry";
  */
 type SupportedFlag =
   | "a2ui_pattern"
+  | "a2ui_agent_form"
   | "interrupt_pattern"
   | "thread_persistence_pattern"
   | "agent_config_pattern"
-  | "auth_pattern";
+  | "auth_pattern"
+  | "voice_backend_pattern";
 
 interface WhenFrameworkHasProps {
   /** Manifest field to read (e.g. `"a2ui_pattern"`). */

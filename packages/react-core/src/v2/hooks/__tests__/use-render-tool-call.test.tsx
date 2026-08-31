@@ -1,88 +1,132 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { ToolCallStatus } from "@copilotkit/core";
+import type { ToolCall } from "@ag-ui/core";
 
-// We import the module that owns `defaultToolCallRenderAdapter`. Because
-// the adapter is module-private, we exercise it through useRenderToolCall:
-// register no `*` renderer and ensure the framework fallback (which IS
-// `defaultToolCallRenderAdapter`) produces the expected mapped status
-// onto the wrapper's `data-status`. We can also drive it directly via
-// rendering the exported default renderer if it's exported.
-
-import { DefaultToolCallRenderer } from "../use-default-render-tool";
+import type { ReactToolCallRenderer } from "../../types/react-tool-call-renderer";
 import type { DefaultRenderProps } from "../use-default-render-tool";
+import { useRenderToolCall } from "../use-render-tool-call";
+import { useDefaultRenderTool } from "../use-default-render-tool";
+import { useCopilotKit } from "../../context";
+import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+
+// Drive the REAL useDefaultRenderTool -> useRenderTool registration through
+// the REAL useRenderToolCall resolver. Only the surrounding context
+// (provider core + chat configuration) is mocked, so these tests assert the
+// end-to-end rendering contract rather than registration internals.
+vi.mock("../../context", () => ({ useCopilotKit: vi.fn() }));
+vi.mock("../../providers/CopilotChatConfigurationProvider", () => ({
+  useCopilotChatConfiguration: vi.fn(),
+}));
+
+const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
+const mockUseChatConfig = useCopilotChatConfiguration as ReturnType<
+  typeof vi.fn
+>;
 
 /**
- * Lightweight harness for the adapter behavior: re-implement the call shape
- * used by `useRenderToolCall` to invoke the adapter via the production code
- * path. The adapter itself is not exported, so we test the *effect* — what
- * `DefaultToolCallRenderer` ultimately receives — by importing the adapter
- * via a shim test that mimics the production call site.
+ * Minimal CopilotKit core stand-in. `renderToolCalls` returns a STABLE array
+ * reference between mutations (required by useSyncExternalStore — a fresh
+ * array each read would trip the "getSnapshot should be cached" loop) and
+ * notifies subscribers whenever a renderer is registered/removed so the
+ * resolver re-renders after the hook's registration effect fires.
  */
+function createNotifyingCore() {
+  const entries = new Map<string, ReactToolCallRenderer>();
+  const subscribers = new Set<() => void>();
+  let snapshot: ReactToolCallRenderer[] = [];
+  const refresh = () => {
+    snapshot = Array.from(entries.values());
+  };
+  const emit = () => subscribers.forEach((cb) => cb());
+  return {
+    get renderToolCalls() {
+      return snapshot;
+    },
+    addHookRenderToolCall(renderer: ReactToolCallRenderer) {
+      entries.set(`${renderer.agentId ?? ""}:${renderer.name}`, renderer);
+      refresh();
+      emit();
+    },
+    removeHookRenderToolCall(name: string, agentId?: string) {
+      entries.delete(`${agentId ?? ""}:${name}`);
+      refresh();
+      emit();
+    },
+    subscribe(handlers: { onRenderToolCallsChanged?: () => void }) {
+      const cb = handlers.onRenderToolCallsChanged ?? (() => {});
+      subscribers.add(cb);
+      return { unsubscribe: () => subscribers.delete(cb) };
+    },
+  };
+}
 
-// Re-export an adapter-equivalent harness using the production source so we
-// can assert the enum mapping behavior. We intentionally import from the
-// module that holds the adapter and rely on the fact that the adapter
-// produces a <DefaultToolCallRenderer/> with mapped status.
+const toolCall: ToolCall = {
+  id: "tc-1",
+  type: "function",
+  function: { name: "generate_a2ui", arguments: "{}" },
+};
 
-// Pull adapter via internal re-export hatch (added by the fix). If the
-// adapter is renamed/removed, this import will fail — that's the contract.
-import { __testOnly_defaultToolCallRenderAdapter as adapter } from "../use-render-tool-call";
+// Resolves and renders the tool call using the production resolver.
+function ResolverProbe() {
+  const renderToolCall = useRenderToolCall();
+  return <>{renderToolCall({ toolCall })}</>;
+}
 
-describe("defaultToolCallRenderAdapter status mapping", () => {
+describe("useRenderToolCall — opt-in default tool-call rendering", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it.each([
-    [ToolCallStatus.Complete, "complete"],
-    [ToolCallStatus.Executing, "executing"],
-    [ToolCallStatus.InProgress, "inProgress"],
-  ])("maps %s → data-status=%s", (input, expected) => {
-    const el = adapter({
-      name: "searchDocs",
-      toolCallId: `tc-${expected}`,
-      args: { q: "x" },
-      status: input,
-      result: input === ToolCallStatus.Complete ? "ok" : undefined,
+    vi.clearAllMocks();
+    mockUseChatConfig.mockReturnValue(null);
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: createNotifyingCore(),
+      executingToolCallIds: new Set<string>(),
     });
-    render(el);
-    const wrapper = screen.getByTestId("copilot-tool-render");
-    expect(wrapper.getAttribute("data-status")).toBe(expected);
   });
 
-  it("unknown ToolCallStatus values fall back to inProgress and log a warning", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  // Scenario 1: hook on, no render arg -> built-in default debug card.
+  it("renders the built-in default card when useDefaultRenderTool() is called", async () => {
+    function Harness() {
+      useDefaultRenderTool();
+      return <ResolverProbe />;
+    }
 
-    const el = adapter({
-      name: "searchDocs",
-      toolCallId: "tc-unknown",
-      args: { q: "x" },
-      // Intentionally lie about the type to simulate a future enum addition
-      // that the adapter doesn't yet know about.
-      status: "futureValue" as unknown as ToolCallStatus,
-      result: undefined,
-    });
-    render(el);
-    const wrapper = screen.getByTestId("copilot-tool-render");
-    expect(wrapper.getAttribute("data-status")).toBe("inProgress");
-    expect(warnSpy).toHaveBeenCalled();
-    const firstArg = warnSpy.mock.calls[0]?.[0];
-    expect(String(firstArg)).toMatch(/CopilotKit|ToolCallStatus|tool-call/i);
-    warnSpy.mockRestore();
+    render(<Harness />);
+
+    expect(await screen.findByTestId("copilot-tool-render")).toBeDefined();
+    expect(screen.getByTestId("copilot-tool-render-name").textContent).toBe(
+      "generate_a2ui",
+    );
   });
 
-  it("renders parameters via the DefaultToolCallRenderer (smoke)", () => {
-    // Sanity check that DefaultToolCallRenderer still accepts the doc-shape.
-    const props: DefaultRenderProps = {
-      name: "echo",
-      toolCallId: "tc-smoke",
-      parameters: { hello: "world" },
-      status: "complete",
-      result: "ok",
-    };
-    render(<DefaultToolCallRenderer {...props} />);
-    expect(screen.getByTestId("copilot-tool-render")).toBeDefined();
+  // Scenario 2: hook on, with render -> the caller's custom UI (and NOT the
+  // built-in card).
+  it("renders the caller's custom UI when useDefaultRenderTool({ render }) is called", async () => {
+    function Harness() {
+      useDefaultRenderTool({
+        render: ({ name }: DefaultRenderProps) => (
+          <div data-testid="custom-card">{name}</div>
+        ),
+      });
+      return <ResolverProbe />;
+    }
+
+    render(<Harness />);
+
+    const custom = await screen.findByTestId("custom-card");
+    expect(custom.textContent).toBe("generate_a2ui");
+    // The built-in card must not also render.
+    expect(screen.queryByTestId("copilot-tool-render")).toBeNull();
+  });
+
+  // Scenario 3: no hook -> nothing renders (no leaked card in production).
+  it("renders nothing when no renderer is registered", () => {
+    function Harness() {
+      return <ResolverProbe />;
+    }
+
+    const { container } = render(<Harness />);
+
+    expect(container.firstChild).toBeNull();
+    expect(screen.queryByTestId("copilot-tool-render")).toBeNull();
   });
 });

@@ -68,7 +68,7 @@ class PromoteResolveOnceTest < Minitest::Test
                     return { "serviceInstanceUpdate" => false }
                 end
                 @ts_counter += 1
-                @post[sid] = { image: vars[:image], ts: "2026-05-29T00:00:%02dZ" % @ts_counter }
+                @post[sid] = { image: vars.dig(:input, :source, :image), ts: "2026-05-29T00:00:%02dZ" % @ts_counter }
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 # @redeploy_result false → return nil id so the DeployV2 guard
@@ -104,7 +104,7 @@ class PromoteResolveOnceTest < Minitest::Test
         end
 
         def pinned_images
-            @calls.select { |q, _| q.include?("serviceInstanceUpdate") }.map { |_, v| v[:image] }
+            @calls.select { |q, _| q.include?("serviceInstanceUpdate") }.map { |_, v| v.dig(:input, :source, :image) }
         end
     end
 

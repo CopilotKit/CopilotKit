@@ -14,6 +14,7 @@ import {
   useWorkerRuns,
   isFamilySilent,
   familyForProbeKey,
+  freshestBounceMs,
 } from "@/lib/worker-runs-context";
 
 export function urlsFor(ctx: CellContext): {
@@ -245,10 +246,13 @@ function LiveBadge({
   // only ever DECORATES an already stale-degraded badge (§7.3).
   const isStaleDegraded =
     badge.tone === "amber" && badge.row !== null && badge.row.fail_count === 0;
-  const families =
-    workerRuns !== null && workerRuns.status === "ok"
-      ? workerRuns.data.families
-      : null;
+  const okRuns =
+    workerRuns !== null && workerRuns.status === "ok" ? workerRuns : null;
+  const families = okRuns ? okRuns.data.families : null;
+  // Post-bounce drain grace (PR #5715): a recent fleet bounce suppresses the
+  // §7.3 silence glyph just as it suppresses the §7.4 banner and §9 alert,
+  // keyed off the same worker `registeredAt`.
+  const bounceAtMs = okRuns ? freshestBounceMs(okRuns.data.workers) : null;
   // Family mapping is payload-driven via the `probeKeyPrefix` each family
   // entry echoes (§5.2.1) — never a dashboard-side prefix table.
   const silentFamily =
@@ -256,7 +260,8 @@ function LiveBadge({
       ? familyForProbeKey(badge.row.key, families)
       : undefined;
   const clockGlyph =
-    silentFamily !== undefined && isFamilySilent(silentFamily, Date.now());
+    silentFamily !== undefined &&
+    isFamilySilent(silentFamily, Date.now(), bounceAtMs);
   // Minimal per §7.3: a label SUFFIX only — tone, tooltip machinery, and the
   // amber branch above stay intact.
   const label = clockGlyph ? `${badge.label} ·⏱` : badge.label;

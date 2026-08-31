@@ -45,6 +45,14 @@ export class MockAgent {
   public abortRun = vi.fn();
   public clone = vi.fn(() => this._cloneImpl());
 
+  setMessages(messages: Message[]): void {
+    this.messages = messages;
+  }
+
+  setState(state: Record<string, any>): void {
+    this.state = state;
+  }
+
   private newMessages: Message[];
   private error?: Error | string;
   private runAgentDelay: number;
@@ -320,6 +328,8 @@ export class MockChannel {
   public topic: string;
   public params: Record<string, any>;
   public joinPayload: Record<string, any> | null = null;
+  /** Number of times `join()` was invoked — proves the consumer actually joined. */
+  public joinCount = 0;
   public pushLog: Array<{ event: string; payload: any; push: MockPush }> = [];
   public left = false;
 
@@ -360,6 +370,7 @@ export class MockChannel {
   }
 
   join(payload?: Record<string, any>): MockPush {
+    this.joinCount += 1;
     this.joinPayload = payload ?? null;
     return this.joinPush;
   }
@@ -401,6 +412,7 @@ export class MockSocket {
 
   private errorHandlers: Array<(error?: any) => void> = [];
   private openHandlers: Array<() => void> = [];
+  private closeHandlers: Array<(event?: { code?: number }) => void> = [];
 
   constructor(url: string = "", opts: Record<string, any> = {}) {
     this.url = url;
@@ -423,6 +435,10 @@ export class MockSocket {
     this.openHandlers.push(callback);
   }
 
+  onClose(callback: (event?: { code?: number }) => void): void {
+    this.closeHandlers.push(callback);
+  }
+
   channel(topic: string, params: Record<string, any> = {}): MockChannel {
     const ch = new MockChannel(topic, params);
     this.channels.push(ch);
@@ -437,5 +453,10 @@ export class MockSocket {
   /** Test helper — simulate a successful (re)connection. */
   triggerOpen(): void {
     for (const handler of this.openHandlers) handler();
+  }
+
+  /** Test helper — simulate the WebSocket transport closing. */
+  triggerClose(event?: { code?: number }): void {
+    for (const handler of this.closeHandlers) handler(event);
   }
 }

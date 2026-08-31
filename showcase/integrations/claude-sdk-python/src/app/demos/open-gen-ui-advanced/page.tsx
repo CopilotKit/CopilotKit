@@ -1,24 +1,25 @@
 "use client";
 
 /**
- * Open-Ended Generative UI (Advanced) — with frontend sandbox-function calling.
- * ----------------------------------------------------------------------------
+ * Open-Ended Generative UI
+ * ------------------------
  * The agent streams ONE `generateSandboxedUi` tool call; the runtime's
- * `OpenGenerativeUIMiddleware` (enabled via `openGenerativeUI: { agents: [...] }`
+ * `OpenGenerativeUIMiddleware` (enabled by `openGenerativeUI: { agents: [...] }`
  * in `api/copilotkit-ogui/route.ts`) converts that stream into
- * `open-generative-ui` activity events. Passing `openGenerativeUI` here
- * activates the built-in `OpenGenerativeUIActivityRenderer`, which mounts
- * the agent-authored HTML + CSS inside a sandboxed iframe that can invoke
- * host-registered `sandboxFunctions`.
+ * `open-generative-ui` activity events. Passing `openGenerativeUI` to
+ * CopilotKit here activates the built-in `OpenGenerativeUIActivityRenderer`,
+ * which mounts the agent-authored HTML + CSS inside a sandboxed iframe.
+ *
+ * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
  */
 
 // @region[sandbox-function-registration]
 import React from "react";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
 import { openGenUiSuggestions } from "./suggestions";
 

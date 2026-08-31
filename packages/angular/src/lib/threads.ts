@@ -15,6 +15,7 @@ import {
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
   ɵselectIsMutating,
+  ɵselectFetchMoreError,
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
@@ -27,7 +28,7 @@ import type {
 import { CopilotKit } from "./copilotkit";
 
 /**
- * A conversation thread managed by the Intelligence platform.
+ * A conversation thread managed by CopilotKit Intelligence.
  *
  * Each thread has a unique `id`, an optional human-readable `name`, and
  * timestamp fields tracking creation and update times. This mirrors the
@@ -60,7 +61,7 @@ export interface Thread {
  * Configuration for {@link injectThreads}.
  *
  * Thread operations are scoped to the runtime-authenticated user and the
- * provided agent on the Intelligence platform. Each field may be supplied as
+ * provided agent on CopilotKit Intelligence. Each field may be supplied as
  * a plain value or a {@link Signal}; when a signal is used the underlying
  * runtime context is re-synced whenever its value changes.
  */
@@ -75,7 +76,7 @@ export interface InjectThreadsInput {
    * When `false`, the store stays inert: no runtime context is dispatched, so
    * NO thread-list fetch or realtime subscription is issued, and the
    * synthesized pre-connect loading state is suppressed. Used by gated
-   * surfaces (e.g. an unlicensed `<copilotkit-drawer>`) that must not touch
+   * surfaces (e.g. an unlicensed `<copilotkit-threads-drawer>`) that must not touch
    * the network until the gate opens. Defaults to `true`. Mirrors react-core's
    * `UseThreadsInput.enabled`.
    */
@@ -108,6 +109,21 @@ export interface InjectThreadsResult {
    * fetch.
    */
   error: Signal<Error | null>;
+  /**
+   * List/mutation errors only — excludes developer/config errors (missing
+   * runtime URL, runtime without thread endpoints) so consumer UIs do not
+   * surface dev strings to end users. Prefer this over `error` for
+   * user-facing error display.
+   */
+  listError: Signal<Error | null>;
+  /**
+   * Error from the most recent FAILED next-page (fetch-more) load, or `null`.
+   * Tracked separately from {@link InjectThreadsResult.listError} so a
+   * paginated-load failure surfaces an inline "couldn't load more" affordance
+   * while the loaded list stays visible. Cleared when a fetch-more is retried
+   * or succeeds.
+   */
+  fetchMoreError: Signal<Error | null>;
   /**
    * `true` when there are more threads available to fetch via
    * {@link InjectThreadsResult.fetchMoreThreads}. Only meaningful when `limit`
@@ -203,17 +219,14 @@ function projectThread(thread: ɵThread): Thread {
 export class ThreadsStore implements InjectThreadsResult {
   readonly #copilotkit = inject(CopilotKit);
   readonly #store: ɵThreadStore = ɵcreateThreadStore({
-    // Cast to `typeof fetch`: the wrapper preserves correct `this` binding for
-    // globalThis.fetch but does not re-expose static members (e.g. `preconnect`)
-    // that newer DOM libs add and that the store never calls.
-    fetch: ((...args: Parameters<typeof fetch>) =>
-      globalThis.fetch(...args)) as typeof fetch,
+    fetch: this.#copilotkit.core.ɵruntimeFetch,
   });
   readonly #subscriptions: Subscription[] = [];
 
   readonly #threads = signal<Thread[]>([]);
   readonly #storeIsLoading = signal<boolean>(false);
   readonly #storeError = signal<Error | null>(null);
+  readonly #fetchMoreError = signal<Error | null>(null);
   readonly #hasMoreThreads = signal<boolean>(false);
   readonly #isFetchingMoreThreads = signal<boolean>(false);
   readonly #isMutating = signal<boolean>(false);
@@ -229,6 +242,8 @@ export class ThreadsStore implements InjectThreadsResult {
 
   readonly threads = this.#threads.asReadonly();
   readonly error: Signal<Error | null>;
+  readonly listError: Signal<Error | null>;
+  readonly fetchMoreError = this.#fetchMoreError.asReadonly();
   readonly isLoading: Signal<boolean>;
   readonly hasMoreThreads = this.#hasMoreThreads.asReadonly();
   readonly isFetchingMoreThreads = this.#isFetchingMoreThreads.asReadonly();
@@ -291,6 +306,11 @@ export class ThreadsStore implements InjectThreadsResult {
     this.error = computed(
       () => runtimeError() ?? endpointsError() ?? this.#storeError(),
     );
+    // listError exposes only genuine fetch/mutation errors, excluding the
+    // dev/config errors (missing runtime URL, runtime without thread
+    // endpoints). Use this for user-facing error display so dev strings are
+    // never shown to end users.
+    this.listError = computed(() => this.#storeError());
     this.isLoading = computed(() =>
       runtimeError() || endpointsError()
         ? false
@@ -485,6 +505,9 @@ export class ThreadsStore implements InjectThreadsResult {
       this.#store.select(ɵselectThreadsError).subscribe((value) => {
         this.#storeError.set(value);
       }),
+      this.#store.select(ɵselectFetchMoreError).subscribe((value) => {
+        this.#fetchMoreError.set(value);
+      }),
       this.#store.select(ɵselectHasNextPage).subscribe((value) => {
         this.#hasMoreThreads.set(value);
       }),
@@ -540,7 +563,7 @@ export class CopilotkitThreadsFactory {
  * the signal-based counterpart to react-core's `useThreads`.
  *
  * On creation the store fetches the thread list for the runtime-authenticated
- * user and the given `agentId`. When the Intelligence platform exposes a
+ * user and the given `agentId`. When CopilotKit Intelligence exposes a
  * WebSocket URL it also opens a realtime subscription so the `threads` signal
  * stays current without polling. Mutation methods return promises that resolve
  * once the platform confirms the operation and reject with an `Error` on

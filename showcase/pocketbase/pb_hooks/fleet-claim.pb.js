@@ -474,15 +474,38 @@ routerAdd(
           rec.set("claimed_by", "");
           // Run-metadata (§4.2): the sweeper re-queue is the second reclaim
           // choke point (the first is the claim CAS's expired-lease steal) —
-          // bump the durable per-job reclaim tally. finished_at deliberately
-          // stays untouched (null until a TERMINAL release): a re-queued job
-          // has not finished.
+          // bump the durable per-job lifetime reclaim tally. finished_at
+          // deliberately stays untouched (null until a TERMINAL release): a
+          // re-queued job has not finished.
           rec.set("reclaim_count", (rec.get("reclaim_count") || 0) + 1);
+          // CONSECUTIVE-ORPHAN CAP (§4.2, reclaimable-leases): bump the
+          // per-job CONSECUTIVE re-orphan counter — distinct from the lifetime
+          // `reclaim_count`. The sweeper re-queue path is the ONLY writer; the
+          // claim CAS's expired-lease steal does NOT bump this counter, so a
+          // healthy long-lived job that accrues peer steals does NOT exhaust
+          // the MAX_RECLAIM_ATTEMPTS budget. The queue-client reads this field
+          // (not `reclaim_count`) for the deletion gate.
+          rec.set(
+            "consecutive_orphan_count",
+            (rec.get("consecutive_orphan_count") || 0) + 1,
+          );
+          // RECLAIMABLE-LEASES re-anchor (§4.2, layer a): stamp the re-queue
+          // time so the queue-client's stale-age math ages this row off
+          // `requeued_at` (not the renewal-immune `created`). This re-anchor is
+          // what lets the lease-phase carve-out RE-CLAIM a stale-aged orphan
+          // instead of claim-deleting it: the next sweep measures the row as
+          // young again, so its "back in flight" signal is not falsified.
+          rec.set("requeued_at", new Date().toISOString());
         } else {
           // Run-metadata (§4.2): terminal release (done|failed) stamps the
           // finish time so run duration (finished_at − claimed_at) is readable
           // without parsing the `result` JSON.
           rec.set("finished_at", new Date().toISOString());
+          // CONSECUTIVE-ORPHAN CAP: reset the consecutive counter on every
+          // terminal release so that a LATER re-orphan of this job starts with
+          // a fresh budget. The lifetime `reclaim_count` is NOT reset — it
+          // remains as the dashboard diagnostic for "this job was ever reclaimed".
+          rec.set("consecutive_orphan_count", 0);
         }
         rec.set("version", (rec.get("version") || 0) + 1);
         txDao.saveRecord(rec);

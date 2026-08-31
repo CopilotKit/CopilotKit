@@ -1,7 +1,6 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
-import type { Observable, Subscription } from "rxjs";
-import { defer, firstValueFrom, merge, of } from "rxjs";
-import { fromFetch } from "rxjs/fetch";
+import type { Subscription } from "rxjs";
+import { defer, firstValueFrom, merge, Observable, of } from "rxjs";
 import {
   catchError,
   filter,
@@ -13,7 +12,6 @@ import {
   take,
   takeUntil,
   tap,
-  timeout,
   withLatestFrom,
 } from "rxjs/operators";
 import {
@@ -28,6 +26,10 @@ import {
   props,
 } from "./utils/micro-redux";
 import type { Reducer, Store } from "./utils/micro-redux";
+import type {
+  RuntimeRequestInit,
+  RuntimeRequestMeta,
+} from "./utils/runtime-request";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
@@ -39,6 +41,7 @@ import {
 import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
+const THREAD_RUN_ACTIVITY_CHANNEL_EVENT = "thread_run_activity";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
 const MAX_SOCKET_RETRIES = 5;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -84,6 +87,32 @@ type ThreadMetadataEvent =
       };
     };
 
+/**
+ * Internal notification emitted when Intelligence observes new run activity
+ * for a thread without changing that thread's metadata row.
+ */
+export type ThreadRunActivityNotification = {
+  type: "thread_run_activity";
+  threadId: string;
+  agentId?: string;
+  runId?: string;
+  eventType: string;
+  latestEventId?: string;
+};
+
+type ThreadRunActivityGatewayPayload = {
+  threadId?: unknown;
+  thread_id?: unknown;
+  agentId?: unknown;
+  agent_id?: unknown;
+  runId?: unknown;
+  run_id?: unknown;
+  eventType?: unknown;
+  event_type?: unknown;
+  latestEventId?: unknown;
+  latest_event_id?: unknown;
+};
+
 interface ThreadListResponse {
   threads: ThreadRecord[];
   joinCode?: string | null;
@@ -125,6 +154,14 @@ interface ThreadState {
   isLoading: boolean;
   isFetchingNextPage: boolean;
   error: Error | null;
+  /**
+   * Error from the most recent failed next-page (`fetchMore`) load, or `null`.
+   * Tracked SEPARATELY from `error` so a paginated-load failure surfaces an
+   * inline "couldn't load more" affordance without replacing the already-loaded
+   * list with a full-panel error. Cleared when a fetch-more is retried or when
+   * one succeeds; reset on context change / stop.
+   */
+  fetchMoreError: Error | null;
   context: ThreadRuntimeContext | null;
   sessionId: number;
   metadataCredentialsRequested: boolean;
@@ -147,6 +184,7 @@ const initialThreadState: ThreadState = {
   isLoading: false,
   isFetchingNextPage: false,
   error: null,
+  fetchMoreError: null,
   context: null,
   sessionId: 0,
   metadataCredentialsRequested: false,
@@ -205,6 +243,10 @@ const threadSocketEvents = createActionGroup("Thread Socket", {
     sessionId: number;
     payload: ThreadMetadataEvent;
   }>(),
+  runActivityReceived: props<{
+    sessionId: number;
+    notification: ThreadRunActivityNotification;
+  }>(),
 });
 
 const threadDomainEvents = createActionGroup("Thread Domain", {
@@ -237,6 +279,55 @@ function upsertThread(
   return sortThreadsByRecency(next);
 }
 
+/**
+ * Returns a non-empty string payload field or undefined for absent fields.
+ */
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * REST `/threads` is agent-scoped. The Phoenix `user_meta` channel is not.
+ * Drop live upserts that belong to a different agent, or one Inspector
+ * `all-agents` flatten shows the same thread twice until a hard refresh.
+ */
+function threadMetadataTargetsAgent(
+  payload: ThreadMetadataEvent,
+  agentId: string | undefined,
+): boolean {
+  if (!agentId || payload.operation === "deleted") {
+    return true;
+  }
+
+  const threadAgentId = optionalString(payload.thread.agentId);
+  return !threadAgentId || threadAgentId === agentId;
+}
+
+/**
+ * Converts gateway run-activity payloads into the internal TypeScript shape.
+ */
+function normalizeThreadRunActivityNotification(
+  payload: ThreadRunActivityGatewayPayload,
+): ThreadRunActivityNotification | null {
+  const threadId = optionalString(payload.threadId ?? payload.thread_id);
+  const eventType = optionalString(payload.eventType ?? payload.event_type);
+
+  if (!threadId || !eventType) {
+    return null;
+  }
+
+  return {
+    type: "thread_run_activity",
+    threadId,
+    agentId: optionalString(payload.agentId ?? payload.agent_id),
+    runId: optionalString(payload.runId ?? payload.run_id),
+    eventType,
+    latestEventId: optionalString(
+      payload.latestEventId ?? payload.latest_event_id,
+    ),
+  };
+}
+
 const threadReducer = createReducer(
   initialThreadState,
   on(threadAdapterEvents.contextChanged, (state: ThreadState, { context }) => ({
@@ -247,6 +338,7 @@ const threadReducer = createReducer(
     isLoading: Boolean(context),
     isFetchingNextPage: false,
     error: null,
+    fetchMoreError: null,
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
@@ -259,6 +351,7 @@ const threadReducer = createReducer(
     isLoading: false,
     isFetchingNextPage: false,
     error: null,
+    fetchMoreError: null,
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
@@ -274,6 +367,10 @@ const threadReducer = createReducer(
       ...state,
       isLoading: true,
       error: null,
+      // A full-list refetch supersedes any prior fetch-more failure: the whole
+      // list is being reloaded, so the stale inline "couldn't load more" banner
+      // must not survive onto the fresh list.
+      fetchMoreError: null,
     };
   }),
   on(
@@ -282,13 +379,20 @@ const threadReducer = createReducer(
       if (sessionId !== state.sessionId) {
         return state;
       }
+      const joinCodeChanged = joinCode !== state.metadataJoinCode;
 
       return {
         ...state,
         threads: sortThreadsByRecency(threads),
         isLoading: false,
         error: null,
+        // The fresh full list also clears any lingering fetch-more error, in
+        // case the list arrived without passing through `listRequested`.
+        fetchMoreError: null,
         metadataJoinCode: joinCode,
+        metadataCredentialsRequested: joinCodeChanged
+          ? false
+          : state.metadataCredentialsRequested,
         nextCursor,
       };
     },
@@ -323,6 +427,8 @@ const threadReducer = createReducer(
         ...state,
         threads: merged,
         isFetchingNextPage: false,
+        // A successful next page clears any prior fetch-more error.
+        fetchMoreError: null,
         nextCursor,
       };
     },
@@ -334,10 +440,14 @@ const threadReducer = createReducer(
         return state;
       }
 
+      // A failed next-page load records the error on the DEDICATED fetch-more
+      // channel — NOT `state.error` — so the already-loaded list is preserved
+      // and the drawer renders an inline "couldn't load more — retry" panel
+      // rather than replacing the whole list with a full-panel error.
       return {
         ...state,
         isFetchingNextPage: false,
-        error,
+        fetchMoreError: error,
       };
     },
   ),
@@ -354,8 +464,12 @@ const threadReducer = createReducer(
       // is still valid — so we do NOT write `state.error` (which would replace
       // the whole list with a "couldn't load" panel). The failure is surfaced
       // as a diagnostic warning instead (socketDiagnosticsEffect), mirroring the
-      // stay-stale handling of a realtime channel join failure.
-      return state;
+      // stay-stale handling of a realtime channel join failure. Clear the
+      // request latch so a later list refresh can retry realtime setup.
+      return {
+        ...state,
+        metadataCredentialsRequested: false,
+      };
     },
   ),
   on(
@@ -379,6 +493,9 @@ const threadReducer = createReducer(
     return {
       ...state,
       isFetchingNextPage: true,
+      // Clear any prior fetch-more error so a retry dismisses the inline panel
+      // immediately while the next-page request is in flight.
+      fetchMoreError: null,
     };
   }),
   on(
@@ -546,6 +663,7 @@ interface ThreadSelectors {
   threads: (state: ThreadState) => ThreadRecord[];
   isLoading: (state: ThreadState) => boolean;
   error: (state: ThreadState) => Error | null;
+  fetchMoreError: (state: ThreadState) => Error | null;
   hasNextPage: (state: ThreadState) => boolean;
   isFetchingNextPage: (state: ThreadState) => boolean;
   isMutating: (state: ThreadState) => boolean;
@@ -556,7 +674,7 @@ interface ThreadSelectors {
  *
  * Each `createSelector` closure owns a private one-entry cache. Sharing a
  * single module-level selector instance across multiple concurrent stores
- * (e.g. a `<CopilotDrawer>` plus an independent `useThreads`) makes every
+ * (e.g. a `<CopilotThreadsDrawer>` plus an independent `useThreads`) makes every
  * cross-store emission a cache miss, defeating memoization and risking
  * emission instability for any future selector that allocates a new
  * object/array. Creating a per-store instance keeps each store's cache
@@ -567,6 +685,9 @@ function createThreadSelectors(): ThreadSelectors {
     threads: createSelector((state: ThreadState) => state.threads),
     isLoading: createSelector((state: ThreadState) => state.isLoading),
     error: createSelector((state: ThreadState) => state.error),
+    fetchMoreError: createSelector(
+      (state: ThreadState) => state.fetchMoreError,
+    ),
     hasNextPage: createSelector(
       (state: ThreadState) => state.nextCursor != null,
     ),
@@ -587,6 +708,7 @@ const standaloneSelectors = createThreadSelectors();
 const selectThreads = standaloneSelectors.threads;
 const selectThreadsIsLoading = standaloneSelectors.isLoading;
 const selectThreadsError = standaloneSelectors.error;
+const selectFetchMoreError = standaloneSelectors.fetchMoreError;
 const selectHasNextPage = standaloneSelectors.hasNextPage;
 const selectIsFetchingNextPage = standaloneSelectors.isFetchingNextPage;
 const selectIsMutating = standaloneSelectors.isMutating;
@@ -618,6 +740,13 @@ interface ThreadStore {
   archiveThread(threadId: string): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
+  /**
+   * Subscribes to synthetic run-activity notifications without changing the
+   * thread metadata list.
+   */
+  subscribeToRunActivity?(
+    callback: (notification: ThreadRunActivityNotification) => void,
+  ): Subscription;
   getState(): ThreadState;
   /**
    * Returns a stable initial snapshot for server-side rendering.
@@ -653,9 +782,71 @@ function threadFromFetch<T>(
   init: RequestInit & {
     selector: (response: Response) => Promise<T>;
     fetch: typeof fetch;
+    timeoutMs?: number;
+    nonCritical?: boolean;
   },
 ): Observable<T> {
-  return fromFetch(input, init);
+  return new Observable<T>((subscriber) => {
+    const {
+      fetch: fetchImpl,
+      selector,
+      signal,
+      timeoutMs,
+      nonCritical,
+      ...requestInit
+    } = init;
+    const controller = new AbortController();
+    const runtimeRequest: RuntimeRequestMeta = {
+      ...(nonCritical ? { nonCritical: true } : {}),
+      ...(timeoutMs === undefined ? {} : { selfBounded: true }),
+    };
+    let timedOut = false;
+    const abortRequest = () => controller.abort();
+
+    if (signal?.aborted) {
+      abortRequest();
+    } else {
+      signal?.addEventListener("abort", abortRequest, { once: true });
+    }
+
+    const timeoutId =
+      timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            timedOut = true;
+            runtimeRequest.timedOut = true;
+            abortRequest();
+          }, timeoutMs);
+
+    const requestInitWithMeta: RuntimeRequestInit = {
+      ...requestInit,
+      signal: controller.signal,
+      ɵruntimeRequest: runtimeRequest,
+    };
+
+    fetchImpl(input, requestInitWithMeta)
+      .then((response) => selector(response))
+      .then((value) => {
+        if (subscriber.closed) return;
+        subscriber.next(value);
+        subscriber.complete();
+      })
+      .catch((error: unknown) => {
+        if (!subscriber.closed) {
+          subscriber.error(
+            timedOut ? new Error("Request timed out") : (error as Error),
+          );
+        }
+      });
+
+    return () => {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
+      signal?.removeEventListener("abort", abortRequest);
+      abortRequest();
+    };
+  });
 }
 
 function createThreadFetchObservable(
@@ -683,15 +874,10 @@ function createThreadFetchObservable(
         return response.json() as Promise<ThreadListResponse>;
       },
       fetch: environment.fetch,
+      timeoutMs: REQUEST_TIMEOUT_MS,
       method: "GET",
       headers: { ...context.headers },
     }).pipe(
-      timeout({
-        first: REQUEST_TIMEOUT_MS,
-        with: () => {
-          throw new Error("Request timed out");
-        },
-      }),
       map((data) =>
         threadRestEvents.listSucceeded({
           sessionId,
@@ -735,6 +921,8 @@ function createThreadMetadataCredentialsObservable(
         return response.json() as Promise<ThreadMetadataCredentialsResponse>;
       },
       fetch: environment.fetch,
+      timeoutMs: REQUEST_TIMEOUT_MS,
+      nonCritical: true,
       method: "POST",
       headers: {
         ...context.headers,
@@ -742,12 +930,6 @@ function createThreadMetadataCredentialsObservable(
       },
       body: JSON.stringify({}),
     }).pipe(
-      timeout({
-        first: REQUEST_TIMEOUT_MS,
-        with: () => {
-          throw new Error("Request timed out");
-        },
-      }),
       map((data) => {
         if (typeof data.joinToken !== "string" || data.joinToken.length === 0) {
           throw new Error("missing joinToken");
@@ -992,6 +1174,25 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 }),
               ),
             );
+            const runActivity$ = channel$.pipe(
+              switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                ɵobservePhoenixEvent$<ThreadRunActivityGatewayPayload>(
+                  channel,
+                  THREAD_RUN_ACTIVITY_CHANNEL_EVENT,
+                ),
+              ),
+              map((payload) => normalizeThreadRunActivityNotification(payload)),
+              filter(
+                (notification): notification is ThreadRunActivityNotification =>
+                  notification !== null,
+              ),
+              map((notification) =>
+                threadSocketEvents.runActivityReceived({
+                  sessionId: action.sessionId,
+                  notification,
+                }),
+              ),
+            );
             const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
               filter((outcome) => outcome.type !== "joined"),
               map((outcome) =>
@@ -1005,9 +1206,12 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               ),
             );
 
-            return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
-              takeUntil(merge(shutdown$, fatalSocketShutdown$)),
-            );
+            return merge(
+              socketLifecycle$,
+              metadata$,
+              runActivity$,
+              joinOutcome$,
+            ).pipe(takeUntil(merge(shutdown$, fatalSocketShutdown$)));
           });
         }),
       ),
@@ -1018,7 +1222,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       actions$.pipe(
         ofType(threadSocketEvents.metadataReceived),
         withLatestFrom(state$),
-        filter(([action, state]) => action.sessionId === state.sessionId),
+        filter(
+          ([action, state]) =>
+            action.sessionId === state.sessionId &&
+            threadMetadataTargetsAgent(action.payload, state.context?.agentId),
+        ),
         map(([action, state]) => {
           if (action.payload.operation === "deleted") {
             return threadDomainEvents.threadDeleted({
@@ -1112,16 +1320,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 return response.json() as Promise<ThreadListResponse>;
               },
               fetch: environment.fetch,
+              timeoutMs: REQUEST_TIMEOUT_MS,
               method: "GET",
               headers: { ...context.headers },
             },
           ).pipe(
-            timeout({
-              first: REQUEST_TIMEOUT_MS,
-              with: () => {
-                throw new Error("Request timed out");
-              },
-            }),
             map((data) =>
               threadRestEvents.nextPageSucceeded({
                 sessionId: state.sessionId,
@@ -1385,6 +1588,17 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         }),
       );
     },
+    subscribeToRunActivity(
+      callback: (notification: ThreadRunActivityNotification) => void,
+    ): Subscription {
+      return store.actions$
+        .pipe(
+          ofType(threadSocketEvents.runActivityReceived),
+          filter((action) => action.sessionId === store.getState().sessionId),
+          map((action) => action.notification),
+        )
+        .subscribe(callback);
+    },
     getState(): ThreadState {
       return store.getState();
     },
@@ -1407,6 +1621,7 @@ export const ɵcreateThreadSelectors = createThreadSelectors;
 export const ɵselectThreads = selectThreads;
 export const ɵselectThreadsIsLoading = selectThreadsIsLoading;
 export const ɵselectThreadsError = selectThreadsError;
+export const ɵselectFetchMoreError = selectFetchMoreError;
 export const ɵselectHasNextPage = selectHasNextPage;
 export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
 export const ɵselectIsMutating = selectIsMutating;
@@ -1418,3 +1633,9 @@ export { createThreadStore as ɵcreateThreadStore };
  * hardcoding the threshold separately from production.
  */
 export const ɵMAX_SOCKET_RETRIES = MAX_SOCKET_RETRIES;
+/**
+ * How long a thread REST request is given before the store gives up on it.
+ * Exposed for tests for the same reason as {@link ɵMAX_SOCKET_RETRIES}: a
+ * separately hardcoded copy silently drifts away from this one.
+ */
+export const ɵTHREAD_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS;

@@ -20,7 +20,8 @@
     "isbot": "^5.1.27",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router": "^7.11.0"
+    "react-router": "^7.11.0",
+    "zod": "^3.25.75"
   },
   "devDependencies": {
     "@react-router/dev": "^7.11.0",

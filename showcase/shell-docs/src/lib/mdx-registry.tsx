@@ -22,13 +22,20 @@ import { NewLookAndFeelPreview } from "@/components/react/component-previews/new
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
 import { SignupLink } from "@/components/react/signup-link";
+import {
+  DocsTrackedCopy,
+  DocsTrackedLink,
+} from "@/components/react/docs-conversion";
 import { IframeSwitcher as RealIframeSwitcher } from "@/components/content";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
 import { DocsLandingNext } from "@/components/docs-landing-next";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
+import { WhenAngularBackend } from "@/components/when-angular-backend";
 import { AgentCoreCommandTabs } from "@/components/agentcore-command-tabs";
 import { DemoSource } from "@/components/demo-source";
+import { AngularFeatureCatalog } from "@/components/angular-feature-catalog";
+import { AngularSnippet } from "@/components/angular-snippet";
 import { UnsupportedBox } from "@/components/snippet";
 import { getRegistry } from "@/lib/registry";
 import { PartialLoader } from "@/lib/mdx-registry-loader";
@@ -147,7 +154,9 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
     "self-hosting-copilot-runtime-configure-copilotkit-provider.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  Threads: "shared/threads/threads.mdx",
+  HeadlessThreads: "shared/threads/headless-threads.mdx",
+  Threads: "shared/threads/headless-threads.mdx",
+  ThreadsOverview: "shared/threads/overview.mdx",
 };
 
 // Dev-only warning helper for stub components that discard their props.
@@ -259,6 +268,8 @@ export const docsComponents = {
   PropertyReference,
   OpsPlatformCTA,
   SignupLink,
+  DocsTrackedCopy,
+  DocsTrackedLink,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
     if (!feature) {
       warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
@@ -419,7 +430,10 @@ export const docsComponents = {
   // overrides this to inject `defaultFramework` from the URL — same
   // pattern as <Snippet>.
   WhenFrameworkHas,
+  WhenAngularBackend,
   AgentCoreCommandTabs,
+  AngularFeatureCatalog,
+  AngularSnippet,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -502,20 +516,30 @@ export const docsComponents = {
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // <Content framework="..." /> on the `deploy-agentcore` pages
-  // (langgraph/* + aws-strands) renders the shared AgentCore deploy
-  // partial at src/content/snippets/integrations/agentcore/index.mdx.
-  // Unlike the generic `stubWithPartial` stubs, this one threads the
-  // page's `framework` into the partial's MDX scope so the embedded
-  // `<AgentCoreCommandTabs framework={framework} />` collapses to the
-  // single relevant framework (Strands-only / LangGraph-only) instead
-  // of showing both. `stubWithPartial` can't do this — it discards
-  // props by design — so Content is a dedicated loader call. `scope`
-  // keys surface as bare identifiers in the partial (NOT `props.*`);
-  // see PartialLoader.
-  Content: ({ framework }: { framework?: string }) => (
+  // <Content framework="..." partial="..." /> renders a shared deploy
+  // partial and threads the page's `framework` into the partial's MDX
+  // scope so framework-aware bits inside it (e.g.
+  // `<AgentCoreCommandTabs framework={framework} />`, or the
+  // `href={`/${framework}/...`}` cards in the LangSmith partial) collapse
+  // to the single relevant framework instead of showing both. Unlike the
+  // generic `stubWithPartial` stubs, this one forwards props, so it's a
+  // dedicated loader call. `scope` keys surface as bare identifiers in
+  // the partial (NOT `props.*`); see PartialLoader.
+  //
+  // Used by the per-framework deploy wrappers:
+  //   - `deploy-agentcore` (langgraph/* + aws-strands) → defaults to
+  //     integrations/agentcore/index.mdx
+  //   - `deploy-langsmith` (deploy/* + langgraph/* + adk/*) → passes
+  //     partial="integrations/langsmith/index.mdx"
+  Content: ({
+    framework,
+    partial,
+  }: {
+    framework?: string;
+    partial?: string;
+  }) => (
     <PartialLoader
-      relativePath="integrations/agentcore/index.mdx"
+      relativePath={partial ?? "integrations/agentcore/index.mdx"}
       scope={{ framework }}
       components={
         docsComponents as unknown as Record<

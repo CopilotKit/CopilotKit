@@ -33,8 +33,8 @@ export interface RecordAnnotationArgs {
    */
   headers: Record<string, string>;
   /**
-   * The annotation discriminant understood by the Intelligence platform.
-   * Known values: `"user_action"`, `"set_learning_containers"`.
+   * The annotation discriminant understood by CopilotKit Intelligence.
+   * `"user_action"` records a UI interaction for the self-learning loop.
    */
   type: string;
   /**
@@ -63,8 +63,8 @@ export interface RecordAnnotationArgs {
  * Low-level function that posts an arbitrary annotation to the CopilotKit
  * runtime's general annotation endpoint (`POST /annotate`).
  *
- * This is the single transport entry point for all annotation types. Higher-
- * level hooks (e.g. `useLearnFromUserAction`) build the `type`/`payload` pair
+ * This is the single transport entry point for annotations. Higher-level
+ * hooks such as `useLearnFromUserAction` build the `type`/`payload` pair
  * for their specific annotation shape and delegate the HTTP call here.
  *
  * The function uses the same transport as `useLearnFromUserAction`:

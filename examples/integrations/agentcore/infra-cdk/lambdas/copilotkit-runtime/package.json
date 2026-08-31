@@ -8,9 +8,9 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
+    "@ag-ui/client": "0.0.58",
     "@ag-ui/mcp-apps-middleware": "^0.0.3",
-    "@copilotkit/runtime": "1.61.0",
+    "@copilotkit/runtime": "1.68.1",
     "@hono/node-server": "^1.13.7",
     "hono": "^4.11.4",
     "rxjs": "^7.8.2"
@@ -18,5 +18,11 @@
   "devDependencies": {
     "@types/node": "^22.15.32",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@ag-ui/client": "0.0.58",
+    "@ag-ui/core": "0.0.58",
+    "@ag-ui/encoder": "0.0.58",
+    "@ag-ui/proto": "0.0.58"
   }
 }

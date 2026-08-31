@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
@@ -17,6 +18,7 @@ import type {
   FrameworkOverviewData,
   OpsPlatformCTAData,
 } from "@/data/frameworks/types";
+import type { FrontendId } from "@/lib/frontend-options";
 
 export interface FrameworkOverviewProps {
   data: FrameworkOverviewData;
@@ -28,6 +30,14 @@ export interface FrameworkOverviewProps {
    * because the data record's `guideLink` embeds the primary variant's slug.
    */
   currentFramework: string;
+  /**
+   * Optional public route prefix for nested docs surfaces such as
+   * `/angular/langgraph-python`. Framework links are rewritten into this
+   * prefix after variant normalization.
+   */
+  hrefPrefix?: string;
+  /** Frontend selected by the route, used for framework-sensitive copy. */
+  frontendOverride?: FrontendId;
   /**
    * Optional slot rendered between the supported-features section and the
    * architecture section. When supplied, this takes precedence over `data.cta`
@@ -105,6 +115,7 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
   "langgraph-typescript": "langgraph-js",
   "google-adk": "adk",
   strands: "aws-strands-py",
+  "strands-typescript": "aws-strands-ts",
   "ms-agent-dotnet": "microsoft-agent-framework-dotnet",
   "ms-agent-python": "microsoft-agent-framework-py",
   mastra: "mastra",
@@ -114,9 +125,15 @@ const DOCS_SLUG_TO_CLI_FRAMEWORK: Record<string, string> = {
   ag2: "ag2",
 };
 
+export function cliFrameworkForDocsSlug(slug: string): string | undefined {
+  return DOCS_SLUG_TO_CLI_FRAMEWORK[slug];
+}
+
 export function FrameworkOverview({
   data,
   currentFramework,
+  hrefPrefix,
+  frontendOverride,
   afterFeatures,
   iconOverride,
 }: FrameworkOverviewProps) {
@@ -127,12 +144,25 @@ export function FrameworkOverview({
     subheader,
     guideLink: rawGuideLink,
     initCommand,
-    supportedFeatures = [],
+    supportedFeatures: rawSupportedFeatures = [],
     architectureImage,
     architectureVideo,
     liveDemos = [],
     cta,
   } = data;
+  const supportedFeatures =
+    frontendOverride === "angular"
+      ? rawSupportedFeatures.map((feature) => ({
+          ...feature,
+          description: feature.description.replace(
+            /\bReact components?\b/g,
+            (match) =>
+              match.endsWith("s")
+                ? "Angular components"
+                : "an Angular component",
+          ),
+        }))
+      : rawSupportedFeatures;
 
   // Derive the primary variant's slug from the data record's own links —
   // typically the path segment after the leading `/` of `guideLink`
@@ -140,19 +170,49 @@ export function FrameworkOverview({
   // rewrite *away from* so that variant users land on their own variant's
   // sub-pages.
   const fromSlug = rawGuideLink.split("/")[1] ?? "";
-  const link = (href: string) => rewriteHref(href, fromSlug, currentFramework);
+  const link = (href: string) => {
+    const rewritten = rewriteHref(href, fromSlug, currentFramework);
+    if (!hrefPrefix || !rewritten.startsWith("/")) return rewritten;
+
+    const frameworkPrefix = `/${currentFramework}`;
+    if (rewritten === frameworkPrefix) return hrefPrefix;
+    if (rewritten.startsWith(`${frameworkPrefix}/`)) {
+      return `${hrefPrefix}${rewritten.slice(frameworkPrefix.length)}`;
+    }
+    return rewritten;
+  };
 
   // Frameworks whose init is the generic top-level command get the unified
   // two-command recommendation (matching the home hero). Frameworks with
   // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
   // single command chip — those commands aren't interchangeable with the CLI.
   const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
-  const createFramework = DOCS_SLUG_TO_CLI_FRAMEWORK[currentFramework];
+  const createFramework = cliFrameworkForDocsSlug(currentFramework);
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
   );
   const [copied, setCopied] = useState(false);
+  const posthog = usePostHog();
+  const selectedFrontend = frontendOverride ?? "react";
+  const overviewPath = hrefPrefix ?? `/${currentFramework}`;
+
+  const captureJourneyContinuation = (
+    destinationType: "demo" | "quickstart",
+    destinationPath: string,
+  ) => {
+    try {
+      posthog?.capture("docs.journey_continued", {
+        destination_type: destinationType,
+        destination_path: destinationPath,
+        frontend: selectedFrontend,
+        backend: currentFramework,
+        from_path: overviewPath,
+      });
+    } catch {
+      // Analytics must never block a docs journey.
+    }
+  };
 
   // Look up the icon by key. If the key isn't registered (forward-compat with
   // string IconKey from Track A), fall back to rendering nothing rather than
@@ -188,6 +248,9 @@ export function FrameworkOverview({
         body={cta.body}
         ctaLabel={cta.ctaLabel}
         surface={cta.surface}
+        frontend={selectedFrontend}
+        backend={currentFramework}
+        fromPath={overviewPath}
       />
     ) : null);
 
@@ -235,11 +298,23 @@ export function FrameworkOverview({
             {isGenericInit ? (
               <HeroStartActions
                 createFramework={createFramework}
-                quickstart={<QuickstartLinkButton href={link(rawGuideLink)} />}
+                quickstart={
+                  <QuickstartLinkButton
+                    href={link(rawGuideLink)}
+                    frontend={selectedFrontend}
+                    backend={currentFramework}
+                    fromPath={overviewPath}
+                  />
+                }
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <QuickstartLinkButton href={link(rawGuideLink)} />
+                <QuickstartLinkButton
+                  href={link(rawGuideLink)}
+                  frontend={selectedFrontend}
+                  backend={currentFramework}
+                  fromPath={overviewPath}
+                />
                 <button
                   type="button"
                   onClick={handleCopyCommand}
@@ -312,6 +387,12 @@ export function FrameworkOverview({
                         {feature.demoLink && (
                           <Link
                             href={link(feature.demoLink)}
+                            onClick={() =>
+                              captureJourneyContinuation(
+                                "demo",
+                                link(feature.demoLink!),
+                              )
+                            }
                             className="inline-flex items-center gap-1.5 text-[14px] text-[var(--text-muted)] hover:text-[var(--text)] no-underline transition-colors"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />
@@ -422,7 +503,10 @@ export function FrameworkOverview({
                     <button
                       key={demo.type}
                       type="button"
-                      onClick={() => setActiveDemo(demo.type)}
+                      onClick={() => {
+                        setActiveDemo(demo.type);
+                        captureJourneyContinuation("demo", demo.iframeUrl);
+                      }}
                       className={`shell-docs-radius-control h-8 px-4 text-[13px] font-medium transition-colors ${
                         active
                           ? "bg-[var(--bg-elevated)] text-[var(--text)] shadow-[var(--shadow-control)]"

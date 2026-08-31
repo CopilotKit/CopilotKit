@@ -269,6 +269,18 @@ class ReasoningAGUIChatWorkflow(AGUIChatWorkflow):
         text_msg_id = str(uuid.uuid4())
         reasoning_msg_id: Optional[str] = None
         resp = ChatResponse(message=ChatMessage(role="assistant", content=""))
+        # No-tools path only: ``astream_chat`` over ``OpenAIResponses`` streams
+        # the answer as ``resp.delta`` but does NOT accumulate it back onto the
+        # terminal ``resp.message.content`` (unlike ``astream_chat_with_tools``,
+        # which the tools branch and the GREEN
+        # ``tool_rendering_reasoning_chain_agent`` rely on). So the message we
+        # hand to ``_finalize_chat`` — and thus the MESSAGES_SNAPSHOT — is
+        # content-empty even though ~hundreds of chars streamed, producing an
+        # empty assistant bubble (``text-unstable``). Accumulate the deltas
+        # ourselves and reconcile onto the finalized message below. Tracked only
+        # when there are no tools; the tools branch already carries content.
+        accumulated_text: list[str] = []
+        track_text = not tools
 
         async for resp in resp_gen:
             reasoning_delta = _extract_reasoning_delta(resp)
@@ -292,6 +304,8 @@ class ReasoningAGUIChatWorkflow(AGUIChatWorkflow):
                 )
 
             if resp.delta:
+                if track_text:
+                    accumulated_text.append(resp.delta)
                 # Reasoning precedes the answer; close the reasoning message
                 # before the first text chunk so the frontend reasoning slot
                 # finalizes ahead of the assistant message.
@@ -315,6 +329,15 @@ class ReasoningAGUIChatWorkflow(AGUIChatWorkflow):
             ctx.write_event_to_stream(
                 ReasoningMessageEndWorkflowEvent(message_id=reasoning_msg_id)
             )
+
+        # No-tools reconciliation: ``astream_chat`` left the terminal message
+        # content-empty (see ``accumulated_text`` above). Fold the streamed
+        # answer back onto ``resp.message`` BEFORE ``_finalize_chat`` snapshots
+        # it, so MESSAGES_SNAPSHOT carries the real assistant text instead of an
+        # empty bubble. Strictly additive: only fills a message the stream left
+        # empty — never overwrites content the LLM already accumulated.
+        if track_text and accumulated_text and not resp.message.content:
+            resp.message.content = "".join(accumulated_text)
 
         return await self._finalize_chat(ctx, resp, chat_history)
 

@@ -31,7 +31,7 @@ Transform tedious form-filling into natural conversations. Your AI assistant ask
 
    ```bash
    git clone https://github.com/CopilotKit/CopilotKit.git
-   cd CopilotKit/examples/copilot-form-filling
+   cd CopilotKit/examples/v1/form-filling
    ```
 
 2. Install dependencies:

@@ -43,12 +43,12 @@ describe("verify-deploy argv parsing", () => {
     );
   });
 
-  it("defaults skipIneligible to false (strict mode)", () => {
+  it("defaults skipIneligible to true (skip-by-default — known-but-ineligible names are a legitimate state)", () => {
     const parsed = parseArgs(["--env", "staging"]);
-    expect(parsed.skipIneligible).toBeFalsy();
+    expect(parsed.skipIneligible).toBe(true);
   });
 
-  it("accepts --skip-ineligible (opt-in skip of probe.staging=false services)", () => {
+  it("accepts --skip-ineligible as an explicit no-op (now the default; back-compat with the staging precondition caller)", () => {
     const parsed = parseArgs([
       "--env",
       "staging",
@@ -57,6 +57,17 @@ describe("verify-deploy argv parsing", () => {
       "--skip-ineligible",
     ]);
     expect(parsed.skipIneligible).toBe(true);
+  });
+
+  it("accepts --strict-eligibility to opt OUT of skip-by-default (restore hard-refuse)", () => {
+    const parsed = parseArgs([
+      "--env",
+      "prod",
+      "--services",
+      "harness-workers",
+      "--strict-eligibility",
+    ]);
+    expect(parsed.skipIneligible).toBe(false);
   });
 
   it("rejects bare trailing --env (no following value)", () => {
@@ -125,11 +136,13 @@ describe("resolveProbeTargets", () => {
     ).toThrow(/unknown service/i);
   });
 
-  it("REFUSES a non-probe-eligible service by default (strict mode for explicit probes)", () => {
-    // Find a real SSOT service whose probe.staging===false (e.g. a
-    // starter-*). The default (strict) path must still throw the
-    // distinct "not probe-eligible" error — an operator who explicitly
-    // typed a single non-eligible service deserves a hard refusal.
+  it("REFUSES a non-probe-eligible service when skipIneligible is unset (function-level strict; CLI passes skipIneligible=true)", () => {
+    // The resolveProbeTargets PRIMITIVE stays strict when skipIneligible is
+    // not passed — an explicit caller that wants the hard refusal (or the
+    // CLI's `--strict-eligibility` opt-out) gets the distinct "not
+    // probe-eligible" error. The CLI itself now defaults skipIneligible=true
+    // (see parseArgs), so the verify-prod gate composes; this test pins the
+    // primitive's unset-flag contract, not the CLI default.
     const ineligible = Object.keys(SERVICES).find(
       (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
     );
@@ -332,6 +345,32 @@ describe("runVerify driver dispatch", () => {
     expect(calls).toContain("docs");
     expect(calls).not.toContain(ineligible);
     expect(summary.exitCode).toBe(0);
+  });
+
+  it("exits 0 (nothing to probe) when EVERY requested service is known-but-ineligible (verify-prod prod-only case)", async () => {
+    // The verify-prod gate calls verify-deploy directly with the promoted
+    // set, which can be entirely probe-ineligible services (e.g. just
+    // `harness-workers`, probe.prod=false). All are skipped → zero targets,
+    // but this is an EXPECTED no-op, NOT the vacuous-green fault: exit 0 with
+    // a clear "nothing to probe" note. Distinct from the empty-filter FAIL
+    // case below (length 0 there; here length>0 + all-ineligible).
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "prod"),
+    );
+    expect(ineligible).toBeDefined();
+    let probed = false;
+    const summary = await runVerify({
+      env: "prod",
+      services: [ineligible as string],
+      skipIneligible: true,
+      runner: async () => {
+        probed = true;
+        return { ok: true };
+      },
+    });
+    expect(probed).toBe(false);
+    expect(summary.exitCode).toBe(0);
+    expect(summary.failed.length).toBe(0);
   });
 
   it("FAILS LOUD on zero resolved targets (never silently exit 0)", async () => {

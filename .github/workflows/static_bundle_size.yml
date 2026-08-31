@@ -21,7 +21,7 @@ env:
   NX_VERBOSE_LOGGING: true
 
 jobs:
-  # Posts a per-PR comment with per-file gzip diffs for the 9 in-scope packages.
+  # Posts a per-PR comment with per-file gzip diffs for the 10 in-scope packages.
   # Runs preactjs/compressed-size-action, which builds the PR head and the base
   # branch, scans the `pattern` glob in each, and diffs the gzip sizes; the
   # comment updates in place on subsequent pushes. No hard-fail (Phase 1) — see
@@ -42,7 +42,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -50,10 +50,10 @@ jobs:
       - name: Setup pnpm
         # Omit `version:` so pnpm/action-setup inherits from the repo's
         # `packageManager` field in package.json (via corepack).
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Use Node.js 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
@@ -61,14 +61,14 @@ jobs:
           cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Measure compressed bundle sizes
-        uses: preactjs/compressed-size-action@66325aad6443cb7cf89c4bfcd414aea2367cda94 # 2.9.1
+        uses: preactjs/compressed-size-action@f322c295dde06a1cb7ccaef105732dd8a726d1d9 # 2.10.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           # Use the root `build` script (present on both this branch and the base
           # branch) so compressed-size-action can build both sides for comparison.
-          # The `pattern` below restricts measurement to the 9 in-scope packages.
+          # The `pattern` below restricts measurement to the 10 in-scope packages.
           build-script: build
-          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer}/dist/**/*.{mjs,js,cjs}"
+          pattern: "packages/{core,shared,react-core,react-ui,react-textarea,runtime-client-gql,web-inspector,voice,a2ui-renderer,react-native}/dist/**/*.{mjs,js,cjs}"
 
   # Measures what an app importing { CopilotChat } from
   # @copilotkit/react-core/v2 bundles, by driving esbuild over a synthetic entry
@@ -82,15 +82,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
 
       - name: Use Node.js 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -102,5 +102,14 @@ jobs:
       - name: Build react-core
         run: npx nx run @copilotkit/react-core:build
 
+      - name: Assert /v2/headless stays free of the render stack (#4893)
+        run: pnpm --filter @copilotkit/react-core size:assert-headless
+
       - name: Measure CopilotChat bundle regression signal
         run: pnpm --filter @copilotkit/react-core size:headline
+
+      - name: Build react-native
+        run: npx nx run @copilotkit/react-native:build
+
+      - name: Measure react-native headless import size
+        run: pnpm --filter @copilotkit/react-native size:headless

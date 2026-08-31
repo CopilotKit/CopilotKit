@@ -32,13 +32,13 @@ and calls the agent back with the user's answer.
 
 <WhenFrameworkHas flag="interrupt_pattern" equals="promise-based">
 
-The Microsoft Agent Framework runtime can't pause a run mid-tool the
-way LangGraph's `interrupt()` does, so this demo uses `useFrontendTool`
-with a Promise-based handler instead. The agent calls `schedule_meeting`
-like any other tool; the client-side handler renders the picker, holds
-the request open, and only resolves the Promise once the user picks a
-slot or cancels. Same UX from the reader's perspective — agent pauses,
-user answers, agent resumes — different mechanism underneath.
+Some runtimes cannot pause a run mid-tool the way LangGraph's
+`interrupt()` does, so this demo uses `useFrontendTool` with a
+Promise-based handler instead. The agent calls `schedule_meeting` like
+any other tool; the client-side handler renders the picker, holds the
+request open, and only resolves the Promise once the user picks a slot
+or cancels. Same UX from the reader's perspective — agent pauses, user
+answers, agent resumes — different mechanism underneath.
 
 </WhenFrameworkHas>
 
@@ -46,8 +46,8 @@ user answers, agent resumes — different mechanism underneath.
 
 > **Not available on this framework.** `useInterrupt` is only meaningful
 > when the underlying runtime exposes either a native `interrupt(...)`
-> primitive (LangGraph) or a Promise-resolving frontend tool path
-> (Microsoft Agent Framework). For all other integrations, use
+> primitive (LangGraph) or a Promise-resolving frontend tool path. For
+> all other integrations, use
 > [`useHumanInTheLoop`](../human-in-the-loop) instead — it's the
 > standard hook for tool-call-based pause/resume flows and works on
 > every framework that supports tool calls.
@@ -110,7 +110,7 @@ the return value of the matching `interrupt(...)` call.
 
 The handler stores its `resolve` callback in a ref, returns a Promise
 that the user's pick eventually resolves, and renders the picker
-inline in the chat. This is the MS Agent equivalent of
+inline in the chat. This is the frontend-tool equivalent of
 `useInterrupt`'s `event` / `resolve` pair:
 
 <Snippet region="frontend-promise-handler" title="frontend/src/app/page.tsx — useFrontendTool (Promise-based)" />

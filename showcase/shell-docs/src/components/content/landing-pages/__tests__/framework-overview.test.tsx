@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { FrameworkOverview } from "../framework-overview";
+import {
+  cliFrameworkForDocsSlug,
+  FrameworkOverview,
+} from "../framework-overview";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const overviewData: FrameworkOverviewData = {
@@ -18,6 +21,16 @@ const overviewData: FrameworkOverviewData = {
 };
 
 describe("FrameworkOverview", () => {
+  it.each([
+    ["strands", "aws-strands-py"],
+    ["strands-typescript", "aws-strands-ts"],
+  ])(
+    "uses the verified CLI framework id for the %s overview",
+    (currentFramework, cliFramework) => {
+      expect(cliFrameworkForDocsSlug(currentFramework)).toBe(cliFramework);
+    },
+  );
+
   it("renders the primary quickstart CTA and optional agent CLI setup action", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
@@ -58,5 +71,27 @@ describe("FrameworkOverview", () => {
 
     expect(markup).toContain('class="pb-8 sm:pb-12"');
     expect(markup).not.toContain("pt-2 sm:pt-4");
+  });
+
+  it("renders framework feature copy for the selected Angular frontend", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={{
+          ...overviewData,
+          supportedFeatures: [
+            {
+              title: "Generative UI",
+              description: "Render custom React components from agent output.",
+              documentationLink: "/langgraph-python/quickstart",
+            },
+          ],
+        }}
+        currentFramework="langgraph-python"
+        frontendOverride="angular"
+      />,
+    );
+
+    expect(markup).toContain("custom Angular components");
+    expect(markup).not.toContain("React components");
   });
 });

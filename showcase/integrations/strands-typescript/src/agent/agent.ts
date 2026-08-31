@@ -258,10 +258,12 @@ const A2UI_DYNAMIC_SALES_DATASET = `Vantage Threads (fictional B2B apparel compa
 - Biggest account: Meridian Apparel Group — owner Dana Whitfield, region North America, ARR $612k, renewal Sep 30, last contact 3 days ago, health green, 4 open opportunities worth $210k.
 - Meridian revenue by product line: Outerwear $260k, Footwear $180k, Accessories $112k, Custom $60k.`;
 
-const A2UI_DYNAMIC_COMPOSITION_RULES = `Pick A2UI components by the shape of the question — never ask which chart the user wants:
-1. Overall snapshot / "sales dashboard" → a Column (gap 16) whose first child is a Row (gap 16) of 4 Metric tiles (each with trend + trendValue), followed by a Row with a PieChart (revenue by region) next to a BarChart (monthly revenue, all six months Jan-Jun). Do NOT wrap the dashboard in a surrounding Card — the charts carry their own card chrome. Do NOT use StatusBadge, DataTable, or InfoRow here.
+const A2UI_DYNAMIC_COMPOSITION_RULES = `Use ONLY these exact component names (the registered catalog — any other name fails to render): Card, Column, Row, Text, Metric, PieChart, BarChart, DataTable, StatusBadge, InfoRow, PrimaryButton. The single-value KPI tile component is named exactly "Metric" (NOT "MetricTile" or "MetricCard").
+
+Pick A2UI components by the shape of the question — never ask which chart the user wants:
+1. Overall snapshot / "sales dashboard" → a Column (gap 16) whose first child is a Row (gap 16) of 4 Metric components (each with trend + trendValue), followed by a Row with a PieChart (revenue by region) next to a BarChart (monthly revenue, all six months Jan-Jun). Do NOT wrap the dashboard in a surrounding Card — the charts carry their own card chrome. Do NOT use StatusBadge, DataTable, or InfoRow here.
 2. Rep / team performance → a Column (gap 16) with a Card containing a DataTable (columns: rep, attainment, pipeline) next to or above a BarChart of quota attainment % per rep — no StatusBadge or InfoRow.
-3. Risk / health checks → a Column (gap 16): first a Row (gap 16) of 3 Metric tiles (ARR at risk $615k trend down, accounts at risk 3, biggest exposure Northwind $340k), then a Row (gap 16) with one compact Card per at-risk account (title = account name, subtitle = ARR at stake) containing a StatusBadge (error for high severity, warning otherwise) above a one-line Text with the reason and the recommended next action — no DataTable or InfoRow.
+3. Risk / health checks → a Column (gap 16): first a Row (gap 16) of 3 Metric components (ARR at risk $615k trend down, accounts at risk 3, biggest exposure Northwind $340k), then a Row (gap 16) with one compact Card per at-risk account (title = account name, subtitle = ARR at stake) containing a StatusBadge (error for high severity, warning otherwise) above a one-line Text with the reason and the recommended next action — no DataTable or InfoRow.
 4. Single account/entity details → a Row (gap 16) with a Card of InfoRow facts (owner, region, ARR, renewal date, last contact) next to a PieChart of that account's revenue by product line — no DataTable or StatusBadge.
 5. Part-of-whole follow-ups → PieChart; trends or comparisons over time/categories → BarChart.
 Compose generously — a dashboard should feel like a real analytics product, not a single widget.`;
@@ -310,6 +312,49 @@ export async function buildA2uiDynamicAgent(): Promise<StrandsAgent> {
     name: "a2ui_dynamic_schema",
     description:
       "Dynamic A2UI surfaces generated on the fly (auto-injected tool)",
+    config,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// A2UI Error Recovery (a2ui-recovery) — adapter auto-injects + runs recovery.
+// ---------------------------------------------------------------------------
+//
+// Same auto-injected dynamic-schema setup as buildA2uiDynamicAgent, but the
+// aimock fixtures force the inner render_a2ui to emit free-form/sloppy args
+// (heal pill) or a structurally-invalid surface on every attempt (exhaust
+// pill). The Strands adapter runs the toolkit validate->retry recovery loop on
+// its auto-inject path (default 3 attempts) and returns the
+// a2ui_recovery_exhausted hard-fail envelope when the cap is hit — so this
+// agent wires NO tool, unlike the langgraph/ADK siblings (which own the tool
+// explicitly via getA2UITools + injectA2UITool:false). Mirrors the ag-ui dojo
+// aws-strands recovery example.
+
+/**
+ * Dedicated agent for the A2UI error-recovery demo. Wires NO `generate_a2ui`
+ * tool — the runtime's `injectA2UITool: true` makes the adapter auto-inject it,
+ * drive the secondary render planner, and run the recovery loop.
+ */
+export async function buildA2uiRecoveryAgent(): Promise<StrandsAgent> {
+  const strandsAgent = new Agent({
+    // Chat Completions API: the Responses adapter buffers tool-call argument
+    // deltas, which would defeat A2UI's progressive surface streaming.
+    model: await createModel({ openaiApi: "chat" }),
+    systemPrompt: A2UI_DYNAMIC_SYSTEM_PROMPT,
+  });
+
+  const config: StrandsAgentConfig = {
+    a2ui: {
+      defaultCatalogId: A2UI_DYNAMIC_CATALOG_ID,
+      guidelines: { compositionGuide: A2UI_DYNAMIC_COMPOSITION_GUIDE },
+    },
+  };
+
+  return new StrandsAgent({
+    agent: strandsAgent,
+    name: "a2ui_recovery",
+    description:
+      "Dynamic A2UI with automatic error recovery (auto-injected tool)",
     config,
   });
 }

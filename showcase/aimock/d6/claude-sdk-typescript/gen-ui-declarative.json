@@ -1,136 +1,195 @@
 {
   "_meta": {
-    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-declarative (A2UI pass-through)",
-    "_note": "claude-sdk-typescript's declarative-gen-ui route uses the runtime-injected `render_a2ui` tool (injectA2UITool defaults to true — see src/app/api/copilotkit-declarative-gen-ui/route.ts); the Claude pass-through agent calls it directly against the page-registered catalog. Fixtures therefore emit A2UI v0.9 `render_a2ui` payloads ({surfaceId, catalogId, components[]} with exactly one id='root' and `component` — NOT the legacy flat {type: ...} shape this file previously carried, which the renderer ignored and the declarative-* testids never mounted). Payload shapes mirror aimock/d6/langgraph-typescript/gen-ui-declarative.json's [render_a2ui mirror] fixtures; PieChart/BarChart `description` is REQUIRED by this family's catalog (declarative-gen-ui/a2ui/definitions.ts). Each pill needs two legs on the Anthropic /v1/messages shape: (a) userMessage-matched emit, (b) toolCallId-matched narration (the follow-up's last user message is a tool_result block with no text, so userMessage matchers skip it). chunkSize 9999 keeps each args payload in a single SSE chunk.",
+    "description": "D6 fixtures for claude-sdk-typescript / gen-ui-declarative (A2UI Dynamic Schema)",
     "sourceFile": "d5-gen-ui-declarative.ts",
     "created": "2026-05-22",
-    "updated": "2026-06-11"
+    "updated": "2026-07-18",
+    "_note": "Agent plays a sales analyst for the fictional Vantage Threads company (OSS-136). Two-stage A2UI pattern mirrors the langgraph-python / google-adk references AND the claude-sdk-python sibling (#6051) on the Anthropic /v1/messages transport (see src/agent_server.ts /declarative-gen-ui handler + generateDeclarativeA2uiOperations): (1) the OUTER Claude call has only one tool, `generate_a2ui`, and emits it with a `context` string arg (the runtime route sets injectA2UITool:false, so the backend owns generate_a2ui \u2014 NOT a runtime-injected render_a2ui tool); (2) `generate_a2ui` internally invokes a SECONDARY Claude call bound to `render_a2ui` (tool_choice forced) whose user message is the outer's `context` arg, and which emits the flat A2UI components payload; (3) after the tool_result returns, the outer agent emits a one-sentence narration. Fixtures cover three LLM calls per pill: (a) outer emit -> generate_a2ui toolcall (matched by userMessage + toolName generate_a2ui + hasToolResult:false); (b) inner design -> render_a2ui toolcall (matched by userMessage + toolName render_a2ui, since the outer emits context == the pill prompt verbatim); (c) outer narration -> text (matched by toolCallId, because the follow-up's last user message is a tool_result block with no text so userMessage matchers skip it). Pill prompts are the four sales questions in harness d5-gen-ui-declarative.ts; chart steering lives in the demo's sales-context.ts composition rules. Keep userMessage matchers in sync with the harness pill prompts. Components use the flat A2UI catalog shape: {id, component, ...catalog-props}. The renderer (declarative-gen-ui/a2ui/renderers.tsx) mounts each catalog component's stable declarative-* testid. chunkSize 9999 keeps each args payload in a single SSE chunk. ORDERING: within each pill the narration fixture (toolCallId) is listed BEFORE the outer generate_a2ui fixture. aimock is first-wins and the CSTS runtime accumulates full conversation history across pills, so on turns 2-4 the outer call's request carries prior pills' tool results \u2014 a hasToolResult:false matcher would never fire. toolCallId matches only when the LAST message is a role:tool result, so ordering it first lets it claim narration calls while the outer (userMessage+toolName generate_a2ui, no hasToolResult) claims the last-role:user calls."
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — render_a2ui with root Card > Column > Metrics. Must mount declarative-card + declarative-metric testids.",
+      "_comment": "pill sales-dashboard hero \u2014 outer agent narration after generate_a2ui returns.",
       "match": {
-        "userMessage": "Show me a quick KPI dashboard",
-        "context": "claude-sdk-typescript",
-        "toolName": "render_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_declarative_kpi_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,230\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "match": {
-        "toolCallId": "call_d6_declarative_kpi_001",
+        "toolCallId": "call_d6_decl_dash_outer_csts_001",
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "content": "KPI dashboard rendered with revenue, signups, and churn metrics."
+        "content": "Here's your Q2 sales dashboard."
       },
       "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — render_a2ui with root PieChart (description is a required prop in this catalog). Must mount declarative-pie-chart testid.",
-      "match": {
-        "userMessage": "pie chart of sales by region",
-        "context": "claude-sdk-typescript",
-        "toolName": "render_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_declarative_pie_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"description\":\"Regional sales distribution\",\"data\":[{\"label\":\"North America\",\"value\":42},{\"label\":\"Europe\",\"value\":28},{\"label\":\"Asia Pacific\",\"value\":20},{\"label\":\"Other\",\"value\":10}]}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "match": {
-        "toolCallId": "call_d6_declarative_pie_001",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "Pie chart rendered showing sales distribution across four regions."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "gen-ui-declarative bar-chart pill — render_a2ui with root BarChart (description required). Must mount declarative-bar-chart testid.",
-      "match": {
-        "userMessage": "bar chart of quarterly revenue",
-        "context": "claude-sdk-typescript",
-        "toolName": "render_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_declarative_bar_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":340000},{\"label\":\"Q3\",\"value\":390000},{\"label\":\"Q4\",\"value\":450000}]}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "match": {
-        "toolCallId": "call_d6_declarative_bar_001",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "Bar chart rendered showing quarterly revenue growth from Q1 through Q4."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "gen-ui-declarative status-report pill — render_a2ui with root Card > Column > StatusBadges (StatusBadge props are text+variant in this catalog). Must mount declarative-status-badge testid.",
-      "match": {
-        "userMessage": "status report on system health",
-        "context": "claude-sdk-typescript",
-        "toolName": "render_a2ui"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_d6_declarative_status_001",
-            "name": "render_a2ui",
-            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System Health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded\",\"variant\":\"warning\"}]}"
-          }
-        ]
-      },
-      "chunkSize": 9999
-    },
-    {
-      "match": {
-        "toolCallId": "call_d6_declarative_status_001",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "Status report rendered — API and database are healthy, background workers show degraded performance."
-      },
-      "chunkSize": 9999
-    },
-    {
-      "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args). Mirrors LGP gen-ui-declarative.json sales-dashboard outer entry. Closes the production 503 gap where backend hits aimock with tools=[generate_a2ui] for this userMessage (see /tmp/staging-journal-diff.md shape-B).",
+      "_comment": "pill sales-dashboard hero \u2014 outer agent emits generate_a2ui with a context summary. [outer matcher drops hasToolResult: multi-turn history carries prior-pill tool results so hasToolResult:false never matched turns 2-4; the toolCallId narration fixture is ordered FIRST so it wins on last-role:tool requests, leaving this outer to match only last-role:user requests].",
       "match": {
         "userMessage": "Show me my sales dashboard for this quarter.",
-        "context": "claude-sdk-typescript"
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui"
       },
       "response": {
         "toolCalls": [
           {
             "id": "call_d6_decl_dash_outer_csts_001",
             "name": "generate_a2ui",
-            "arguments": "{}"
+            "arguments": "{\"context\":\"Show me my sales dashboard for this quarter.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill sales-dashboard hero \u2014 inner secondary Claude call (tool_choice forced) emits the flat A2UI components. Discriminated by toolName render_a2ui so it wins over the outer generate_a2ui fixture whose userMessage matches the same prompt. Composition rule 1: bare 4-Metric KPI row (no wrapping Card) + PieChart (revenue by region) next to BarChart (monthly revenue). Mounts declarative-metric (x4) + declarative-pie-chart + declarative-bar-chart.",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_dash_design_csts_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance \u2014 outer agent narration after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_decl_team_outer_csts_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Here's how the team is tracking against quota."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance \u2014 outer agent emits generate_a2ui with a context summary. [outer matcher drops hasToolResult: multi-turn history carries prior-pill tool results so hasToolResult:false never matched turns 2-4; the toolCallId narration fixture is ordered FIRST so it wins on last-role:tool requests, leaving this outer to match only last-role:user requests].",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_team_outer_csts_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"How are our sales reps performing against quota?\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill team-performance \u2014 inner secondary Claude call emits the flat A2UI components. Composition rule 2: a Card containing a DataTable (rep/attainment/pipeline) next to a BarChart of quota attainment % per rep. Mounts declarative-data-table + declarative-bar-chart.",
+      "match": {
+        "userMessage": "How are our sales reps performing against quota?",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_team_design_csts_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"rep-quota-performance\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"title\",\"summary\",\"content\"]},{\"id\":\"title\",\"component\":\"Text\",\"text\":\"Sales rep performance vs quota\"},{\"id\":\"summary\",\"component\":\"Text\",\"text\":\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\"},{\"id\":\"content\",\"component\":\"Row\",\"gap\":16,\"children\":[\"table-card\",\"attainment-chart\"]},{\"id\":\"table-card\",\"component\":\"Card\",\"title\":\"Rep attainment table\",\"child\":\"rep-table\"},{\"id\":\"rep-table\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Rep\"},{\"key\":\"attainment\",\"label\":\"Attainment\"},{\"key\":\"pipeline\",\"label\":\"Pipeline\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\",\"pipeline\":\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\",\"pipeline\":\"Above plan\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\",\"pipeline\":\"Near quota\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\",\"pipeline\":\"Below plan\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\",\"pipeline\":\"Furthest from quota\"}]},{\"id\":\"attainment-chart\",\"component\":\"BarChart\",\"title\":\"Quota attainment by rep\",\"description\":\"Q2 quota attainment percentages for all sales reps.\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk \u2014 outer agent narration after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_decl_risk_outer_csts_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Three accounts need attention this quarter."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk \u2014 outer agent emits generate_a2ui with a context summary. [outer matcher drops hasToolResult: multi-turn history carries prior-pill tool results so hasToolResult:false never matched turns 2-4; the toolCallId narration fixture is ordered FIRST so it wins on last-role:tool requests, leaving this outer to match only last-role:user requests].",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_risk_outer_csts_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Are any accounts or pipeline deals at risk this quarter?\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill at-risk \u2014 inner secondary Claude call emits the flat A2UI components. Composition rule 3: a 3-Metric KPI row + a Row of 3 compact Cards (one per at-risk account), each with a StatusBadge above a one-line Text. Mounts declarative-status-badge (x3) + declarative-metric (x3).",
+      "match": {
+        "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_risk_design_csts_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"risk-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"metrics-row\",\"accounts-row\"]},{\"id\":\"metrics-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-arr\",\"metric-accounts\",\"metric-biggest\"]},{\"id\":\"metric-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\"},{\"id\":\"metric-accounts\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\",\"trend\":\"neutral\"},{\"id\":\"metric-biggest\",\"component\":\"Metric\",\"label\":\"Biggest exposure\",\"value\":\"Northwind Retail\",\"trend\":\"down\"},{\"id\":\"accounts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"card-northwind\",\"card-cascadia\",\"card-atlas\"]},{\"id\":\"card-northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"subtitle\":\"$340k ARR at stake\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"northwind-badge\",\"northwind-text\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High severity\",\"variant\":\"error\"},{\"id\":\"northwind-text\",\"component\":\"Text\",\"text\":\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\"},{\"id\":\"card-cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"subtitle\":\"$180k ARR at stake\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"cascadia-badge\",\"cascadia-text\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"cascadia-text\",\"component\":\"Text\",\"text\":\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\"},{\"id\":\"card-atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"subtitle\":\"$95k ARR at stake\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"atlas-badge\",\"atlas-text\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"atlas-text\",\"component\":\"Text\",\"text\":\"Legal review is stalled; next action: align procurement and legal on open terms.\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account \u2014 outer agent narration after generate_a2ui returns.",
+      "match": {
+        "toolCallId": "call_d6_decl_acct_outer_csts_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "Here's the rundown on Meridian Apparel Group."
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account \u2014 outer agent emits generate_a2ui with a context summary. [outer matcher drops hasToolResult: multi-turn history carries prior-pill tool results so hasToolResult:false never matched turns 2-4; the toolCallId narration fixture is ordered FIRST so it wins on last-role:tool requests, leaving this outer to match only last-role:user requests].",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_outer_csts_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Pull up the details on our biggest account.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "pill top-account \u2014 inner secondary Claude call emits the flat A2UI components. Composition rule 4: a Card of InfoRow facts next to a PieChart of the account's revenue by product line. Mounts declarative-info-row + declarative-pie-chart.",
+      "match": {
+        "userMessage": "Pull up the details on our biggest account.",
+        "context": "claude-sdk-typescript",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_acct_design_csts_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"biggest-account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Row\",\"gap\":16,\"children\":[\"account-card\",\"revenue-pie\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"subtitle\":\"Biggest account\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"gap\":8,\"children\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\",\"fact6\",\"fact7\"]},{\"id\":\"fact1\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"fact2\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"fact3\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"fact4\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"fact5\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"fact6\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"Green\"},{\"id\":\"fact7\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 opportunities worth $210k\"},{\"id\":\"revenue-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"description\":\"Meridian Apparel Group revenue mix across product lines.\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
           }
         ]
       },

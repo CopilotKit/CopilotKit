@@ -17,6 +17,7 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
@@ -27,35 +28,20 @@
       "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
-    "bot": {
+    "channels": {
       "packages": [
-        "@copilotkit/bot",
-        "@copilotkit/bot-ui",
-        "@copilotkit/bot-store-redis",
-        "@copilotkit/bot-store-postgres"
+        "@copilotkit/channels-ui",
+        "@copilotkit/channels-core",
+        "@copilotkit/channels-slack",
+        "@copilotkit/channels-teams",
+        "@copilotkit/channels-intelligence",
+        "@copilotkit/channels-discord",
+        "@copilotkit/channels-telegram",
+        "@copilotkit/channels-whatsapp",
+        "@copilotkit/channels"
       ],
-      "versionSource": "@copilotkit/bot",
+      "versionSource": "@copilotkit/channels",
       "sharedVersion": true
-    },
-    "bot-discord": {
-      "packages": ["@copilotkit/bot-discord"],
-      "versionSource": "@copilotkit/bot-discord",
-      "sharedVersion": false
-    },
-    "bot-slack": {
-      "packages": ["@copilotkit/bot-slack"],
-      "versionSource": "@copilotkit/bot-slack",
-      "sharedVersion": false
-    },
-    "bot-telegram": {
-      "packages": ["@copilotkit/bot-telegram"],
-      "versionSource": "@copilotkit/bot-telegram",
-      "sharedVersion": false
-    },
-    "bot-whatsapp": {
-      "packages": ["@copilotkit/bot-whatsapp"],
-      "versionSource": "@copilotkit/bot-whatsapp",
-      "sharedVersion": false
     }
   }
 }

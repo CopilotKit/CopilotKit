@@ -4,6 +4,10 @@
 //
 //   showcase/integrations/<slug>/docs/setup/<concept>.mdx
 //
+// Docs-only frameworks, which have no integration package, own them at:
+//
+//   showcase/shell-docs/src/content/snippets/setup/<slug>/<concept>.mdx
+//
 // shell-docs runs without integration package sources in production, so these
 // snippets have to be expanded while the Docker builder still has
 // showcase/integrations available. This script rewrites static <DemoCode />
@@ -19,6 +23,14 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "integrations");
+const DOCS_ONLY_SETUP_DIR = path.join(
+  ROOT,
+  "shell-docs",
+  "src",
+  "content",
+  "snippets",
+  "setup",
+);
 const OUTPUT_PATH = path.join(
   ROOT,
   "shell-docs",
@@ -178,6 +190,77 @@ function formatFenceTitle(title: string): string {
 
 const DEMO_CODE_TAG_RX = /<DemoCode\b((?:"[^"]*"|'[^']*'|[^'"<>])*)\/>/g;
 
+function parseLineRange(input: string): [number, number] | null {
+  const trimmed = input.trim();
+  if (trimmed === "") return null;
+  const openEnded = trimmed.match(/^(\d+)\s*[-\u2013]\s*$/);
+  if (openEnded) {
+    const start = parseInt(openEnded[1], 10);
+    if (start > 0) return [start, Number.POSITIVE_INFINITY];
+    return null;
+  }
+  const dash = trimmed.match(/^(\d+)\s*[-\u2013]\s*(\d+)$/);
+  if (dash) {
+    const start = parseInt(dash[1], 10);
+    const end = parseInt(dash[2], 10);
+    if (start > 0 && end >= start) return [start, end];
+    return null;
+  }
+  const single = trimmed.match(/^(\d+)$/);
+  if (single) {
+    const n = parseInt(single[1], 10);
+    if (n > 0) return [n, n];
+  }
+  return null;
+}
+
+function notationComment(language: string): string {
+  return ["bash", "sh", "python", "py", "yaml", "yml"].includes(language)
+    ? "#"
+    : "//";
+}
+
+function applyHighlightMarkers(
+  body: string,
+  language: string,
+  highlight: string | undefined,
+): string {
+  if (!highlight) return body;
+  const lines = body.split("\n");
+  const ranges: Array<[number, number]> = [];
+  for (const part of highlight.split(",")) {
+    const range = parseLineRange(part);
+    if (!range) return body;
+    const [start, end] = range;
+    const effectiveEnd = Math.min(
+      end === Number.POSITIVE_INFINITY ? lines.length : end,
+      lines.length,
+    );
+    if (start <= effectiveEnd) ranges.push([start, effectiveEnd]);
+  }
+  if (ranges.length === 0) return body;
+
+  ranges.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range[0] <= last[1] + 1) {
+      last[1] = Math.max(last[1], range[1]);
+    } else {
+      merged.push([...range]);
+    }
+  }
+
+  const marker = notationComment(language);
+  let offset = 0;
+  for (const [start, end] of merged) {
+    const count = end - start + 1;
+    lines.splice(start - 1 + offset, 0, `${marker} [!code highlight:${count}]`);
+    offset++;
+  }
+  return lines.join("\n");
+}
+
 function rewriteDemoCode(source: string, packageRoot: string): string {
   return source.replace(DEMO_CODE_TAG_RX, (match, attrs: string) => {
     const file = matchAttr(attrs, "file");
@@ -206,10 +289,12 @@ function rewriteDemoCode(source: string, packageRoot: string): string {
 
     const language = matchAttr(attrs, "language") ?? inferLanguage(file);
     const title = matchAttr(attrs, "title") ?? path.basename(file);
+    const highlight = matchAttr(attrs, "highlight");
+    const highlightedBody = applyHighlightMarkers(body, language, highlight);
     return [
       "",
       `~~~~${language} title=${formatFenceTitle(title)}`,
-      body,
+      highlightedBody,
       "~~~~",
       "",
     ].join("\n");
@@ -227,16 +312,12 @@ function readSetupConcepts(): SetupContentBundle {
     throw new Error(`Integrations directory not found: ${PACKAGES_DIR}`);
   }
 
-  const integrationDirs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name)
-    .sort();
-
-  for (const framework of integrationDirs) {
-    const packageRoot = path.join(PACKAGES_DIR, framework);
-    const setupDir = path.join(packageRoot, "docs", "setup");
-    if (!fs.existsSync(setupDir)) continue;
+  const addSetupDir = (
+    framework: string,
+    setupDir: string,
+    sourceRoot: string,
+  ): void => {
+    if (!fs.existsSync(setupDir)) return;
 
     const conceptFiles = fs
       .readdirSync(setupDir, { withFileTypes: true })
@@ -252,7 +333,7 @@ function readSetupConcepts(): SetupContentBundle {
       if (raw.trim().length === 0) continue;
 
       try {
-        const source = rewriteDemoCode(stripFrontmatter(raw), packageRoot);
+        const source = rewriteDemoCode(stripFrontmatter(raw), sourceRoot);
         if (/<DemoCode\b/.test(source)) {
           throw new Error("contains an unresolved <DemoCode> reference");
         }
@@ -264,6 +345,37 @@ function readSetupConcepts(): SetupContentBundle {
       } catch (err) {
         errors.push(`${relativeConceptPath}: ${(err as Error).message}`);
       }
+    }
+  };
+
+  const integrationDirs = fs
+    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  for (const framework of integrationDirs) {
+    const packageRoot = path.join(PACKAGES_DIR, framework);
+    addSetupDir(
+      framework,
+      path.join(packageRoot, "docs", "setup"),
+      packageRoot,
+    );
+  }
+
+  if (fs.existsSync(DOCS_ONLY_SETUP_DIR)) {
+    const docsOnlyFrameworks = fs
+      .readdirSync(DOCS_ONLY_SETUP_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+
+    for (const framework of docsOnlyFrameworks) {
+      addSetupDir(
+        framework,
+        path.join(DOCS_ONLY_SETUP_DIR, framework),
+        path.join(ROOT, "shell-docs"),
+      );
     }
   }
 

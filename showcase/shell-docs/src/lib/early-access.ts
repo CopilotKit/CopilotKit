@@ -30,65 +30,18 @@ export interface EarlyAccessGateConfig {
   image?: { alt: string; lightSrc: string; darkSrc: string };
 }
 
-export const EARLY_ACCESS_GATES = {
-  slack: {
-    storageKey: "shell-docs-early-access:slack",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "Slack is in early access",
-    description: [
-      "The Slack docs are behind a password while Slack support is in early access.",
-      "CopilotKit for Slack turns your agent into a Slack bot: streaming replies in threads, calling tools, and rendering interactive messages.",
-    ],
-    requestPrompt: "Don't have the password?",
-    requestLinkLabel: "Reach out to request early access to Slack",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-    image: {
-      alt: "A Slack thread where a user asks the Kite bot for a chart and the bot replies with an interactive generative UI chart.",
-      lightSrc: "/images/slack-bot-generative-ui-light.png",
-      darkSrc: "/images/slack-bot-generative-ui-dark.png",
-    },
-  },
-  whatsapp: {
-    storageKey: "shell-docs-early-access:whatsapp",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "WhatsApp is in early access",
-    description: [
-      "The WhatsApp docs are behind a password while WhatsApp support is in early access.",
-      "CopilotKit for WhatsApp turns your agent into a WhatsApp bot over the Cloud API: buffered replies, calling tools, and rendering interactive reply-button and list messages.",
-    ],
-    requestPrompt: "Don't have the password?",
-    requestLinkLabel: "Reach out to request early access to WhatsApp",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-  },
-  teams: {
-    storageKey: "shell-docs-early-access:microsoft-teams",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "Microsoft Teams is in early access",
-    description: [
-      "The Microsoft Teams guide is behind a password while Teams support is in early access.",
-      "CopilotKit for Microsoft Teams turns your agent into a Teams bot: streamed Adaptive Cards, human approvals, and file-driven chart rendering.",
-    ],
-    requestPrompt: "Don't have the Microsoft Teams password?",
-    requestLinkLabel: "Reach out to request early access to Microsoft Teams",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-    image: {
-      alt: "A Microsoft Teams bot conversation showing a CopilotKit assistant response rendered in Teams.",
-      lightSrc: "/images/teams-preview-light.png",
-      darkSrc: "/images/teams-preview-dark.png",
-    },
-  },
-} as const satisfies Record<string, EarlyAccessGateConfig>;
-
-export type EarlyAccessGateId = keyof typeof EARLY_ACCESS_GATES;
+// No Channels provider currently uses an early-access docs gate. WhatsApp is a
+// coming-soon roadmap item, while Slack and Teams are production ready.
+export const EARLY_ACCESS_GATES = {} as const satisfies Record<
+  string,
+  EarlyAccessGateConfig
+>;
 
 export function getEarlyAccessGate(
   id: string | undefined,
 ): EarlyAccessGateConfig | null {
   if (!id) return null;
-  return id in EARLY_ACCESS_GATES
-    ? EARLY_ACCESS_GATES[id as EarlyAccessGateId]
-    : null;
+  return (
+    (EARLY_ACCESS_GATES as Record<string, EarlyAccessGateConfig>)[id] ?? null
+  );
 }

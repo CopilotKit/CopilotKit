@@ -202,7 +202,75 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
     config,
   );
 
-  return { messages: response };
+  // Normalize tool calls that streamed in as `additional_kwargs.tool_calls`
+  // but failed to promote to the parsed top-level `tool_calls`.
+  //
+  // When the model returns BOTH assistant content AND a tool call in one
+  // message (as the tool-rendering fixtures do — "Looking up the weather…"
+  // + get_weather), langchain-js's streamed-chunk reassembly can leave the
+  // fully-formed tool call only under `additional_kwargs.tool_calls` while
+  // the top-level `tool_calls` stays empty (the intermediate chunks surface
+  // as `invalid_tool_calls` with "Malformed args" during accumulation), and
+  // the merged result is a bare "generic" message rather than an AIMessage.
+  // `shouldContinue`, `ToolNode`, and the AG-UI TOOL_CALL_* event emitter all
+  // key off a proper AIMessage with top-level `tool_calls`, so the unparsed
+  // result silently drops the tool call: the graph ends at chat_node (or
+  // ToolNode rejects the non-AIMessage), the tool never runs, and the
+  // frontend renders no card. LGP-python's `create_agent` parses the same
+  // fixture response correctly, so this restores TS↔Python parity.
+  return { messages: normalizeAssistantMessage(response) };
+}
+
+/**
+ * Ensure the chat model's response is a well-formed `AIMessage` whose tool
+ * calls live in the top-level `tool_calls` array. When langchain-js's
+ * streamed reassembly leaves tool calls only under
+ * `additional_kwargs.tool_calls` (and/or produces a non-AIMessage), rebuild
+ * a clean `AIMessage` that preserves the content and promotes those tool
+ * calls. A no-op passthrough when the response already parses correctly.
+ */
+function normalizeAssistantMessage(response: AIMessage): AIMessage {
+  const alreadyHasToolCalls =
+    Array.isArray(response.tool_calls) && response.tool_calls.length > 0;
+  const isAIMessage = response instanceof AIMessage;
+  if (alreadyHasToolCalls && isAIMessage) return response;
+
+  const rawToolCalls = (
+    response.additional_kwargs as { tool_calls?: unknown } | undefined
+  )?.tool_calls;
+
+  const parsed: NonNullable<AIMessage["tool_calls"]> = [];
+  if (Array.isArray(rawToolCalls)) {
+    for (const raw of rawToolCalls) {
+      const fn = (raw as { function?: { name?: string; arguments?: string } })
+        ?.function;
+      const id = (raw as { id?: string })?.id;
+      const name = fn?.name;
+      if (!name) continue;
+      let args: Record<string, unknown> = {};
+      if (typeof fn?.arguments === "string" && fn.arguments.length > 0) {
+        try {
+          args = JSON.parse(fn.arguments);
+        } catch {
+          // Leave args empty when the accumulated JSON is unparseable
+          // rather than dropping the whole tool call.
+          args = {};
+        }
+      }
+      parsed.push({ id, name, args, type: "tool_call" });
+    }
+  }
+
+  // Nothing to reconcile and it's already an AIMessage — leave it untouched.
+  if (parsed.length === 0 && isAIMessage) return response;
+
+  return new AIMessage({
+    id: response.id,
+    content: response.content ?? "",
+    tool_calls: parsed.length > 0 ? parsed : response.tool_calls,
+    additional_kwargs: response.additional_kwargs,
+    response_metadata: response.response_metadata,
+  });
 }
 
 // ---------------------------------------------------------------------------
