@@ -556,10 +556,14 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
         ),
       );
 
+      // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        expect(
-          screen.getByText("This is a follow-up message after tool execution"),
-        ).toBeDefined();
+        const el = screen.queryAllByText((_text, element) =>
+          (element?.textContent ?? "").includes(
+            "This is a follow-up message after tool execution",
+          ),
+        );
+        expect(el.length).toBeGreaterThan(0);
       });
 
       await agent.emit(runFinishedEvent());

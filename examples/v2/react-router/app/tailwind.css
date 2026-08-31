@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* The pluggable-renderer demo plugs in `streamdown` (see app/lib/markdown-renderers.tsx).
+   Scan its dist so Tailwind generates the utility classes streamdown renders with. */
+@source "../node_modules/streamdown/dist";
+
 /* Class-driven dark mode, so the lab's toggle drives it rather than the OS.
    Same declaration the CopilotKit package uses for its own sheet, see
    packages/react-core/src/v2/styles/globals.css. */

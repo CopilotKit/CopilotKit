@@ -1,10 +1,8 @@
 import { Component, signal } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  type ɵThreadStore,
-} from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { ɵThreadStore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 import { injectThreads, ThreadsStore } from "./threads";
 

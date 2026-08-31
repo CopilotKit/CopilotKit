@@ -25,6 +25,7 @@
       ]
     },
     "custom-look-and-feel",
+    "markdown-rendering",
     "multimodal-attachments",
     "voice",
     "generative-ui/reasoning",
@@ -87,7 +88,7 @@
     },
     {
       "title": "Migrate",
-      "pages": ["migrate/v2", "migrate/1.10.X", "migrate/1.8.2"]
+      "pages": ["migrate/v2", "migrate/markdown-renderer", "migrate/1.10.X", "migrate/1.8.2"]
     }
   ]
 }

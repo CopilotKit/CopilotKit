@@ -11,6 +11,7 @@ import type {
   VueToolCallRenderer,
 } from "../types";
 import type { Component } from "vue";
+import type { MarkdownRendererValue } from "./markdown-renderer";
 
 export interface CopilotKitProviderProps {
   runtimeUrl?: string;
@@ -59,6 +60,15 @@ export interface CopilotKitProviderProps {
     loadingComponent?: Component;
     includeSchema?: boolean;
   };
+  /**
+   * Global markdown renderer for assistant/reasoning messages. Either a Vue
+   * component (escape hatch — receives `{ content: string; isStreaming?: boolean }`)
+   * or a `DefaultMarkdownRendererProps` config object (e.g.
+   * `{ nodeRenderers: { codeBlock: ShikiBlock } }`) to configure the built-in
+   * streaming renderer without writing a wrapper. Overrides the built-in default;
+   * a per-message slot still wins.
+   */
+  markdownRenderer?: MarkdownRendererValue;
   /**
    * Enable debug logging for the client-side event pipeline.
    *

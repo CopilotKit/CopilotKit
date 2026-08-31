@@ -1018,6 +1018,129 @@
       }
     },
     {
+      "name": "@copilotkit/markdown-renderer",
+      "version": "1.59.2",
+      "sourceDirectory": "packages/markdown-renderer",
+      "entrypoints": [
+        {
+          "importPath": "@copilotkit/markdown-renderer",
+          "exportKey": ".",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "exports[\".\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown-renderer/package.json",
+          "exportKey": "./package.json",
+          "kind": "metadata",
+          "conditions": "./package.json",
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "exports[\"./package.json\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown-renderer/react",
+          "exportKey": "./react",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/react/index.mjs",
+            "require": "./dist/react/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "exports[\"./react\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown-renderer/react-native",
+          "exportKey": "./react-native",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/react-native/index.mjs",
+            "require": "./dist/react-native/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "exports[\"./react-native\"]"
+          }
+        },
+        {
+          "importPath": "@copilotkit/markdown-renderer/vue",
+          "exportKey": "./vue",
+          "kind": "code",
+          "conditions": {
+            "import": "./dist/vue/index.mjs",
+            "require": "./dist/vue/index.cjs"
+          },
+          "provenance": {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "exports[\"./vue\"]"
+          }
+        }
+      ],
+      "compatibility": {
+        "engines": {
+          "node": ">=18"
+        },
+        "peerDependencies": {
+          "react": ">=18",
+          "react-native": ">=0.70",
+          "vue": ">=3"
+        },
+        "optionalPeerDependencies": [
+          "react",
+          "react-native",
+          "vue"
+        ],
+        "provenance": [
+          {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "engines"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "peerDependencies"
+          },
+          {
+            "kind": "package-json",
+            "path": "packages/markdown-renderer/package.json",
+            "selector": "peerDependenciesMeta.*.optional"
+          }
+        ]
+      },
+      "provenance": {
+        "name": {
+          "kind": "package-json",
+          "path": "packages/markdown-renderer/package.json",
+          "selector": "name"
+        },
+        "version": {
+          "kind": "package-json",
+          "path": "packages/markdown-renderer/package.json",
+          "selector": "version"
+        },
+        "releaseScope": {
+          "kind": "release-config",
+          "path": "release.config.json",
+          "selector": "scopes.monorepo.packages"
+        }
+      }
+    },
+    {
       "name": "@copilotkit/react-core",
       "version": "1.69.3",
       "sourceDirectory": "packages/react-core",
@@ -1285,7 +1408,6 @@
           "react-native": ">=0.70",
           "react-native-gesture-handler": ">=2.0.0",
           "react-native-reanimated": ">=3.0.0",
-          "react-native-streamdown": ">=0.1.0",
           "zod": ">=3.0.0"
         },
         "optionalPeerDependencies": [
@@ -1294,7 +1416,6 @@
           "expo-file-system",
           "react-native-gesture-handler",
           "react-native-reanimated",
-          "react-native-streamdown",
           "zod"
         ],
         "provenance": [

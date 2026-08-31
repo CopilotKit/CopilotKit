@@ -58,6 +58,8 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
+import { MarkdownRendererProvider } from "./MarkdownRendererContext";
+import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -136,6 +138,13 @@ export interface CopilotKitProviderProps {
   renderToolCalls?: ReactToolCallRenderer<any>[];
   renderActivityMessages?: ReactActivityMessageRenderer<any>[];
   renderCustomMessages?: ReactCustomMessageRenderer[];
+  /**
+   * Global markdown renderer used by assistant/reasoning messages. Overrides the
+   * built-in basic renderer. A per-message `markdownRenderer` slot still wins
+   * over this. Plug in your own (e.g. a streamdown wrapper) to restore rich
+   * rendering — CopilotKit ships only the basic renderer.
+   */
+  markdownRenderer?: MarkdownRenderer;
   frontendTools?: ReactFrontendTool[];
   humanInTheLoop?: ReactHumanInTheLoop[];
   /**
@@ -287,6 +296,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
+  markdownRenderer,
   frontendTools,
   humanInTheLoop,
   openGenerativeUI,
@@ -932,15 +942,17 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
-          <CopilotKitInspectorContextProvider value={inspectorContextValue}>
-            {children}
-            {shouldRenderInspector ? (
-              <CopilotKitInspector
-                core={copilotkit}
-                openRequest={inspectorOpenRequest}
-              />
-            ) : null}
-          </CopilotKitInspectorContextProvider>
+          <MarkdownRendererProvider renderer={markdownRenderer}>
+            <CopilotKitInspectorContextProvider value={inspectorContextValue}>
+              {children}
+              {shouldRenderInspector ? (
+                <CopilotKitInspector
+                  core={copilotkit}
+                  openRequest={inspectorOpenRequest}
+                />
+              ) : null}
+            </CopilotKitInspectorContextProvider>
+          </MarkdownRendererProvider>
           {/* License warnings — driven by server-reported status */}
           {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
             <LicenseWarningBanner type="no_license" />

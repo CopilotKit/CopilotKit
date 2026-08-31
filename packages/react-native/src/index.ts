@@ -64,3 +64,20 @@ export type { CopilotPopupProps, CopilotPopupHandle } from "./CopilotPopup";
 // /v2/headless, and we consume it from there. Never import from bare
 // "@copilotkit/react-core/v2" in this package — the import-graph guard in
 // src/__tests__/headless-entry-surface.test.ts fails the build if you do.
+
+// Pluggable markdown renderer context
+export {
+  MarkdownRendererProvider,
+  useMarkdownRenderer,
+} from "./components/MarkdownRendererContext";
+export type {
+  NativeMarkdownRenderer,
+  NativeMarkdownRendererProps,
+} from "./components/MarkdownRendererContext";
+
+// Built-in markdown renderer
+export { CopilotMarkdown, defaultMarkdownStyles } from "./components/Markdown";
+export type {
+  CopilotMarkdownProps,
+  MarkdownStyle,
+} from "./components/Markdown";

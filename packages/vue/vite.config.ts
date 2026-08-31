@@ -39,8 +39,6 @@ export default defineConfig({
         // declared") and risks double custom-element registration.
         /^@copilotkit\/web-components(\/.*)?$/,
         "@jetbrains/websandbox",
-        "streamdown-vue",
-        "katex",
         "lucide-vue-next",
         "zod",
         "zod-to-json-schema",

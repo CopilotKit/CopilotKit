@@ -12,6 +12,8 @@ import { CopilotKitCoreReact } from "@copilotkit/react-core/v2/headless";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import type { DebugConfig, RuntimeLicenseStatus } from "@copilotkit/shared";
 import { createLicenseContextValue } from "@copilotkit/shared";
+import { MarkdownRendererProvider } from "./components/MarkdownRendererContext";
+import type { MarkdownRendererValue } from "./components/MarkdownRendererContext";
 
 export interface CopilotKitNativeProviderProps {
   children: ReactNode;
@@ -47,6 +49,14 @@ export interface CopilotKitNativeProviderProps {
    * subscriptions. Individual subscriptions can override with their own `throttleMs`.
    */
   defaultThrottleMs?: number;
+  /**
+   * Custom markdown renderer for assistant messages. Either a component (escape
+   * hatch — receives `content` and an optional `isStreaming` flag) used instead
+   * of the built-in renderer, or a `{ style, animate }` config object to
+   * configure the built-in React Native renderer (the `CopilotMarkdown` used by
+   * the default `AssistantMessage`) without writing a wrapper.
+   */
+  markdownRenderer?: MarkdownRendererValue;
   // Cloud features (publicApiKey, licenseToken) — not yet supported on React Native
 }
 
@@ -83,6 +93,7 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   onError,
   debug,
   defaultThrottleMs,
+  markdownRenderer,
 }) => {
   // Resolve headers from function or static object (matches web provider pattern)
   const resolvedHeaders =
@@ -231,7 +242,9 @@ export const CopilotKitProvider: React.FC<CopilotKitNativeProviderProps> = ({
   return (
     <CopilotKitContext.Provider value={contextValue}>
       <LicenseContext.Provider value={licenseContextValue}>
-        {children}
+        <MarkdownRendererProvider renderer={markdownRenderer}>
+          {children}
+        </MarkdownRendererProvider>
       </LicenseContext.Provider>
     </CopilotKitContext.Provider>
   );

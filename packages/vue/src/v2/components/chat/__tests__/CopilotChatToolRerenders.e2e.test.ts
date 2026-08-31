@@ -221,8 +221,12 @@ describe("Tool Call Re-render Prevention", () => {
       delta: "The weather in Paris is ",
     } as BaseEvent);
 
+    // The streaming renderer splits text across span segments; query by textContent instead.
     await waitFor(() => {
-      expect(screen.getByText(/The weather in Paris is/)).toBeDefined();
+      const el = screen.queryAllByText((_t, element) =>
+        (element?.textContent ?? "").includes("The weather in Paris is"),
+      );
+      expect(el.length).toBeGreaterThan(0);
     });
 
     await agent.emit({
@@ -232,7 +236,10 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByText(/currently sunny/)).toBeDefined();
+      const el = screen.queryAllByText((_t, element) =>
+        (element?.textContent ?? "").includes("currently sunny"),
+      );
+      expect(el.length).toBeGreaterThan(0);
     });
 
     await agent.emit({
@@ -242,7 +249,10 @@ describe("Tool Call Re-render Prevention", () => {
     } as BaseEvent);
 
     await waitFor(() => {
-      expect(screen.getByText(/22°C/)).toBeDefined();
+      const el = screen.queryAllByText((_t, element) =>
+        (element?.textContent ?? "").includes("22°C"),
+      );
+      expect(el.length).toBeGreaterThan(0);
     });
 
     const renderCountAfterAllText = toolRenderCount;
@@ -327,8 +337,12 @@ describe("Tool Call Re-render Prevention", () => {
       delta: "Let me search for that...",
     } as BaseEvent);
 
+    // The streaming renderer splits text across span segments; query by textContent instead.
     await waitFor(() => {
-      expect(screen.getByText(/Let me search for that/)).toBeDefined();
+      const el = screen.queryAllByText((_t, element) =>
+        (element?.textContent ?? "").includes("Let me search for that"),
+      );
+      expect(el.length).toBeGreaterThan(0);
     });
 
     const renderCountAfterText = toolRenderCount;

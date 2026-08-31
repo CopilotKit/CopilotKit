@@ -1,3 +1,6 @@
+export { BasicMarkdownRenderer } from "./BasicMarkdownRenderer";
+export { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
+
 export {
   default as CopilotChatInput,
   type CopilotChatInputProps,
