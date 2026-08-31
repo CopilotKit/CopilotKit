@@ -463,6 +463,74 @@ describe("MCP Apps Proxy E2E", () => {
       expect(typeof errorResponse.error.message).toBe("string");
       expect(errorResponse.error.message.length).toBeGreaterThan(0);
     });
+
+    it("rejects a disallowed url scheme without calling window.open", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-open-link-scheme";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-open-link-scheme",
+        "Bad scheme test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+      const reqId = testId("req");
+      await sendJsonRpc(iframe, reqId, "ui/open-link", {
+        // eslint-disable-next-line no-script-url
+        url: "javascript:alert(document.domain)",
+      });
+
+      // The host refuses non-allowlisted schemes (only http/https/mailto/tel are
+      // opened) so a widget cannot use ui/open-link as an XSS vector.
+      expect(openSpy).not.toHaveBeenCalled();
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response.result).toMatchObject({ isError: true });
+
+      openSpy.mockRestore();
+    });
+
+    it("allows a custom-scheme deep link (only script/HTML schemes are blocked)", async () => {
+      const agent = new MockMCPProxyAgent();
+      agent.agentId = "proxy-open-link-deeplink";
+
+      const iframe = await setupMCPActivity(
+        agent,
+        "proxy-open-link-deeplink",
+        "Deep link test",
+      );
+      const captured = captureIframeMessages(iframe);
+
+      const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+
+      const reqId = testId("req");
+      // Deep links use arbitrary app-defined schemes; they hand off to an OS
+      // handler rather than executing in the page, so they are allowed (a
+      // denylist blocks only javascript:/data:/vbscript:/blob:/file:).
+      await sendJsonRpc(iframe, reqId, "ui/open-link", {
+        url: "myapp://widgets/open?id=42",
+      });
+
+      expect(openSpy).toHaveBeenCalledWith(
+        "myapp://widgets/open?id=42",
+        "_blank",
+        "noopener,noreferrer",
+      );
+
+      const response = captured.find(
+        (m: any) => m && m.jsonrpc === "2.0" && m.id === reqId && m.result,
+      ) as any;
+      expect(response).toBeDefined();
+      expect(response.result).toMatchObject({ isError: false });
+
+      openSpy.mockRestore();
+    });
   });
 
   describe("Multiple independent MCP activities", () => {

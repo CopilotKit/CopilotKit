@@ -215,6 +215,26 @@ class MCPAppsRequestQueue {
 // Global queue instance for all MCP app requests
 const mcpAppsRequestQueue = new MCPAppsRequestQueue();
 
+// URL schemes a widget may NOT open via ui/open-link. The ext-apps schema
+// validates `url` as a plain string only (noopener/noreferrer does not restrict
+// the scheme), so ui/open-link could otherwise become an XSS vector.
+//
+// We use a denylist rather than an allowlist on purpose: deep links use
+// arbitrary, app-defined schemes (`myapp:`, `whatsapp:`, `slack:`, `spotify:`,
+// `sms:`, ...) that an allowlist could never enumerate, and `window.open`ing them
+// just hands off to an OS handler — it does not execute script in the page, so
+// it is not an XSS risk. Universal links / App Links are plain `https:` URLs and
+// pass regardless. What IS dangerous is the small, well-known set of schemes
+// that execute script or render attacker HTML in the page context; block those
+// and allow everything else (including deep links).
+const MCP_OPEN_LINK_BLOCKED_SCHEMES = new Set([
+  "javascript:",
+  "data:",
+  "vbscript:",
+  "blob:",
+  "file:",
+]);
+
 /**
  * Activity type for MCP Apps events - must match the middleware's MCPAppsActivityType
  */
@@ -441,6 +461,33 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
 
       const setup = async () => {
         try {
+          // Load the ext-apps bridge FIRST, before creating/attaching the iframe.
+          // The sandbox proxy posts `sandbox-proxy-ready` once, during srcdoc
+          // execution, and the PostMessageTransport must already be listening
+          // (via connect()) when that fires. Awaiting the dynamic import after
+          // the iframe is attached would let a slow import miss that
+          // notification, leaving the widget blank; doing it here means there is
+          // no event-loop yield between attaching the iframe and connecting.
+          // The type-only import at the top of the file keeps this lazy (see that
+          // note); the try/catch rethrows with an actionable message if the peer
+          // is missing or version-skewed.
+          let AppBridge: typeof import("@modelcontextprotocol/ext-apps/app-bridge").AppBridge;
+          let PostMessageTransport: typeof import("@modelcontextprotocol/ext-apps/app-bridge").PostMessageTransport;
+          try {
+            ({ AppBridge, PostMessageTransport } =
+              await import("@modelcontextprotocol/ext-apps/app-bridge"));
+          } catch (importErr) {
+            throw new Error(
+              "MCP Apps require '@modelcontextprotocol/ext-apps' and its peer " +
+                "'@modelcontextprotocol/sdk'. Install them with: npm install " +
+                "@modelcontextprotocol/ext-apps @modelcontextprotocol/sdk",
+              { cause: importErr },
+            );
+          }
+          if (!mounted) {
+            return;
+          }
+
           // Create the sandbox proxy iframe (the proxy relays postMessage between
           // the host and the inner sandboxed widget).
           const iframe = document.createElement("iframe");
@@ -484,28 +531,6 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
             html = atob(fetchedResource.blob);
           } else {
             throw new Error("Resource has no text or blob content");
-          }
-
-          // Lazily load the ext-apps bridge so it stays out of the base bundle
-          // (see the import-type note at the top of this file). Wrap the import
-          // so a missing or version-skewed peer surfaces as an actionable error
-          // naming the packages and the install command, instead of an opaque
-          // module-resolution rejection deep inside this effect.
-          let AppBridge: typeof import("@modelcontextprotocol/ext-apps/app-bridge").AppBridge;
-          let PostMessageTransport: typeof import("@modelcontextprotocol/ext-apps/app-bridge").PostMessageTransport;
-          try {
-            ({ AppBridge, PostMessageTransport } =
-              await import("@modelcontextprotocol/ext-apps/app-bridge"));
-          } catch (importErr) {
-            throw new Error(
-              "MCP Apps require '@modelcontextprotocol/ext-apps' and its peer " +
-                "'@modelcontextprotocol/sdk'. Install them with: npm install " +
-                "@modelcontextprotocol/ext-apps @modelcontextprotocol/sdk",
-              { cause: importErr },
-            );
-          }
-          if (!mounted) {
-            return;
           }
 
           bridge = new AppBridge(
@@ -588,8 +613,29 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           });
 
           bridge.onopenlink = async ({ url }) => {
-            // `url` is guaranteed by the bridge's ui/open-link schema; a request
-            // without it is rejected by schema validation before this runs.
+            // `url` is guaranteed to be a string by the bridge's ui/open-link
+            // schema, but the schema does not restrict the scheme. Parse it and
+            // block only the script-executing / attacker-HTML schemes (see
+            // MCP_OPEN_LINK_BLOCKED_SCHEMES). Everything else is allowed,
+            // including custom-scheme deep links (`myapp:`, `whatsapp:`, ...) and
+            // https universal links, which hand off to an OS handler rather than
+            // executing in the page.
+            let parsed: URL;
+            try {
+              parsed = new URL(url);
+            } catch {
+              console.warn(
+                "[MCPAppsRenderer] ui/open-link rejected: unparseable url",
+              );
+              return { isError: true };
+            }
+            if (MCP_OPEN_LINK_BLOCKED_SCHEMES.has(parsed.protocol)) {
+              console.warn(
+                "[MCPAppsRenderer] ui/open-link rejected: blocked scheme",
+                parsed.protocol,
+              );
+              return { isError: true };
+            }
             window.open(url, "_blank", "noopener,noreferrer");
             return { isError: false };
           };
