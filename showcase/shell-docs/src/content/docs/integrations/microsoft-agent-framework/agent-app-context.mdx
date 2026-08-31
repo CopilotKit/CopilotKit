@@ -150,6 +150,8 @@ This context can then be shared with your AG-UI server and agent logic.
                     context = input_data.get("context")
                     messages = input_data.get("messages")
 
+                    # The adapter skips the model when messages are empty. Context
+                    # alone must not create an unsolicited model call.
                     if isinstance(context, list) and isinstance(messages, list) and messages:
                         context_lines = [
                             f"{item['description']}: {item['value']}"

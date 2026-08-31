@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from ag_ui.core import RunFinishedEvent, RunStartedEvent
 from agent_framework_ag_ui import AgentFrameworkAgent
 
 from agents.readonly_state_agent_context import (
@@ -20,6 +21,36 @@ def _context_message(input_data: dict[str, Any]) -> dict[str, Any]:
     return next(
         message for message in input_data["messages"] if message.get("role") == "system"
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "message_input",
+    [{}, {"messages": []}],
+    ids=["missing-messages", "empty-messages"],
+)
+async def test_context_does_not_create_a_message_less_model_turn(
+    message_input: dict[str, Any],
+) -> None:
+    """Context-only control input must not invoke the wrapped model."""
+    wrapped_agent = SimpleNamespace(
+        name="readonly_state_agent_context",
+        description="",
+        default_options={"instructions": SYSTEM_PROMPT},
+        context_providers=[],
+    )
+    adapter = ReadonlyContextFrameworkAgent(agent=wrapped_agent)
+    input_data = {
+        "runId": "control-turn",
+        "threadId": "thread",
+        "context": [{"description": "User name", "value": "Ada"}],
+        **message_input,
+    }
+
+    events = [event async for event in adapter.run(input_data)]
+
+    assert [type(event) for event in events] == [RunStartedEvent, RunFinishedEvent]
+    assert wrapped_agent.default_options == {"instructions": SYSTEM_PROMPT}
 
 
 @pytest.mark.asyncio

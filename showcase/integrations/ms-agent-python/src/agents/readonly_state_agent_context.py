@@ -76,6 +76,8 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
             return
 
         messages = input_data.get("messages")
+        # The upstream adapter returns without a model response when messages
+        # are empty. Context alone must not create an unsolicited model call.
         if not isinstance(messages, list) or len(messages) == 0:
             async for event in super().run(input_data):
                 yield event
