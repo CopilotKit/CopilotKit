@@ -234,6 +234,19 @@ describe("convertInputToTanStackAI", () => {
 
       expect(systemPrompts).toHaveLength(0);
     });
+
+    it("truncates oversized context values", () => {
+      const input = createDefaultInput({
+        context: [{ description: "Big document", value: "x".repeat(50_000) }],
+      });
+
+      const { systemPrompts } = convertInputToTanStackAI(input);
+
+      const prompt = systemPrompts.find((p) => p.startsWith("Big document:"));
+      expect(prompt).toBeDefined();
+      expect(prompt).toContain("… [truncated by CopilotKit]");
+      expect(prompt!.length).toBeLessThan(50_000);
+    });
   });
 
   // -------------------------------------------------------------------------

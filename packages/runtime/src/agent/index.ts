@@ -53,6 +53,7 @@ import {
   convertAISDKStream,
   getAISDKRunFinishedDetails,
 } from "./converters/aisdk";
+import { truncateContextValue } from "./context-truncation";
 import { convertTanStackStream } from "./converters/tanstack";
 import {
   collectStandardRunFinishedDetails,
@@ -955,20 +956,6 @@ function isFactoryConfig(
   return "factory" in config;
 }
 
-/**
- * Maximum length (in characters) of a single application-context value before it
- * is truncated in the assembled system prompt.
- *
- * Application context (`useAgentContext`) is injected verbatim into the prompt.
- * Oversized values (a full document, a large JSON blob) can blow the context
- * window and inflate cost, so we clamp each value to this limit.
- */
-const MAX_CONTEXT_VALUE_LENGTH = 20_000;
-
-function truncateContextValue(value: string): string {
-  if (value.length <= MAX_CONTEXT_VALUE_LENGTH) return value;
-  return `${value.slice(0, MAX_CONTEXT_VALUE_LENGTH)}\n… [truncated by CopilotKit]`;
-}
 export class BuiltInAgent extends AbstractAgent {
   private abortController?: AbortController;
 

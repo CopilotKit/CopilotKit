@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BasicAgent } from "../index";
+import {
+  MAX_CONTEXT_VALUE_LENGTH,
+  truncateContextValue,
+} from "../context-truncation";
 import { streamText } from "ai";
 import { mockStreamTextResponse, finish, collectEvents } from "./test-helpers";
 import type { RunAgentInput } from "@ag-ui/client";
@@ -77,5 +81,34 @@ describe("BuiltInAgent Application Context Truncation", () => {
     const content = callArgs.messages[0].content as string;
     expect(content).toContain("hello");
     expect(content).not.toContain("truncated");
+  });
+});
+
+describe("truncateContextValue", () => {
+  it("keeps the return value (including marker) within MAX_CONTEXT_VALUE_LENGTH", () => {
+    const result = truncateContextValue("x".repeat(50_000));
+    expect(result.length).toBe(MAX_CONTEXT_VALUE_LENGTH);
+    expect(result).toContain("… [truncated by CopilotKit]");
+  });
+
+  it("leaves a value at exactly the limit untouched (no marker)", () => {
+    const value = "x".repeat(MAX_CONTEXT_VALUE_LENGTH);
+    expect(truncateContextValue(value)).toBe(value);
+  });
+
+  it("truncates a value just over the limit to exactly the limit", () => {
+    const value = "x".repeat(MAX_CONTEXT_VALUE_LENGTH + 1);
+    const result = truncateContextValue(value);
+    expect(result.length).toBe(MAX_CONTEXT_VALUE_LENGTH);
+    expect(result).toContain("… [truncated by CopilotKit]");
+  });
+
+  it("does not end on a lone high surrogate when the slice lands mid-pair", () => {
+    // 0xd83d is a high surrogate; "a" + emoji repeated lands a lone high
+    // surrogate at the cut point. The result must not end with an unpaired one.
+    const value = "a" + "😀".repeat(20_000);
+    const result = truncateContextValue(value);
+    const last = result.charCodeAt(result.length - 1);
+    expect(last < 0xd800 || last > 0xdbff).toBe(true);
   });
 });

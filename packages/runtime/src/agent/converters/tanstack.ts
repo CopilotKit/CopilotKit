@@ -18,6 +18,7 @@ import type {
 } from "@ag-ui/client";
 import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
+import { truncateContextValue } from "../context-truncation";
 import { createStateEventNormalizer } from "../state-delta";
 import {
   aggregateRunUsage,
@@ -298,7 +299,9 @@ export function convertInputToTanStackAI(
 
   if (input.context?.length) {
     for (const ctx of input.context) {
-      systemPrompts.push(`${ctx.description}:\n${ctx.value}`);
+      systemPrompts.push(
+        `${ctx.description}:\n${truncateContextValue(ctx.value)}`,
+      );
     }
   }
 
