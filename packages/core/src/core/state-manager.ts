@@ -6,9 +6,13 @@ import type {
   StateSnapshotEvent,
   StateDeltaEvent,
   MessagesSnapshotEvent,
+  TextMessageStartEvent,
+  ToolCallResultEvent,
+  ToolMessage,
 } from "@ag-ui/client";
-import { randomUUID } from "@ag-ui/client";
+import { randomUUID, structuredClone_ } from "@ag-ui/client";
 import type { CopilotKitCore } from "./core";
+import { isForwardedToClientPlaceholder } from "./tool-result-content";
 
 const isContinuation = (input: RunAgentInput): boolean =>
   input.resume !== undefined ||
@@ -46,11 +50,17 @@ export class StateManager {
   private messageToRun: Map<string, Map<string, Map<string, string>>> =
     new Map();
 
+  // Direct text-start metadata: agentId -> threadId -> messageId -> rawEvent
+  private rawEventByMessage: Map<string, Map<string, Map<string, unknown>>> =
+    new Map();
+
   // Active run tracking: `agentId:threadId` -> runId (used when messages arrive without input)
   private activeRun: Map<string, string> = new Map();
 
-  // Agent subscriptions for cleanup
-  private agentSubscriptions: Map<string, () => void> = new Map();
+  private agentSubscriptions: Map<
+    string,
+    { agent: AbstractAgent; unsubscribe: () => void }
+  > = new Map();
 
   // Internal follow-ups are marked in memory so the marker never reaches a
   // runtime or becomes user-controlled forwardedProps data.
@@ -107,10 +117,12 @@ export class StateManager {
 
     const agentId = agent.agentId;
 
-    // Unsubscribe existing subscription for this agent only
-    const existingUnsubscribe = this.agentSubscriptions.get(agentId);
-    if (existingUnsubscribe) {
-      existingUnsubscribe();
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      if (existing.agent === agent) {
+        return;
+      }
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
 
@@ -122,7 +134,8 @@ export class StateManager {
     //    runAgent() start. If this subscription is replaced by a newer one before
     //    the pipeline finishes, the old pipeline may still call these callbacks
     //    with the old input.runId. `revoked = true` turns them into no-ops once
-    //    the replacement subscription is in place.
+    //    the replacement subscription is in place. Only a replacement revokes —
+    //    see the same-instance guard above.
     //
     // 2. Run isolation within one subscription: in tests (and edge cases), a new
     //    run's events can arrive through the same subscription before the new
@@ -132,6 +145,107 @@ export class StateManager {
     let revoked = false;
     let subRunId: string | undefined; // runId assigned to the current logical run
     let runFinished = false; // true after RUN_FINISHED, reset on next RUN_STARTED
+    const pendingResults = new WeakMap<
+      RunAgentInput,
+      Map<string, ToolCallResultEvent>
+    >();
+
+    const reconcilePendingResults = (
+      historyMessages: readonly Message[],
+      input: RunAgentInput,
+    ): { messages: Message[] } | undefined => {
+      const events = pendingResults.get(input);
+      if (!events) return undefined;
+
+      const messages = [...historyMessages];
+      let changed = false;
+
+      for (const event of events.values()) {
+        const ownerIndex = messages.findIndex(
+          (message) =>
+            message.role === "assistant" &&
+            message.toolCalls?.some(
+              (toolCall) => toolCall.id === event.toolCallId,
+            ),
+        );
+        if (ownerIndex < 0) continue;
+
+        const matchingIndexes = messages.reduce<number[]>(
+          (indexes, message, index) => {
+            if (
+              message.role === "tool" &&
+              message.toolCallId === event.toolCallId
+            ) {
+              indexes.push(index);
+            }
+            return indexes;
+          },
+          [],
+        );
+        const realIndex = matchingIndexes.find(
+          (index) => !isForwardedToClientPlaceholder(messages[index]?.content),
+        );
+        if (realIndex !== undefined) {
+          for (const duplicateIndex of matchingIndexes
+            .filter((candidateIndex) => candidateIndex !== realIndex)
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+            changed = true;
+          }
+          continue;
+        }
+
+        const placeholderIndex = matchingIndexes.find((index) =>
+          isForwardedToClientPlaceholder(messages[index]?.content),
+        );
+        if (placeholderIndex !== undefined) {
+          if (isForwardedToClientPlaceholder(event.content)) {
+            for (const duplicateIndex of matchingIndexes
+              .slice(1)
+              .sort((a, b) => b - a)) {
+              messages.splice(duplicateIndex, 1);
+              changed = true;
+            }
+            continue;
+          }
+          messages[placeholderIndex] = {
+            ...messages[placeholderIndex],
+            id: event.messageId,
+            content: event.content,
+          } as ToolMessage;
+          changed = true;
+          for (const duplicateIndex of matchingIndexes
+            .filter(
+              (candidateIndex) =>
+                candidateIndex !== placeholderIndex &&
+                isForwardedToClientPlaceholder(
+                  messages[candidateIndex]?.content,
+                ),
+            )
+            .sort((a, b) => b - a)) {
+            messages.splice(duplicateIndex, 1);
+          }
+          continue;
+        }
+
+        const result: ToolMessage = {
+          id: event.messageId,
+          role: "tool",
+          toolCallId: event.toolCallId,
+          content: event.content,
+        };
+        let insertIndex = ownerIndex + 1;
+        while (messages[insertIndex]?.role === "tool") insertIndex++;
+        messages.splice(insertIndex, 0, result);
+        changed = true;
+      }
+
+      return changed ? { messages } : undefined;
+    };
+
+    const clearPendingResults = (input: RunAgentInput): void => {
+      pendingResults.delete(input);
+    };
 
     const effectiveInput = (input: RunAgentInput): RunAgentInput => ({
       ...input,
@@ -139,18 +253,24 @@ export class StateManager {
     });
 
     const { unsubscribe } = agent.subscribe({
-      onRunStartedEvent: ({ input, state }) => {
+      onRunStartedEvent: ({ event, input, state }) => {
         if (revoked) return;
         const pendingForAgent = this.pendingContinuations.get(agent);
         const internalContinuation = [...(pendingForAgent ?? [])].find(
           (pending) => pending.expectedInput === input,
         );
         internalContinuation?.cancel();
-        if (
+
+        if (internalContinuation) {
+          // An internal continuation re-stamps onto the run id it continues, so
+          // the follow-up does not have to reuse that id on the wire.
+          subRunId =
+            internalContinuation.expectedRunId ?? event.runId ?? input.runId;
+        } else if (
           runFinished &&
           input.runId === subRunId &&
-          !internalContinuation &&
-          !isContinuation(input)
+          !isContinuation(input) &&
+          (event.runId == null || event.runId === subRunId)
         ) {
           // A new logical run's events are arriving through this same (old)
           // subscription. This happens when the test emits events before
@@ -160,26 +280,46 @@ export class StateManager {
           // runId so the new run's state doesn't collide with the old one.
           subRunId = randomUUID();
         } else {
-          // An internal continuation re-stamps onto the run id it continues, so
-          // the follow-up does not have to REUSE that id on the wire to look
-          // like one run. Reusing it on the wire made the transport treat the
-          // follow-up as the same run and re-deliver the already-applied half,
-          // which duplicated its tool calls and lost the continuation's own.
-          subRunId = internalContinuation?.expectedRunId ?? input.runId;
+          // A connect replay may contain multiple server runs under one input.runId.
+          subRunId = event.runId || input.runId;
         }
         runFinished = false;
         this.handleRunStarted(agent, effectiveInput(input), state);
       },
-      onRunFinishedEvent: ({ input, state }) => {
+      onRunFinishedEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        clearPendingResults(input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
       },
       // A run error terminates the run — treat identically to finished for cleanup
-      onRunErrorEvent: ({ input, state }) => {
+      onRunErrorEvent: ({ input, state, messages }) => {
         if (revoked) return;
         runFinished = true;
-        this.handleRunFinished(agent, effectiveInput(input), state);
+        const effective = effectiveInput(input);
+        const mutation = reconcilePendingResults(messages, input);
+        this.handleRunFinished(agent, effective, state);
+        return mutation;
+      },
+      onRunFailed: ({ input, messages }) => {
+        if (revoked) return;
+        return reconcilePendingResults(messages, input);
+      },
+      onRunFinalized: ({ input }) => {
+        if (revoked) return;
+        clearPendingResults(input);
+      },
+      onToolCallResultEvent: ({ event, input }) => {
+        if (revoked) return;
+        let events = pendingResults.get(input);
+        if (!events) {
+          events = new Map();
+          pendingResults.set(input, events);
+        }
+        events.set(event.toolCallId, event);
       },
       onStateSnapshotEvent: ({ event, input, state }) => {
         if (revoked) return;
@@ -189,6 +329,10 @@ export class StateManager {
         if (revoked) return;
         this.handleStateDelta(agent, event, effectiveInput(input), state);
       },
+      onTextMessageStartEvent: ({ event, input }) => {
+        if (revoked) return;
+        this.handleTextMessageStart(agent, event, effectiveInput(input));
+      },
       onMessagesSnapshotEvent: ({ event, input, messages }) => {
         if (revoked) return;
         this.handleMessagesSnapshot(
@@ -196,6 +340,12 @@ export class StateManager {
           event,
           effectiveInput(input),
           messages,
+        );
+        this.pruneRawEvents(
+          agent.agentId!,
+          input.threadId,
+          event.messages,
+          effectiveInput(input),
         );
       },
       onNewMessage: ({ message, input }) => {
@@ -206,12 +356,21 @@ export class StateManager {
           input ? effectiveInput(input) : undefined,
         );
       },
+      onMessagesChanged: ({ messages, input }) => {
+        if (revoked) return;
+        if (!input) {
+          this.pruneRawEvents(agent.agentId!, agent.threadId, messages);
+        }
+      },
     });
 
-    this.agentSubscriptions.set(agentId, () => {
-      revoked = true;
-      this.pendingContinuations.delete(agent);
-      unsubscribe();
+    this.agentSubscriptions.set(agentId, {
+      agent,
+      unsubscribe: () => {
+        revoked = true;
+        this.pendingContinuations.delete(agent);
+        unsubscribe();
+      },
     });
   }
 
@@ -219,11 +378,12 @@ export class StateManager {
    * Unsubscribe an agent's subscription.
    */
   unsubscribeFromAgent(agentId: string): void {
-    const unsubscribe = this.agentSubscriptions.get(agentId);
-    if (unsubscribe) {
-      unsubscribe();
+    const existing = this.agentSubscriptions.get(agentId);
+    if (existing) {
+      existing.unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -250,6 +410,21 @@ export class StateManager {
     messageId: string,
   ): string | undefined {
     return this.messageToRun.get(agentId)?.get(threadId)?.get(messageId);
+  }
+
+  /**
+   * Get direct text-start metadata associated with a message.
+   */
+  getRawEventForMessage(
+    agentId: string,
+    threadId: string,
+    messageId: string,
+  ): unknown {
+    const rawEvent = this.rawEventByMessage
+      .get(agentId)
+      ?.get(threadId)
+      ?.get(messageId);
+    return rawEvent === undefined ? undefined : structuredClone_(rawEvent);
   }
 
   /**
@@ -339,21 +514,67 @@ export class StateManager {
   }
 
   /**
+   * Capture only defined metadata from a normalized direct text-start event.
+   */
+  private handleTextMessageStart(
+    agent: AbstractAgent,
+    event: TextMessageStartEvent,
+    input: RunAgentInput,
+  ): void {
+    if (!agent.agentId) return;
+
+    const { threadId } = input;
+    if (event.rawEvent === undefined) {
+      const threadEvents = this.rawEventByMessage
+        .get(agent.agentId)
+        ?.get(threadId);
+      threadEvents?.delete(event.messageId);
+      if (threadEvents?.size === 0) {
+        this.rawEventByMessage.get(agent.agentId)?.delete(threadId);
+      }
+      if (this.rawEventByMessage.get(agent.agentId)?.size === 0) {
+        this.rawEventByMessage.delete(agent.agentId);
+      }
+      return;
+    }
+
+    if (!this.rawEventByMessage.has(agent.agentId)) {
+      this.rawEventByMessage.set(agent.agentId, new Map());
+    }
+    const agentEvents = this.rawEventByMessage.get(agent.agentId)!;
+    if (!agentEvents.has(threadId)) {
+      agentEvents.set(threadId, new Map());
+    }
+    agentEvents.get(threadId)!.set(event.messageId, event.rawEvent);
+  }
+
+  /**
    * Handle messages snapshot event
    */
   private handleMessagesSnapshot(
     agent: AbstractAgent,
     event: MessagesSnapshotEvent,
     input: RunAgentInput,
-    messages: readonly Message[],
+    _messages: readonly Message[],
   ): void {
     if (!agent.agentId) return;
 
     const { threadId, runId } = input;
 
-    // Associate all messages in the snapshot with this run
+    // Cumulative snapshots repeat messages from earlier runs, so only assign
+    // messages that do not already have a run association.
     for (const message of event.messages) {
-      this.associateMessageWithRun(agent.agentId, threadId, message.id, runId);
+      if (
+        this.getRunIdForMessage(agent.agentId, threadId, message.id) ===
+        undefined
+      ) {
+        this.associateMessageWithRun(
+          agent.agentId,
+          threadId,
+          message.id,
+          runId,
+        );
+      }
     }
   }
 
@@ -434,12 +655,37 @@ export class StateManager {
     threadMessages.set(messageId, runId);
   }
 
+  private pruneRawEvents(
+    agentId: string,
+    fallbackThreadId: string | undefined,
+    messages: ReadonlyArray<Readonly<Message>>,
+    input?: RunAgentInput,
+  ): void {
+    const threadId = input?.threadId ?? fallbackThreadId;
+    if (!threadId) return;
+
+    const threadEvents = this.rawEventByMessage.get(agentId)?.get(threadId);
+    if (!threadEvents) return;
+
+    const messageIds = new Set(messages.map((message) => message.id));
+    for (const messageId of threadEvents.keys()) {
+      if (!messageIds.has(messageId)) threadEvents.delete(messageId);
+    }
+    if (threadEvents.size === 0) {
+      this.rawEventByMessage.get(agentId)?.delete(threadId);
+    }
+    if (this.rawEventByMessage.get(agentId)?.size === 0) {
+      this.rawEventByMessage.delete(agentId);
+    }
+  }
+
   /**
    * Clear all state for an agent
    */
   clearAgentState(agentId: string): void {
     this.stateByRun.delete(agentId);
     this.messageToRun.delete(agentId);
+    this.rawEventByMessage.delete(agentId);
   }
 
   /**
@@ -448,5 +694,6 @@ export class StateManager {
   clearThreadState(agentId: string, threadId: string): void {
     this.stateByRun.get(agentId)?.delete(threadId);
     this.messageToRun.get(agentId)?.delete(threadId);
+    this.rawEventByMessage.get(agentId)?.delete(threadId);
   }
 }

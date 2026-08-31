@@ -244,9 +244,14 @@ jobs:
         if: matrix.node-version == '20.x'
         run: pnpm run verify:channels-umbrella
 
+      # No --with-deps: it shells out to apt, which on the runners cannot always
+      # reach azure.archive.ubuntu.com and retries for many minutes — long enough to
+      # burn this job's whole timeout before a test runs. Chromium's system libraries
+      # are already present on the Ubuntu runner image, so downloading the browser is
+      # all this step needs.
       - name: Install Chromium for packed Angular browser smoke
         if: matrix.node-version == '22.x'
-        run: pnpm --dir showcase/scripts exec playwright install --with-deps chromium
+        run: pnpm --dir showcase/scripts exec playwright install chromium
 
       - name: Verify packed Angular consumer matrix
         if: matrix.node-version == '22.x'

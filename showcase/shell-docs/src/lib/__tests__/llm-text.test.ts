@@ -60,6 +60,44 @@ test("publishes channel connection guides at canonical URLs with the default age
   ).toBe(false);
 });
 
+test("front-loads the v1 deprecated; use v2 instead warning in agent-facing reference Markdown", () => {
+  const filePath = new URL(
+    "../../content/reference/v1/hooks/useCopilotReadable.mdx",
+    import.meta.url,
+  ).pathname;
+
+  const output = renderPageToLlmText({
+    url: "reference/v1/hooks/useCopilotReadable",
+    title: "useCopilotReadable",
+    filePath,
+    loadSlug: "__reference__/v1/hooks/useCopilotReadable",
+  });
+
+  expect(output).toContain("# v1 SDK deprecated. Use v2 instead");
+  expect(output).toContain("AI coding agents");
+  expect(output).toContain("@copilotkit/react-core/v2");
+  expect(output).toContain("[Read the v1 to v2 migration guide](/migrate/v2)");
+  expect(output).toContain(
+    "[use the complete export map](/reference/v1/export-map)",
+  );
+  expect(output.indexOf("# v1 SDK deprecated. Use v2 instead")).toBeLessThan(
+    output.indexOf("## Usage"),
+  );
+
+  const notice = output.slice(
+    output.indexOf("## v1 SDK deprecated. Use v2 instead"),
+    output.indexOf("## Usage"),
+  );
+  for (const noticeLine of notice
+    .split("\n")
+    .filter(
+      (candidate) =>
+        /^(?:#{1,6}|>)\s/.test(candidate.trim()) && /deprecat/i.test(candidate),
+    )) {
+    expect(noticeLine.toLowerCase()).toContain("use v2 instead");
+  }
+});
+
 test.each(["all", "content-unique"] as const)(
   "publishes the exact visible framework root set in %s mode",
   (channelGuideVariants) => {
@@ -406,7 +444,7 @@ test("publishes Angular-native voice, multimodal, and A2UI guidance", () => {
   expect(a2ui).toContain("features/a2ui/a2ui-catalogs.ts");
   expect(a2ui).toContain("styles.css");
   expect(a2ui).toContain(
-    "The stable Hashbrown Angular package does not support the complete Angular 20 through 22 policy.",
+    "The stable Hashbrown Angular package does not support the Angular 22 policy.",
   );
   expect(a2ui).toContain(
     "JSON Renderer does not provide an Angular renderer; use A2UI for declarative Angular interfaces.",
@@ -554,6 +592,36 @@ test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   },
 );
 
+test("publishes both canonical Strands starter commands in LLM text", () => {
+  const loadSlug = "integrations/aws-strands/quickstart";
+  const doc = loadDoc(loadSlug);
+  expect(doc).not.toBeNull();
+
+  const output = renderPageToLlmText(
+    {
+      url: "strands/quickstart",
+      title: doc!.fm.title,
+      description: doc!.fm.description,
+      filePath: doc!.filePath,
+      loadSlug,
+      framework: "strands",
+    },
+    { framework: "strands" },
+  );
+
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-py",
+  );
+  expect(output).toContain(
+    "npx copilotkit@latest create --framework aws-strands-ts",
+  );
+  expect(output).toContain("Python 3.12+ (Python agents only)");
+  expect(output).not.toContain(
+    "npm install @ag-ui/aws-strands @strands-agents/sdk express cors",
+  );
+  expect(output).not.toContain("@types/cors");
+});
+
 test.each([
   ["claude-sdk-python", "programmatic-control"],
   ["claude-sdk-python", "headless"],
@@ -682,6 +750,67 @@ test("renders executable Claude SDK tool wiring on both tool-rendering routes", 
   expect(control).not.toContain("<FrameworkSetup");
 });
 
+test.each(["google-adk", "langgraph-python", "mastra"])(
+  "renders one dependency-complete canonical tool-rendering example for %s",
+  (framework) => {
+    const doc = loadDoc("generative-ui/tool-rendering");
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/generative-ui/tool-rendering`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "generative-ui/tool-rendering",
+        framework,
+      },
+      { framework },
+    );
+
+    for (const dependency of [
+      'import { WeatherCard } from "../components/weather-card";',
+      'import { FlightListCard, type Flight } from "../components/flight-list-card";',
+      'import { parseJsonResult } from "../lib/parse-json-result";',
+      'import { ToolRenderers } from "./tool-renderers";',
+      "interface WeatherResult",
+      "interface FlightSearchResult",
+      "export function WeatherCard",
+      "export function FlightListCard",
+      "export function parseJsonResult",
+      "export default function Page",
+      '<CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">',
+      "<ToolRenderers />",
+      '<CopilotChat agentId="tool-rendering" />',
+    ]) {
+      expect(output, `${framework}: ${dependency}`).toContain(dependency);
+    }
+
+    expect(
+      output.match(/const parsed = parseJsonResult<WeatherResult>\(result\);/g),
+    ).toHaveLength(1);
+    expect(
+      output.match(
+        /const parsed = parseJsonResult<FlightSearchResult>\(result\);/g,
+      ),
+    ).toHaveLength(1);
+    expect(output).not.toContain("snippet skipped");
+
+    if (framework === "google-adk") {
+      expect(output).toContain("from google.adk.tools import ToolContext");
+      expect(output).not.toContain("from langchain.tools import tool");
+    } else if (framework === "langgraph-python") {
+      expect(output).toContain("from langchain.tools import tool");
+      expect(output).not.toContain("from google.adk.tools import ToolContext");
+    } else {
+      expect(output).toContain(
+        'import { createTool } from "@mastra/core/tools";',
+      );
+      expect(output).not.toContain("from google.adk.tools import ToolContext");
+    }
+  },
+);
+
 test("renders executable Deep Agents state streaming in both languages", () => {
   const loadSlug = "integrations/deepagents/generative-ui/state-rendering";
   const doc = loadDoc(loadSlug);
@@ -730,4 +859,87 @@ test("renders executable Deep Agents state streaming in both languages", () => {
   expect(output).not.toContain("copilotkit_emit_state");
   expect(output).not.toContain("copilotkitEmitState");
   expect(output).not.toContain("chatNode");
+});
+
+test.each(["generative-ui/state-rendering", "shared-state/streaming"])(
+  "renders the Google ADK termination setup on %s without leaking internals",
+  (loadSlug) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const render = (framework: string) =>
+      renderPageToLlmText(
+        {
+          url: `${framework}/${loadSlug}`,
+          title: doc!.fm.title,
+          description: doc!.fm.description,
+          filePath: doc!.filePath,
+          loadSlug,
+          framework,
+        },
+        { framework },
+      );
+
+    const googleAdk = render("google-adk");
+    expect(googleAdk).toContain("after_model_callback=stop_on_terminal_text");
+    expect(googleAdk).toContain(
+      "showcase/integrations/google-adk/src/agents/shared_chat.py",
+    );
+    expect(googleAdk).not.toContain("def stop_on_terminal_text(");
+    expect(googleAdk).not.toContain("simple_after_model_modifier");
+    expect(googleAdk).not.toContain("AAPL");
+    expect(googleAdk).not.toContain("ADK_DISABLE_PROGRESSIVE_SSE_STREAMING");
+    expect(googleAdk).not.toContain("_invocation_context");
+    expect(googleAdk).not.toContain("<FrameworkSetup");
+    expect(googleAdk).not.toContain("@region[");
+
+    const otherPublicFrameworks = getIntegrations()
+      .filter((integration) => getDocsMode(integration.slug) !== "hidden")
+      .map((integration) => integration.slug)
+      .filter((framework) => framework !== "google-adk");
+    for (const framework of otherPublicFrameworks) {
+      const output = render(framework);
+      expect(output, framework).not.toContain(
+        "showcase/integrations/google-adk/src/agents/shared_chat.py",
+      );
+      expect(output, framework).not.toContain("<FrameworkSetup");
+    }
+  },
+);
+
+test("raw Markdown keeps only the active framework's <WhenFrameworkHas> branch", () => {
+  const slug = "generative-ui/a2ui/fixed-schema";
+  const doc = loadDoc(slug);
+  expect(doc).not.toBeNull();
+
+  const page = {
+    url: `langgraph-python/${slug}`,
+    title: doc!.fm.title,
+    description: doc!.fm.description,
+    filePath: doc!.filePath,
+    loadSlug: slug,
+    framework: "langgraph-python",
+  };
+  const langgraph = renderPageToLlmText(page);
+
+  // The gating tags themselves must never reach a Markdown consumer.
+  expect(langgraph).not.toContain("WhenFrameworkHas");
+
+  // langgraph-python is `a2ui_pattern: schema-loading`, so only that branch
+  // survives. Emitting all three used to put the `schema-inline` prose ("the
+  // host language doesn't ship a `load_schema` JSON loader") directly above a
+  // snippet that calls `a2ui.load_schema`, and the `llm-driven` prose above
+  // the very same fixed-schema code.
+  expect(langgraph).toContain("Load the schema JSON at startup");
+  expect(langgraph).not.toContain("Define the schema inline");
+  expect(langgraph).not.toContain("Generate the schema dynamically");
+
+  // A framework on a different pattern gets its own branch, not langgraph's.
+  const mastra = renderPageToLlmText(
+    { ...page, url: `mastra/${slug}`, framework: "mastra" },
+    { framework: "mastra" },
+  );
+  expect(mastra).toContain("Generate the schema dynamically");
+  expect(mastra).not.toContain("Load the schema JSON at startup");
+  expect(mastra).not.toContain("Define the schema inline");
 });

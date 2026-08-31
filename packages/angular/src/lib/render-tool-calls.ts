@@ -1,5 +1,10 @@
 import { NgComponentOutlet } from "@angular/common";
-import { Component, inject, input } from "@angular/core";
+import {
+  Component,
+  inject,
+  input,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import type {
   AssistantMessage,
   Message,
@@ -136,6 +141,7 @@ export function pickToolCallHandler(
 @Component({
   selector: "copilot-render-tool-calls",
   imports: [NgComponentOutlet],
+  changeDetection: ChangeDetectionStrategy.Eager,
   template: `
     @for (toolCall of message().toolCalls ?? []; track toolCall.id) {
       @let renderConfig = pickRenderer(toolCall.function.name);

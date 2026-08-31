@@ -31,6 +31,7 @@ import {
 import { buildBreadcrumbs, loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
 import { resolveFrontendDocPage } from "../frontend-doc-policy";
+import { resolveDocsHref } from "../docs-link-rewrite";
 import {
   getAngularDocsNavTree,
   resolveAngularDoc,
@@ -703,4 +704,48 @@ test("renders docs-catch-up copy only for frontends that still use it", () => {
     " guides are ready with more guides on the way.",
   );
   expect(slackUpcoming).toBeUndefined();
+});
+
+test("publishes the Vue generative UI guide as a reachable sidebar page", () => {
+  const pageUrls = collectPageUrls(
+    navTreeToPageTree(getFrontendQuickstartNavTree("vue"), "/vue"),
+  );
+
+  expect(pageUrls).toContain("/vue/guides/generative-ui");
+  expect(resolveFrontendDocPage("vue", "guides/generative-ui")).toEqual(
+    expect.objectContaining({
+      status: "found",
+      slugPath: "guides/generative-ui",
+      contentSlugPath: "frontends/vue/guides/generative-ui",
+      canonicalPath: "/vue/guides/generative-ui",
+    }),
+  );
+});
+
+test("links the Vue quickstart to its guide with an href that survives rewriting", () => {
+  const quickstart = loadDoc(getFrontendContentSlug("vue"));
+  const href = quickstart?.source.match(
+    /\]\((\S*guides\/generative-ui)\)/,
+  )?.[1];
+
+  // A relative or root-relative href is passed through untouched by
+  // resolveDocsHref, so the browser would resolve it against `/vue` and land
+  // on `/guides/generative-ui`, which does not exist.
+  expect(href).toBe("/vue/guides/generative-ui");
+
+  const rendered = resolveDocsHref(href, { slugHrefPrefix: "/vue" });
+  expect(rendered).toBe("/vue/guides/generative-ui");
+  expect(resolveFrontendDocPage("vue", "guides/generative-ui").status).toBe(
+    "found",
+  );
+});
+
+test("keeps frontends without guides free of an empty Guides section", () => {
+  const navTree = getFrontendQuickstartNavTree("react-native");
+
+  expect(navTree).not.toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ type: "section", title: "Guides" }),
+    ]),
+  );
 });

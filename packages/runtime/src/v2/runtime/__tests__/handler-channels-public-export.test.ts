@@ -22,7 +22,7 @@ import type {
 } from "../core/channel-manager";
 
 /**
- * Build an Intelligence platform client for a fake managed runtime.
+ * Build a CopilotKit Intelligence client for a fake managed runtime.
  *
  * @returns A configured {@link CopilotKitIntelligence} instance.
  */

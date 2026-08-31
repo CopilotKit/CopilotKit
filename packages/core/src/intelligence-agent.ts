@@ -68,6 +68,8 @@ interface Channel extends ɵPhoenixChannelLike {
   push(event: string, payload: unknown): ɵPhoenixPushLike;
 }
 
+const globalFetch: typeof fetch = (...args) => fetch(...args);
+
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
@@ -149,6 +151,7 @@ export interface IntelligenceAgentConfig {
   headers?: Record<string, string>;
   /** Optional credentials mode for fetch requests */
   credentials?: RequestCredentials;
+  fetch?: typeof fetch;
 }
 
 export class IntelligenceAgent extends AbstractAgent {
@@ -452,7 +455,8 @@ export class IntelligenceAgent extends AbstractAgent {
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
-        const response = await fetch(this.buildRuntimeUrl(mode), {
+        const requestFetch = this.config.fetch ?? globalFetch;
+        const response = await requestFetch(this.buildRuntimeUrl(mode), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

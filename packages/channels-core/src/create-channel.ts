@@ -852,6 +852,9 @@ export function createChannel<
       registerWaiter: (k, r) => waiters.set(k, r),
       interruptHandlers,
       state: backend,
+      // Tie the retained interrupt value's lifetime to the action that resumes
+      // it — same knob, so they cannot drift apart.
+      interruptRetentionMs: cfg.actionRetentionMs,
       stateSchema: cfg.state,
       transcripts,
       message: extras?.message,

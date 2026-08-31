@@ -13,7 +13,7 @@
  * rendering) is platform-agnostic and shared verbatim.
  *
  * RUN MODEL — a Channel runs ONLY through the Intelligence runtime, so this
- * example needs an Intelligence key (free tier: `COPILOTKIT_API_KEY`; the
+ * example needs an Intelligence key (free tier: `INTELLIGENCE_API_KEY`; the
  * platform URLs default to the managed service). The platform adapters stay DIRECT (they keep their own
  * Slack/Discord/Telegram/WhatsApp credentials + transports); the runtime OWNS
  * the Channel's lifecycle and STARTS all of its direct adapters for us. So all
@@ -81,16 +81,33 @@ const required = (...names: string[]): string => {
   return value;
 };
 
-/** Prefer a key that carries `cpk-{projectId}_...`. OpenTag's COPILOTKIT_API_KEY uses `cpk_` and cannot activate a Channel. */
-function intelligenceApiKey(): string {
-  const candidates = [
-    firstEnv("INTELLIGENCE_API_KEY"),
-    firstEnv("COPILOTKIT_API_KEY"),
-  ].filter((value): value is string => Boolean(value));
-  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
-  if (matching) return matching;
-  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
-}
+/**
+ * Resolves the Intelligence project key.
+ *
+ * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
+ */
+const requiredIntelligenceKey = (): string => {
+  const key =
+    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+  if (!key) {
+    console.error(
+      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+        "Channels run only through the Intelligence runtime, which needs an " +
+        "Intelligence key (free tier).\n" +
+        "  Run `copilotkit project select` to provision one, or set it manually.\n" +
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
+    );
+    process.exit(1);
+  }
+  if (!process.env.INTELLIGENCE_API_KEY) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+    );
+  }
+  return key;
+};
 
 /** True only when every named env var is set and non-empty. */
 const have = (...names: string[]): boolean =>
@@ -309,17 +326,14 @@ async function main() {
   // The Intelligence client the Channel-owning runtime is configured with. A
   // Channel runs only through the Intelligence runtime — the direct adapters
   // keep their own platform credentials, but the runtime is what starts them.
-  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
   // overrides target a self-hosted or dev deployment. Set both or neither: the
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
-    wsUrl: firstEnv(
-      "COPILOTKIT_INTELLIGENCE_WS_URL",
-      "INTELLIGENCE_GATEWAY_WS_URL",
-    ),
-    apiKey: intelligenceApiKey(),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
+    apiKey: requiredIntelligenceKey(),
   });
 
   // Declare the Channel on the Intelligence runtime, which OWNS its lifecycle:

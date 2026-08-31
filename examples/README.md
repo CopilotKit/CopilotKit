@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 51 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 52 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -14,7 +14,7 @@ cd examples/<category>/<name>
 
 ---
 
-## Integrations (19)
+## Integrations (20)
 
 Framework integration starters demonstrating CopilotKit with various agent frameworks.
 
@@ -30,6 +30,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [ms-agent-framework-python](./integrations/ms-agent-framework-python/) | CopilotKit with Microsoft Agent Framework (Python/FastAPI, AG-UI protocol)           |
 | [ms-agent-framework-dotnet](./integrations/ms-agent-framework-dotnet/) | CopilotKit with Microsoft Agent Framework (.NET/C#, AG-UI protocol)                  |
 | [strands-python](./integrations/strands-python/)                       | Starter template with a Strands investment analyst agent                             |
+| [strands-typescript](./integrations/strands-typescript/)               | Starter template using AWS Strands (TypeScript), AG-UI, and CopilotKit               |
 | [mcp-apps](./integrations/mcp-apps/)                                   | Integration of MCP Apps with CopilotKit using Three.js                               |
 | [adk](./integrations/adk/)                                             | Starter template using Google ADK with an investment analyst agent                   |
 | [agent-spec](./integrations/agent-spec/)                               | Starter for Agent Spec with A2UI-powered frontend tool rendering                     |
@@ -60,7 +61,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [banking](./showcases/banking/)                                         | Banking app demo with authorization, multiple operations, and generative UI                                         |
+| [reskinnable-demo](./showcases/reskinnable-demo/)                       | Runtime-reskinnable demo — banking and airline skins over one shell, agent and all                                  |
 | [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
 | [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)                                     |
 | [deep-agents-job-search](./showcases/deep-agents-job-search/)           | Job application assistant — resume parsing, skill extraction, DeepAgents orchestration                              |

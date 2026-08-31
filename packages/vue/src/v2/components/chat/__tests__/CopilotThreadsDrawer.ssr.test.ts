@@ -22,6 +22,6 @@ describe("@copilotkit/vue SSR import safety", () => {
     expect(mod.CopilotThreadsDrawer).toBeDefined();
     expect(evaluated.current).toBe(false);
     // Importing the full @copilotkit/vue barrel is heavy; under the pre-commit
-    // hook's full-suite parallel run the default 5s budget flakily times out.
-  }, 30000);
+    // hook's full-suite parallel run the default budget flakily times out.
+  }, 30_000);
 });

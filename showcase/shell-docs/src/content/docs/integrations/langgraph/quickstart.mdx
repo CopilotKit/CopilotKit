@@ -5,11 +5,10 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship LangGraph to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
+import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+
+<IntelligenceOnboardingPrompt
+  feature="learning"
   surface="docs_langgraph_quickstart"
 />
 
@@ -28,7 +27,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_langgraph_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -55,7 +54,7 @@ Before you begin, you'll need the following:
                 The CLI walks you through:
 
                 - **Project name**
-                - **Enterprise Intelligence Platform** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LangGraph setup.
+                - **CopilotKit Intelligence** — persistent threads and the inspector. Choose **Yes** to scaffold a project pre-wired for the platform (the CLI walks you through sign-up, or you can [create an account](https://dashboard.operations.copilotkit.ai/?utm_source=docs&utm_medium=cta&utm_campaign=intelligence&utm_content=docs_cli_prompt) first), or **No** for a standard LangGraph setup.
                 - **Framework** — pick **LangGraph (Python)** or **LangGraph (JavaScript)**.
             </Step>
             <Step>
@@ -123,13 +122,24 @@ Before you begin, you'll need the following:
               ```
           </Step>
           <Step>
-              ### Install LangGraph and AG-UI
+              ### Install LangGraph
 
-              Add LangGraph and the required AG-UI packages to your project:
+              Add the packages the agent code below imports:
 
               ```bash
-              uv add langgraph copilotkit langchain-openai langchain-core python-dotenv
+              uv add langgraph langchain-openai langchain-core python-dotenv
               ```
+
+              Both tabs below import all four. The **FastAPI** tab installs what
+              its own code needs on top of these — `ag-ui-langgraph`, `fastapi`,
+              `uvicorn` and `copilotkit` — in its own step; the LangSmith path
+              imports none of them, so they are not in this line.
+
+              <Callout type="warn" title="Project with pinned dependencies?">
+                `uv add` resolves and rewrites your lockfile. If your project
+                pins exact versions (`==`), add these to your dependency file by
+                hand instead so the rest of your pins stay put.
+              </Callout>
           </Step>
           <Step>
             ### Expose your agent via AG-UI
@@ -164,6 +174,17 @@ Before you begin, you'll need the following:
                   graph.add_edge("mock_llm", END)
                   graph = graph.compile()
                   ```
+
+                  <Callout type="warn" title="Do not add a checkpointer on this path">
+                    `compile()` is called with no `checkpointer=` on purpose. The
+                    LangGraph API server owns persistence and injects its own
+                    checkpointer at run time. If you compile a custom one in,
+                    `langgraph dev` refuses to load the graph
+                    (`ValueError: ... includes a custom checkpointer ... persistence is
+                    handled automatically by the platform`) and a deployed graph
+                    ignores it. The **FastAPI** tab is the opposite case — see the
+                    note there.
+                  </Callout>
 
                   Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
 
@@ -253,6 +274,20 @@ Before you begin, you'll need the following:
                   if __name__ == "__main__":
                     main()
                   ```
+
+                  <Callout type="info" title="Why this tab compiles with a checkpointer">
+                    Here you run the graph yourself, so nothing supplies
+                    persistence. `ag-ui-langgraph` reads thread state via
+                    `graph.aget_state(...)`, which raises
+                    `ValueError: No checkpointer set` on a graph compiled without
+                    one — hence `MemorySaver()`. It keeps state in process memory
+                    only; swap in a durable saver (e.g. Postgres) for production.
+                    Do **not** copy this into the LangSmith tab's graph.
+                  </Callout>
+
+                  `main.py` sets uvicorn's port to `8123` above, which is the
+                  port the runtime route below expects. Change both together if
+                  you pick a different one.
                 </Tab>
               </Tabs>
 
@@ -287,8 +322,12 @@ Before you begin, you'll need the following:
               ### Install CopilotKit packages
 
               ```npm
-              npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime
+              npm install @copilotkit/react-core @copilotkit/runtime
               ```
+
+              The components used below (`CopilotKit`, `CopilotSidebar`) and the
+              stylesheet all come from `@copilotkit/react-core/v2`, so
+              `@copilotkit/react-ui` is not needed for this setup.
           </Step>
           <Step>
               ### Setup Copilot Runtime
@@ -299,19 +338,29 @@ Before you begin, you'll need the following:
               mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
               ```
 
+              <Callout type="warn" title="This route is enough for chat, not for Threads or the Inspector">
+                A single `POST /api/copilotkit` is the *minimum* wiring: it runs
+                the runtime in single-route mode, which is all chat needs.
+                Persistent Threads and the Inspector's saved-Threads list need the
+                multi-route handler instead — a catch-all
+                `app/api/copilotkit/[[...slug]]/route.ts` that exports `GET`,
+                `POST`, `PATCH` and `DELETE`, so list, rename, archive and delete
+                requests can reach the runtime. If the Inspector shows **Finish
+                setting up Rich Threads**, this is why. See
+                [Runtime HTTP endpoints](/backend/runtime-endpoints#enable-rich-threads-routes)
+                for the route and the provider setup that goes with it.
+              </Callout>
+
               <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
                 <Tab value="LangSmith">
-                  ```tsx title="app/api/copilotkit/route.ts"
+                  ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                   import {
+                    CopilotKitIntelligence,
                     CopilotRuntime,
-                    ExperimentalEmptyAdapter,
-                    copilotRuntimeNextJSAppRouterEndpoint,
-                  } from "@copilotkit/runtime";
+                    createCopilotRuntimeHandler,
+                  } from "@copilotkit/runtime/v2";
                   // [!code highlight]
                   import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
-                  import { NextRequest } from "next/server";
-
-                  const serviceAdapter = new ExperimentalEmptyAdapter();
 
                   const runtime = new CopilotRuntime({
                     agents: {
@@ -321,32 +370,36 @@ Before you begin, you'll need the following:
                         graphId: "sample_agent",
                         langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
                       }),
-                    }
+                    },
+                    // [!code highlight:8]
+                    intelligence: new CopilotKitIntelligence({
+                      apiKey: process.env.INTELLIGENCE_API_KEY!,
+                    }),
+                    // Threads are per-user. Without this, every visitor shares one history.
+                    identifyUser: (request) => ({
+                      id: request.headers.get("x-user-id") ?? "anonymous",
+                      name: request.headers.get("x-user-name") ?? "Anonymous",
+                    }),
                   });
 
-                  export const POST = async (req: NextRequest) => {
-                    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                      runtime,
-                      serviceAdapter,
-                      endpoint: "/api/copilotkit",
-                    });
+                  const handler = createCopilotRuntimeHandler({
+                    runtime,
+                    basePath: "/api/copilotkit",
+                  });
 
-                    return handleRequest(req);
-                  };
+                  export const GET = handler;
+                  export const POST = handler;
                 ```
               </Tab>
               <Tab value="FastAPI">
-                ```tsx title="app/api/copilotkit/route.ts"
+                ```tsx title="app/api/copilotkit/[[...slug]]/route.ts"
                 import {
+                  CopilotKitIntelligence,
                   CopilotRuntime,
-                  ExperimentalEmptyAdapter,
-                  copilotRuntimeNextJSAppRouterEndpoint,
-                } from "@copilotkit/runtime";
+                  createCopilotRuntimeHandler,
+                } from "@copilotkit/runtime/v2";
                 // [!code highlight]
                 import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
-                import { NextRequest } from "next/server";
-
-                const serviceAdapter = new ExperimentalEmptyAdapter();
 
                 const runtime = new CopilotRuntime({
                   agents: {
@@ -354,26 +407,59 @@ Before you begin, you'll need the following:
                     sample_agent: new LangGraphHttpAgent({
                       url:  process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
                     }),
-                  }
+                  },
+                  // [!code highlight:8]
+                  intelligence: new CopilotKitIntelligence({
+                    apiKey: process.env.INTELLIGENCE_API_KEY!,
+                  }),
+                  // Threads are per-user. Without this, every visitor shares one history.
+                  identifyUser: (request) => ({
+                    id: request.headers.get("x-user-id") ?? "anonymous",
+                    name: request.headers.get("x-user-name") ?? "Anonymous",
+                  }),
                 });
 
-                export const POST = async (req: NextRequest) => {
-                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-                    runtime,
-                    serviceAdapter,
-                    endpoint: "/api/copilotkit",
-                  });
+                const handler = createCopilotRuntimeHandler({
+                  runtime,
+                  basePath: "/api/copilotkit",
+                });
 
-                  return handleRequest(req);
-                };
+                export const GET = handler;
+                export const POST = handler;
               ```
               </Tab>
             </Tabs>
+
+              The runtime reads the license key from step 1. Add it to the app that serves
+              this route:
+
+              ```plaintext title=".env.local"
+              INTELLIGENCE_API_KEY=your_license_key
+              ```
+
+              <Callout type="info" title="Running without the Intelligence Platform?">
+                Drop the `intelligence` and `identifyUser` options and the runtime falls back
+                to SSE mode with an in-memory runner. Chat still works, but Threads and the
+                Inspector stay locked and the key is never read. See
+                [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the
+                full constructor and how to confirm the key is in use.
+              </Callout>
           </Step>
           <Step>
               ### Configure CopilotKit Provider
 
               Wrap your application with the CopilotKit provider:
+
+              <Callout type="info" title="Which provider goes with which handler?">
+                `<CopilotKit>` here is the backward-compatible wrapper, and every
+                released version pins it to the single-route transport — which is why
+                it needs the explicit `useSingleEndpoint={false}` below to reach the
+                multi-route `createCopilotRuntimeHandler` route above.
+                `<CopilotKitProvider>` is the v2 provider from the same package and
+                detects the transport from `/info` on its own. They are not aliases —
+                see
+                [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
+              </Callout>
 
               ```tsx title="app/layout.tsx"
               // [!code highlight:2]
@@ -388,7 +474,7 @@ Before you begin, you'll need the following:
                   <html lang="en">
                     <body>
                       {/* [!code highlight:3] */}
-                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+                      <CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent" useSingleEndpoint={false}>
                         {children}
                       </CopilotKit>
                     </body>
@@ -396,6 +482,14 @@ Before you begin, you'll need the following:
                 );
               }
               ```
+
+              <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+                `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+                same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+                server of its own and an absolute `runtimeUrl` such as
+                `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+                `/angular` and `/react-native` each show that setup.
+              </Callout>
           </Step>
           <Step>
             ### Add the chat interface
@@ -426,16 +520,31 @@ Before you begin, you'll need the following:
                   cd ..
                   npx @langchain/langgraph-cli dev --port 8123 --no-browser
                   ```
+
+                  <Callout type="warn" title="Port 8123 is not the default">
+                    A bare `langgraph dev` (either the Python `langgraph-cli` or
+                    `@langchain/langgraph-cli`) serves on **2024**. This guide
+                    pins **8123** with `--port 8123` to match the
+                    `http://localhost:8123` fallback in the route above. Keep the
+                    flag, or drop it and change the route's URL to
+                    `http://localhost:2024` — but do not mix the two, or the
+                    runtime will fail to connect with no diagnostic beyond a
+                    connection error.
+                  </Callout>
                 </Tab>
                 <Tab value="FastAPI">
                   ```bash
                   cd ..
                   uv run main.py
                   ```
+
+                  This serves on **8123**, the port set in `main.py`'s
+                  `uvicorn.run(...)` call.
                 </Tab>
               </Tabs>
 
-              Your agent will be available at `http://localhost:8123`.
+              Your agent will be available at `http://localhost:8123` for both
+              tabs above.
           </Step>
           <Step>
               ### Start your UI
@@ -491,18 +600,33 @@ Before you begin, you'll need the following:
 
         <Accordions className="mb-4">
             <Accordion title="Troubleshooting">
-                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - **Connection issues? Keep `localhost`, don't swap in a literal IP.** Which loopback address reaches the agent depends on the runtime, and `0.0.0.0` is a bind-all address for a server, never a valid target in a client URL.
+
+                  <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                    <Tab value="Python">
+                      `langgraph dev` (the Python CLI) defaults to `--host 127.0.0.1`, so both `http://127.0.0.1:8123` and `http://localhost:8123` reach it. `http://[::1]:8123` does not — the server is not listening on IPv6.
+                    </Tab>
+                    <Tab value="TypeScript">
+                      `@langchain/langgraph-cli` (the `langgraphjs` binary) defaults to `--host localhost`, which Node resolves to IPv6 on a dual-stack machine, binding `::1` **only**. So `http://localhost:8123` and `http://[::1]:8123` reach it, while `http://127.0.0.1:8123` is refused by that same running server — switching to `127.0.0.1` is what breaks it. If you need IPv4, bind it explicitly with `langgraphjs dev --host 127.0.0.1`.
+                    </Tab>
+                  </Tabs>
                 - Make sure your agent folder contains a `langgraph.json` file
                 - In the `langgraph.json` file, reference the path to a `.env` file
                 - Check that your OpenAI API key is correctly set in the `.env` file
                 - If using an existing agent, ensure your LangSmith API key is also configured
                 - Make sure you're in the same folder as your `langgraph.json` file when running the `langgraph dev` command
+                - **Connection refused from the runtime?** Check the port. A bare `langgraph dev` listens on `2024`; this guide's start command pins `8123` with `--port 8123`. The runtime's `LANGGRAPH_DEPLOYMENT_URL` (or its fallback) has to name the port the agent actually bound.
                 - **"graph is nullish" error (JavaScript starters):** This means the LangGraph CLI couldn't load your graph. Ensure the export name in your `langgraph.json` matches your code (e.g., `"starterAgent": "./src/agent.ts:graph"` requires `export const graph = ...` in `agent.ts`). Also verify all dependencies are installed with `npm install` in your agent directory.
                 - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
             </Accordion>
         </Accordions>
 
     </Step>
+
+    <Step>
+        <OpenInspectorStep components={props.components} />
+    </Step>
+
 </Steps>
 
 ## Deploying to AWS?

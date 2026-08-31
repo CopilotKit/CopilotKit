@@ -4,6 +4,7 @@ import type { ChannelFrontend } from "./channel-guide-routes";
 
 export type FrontendId =
   | "react"
+  | "react-spa"
   | "vue"
   | "react-native"
   | "angular"

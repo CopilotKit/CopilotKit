@@ -1,4 +1,4 @@
-import type { BuiltInAgent } from "@copilotkit/runtime/v2";
+import type { AbstractAgent } from "@ag-ui/client";
 import { bankingAgent } from "@/skins/banking/agent";
 import { airlineAgent } from "@/skins/airline/agent";
 import { keelAgent } from "@/skins/keel/agent";
@@ -55,8 +55,27 @@ export type IdentifyRunUser = (
 ) => { id: string; name: string };
 
 export interface AgentRegistration {
-  /** Factory for this skin's server-only agent. */
-  createAgent: () => BuiltInAgent;
+  /**
+   * Factory for this skin's server-only agent.
+   *
+   * Typed `AbstractAgent` rather than `BuiltInAgent` because the runtime itself
+   * is agent-agnostic: `CopilotRuntime`'s `agents` option is
+   * `Record<string, AbstractAgent>` and the v2 tree contains no
+   * `instanceof BuiltInAgent` branch anywhere.
+   *
+   * SIX skins return a `BuiltInAgent`. `banking` returns an `HttpAgent` — its
+   * agent is a Python deep agent in a separate service (see
+   * `src/skins/banking/agent.ts` for why the whole agent moved and not just one
+   * tool). Narrowing this back to `BuiltInAgent` would reject that registration
+   * for a constraint the runtime does not actually have.
+   *
+   * Derive the split rather than trusting this comment — it goes stale the
+   * moment any skin changes:
+   *
+   *     grep -l "new BuiltInAgent" src/skins/-/agent.ts   # with - as the glob star
+   *     grep -l "new HttpAgent"    src/skins/-/agent.ts
+   */
+  createAgent: () => AbstractAgent;
   /** OPTIONAL per-skin identity resolver (see `IdentifyRunUser`). */
   identifyUser?: IdentifyRunUser;
 }

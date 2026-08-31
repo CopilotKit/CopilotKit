@@ -17,14 +17,18 @@ import {
   THREAD_REQUEST_KINDS,
   THREADS_STATE_SCENARIOS,
   canonicalScenarioUrl,
+  clearThreadsStateLabNotificationState,
   clearThreadsStateLabStorage,
+  consumedNotificationReplayUrl,
   copyThreadsStateLabDirectLink,
   getThreadsStateScenario,
   installThreadsStateLabNavigation,
   installThreadsStateLabReducedMotion,
   navigateThreadsStateLabScenario,
+  notificationReplayUrl,
   parseScenarioKey,
   runtimeUrlFor,
+  seedThreadsStateLabAgentEvents,
   stopThreadsStateLabClient,
 } from "./threads-state-lab.js";
 import type {
@@ -76,6 +80,7 @@ const EXPECTED_EDGE_KEYS = [
   "action-only",
   "license-none",
   "license-expired",
+  "agent-run-error",
   "thread-list-error",
   "video-error",
   "reduced-motion",
@@ -474,15 +479,28 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 33-scenario route catalog", () => {
+test("exports the exact ordered 34-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
   expect(ALL_SCENARIO_KEYS).toEqual([
     ...EXPECTED_CORE_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(33);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(34);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
+});
+
+test("models a deterministic CopilotKit agent RunError on Home", () => {
+  const scenario = getThreadsStateScenario("agent-run-error");
+  expect(scenario.initialMenu).toBe("home");
+  expect(scenario.initialAgentEvents).toEqual([
+    {
+      type: "RUN_ERROR",
+      runId: "threads-lab-run-error",
+      message: "The agent could not complete this run.",
+      code: "AGENT_RUN_ERROR",
+    },
+  ]);
 });
 
 test("deep-freezes every fixture and produces deterministic JSON", () => {
@@ -898,7 +916,9 @@ test("counts one real Phoenix join and reset closes its scenario socket", async 
       entries: [],
     });
     await socketClosed;
-    expect(lab.runtime.openSocketCount()).toBe(0);
+    await vi.waitFor(() => {
+      expect(lab.runtime.openSocketCount()).toBe(0);
+    });
   } finally {
     await stopLabServer(lab);
   }
@@ -1140,6 +1160,59 @@ test("executes exact storage reset copy and reduced-motion restoration", async (
   }
 });
 
+test("builds a clean launcher-notification replay", () => {
+  const localValues = new Map<string, string>([
+    [
+      "cpk:inspector:state",
+      JSON.stringify({
+        isOpen: true,
+        dockMode: "docked-left",
+        selectedMenu: "agents",
+      }),
+    ],
+    ["cpk:inspector:announcement_read", "seen"],
+  ]);
+  const localRemoved: string[] = [];
+  const sessionRemoved: string[] = [];
+  const cookieTarget = { cookie: "unchanged" };
+
+  clearThreadsStateLabNotificationState(
+    {
+      getItem: (key) => localValues.get(key) ?? null,
+      setItem: (key, value) => localValues.set(key, value),
+      removeItem: (key) => {
+        localRemoved.push(key);
+        localValues.delete(key);
+      },
+    },
+    { removeItem: (key) => sessionRemoved.push(key) },
+    cookieTarget,
+  );
+
+  expect(JSON.parse(localValues.get("cpk:inspector:state") ?? "null")).toEqual({
+    isOpen: false,
+    dockMode: "docked-left",
+    selectedMenu: "agents",
+  });
+  expect(localRemoved).toEqual(["cpk:inspector:announcement_read"]);
+  expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
+  expect(cookieTarget.cookie).toBe(
+    "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
+  );
+  expect(
+    notificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1",
+    ),
+  ).toBe(
+    "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+  );
+  expect(
+    consumedNotificationReplayUrl(
+      "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&replay-notification=1",
+    ),
+  ).toBe("http://127.0.0.1:5177/?scenario=free-figma-148-of-200");
+});
+
 test("runs teardown before real select and reset control navigation", async () => {
   const events: string[] = [];
   const assigned: string[] = [];
@@ -1185,7 +1258,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1252,16 +1325,100 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
 
           const launcher =
             inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-              'button[aria-label="Web Inspector"]',
+              'button[aria-label^="Web Inspector"]',
             );
           expect(launcher, `${key}: launcher`).toBeDefined();
+          // A live thread-list failure owns the launcher, so the first open
+          // lands on Threads instead of Home. The list request is still in
+          // flight at this point, and the signal only arms once it has been
+          // refused — so wait for the launcher to say so rather than assume
+          // the request already lost. Two microtask turns is not a wait.
+          const landingLabel = key === "thread-list-error" ? "Threads" : "Home";
+          if (landingLabel !== "Home") {
+            await vi.waitFor(
+              () => {
+                expect(
+                  launcher?.getAttribute("aria-label"),
+                  `${key}: launcher signal`,
+                ).toContain("thread loading error");
+              },
+              { timeout: 5_000, interval: 20 },
+            );
+          }
           launcher?.click();
           await flushInspector(inspector);
+          const homeButton = inspectorButton(inspector, "Home");
+          expect(homeButton, `${key}: Home nav`).toBeDefined();
+          const landingButton =
+            landingLabel === "Home"
+              ? homeButton
+              : inspectorButton(inspector, "Threads");
+          expect(
+            landingButton?.classList.contains("inspector-nav-control-active"),
+            `${key}: ${landingLabel} default`,
+          ).toBe(true);
+          if (landingLabel !== "Home") {
+            homeButton?.click();
+            await flushInspector(inspector);
+          }
+          const identity = scenario.inspectorMetadata?.identity;
+          if (identity) {
+            await vi.waitFor(() => {
+              expect(
+                collectDeep(
+                  inspector.shadowRoot!,
+                  '[aria-label="Inspector account details"]',
+                ),
+                `${key}: account presence`,
+              ).toHaveLength(1);
+            });
+            const homeText = inspectorText(inspector);
+            expect(homeText, `${key}: organization`).toContain(
+              identity.organizationName,
+            );
+            expect(homeText, `${key}: project`).toContain(identity.projectName);
+          } else {
+            expect(
+              collectDeep(
+                inspector.shadowRoot!,
+                '[aria-label="Inspector account details"]',
+              ),
+              `${key}: account presence`,
+            ).toHaveLength(0);
+          }
+          if (scenario.initialAgentEvents?.length) {
+            seedThreadsStateLabAgentEvents(inspector, scenario);
+            await flushInspector(inspector);
+            expect(
+              inspectorText(inspector),
+              `${key}: error activity`,
+            ).toContain("RUN_ERROR");
+            expect(inspectorText(inspector), `${key}: health state`).toContain(
+              "Needs attention",
+            );
+            // A failed run is an EVENT, and the launcher's signal is a STATE
+            // indicator: an hour of iteration produces many failed runs, and a
+            // signal that is usually on carries no information. System Health
+            // reports it, above; nothing outside the panel does.
+            expect(
+              collectDeep(
+                inspector.shadowRoot!,
+                '.inspector-nav-signal-dot[data-cpk-signal-tone="error"]',
+              ),
+              `${key}: run error raises no error signal`,
+            ).toHaveLength(0);
+            expect(
+              collectDeep(inspector.shadowRoot!, '[data-cpk-signal="error"]'),
+              `${key}: run error raises no launcher error tone`,
+            ).toHaveLength(0);
+          }
           const threadsButton = inspectorButton(inspector, "Threads");
           expect(threadsButton, `${key}: Threads nav`).toBeDefined();
+          threadsButton?.click();
+          await flushInspector(inspector);
           expect(
             threadsButton?.classList.contains("inspector-nav-control-active"),
-            `${key}: Threads default`,
+            `${key}: Threads selected`,
           ).toBe(true);
 
           const expectedStoreCount = scenario.capability === "enabled" ? 1 : 0;
@@ -1301,14 +1458,12 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
           expect(root, key).not.toBeNull();
           if (!root) throw new Error(`${key}: missing Inspector Shadow Root.`);
           const text = inspectorText(inspector);
-          const navigation = collectDeep(
-            root,
-            '[aria-label="Inspector primary navigation"]',
-          );
+          const navigation = collectDeep(root, '[aria-label="Inspector"]');
           expect(navigation, `${key}: grouped nav`).toHaveLength(1);
           expect(text, `${key}: Threads nav`).toContain("Threads");
-          expect(text, `${key}: Agents nav`).toContain("Agents");
+          expect(text, `${key}: Agent nav`).toContain("Agent");
           expect(text, `${key}: Learning nav`).toContain("Learning");
+          expect(text, `${key}: Home nav`).toContain("Home");
           const overviewCopy = expectedOverviewCopy(scenario);
           if (overviewCopy) {
             expect(text, `${key}: overview heading`).toContain(
@@ -1354,21 +1509,6 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
               setupPrompts[0]?.textContent?.trim(),
               `${key}: setup prompt label`,
             ).toBe("Copy prompt for your agent");
-          }
-
-          const identity = scenario.inspectorMetadata?.identity;
-          const account = collectDeep(
-            root,
-            '[aria-label="Inspector account details"]',
-          );
-          expect(account, `${key}: account presence`).toHaveLength(
-            identity ? 1 : 0,
-          );
-          if (identity) {
-            expect(text, `${key}: organization`).toContain(
-              identity.organizationName,
-            );
-            expect(text, `${key}: project`).toContain(identity.projectName);
           }
 
           const usage = scenario.inspectorMetadata?.usage;
@@ -1420,12 +1560,16 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
             expect(text, `${key}: action label`).toContain(actionLabel);
           }
 
+          const main = root.querySelector("#cpk-main-scroll");
+          if (!main) {
+            throw new Error(`${key}: Inspector main content was not rendered`);
+          }
           const generalIntelligenceOnboarding = collectDeep(
-            root,
-            'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+            main,
+            'a[href^="https://intelligence.copilotkit.ai/?ref="]',
           );
           const selfHostedIntelligenceOnboarding = collectDeep(
-            root,
+            main,
             'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
           );
           const showsEnabledZeroOverview =
@@ -1599,7 +1743,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 33 r
                   list: 1,
                   subscribe: 1,
                   inspect: 0,
-                  messages: 0,
+                  messages: 1,
                   events: 1,
                   state: 1,
                 });

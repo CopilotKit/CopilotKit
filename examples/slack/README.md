@@ -89,7 +89,8 @@ bot.onMention(async ({ thread, message }) => {
 });
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.COPILOTKIT_API_KEY!,
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence.
+  apiKey: process.env.INTELLIGENCE_API_KEY!,
 });
 const runtime = new CopilotRuntime({
   agents: {},
@@ -400,16 +401,14 @@ The optional **Notion MCP sidecar** is only for Notion tools. Linear uses
 ```bash
 cp .env.example .env
 # Required for the default Intelligence path:
-#   COPILOTKIT_API_KEY or INTELLIGENCE_API_KEY
+#   INTELLIGENCE_API_KEY              (REQUIRED — owns the Channel; free tier)
 #   OPENAI_API_KEY
 #   AGENT_URL                         (default: local runtime on :8200)
 # Optional:
-#   INTELLIGENCE_CHANNEL_NAME         (default: triage)
-#   INTELLIGENCE_API_URL / INTELLIGENCE_GATEWAY_WS_URL
 #   LINEAR_API_KEY / NOTION_*
 ```
 
-`COPILOTKIT_API_KEY` (or the OpenTag alias `INTELLIGENCE_API_KEY`) is required.
+`INTELLIGENCE_API_KEY` is required (`COPILOTKIT_API_KEY` is a deprecated alias).
 URLs default to the managed Intelligence platform. Slack tokens are not used
 on `pnpm dev`. Use `pnpm direct` only if you want local adapters.
 

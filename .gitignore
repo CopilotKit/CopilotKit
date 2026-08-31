@@ -68,6 +68,9 @@ lefthook-local.yml
 # Private agent instructions (not shared with the team)
 private-agents.md
 
+# Agent screenshots from the Inspector workbench skill. Session-only. Never commit.
+.inspector-workbench/
+
 # Release artifacts
 release-notes.md
 release-notes-notion.json

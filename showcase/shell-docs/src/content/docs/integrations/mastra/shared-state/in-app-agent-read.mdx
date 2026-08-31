@@ -29,7 +29,7 @@ You can easily use the realtime agent state not only in the chat UI, but also in
 
   ```ts
   const runtime = new CopilotRuntime({
-    agents: MastraAgent.getLocalAgents({ mastra }),
+    agents: MastraAgent.getLocalAgents({ mastra, resourceId: "user-1" }),
   });
   ```
 

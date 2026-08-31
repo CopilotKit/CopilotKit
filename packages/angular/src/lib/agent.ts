@@ -8,6 +8,7 @@ import {
   untracked,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
+import { InterruptController, type InterruptRunner } from "./interrupt";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { AgentSubscriber, Message, State } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -24,6 +25,12 @@ type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
 type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
 type AgentWithCredentials = AbstractAgent & {
   credentials?: RequestCredentials;
+};
+
+const missingInterruptRunner: InterruptRunner = async () => {
+  throw new Error(
+    "AgentStore.interruptController requires a store created by injectAgentStore().",
+  );
 };
 
 function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
@@ -43,18 +50,24 @@ export class AgentStore {
   readonly #isRunning: WritableSignal<boolean>;
   readonly #messages: WritableSignal<Message[]>;
   readonly #state: WritableSignal<unknown>;
+  #unregisterDestroy?: () => void;
+  #tornDown = false;
 
   readonly agent: AbstractAgent;
   readonly isRunning: Signal<boolean>;
   readonly messages: Signal<Message[]>;
   readonly state: Signal<unknown>;
+  /** Unfiltered interrupt controller bound to this store's agent. */
+  readonly interruptController: InterruptController;
 
   constructor(
     abstractAgent: AbstractAgent,
     destroyRef: DestroyRef,
     subscribeToAgent: SubscribeToAgentFn,
+    interruptRunner: InterruptRunner = missingInterruptRunner,
   ) {
     this.agent = abstractAgent;
+    this.interruptController = new InterruptController(interruptRunner);
     // A connected agent can already carry restored thread data before this
     // store subscribes. Seed the signals synchronously so the first render is
     // complete instead of waiting for a future mutation that may never occur.
@@ -89,16 +102,25 @@ export class AgentStore {
         this.#isRunning.set(false);
       },
     });
+    // Preserve the store projection as the agent's first subscriber so its
+    // synchronous message/state updates keep their existing timing.
+    untracked(() => this.interruptController.connect(abstractAgent));
 
-    destroyRef.onDestroy(() => {
+    this.#unregisterDestroy = destroyRef.onDestroy(() => {
       this.teardown();
     });
   }
 
   teardown(): void {
+    if (this.#tornDown) return;
+    this.#tornDown = true;
+    this.#unregisterDestroy?.();
+    this.#unregisterDestroy = undefined;
     if (this.#subscription) {
       this.#subscription.unsubscribe();
     }
+    // Agent swaps can tear down a store while the factory computed is running.
+    untracked(() => this.interruptController.destroy());
   }
 }
 
@@ -123,6 +145,8 @@ export class CopilotkitAgentFactory {
       this.#copilotkit.core.subscribeToAgentWithOptions.bind(
         this.#copilotkit.core,
       );
+    const interruptRunner: InterruptRunner = (agent, runOptions) =>
+      this.#copilotkit.core.runAgent({ agent, ...runOptions });
 
     const resolveAgent = (): AbstractAgent => {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
@@ -208,7 +232,12 @@ export class CopilotkitAgentFactory {
 
       lastAgentStore?.teardown();
       lastAgent = agent;
-      lastAgentStore = new AgentStore(agent, destroyRef, subscribeToAgent);
+      lastAgentStore = new AgentStore(
+        agent,
+        destroyRef,
+        subscribeToAgent,
+        interruptRunner,
+      );
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const handoff = this.#provisionalCache.get(resolvedAgentId);
       if (handoff?.provisional === agent) {

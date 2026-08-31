@@ -10,7 +10,7 @@ import {
   ElementRef,
   ViewChild,
 } from "@angular/core";
-import { CommonModule } from "@angular/common";
+
 import { Marked } from "marked";
 import hljs from "highlight.js";
 import * as katex from "katex";
@@ -84,7 +84,6 @@ function processMathEquationsInHtml(html: string): string {
 @Component({
   standalone: true,
   selector: "copilot-chat-assistant-message-renderer",
-  imports: [CommonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `

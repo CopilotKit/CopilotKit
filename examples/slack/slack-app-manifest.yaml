@@ -29,7 +29,6 @@ features:
       should_escape: false
     - command: /triage
       description: Triage this thread — summarize and propose Linear issues
-      usage_hint: ""
       should_escape: false
     - command: /preview
       description: Privately preview the issue I'd file
@@ -37,7 +36,6 @@ features:
       should_escape: false
     - command: /file-issue
       description: Open a form to file a Linear issue
-      usage_hint: ""
       should_escape: false
     - command: /prs
       description: Show the PR review radar (open PRs needing review)

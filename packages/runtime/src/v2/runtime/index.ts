@@ -7,7 +7,7 @@ export * from "./runner";
 // Export transcription services
 export * from "./transcription-service/transcription-service";
 
-// Export intelligence platform client and types
+// Export CopilotKit Intelligence client and types
 export {
   CopilotKitIntelligence,
   type CopilotKitIntelligenceConfig,

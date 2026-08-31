@@ -10,9 +10,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
 
@@ -28,9 +27,7 @@ const agents: Record<string, AbstractAgent> = {
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit-declarative-gen-ui",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
+    const copilotHandler = createCopilotRuntimeHandler({
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts
         agents,
@@ -42,8 +39,10 @@ export const POST = async (req: NextRequest) => {
           defaultCatalogId: "declarative-gen-ui-catalog",
         },
       }),
+      basePath: "/api/copilotkit-declarative-gen-ui",
+      mode: "single-route",
     });
-    return await handleRequest(req);
+    return await copilotHandler(req);
   } catch (error: unknown) {
     const e = error as { message?: string; stack?: string };
     return NextResponse.json(

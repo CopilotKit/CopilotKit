@@ -59,22 +59,39 @@ const required = (...names: string[]): string => {
 };
 
 /**
- * Channel name on the Intelligence project. Defaults to `triage`. Set
- * `INTELLIGENCE_CHANNEL_NAME` to attach to an existing managed Channel
- * (for example the OpenTag Slack app).
+ * Resolves the Intelligence project key.
+ *
+ * `INTELLIGENCE_API_KEY` is the name `copilotkit project select` provisions and
+ * the name every other CopilotKit surface documents. `COPILOTKIT_API_KEY` is a
+ * deprecated alias, still read so an existing `.env` keeps working.
  */
-const channelName = firstEnv("INTELLIGENCE_CHANNEL_NAME") ?? "triage";
+const requiredIntelligenceKey = (): string => {
+  const key =
+    process.env.INTELLIGENCE_API_KEY ?? process.env.COPILOTKIT_API_KEY;
+  if (!key) {
+    console.error(
+      "Missing required env var: INTELLIGENCE_API_KEY\n" +
+        "Channels run only through the Intelligence runtime, which needs an " +
+        "Intelligence key (free tier).\n" +
+        "  Run `copilotkit project select` to provision one, or set it manually.\n" +
+        "No URLs to set: the SDK defaults to cloud-hosted CopilotKit Intelligence.",
+    );
+    process.exit(1);
+  }
+  if (!process.env.INTELLIGENCE_API_KEY) {
+    console.warn(
+      "COPILOTKIT_API_KEY is a deprecated alias; rename it to INTELLIGENCE_API_KEY.",
+    );
+  }
+  return key;
+};
 
-/** Prefer a key that carries `cpk-{projectId}_...`. OpenTag's COPILOTKIT_API_KEY uses `cpk_` and cannot activate a Channel. */
-function intelligenceApiKey(): string {
-  const candidates = [
-    firstEnv("INTELLIGENCE_API_KEY"),
-    firstEnv("COPILOTKIT_API_KEY"),
-  ].filter((value): value is string => Boolean(value));
-  const matching = candidates.find((key) => /^cpk-\d+_/.test(key));
-  if (matching) return matching;
-  return required("INTELLIGENCE_API_KEY", "COPILOTKIT_API_KEY");
-}
+/**
+ * The managed Channel `name` is chosen HERE, in code — it is the project-unique
+ * identifier the runtime uses to derive the managed Channel's activation config
+ * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
+ */
+const channelName = "triage";
 
 async function main() {
   const brand = await loadBrandRender();
@@ -150,17 +167,14 @@ async function main() {
   // (plus the channel `name`) the runtime derives the managed Channel's
   // activation config — project id, adapter, socket URL/auth — with no infra
   // ids supplied by the developer.
-  // apiUrl/wsUrl default to CopilotKit's managed Intelligence platform; the env
+  // apiUrl/wsUrl default to cloud-hosted CopilotKit Intelligence; the env
   // overrides target a self-hosted or dev deployment. Set both or neither: the
   // API and realtime planes are separate hosts (api.… vs realtime.…), so
   // neither can be derived from the other.
   const intelligence = new CopilotKitIntelligence({
-    apiUrl: firstEnv("COPILOTKIT_INTELLIGENCE_URL", "INTELLIGENCE_API_URL"),
-    wsUrl: firstEnv(
-      "COPILOTKIT_INTELLIGENCE_WS_URL",
-      "INTELLIGENCE_GATEWAY_WS_URL",
-    ),
-    apiKey: intelligenceApiKey(),
+    apiUrl: process.env.COPILOTKIT_INTELLIGENCE_URL,
+    wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL,
+    apiKey: requiredIntelligenceKey(),
   });
 
   const runtime = new CopilotRuntime({

@@ -14,7 +14,6 @@ import {
   <CopilotKitProvider
     runtime-url="/api/copilotkit-catalog"
     :a2ui="{ catalog: vueBasicCatalog }"
-    show-dev-console="auto"
   >
     <div style="height: 100vh; margin: 0; padding: 0; overflow: hidden">
       <CopilotChat agent-id="demo-button" thread-id="a2ui-catalog-thread" />
