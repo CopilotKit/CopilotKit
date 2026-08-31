@@ -296,7 +296,6 @@ async function main() {
     try {
       if (isCarouselRequest(message.text)) {
         console.error("[channel] posting sample carousel");
-        await thread.post("Rendering the carousel…");
         await renderCatalogCarousel(thread);
         return;
       }
