@@ -11,6 +11,7 @@ import { ɵInterruptState } from "@copilotkit/core";
 import type { ɵPendingInterrupt } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";
+import { INTERRUPT_EVENT_NAME } from "../types/interrupt";
 import type {
   InterruptEvent,
   InterruptRenderProps,
@@ -25,8 +26,6 @@ export type {
   InterruptHandlerProps,
   Interrupt,
 };
-
-const INTERRUPT_EVENT_NAME = "on_interrupt";
 
 /**
  * Normalized pending interrupt. `legacy` carries the custom-event payload;
