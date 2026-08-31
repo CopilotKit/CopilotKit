@@ -126,6 +126,10 @@ test("renders public-only LangGraph TypeScript model setup", () => {
 });
 
 test("keeps the rendered tool-rendering guide free of showcase internals", () => {
+  expect(agentSource("tool-rendering.ts")).toContain(
+    'import { AIMessage, SystemMessage } from "@langchain/core/messages";',
+  );
+
   const doc = loadDoc("generative-ui/tool-rendering");
   expect(doc).not.toBeNull();
 
