@@ -419,8 +419,7 @@ describe("DeliveryAdapter.post", () => {
       .mockRejectedValueOnce(unready)
       .mockResolvedValueOnce({
         providerReference: "pref_v1_message_ready_01",
-        providerMessageId:
-          "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        providerMessageId: "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
       });
     const session = {
       effect,
@@ -436,9 +435,7 @@ describe("DeliveryAdapter.post", () => {
       await vi.advanceTimersByTimeAsync(200);
       const ref = await pending;
       expect(effect).toHaveBeenCalledTimes(2);
-      expect(ref.id).toBe(
-        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
-      );
+      expect(ref.id).toBe("pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ");
     } finally {
       vi.useRealTimers();
     }
