@@ -47,3 +47,35 @@ test("rejects suggested actions containing only whitespace", () => {
 
   expect(result.success).toBe(false);
 });
+
+test("rejects an unselected incident type", () => {
+  const { input } = setup();
+
+  const result = incidentReportFormSchema.safeParse({
+    ...input,
+    incidentType: "",
+  });
+
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.flatten().fieldErrors.incidentType).toEqual([
+      "Please select an incident type.",
+    ]);
+  }
+});
+
+test("rejects an unselected impact level", () => {
+  const { input } = setup();
+
+  const result = incidentReportFormSchema.safeParse({
+    ...input,
+    impactLevel: "",
+  });
+
+  expect(result.success).toBe(false);
+  if (!result.success) {
+    expect(result.error.flatten().fieldErrors.impactLevel).toEqual([
+      "Please select an impact level.",
+    ]);
+  }
+});
