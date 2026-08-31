@@ -396,6 +396,38 @@ describe("DeliveryAdapter.postFile", () => {
 });
 
 describe("DeliveryAdapter.post", () => {
+  it("waits before the first Slack post when the message has a staged file", async () => {
+    vi.useFakeTimers();
+    const effect = vi.fn().mockResolvedValue({
+      providerReference: "pref_v1_message_ready_01",
+      providerMessageId:
+        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+    });
+    const session = {
+      effect,
+      expectProviderOutput: vi.fn(),
+    } as unknown as ClaimedChannelDelivery;
+
+    try {
+      const pending = makeAdapter().post(replyTarget(session), [
+        {
+          type: "image",
+          props: { fileId: "fileref_stage_01", alt: "Hat" },
+        },
+      ]);
+      await Promise.resolve();
+      expect(effect).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(2400);
+      const ref = await pending;
+      expect(effect).toHaveBeenCalledTimes(1);
+      expect(ref.id).toBe(
+        "pid_v1_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("retries Slack post when the gateway reports an unready slack_file", async () => {
     vi.useFakeTimers();
     const unready = new ChannelProviderDeliveryError(
