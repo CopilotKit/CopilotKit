@@ -4,7 +4,7 @@
  * and inspect the posted tree through renderToIR.
  */
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/channels";
+import { parseToolArgs, renderToIR } from "@copilotkit/channels";
 import type { ChannelNode, InteractionContext } from "@copilotkit/channels";
 import {
   renderCarouselTool,
@@ -53,6 +53,21 @@ function findButtons(nodes: ChannelNode[]): ChannelNode[] {
 }
 
 describe("render_carousel tool", () => {
+  it("accepts the documented sample-data calls", async () => {
+    const samples = [undefined, null, {}, { items: [] }, { items: null }];
+    for (const args of samples) {
+      const parsed = await parseToolArgs(renderCarouselTool.parameters, args);
+      expect(parsed.ok, `rejected ${JSON.stringify(args)}`).toBe(true);
+      if (!parsed.ok) continue;
+      const { posts, thread } = fakeThread();
+      const res = await renderCarouselTool.handler(parsed.value, {
+        thread,
+      } as never);
+      expect(res).toBe("Posted a 3-item carousel.");
+      expect(posts).toHaveLength(1);
+    }
+  });
+
   it("posts a carousel of sample React product cards plus native Buy buttons", async () => {
     const { posts, thread } = fakeThread();
     const res = await renderCarouselTool.handler({}, { thread } as never);
