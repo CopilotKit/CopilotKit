@@ -1,8 +1,12 @@
-import { ActivityMessage } from "@ag-ui/core";
+import type { ActivityMessage } from "@ag-ui/core";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { StandardSchemaV1 } from "@copilotkit/shared";
+import type { AgentId } from "./copilotkit-types";
 
-export interface ReactActivityMessageRenderer<TActivityContent> {
+export interface ReactActivityMessageRenderer<
+  TActivityContent,
+  A extends AgentId | undefined = AgentId | undefined,
+> {
   /**
    * Activity type to match when rendering. Use "*" as a wildcard renderer.
    */
@@ -10,7 +14,7 @@ export interface ReactActivityMessageRenderer<TActivityContent> {
   /**
    * Optional agent ID to scope the renderer to a particular agent.
    */
-  agentId?: string;
+  agentId?: A;
   /**
    * Schema describing the activity content payload.
    */

@@ -1,9 +1,11 @@
 import type { FrontendTool, ToolCallStatus } from "@copilotkit/core";
 import React from "react";
+import type { AgentId } from "./copilotkit-types";
 
 export type ReactHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
-> = Omit<FrontendTool<T>, "handler"> & {
+  A extends AgentId | undefined = AgentId | undefined,
+> = Omit<FrontendTool<T, A>, "handler"> & {
   /**
    * Render the human-in-the-loop UI for this tool call.
    *

@@ -32,6 +32,7 @@ import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
+import type { AgentId } from "../../types/copilotkit-types";
 
 /**
  * Per-row content render function. Receives a thread and returns the React
@@ -56,7 +57,7 @@ export interface CopilotThreadsDrawerProps {
    * The agent whose threads to list and manage. Defaults to the agent of the
    * surrounding chat configuration, or the platform default when none is set.
    */
-  agentId?: string;
+  agentId?: AgentId;
   /**
    * Optional escape-hatch called when the user picks a thread row. The wrapper
    * additionally focuses the chat input. When omitted, the wrapper drives the

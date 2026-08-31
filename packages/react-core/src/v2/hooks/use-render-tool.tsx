@@ -3,6 +3,7 @@ import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../context";
 import { defineToolCallRenderer } from "../types/defineToolCallRenderer";
+import type { AgentId } from "../types/copilotkit-types";
 
 const EMPTY_DEPS: ReadonlyArray<unknown> = [];
 
@@ -39,7 +40,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
   name: string;
   parameters?: S;
   render: (props: RenderToolProps<S>) => React.ReactElement;
-  agentId?: string;
+  agentId?: AgentId;
 };
 
 /**
@@ -70,7 +71,7 @@ export function useRenderTool(
   config: {
     name: "*";
     render: (props: any) => React.ReactElement;
-    agentId?: string;
+    agentId?: AgentId;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
@@ -107,7 +108,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
     name: string;
     parameters: S;
     render: (props: RenderToolProps<S>) => React.ReactElement;
-    agentId?: string;
+    agentId?: AgentId;
   },
   deps?: ReadonlyArray<unknown>,
 ): void;
