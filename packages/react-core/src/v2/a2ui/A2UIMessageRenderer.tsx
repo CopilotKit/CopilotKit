@@ -560,21 +560,38 @@ function surfaceHasRenderableContent(operations: any[]): boolean {
   });
 }
 
+/**
+ * Resolves the surface an operation addresses.
+ *
+ * The nested v0.9 `surfaceId` wins, because that is the id `MessageProcessor`
+ * creates the surface under. Grouping by a top-level `surfaceId` instead files
+ * the operations against a surface that never exists, which paints nothing —
+ * the silence the missing-surface report above now names. A top-level
+ * `surfaceId` is not the v0.9 shape, so it is honoured only when no nested id is
+ * present. `getSurfaceId` in `@copilotkit/a2ui-renderer`'s web-components path
+ * resolves it in the same order; the two disagreeing is what OSS-1048 recorded.
+ *
+ * @param operation - One A2UI operation, of any shape.
+ * @returns The surface id, or null when the operation names none.
+ */
 function getOperationSurfaceId(operation: any): string | null {
   if (!operation || typeof operation !== "object") {
     return null;
+  }
+
+  // v0.9 message keys
+  const nested =
+    operation?.createSurface?.surfaceId ??
+    operation?.updateComponents?.surfaceId ??
+    operation?.updateDataModel?.surfaceId ??
+    operation?.deleteSurface?.surfaceId;
+  if (typeof nested === "string") {
+    return nested;
   }
 
   if (typeof operation.surfaceId === "string") {
     return operation.surfaceId;
   }
 
-  // v0.9 message keys
-  return (
-    operation?.createSurface?.surfaceId ??
-    operation?.updateComponents?.surfaceId ??
-    operation?.updateDataModel?.surfaceId ??
-    operation?.deleteSurface?.surfaceId ??
-    null
-  );
+  return null;
 }
