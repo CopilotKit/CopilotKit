@@ -1,0 +1,82 @@
+---
+title: Open, close, and feedback
+icon: "lucide/SlidersHorizontal"
+description: Control a Vue popup or sidebar from your UI and capture assistant-message feedback.
+---
+
+Two common controls for the prebuilt chat are opening it from your own UI and
+capturing thumbs-up or thumbs-down feedback on assistant messages.
+
+## Programmatically open or close chat
+
+`CopilotPopup` and `CopilotSidebar` create modal state for their rendered
+descendants. Call `useCopilotChatConfiguration()` from a component below the
+surface's configuration provider, then use the reactive `isModalOpen` value
+and optional `setModalOpen` action:
+
+```vue title="ChatControls.vue"
+<script setup lang="ts">
+import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+
+const configuration = useCopilotChatConfiguration();
+
+function toggleChat() {
+  const value = configuration.value;
+  value?.setModalOpen?.(!value.isModalOpen);
+}
+</script>
+
+<template>
+  <button v-if="configuration?.setModalOpen" type="button" @click="toggleChat">
+    {{ configuration.isModalOpen ? "Close chat" : "Ask the assistant" }}
+  </button>
+</template>
+```
+
+The composable must run in a descendant component below the provider that owns
+the modal state. If no provider owns it, `isModalOpen` and `setModalOpen` are
+undefined. Set the initial state declaratively with `:default-open="true"` on
+`CopilotPopup` or `CopilotSidebar`.
+
+## Capture message feedback
+
+Vue exposes assistant-message feedback as events. To render the default
+assistant message but observe its actions, provide it through the
+`assistant-message` slot of `CopilotChatMessageView`:
+
+```vue title="ChatWithFeedback.vue"
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatAssistantMessage,
+  CopilotChatMessageView,
+} from "@copilotkit/vue/v2";
+
+function recordFeedback(message: { id: string }, value: "up" | "down") {
+  analytics.track("feedback", { messageId: message.id, value });
+}
+</script>
+
+<template>
+  <CopilotChat>
+    <template #message-view="{ messages, isRunning }">
+      <CopilotChatMessageView :messages="messages" :is-running="isRunning">
+        <template #assistant-message="{ message, messages: allMessages, isRunning: running }">
+          <CopilotChatAssistantMessage
+            :message="message"
+            :messages="allMessages"
+            :is-running="running"
+            @thumbs-up="recordFeedback($event, 'up')"
+            @thumbs-down="recordFeedback($event, 'down')"
+          />
+        </template>
+      </CopilotChatMessageView>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+The buttons are part of `CopilotChatAssistantMessage`; custom
+`thumbs-up-button` and `thumbs-down-button` slots receive their imperative
+`onThumbsUp` and `onThumbsDown` actions. Labels are controlled with the chat
+configuration's `labels` prop.
