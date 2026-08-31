@@ -8,9 +8,10 @@ import {
   safeChannelErrorMetadata,
 } from "./delivery-transport.js";
 import type { PreparedChannelDelivery } from "./delivery-transport.js";
-import type {
-  RealtimeGatewayDeliveryChannel,
-  RealtimeGatewaySession,
+import {
+  RealtimeGatewayPushError,
+  type RealtimeGatewayDeliveryChannel,
+  type RealtimeGatewaySession,
 } from "./realtime-gateway.js";
 import { SLACK_STREAM_APPEND_FULL_TEXT_CAPABILITY } from "./delivery-contracts.js";
 
@@ -1093,6 +1094,52 @@ test("retries the exact packet after reconnect and calls no second sequence", as
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
+test("rejoins and retries the exact packet after packet_out_of_order", async () => {
+  const first = channel();
+  const second = channel();
+  vi.mocked(first.push).mockRejectedValueOnce(
+    new RealtimeGatewayPushError("packet", "packet_out_of_order", {
+      reason: "packet_out_of_order",
+    }),
+  );
+  const reconnect = vi.fn().mockResolvedValue({
+    channel: second,
+    owner: {
+      ownerGeneration: 8,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
+  });
+  const session = new ClaimedChannelDelivery(
+    preparedDelivery(),
+    {
+      ownerGeneration: 7,
+      runtimeInstanceId: "rti_runtime_01",
+    },
+    first,
+    reconnect,
+  );
+
+  const result = await session.effect("response_01", {
+    kind: "slack.message.create",
+    text: "Hello",
+  });
+
+  expect(reconnect).toHaveBeenCalledOnce();
+  expect(second.push).toHaveBeenCalledOnce();
+  const retried = vi.mocked(second.push).mock.calls[0]![1] as {
+    seq: number;
+    packetId: string;
+  };
+  const original = vi.mocked(first.push).mock.calls[0]![1] as {
+    seq: number;
+    packetId: string;
+  };
+  expect(retried.seq).toBe(original.seq);
+  expect(retried.packetId).toBe(original.packetId);
+  expect(result).toEqual({ providerReference: "pref_v1_message_01" });
+});
+
 test("polls the same packet after a retry-wait result", async () => {
   const deliveryChannel = channel();
   vi.mocked(deliveryChannel.push)
@@ -1263,7 +1310,6 @@ test("stop aborts an active retry wait and leaves its delivery topic", async () 
 
 test("still sends a failed terminal when complete terminal fails", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   let terminalAttempts = 0;
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
     const body = packet as { payload?: { kind?: string } };
@@ -1347,7 +1393,6 @@ test("refreshes owner generation on packets after reconnect", async () => {
 
 test("closes the packet path after a permanent push failure", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   vi.mocked(deliveryChannel.push).mockRejectedValue(
     new RealtimeGatewayPushError("packet", "conflict", "sequence conflict"),
   );
@@ -1378,7 +1423,6 @@ test("closes the packet path after a permanent push failure", async () => {
 
 test("still allows stream.stop after a permanent non-terminal failure", async () => {
   const deliveryChannel = channel();
-  const { RealtimeGatewayPushError } = await import("./realtime-gateway.js");
   let pushCount = 0;
   vi.mocked(deliveryChannel.push).mockImplementation((_event, packet) => {
     pushCount += 1;

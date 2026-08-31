@@ -686,7 +686,18 @@ export class ClaimedChannelDelivery {
         );
       } catch (error) {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
-        if (error instanceof RealtimeGatewayPushError) throw error;
+        // A long local render (Takumi) can leave the delivery topic stale.
+        // The gateway then rejects the first later packet as out of order.
+        // Rejoin and retry that exact packet, same as a dropped socket.
+        const outOfOrder =
+          error instanceof RealtimeGatewayPushError &&
+          error.code === "packet_out_of_order";
+        if (error instanceof RealtimeGatewayPushError && !outOfOrder) {
+          throw error;
+        }
+        if (outOfOrder && attempt >= 1) {
+          throw error;
+        }
         // Claim/join validation failures are permanent — do not thrash reconnect.
         if (
           error instanceof TypeError ||
