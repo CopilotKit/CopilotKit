@@ -9,6 +9,7 @@ import type { ChannelNode, InteractionContext } from "@copilotkit/channels";
 import {
   renderCarouselTool,
   carouselCommand,
+  isCarouselRequest,
   SAMPLE_CATALOG,
 } from "../render-carousel.js";
 
@@ -132,6 +133,14 @@ describe("render_carousel tool", () => {
     });
     expect(thread.post).toHaveBeenCalledTimes(2);
     expect(thread.post.mock.calls[1]![0]).toMatch(/Red running shoes/);
+  });
+});
+
+describe("isCarouselRequest", () => {
+  it("matches plain-text carousel asks", () => {
+    expect(isCarouselRequest("show me a product carousel")).toBe(true);
+    expect(isCarouselRequest("post the sample catalog")).toBe(true);
+    expect(isCarouselRequest("triage my open issues")).toBe(false);
   });
 });
 
