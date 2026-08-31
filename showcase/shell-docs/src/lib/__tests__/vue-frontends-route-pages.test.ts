@@ -29,20 +29,38 @@ test("the Vue interrupt routes keep the runtime and slot paths explicit", () => 
   expect(interrupt).toContain("#interrupt");
   expect(interrupt).toContain("renderInChat: false");
   expect(headless).toContain("renderInChat: false");
-  expect(headless).toContain("resolveInterrupt");
-  expect(headless).toContain("cancelInterrupt");
+  expect(interrupt).not.toContain("resolveInterrupt");
+  expect(interrupt).not.toContain("cancelInterrupt");
+  expect(headless).toContain("slotProps.resolve");
+  expect(headless).toContain("slotProps.cancel");
 });
 
-test("the Vue thread routes stay on the Intelligence-backed path unless the user owns persistence", () => {
-  const threads = sourceFor("frontends/vue/threads");
+test("the Vue shared-state routes keep read/write state separate from read-only context", () => {
+  const sharedState = sourceFor("frontends/vue/shared-state");
+  const rendering = sourceFor("frontends/vue/shared-state/rendering-in-app");
+  const readOnly = sourceFor("frontends/vue/shared-state/agent-readonly");
+
+  expect(sharedState).toContain("current.setState");
+  expect(sharedState).toContain("separate read-only capability");
+  expect(rendering).toContain("currentAgent.setState");
+  expect(readOnly).toContain("useAgentContext");
+});
+
+test("the framework-neutral thread routes reuse the canonical shared pages", () => {
+  const threads = sourceFor("threads");
+  const threadsImport = sourceFor("threads-import");
   const drawer = sourceFor("frontends/vue/prebuilt-components/copilot-threads-drawer");
   const headlessThreads = sourceFor("frontends/vue/headless-threads");
   const selfManaged = sourceFor("frontends/vue/threads-self-managed");
 
-  expect(threads).toContain("CopilotKit Intelligence");
+  expect(loadDoc("frontends/vue/threads")).toBeNull();
+  expect(loadDoc("frontends/vue/threads-import")).toBeNull();
+  expect(threads).toContain("@/snippets/shared/threads/overview.mdx");
+  expect(threadsImport).toContain(
+    "@/snippets/shared/threads/threads-import.mdx",
+  );
   expect(drawer).toContain("CopilotThreadsDrawer");
   expect(headlessThreads).toContain("useThreads");
   expect(selfManaged).toContain("useThreads()");
-  expect(selfManaged).toContain("your own database");
+  expect(selfManaged).toContain("my own database");
 });
-

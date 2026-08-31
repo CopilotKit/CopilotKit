@@ -1,68 +1,233 @@
 ---
-title: "Governed Action Approval UI"
-description: "Approve or reject governed actions with a Vue frontend tool."
-icon: "lucide/CheckCheck"
+title: Governed Action Approval UI
+icon: "lucide/ShieldCheck"
+description: Gate side-effecting agent actions with an approval UI before they execute.
 hideTOC: true
 ---
 
-Use `useHumanInTheLoop()` when the agent should invoke a browser-side tool and wait for the user to approve, reject, or edit the action before the run continues. The Vue renderer receives a `respond` callback only while the tool is executing, so the approval UI stays honest about its lifecycle.
+## What is this?
 
-<Callout type="warn">
-  This is for governed actions, not general app state. If the agent runtime itself emits an interrupt, use [`useInterrupt`](/reference/vue/hooks/useInterrupt) instead.
-</Callout>
+Some agent actions are safe to run immediately, while others should be blocked or paused for user approval before they create side effects. A governed action approval UI gives the user a clear checkpoint:
 
-```vue title="src/components/ApproveDelete.vue"
+- **What** the agent wants to do
+- **Why** it wants to do it
+- **Which reference or policy decision** produced the verdict
+- **What happens next** if the user approves or rejects it
+
+Use this pattern when the agent proposes an action such as sending an email, updating a record, creating a ticket, applying a discount, or calling any write API.
+
+## Action envelope
+
+Keep the approval payload small, serializable, and vendor-neutral. The agent or backend can attach any policy engine result to the action as long as the UI receives the same basic envelope:
+
+```ts
+type GovernedAction = {
+  id: string;
+  summary: string;
+  tool: string;
+  reference: string;
+  verdict: "allow" | "deny" | "require_approval";
+  arguments: Record<string, unknown>;
+};
+```
+
+The frontend should handle each verdict deterministically:
+
+| Verdict | UI behavior |
+| --- | --- |
+| `allow` | Execute the action without asking again, optionally showing an audit note. |
+| `deny` | Do not execute the action. Show the reason or reference and ask the agent to choose a safer path. |
+| `require_approval` | Render a user approval card. Execute only if the user approves. |
+
+## Inline approval with `useInterrupt`
+
+If your runtime can pause an agent run, model the approval as an interrupt. The agent proposes the action, the UI renders the checkpoint, and the run resumes with the user's decision. Vue exposes the primary `resolve` and `cancel` methods on `slotProps`:
+
+```vue title="src/components/GovernedActionApproval.vue"
 <script setup lang="ts">
-import { z } from "zod";
-import { useHumanInTheLoop } from "@copilotkit/vue/v2";
-import ApprovalCard from "./ApprovalCard.vue";
+import { computed, watchEffect } from "vue";
+import { useInterrupt } from "@copilotkit/vue/v2";
 
-useHumanInTheLoop({
-  name: "approve_delete",
-  description: "Ask the user to confirm a destructive delete.",
-  parameters: z.object({
-    itemId: z.string(),
-    label: z.string(),
-  }),
-  render: ApprovalCard,
+type GovernedAction = {
+  id: string;
+  summary: string;
+  tool: string;
+  reference: string;
+  verdict: "allow" | "deny" | "require_approval";
+  arguments: Record<string, unknown>;
+};
+
+const { slotProps } = useInterrupt({ renderInChat: false });
+const action = computed(
+  () => slotProps.value?.interrupt?.metadata?.action as
+    | GovernedAction
+    | undefined,
+);
+
+async function approve(approved: boolean) {
+  const current = action.value;
+  if (!current || !slotProps.value) return;
+
+  await slotProps.value.resolve({
+    approved,
+    actionId: current.id,
+    reference: current.reference,
+  });
+}
+
+watchEffect(() => {
+  if (action.value?.verdict === "allow") void approve(true);
+  if (action.value?.verdict === "deny") void slotProps.value?.cancel();
 });
 </script>
 
 <template>
-  <p>Approval tool registered.</p>
+  <section v-if="action" class="rounded-lg border p-4 shadow-sm">
+    <p>
+      {{
+        action.verdict === "allow"
+          ? "Allowed by policy"
+          : action.verdict === "deny"
+            ? "Blocked by policy"
+            : "User approval required"
+      }}
+    </p>
+    <h3>{{ action.summary }}</h3>
+    <p>Tool: {{ action.tool }}</p>
+    <p>Reference: {{ action.reference }}</p>
+    <pre>{{ JSON.stringify(action.arguments, null, 2) }}</pre>
+    <div v-if="action.verdict === 'require_approval'">
+      <button @click="approve(true)">Approve and run</button>
+      <button @click="approve(false)">Reject</button>
+    </div>
+  </section>
 </template>
 ```
 
+On resume, the agent should execute only when it receives an approved response for the same action id and reference:
+
+```ts
+type ApprovalResponse = {
+  approved: boolean;
+  actionId: string;
+  reference: string;
+};
+
+async function handleApproval(
+  action: GovernedAction,
+  response: ApprovalResponse,
+) {
+  if (
+    response.approved &&
+    response.actionId === action.id &&
+    response.reference === action.reference
+  ) {
+    return executeSideEffect(action.tool, action.arguments);
+  }
+
+  return {
+    skipped: true,
+    reason: "The user did not approve this action.",
+  };
+}
+```
+
+## Tool-call approval with `useHumanInTheLoop`
+
+For LLM-initiated pauses, register the approval checkpoint as a human-in-the-loop tool. The model asks to call `approve_governed_action`, your Vue component renders the card, and the tool result tells the agent whether it may continue:
+
+```vue title="src/components/GovernedActionTool.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import GovernedActionCard from "./GovernedActionCard.vue";
+
+const governedActionSchema = z.object({
+  id: z.string(),
+  summary: z.string(),
+  tool: z.string(),
+  reference: z.string(),
+  verdict: z.enum(["allow", "deny", "require_approval"]),
+  arguments: z.record(z.unknown()),
+});
+
+useHumanInTheLoop({
+  name: "approve_governed_action",
+  description:
+    "Ask the user to approve a governed side-effect action before it runs.",
+  parameters: governedActionSchema,
+  render: GovernedActionCard,
+});
+</script>
+
+<template><p>Governed action tool registered.</p></template>
+```
+
+The render component receives partial `args` while the tool call streams and a `respond` callback only while the call is executing. It should call `respond` with the same `{ approved, actionId, reference }` envelope used by the interrupt path:
+
+```vue title="src/components/GovernedActionCard.vue"
+<script setup lang="ts">
+const props = defineProps<{
+  args: {
+    id?: string;
+    summary?: string;
+    reference?: string;
+    verdict?: "allow" | "deny" | "require_approval";
+  };
+  respond?: (result: unknown) => Promise<void>;
+}>();
+
+function submitDecision(approved: boolean) {
+  if (!props.respond || !props.args.id || !props.args.reference) return;
+  void props.respond({
+    approved,
+    actionId: props.args.id,
+    reference: props.args.reference,
+  });
+}
+</script>
+
+<template>
+  <section>
+    <p>{{ props.args.summary ?? "Preparing approval…" }}</p>
+    <button v-if="props.respond" @click="submitDecision(true)">
+      Approve and run
+    </button>
+    <button v-if="props.respond" @click="submitDecision(false)">Reject</button>
+  </section>
+</template>
+```
+
+## Provider setup
+
+Both composables must run in components beneath `CopilotKitProvider`:
+
 ```vue title="src/App.vue"
 <script setup lang="ts">
-import { CopilotKitProvider } from "@copilotkit/vue/v2";
-import ApproveDelete from "./components/ApproveDelete.vue";
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import GovernedActionApproval from "./components/GovernedActionApproval.vue";
+import GovernedActionTool from "./components/GovernedActionTool.vue";
 </script>
 
 <template>
   <CopilotKitProvider runtime-url="/api/copilotkit">
-    <ApproveDelete />
+    <GovernedActionApproval />
+    <GovernedActionTool />
+    <CopilotChat />
   </CopilotKitProvider>
 </template>
 ```
 
-```vue title="src/components/ApprovalCard.vue"
-<script setup lang="ts">
-defineProps<{
-  name: string;
-  description: string;
-  args: { itemId?: string; label?: string };
-  status: "inProgress" | "executing" | "complete";
-  respond?: (result: unknown) => Promise<void>;
-}>();
-</script>
+## Recommended guardrails
 
-<template>
-  <article>
-    <p>{{ description }}</p>
-    <button v-if="respond" @click="respond({ approved: true })">Approve</button>
-  </article>
-</template>
-```
+- Check policy on the server before presenting the approval, not only in the browser.
+- Include a stable `action.id` and `reference` so the approval cannot be replayed for a different action.
+- Show the exact action arguments before the user approves.
+- Treat `deny` as terminal for that proposed action; do not execute a denied side effect from a later UI callback.
+- Log the proposal, verdict, user decision, and execution result so the action is auditable.
 
-Mount the registration component below `CopilotKitProvider`, then render `CopilotChat` or your own surface next to it. The agent sees the approval tool as part of the normal tool registry.
+## Going further
+
+- [Pausing the Agent for Input](./useInterrupt) — use graph-enforced interrupts when the backend must stop before a side effect.
+- [HITL Overview](../human-in-the-loop) — compare tool-based and interrupt-based human-in-the-loop patterns.
+- [Frontend Tools](../frontend-tools) — register browser-side tools that can display approval UI or update application state.

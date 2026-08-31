@@ -1,25 +1,129 @@
 ---
 title: Shared State
-description: Read agent state in Vue and send read-only app context back to the agent.
-icon: "lucide/Bot"
-hideTOC: true
+description: Create a two-way connection between your UI and agent state.
+icon: "lucide/Repeat"
 ---
 
-Shared state is the bridge between the Vue app and the agent. Use `useAgent()` to read the current agent and render its state in your UI. Use `useAgentContext()` to send read-only application data back to the agent so it can reason about the current screen, selection, or workspace.
+## What is shared state?
 
-Both composables must run in a descendant of `CopilotKitProvider`.
+Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
 
-## Choose the path
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
 
-| Need | Vue API |
-| --- | --- |
-| Render the agent state in your app | [`useAgent`](/reference/vue/hooks/useAgent) |
-| Send read-only app context to the agent | [`useAgentContext`](/reference/vue/hooks/useAgentContext) |
-| Keep the state visible in chat | `CopilotChat` plus the message slots under [Chat message rendering](/reference/vue/components/CopilotChatMessageView) |
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
+/>
 
-## Next steps
+## When should I use this?
 
-- [Render agent state in your app](./shared-state/rendering-in-app)
-- [Stream state into the UI](./shared-state/streaming)
-- [Send read-only context to the agent](./shared-state/agent-readonly)
+Use shared state when you want the agent and the user to collaborate through the same application state. The agent's outputs are reflected in the UI, and user updates in the UI are reflected in the agent's execution.
 
+<OpsPlatformCTA
+  variant="inline"
+  title="Building stateful agents?"
+  body="Persistent threads ship with CopilotKit Intelligence on the free Developer tier."
+  surface="docs_shared_state"
+/>
+
+## Reading agent state
+
+<FrameworkSetup concept="shared-state-setup" />
+
+Subscribe a component to the agent's state with `useAgent`. Any time the agent mutates its state, for example via a tool call, the composable updates its reactive `agent` ref and your UI re-renders with the new values.
+
+```vue title="src/components/SharedWorkspace.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent, UseAgentUpdate } from "@copilotkit/vue/v2";
+
+type WorkspaceState = {
+  notes?: string[];
+  preferences?: { tone?: string };
+};
+
+const { agent } = useAgent({
+  agentId: "workspace",
+  updates: [UseAgentUpdate.OnStateChanged],
+});
+const state = computed(
+  () => (agent.value?.state ?? {}) as WorkspaceState,
+);
+</script>
+
+<template>
+  <ul>
+    <li v-for="note in state.notes ?? []" :key="note">{{ note }}</li>
+  </ul>
+</template>
+```
+
+The returned `agent.value.state` is a plain object. Read it like any other reactive application data and render the parts you care about: agent-written notes, structured outputs, progress indicators, or anything else the agent has put there.
+
+## Writing agent state
+
+The same agent object exposes `setState`. Calling it from a UI event handler pushes the new value into shared state, and the agent reads it back on its next turn. The UI's writes visibly steer the model.
+
+```vue title="src/components/SharedWorkspace.vue"
+<script setup lang="ts">
+function setTone(tone: string) {
+  const current = agent.value;
+  if (!current) return;
+
+  const previous = (current.state ?? {}) as WorkspaceState;
+  current.setState({
+    ...previous,
+    preferences: { ...previous.preferences, tone },
+  });
+}
+</script>
+
+<template>
+  <button @click="setTone('concise')">Prefer concise answers</button>
+</template>
+```
+
+This is what makes the channel two-way: the UI doesn't just observe the agent, it can hand the agent fresh inputs — preferences, selections, or partial work — without going through the chat thread.
+
+## Rendering shared state in the UI
+
+Because `agent.state` is plain data exposed through a Vue ref, the UI layer is ordinary Vue. The example above wires the agent's outputs into a list and feeds user edits back through `setState`.
+
+Nothing about this is chat-specific: `useAgent` works in any component under `CopilotKitProvider`, so you can render agent state in your main view or canvas, not just inside the chat panel. See **[Render agent state in your app](/shared-state/rendering-in-app)** for the full main-view pattern.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import SharedWorkspace from "./components/SharedWorkspace.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <SharedWorkspace />
+    <CopilotChat agent-id="workspace" />
+  </CopilotKitProvider>
+</template>
+```
+
+## Streaming partial state updates
+
+By default, agent state only updates *between* backend checkpoints, so a long-running tool call appears as one big burst at the end. State streaming forwards a specific tool argument straight into a state key *as it's being generated*, so the UI can watch the answer assemble token-by-token.
+
+<Snippet region="state-streaming-middleware" cell="shared-state-streaming" title="backend: streaming state update" />
+
+See **[State streaming](/shared-state/streaming)** for the full walkthrough, including the corresponding `useAgent` subscription on the frontend.
+
+## Read-only context
+
+When a value is **UI-owned** and the agent should read it but never write it back, such as current user, selected record, or scroll position, reach for `useAgentContext` instead of full shared state. It publishes values as a one-way UI-to-agent channel that auto-unregisters on unmount.
+
+`useAgentContext` is a separate read-only capability; it does not replace the bidirectional `agent.state` / `agent.setState(...)` contract above.
+
+See **[Agent read-only context](/shared-state/agent-readonly)** for the full pattern.
+
+<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec", "spring-ai", "langroid"]} />

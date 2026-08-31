@@ -1,50 +1,211 @@
 ---
-title: "Thread and history lifecycle"
-description: "Control how Vue chats create, restore, and switch thread ids."
-icon: "lucide/ArrowLeftRight"
-hideTOC: true
+title: Thread & History Lifecycle
+description: "How a threadId is created, how conversation history is restored, how to switch or start threads, and how CopilotKit threads relate to your agent framework's own persistence."
+icon: "lucide/History"
+doc_type: explanation
 ---
 
-Thread lifecycle is the set of rules around `threadId`: when CopilotKit mints one for you, when you should pass one yourself, and how to switch or start over. In Vue, the same lifecycle is driven either by the `threadId` prop on `CopilotChat` or by `useCopilotChatConfiguration()`.
+## What is this?
 
-## Use an explicit thread id when you own persistence
+Every CopilotKit conversation is scoped to a **thread**, identified by a `threadId`. This page explains the full client lifecycle: how the id is created, how prior history is restored, how to switch or start threads, and where CopilotKit's threads end and your agent framework's own persistence begins.
 
-```vue title="src/App.vue"
-<script setup lang="ts">
-import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+<Callout type="info">
+  This page describes the Vue v2 composables and components imported from `@copilotkit/vue/v2`. The Vue v1 API behaves differently; see [v1 vs v2](#v1-vs-v2).
+</Callout>
 
-const threadId = "thread_123";
-</script>
+## The lifecycle at a glance
 
-<template>
-  <CopilotKitProvider runtime-url="/api/copilotkit">
-    <CopilotChat agent-id="support" :thread-id="threadId" />
-  </CopilotKitProvider>
-</template>
+1. **Mint.** When a chat mounts without an explicit `threadId`, the client generates a UUID v4.
+2. **Run.** Messages and tool calls stream under that id. If a server-side store is configured, they are persisted as they happen; a runtime with no persistence layer keeps nothing server-side.
+3. **Hydrate.** When a chat mounts with a known id, the client connects and replays persisted history into the UI.
+4. **Switch / start.** You select a known thread and restore it, or start a fresh one and clear the view.
+
+## How the threadId is created
+
+When you do not supply one, CopilotKit mints a `threadId` on the client during component setup. The value is resolved by this precedence, highest first:
+
+1. An explicit `threadId` prop on `<CopilotChat>` or `<CopilotChatConfigurationProvider>`; this is authoritative and drives replay.
+2. An active-thread override from `setActiveThreadId(...)`, a picked drawer row, or `startNewThread()`.
+3. A `threadId` inherited from a parent configuration provider.
+4. A non-authoritative `threadId` seed.
+5. Otherwise, a freshly minted UUID.
+
+```vue title="Explicit threadId (recommended when you own persistence)"
+<CopilotChat agent-id="my-agent" :thread-id="myThreadId" />
 ```
 
-## Switch or start a thread imperatively
+<Callout type="warn">
+  **Auto-minted ids survive reactive re-renders but re-mint when the component remounts.** If a changed `:key`, route transition, or parent unmount/remount recreates the chat configuration, the fallback id changes and a new conversation begins. Mint and persist the id yourself when continuity must survive remounts.
+</Callout>
+
+## How history is restored (hydration)
+
+CopilotKit Vue v2 does **not** use an `initialMessages` prop to seed a conversation. History is restored in one of two ways.
+
+**1. Server-side replay.** When a chat mounts with an explicit `threadId`, the client assigns `agent.threadId` and connects the agent. Persisted event history replays into the UI without manual message wiring:
+
+```vue
+<CopilotChat agent-id="my-agent" :thread-id="existingThreadId" />
+```
+
+<Callout type="warn">
+  Replay requires a **server-side store to replay from**, such as CopilotKit Intelligence or a persisting `AgentRunner`. A self-hosted runtime with no persistence layer has nothing to replay, so the connection returns an empty stream. If history is not restoring, check the server-side store before the Vue code.
+</Callout>
+
+For a fresh non-explicit thread, such as one created by `startNewThread()`, there is nothing to replay, so the view is cleared instead.
+
+**2. Manual hydration.** For non-platform or custom cases, read messages from your store and set them directly on the agent:
+
+```vue title="src/components/RestoreHistory.vue"
+<script setup lang="ts">
+import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const props = defineProps<{ threadId: string }>();
+const { agent } = useAgent({ agentId: "my-agent" });
+
+watch(
+  () => [agent.value, props.threadId] as const,
+  async ([current, threadId], _previous, onCleanup) => {
+    if (!current) return;
+    let cancelled = false;
+    onCleanup(() => { cancelled = true; });
+
+    const messages = await myApi.getMessages(threadId);
+    if (!cancelled) current.setMessages(messages);
+  },
+  { immediate: true },
+);
+</script>
+
+<template />
+```
+
+Read the current conversation from `agent.value.messages`; replace or append with `setMessages(...)` and `addMessage(...)`.
+
+## Scope Rich Threads to the signed-in user
+
+Your application owns end-user authentication. For an Intelligence-enabled runtime, implement `identifyUser(request)` with the server-verified session or token and return a stable user id and name:
+
+```ts title="server.ts"
+import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  intelligence: new CopilotKitIntelligence({
+    apiKey: process.env.INTELLIGENCE_API_KEY!,
+  }),
+  identifyUser: async (request) => {
+    const session = await verifyAppSession(request);
+    if (!session?.user) throw new Error("Unauthorized");
+    return { id: session.user.id, name: session.user.name };
+  },
+});
+```
+
+CopilotKit Intelligence combines that application user identity with the project when it scopes lists, subscriptions, history, rename, archive, unarchive, and delete operations. The project runtime key is a separate server credential; do not treat the developer who created it as the application user.
+
+<Callout type="warn">
+  A static `identifyUser` value is suitable only for a single-user demo. In a multi-user application, every request must resolve the authenticated application user or those users will share a thread scope.
+</Callout>
+
+See [Authentication](/auth) for forwarding and verifying auth context, and [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the full Intelligence configuration.
+
+## Switching threads and starting new ones
+
+Set the active thread to restore its history, or start a fresh conversation:
 
 ```vue title="src/components/ThreadControls.vue"
 <script setup lang="ts">
 import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
 
+const { existingId } = defineProps<{ existingId: string }>();
 const config = useCopilotChatConfiguration();
 </script>
 
 <template>
-  <button @click="config?.setActiveThreadId('thread_123', { explicit: true })">
+  <button
+    @click="config?.setActiveThreadId(existingId, { explicit: true })"
+  >
     Open conversation
   </button>
   <button @click="config?.startNewThread()">New chat</button>
 </template>
 ```
 
-## What to remember
+- `setActiveThreadId(threadId, { explicit })`: `explicit: true`, the default, treats it as a known thread and replays history. `explicit: false` shows the welcome screen.
+- `startNewThread()`: resets to a freshly minted, non-explicit id. It is also available from `useThreads()` for custom sidebars.
 
-- `threadId` is authoritative when you pass it directly to `CopilotChat` or `CopilotChatConfigurationProvider`.
-- `setActiveThreadId()` is for UI switching, not for bypassing an explicit `threadId` prop.
-- `startNewThread()` gives you a fresh conversation id.
+<Callout type="warn">
+  Both methods no-op and warn when the `threadId` is prop-controlled. If you drive threads imperatively, do not also pass an authoritative `threadId` prop. Pick one source of truth.
+</Callout>
 
-If you need to reuse existing history from your own store, combine the explicit thread id with the import guidance on the next page.
+## Creating a thread with your own API on the first message
 
+A common ask is to intercept the first message, create a row through your own backend, and use its id before the conversation starts.
+
+**On the built-in `<CopilotChat>`, the `submit-message` event is observational.** The component emits it and then continues its own add-message/run flow; it is not an async interception seam that can delay that same run.
+
+**Recommended: mint up front and drive the id.** Create the thread before rendering the chat, or from the New chat action, then pass it through the configuration:
+
+```ts
+async function startConversation() {
+  const { id } = await myApi.createThread();
+  config.value?.setActiveThreadId(id, { explicit: true });
+}
+```
+
+**At submit-time, use a headless input.** Compose your own input and handler, set the id on the agent before adding the message, then run the agent:
+
+```ts
+async function submit(text: string) {
+  const current = agent.value;
+  if (!current) return;
+
+  const { id } = await myApi.createThread();
+  current.threadId = id;
+  current.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+  await copilotkit.value.runAgent({ agent: current });
+}
+```
+
+<Callout type="warn">
+  For a run fired in the same handler, set the id on the **agent**. `setActiveThreadId(id)` updates configuration reactively and reaches the agent later, so an immediate run could still use the prior thread.
+</Callout>
+
+## CopilotKit threads vs. your framework's checkpointer
+
+These are two different layers, correlated only by the shared `threadId`:
+
+| Layer | What it stores | Managed by |
+| --- | --- | --- |
+| **CopilotKit threads** | Conversation list and AG-UI event history, with realtime sync | CopilotKit Intelligence, through `useThreads` |
+| **Framework-native persistence** | Framework-internal state and checkpoints | Your agent, such as a LangGraph checkpointer |
+
+A LangGraph checkpointer creates LangGraph's own checkpoint tables. It does not create a CopilotKit threads table. Conversely, CopilotKit rename/archive/delete actions do not reach into LangGraph, ADK, or other native stores unless your backend explicitly bridges them.
+
+The bridge is the `threadId`: CopilotKit forwards an explicit id to the backend as the AG-UI `threadId`, which the framework can use directly or map to its own identifier.
+
+### Future runs can remain durable in both places
+
+After historical import, future conversations run through CopilotKit can be written to CopilotKit Intelligence while the agent continues using its durable native checkpointer or session service. Users get AG-UI replay, generative UI, multimodal history, and realtime continuity while the framework retains its own storage and analytics.
+
+This is coordinated persistence during future CopilotKit-mediated runs, not general database replication. CopilotKit lifecycle actions still apply only to the CopilotKit thread unless you build a bridge.
+
+## MCP Apps activity and history
+
+MCP Apps render through activity messages, and rendering is a client-side concern. The visible iframe is re-derived from the replayed conversation when it loads; it is not a separately stored artifact.
+
+If the server-side store replays the thread's tool-call and activity history, the Vue renderer runs again during hydration. There is no separate MCP Apps store to configure.
+
+## v1 vs v2
+
+- **v2** (`@copilotkit/vue/v2`): `useThreads` returns the platform thread list; `threadId` lives per chat or chat configuration; read and mutate messages through `useAgent().agent` refs; there is no `initialMessages` prop.
+- **v1** (`@copilotkit/vue` legacy APIs): do not assume the v2 thread-list, per-chat id, or message APIs. Follow the legacy reference for the installed version.
+
+## See also
+
+- [Headless Threads](/headless-threads) — the full Vue `useThreads` API.
+- [Threads & Persistence Architecture](/premium/threads-explained) — server-side replay, resume, and realtime sync.
+- [Multi-conversation chat](/tutorials/multi-conversation-chat) — build a history sidebar.
+- [Importing and synchronizing thread history](/threads-import) — bring existing framework conversations into the platform.

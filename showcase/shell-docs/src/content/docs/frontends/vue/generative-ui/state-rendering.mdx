@@ -1,18 +1,30 @@
 ---
 title: State Rendering
 icon: "lucide/Bot"
-description: Render streamed agent state in Vue as progress, drafts, or structured output.
+description: Render your agent's state with custom UI components in real-time.
+snippet_cell: shared-state-streaming
 ---
 
 ## What is this?
 
-State rendering is ordinary Vue UI driven by the current AG-UI agent state. Use it for progress, drafts, dashboards, and structured results outside the message list.
+State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes and emits state updates, your frontend renders those changes, showing progress, drafts, or intermediate results.
 
-The frontend only renders updates the agent sends. Configure your backend or adapter to emit `STATE_SNAPSHOT`/state updates (or use its state-streaming middleware) before expecting token-by-token state in Vue.
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
 
-## Subscribe in a descendant component
+## When should I use this?
 
-`useAgent` returns an `agent` ref. Read `agent.value?.state` in script or let templates unwrap the ref. Keep the provider in an ancestor SFC.
+Use state rendering when you want to:
+
+- Show real-time progress (e.g. "Researching... 2/5 complete")
+- Display drafts that update as the agent works
+- Build dashboards that reflect agent state
+- Render structured output outside of the chat
+
+## How it works in code
+
+On the frontend, subscribe to the agent's state. Each time the backend forwards a fresh value, your component re-renders with the latest partial output. `useAgent` returns an `agent` ref; read `agent.value?.state` in script or let templates unwrap the ref. Keep the provider in an ancestor SFC.
 
 ```vue title="src/components/ResearchProgress.vue"
 <script setup lang="ts">
@@ -52,4 +64,15 @@ import ResearchProgress from "./components/ResearchProgress.vue";
 </template>
 ```
 
+On the backend, a state-streaming mapping forwards a specific tool argument straight into a state key *as it's being generated*. Some frameworks provide that as middleware; direct SDK adapters can emit `STATE_SNAPSHOT` events from their streaming loop. Either way, the UI can watch the answer assemble token-by-token rather than appearing in one burst between checkpoints.
+
+<FrameworkSetup concept="state-streaming-setup" />
+
+<Snippet region="state-streaming-middleware" title="backend — state streaming mapping" />
+
 Treat agent state as untrusted external data. Validate it before using it for privileged actions, and avoid putting secrets in state that is streamed to the browser.
+
+<IntegrationGrid
+  path="generative-ui/state-rendering"
+  exclude={["agno", "agent-spec"]}
+/>

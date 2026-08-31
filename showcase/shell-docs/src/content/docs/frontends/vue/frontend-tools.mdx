@@ -1,16 +1,29 @@
 ---
 title: Frontend Tools
 icon: "lucide/Wrench"
-description: Let an agent invoke typed functions that execute in the user's Vue application.
+description: Let your agent interact with and update your application's UI.
 ---
 
 ## What is this?
 
-Frontend tools run in the browser. They can update Vue state, use browser APIs, call an application endpoint, or interact with an installed UI library. Their return value is sent to the agent as the tool result.
+Frontend tools let your agent define and invoke client-side functions that run entirely in the user's browser. Because the handler executes on the frontend, it has direct access to component state, browser APIs, and any third-party UI library the page already uses. That's how an agent can "reach into" the app: update Vue state, trigger animations, read `localStorage`, pop a toast, or steer the user's view.
 
-Use them only for work that belongs in the user's browser. Privileged mutations, secret-bearing API calls, and authorization decisions belong on a trusted backend.
+This page covers the "agent drives the UI" shape of frontend tools. The same primitive also powers Generative UI and Human-in-the-loop; see those pages for interaction patterns.
 
-## Register a tool below the provider
+## When should I use this?
+
+Use frontend tools when your agent needs to:
+
+- Read or modify Vue component state
+- Access browser APIs like `localStorage`, `sessionStorage`, or cookies
+- Trigger UI updates, animations, or transitions
+- Show alerts, toasts, or notifications
+- Interact with third-party frontend libraries
+- Perform anything that requires the user's immediate browser context
+
+## How it works in code
+
+Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler. The agent can then call it like any other tool and your frontend runs it in the browser.
 
 ```vue title="src/components/DashboardAgent.vue"
 <script setup lang="ts">
@@ -42,7 +55,9 @@ useFrontendTool(
 </template>
 ```
 
-The second argument is an array of Vue watch sources, not a React dependency array. Include refs or getters read by the registration so the handler sees current values.
+The handler receives the parsed, type-safe parameters and can do anything the browser can: update state, call an API, or touch the DOM. Its return value is sent back to the agent as the tool result so the model can reason about what happened.
+
+The second argument is an array of Vue watch sources. Include refs or getters read by the registration so the handler sees current values.
 
 ```vue title="src/App.vue"
 <script setup lang="ts">
@@ -57,4 +72,6 @@ import DashboardAgent from "./components/DashboardAgent.vue";
 </template>
 ```
 
-Your agent discovers the name, description, and parameter schema through the runtime connection. Make descriptions narrow, validate inputs, and ask for explicit confirmation before irreversible actions. For a tool that must wait for a user's answer, use `useHumanInTheLoop` instead.
+Your agent discovers the name, description, and parameter schema through the runtime connection. Make descriptions narrow, validate inputs, and ask for explicit confirmation before irreversible actions. Privileged mutations, secret-bearing API calls, and authorization decisions belong on a trusted backend. For a tool that must wait for a user's answer, use `useHumanInTheLoop` instead.
+
+<IntegrationGrid path="frontend-tools" />

@@ -1,18 +1,32 @@
 ---
 title: Tool Call Rendering
 icon: "lucide/Server"
-description: Render backend tool calls with status-aware Vue components.
+description: Render your agent's tool calls with custom UI components.
+snippet_cell: tool-rendering
 ---
 
 ## What is this?
 
-Tool rendering changes how an existing agent/backend tool call appears. The backend still owns and executes the tool; Vue receives its arguments, lifecycle status, and serialized result and renders a component in the chat.
+Tools are how an LLM invokes predefined, typically-deterministic functions. Tool rendering lets you decide how each of those tool calls appears in the chat. Instead of showing raw JSON, you register a Vue component that draws a branded card for the call (arguments, live status, and the eventual result). This is the **Generative UI** variant CopilotKit calls **tool rendering**.
 
-Use it for progress, operational transparency, and rich results. The renderer name must exactly match the backend tool name.
+<Callout type="info">
+  **Free course:** See this pattern built end-to-end in [Build Interactive Agents with Generative UI](https://www.deeplearning.ai/short-courses/build-interactive-agents-with-generative-ui/) — a free DeepLearning.AI short course taught by CopilotKit's CEO covering the full Generative UI spectrum (Controlled, Declarative, and Open-Ended).
+</Callout>
 
-## Add a default renderer
+## When should I use this?
 
-Call `useDefaultRenderTool()` in a descendant component to show CopilotKit's built-in expandable card for every otherwise-unhandled tool. Without a named or wildcard renderer, ordinary tool calls are not shown as cards.
+Render tool calls when you want to:
+
+- Show users exactly what tools the agent is invoking and with what arguments
+- Display live progress indicators while a tool executes
+- Render rich, polished results once a tool completes
+- Give tool-heavy agents a transparent, on-brand chat experience
+
+## Default tool rendering (zero-config)
+
+The simplest entry point is `useDefaultRenderTool()` with no arguments. CopilotKit registers its built-in default renderer as the `*` wildcard: every tool call renders as a status card (tool name, live **Running → Done** state, collapsible arguments/result) without you writing any UI.
+
+Without this composable the runtime has no `*` renderer and tool calls are invisible; the user only sees the assistant's final text summary.
 
 ```vue title="src/components/AgentExperience.vue"
 <script setup lang="ts">
@@ -24,7 +38,17 @@ useDefaultRenderTool();
 <template><CopilotChat /></template>
 ```
 
-## Render one backend tool
+## Custom catch-all
+
+Once you want on-brand chrome, pass a `render` component or function to `useDefaultRenderTool`. It's a convenience wrapper around `useRenderTool({ name: "*", ... })`: one wildcard renderer handles every tool call, named or not.
+
+```ts title="src/components/AgentExperience.vue"
+useDefaultRenderTool({ render: BrandedToolCard });
+```
+
+## Per-tool renderers
+
+The most expressive path is one renderer per tool name. Each renderer receives the tool's parsed arguments, a live `status`, and, once the agent returns, the `result`.
 
 ```vue title="src/components/WeatherToolCard.vue"
 <script setup lang="ts">
@@ -64,6 +88,12 @@ useDefaultRenderTool(); // wildcard fallback for every other tool
 
 `parameters` is partial while arguments stream. Read required fields only after the status advances from `inProgress`. The result is a string when status is `complete`; parse it only if your backend deliberately returns a documented serialized shape.
 
+<Callout type="info">
+  The `name` you pass to `useRenderTool` must match the tool name the agent exposes; that's how the runtime routes the call to your component.
+</Callout>
+
+Per-tool renderers compose with a catch-all: named renderers claim the "interesting" tools and a wildcard handles everything else. The example registers the built-in wildcard after the named `get_weather` renderer.
+
 If the renderer closes over reactive values, pass Vue watch sources as the second argument:
 
 ```ts
@@ -83,4 +113,12 @@ import AgentExperience from "./components/AgentExperience.vue";
 </template>
 ```
 
-The matching backend must expose `get_weather` and return its result through the agent runtime. The Vue renderer does not create or execute that backend tool.
+## The backend tool definition
+
+The frontend renderer only sees what the agent sends down. The matching backend must expose a tool named `get_weather`, return structured data, and let the frontend renderer with the same name paint the card. The Vue renderer does not create or execute that backend tool.
+
+<FrameworkSetup concept="tool-rendering-setup" />
+
+<Snippet region="weather-tool-backend" title="backend — weather tool" />
+
+<IntegrationGrid path="generative-ui/tool-rendering" />

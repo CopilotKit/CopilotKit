@@ -1,16 +1,29 @@
 ---
 title: Components as Tools
 icon: "lucide/LayoutDashboard"
-description: Let your agent display typed Vue components by calling them as tools.
+description: Let your agent render rich Vue components directly in the chat by calling them as tools.
 ---
 
 ## What is this?
 
-`useComponent` exposes an ordinary Vue component to the agent as a display-only frontend tool. The tool has no handler and performs no server-side operation: the agent chooses it, fills its schema, and CopilotKit passes those values to the component as props.
+Tool-based Generative UI is the simplest form of Generative UI: you register a Vue component with `useComponent`, and CopilotKit exposes it to the agent as a tool. When the agent calls the tool, CopilotKit renders your component inline in the chat, passing the tool's arguments straight through as typed props.
 
-Use this for cards, charts, tables, previews, and summaries. If a real backend tool must execute, use [Tool Call Rendering](/vue/generative-ui/tool-rendering). If the user must approve or answer before the run continues, use [Human-in-the-loop](/vue/human-in-the-loop).
+Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a real backend tool in a custom UI, tool-based GenUI is the component. There is no handler, no user interaction, no server-side execution. The agent decides when to show it, populates the data, and CopilotKit paints it.
 
-## Define the component
+## When should I use this?
+
+Use `useComponent` when you want to:
+
+- Display rich UI (cards, charts, tables, dashboards) inline in the chat
+- Show structured data the agent has derived from its reasoning
+- Render previews, status indicators, or visual summaries
+- Let the agent present information beyond plain text
+
+For components that need user interaction, see [Human-in-the-loop](/human-in-the-loop). For operational transparency around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
+
+## How it works in code
+
+`useComponent` takes a name, a Zod schema for its props, and the component to render. The runtime registers it as a frontend tool so the agent can discover it, and Zod validates the LLM's arguments before they reach your component.
 
 ```vue title="src/components/WeatherCard.vue"
 <script setup lang="ts">
@@ -24,8 +37,6 @@ defineProps<{ city: string; temperature: number; condition: string }>();
   </article>
 </template>
 ```
-
-## Register it below the provider
 
 Vue composables execute during component setup, so the component calling `useComponent` must be a descendant of `CopilotKitProvider`.
 
@@ -63,4 +74,12 @@ import AgentExperience from "./components/AgentExperience.vue";
 </template>
 ```
 
-The `name` and `description` are sent to the agent. Use a specific verb-like name and describe when the component is useful. The model supplies the props, so validate consequential data against application state rather than treating a well-formed card as proof that the values are authorized or current.
+The component itself is ordinary Vue: it reads only its props and can stream in as the agent fills the payload. It doesn't know anything about CopilotKit.
+
+<Callout type="info">
+  The `name` you pass to `useComponent` is what the agent sees as the tool name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM reliably picks it when the user asks for that visualization.
+</Callout>
+
+The model supplies the props, so validate consequential data against application state rather than treating a well-formed card as proof that the values are authorized or current.
+
+<IntegrationGrid path="generative-ui/tool-based" />
