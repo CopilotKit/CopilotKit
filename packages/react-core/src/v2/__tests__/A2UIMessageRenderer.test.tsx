@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, act, waitFor } from "@testing-library/react";
 import React, { useState } from "react";
 import type { Theme } from "@copilotkit/a2ui-renderer";
@@ -298,5 +298,254 @@ describe("runA2UIAction onAction interceptor", () => {
     expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
     const forwarded = copilotkit.setProperties.mock.calls[0][0];
     expect(forwarded.a2uiAction).toBe(message);
+  });
+});
+const BASIC_CATALOG = "https://a2ui.org/specification/v0_9/basic_catalog.json";
+
+/** Mirrors PAINT_FALLBACK_MS in the renderer. */
+const PAINT_FALLBACK_MS = 8000;
+
+/**
+ * A generative-UI card that does not paint is silent by default: the operations
+ * are accepted, the loader drops, and the only trace is an empty placeholder
+ * above the reply. These cover the two reports that break that silence.
+ */
+describe("A2UIMessageRenderer — reporting a card that renders nothing", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  async function loadRenderer() {
+    const { createA2UIMessageRenderer } =
+      await import("../a2ui/A2UIMessageRenderer.js");
+    return createA2UIMessageRenderer({ theme: {} as Theme })
+      .render as React.FC<any>;
+  }
+
+  it("reports a surface that received operations and never painted", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId: "never-paints",
+                catalogId: BASIC_CATALOG,
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    const report = messages.find((message) =>
+      message.includes('A2UI surface "never-paints" received operations'),
+    );
+    expect(report).toBeDefined();
+    expect(report).toContain("never painted");
+    expect(report).toContain("no updateComponents operation arrived");
+    expect(report).toContain("Operations received: createSurface");
+  });
+
+  it("names the missing data model when bound components drew empty", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: { surfaceId: "bound", catalogId: BASIC_CATALOG },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "bound",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: { path: "/headline" },
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const report = warn.mock.calls
+      .map((call) => String(call[0]))
+      .find((message) => message.includes('A2UI surface "bound"'));
+    expect(report).toBeDefined();
+    expect(report).toContain("no updateDataModel carried a non-empty value");
+  });
+
+  it("stays silent about paint when the surface does paint", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.useFakeTimers();
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: { surfaceId: "healthy", catalogId: BASIC_CATALOG },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "healthy",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Hello World",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PAINT_FALLBACK_MS);
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes("never painted"))).toEqual([]);
+    expect(messages.filter((m) => m.includes("no surface by that id"))).toEqual(
+      [],
+    );
+  });
+
+  it("reports operations addressed to a surface that was never created", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(
+      <RenderComponent
+        content={{
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: { surfaceId: "created", catalogId: BASIC_CATALOG },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId: "addressed",
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Hello World",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        }}
+        agent={null}
+      />,
+    );
+
+    // Deferred one macrotask so a mid-stream snapshot is not reported.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const report = warn.mock.calls
+      .map((call) => String(call[0]))
+      .find((message) => message.includes('addressed to surface "addressed"'));
+    expect(report).toBeDefined();
+    expect(report).toContain("no surface by that id exists");
+    expect(report).toContain('A createSurface for "addressed"');
+  });
+
+  // Operations stream in, so a snapshot can reach the processor before the
+  // createSurface that gives them somewhere to go. Reporting that snapshot would
+  // make the warning fire on healthy runs, which is worse than staying quiet.
+  it("stays silent when the createSurface arrives in a later snapshot", async () => {
+    const RenderComponent = await loadRenderer();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const components = [
+      {
+        id: "root",
+        component: "Text",
+        text: "Hello World",
+        variant: "body",
+      },
+    ];
+
+    const control: { publish?: (content: any) => void } = {};
+    const Wrapper = () => {
+      const [content, setContent] = useState<any>({
+        a2ui_operations: [
+          {
+            version: "v0.9",
+            updateComponents: { surfaceId: "late", components },
+          },
+        ],
+      });
+      control.publish = setContent;
+      return <RenderComponent content={content} agent={null} />;
+    };
+
+    render(<Wrapper />);
+
+    // The createSurface lands before the deferred check gets to run.
+    await act(async () => {
+      control.publish!({
+        a2ui_operations: [
+          {
+            version: "v0.9",
+            createSurface: { surfaceId: "late", catalogId: BASIC_CATALOG },
+          },
+          {
+            version: "v0.9",
+            updateComponents: { surfaceId: "late", components },
+          },
+        ],
+      });
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes("no surface by that id"))).toEqual(
+      [],
+    );
   });
 });
