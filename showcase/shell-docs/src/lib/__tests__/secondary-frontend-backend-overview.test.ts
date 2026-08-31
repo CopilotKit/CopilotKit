@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { frameworkOverviews } from "@/data/frameworks";
 import frontendCatalogData from "@/data/frontend-catalog.json";
@@ -6,7 +6,7 @@ import registryData from "@/data/registry.json";
 import {
   buildAngularBackendOverview,
   buildFrontendBackendOverview,
-} from "../angular-backend-overview";
+} from "../secondary-frontend-backend-overview";
 import { resolveAngularDoc } from "../angular-doc-navigation";
 import { getFrontendCanonicalSlug } from "../frontend-page-content";
 import { getIntegrations } from "../registry";
@@ -46,6 +46,12 @@ function expectResolvableAngularDocumentationHref(
 }
 
 describe("buildAngularBackendOverview", () => {
+  it("accepts only Angular and Vue frontend owners", () => {
+    expectTypeOf(buildFrontendBackendOverview)
+      .parameter(0)
+      .toEqualTypeOf<"angular" | "vue">();
+  });
+
   it("resolves every generated documentation link through the Angular routing pipeline", () => {
     const generatedBackends = getIntegrations().filter(
       (integration) =>

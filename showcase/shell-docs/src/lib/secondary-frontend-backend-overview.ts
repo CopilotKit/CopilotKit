@@ -14,6 +14,7 @@ import type { FrontendDemoCell } from "./frontend-demo-url";
 const SHOWCASE_ORIGIN = "https://showcase.copilotkit.ai";
 
 type FrontendCatalogCell = FrontendDemoCell;
+type BackendOverviewFrontend = "angular" | "vue";
 
 interface RegistryFeature {
   id: string;
@@ -171,7 +172,7 @@ function frontendDocumentationLink(
  * separate authored feature catalog.
  */
 export function buildFrontendBackendOverview(
-  frontend: FrontendId,
+  frontend: BackendOverviewFrontend,
   overview: FrameworkOverviewData,
   integration: string,
 ): FrameworkOverviewData {

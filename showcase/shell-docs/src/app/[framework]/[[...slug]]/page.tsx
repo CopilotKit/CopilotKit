@@ -40,7 +40,7 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "@/lib/angular-doc-navigation";
-import { buildFrontendBackendOverview } from "@/lib/angular-backend-overview";
+import { buildFrontendBackendOverview } from "@/lib/secondary-frontend-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {

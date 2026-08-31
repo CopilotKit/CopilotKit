@@ -259,7 +259,7 @@ function createProgram(): Command {
     .requiredOption("--integration <slug>")
     .requiredOption(
       "--integration-base-url <url>",
-      "branch-local origin that serves both /demos/* and /angular/*",
+      "branch-local origin that serves /demos/*, /angular/*, and /vue/*",
     )
     .requiredOption("--source-commit <revision>")
     .requiredOption("--container-image-revision <revision>")

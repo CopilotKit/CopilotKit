@@ -80,6 +80,25 @@ test("stages a bounded same-origin runtime manifest", async () => {
   expect(staging).not.toContain("VUE_BACKEND_URL");
 });
 
+test("builds a missing canonical Vue artifact through Nx from the workspace root", async () => {
+  const staging = await readFile(
+    resolve(repositoryRoot, "showcase/scripts/cli/_common.sh"),
+    "utf8",
+  );
+  const stageVue = staging.slice(
+    staging.indexOf("stage_vue()"),
+    staging.indexOf("stage_shared()"),
+  );
+
+  expect(stageVue).toContain(
+    '(cd "$WORKSPACE_ROOT" && pnpm nx run @copilotkit/showcase-vue-host:build)',
+  );
+  expect(stageVue).toContain(
+    'die "Missing staged Vue browser artifact: $vue_source"',
+  );
+  expect(stageVue).not.toContain('pnpm --dir "$SHOWCASE_ROOT/vue" build');
+});
+
 test.each(["showcase_build.yml", "showcase_build_check.yml"])(
   "materializes the canonical Angular browser artifact in %s",
   async (workflowFile) => {

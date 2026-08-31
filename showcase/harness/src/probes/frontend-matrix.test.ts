@@ -120,7 +120,7 @@ describe("frontend showcase matrix", () => {
     expect(
       urlForFrontendCell(cell, {
         angularBaseUrl: "http://127.0.0.1:4300/",
-        reactBaseUrl: "https://showcase-langgraph-python.example/",
+        integrationBaseUrl: "https://showcase-langgraph-python.example/",
       }),
     ).toBe("http://127.0.0.1:4300/angular/frontend-tools");
     expect(
@@ -128,7 +128,7 @@ describe("frontend showcase matrix", () => {
         { ...cell, id: "react/x", frontend: "react" },
         {
           angularBaseUrl: "http://127.0.0.1:4300/",
-          reactBaseUrl: "https://showcase-langgraph-python.example/",
+          integrationBaseUrl: "https://showcase-langgraph-python.example/",
         },
       ),
     ).toBe("https://showcase-langgraph-python.example/demos/frontend-tools");
@@ -142,7 +142,7 @@ describe("frontend showcase matrix", () => {
         },
         {
           angularBaseUrl: "http://127.0.0.1:4300/",
-          reactBaseUrl: "https://showcase-langgraph-python.example/",
+          integrationBaseUrl: "https://showcase-langgraph-python.example/",
         },
       ),
     ).toBe("https://showcase-langgraph-python.example/vue/agentic-chat");

@@ -5,6 +5,7 @@
 # ── Paths ────────────────────────────────────────────────────────────────────
 
 SHOWCASE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+WORKSPACE_ROOT="$(cd "$SHOWCASE_ROOT/.." && pwd)"
 COMPOSE_FILE="$SHOWCASE_ROOT/docker-compose.local.yml"
 COMPOSE_CMD="docker compose -f $COMPOSE_FILE"
 ENV_FILE="$SHOWCASE_ROOT/.env"
@@ -79,7 +80,7 @@ stage_vue() {
     if [ "$vue_source" != "$default_source" ]; then
       die "Missing staged Vue browser artifact: $vue_source"
     fi
-    pnpm --dir "$SHOWCASE_ROOT/vue" build
+    (cd "$WORKSPACE_ROOT" && pnpm nx run @copilotkit/showcase-vue-host:build)
   fi
 
   local integration_id

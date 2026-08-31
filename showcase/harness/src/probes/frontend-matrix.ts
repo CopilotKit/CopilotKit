@@ -120,13 +120,13 @@ function baseWithoutTrailingSlash(value: string): string {
 /** Resolve one matrix cell to the exact framework-specific browser route. */
 export function urlForFrontendCell(
   cell: FrontendMatrixCell,
-  bases: { angularBaseUrl: string; reactBaseUrl: string },
+  bases: { angularBaseUrl: string; integrationBaseUrl: string },
 ): string {
   if (cell.frontend === "angular") {
     return `${baseWithoutTrailingSlash(bases.angularBaseUrl)}/angular/${cell.feature}`;
   }
   if (cell.frontend === "vue") {
-    return `${baseWithoutTrailingSlash(bases.reactBaseUrl)}/vue/${cell.feature}`;
+    return `${baseWithoutTrailingSlash(bases.integrationBaseUrl)}/vue/${cell.feature}`;
   }
-  return `${baseWithoutTrailingSlash(bases.reactBaseUrl)}/demos/${cell.feature}`;
+  return `${baseWithoutTrailingSlash(bases.integrationBaseUrl)}/demos/${cell.feature}`;
 }

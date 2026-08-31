@@ -97,7 +97,7 @@ export function createFrontendCellExecutor(
     }
     const url = urlForFrontendCell(cell, {
       angularBaseUrl: options.angularBaseUrl,
-      reactBaseUrl: backendUrl,
+      integrationBaseUrl: backendUrl,
     });
     const probes: FrontendProbeResult[] = [];
     for (const featureType of cell.featureTypes) {
