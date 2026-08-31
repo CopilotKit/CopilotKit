@@ -417,7 +417,10 @@ describe("DeliveryAdapter.post", () => {
     } as unknown as ClaimedChannelDelivery;
 
     try {
-      const pending = makeAdapter().post(replyTarget(session), STAGED_HAT_IMAGE);
+      const pending = makeAdapter().post(
+        replyTarget(session),
+        STAGED_HAT_IMAGE,
+      );
       await Promise.resolve();
       expect(effect).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(2400);
@@ -453,7 +456,10 @@ describe("DeliveryAdapter.post", () => {
     } as unknown as ClaimedChannelDelivery;
 
     try {
-      const pending = makeAdapter().post(replyTarget(session), STAGED_HAT_IMAGE);
+      const pending = makeAdapter().post(
+        replyTarget(session),
+        STAGED_HAT_IMAGE,
+      );
       await vi.advanceTimersByTimeAsync(2400);
       const ref = await pending;
       expect(effect.mock.calls[1]?.[1]).toMatchObject({
