@@ -1,0 +1,44 @@
+---
+title: "Send read-only context to the agent"
+description: "Expose application context to the agent without making it mutable."
+icon: "lucide/Shield"
+hideTOC: true
+---
+
+Use `useAgentContext()` for data the agent should be able to read but not edit directly: the current customer record, the active workspace, the selected document, or the user's current route. The composable registers that context with the agent runtime and removes it automatically when the component unmounts.
+
+Keep secrets out of this channel. Anything you put here is intended for the agent to read.
+
+```vue title="src/components/WorkspaceContext.vue"
+<script setup lang="ts">
+import { ref } from "vue";
+import { useAgentContext } from "@copilotkit/vue/v2";
+
+const workspaceId = ref("northstar");
+
+useAgentContext({
+  description: "Active workspace",
+  value: workspaceId,
+});
+</script>
+
+<template>
+  <p>Workspace: {{ workspaceId }}</p>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import WorkspaceContext from "./components/WorkspaceContext.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <WorkspaceContext />
+  </CopilotKitProvider>
+</template>
+```
+
+If the agent needs to mutate state, send that through the agent itself rather than through `useAgentContext()`.
+

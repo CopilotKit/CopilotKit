@@ -1,0 +1,46 @@
+---
+title: "Headless Interrupts"
+description: "Render interrupt UI anywhere in a Vue app instead of inside the chat."
+icon: "lucide/PanelTopOpen"
+hideTOC: true
+---
+
+Headless interrupts are the same runtime interrupt flow as `useInterrupt()`, but you render the UI yourself. That keeps the decision panel in a modal, a sidebar, or a custom page rather than inside the chat transcript.
+
+This is the right path when the chat is not the primary surface, or when the approval UI needs to live next to other app controls.
+
+```vue title="src/components/ApprovalModal.vue"
+<script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+
+const { interrupt, hasInterrupt, resolveInterrupt, cancelInterrupt } = useInterrupt<{
+  reason: string;
+}>({
+  renderInChat: false,
+});
+</script>
+
+<template>
+  <dialog open v-if="hasInterrupt">
+    <p>{{ interrupt?.value.reason }}</p>
+    <button @click="resolveInterrupt({ approved: true })">Approve</button>
+    <button @click="cancelInterrupt()">Cancel</button>
+  </dialog>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import ApprovalModal from "./components/ApprovalModal.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ApprovalModal />
+  </CopilotKitProvider>
+</template>
+```
+
+If you actually need a browser-side tool that pauses for confirmation, use [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) instead. It is the tool-call path, not the runtime-interrupt path.
+

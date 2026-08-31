@@ -1,0 +1,32 @@
+---
+title: "Threads Drawer"
+description: "Drop in a ready-made Vue thread switcher beside your chat."
+icon: "lucide/Sidebar"
+hideTOC: true
+---
+
+`CopilotThreadsDrawer` is the shortest path to a thread list in Vue. It reads the thread store from CopilotKit Intelligence, lets users switch conversations, and keeps the drawer and chat in sync through `CopilotChatConfigurationProvider`.
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+  CopilotThreadsDrawer,
+} from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChatConfigurationProvider agent-id="support">
+      <div class="flex" style="height: 100dvh">
+        <CopilotThreadsDrawer :limit="20" />
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+</template>
+```
+
+Use this path when you want the thread UI to be product-shaped but not hand-built. If you need custom rows, custom layout, or your own archive/delete controls, move to [Headless Threads](../headless-threads).

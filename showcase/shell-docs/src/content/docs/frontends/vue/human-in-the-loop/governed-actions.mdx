@@ -1,0 +1,68 @@
+---
+title: "Governed Action Approval UI"
+description: "Approve or reject governed actions with a Vue frontend tool."
+icon: "lucide/CheckCheck"
+hideTOC: true
+---
+
+Use `useHumanInTheLoop()` when the agent should invoke a browser-side tool and wait for the user to approve, reject, or edit the action before the run continues. The Vue renderer receives a `respond` callback only while the tool is executing, so the approval UI stays honest about its lifecycle.
+
+<Callout type="warn">
+  This is for governed actions, not general app state. If the agent runtime itself emits an interrupt, use [`useInterrupt`](/reference/vue/hooks/useInterrupt) instead.
+</Callout>
+
+```vue title="src/components/ApproveDelete.vue"
+<script setup lang="ts">
+import { z } from "zod";
+import { useHumanInTheLoop } from "@copilotkit/vue/v2";
+import ApprovalCard from "./ApprovalCard.vue";
+
+useHumanInTheLoop({
+  name: "approve_delete",
+  description: "Ask the user to confirm a destructive delete.",
+  parameters: z.object({
+    itemId: z.string(),
+    label: z.string(),
+  }),
+  render: ApprovalCard,
+});
+</script>
+
+<template>
+  <p>Approval tool registered.</p>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import ApproveDelete from "./components/ApproveDelete.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ApproveDelete />
+  </CopilotKitProvider>
+</template>
+```
+
+```vue title="src/components/ApprovalCard.vue"
+<script setup lang="ts">
+defineProps<{
+  name: string;
+  description: string;
+  args: { itemId?: string; label?: string };
+  status: "inProgress" | "executing" | "complete";
+  respond?: (result: unknown) => Promise<void>;
+}>();
+</script>
+
+<template>
+  <article>
+    <p>{{ description }}</p>
+    <button v-if="respond" @click="respond({ approved: true })">Approve</button>
+  </article>
+</template>
+```
+
+Mount the registration component below `CopilotKitProvider`, then render `CopilotChat` or your own surface next to it. The agent sees the approval tool as part of the normal tool registry.

@@ -1,0 +1,46 @@
+---
+title: "Render agent state in your app"
+description: "Render Vue UI directly from the current agent state."
+icon: "lucide/Monitor"
+hideTOC: true
+---
+
+Use `useAgent()` when you want your own Vue component to reflect the current agent state outside the chat transcript. This is the same shared state the agent updates during a run; the frontend just renders it wherever you place the component.
+
+<Callout type="warn">
+  `useAgent()` still has to run below `CopilotKitProvider`. Put the composable in a child component, then mount that child inside the provider.
+</Callout>
+
+```vue title="src/components/CanvasState.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent({ agentId: "canvas" });
+const state = computed(() => agent.value?.state as { status?: string; draft?: string } | undefined);
+</script>
+
+<template>
+  <section aria-live="polite">
+    <p>{{ state?.status ?? "Idle" }}</p>
+    <article v-if="state?.draft">{{ state.draft }}</article>
+  </section>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import CanvasState from "./components/CanvasState.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CanvasState />
+    <div style="height: 100dvh"><CopilotChat agent-id="canvas" /></div>
+  </CopilotKitProvider>
+</template>
+```
+
+If you only need to show the agent's progress, this is the shortest path. If you need to feed application data back to the agent, add `useAgentContext()` in the next step.
+

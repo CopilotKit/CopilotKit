@@ -1,0 +1,68 @@
+---
+title: Programmatic Control
+description: Drive Vue agent runs from buttons, forms, or other app code.
+icon: "lucide/Terminal"
+hideTOC: true
+---
+
+Programmatic control is the lowest-level path: add messages, run the agent, stop a run, or subscribe to AG-UI events from ordinary Vue code. It is what you use when there is no chat composer at all.
+
+```vue title="src/components/AgentTrigger.vue"
+<script setup lang="ts">
+import { toRaw } from "vue";
+import { useAgent, useCopilotKit } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent({ agentId: "sales" });
+const { copilotkit } = useCopilotKit();
+
+async function run() {
+  const currentAgent = agent.value;
+  if (!currentAgent || currentAgent.isRunning) return;
+  currentAgent.addMessage({
+    id: crypto.randomUUID(),
+    role: "user",
+    content: "Summarize the latest sales data",
+  });
+  await copilotkit.value.runAgent({ agent: toRaw(currentAgent) });
+}
+
+function stop() {
+  const currentAgent = agent.value;
+  if (!currentAgent) return;
+  copilotkit.value.stopAgent({ agent: toRaw(currentAgent) });
+}
+</script>
+
+<template>
+  <button :disabled="agent?.isRunning" @click="run">Run agent</button>
+  <button :disabled="!agent?.isRunning" @click="stop">
+    Stop
+  </button>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import AgentTrigger from "./components/AgentTrigger.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <AgentTrigger />
+  </CopilotKitProvider>
+</template>
+```
+
+`copilotkit.runAgent({ agent })` is the recommended entry point when you want frontend tools and follow-up runs to behave the same way they do inside `CopilotChat`. The lower-level `agent.runAgent(...)` exists, but it skips that orchestration.
+
+If you need event-level progress, subscribe to the agent in the same child component that owns the run.
+
+```ts
+const sub = agent.value.subscribe({
+  onRunStartedEvent: () => console.log("started"),
+  onRunFinalized: () => console.log("done"),
+});
+```
+
+If the code path needs human approval or an interrupt resume flow, use the human-in-the-loop pages instead of layering that logic here.

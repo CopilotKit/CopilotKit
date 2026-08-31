@@ -1,0 +1,42 @@
+---
+title: "Import and synchronize thread history"
+description: "Bring existing conversation history into a Vue chat."
+icon: "lucide/Inbox"
+hideTOC: true
+---
+
+If you already have conversations in your own database, the simplest Vue path is to own the `threadId`, replay your stored messages into the agent, and then let CopilotKit continue the run from there. There is no separate import backend in the Vue SDK.
+
+```vue title="src/components/RestoreThread.vue"
+<script setup lang="ts">
+import { onMounted } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const props = defineProps<{ threadId: string }>();
+const { agent } = useAgent({ agentId: "support" });
+
+onMounted(async () => {
+  const messages = await myApi.loadMessages(props.threadId);
+  agent.value.setMessages(messages);
+});
+</script>
+
+<template />
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import RestoreThread from "./components/RestoreThread.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <RestoreThread thread-id="thread_123" />
+    <CopilotChat agent-id="support" thread-id="thread_123" />
+  </CopilotKitProvider>
+</template>
+```
+
+If you want CopilotKit Intelligence to store and restore threads for you, use the prebuilt drawer or `useThreads()` instead. This page is the self-managed path for apps that already own persistence.
+

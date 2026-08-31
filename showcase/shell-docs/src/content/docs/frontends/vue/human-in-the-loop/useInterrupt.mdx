@@ -1,0 +1,62 @@
+---
+title: "Pausing the Agent for Input"
+description: "Render runtime interrupts in a Vue chat or as a custom headless form."
+icon: "lucide/Hand"
+hideTOC: true
+---
+
+`useInterrupt()` listens for runtime interrupt events and exposes the pending interrupt as reactive state. In Vue, the default path is still chat-based: the composable publishes `slotProps` into `CopilotChat`, and you render the decision UI through the `#interrupt` slot.
+
+```vue title="src/components/ApprovalChat.vue"
+<script setup lang="ts">
+import { CopilotChat, useInterrupt } from "@copilotkit/vue/v2";
+
+useInterrupt<{ question: string }>();
+</script>
+
+<template>
+  <CopilotChat>
+    <template #interrupt="{ event, resolve }">
+      <section class="rounded border p-3">
+        <p>{{ (event.value as { question: string }).question }}</p>
+        <button @click="resolve({ approved: true })">Approve</button>
+      </section>
+    </template>
+  </CopilotChat>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotKitProvider } from "@copilotkit/vue/v2";
+import ApprovalChat from "./components/ApprovalChat.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ApprovalChat />
+  </CopilotKitProvider>
+</template>
+```
+
+If you need your own layout, set `renderInChat: false` and render from the returned refs instead.
+
+```vue title="src/components/ApprovalPanel.vue"
+<script setup lang="ts">
+import { useInterrupt } from "@copilotkit/vue/v2";
+
+const { interrupt, hasInterrupt, result, resolveInterrupt } = useInterrupt<string, { label: string }>({
+  renderInChat: false,
+  handler: ({ event }) => ({ label: event.value.toUpperCase() }),
+});
+</script>
+
+<template>
+  <aside v-if="hasInterrupt">
+    <p>{{ result?.label }}</p>
+    <button @click="resolveInterrupt({ accepted: true })">Continue</button>
+  </aside>
+</template>
+```
+
+The full API surface lives in the Vue reference entry for [`useInterrupt`](/reference/vue/hooks/useInterrupt). This route page only covers the decision and setup flow.

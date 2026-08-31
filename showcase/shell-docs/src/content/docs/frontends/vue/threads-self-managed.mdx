@@ -1,0 +1,44 @@
+---
+title: "Self-managed thread persistence"
+description: "Keep thread ids and messages in your own store, then drive Vue chat from that store."
+icon: "lucide/Database"
+hideTOC: true
+---
+
+CopilotKit Intelligence is the built-in thread platform. If you need to keep thread ids and history in your own database instead, make the thread id your source of truth and hydrate the Vue chat from your own store.
+
+Use this path only when you intentionally do not want `useThreads()` or `CopilotThreadsDrawer`. Those APIs are platform-backed and will not list your own tables.
+
+```vue title="src/components/ConversationRestore.vue"
+<script setup lang="ts">
+import { onMounted } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const props = defineProps<{ threadId: string }>();
+const { agent } = useAgent({ agentId: "support" });
+
+onMounted(async () => {
+  const messages = await myApi.getConversation(props.threadId);
+  agent.value.setMessages(messages);
+});
+</script>
+
+<template />
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import ConversationRestore from "./components/ConversationRestore.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ConversationRestore thread-id="conversation_42" />
+    <CopilotChat agent-id="support" thread-id="conversation_42" />
+  </CopilotKitProvider>
+</template>
+```
+
+If your goal is platform-backed syncing, archived thread actions, and realtime thread lists, switch back to [Rich Threads](./threads) and the drawer/headless thread UIs.
+

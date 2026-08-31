@@ -1,0 +1,44 @@
+---
+title: "Stream state into the UI"
+description: "Keep Vue UI in sync with streamed agent state updates."
+icon: "lucide/Waves"
+hideTOC: true
+---
+
+State streaming is the runtime-side version of shared state: the backend emits intermediate snapshots, and the Vue UI re-renders as those snapshots arrive. The Vue side does not need a special streaming API; it reads the agent state with `useAgent()` and re-renders whenever the runtime updates that state.
+
+Use this path when the user should see work as it happens, such as a draft, a progress counter, or the current result of a multi-step plan.
+
+```vue title="src/components/ResearchProgress.vue"
+<script setup lang="ts">
+import { computed } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const { agent } = useAgent({ agentId: "researcher" });
+const state = computed(() => agent.value?.state as { step?: string; completed?: number; total?: number } | undefined);
+</script>
+
+<template>
+  <aside>
+    <p>{{ state?.step ?? "Working..." }}</p>
+    <progress :value="state?.completed ?? 0" :max="state?.total ?? 1" />
+  </aside>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import ResearchProgress from "./components/ResearchProgress.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <ResearchProgress />
+    <div style="height: 100dvh"><CopilotChat agent-id="researcher" /></div>
+  </CopilotKitProvider>
+</template>
+```
+
+If your runtime does not emit state snapshots, the UI will only see the final state. The Vue frontend cannot invent streamed state that the backend never sends.
+

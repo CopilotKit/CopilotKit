@@ -1,0 +1,55 @@
+---
+title: "Headless Threads"
+description: "Build a custom thread list with the Vue `useThreads` composable."
+icon: "lucide/Rows3"
+hideTOC: true
+---
+
+`useThreads()` is the Vue composable for listing and managing CopilotKit Intelligence threads. It gives you the thread list, pagination state, and the rename/archive/delete actions. Use it when the prebuilt drawer is too opinionated for your layout.
+
+```vue title="src/components/ThreadSidebar.vue"
+<script setup lang="ts">
+import { useThreads } from "@copilotkit/vue/v2";
+import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+
+const config = useCopilotChatConfiguration();
+const { threads, isLoading, renameThread, archiveThread, deleteThread } = useThreads({
+  agentId: "support",
+});
+</script>
+
+<template>
+  <div v-if="isLoading">Loading threads...</div>
+  <ul v-else>
+    <li v-for="thread in threads" :key="thread.id">
+      <button @click="config?.setActiveThreadId(thread.id, { explicit: true })">
+        {{ thread.name ?? "Untitled conversation" }}
+      </button>
+      <button @click="renameThread(thread.id, 'Renamed')">Rename</button>
+      <button @click="archiveThread(thread.id)">Archive</button>
+      <button @click="deleteThread(thread.id)">Delete</button>
+    </li>
+  </ul>
+</template>
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotChatConfigurationProvider, CopilotKitProvider } from "@copilotkit/vue/v2";
+import ThreadSidebar from "./components/ThreadSidebar.vue";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChatConfigurationProvider agent-id="support">
+      <div class="flex" style="height: 100dvh">
+        <ThreadSidebar />
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+</template>
+```
+
+If you do not have CopilotKit Intelligence, `useThreads()` has nothing to list. In that case, own the thread ids yourself and use the lifecycle guidance instead.
+

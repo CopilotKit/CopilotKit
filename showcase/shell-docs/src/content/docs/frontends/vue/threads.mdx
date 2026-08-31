@@ -1,0 +1,23 @@
+---
+title: Rich Threads
+description: Persist and restore Vue conversations with CopilotKit Intelligence.
+icon: "lucide/Layers3"
+hideTOC: true
+---
+
+Rich Threads keep a user's conversation history, thread metadata, and live run state server-side so the chat can reconnect after reloads or across devices. In Vue, the same feature set is split into two UI paths:
+
+| Path | Use when |
+| --- | --- |
+| [`CopilotThreadsDrawer`](/prebuilt-components/copilot-threads-drawer) | You want a ready-made thread switcher beside the chat |
+| [`useThreads`](/headless-threads) | You want to build your own thread UI |
+
+Threads require CopilotKit Intelligence. If you are only trying to persist a single conversation id, see [Thread lifecycle](./threads-lifecycle) instead.
+
+## Next steps
+
+- [Use the prebuilt drawer](./prebuilt-components/copilot-threads-drawer)
+- [Build a headless thread UI](./headless-threads)
+- [Understand the thread lifecycle](./threads-lifecycle)
+- [Import existing history](./threads-import)
+

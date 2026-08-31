@@ -1,0 +1,27 @@
+---
+title: HITL Overview
+description: Pause a Vue agent run for user input or approval.
+icon: "lucide/HandHelping"
+hideTOC: true
+---
+
+Human-in-the-loop in Vue comes in two forms:
+
+| Use case | Vue API |
+| --- | --- |
+| A frontend tool that waits for an approval or decision | [`useHumanInTheLoop`](/reference/vue/hooks/useHumanInTheLoop) |
+| A backend interrupt that pauses the run itself | [`useInterrupt`](/reference/vue/hooks/useInterrupt) |
+
+Both forms require `CopilotKitProvider` above the component that registers the tool or interrupt UI. Neither one is just a visual widget; the runtime still has to support the pause/resume path you choose.
+
+## Pick the path
+
+- Use `useHumanInTheLoop` when the agent should call a browser-side tool and wait for a user decision before continuing.
+- Use `useInterrupt` when the agent runtime emits an interrupt and the Vue app is the place where the resume payload gets collected.
+
+## Next steps
+
+- [Pause the agent for input](./useInterrupt)
+- [Render interrupts outside chat](./headless)
+- [Approve governed actions](./governed-actions)
+

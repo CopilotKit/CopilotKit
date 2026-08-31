@@ -1,0 +1,50 @@
+---
+title: "Thread and history lifecycle"
+description: "Control how Vue chats create, restore, and switch thread ids."
+icon: "lucide/ArrowLeftRight"
+hideTOC: true
+---
+
+Thread lifecycle is the set of rules around `threadId`: when CopilotKit mints one for you, when you should pass one yourself, and how to switch or start over. In Vue, the same lifecycle is driven either by the `threadId` prop on `CopilotChat` or by `useCopilotChatConfiguration()`.
+
+## Use an explicit thread id when you own persistence
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+
+const threadId = "thread_123";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat agent-id="support" :thread-id="threadId" />
+  </CopilotKitProvider>
+</template>
+```
+
+## Switch or start a thread imperatively
+
+```vue title="src/components/ThreadControls.vue"
+<script setup lang="ts">
+import { useCopilotChatConfiguration } from "@copilotkit/vue/v2";
+
+const config = useCopilotChatConfiguration();
+</script>
+
+<template>
+  <button @click="config?.setActiveThreadId('thread_123', { explicit: true })">
+    Open conversation
+  </button>
+  <button @click="config?.startNewThread()">New chat</button>
+</template>
+```
+
+## What to remember
+
+- `threadId` is authoritative when you pass it directly to `CopilotChat` or `CopilotChatConfigurationProvider`.
+- `setActiveThreadId()` is for UI switching, not for bypassing an explicit `threadId` prop.
+- `startNewThread()` gives you a fresh conversation id.
+
+If you need to reuse existing history from your own store, combine the explicit thread id with the import guidance on the next page.
+

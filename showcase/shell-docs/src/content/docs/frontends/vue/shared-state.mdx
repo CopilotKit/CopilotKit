@@ -1,0 +1,25 @@
+---
+title: Shared State
+description: Read agent state in Vue and send read-only app context back to the agent.
+icon: "lucide/Bot"
+hideTOC: true
+---
+
+Shared state is the bridge between the Vue app and the agent. Use `useAgent()` to read the current agent and render its state in your UI. Use `useAgentContext()` to send read-only application data back to the agent so it can reason about the current screen, selection, or workspace.
+
+Both composables must run in a descendant of `CopilotKitProvider`.
+
+## Choose the path
+
+| Need | Vue API |
+| --- | --- |
+| Render the agent state in your app | [`useAgent`](/reference/vue/hooks/useAgent) |
+| Send read-only app context to the agent | [`useAgentContext`](/reference/vue/hooks/useAgentContext) |
+| Keep the state visible in chat | `CopilotChat` plus the message slots under [Chat message rendering](/reference/vue/components/CopilotChatMessageView) |
+
+## Next steps
+
+- [Render agent state in your app](./shared-state/rendering-in-app)
+- [Stream state into the UI](./shared-state/streaming)
+- [Send read-only context to the agent](./shared-state/agent-readonly)
+
