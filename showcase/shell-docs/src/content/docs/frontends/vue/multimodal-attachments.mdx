@@ -1,0 +1,134 @@
+---
+title: Multimodal Attachments
+icon: "lucide/Paperclip"
+description: Let users send images, audio, video, and documents from a Vue chat.
+---
+
+You can enable file attachments on `CopilotChat` without replacing the Vue
+composer. CopilotKit validates each file in the browser, shows previews, and
+adds ready attachments to the next agent message.
+
+## Quick start
+
+```vue title="App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <CopilotChat :attachments="{ enabled: true }" />
+  </CopilotKitProvider>
+</template>
+```
+
+Users can choose files with the attachment button, drag them onto the chat,
+or paste supported file items from the clipboard.
+
+## Configuration
+
+The `attachments` prop accepts an `AttachmentsConfig` object:
+
+```vue
+<CopilotChat
+  :attachments="{
+    enabled: true,
+    accept: 'image/*,audio/*,video/*,application/pdf',
+    maxSize: 10 * 1024 * 1024,
+  }"
+/>
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | — | Enable file attachments in the composer. |
+| `accept` | `string` | `"*/*"` | MIME filter, including patterns such as `image/*` and extensions such as `.pdf`. |
+| `maxSize` | `number` | `20 * 1024 * 1024` | Maximum file size in bytes. |
+| `onUpload` | `(file: File) => AttachmentUploadResult \| Promise<AttachmentUploadResult>` | — | Upload the file yourself and return a data or URL source. |
+| `onUploadFailed` | `(error: AttachmentUploadError) => void` | — | Handle validation and upload failures. |
+
+`accept` and `maxSize` are client-side checks, not server-side security
+controls. Validate files again wherever your application stores or processes
+them.
+
+## Supported file types
+
+CopilotKit maps MIME types to four attachment modalities:
+
+| Modality | MIME types | Default preview |
+| --- | --- | --- |
+| Image | `image/*` | Thumbnail and lightbox. |
+| Audio | `audio/*` | Audio player. |
+| Video | `video/*` | Thumbnail, play button, and lightbox. |
+| Document | Other types | File name/icon; PDF and text can be previewed. |
+
+The selected model and backend converter still need to support the content. A
+model that cannot consume a modality can report a run error after the message
+has been sent; use `on-error` on `CopilotChat` for that path.
+
+## Custom upload handler
+
+By default, Vue reads each file as base64 data and sends it inline. Return a
+hosted URL instead when your application stores uploads separately:
+
+```vue
+<script setup lang="ts">
+async function upload(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch('/api/upload', { method: 'POST', body: form });
+  const { url } = await response.json();
+  return { type: 'url' as const, value: url, mimeType: file.type };
+}
+</script>
+
+<template>
+  <CopilotChat :attachments="{ enabled: true, onUpload: upload }" />
+</template>
+```
+
+The other supported result is `{ type: "data", value, mimeType }`. Either
+variant can include a `metadata` object; the filename is added to attachment
+metadata automatically.
+
+## Handling upload errors
+
+```vue
+<script setup lang="ts">
+function onUploadFailed(error: {
+  reason: 'file-too-large' | 'invalid-type' | 'upload-failed';
+  file: File;
+  message: string;
+}) {
+  toast.error(error.message);
+}
+</script>
+
+<template>
+  <CopilotChat
+    :attachments="{
+      enabled: true,
+      accept: 'image/*',
+      maxSize: 5 * 1024 * 1024,
+      onUploadFailed,
+    }"
+  />
+</template>
+```
+
+Validation failures use `invalid-type` or `file-too-large`; an upload handler
+or the default reader failing uses `upload-failed`. Errors after sending are
+reported through the chat `on-error` callback instead.
+
+## How it works
+
+When the user sends a message, Vue:
+
+1. Reads each file with the default reader or calls `onUpload`.
+2. Builds typed AG-UI content parts alongside the text part.
+3. Consumes the ready attachment queue and sends those parts with the user
+   message.
+
+Attachment sources use the standard AG-UI input-content shape, so the runtime
+and agent must support the modalities you accept.
