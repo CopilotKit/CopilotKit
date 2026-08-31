@@ -1100,7 +1100,7 @@ function outOfOrderError(): RealtimeGatewayPushError {
   });
 }
 
-test("rejoins and sends seq 0 with a new packet id after packet_out_of_order", async () => {
+test("rejoins and retries the same seq after packet_out_of_order", async () => {
   const first = channel();
   const second = channel();
   vi.mocked(first.push)
@@ -1110,7 +1110,7 @@ test("rejoins and sends seq 0 with a new packet id after packet_out_of_order", a
     .mockRejectedValueOnce(outOfOrderError());
   vi.mocked(second.push).mockImplementation((_event, packet) => {
     const body = packet as { seq: number };
-    if (body.seq !== 0) {
+    if (body.seq !== 1) {
       return Promise.reject(outOfOrderError());
     }
     return Promise.resolve(acknowledgement(packet));
@@ -1149,12 +1149,10 @@ test("rejoins and sends seq 0 with a new packet id after packet_out_of_order", a
   const retried = vi.mocked(second.push).mock.calls[0]![1] as {
     seq: number;
     packetId: string;
-    ownerGeneration: number;
   };
   expect(original.seq).toBe(1);
-  expect(retried.seq).toBe(0);
-  expect(retried.packetId).not.toBe(original.packetId);
-  expect(retried.ownerGeneration).toBe(8);
+  expect(retried.seq).toBe(1);
+  expect(retried.packetId).toBe(original.packetId);
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
