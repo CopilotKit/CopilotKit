@@ -11,9 +11,11 @@ minimal shape of the useAgentContext pattern.
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncGenerator
 from textwrap import dedent
 from typing import Any
+from uuid import uuid4
 
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
@@ -43,12 +45,20 @@ def build_context_system_message(context: Any) -> str | None:
 
         description = entry.get("description")
         value = entry.get("value")
-        if description is None or value is None:
+        if not isinstance(description, str) or not description or value is None:
+            continue
+
+        if not isinstance(value, str):
+            try:
+                value = json.dumps(value, ensure_ascii=False, indent=2)
+            except (TypeError, ValueError):
+                value = str(value)
+        if not value:
             continue
 
         lines.append("")
-        lines.append(str(description))
-        lines.append(str(value))
+        lines.append(description)
+        lines.append(value)
 
     if len(lines) == 1:
         return None
@@ -83,10 +93,12 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
                 yield event
             return
 
+        run_id = input_data.get("run_id") or input_data.get("runId") or str(uuid4())
         request_input = dict(input_data)
+        request_input["runId"] = run_id
         request_input["messages"] = [
             {
-                "id": f"{input_data.get('runId') or 'request'}-app-context",
+                "id": f"{run_id}-app-context",
                 "role": "system",
                 "content": context_prompt,
             },

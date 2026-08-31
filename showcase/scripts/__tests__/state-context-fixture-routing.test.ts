@@ -80,9 +80,9 @@ The user's recent activity in the app, newest first:
 describe.each(["langgraph-python", "ms-agent-python"])(
   "state/context fixture routing (%s)",
   (context) => {
-    it("shared-state default preferences match with correct content", () => {
-      const fixtures = loadBundledFixtures(context);
+    const fixtures = loadBundledFixtures(context);
 
+    it("shared-state default preferences match with correct content", () => {
       const defaultMatch = matchFixture(
         fixtures,
         request(
@@ -98,8 +98,6 @@ describe.each(["langgraph-python", "ms-agent-python"])(
     });
 
     it("readonly context defaults match with correct content", () => {
-      const fixtures = loadBundledFixtures(context);
-
       const defaultMatch = matchFixture(
         fixtures,
         request(
@@ -115,8 +113,6 @@ describe.each(["langgraph-python", "ms-agent-python"])(
     });
 
     it("readonly context follow-up question matches", () => {
-      const fixtures = loadBundledFixtures(context);
-
       const followUp = matchFixture(
         fixtures,
         request(

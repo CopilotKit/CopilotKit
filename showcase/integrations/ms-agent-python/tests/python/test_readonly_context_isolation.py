@@ -14,12 +14,31 @@ from agent_framework_ag_ui import AgentFrameworkAgent
 from agents.readonly_state_agent_context import (
     SYSTEM_PROMPT,
     ReadonlyContextFrameworkAgent,
+    build_context_system_message,
 )
 
 
 def _context_message(input_data: dict[str, Any]) -> dict[str, Any]:
     return next(
         message for message in input_data["messages"] if message.get("role") == "system"
+    )
+
+
+def test_non_string_context_values_are_rendered_as_json() -> None:
+    assert build_context_system_message(
+        [
+            {
+                "description": "Recent activity",
+                "value": ["Viewed the pricing page", "Watched the product demo"],
+            }
+        ]
+    ) == (
+        "## Context from the application\n\n"
+        "Recent activity\n"
+        "[\n"
+        '  "Viewed the pricing page",\n'
+        '  "Watched the product demo"\n'
+        "]"
     )
 
 
@@ -111,7 +130,10 @@ async def test_concurrent_runs_keep_app_context_request_local(
         async for _ in adapter.run(input_data):
             pass
 
-    await asyncio.gather(*(consume(input_data) for input_data in inputs.values()))
+    await asyncio.wait_for(
+        asyncio.gather(*(consume(input_data) for input_data in inputs.values())),
+        timeout=5,
+    )
 
     assert "Alpha" in _context_message(observed_inputs["alpha"])["content"]
     assert "Bravo" not in _context_message(observed_inputs["alpha"])["content"]
@@ -124,3 +146,44 @@ async def test_concurrent_runs_keep_app_context_request_local(
     assert wrapped_agent.default_options == {"instructions": SYSTEM_PROMPT}
     assert inputs["alpha"]["messages"] is original_message_lists["alpha"]
     assert inputs["bravo"]["messages"] is original_message_lists["bravo"]
+
+
+@pytest.mark.asyncio
+async def test_missing_run_ids_get_unique_context_message_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_inputs: list[dict[str, Any]] = []
+
+    async def capture_run(
+        _adapter: AgentFrameworkAgent,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[object, None]:
+        observed_inputs.append(input_data)
+        yield object()
+
+    monkeypatch.setattr(AgentFrameworkAgent, "run", capture_run)
+
+    wrapped_agent = SimpleNamespace(
+        name="readonly_state_agent_context",
+        description="",
+        default_options={"instructions": SYSTEM_PROMPT},
+    )
+    adapter = ReadonlyContextFrameworkAgent(agent=wrapped_agent)
+
+    async def consume() -> None:
+        input_data = {
+            "messages": [{"id": "user", "role": "user", "content": "Hi"}],
+            "context": [{"description": "User name", "value": "Ada"}],
+        }
+        async for _ in adapter.run(input_data):
+            pass
+        assert "runId" not in input_data
+
+    await consume()
+    await consume()
+
+    message_ids = [_context_message(input_data)["id"] for input_data in observed_inputs]
+    assert message_ids[0] != message_ids[1]
+    assert message_ids == [
+        f"{input_data['runId']}-app-context" for input_data in observed_inputs
+    ]

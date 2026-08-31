@@ -132,12 +132,39 @@ This context can then be shared with your AG-UI server and agent logic.
           <Tab value="Python">
             ```python title="main.py (excerpt)"
 
+            import json
             from collections.abc import AsyncGenerator
             from typing import Any
+            from uuid import uuid4
 
             from ag_ui.core import BaseEvent
             from agent_framework import Agent, BaseChatClient
             from agent_framework_ag_ui import AgentFrameworkAgent
+
+
+            def build_context_system_message(context: Any) -> str | None:
+                if not isinstance(context, list) or not context:
+                    return None
+
+                lines = ["## Context from the application"]
+                for entry in context:
+                    if not isinstance(entry, dict):
+                        continue
+
+                    description = entry.get("description")
+                    value = entry.get("value")
+                    if not isinstance(description, str) or not description or value is None:
+                        continue
+
+                    if not isinstance(value, str):
+                        try:
+                            value = json.dumps(value, ensure_ascii=False, indent=2)
+                        except (TypeError, ValueError):
+                            value = str(value)
+                    if value:
+                        lines.extend(["", description, value])
+
+                return "\n".join(lines) if len(lines) > 1 else None
 
 
             class ContextAwareAgent(AgentFrameworkAgent):
@@ -147,30 +174,24 @@ This context can then be shared with your AG-UI server and agent logic.
                     self,
                     input_data: dict[str, Any],
                 ) -> AsyncGenerator[BaseEvent, None]:
-                    context = input_data.get("context")
+                    context_prompt = build_context_system_message(input_data.get("context"))
                     messages = input_data.get("messages")
 
                     # The adapter skips the model when messages are empty. Context
                     # alone must not create an unsolicited model call.
-                    if isinstance(context, list) and isinstance(messages, list) and messages:
-                        context_lines = [
-                            f"{item['description']}: {item['value']}"
-                            for item in context
-                            if isinstance(item, dict)
-                            and item.get("description") is not None
-                            and item.get("value") is not None
+                    if context_prompt and isinstance(messages, list) and messages:
+                        run_id = input_data.get("run_id") or input_data.get("runId") or str(uuid4())
+                        request_input = dict(input_data)
+                        request_input["runId"] = run_id
+                        request_input["messages"] = [
+                            {
+                                "id": f"{run_id}-app-context",
+                                "role": "system",
+                                "content": context_prompt,
+                            },
+                            *messages,
                         ]
-                        if context_lines:
-                            request_input = dict(input_data)
-                            request_input["messages"] = [
-                                {
-                                    "id": f"{input_data.get('runId', 'request')}-app-context",
-                                    "role": "system",
-                                    "content": "Application context:\n" + "\n".join(context_lines),
-                                },
-                                *messages,
-                            ]
-                            input_data = request_input
+                        input_data = request_input
 
                     async for event in super().run(input_data):
                         yield event
