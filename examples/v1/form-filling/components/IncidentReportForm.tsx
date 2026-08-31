@@ -38,7 +38,8 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
-import { incidentDateSchema, parseIncidentDate } from "@/lib/incident-date";
+import { parseIncidentDate, serializeIncidentDate } from "@/lib/incident-date";
+import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -100,7 +101,7 @@ export function IncidentReportForm() {
       name: formValues.name ?? "",
       email: formValues.email ?? "",
       incidentType: formValues.incidentType ?? "",
-      date: formValues.date?.toISOString() ?? "",
+      date: formValues.date ? serializeIncidentDate(formValues.date) : "",
       description: formValues.description ?? "",
       impactLevel: formValues.impactLevel ?? "",
       suggestedActions: formValues.suggestedActions ?? "",
@@ -110,39 +111,7 @@ export function IncidentReportForm() {
   useFrontendTool({
     name: "fillIncidentReportForm",
     description: "Fill out the incident report form",
-    parameters: z.object({
-      fullName: z
-        .string()
-        .describe("The full name of the person reporting the incident"),
-      email: z
-        .string()
-        .email()
-        .describe("The email address of the person reporting the incident"),
-      date: incidentDateSchema.describe(
-        "The date of the incident in YYYY-MM-DD format",
-      ),
-      incidentType: z
-        .enum([
-          "phishing",
-          "malware",
-          "data_breach",
-          "unauthorized_access",
-          "ddos",
-          "other",
-        ])
-        .describe("The type of incident"),
-      incidentLevel: z
-        .enum(["low", "medium", "high", "critical"])
-        .describe("The severity of the incident"),
-      incidentDescription: z
-        .string()
-        .describe(
-          "A detailed description of the incident of at least 30 words",
-        ),
-      suggestedActions: z
-        .string()
-        .describe("Detailed suggested actions in a bulleted list"),
-    }),
+    parameters: fillIncidentReportFormParameters,
     handler: async (action) => {
       const incidentDate = parseIncidentDate(action.date);
       if (!incidentDate) {

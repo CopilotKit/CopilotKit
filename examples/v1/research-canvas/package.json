@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "test": "vitest run",
     "start": "next start",
     "lint": "next lint",
     "dev": "concurrently -k -n ui,agent -c blue,red \"PORT=3000 npm run dev:ui\" \"PORT=8000 npm run dev:agent\"",
@@ -39,7 +40,8 @@
     "concurrently": "^8.2.2",
     "postcss": "^8",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.3"
   },
   "nx": {
     "targets": {

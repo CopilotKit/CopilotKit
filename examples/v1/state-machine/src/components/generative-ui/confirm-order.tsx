@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
 import { useGlobalState } from "@/lib/stages";
+import { submitOnce } from "@/lib/single-submit";
 import type {
   Car,
   CardInfo,
@@ -12,8 +13,8 @@ import type {
 import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface ConfirmOrderProps {
-  onConfirm: (order: Order) => void;
-  onCancel: () => void;
+  onConfirm: (order: Order) => Promise<void> | void;
+  onCancel: () => Promise<void> | void;
   status: ToolCallStatus;
 }
 
@@ -86,21 +87,37 @@ const ActionButtons = ({
   onConfirm,
   onCancel,
 }: {
-  onConfirm: () => void;
-  onCancel: () => void;
-}) => (
-  <div className="flex justify-end gap-4 mt-6">
-    <button
-      onClick={onCancel}
-      className="px-6 py-2.5 w-full text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors duration-200 font-medium"
-    >
-      Cancel
-    </button>
-    <button
-      onClick={onConfirm}
-      className="px-6 py-2.5 w-full text-white bg-pink-600 rounded-lg hover:bg-pink-800 transition-colors duration-200 font-medium"
-    >
-      Confirm Order
-    </button>
-  </div>
-);
+  onConfirm: () => Promise<void> | void;
+  onCancel: () => Promise<void> | void;
+}) => {
+  const pendingSubmission = useRef(false);
+  const [isPending, setIsPending] = useState(false);
+  const submit = async (action: () => Promise<void> | void) => {
+    await submitOnce({
+      pending: pendingSubmission,
+      action,
+      onPendingChange: setIsPending,
+    });
+  };
+
+  return (
+    <div className="flex justify-end gap-4 mt-6">
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={async () => submit(onCancel)}
+        className="px-6 py-2.5 w-full text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors duration-200 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={async () => submit(onConfirm)}
+        className="px-6 py-2.5 w-full text-white bg-pink-600 rounded-lg hover:bg-pink-800 transition-colors duration-200 font-medium disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        Confirm Order
+      </button>
+    </div>
+  );
+};

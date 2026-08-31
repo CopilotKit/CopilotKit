@@ -23,7 +23,6 @@ export function ModelSelector() {
           <SelectItem value="openai">OpenAI</SelectItem>
           <SelectItem value="anthropic">Anthropic</SelectItem>
           <SelectItem value="google_genai">Google Generative AI</SelectItem>
-          <SelectItem value="crewai">CrewAI</SelectItem>
         </SelectContent>
       </Select>
     </div>

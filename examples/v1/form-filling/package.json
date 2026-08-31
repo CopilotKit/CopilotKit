@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "test": "vitest run",
     "start": "next start",
     "lint": "next lint"
   },
@@ -36,7 +37,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.3"
   },
   "nx": {
     "targets": {
