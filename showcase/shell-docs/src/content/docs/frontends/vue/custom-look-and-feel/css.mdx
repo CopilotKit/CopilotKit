@@ -24,6 +24,10 @@ The components mark their roots with `data-copilotkit`, so scope overrides to
 one product area when the rest of the application uses different tokens:
 
 ```vue title="SupportChat.vue"
+<script setup lang="ts">
+import { CopilotChat } from "@copilotkit/vue/v2";
+</script>
+
 <template>
   <section class="support-chat">
     <CopilotChat agent-id="support" />

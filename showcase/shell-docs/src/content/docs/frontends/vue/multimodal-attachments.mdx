@@ -65,7 +65,7 @@ CopilotKit maps MIME types to four attachment modalities:
 
 The selected model and backend converter still need to support the content. A
 model that cannot consume a modality can report a run error after the message
-has been sent; use `on-error` on `CopilotChat` for that path.
+has been sent; bind `:on-error` on `CopilotChat` for that path.
 
 ## Custom upload handler
 
@@ -119,7 +119,7 @@ function onUploadFailed(error: {
 
 Validation failures use `invalid-type` or `file-too-large`; an upload handler
 or the default reader failing uses `upload-failed`. Errors after sending are
-reported through the chat `on-error` callback instead.
+reported through the chat `:on-error` callback instead.
 
 ## How it works
 
