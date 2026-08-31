@@ -185,7 +185,10 @@ describe("managed channel entrypoint", () => {
     await import("./managed.js");
 
     const onTurn = fakes.bot.onMention.mock.calls[0]?.[0] as (args: {
-      thread: { runAgent: ReturnType<typeof vi.fn>; post: ReturnType<typeof vi.fn> };
+      thread: {
+        runAgent: ReturnType<typeof vi.fn>;
+        post: ReturnType<typeof vi.fn>;
+      };
       message: { text: string };
     }) => Promise<void>;
     const runAgent = vi.fn().mockResolvedValue(undefined);
