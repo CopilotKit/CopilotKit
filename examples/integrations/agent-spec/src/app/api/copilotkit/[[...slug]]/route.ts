@@ -21,10 +21,10 @@ const runtime = new CopilotRuntime({
   agents: { my_a2ui_agent: agent },
   a2ui: {},
   // --- copilotkit:intelligence (remove this block to opt out) ---
-  ...(process.env.COPILOTKIT_LICENSE_TOKEN
+  ...(process.env.CPK_INTELLIGENCE_API_KEY
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY,
           ...(process.env.INTELLIGENCE_API_URL
             ? { apiUrl: process.env.INTELLIGENCE_API_URL }
             : {}),
@@ -37,7 +37,6 @@ const runtime = new CopilotRuntime({
         // must correspond to a user that exists in CopilotKit Intelligence;
         // an unknown id (like this literal) can make thread operations fail.
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
-        licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
       }
     : { runner: new InMemoryAgentRunner() }),
   // --- /copilotkit:intelligence ---

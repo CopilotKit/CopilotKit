@@ -59,9 +59,10 @@ agent updates through the adapter's built-in `ag_ui_update_state` tool.
 5. **Open [http://localhost:3000](http://localhost:3000)** and try the suggested prompts
    (add todos, draw a chart, search flights, build a dashboard, schedule a meeting).
 
-6. **(Optional) Enable the Threads drawer.** Thread history is gated behind a CopilotKit
-   Intelligence license. Set `COPILOTKIT_LICENSE_TOKEN` (and the `INTELLIGENCE_*` URLs) in
-   `.env` to activate live thread history; without it the drawer shows a locked state.
+6. **(Optional) Enable the Threads drawer.** Set `CPK_INTELLIGENCE_API_KEY` in
+   `.env` to activate live thread history; without it the drawer shows a locked
+   state. The license token and `INTELLIGENCE_*` URLs are only for self-hosted
+   or offline Intelligence deployments.
 
 ## Running a Channel
 

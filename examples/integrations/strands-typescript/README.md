@@ -77,7 +77,7 @@ the agent, open <http://localhost:8000/health>.
 
 ## Optional Intelligence features
 
-Set `COPILOTKIT_LICENSE_TOKEN` to activate live thread history. To run a Slack
+Set `CPK_INTELLIGENCE_API_KEY` to activate live thread history. To run a Slack
 or Teams Channel, use `copilotkit init` or `copilotkit channels add`, then run:
 
 ```bash

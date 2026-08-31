@@ -49,11 +49,13 @@ const MANAGED_ENTITLEMENT_CONTRACT_BY_SDK_VERSION = {
     "1.62.2": false,
     "1.62.3": false,
     "1.68.1": false,
+    "1.70.0": true,
   },
   "@copilotkit/react-core": {
     "1.62.2": false,
     "1.62.3": false,
     "1.68.1": false,
+    "1.70.0": true,
   },
 } as const satisfies Readonly<
   Record<ManagedSdkPackageName, Readonly<Record<string, boolean>>>
@@ -3116,6 +3118,25 @@ for (const scriptName of [
         gatewayWsUrl: "wss://gateway.example.com/runtime",
       },
       expectedVariable: INTELLIGENCE_API_URL,
+      expectedMessage: /reachable from AWS/i,
+    },
+    {
+      label: "non-TLS remote API URL",
+      envFile: {
+        apiUrl: "http://intelligence.example.com/api",
+        gatewayWsUrl: "wss://gateway.example.com/runtime",
+      },
+      expectedVariable: INTELLIGENCE_API_URL,
+      expectedMessage: /https:\/\//i,
+    },
+    {
+      label: "non-TLS remote gateway URL",
+      envFile: {
+        apiUrl: "https://intelligence.example.com/api",
+        gatewayWsUrl: "ws://gateway.example.com/runtime",
+      },
+      expectedVariable: INTELLIGENCE_GATEWAY_WS_URL,
+      expectedMessage: /wss:\/\//i,
     },
   ] as const) {
     test(`${scriptName} rejects ${invalidEndpoint.label} without exposing the managed key`, () => {
@@ -3126,7 +3147,11 @@ for (const scriptName of [
 
       expect(result.status).toBe(1);
       expect(result.output).toContain(invalidEndpoint.expectedVariable);
-      expect(result.output).toMatch(/reachable from AWS/i);
+      expect(result.output).toMatch(
+        "expectedMessage" in invalidEndpoint
+          ? invalidEndpoint.expectedMessage
+          : /reachable from AWS/i,
+      );
       expect(result.output).not.toContain(MANAGED_API_KEY_SENTINEL);
       expect(result.cdkEnvironment).toBeNull();
     });
@@ -3804,7 +3829,7 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
   });
 
   if (contract.directory !== "agentcore") {
-    test(`${contract.directory} defers the no-token managed drawer until its pinned SDK supports structured entitlements`, () => {
+    test(`${contract.directory} uses the no-token managed path with structured entitlements`, () => {
       const runtime = readManagedSurface(
         contract,
         contract.runtimePath,
@@ -3822,13 +3847,12 @@ for (const contract of INTELLIGENCE_TEMPLATE_CONTRACTS) {
       );
       const pins = readManagedSdkPins(contract);
 
-      expect(pins.every((pin) => !pinSupportsManagedEntitlements(pin))).toBe(
-        true,
+      expect(pins.every(pinSupportsManagedEntitlements)).toBe(true);
+      expectManagedRuntimeContract(runtime);
+      expect(runtime).not.toMatch(
+        exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN),
       );
-      expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
-      expect(runtime).toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
-      expect(gate).toMatch(exactEnvIdentifierPattern(MANAGED_LICENSE_TOKEN));
-      expect(gate).not.toMatch(exactEnvIdentifierPattern(MANAGED_API_KEY));
+      expectManagedGateContract(gate);
       for (const contents of [runtime, gate, readme]) {
         expect(contents).not.toMatch(
           exactEnvIdentifierPattern(OPTIONAL_TELEMETRY_ID),
