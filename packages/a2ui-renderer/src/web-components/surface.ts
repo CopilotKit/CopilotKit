@@ -3,6 +3,7 @@ import { MessageProcessor } from "@a2ui/web_core/v0_9";
 import type { A2uiMessage, Catalog } from "@a2ui/web_core/v0_9";
 import { basicCatalog } from "./catalog/basic";
 import type { LitComponentImplementation, LitRenderable } from "./types";
+import { ROOT_COMPONENT_ID } from "./constants";
 
 const DEFAULT_SURFACE_ID = "default";
 const BASIC_CATALOG_ID =
@@ -416,7 +417,7 @@ export class CpkA2uiSurface extends LitElement {
               >
                 <cpk-a2ui-node
                   .surface=${surface}
-                  .componentId=${"root"}
+                  .componentId=${ROOT_COMPONENT_ID}
                   .basePath=${"/"}
                 ></cpk-a2ui-node>
               </div>
