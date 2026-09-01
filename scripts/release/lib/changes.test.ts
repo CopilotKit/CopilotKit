@@ -1,12 +1,14 @@
-import { mkdtempSync, rmSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import { describe, expect, it, vi } from "vitest";
 import {
   GIT_LOG_FORMAT,
   getChangesSummary,
   getLastReleaseTag,
+  isNoiseCommit,
   parseCommitLog,
+  parsePrNumber,
 } from "./changes.js";
 
 const spawnSyncMock = vi.hoisted(() => vi.fn());
@@ -49,7 +51,9 @@ describe("Channels release history", () => {
   it("uses the Channels tag as the release-note commit boundary", () => {
     mockGitHistory();
 
-    expect(getChangesSummary("channels")).toMatchObject({
+    expect(
+      getChangesSummary("channels", { pathspecs: ["packages/channels"] }),
+    ).toMatchObject({
       lastTag: "channels/v0.1.1",
       commitCount: 1,
     });
@@ -58,8 +62,10 @@ describe("Channels release history", () => {
       [
         "log",
         "channels/v0.1.1..HEAD",
-        "--no-merges",
+        "--first-parent",
         `--format=${GIT_LOG_FORMAT}`,
+        "--",
+        "packages/channels",
       ],
       expect.any(Object),
     );
@@ -111,6 +117,120 @@ describe("Channels release history", () => {
           body: "",
         }),
       ]);
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Release-note commit selection", () => {
+  it("extracts the PR number from a merge-commit subject", () => {
+    expect(parsePrNumber("feat(angular): add registerComponent (#6773)")).toBe(
+      6773,
+    );
+    expect(parsePrNumber("fix(core): a direct-to-main commit")).toBeNull();
+  });
+
+  it("treats test/ci/style and non-deps chore commits as noise", () => {
+    expect(isNoiseCommit("test(angular): complete Core mock")).toBe(true);
+    expect(isNoiseCommit("ci: retry flaky shard")).toBe(true);
+    expect(isNoiseCommit("chore: sync plugin skills")).toBe(true);
+    expect(isNoiseCommit("chore: release angular v0.5.0")).toBe(true);
+  });
+
+  it("keeps dependency bumps and real user-facing work", () => {
+    expect(isNoiseCommit("chore(deps): bump @ag-ui/* to 0.0.59")).toBe(false);
+    expect(isNoiseCommit("feat(angular): add registerComponent")).toBe(false);
+    expect(isNoiseCommit("fix(angular): resolve HITL results")).toBe(false);
+    expect(isNoiseCommit("perf(core): trim the hot path")).toBe(false);
+  });
+
+  it("walks first-parent and path-filters to the scope's packages", () => {
+    mockGitHistory();
+
+    getChangesSummary("channels", { pathspecs: ["packages/channels"] });
+
+    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+      "git",
+      [
+        "log",
+        "channels/v0.1.1..HEAD",
+        "--first-parent",
+        `--format=${GIT_LOG_FORMAT}`,
+        "--",
+        "packages/channels",
+      ],
+      expect.any(Object),
+    );
+  });
+
+  it("collapses a merged PR to one entry and drops the other scope's work", async () => {
+    const actualChildProcess = await vi.importActual("child_process");
+    const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
+    const repository = mkdtempSync(join(tmpdir(), "copilotkit-firstparent-"));
+
+    const git = (args: string[]) => {
+      const result = spawnSync("git", args, {
+        cwd: repository,
+        encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout;
+    };
+    const write = (file: string, contents: string) => {
+      mkdirSync(join(repository, dirname(file)), { recursive: true });
+      writeFileSync(join(repository, file), contents);
+    };
+
+    try {
+      git(["init", "--quiet", "--initial-branch=main"]);
+      git(["config", "user.name", "Release Test"]);
+      git(["config", "user.email", "release-test@example.com"]);
+
+      write("packages/angular/a.ts", "base");
+      git(["add", "-A"]);
+      git(["commit", "--quiet", "-m", "chore: baseline"]);
+
+      // A feature branch with two noisy intermediate commits, merged as a PR.
+      git(["checkout", "--quiet", "-b", "feature"]);
+      write("packages/angular/a.ts", "one");
+      git(["add", "-A"]);
+      git(["commit", "--quiet", "-m", "feat(angular): half of the feature"]);
+      write("packages/angular/a.ts", "two");
+      git(["add", "-A"]);
+      git(["commit", "--quiet", "-m", "test(angular): cover the feature"]);
+      git(["checkout", "--quiet", "main"]);
+      git([
+        "merge",
+        "--quiet",
+        "--no-ff",
+        "feature",
+        "-m",
+        "feat(angular): add registerComponent (#6773)",
+      ]);
+
+      // Work in a package that belongs to a DIFFERENT release scope.
+      write("packages/channels-core/b.ts", "other");
+      git(["add", "-A"]);
+      git(["commit", "--quiet", "-m", "feat(channels): unrelated lane"]);
+
+      const output = git([
+        "log",
+        "HEAD",
+        "--first-parent",
+        `--format=${GIT_LOG_FORMAT}`,
+        "--",
+        "packages/angular",
+      ]);
+
+      const subjects = parseCommitLog(output)
+        .filter((c) => !isNoiseCommit(c.subject))
+        .map((c) => c.subject);
+
+      // One entry for the whole PR — not its two branch commits — and nothing
+      // from the channels scope.
+      expect(subjects).toEqual(["feat(angular): add registerComponent (#6773)"]);
+      expect(parseCommitLog(output)[0].pr).toBe(6773);
     } finally {
       rmSync(repository, { recursive: true, force: true });
     }
