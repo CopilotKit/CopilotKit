@@ -6,9 +6,11 @@ description: "Choose the supported channel for LangGraph runtime values and exec
 
 ## Choose the right channel
 
-CopilotKit does not copy arbitrary browser-provided properties into LangGraph's
-`RunnableConfig`. Keep the trust boundary explicit and use the channel that
-matches the value:
+Some LangGraph adapters merge browser-supplied `forwardedProps.config` into
+LangGraph's `RunnableConfig`. Those values remain browser-controlled and
+untrusted, even when a LangGraph config schema accepts them. Never use them for
+credentials, tenant identity, authorization, or server execution controls.
+Keep the trust boundary explicit and use the channel that matches the value:
 
 | Value | Supported channel |
 | --- | --- |
@@ -109,6 +111,7 @@ influences it. Do not accept a browser-supplied configuration object wholesale.
 
 - Do not put raw credentials in model-visible context or graph state.
 - Do not persist credentials merely to make them available on later turns.
+- Do not trust a value merely because an adapter placed it in `RunnableConfig`.
 - Do not let a browser choose recursion limits, callbacks, metadata, or other
   server execution controls.
 - Do not reuse request-scoped identity between runs. Validate every request.

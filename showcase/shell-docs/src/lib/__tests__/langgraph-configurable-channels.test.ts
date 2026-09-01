@@ -32,8 +32,11 @@ test.each(
     );
 
     for (const output of [inlineSnippets(doc!.source, loadSlug), llmText]) {
+      expect(output).toContain("merge browser-supplied");
+      expect(output).toContain("forwardedProps.config");
+      expect(output).toMatch(/remain browser-controlled and\s+untrusted/);
       expect(output).toContain(
-        "does not copy arbitrary browser-provided properties",
+        "untrusted, even when a LangGraph config schema accepts",
       );
       expect(output).toContain("Authorization");
       expect(output).toContain("LangGraphAGUIAgent");
@@ -41,7 +44,7 @@ test.each(
       expect(output).toContain('"recursion_limit": 50');
       expect(output).toContain("context: { tenantId: verifiedTenantId }");
       expect(output).toContain("recursionLimit: 50");
-      expect(output).not.toContain("forwardedProps");
+      expect(output).not.toContain("forwardedProps: {");
       expect(output).not.toContain("authToken");
       expect(output).not.toContain("example-token");
     }
