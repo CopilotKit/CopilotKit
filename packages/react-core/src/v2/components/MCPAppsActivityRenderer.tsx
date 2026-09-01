@@ -471,22 +471,21 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           // The type-only import at the top of the file keeps this lazy (see that
           // note); the try/catch rethrows with an actionable message if the peer
           // is missing or version-skewed.
-          let AppBridge: typeof import("@modelcontextprotocol/ext-apps/app-bridge").AppBridge;
-          let PostMessageTransport: typeof import("@modelcontextprotocol/ext-apps/app-bridge").PostMessageTransport;
-          try {
-            ({ AppBridge, PostMessageTransport } =
-              await import("@modelcontextprotocol/ext-apps/app-bridge"));
-          } catch (importErr) {
-            throw new Error(
-              "MCP Apps require '@modelcontextprotocol/ext-apps' and its peer " +
-                "'@modelcontextprotocol/sdk'. Install them with: npm install " +
-                "@modelcontextprotocol/ext-apps @modelcontextprotocol/sdk",
-              { cause: importErr },
+          const bridgeModule =
+            await import("@modelcontextprotocol/ext-apps/app-bridge").catch(
+              (importErr) => {
+                throw new Error(
+                  "MCP Apps require '@modelcontextprotocol/ext-apps' and its peer " +
+                    "'@modelcontextprotocol/sdk'. Install them with: npm install " +
+                    "@modelcontextprotocol/ext-apps @modelcontextprotocol/sdk",
+                  { cause: importErr },
+                );
+              },
             );
-          }
           if (!mounted) {
             return;
           }
+          const { AppBridge, PostMessageTransport } = bridgeModule;
 
           // Create the sandbox proxy iframe (the proxy relays postMessage between
           // the host and the inner sandboxed widget).
@@ -559,7 +558,10 @@ export const MCPAppsActivityRenderer: React.FC<MCPAppsActivityRendererProps> =
           // top-level params.role / params.followUp (deprecated).
           bridge.setRequestHandler(CopilotKitUiMessageSchema, async (req) => {
             const currentAgent = agentRef.current;
-            if (!currentAgent) return { isError: false };
+            if (!currentAgent) {
+              console.warn("[MCPAppsRenderer] ui/message: No agent available");
+              return { isError: false };
+            }
             try {
               const params = req.params;
               const ck = (params._meta?.copilotkit ?? {}) as {
