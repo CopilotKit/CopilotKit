@@ -11,13 +11,14 @@ export type MegaMenuIconName =
   | "refresh"
   | "link"
   | "blocks"
-  | "database"
   | "search"
   | "cloud"
   | "server"
   | "atom"
   | "box"
-  | "radio";
+  | "radio"
+  | "brain"
+  | "chart";
 
 export interface MegaMenuLink {
   href: string;
@@ -69,13 +70,19 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         href: INTELLIGENCE_DOCS_HREF,
         label: "Intelligence",
         icon: "sparkles",
-        description: "Durable state and operational visibility",
+        description: "Threads, learning, and analytics",
         featured: true,
       },
+      { href: "/threads", label: "Threads", icon: "layers" },
       {
-        href: "/intelligence/threads-explained",
-        label: "Persistence",
-        icon: "database",
+        href: "/backend/copilot-runtime",
+        label: "Learning",
+        icon: "brain",
+      },
+      {
+        href: "/intelligence/managed-intelligence-platform",
+        label: "Analytics",
+        icon: "chart",
       },
       { href: "/inspector", label: "Inspector", icon: "search" },
       { href: "/deploy/agentcore", label: "Deploy", icon: "cloud" },
