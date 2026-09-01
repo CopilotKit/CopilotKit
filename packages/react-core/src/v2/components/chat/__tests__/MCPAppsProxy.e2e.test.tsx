@@ -483,8 +483,9 @@ describe("MCP Apps Proxy E2E", () => {
         url: "javascript:alert(document.domain)",
       });
 
-      // The host refuses non-allowlisted schemes (only http/https/mailto/tel are
-      // opened) so a widget cannot use ui/open-link as an XSS vector.
+      // The host refuses the denylisted script/HTML schemes
+      // (javascript:/data:/vbscript:/blob:/file:) so a widget cannot use
+      // ui/open-link as an XSS vector.
       expect(openSpy).not.toHaveBeenCalled();
 
       const response = captured.find(
