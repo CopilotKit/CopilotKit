@@ -122,35 +122,6 @@ function textFromMessageContent(content: unknown): string | undefined {
   return text || undefined;
 }
 
-function textFromContextValue(value: unknown): string | undefined {
-  if (typeof value === "string") return value;
-  if (value === undefined || value === null) return undefined;
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-function buildContextSystemMessage(context: unknown): string | undefined {
-  if (!Array.isArray(context) || context.length === 0) return undefined;
-
-  const lines = ["## Context from the application"];
-  for (const entry of context) {
-    if (!entry || typeof entry !== "object") continue;
-    const record = entry as Record<string, unknown>;
-    const description =
-      typeof record.description === "string" ? record.description : undefined;
-    const value = textFromContextValue(record.value);
-    if (!description || !value) continue;
-
-    lines.push("", description, value);
-  }
-
-  return lines.length > 1 ? lines.join("\n") : undefined;
-}
-
 function readRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object"
     ? (value as Record<string, unknown>)
@@ -509,32 +480,7 @@ function createGenUiAgent() {
 }
 
 function createReadonlyContextAgent() {
-  const agent = createAgent("/readonly-state-agent-context");
-
-  agent.use(
-    new FunctionMiddleware((input, next) => {
-      const contextMessage = buildContextSystemMessage(
-        (input as { context?: unknown }).context,
-      );
-      if (!contextMessage) {
-        return next.run(input);
-      }
-
-      return next.run({
-        ...input,
-        messages: [
-          {
-            id: `${input.runId ?? crypto.randomUUID()}-app-context`,
-            role: "system",
-            content: contextMessage,
-          },
-          ...(input.messages ?? []),
-        ],
-      });
-    }),
-  );
-
-  return agent;
+  return createAgent("/readonly-state-agent-context");
 }
 
 function createSharedStateReadWriteAgent() {
