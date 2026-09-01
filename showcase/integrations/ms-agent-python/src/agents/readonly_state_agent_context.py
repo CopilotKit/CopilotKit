@@ -18,6 +18,7 @@ from typing import Any
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
+from agents._request_scoped_instructions import run_with_request_instructions
 
 
 SYSTEM_PROMPT = dedent(
@@ -62,8 +63,9 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
 
     LangGraph gets this behavior from CopilotKitMiddleware. The MS Agent
     adapter receives the AG-UI `context` entries in `input_data`, so this
-    shim appends them to the wrapped agent's instruction string before
-    delegating to the standard Agent Framework runner.
+    shim appends them to request-local instructions before delegating to the
+    standard Agent Framework runner. The wrapped singleton agent is never
+    mutated.
     """
 
     async def run(  # type: ignore[override]
@@ -71,27 +73,12 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
         input_data: dict[str, Any],
     ) -> AsyncGenerator[BaseEvent, None]:
         context_prompt = build_context_system_message(input_data.get("context"))
-        if not context_prompt:
-            async for event in super().run(input_data):
-                yield event
-            return
+        instructions = SYSTEM_PROMPT
+        if context_prompt:
+            instructions = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
-            async for event in super().run(input_data):
-                yield event
-            return
-
-        previous_instructions = options.get("instructions")
-        options["instructions"] = f"{SYSTEM_PROMPT}\n\n{context_prompt}"
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        async for event in run_with_request_instructions(self, input_data, instructions):
+            yield event
 
 
 def create_readonly_state_agent_context(
@@ -101,7 +88,6 @@ def create_readonly_state_agent_context(
     base_agent = Agent(
         client=chat_client,
         name="readonly_state_agent_context",
-        instructions=SYSTEM_PROMPT,
         tools=[],
     )
 
