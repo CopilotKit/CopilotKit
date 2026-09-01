@@ -92,22 +92,22 @@ describe("seoRedirects", () => {
         {
           id: "INTEL-observability-root",
           source: "/premium/observability",
-          destination: "/premium/overview",
+          destination: "/intelligence/overview",
         },
         {
           id: "INTEL-observability×langgraph-python",
           source: "/langgraph-python/premium/observability",
-          destination: "/langgraph-python/premium/overview",
+          destination: "/langgraph-python/intelligence/overview",
         },
         {
           id: "INTEL-observability-connectors",
           source: "/troubleshooting/observability-connectors",
-          destination: "/premium/overview",
+          destination: "/intelligence/overview",
         },
         {
           id: "INTEL-observability×built-in-agent",
           source: "/built-in-agent/premium/observability",
-          destination: "/premium/overview",
+          destination: "/intelligence/overview",
         },
       ]),
     );
