@@ -20,6 +20,8 @@ Keep it updated whenever React parity work lands in `packages/vue`.
 - Runnable visual examples belong to the Showcase Vue host and generated frontend catalogs; Storybook is not the canonical integration surface.
 - Keep parity policy, translation rules, checklist, and the living React-to-Vue matrix in this file.
 - Showcase coverage and build ownership live in `showcase/shared/frontend-registry.json`, the generated frontend catalogs, and the existing Showcase validation/build workflows. Link to those sources instead of duplicating cell counts, feature counts, or a second coverage table here.
+- Vue documentation governance: React root IA is canonical; Vue navigation is derived and filtered through frontend resolution; shared pages and Vue variants follow the established policy; automated tests, not a duplicated route table, verify parity.
+- Vue-local documentation exceptions preserve the shared Threads, thread-import, and Inspector pages without changing other frontend policy, while keeping A2UI and detailed v1 material outside the accepted Vue surface.
 
 ## Verification boundary
 

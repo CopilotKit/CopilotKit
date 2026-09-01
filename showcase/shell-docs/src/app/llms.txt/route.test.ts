@@ -56,3 +56,24 @@ test("publishes every channel/framework discovery URL from the all mode", async 
     ),
   ).toHaveLength(expectedScopedCount);
 });
+
+test("publishes Vue routes from the derived frontend navigation", async () => {
+  const response = GET();
+  const body = await response.text();
+
+  for (const url of [
+    "vue",
+    "vue/using-these-docs",
+    "vue/prebuilt-components/chat",
+    "vue/threads",
+    "vue/threads-import",
+    "vue/generative-ui/tool-rendering",
+    "vue/human-in-the-loop",
+    "vue/inspector",
+  ]) {
+    expect(body).toContain(`/${url})`);
+  }
+  expect(body).not.toContain("/vue/guides/generative-ui)");
+  expect(body).not.toContain("/vue/guides/threads-and-drawer)");
+  expect(body).not.toContain("/vue/generative-ui/a2ui)");
+});

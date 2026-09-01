@@ -375,7 +375,7 @@ test("maps every non-React frontend to an MDX guide page", () => {
     "Docs status",
   );
   expect(getFrontendGuidanceContentSlug("vue")).toBe(
-    FRONTEND_DOCS_STATUS_CONTENT_SLUG,
+    "frontends/vue/using-these-docs",
   );
   expect(getFrontendGuidanceContentSlug("angular")).toBe(
     "frontends/angular/docs-status",
@@ -383,7 +383,7 @@ test("maps every non-React frontend to an MDX guide page", () => {
   expect(getFrontendGuidanceContentSlug("slack")).toBe(
     FRONTEND_DOCS_STATUS_CONTENT_SLUG,
   );
-  expect(getFrontendGuidanceTitle("vue")).toBe("Docs status");
+  expect(getFrontendGuidanceTitle("vue")).toBe("Using these docs");
   expect(getFrontendGuidanceTitle("slack")).toBe("Docs status");
   expect(isChannelFrontend("react")).toBe(false);
 });
@@ -447,6 +447,27 @@ test("publishes Angular task guides in unscoped and backend-scoped routes", () =
       `/angular/langgraph-python/${slug}`,
     );
   }
+});
+
+test("reuses the three accepted shared root pages only on Vue", () => {
+  for (const slug of ["threads", "threads-import", "inspector"]) {
+    expect(resolveFrontendDocPage("vue", slug)).toEqual(
+      expect.objectContaining({
+        status: "found",
+        contentSlugPath: slug,
+        canonicalPath: `/vue/${slug}`,
+      }),
+    );
+  }
+  expect(resolveFrontendDocPage("angular", "threads")).toEqual({
+    status: "not-found",
+  });
+  expect(resolveFrontendDocPage("angular", "threads-import")).toEqual({
+    status: "not-found",
+  });
+  expect(resolveFrontendDocPage("angular", "inspector")).toEqual(
+    expect.objectContaining({ contentSlugPath: "frontends/angular/inspector" }),
+  );
 });
 
 test("keeps Angular backend docs in context without a frontend-backend copy tree", () => {
@@ -536,7 +557,7 @@ test("routes frontend sidebars to the most specific reference docs available", (
     "reference/react-native",
   );
   expect(getFrontendReferenceSlug("slack")).toBe("reference/channels");
-  expect(getFrontendReferenceSlug("vue")).toBe("reference");
+  expect(getFrontendReferenceSlug("vue")).toBe("reference/vue");
   expect(getFrontendReferenceSlug("teams")).toBe("reference/channels");
 });
 
@@ -657,13 +678,9 @@ test("builds the exact channel journey beneath every active prefix", () => {
     ]),
   );
 
-  expect(getFrontendQuickstartNavTree("vue")).toEqual(
+  expect(getFrontendQuickstartNavTree("vue")).not.toEqual(
     expect.arrayContaining([
-      expect.objectContaining({
-        type: "section",
-        variant: "frontend-docs-upcoming",
-        frontendDocsStatus: "feature-complete",
-      }),
+      expect.objectContaining({ variant: "frontend-docs-upcoming" }),
     ]),
   );
   expect(resolveFrontendDocPage("slack", "agentic-protocols")).toEqual(
@@ -676,14 +693,14 @@ test("builds the exact channel journey beneath every active prefix", () => {
   );
 });
 
-test("renders docs-catch-up copy only for frontends that still use it", () => {
+test("keeps docs-catch-up copy off the Vue docs surface", () => {
   const vueTree = navTreeToPageTree(
     getFrontendQuickstartNavTree("vue"),
     "/vue",
   );
-  const slackTree = navTreeToPageTree(
-    getFrontendQuickstartNavTree("slack"),
-    "/slack",
+  const reactNativeTree = navTreeToPageTree(
+    getFrontendQuickstartNavTree("react-native"),
+    "/react-native",
   );
 
   const vueUpcoming = vueTree.children.find(
@@ -691,27 +708,58 @@ test("renders docs-catch-up copy only for frontends that still use it", () => {
       node.type === "separator" &&
       renderNavNameToMarkup(node.name).includes("Guides coming soon"),
   );
-  const slackUpcoming = slackTree.children.find(
+  const reactNativeUpcoming = reactNativeTree.children.find(
     (node) =>
       node.type === "separator" &&
       renderNavNameToMarkup(node.name).includes("Guides coming soon"),
   );
 
-  expect(renderNavNameToMarkup(vueUpcoming?.name)).toContain(
-    "Vue is feature complete, but the docs are still catching up. The ",
+  expect(vueUpcoming).toBeUndefined();
+  expect(loadDoc(getFrontendGuidanceContentSlug("vue"))?.source).not.toContain(
+    "docs are still catching up",
   );
-  expect(renderNavNameToMarkup(vueUpcoming?.name)).toContain(
-    " guides are ready with more guides on the way.",
-  );
-  expect(slackUpcoming).toBeUndefined();
+  expect(reactNativeUpcoming).toBeDefined();
 });
 
-test("publishes the Vue generative UI guide as a reachable sidebar page", () => {
-  const pageUrls = collectPageUrls(
-    navTreeToPageTree(getFrontendQuickstartNavTree("vue"), "/vue"),
-  );
+test("derives the Vue sidebar from root IA and frontend resolution", () => {
+  const navTree = getFrontendQuickstartNavTree("vue");
+  const pageUrls = collectPageUrls(navTreeToPageTree(navTree, "/vue"));
 
-  expect(pageUrls).toContain("/vue/guides/generative-ui");
+  expect(
+    navTree.filter(
+      (node) => node.type === "section" && node.title === "Get Started",
+    ),
+  ).toHaveLength(1);
+  expect(pageUrls.filter((url) => url === "/vue")).toHaveLength(1);
+
+  expect(pageUrls).toEqual(
+    expect.arrayContaining([
+      "/vue",
+      "/vue/using-these-docs",
+      "/vue/concepts/which-hook",
+      "/vue/prebuilt-components/chat",
+      "/vue/threads",
+      "/vue/threads-import",
+      "/vue/prebuilt-components/copilot-threads-drawer",
+      "/vue/headless-threads",
+      "/vue/generative-ui/tool-rendering",
+      "/vue/frontend-tools",
+      "/vue/shared-state",
+      "/vue/human-in-the-loop",
+      "/vue/inspector",
+      "/reference/vue",
+    ]),
+  );
+  expect(pageUrls).not.toEqual(
+    expect.arrayContaining([
+      "/vue/guides/generative-ui",
+      "/vue/guides/threads-and-drawer",
+      "/vue/generative-ui/a2ui",
+      "/vue/migrate/v2",
+    ]),
+  );
+  expect(loadDoc("frontends/vue/guides/generative-ui")).toBeNull();
+  expect(loadDoc("frontends/vue/guides/threads-and-drawer")).toBeNull();
 });
 
 test("links the Vue quickstart to its explicit Vue-owned route without implicit prefixing", () => {

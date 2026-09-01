@@ -21,6 +21,15 @@ export type FrontendDocResolution =
     }
   | { status: "not-found" };
 
+// These framework-neutral pages are deliberately reused by the Vue docs even
+// though their root source predates frontend applicability metadata. Keep this
+// Vue-only so Angular and other frontend surfaces retain their own policy.
+const VUE_SHARED_ROOT_DOC_SLUGS = new Set([
+  "threads",
+  "threads-import",
+  "inspector",
+]);
+
 function slugSegments(slugPath: string): string[] | null {
   const segments = slugPath.split(/[\\/]+/).filter(Boolean);
   if (segments.some((segment) => segment === "." || segment === "..")) {
@@ -140,6 +149,19 @@ export function resolveFrontendDocPage(
       canonicalPath: `/${frontend}/${slugPath}`,
       policy,
     };
+  }
+
+  if (frontend === "vue" && VUE_SHARED_ROOT_DOC_SLUGS.has(slugPath)) {
+    const sharedDoc = loadDoc(slugPath);
+    if (sharedDoc) {
+      return {
+        status: "found",
+        slugPath,
+        contentSlugPath: slugPath,
+        canonicalPath: `/${frontend}/${slugPath}`,
+        policy: { kind: "universal" },
+      };
+    }
   }
 
   if (variantDoc) {

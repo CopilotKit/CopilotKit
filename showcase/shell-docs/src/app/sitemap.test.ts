@@ -103,6 +103,31 @@ test("publishes every sitemap URL at most once", () => {
   expect(new Set(urls).size).toBe(urls.length);
 });
 
+test("publishes the Vue routes derived from the root documentation IA", () => {
+  const paths = sitemapPaths();
+
+  expect(paths).toEqual(
+    expect.arrayContaining([
+      "/vue",
+      "/vue/using-these-docs",
+      "/vue/prebuilt-components/chat",
+      "/vue/threads",
+      "/vue/threads-import",
+      "/vue/generative-ui/tool-rendering",
+      "/vue/human-in-the-loop",
+      "/vue/inspector",
+    ]),
+  );
+  expect(paths).not.toEqual(
+    expect.arrayContaining([
+      "/vue/guides/generative-ui",
+      "/vue/guides/threads-and-drawer",
+      "/vue/generative-ui/a2ui",
+      "/vue/migrate/v2",
+    ]),
+  );
+});
+
 test("excludes every hidden framework from every sitemap surface", () => {
   const paths = sitemapPaths();
 

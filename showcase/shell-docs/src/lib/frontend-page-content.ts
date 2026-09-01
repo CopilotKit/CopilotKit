@@ -2,7 +2,10 @@ import { FRONTEND_OPTIONS, isChannelFrontend } from "./frontend-options";
 import type { FrontendId } from "./frontend-options";
 import { CHANNEL_GUIDE_ROUTES } from "./channel-guide-routes";
 import type { ChannelGuideSection } from "./channel-guide-routes";
+import { buildNavTree, CONTENT_DIR } from "./docs-render";
 import type { NavNode } from "./docs-render";
+import { resolveFrontendDocPage } from "./frontend-doc-policy";
+import { referenceVersionHref } from "./reference-items";
 
 export type FrontendPageId = Exclude<FrontendId, "react">;
 
@@ -39,10 +42,6 @@ export const ANGULAR_GUIDE_PAGES = [
   },
 ] as const;
 
-export const VUE_GUIDE_PAGES = [
-  { title: "Generative UI in Vue", slug: "guides/generative-ui" },
-] as const;
-
 interface FrontendGuidePage {
   title: string;
   slug: string;
@@ -57,7 +56,6 @@ const FRONTEND_GUIDE_PAGES: Partial<
   Record<FrontendPageId, readonly FrontendGuidePage[]>
 > = {
   angular: ANGULAR_GUIDE_PAGES,
-  vue: VUE_GUIDE_PAGES,
 };
 
 /**
@@ -165,10 +163,12 @@ export const FRONTEND_DOCS_STATUS_CONTENT_SLUG = "frontends/docs-status";
 
 export function getFrontendGuidanceContentSlug(id: FrontendPageId): string {
   if (id === "angular") return "frontends/angular/docs-status";
+  if (id === "vue") return "frontends/vue/using-these-docs";
   return FRONTEND_DOCS_STATUS_CONTENT_SLUG;
 }
 
-export function getFrontendGuidanceTitle(_id: FrontendPageId): string {
+export function getFrontendGuidanceTitle(id: FrontendPageId): string {
+  if (id === "vue") return "Using these docs";
   return "Docs status";
 }
 
@@ -196,7 +196,7 @@ export function getFrontendCanonicalSlug(
 const FRONTEND_REFERENCE_SLUGS = {
   // A React SPA uses the root React reference unchanged.
   "react-spa": "reference",
-  vue: "reference",
+  vue: "reference/vue",
   "react-native": "reference/react-native",
   angular: "reference/angular",
   slack: "reference/channels",
@@ -221,6 +221,8 @@ function getChannelGuidePages(
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
+  if (id === "vue") return buildVueDocsNavTree();
+
   if (isChannelFrontend(id)) {
     return [
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
@@ -299,4 +301,122 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     },
     ...upcomingGuides,
   ];
+}
+
+function filterVueNavNodes(nodes: NavNode[]): NavNode[] {
+  const filtered: NavNode[] = [];
+  let sectionIndex: number | null = null;
+  let sectionHasPages = false;
+
+  for (const node of nodes) {
+    if (node.type === "section") {
+      if (sectionIndex !== null && !sectionHasPages) {
+        filtered.splice(sectionIndex, 1);
+      }
+      filtered.push(node);
+      sectionIndex = filtered.length - 1;
+      sectionHasPages = false;
+      continue;
+    }
+
+    if (node.type === "group") {
+      const children = filterVueNavNodes(node.children);
+      if (children.length === 0) continue;
+      filtered.push({ ...node, children });
+      sectionHasPages = true;
+      continue;
+    }
+
+    // These historical root announcements are intentionally not part of the
+    // accepted Vue surface. Keep the rest of What's New derived from policy.
+    if (
+      node.slug === "" ||
+      node.slug === "whats-new/a2ui-launch" ||
+      node.slug === "whats-new/v1-50" ||
+      resolveFrontendDocPage("vue", node.slug).status !== "found"
+    ) {
+      continue;
+    }
+    filtered.push(node);
+    sectionHasPages = true;
+  }
+
+  if (sectionIndex !== null && !sectionHasPages) {
+    filtered.splice(sectionIndex, 1);
+  }
+
+  return filtered;
+}
+
+/**
+ * Vue follows the root React information architecture, retaining only pages
+ * that the frontend-policy resolver can serve at a Vue URL. This keeps the
+ * root tree as the single navigation source while preserving Vue variants.
+ */
+export function buildVueDocsNavTree(): NavNode[] {
+  const rootNav = filterVueNavNodes(buildNavTree(CONTENT_DIR));
+  const getStartedIndex = rootNav.findIndex(
+    (node) => node.type === "section" && node.title === "Get Started",
+  );
+  const vueGettingStarted: NavNode[] = [
+    { type: "page", title: "Quickstart", slug: "" },
+    {
+      type: "page",
+      title: getFrontendGuidanceTitle("vue"),
+      slug: "using-these-docs",
+    },
+  ];
+
+  if (getStartedIndex === -1) {
+    return [
+      { type: "section", title: "Get Started", icon: "lucide/Rocket" },
+      ...vueGettingStarted,
+      ...rootNav,
+      {
+        type: "page",
+        title: "Reference docs",
+        slug: "reference/vue",
+        href: referenceVersionHref("vue"),
+      },
+    ];
+  }
+
+  return [
+    ...rootNav.slice(0, getStartedIndex + 1),
+    ...vueGettingStarted,
+    ...rootNav.slice(getStartedIndex + 1),
+    {
+      type: "page",
+      title: "Reference docs",
+      slug: "reference/vue",
+      href: referenceVersionHref("vue"),
+    },
+  ];
+}
+
+/** Canonical Vue route slugs derived from the Vue sidebar tree. */
+export function getVueDocsPageRoutes(): Array<{
+  slugPath: string;
+  canonicalSlugPath: string;
+}> {
+  return collectVueDocsPageRoutes(buildVueDocsNavTree());
+}
+
+function collectVueDocsPageRoutes(
+  nodes: NavNode[],
+): Array<{ slugPath: string; canonicalSlugPath: string }> {
+  return nodes.flatMap((node) => {
+    if (node.type === "page") {
+      if (node.href) return [];
+      return [
+        {
+          slugPath: node.slug,
+          canonicalSlugPath: node.slug.endsWith("/index")
+            ? node.slug.slice(0, -"/index".length)
+            : node.slug,
+        },
+      ];
+    }
+    return node.type === "group" ? collectVueDocsPageRoutes(node.children) : [];
+  });
 }
