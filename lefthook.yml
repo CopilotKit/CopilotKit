@@ -110,7 +110,7 @@ pre-commit:
       run: pnpm check:intelligence-env-names
       fail_text: |
         A non-canonical Intelligence env var name or hostname was found.
-        The canonical name is INTELLIGENCE_API_KEY; the canonical hosts are
+        The canonical name is CPK_INTELLIGENCE_API_KEY; the canonical hosts are
         api.intelligence.copilotkit.ai and realtime.intelligence.copilotkit.ai.
         See scripts/validate-intelligence-env-names.ts for the allowlists.
 

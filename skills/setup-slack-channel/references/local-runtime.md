@@ -51,7 +51,7 @@ The developer fills these in themselves:
 
 | Variable                                               | Required                | Notes                                                                 |
 | ------------------------------------------------------ | ----------------------- | --------------------------------------------------------------------- |
-| `INTELLIGENCE_API_KEY`                                 | Yes                     | `cpk-…`, from API Keys in the dashboard. Selects the project.         |
+| `CPK_INTELLIGENCE_API_KEY`                             | Yes                     | `cpk-…`, from API Keys in the dashboard. Selects the project.         |
 | `AGENT_URL`                                            | Yes                     | The AG-UI endpoint. OpenTag's local agent is `http://localhost:8123/` |
 | `OPENAI_API_KEY`                                       | Yes for OpenTag's agent | Model access for the Python agent                                     |
 | `INTELLIGENCE_CHANNEL_NAME`                            | No                      | Defaults to `open-tag`. Must equal the dashboard Channel's name.      |
@@ -61,7 +61,7 @@ The developer fills these in themselves:
 Verify by presence only:
 
 ```bash
-for v in INTELLIGENCE_API_KEY AGENT_URL OPENAI_API_KEY; do
+for v in CPK_INTELLIGENCE_API_KEY AGENT_URL OPENAI_API_KEY; do
   grep -q "^\s*\(export \)\?$v=." .env && echo "$v: set" || echo "$v: MISSING"
 done
 ```

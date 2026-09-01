@@ -136,7 +136,7 @@ ID in the Intelligence SDK:
 
 ```ts title="runtime.ts"
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   getLearningContainerId: () => "support-quality",
 });
 ```
@@ -146,7 +146,7 @@ The same API handles web and Channel runs:
 
 ```ts title="runtime.ts"
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   getLearningContainerId: async ({ surface, user, agentId, input }) => {
     return chooseLearningContainer({
       surface,
