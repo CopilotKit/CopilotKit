@@ -6,7 +6,7 @@ showIcon: true
 doc_type: how-to
 ---
 
-This recipe assembles a production agentic app from three pieces: an **Angular** frontend built with [`@copilotkit/angular`](/angular), a **Google ADK** agent served over the open [AG-UI](https://docs.ag-ui.com/) protocol, and an optional [CopilotKit Intelligence](/premium/overview) layer for persistent threads and cross-session memory.
+This recipe assembles a production agentic app from three pieces: an **Angular** frontend built with [`@copilotkit/angular`](/angular), a **Google ADK** agent served over the open [AG-UI](https://docs.ag-ui.com/) protocol, and an optional [CopilotKit Intelligence](/intelligence/overview) layer for persistent threads and cross-session memory.
 
 Start with these two quickstarts:
 
@@ -132,7 +132,7 @@ Two more agent-side habits:
 
 ## Add persistent threads and memory (optional)
 
-[CopilotKit Intelligence](/premium/overview) adds persistent [threads](/threads) and durable cross-session memory. Handle a missing or unreachable platform without failing every request:
+[CopilotKit Intelligence](/intelligence/overview) adds persistent [threads](/threads) and durable cross-session memory. Handle a missing or unreachable platform without failing every request:
 
 - **Auto-detect:** at startup, probe the platform health endpoint with a short timeout. If it is unreachable or unlicensed, fall back to an in-memory runner.
 - **Configurable endpoint:** use one base-URL environment variable for the runtime, the agent's memory client, and the health probe. Check the endpoint again after a restart.
@@ -158,7 +158,7 @@ The response is a server-sent event stream. Read the JSON-RPC body from the firs
 </Callout>
 
 <Callout type="info" title="Self-hosting the platform">
-  Running CopilotKit Intelligence yourself has its own setup notes (license verification and the embedding service). See [Self-hosting](/premium/self-hosting).
+  Running CopilotKit Intelligence yourself has its own setup notes (license verification and the embedding service). See [Self-hosting](/intelligence/self-hosting).
 </Callout>
 
 ## Production checklist
@@ -173,7 +173,7 @@ The response is a server-sent event stream. Read the JSON-RPC body from the firs
 
 - **Local dev:** only your frontend dev server hot-reloads. A `tsx`/`node` BFF and a Python agent do not, so restart them after edits. Give each service a stable, non-colliding port and write them down.
 - **Custom chat UI:** Build welcome and empty states in your application, customize message rendering through `messageViewComponent`, and iterate the full message list when you need to interleave generated UI. See the [Angular guide](/angular).
-- **Threads in depth:** see [Threads explained](/premium/threads-explained).
+- **Threads in depth:** see [Threads explained](/intelligence/threads-explained).
 
 ## Get started with a coding agent
 

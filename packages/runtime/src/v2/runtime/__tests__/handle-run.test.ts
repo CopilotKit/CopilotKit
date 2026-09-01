@@ -167,6 +167,130 @@ describe("handleRunAgent", () => {
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
   });
 
+  it("keeps authorization request-local across concurrent runs on one thread", async () => {
+    const registeredAgent = new HttpAgent({
+      url: "https://runtime.example/agent",
+      headers: { "X-Server": "registered" },
+    });
+    const identities: string[] = [];
+    const requestAgents: HttpAgent[] = [];
+    const pendingRuns: Array<() => void> = [];
+    const usersByAuthorization: Record<string, string> = {
+      "Bearer request-a": "user-a",
+      "Bearer request-b": "user-b",
+    };
+    const runtime = {
+      agents: Promise.resolve({ "test-agent": registeredAgent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+      runner: {
+        run: ({ agent }: { agent: AbstractAgent }) =>
+          new Observable<BaseEvent>((subscriber) => {
+            const requestAgent = agent as HttpAgent;
+            requestAgents.push(requestAgent);
+            const authorization = Object.entries(requestAgent.headers).find(
+              ([name]) => name.toLowerCase() === "authorization",
+            )?.[1];
+
+            pendingRuns.push(() => {
+              const identity = authorization
+                ? usersByAuthorization[authorization]
+                : undefined;
+              if (!identity) {
+                subscriber.error(new Error("Authentication required"));
+                return;
+              }
+              identities.push(identity);
+              subscriber.next({
+                type: EventType.CUSTOM,
+                name: "auth_identity",
+                value: { userId: identity },
+              } as BaseEvent);
+              subscriber.complete();
+            });
+
+            if (pendingRuns.length === 3) {
+              for (const release of pendingRuns.splice(0).toReversed())
+                release();
+            }
+          }),
+        connect: () => EMPTY,
+        isRunning: async () => false,
+        stop: async () => false,
+      },
+    } as unknown as CopilotRuntime;
+
+    const run = async (runId: string, authorization: string) => {
+      const response = await handleRunAgent({
+        runtime,
+        request: new Request("https://example.com/agent/test-agent/run", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authorization,
+          },
+          body: JSON.stringify({
+            threadId: "shared-thread",
+            runId,
+            state: {},
+            messages: [],
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        }),
+        agentId: "test-agent",
+      });
+
+      expect(response.status).toBe(200);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let output = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        output +=
+          typeof value === "string"
+            ? value
+            : decoder.decode(value, { stream: true });
+      }
+      return output + decoder.decode();
+    };
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const [firstOutput, secondOutput, failedOutput] = await Promise.all([
+        run("run-a", "Bearer request-a"),
+        run("run-b", "Bearer request-b"),
+        run("run-invalid", "Bearer raw-secret"),
+      ]);
+
+      expect(requestAgents).toHaveLength(3);
+      expect(new Set(requestAgents).size).toBe(3);
+      expect(requestAgents).not.toContain(registeredAgent);
+      expect(registeredAgent.headers).toEqual({ "X-Server": "registered" });
+      expect([...identities].sort()).toEqual(["user-a", "user-b"]);
+      expect(firstOutput).toContain("user-a");
+      expect(firstOutput).not.toContain("user-b");
+      expect(secondOutput).toContain("user-b");
+      expect(secondOutput).not.toContain("user-a");
+
+      const clientVisibleOutput = [
+        firstOutput,
+        secondOutput,
+        failedOutput,
+      ].join("\n");
+      expect(clientVisibleOutput).not.toMatch(/request-a|request-b|raw-secret/);
+      expect(errorSpy.mock.calls.flat().map(String).join("\n")).not.toContain(
+        "raw-secret",
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   const createMockAgentWithUse = () => {
     const useSpy = vi.fn();
     const agent = {

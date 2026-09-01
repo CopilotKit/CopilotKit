@@ -422,7 +422,7 @@ test("gives Angular native guides plus shared product documentation", () => {
   );
   expect(pageUrls).toContain("/angular/concepts/architecture");
   expect(pageUrls).toContain("/angular/backend/copilot-runtime");
-  expect(pageUrls).toContain("/angular/premium/intelligence-platform");
+  expect(pageUrls).toContain("/angular/intelligence/intelligence-platform");
   expect(getFrontendCanonicalSlug("angular", "docs-status")).toBe(
     "using-these-docs",
   );
@@ -459,7 +459,7 @@ test("keeps Angular backend docs in context without a frontend-backend copy tree
   expect(pageUrls).toContain(`${prefix}/quickstart`);
   expect(pageUrls).toContain(`${prefix}/concepts/architecture`);
   expect(pageUrls).toContain(`${prefix}/backend/copilot-runtime`);
-  expect(pageUrls).toContain(`${prefix}/premium/intelligence-platform`);
+  expect(pageUrls).toContain(`${prefix}/intelligence/intelligence-platform`);
   expect(pageUrls).toContain(`${prefix}/auth`);
   expect(pageUrls).toContain(`${prefix}/guides/frontend-tools-generative-ui`);
   expect(resolveAngularDoc("langgraph-python", "auth")).toEqual(
@@ -481,8 +481,8 @@ test("canonicalizes React-only frontend topics to Angular-native task guides", (
       "prebuilt-components/copilot-threads-drawer",
     ),
   ).toBe("guides/threads-memory-attachments-headless");
-  expect(getFrontendCanonicalSlug("angular", "premium/overview")).toBe(
-    "premium/overview",
+  expect(getFrontendCanonicalSlug("angular", "intelligence/overview")).toBe(
+    "intelligence/overview",
   );
   expect(
     getFrontendCanonicalSlug(

@@ -179,6 +179,7 @@ Import these symbols from `@copilotkit/angular`.
 - `RENDER_A2UI_TOOL_NAME`
 - `ReadAloudButtonContext`
 - `RegenerateButtonContext`
+- `RegisterComponentConfig`
 - `RenderA2UIArgs`
 - `RenderA2UIArgsSchema`
 - `RenderActivityMessageConfig`
@@ -241,6 +242,7 @@ Import these symbols from `@copilotkit/angular`.
 - `provideCopilotKit`
 - `provideSlots`
 - `readA2UILifecycleContent`
+- `registerComponent`
 - `registerFrontendTool`
 - `registerHumanInTheLoop`
 - `registerRenderActivityMessage`

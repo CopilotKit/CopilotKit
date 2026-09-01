@@ -42,7 +42,7 @@ export const POST = async (request: Request) => {
   }
 
   const apiUrl = process.env.INTELLIGENCE_API_URL;
-  const apiKey = process.env.INTELLIGENCE_API_KEY;
+  const apiKey = process.env.CPK_INTELLIGENCE_API_KEY;
   if (!apiUrl || !apiKey) {
     // OSS path: there is no durable memory to clear, and that is NOT an
     // error — the client still clears the cart and reloads.

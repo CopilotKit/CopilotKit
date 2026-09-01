@@ -9,6 +9,7 @@ import { describe, expect, test } from "vitest";
 // future re-vendor cannot silently reintroduce them.
 
 const AG_UI_ROOT = join(process.cwd(), "src/content/ag-ui");
+const APPLICATIONS_QUICKSTART = join(AG_UI_ROOT, "quickstart/applications.mdx");
 
 function markdownFiles(path: string): string[] {
   return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
@@ -40,6 +41,13 @@ function pagePath(href: string): string {
 }
 
 describe("vendored ag-ui docs links", () => {
+  test("points CopilotKit users to the generated app's root route", () => {
+    const guide = readFileSync(APPLICATIONS_QUICKSTART, "utf8");
+
+    expect(guide).toContain("[http://localhost:3000](http://localhost:3000)");
+    expect(guide).not.toContain("localhost:3000/copilotkit");
+  });
+
   test("root-relative links that name an ag-ui page carry the /ag-ui prefix", () => {
     const unprefixed = authoredLinks().filter(
       ({ href }) => !href.startsWith("/ag-ui") && existsSync(pagePath(href)),

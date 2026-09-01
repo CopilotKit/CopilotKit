@@ -625,7 +625,7 @@ export function buildFrameworkOnlyNav(
   const prefix = `integrations/${folder}/`;
 
   // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
-  // `premium/`) also get the prefix stripped from their children.
+  // `intelligence/`) also get the prefix stripped from their children.
   //
   // Two `index` cases need rewriting:
   //   1. Top-level `index` → "" so the framework-root entry resolves to
@@ -776,7 +776,7 @@ function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
 
   const architecturePage = findPageBySlug(
     rootGroup.children,
-    "premium/threads-explained",
+    "intelligence/threads-explained",
   );
   if (architecturePage?.type !== "page") return navTree;
 
@@ -1070,19 +1070,19 @@ export const SNIPPET_MAP: Record<string, string> = {
   FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx", // alias of FrontendTools
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   Interactive: "shared/generative-ui/interactive.mdx",
   MCPApps: "shared/generative-ui/mcp-apps.mdx",
   MCPSetup: "shared/guides/mcp-server-setup.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
   HeadlessThreads: "shared/threads/headless-threads.mdx",
   Threads: "shared/threads/headless-threads.mdx",
@@ -1134,8 +1134,8 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   inspector: "Inspector",
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
-  "premium/headless-ui": "HeadlessUI",
-  "premium/overview": "Overview",
+  "intelligence/headless-ui": "HeadlessUI",
+  "intelligence/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",

@@ -7,6 +7,7 @@ import type { ChannelActivationConfig } from "./channel-activation-config";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { telemetry } from "../telemetry";
 import type { AnalyticsEvents } from "../telemetry";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type {
   AgentSubscriber,
@@ -335,6 +336,8 @@ export interface ChannelManagerArgs {
    * activation engine is used, so transport-level drops surface in the managed
    * path (not just activation-level events). */
   log?: (msg: string, meta?: unknown) => void;
+  /** Runtime-scoped telemetry capture. Defaults to the process singleton. */
+  telemetry?: TelemetryCapture;
   /**
    * Initial delay (ms) before a "still down" log while a managed session is
    * disconnected. Later reminders back off exponentially to a 15-minute cap,
@@ -1126,6 +1129,7 @@ export class ChannelManager implements ChannelsControl {
   private readonly activateChannel: ActivateChannelEngine;
   private readonly mintRuntimeInstanceId: () => string;
   private readonly log?: (msg: string, meta?: unknown) => void;
+  private readonly telemetry: TelemetryCapture;
   private readonly stopHandleTimeoutMs: number;
   private readonly reconnectLogIntervalMs: number;
 
@@ -1143,6 +1147,7 @@ export class ChannelManager implements ChannelsControl {
     this.lockKeyPrefix = args.lockKeyPrefix;
     this.channels = args.channels;
     this.log = args.log;
+    this.telemetry = args.telemetry ?? telemetry;
     // When using the default engine, forward the manager's log DOWN to the
     // launcher/transport (via defaultActivateChannel's log param) so a
     // transport-level drop is observable in the managed path. `this.log` is read
@@ -1700,7 +1705,7 @@ export class ChannelManager implements ChannelsControl {
       | "oss.runtime.channel_session_recovered",
   >(event: K, props: AnalyticsEvents[K]): void {
     try {
-      void telemetry.capture(event, props).catch(() => {});
+      void this.telemetry.capture(event, props).catch(() => {});
     } catch {
       // Swallow — a telemetry transport must not take the session with it.
     }

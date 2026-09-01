@@ -32,7 +32,7 @@ export function copilotRuntimeNodeExpressEndpoint(
     },
   });
 
-  telemetry.capture(
+  options.runtime.telemetry.capture(
     "oss.runtime.instance_created",
     getRuntimeInstanceTelemetryInfo(options),
   );

@@ -5,11 +5,14 @@ import * as path from "node:path";
  * Guards the canonical Intelligence config surface: the project API key's name,
  * and the hostnames that actually serve the managed platform.
  *
- * `INTELLIGENCE_API_KEY` is what `copilotkit project select` provisions into
- * `.env`. Two other names were live in CopilotKit's own documentation and each
+ * `CPK_INTELLIGENCE_API_KEY` is what `copilotkit project select` provisions
+ * into managed starter `.env` files. Three retired names were live
+ * in CopilotKit's own documentation and each
  * produced an undefined key for a reader who followed it with a CLI-provisioned
  * project (OSS-881):
  *
+ * - `INTELLIGENCE_API_KEY` — the former project-key name. The CLI and all
+ *   current CopilotKit surfaces use `CPK_INTELLIGENCE_API_KEY`.
  * - `COPILOTKIT_INTELLIGENCE_API_KEY` — Channels READMEs and packaged skills.
  *   Retired outright: nothing ever read it.
  * - `COPILOTKIT_API_KEY` — the Slack/Teams examples and the client's own TSDoc.
@@ -47,8 +50,9 @@ import * as path from "node:path";
 
 const REPO_ROOT = path.resolve(__dirname, "..");
 
-/** Never valid anywhere. Nothing has ever read this name. */
+/** Retired names that must not appear on a current CopilotKit surface. */
 const RETIRED = [
+  "INTELLIGENCE_API_KEY",
   "COPILOTKIT_INTELLIGENCE_API_KEY",
   "COPILOTKIT_INTELLIGENCE_ORG_ID",
 ];
@@ -205,6 +209,27 @@ export function managedUrlEnvFileAssignment(text: string): string | null {
   return null;
 }
 
+/**
+ * Whether a line names `name` itself rather than a longer variable that merely
+ * contains it.
+ *
+ * The grep that finds candidates matches a fixed string, so it also matches
+ * every variable the retired name is a substring of — and the canonical
+ * `CPK_INTELLIGENCE_API_KEY` ends with the retired project-key name, while
+ * `COPILOTKIT_INTELLIGENCE_API_KEY` contains it and has its own {@link RETIRED}
+ * entry. Without this boundary the rule reports every correct site in the
+ * repository, which is the one failure mode that gets a guard switched off.
+ *
+ * @param name - The retired variable name being looked for.
+ * @param text - One line of source, prose, or an env file.
+ * @returns `true` when the line carries that exact name.
+ */
+export function retiredNameReference(name: string, text: string): boolean {
+  return new RegExp(String.raw`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`).test(
+    text,
+  );
+}
+
 interface Violation {
   file: string;
   line: number;
@@ -250,11 +275,12 @@ export function findViolations(): Violation[] {
   for (const name of RETIRED) {
     for (const hit of grepRepo(name)) {
       if (hit.file === "scripts/validate-intelligence-env-names.ts") continue;
+      if (!retiredNameReference(name, hit.text)) continue;
       violations.push({
         file: hit.file,
         line: hit.line,
         name,
-        reason: "retired name; use INTELLIGENCE_API_KEY",
+        reason: "retired name; use CPK_INTELLIGENCE_API_KEY",
       });
     }
   }
@@ -267,7 +293,7 @@ export function findViolations(): Violation[] {
       file: hit.file,
       line: hit.line,
       name: ALIAS,
-      reason: "deprecated alias; use INTELLIGENCE_API_KEY",
+      reason: "deprecated alias; use the key name consumed by this runtime",
     });
   }
 
@@ -325,8 +351,8 @@ function main(): void {
     console.log(`  ${v.file}:${v.line}  ${v.name} — ${v.reason}`);
   }
   console.log(
-    "\nThe canonical key name is INTELLIGENCE_API_KEY — the name `copilotkit project select`\n" +
-      "provisions. The canonical hosts are api.intelligence.copilotkit.ai and\n" +
+    "\n`copilotkit project select` provisions CPK_INTELLIGENCE_API_KEY.\n" +
+      "The canonical hosts are api.intelligence.copilotkit.ai and\n" +
       "realtime.intelligence.copilotkit.ai. If a site legitimately implements the deprecated\n" +
       "alias fallback, or genuinely needs a non-resolving host, add it to ALIAS_ALLOWLIST or\n" +
       "DEAD_HOST_ALLOWLIST in scripts/validate-intelligence-env-names.ts.\n\n" +
