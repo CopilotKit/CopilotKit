@@ -23,6 +23,7 @@ import {
 } from "@/components/mdx-components";
 import {
   MarkdownCopyButton,
+  OnboardingPromptCopyButton,
   ViewOptionsPopover,
 } from "@/components/ai/page-actions";
 import { OpsPlatformCTA } from "@/components/react/ops-platform-cta";
@@ -247,6 +248,7 @@ export default async function ReferenceSlugPage({
           )}
 
           <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
+            <OnboardingPromptCopyButton />
             <MarkdownCopyButton markdownUrl={markdownUrl} />
             <ViewOptionsPopover
               markdownUrl={markdownUrl}

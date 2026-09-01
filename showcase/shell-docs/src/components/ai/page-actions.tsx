@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps } from "react";
 import {
   Check,
@@ -18,6 +18,11 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
 import { usePostHog } from "posthog-js/react";
+import {
+  createIntelligenceOnboardingPrompt,
+  createOnboardingRunId,
+  INTELLIGENCE_ONBOARDING_EVENTS,
+} from "@/lib/intelligence-onboarding-prompt";
 import ClaudeIcon from "@/components/icons/claude";
 import ClaudeCodeIcon from "@/components/icons/claude-code";
 import CodexIcon from "@/components/icons/codex";
@@ -146,6 +151,142 @@ export function MarkdownCopyButton({
       {checked ? <Check /> : <Copy />}
       {props.children ?? "Copy Markdown"}
     </button>
+  );
+}
+
+type OnboardingCopyState = "idle" | "copied" | "error";
+
+const ONBOARDING_COPY_SURFACE = "page-tools";
+
+/**
+ * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
+ * straight into their coding agent.
+ *
+ * The copied string is EXACTLY `createIntelligenceOnboardingPrompt(runId)`.
+ * That text has to stay byte-identical with the sibling copies in the
+ * Intelligence repo and the Inspector, so nothing — page title, page URL,
+ * framework hint — may be appended to it here.
+ *
+ * The run id is minted per click (not per page load), matching
+ * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
+ * onboarding attempt, and the CLI reports the same id back, so hoisting it
+ * would collapse many attempts into one funnel row.
+ */
+export function OnboardingPromptCopyButton({
+  ...props
+}: ComponentProps<"button">) {
+  const pathname = usePathname();
+  const posthog = usePostHog();
+  const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
+  // Timer/generation bookkeeping mirrors `rich-threads-setup-prompt.tsx`: a
+  // pending reset from an earlier click must never resurrect "idle" over the
+  // label a later click just set, and no timer may fire after unmount.
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      copyGenerationRef.current += 1;
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = null;
+    };
+  }, []);
+
+  function scheduleReset(generation: number, delayMs: number) {
+    resetTimerRef.current = setTimeout(() => {
+      if (mountedRef.current && generation === copyGenerationRef.current) {
+        setCopyState("idle");
+        resetTimerRef.current = null;
+      }
+    }, delayMs);
+  }
+
+  async function copyPrompt() {
+    const generation = (copyGenerationRef.current += 1);
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = null;
+    setCopyState("idle");
+
+    const runId = createOnboardingRunId();
+
+    try {
+      await navigator.clipboard.writeText(
+        createIntelligenceOnboardingPrompt(runId),
+      );
+    } catch {
+      // Unlike `MarkdownCopyButton` there is no `useCopyButton` hook to
+      // signal, so the rejection is handled here and NOT re-thrown. No
+      // analytics either: a run id that never reached a clipboard would
+      // report an onboarding attempt the CLI can never close out.
+      if (!mountedRef.current || generation !== copyGenerationRef.current) {
+        return;
+      }
+      setCopyState("error");
+      scheduleReset(generation, 2600);
+      return;
+    }
+
+    try {
+      posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
+        // `feature` is an event property only — the docs banner's
+        // `IntelligenceOnboardingFeature` union stays as it is.
+        feature: "onboarding",
+        from_path: pathname,
+        onboarding_run_id: runId,
+        surface: ONBOARDING_COPY_SURFACE,
+      });
+    } catch {
+      // Analytics must never break the copy the reader actually asked for.
+    }
+
+    if (!mountedRef.current || generation !== copyGenerationRef.current) {
+      return;
+    }
+    setCopyState("copied");
+    scheduleReset(generation, 1800);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        // Caller props first so the component-owned handler and the
+        // conversion-surface attribute below cannot be clobbered.
+        {...props}
+        // The global tracker in `lib/providers/copy-tracker.tsx` resolves the
+        // surface via `document.activeElement.closest(...)`, so the attribute
+        // has to sit on the button itself, not on a wrapper.
+        data-docs-copy-surface="docs_page_tools_onboarding_prompt"
+        onClick={copyPrompt}
+        className={cn(
+          buttonVariants({
+            // The primary action of the row — the two neighbours are
+            // deliberately `secondary`. `size: "sm"` keeps the heights equal.
+            color: "primary",
+            size: "sm",
+            className: "gap-2 [&_svg]:size-3.5",
+          }),
+          props.className,
+        )}
+      >
+        <Copy aria-hidden="true" />
+        {copyState === "copied"
+          ? "Copied"
+          : copyState === "error"
+            ? "Copy blocked"
+            : "Copy agent prompt"}
+      </button>
+      <span aria-live="polite" className="sr-only">
+        {copyState === "copied"
+          ? "Prompt copied"
+          : copyState === "error"
+            ? "Prompt copy failed. Try again."
+            : ""}
+      </span>
+    </>
   );
 }
 

@@ -28,6 +28,7 @@ import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
 import {
   MarkdownCopyButton,
+  OnboardingPromptCopyButton,
   ViewOptionsPopover,
 } from "@/components/ai/page-actions";
 import { Snippet } from "@/components/snippet";
@@ -304,6 +305,7 @@ export async function DocsPageView({
               const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
               return (
                 <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
+                  <OnboardingPromptCopyButton />
                   <MarkdownCopyButton markdownUrl={markdownUrl} />
                   <ViewOptionsPopover
                     markdownUrl={markdownUrl}
