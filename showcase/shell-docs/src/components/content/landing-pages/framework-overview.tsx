@@ -9,6 +9,7 @@ import { usePostHog } from "posthog-js/react";
 
 import { customIcons } from "@/components/icons";
 import type { IconKey } from "@/components/icons";
+import { HeroOnboardingPromptButton } from "@/components/hero-onboarding-prompt-button";
 import {
   HeroStartActions,
   QuickstartLinkButton,
@@ -182,12 +183,11 @@ export function FrameworkOverview({
     return rewritten;
   };
 
-  // Frameworks whose init is the generic top-level command get the unified
-  // two-command recommendation (matching the home hero). Frameworks with
-  // bespoke setup (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
-  // single command chip — those commands aren't interchangeable with the CLI.
+  // Frameworks whose init is the generic top-level command get the shared hero
+  // action row (matching the home hero). Frameworks with bespoke setup (e.g.
+  // a2a's `git clone`, ms-agent-dotnet) keep their own single command chip —
+  // those commands aren't interchangeable with the CLI.
   const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
-  const createFramework = cliFrameworkForDocsSlug(currentFramework);
 
   const [activeDemo, setActiveDemo] = useState<string>(
     liveDemos[0]?.type || "saas",
@@ -288,8 +288,11 @@ export function FrameworkOverview({
           </p>
 
           {/* Action cluster — the same <HeroStartActions> block as the home
-              hero, with Quickstart primary and the agent CLI setup menu
-              secondary. The quickstart slot is a direct link here because a
+              hero, with the coding-agent prompt primary and Quickstart
+              secondary. The prompt is identical on every surface: the CLI's
+              onboarding graph inspects the repository and picks its own path,
+              so a framework-scoped variant would be a promise the CLI does not
+              keep. The quickstart slot is a direct link here because a
               framework is already selected. Frameworks with bespoke setup
               (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
               copy-command chip because those commands aren't interchangeable
@@ -297,13 +300,16 @@ export function FrameworkOverview({
           <div className="mt-7">
             {isGenericInit ? (
               <HeroStartActions
-                createFramework={createFramework}
+                prompt={
+                  <HeroOnboardingPromptButton surface="docs_framework_hero" />
+                }
                 quickstart={
                   <QuickstartLinkButton
                     href={link(rawGuideLink)}
                     frontend={selectedFrontend}
                     backend={currentFramework}
                     fromPath={overviewPath}
+                    variant="secondary"
                   />
                 }
               />
