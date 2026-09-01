@@ -46,7 +46,9 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: "claude-opus-4-8",
-      max_tokens: 2048,
+      // A monorepo release can carry dozens of PRs; 2048 truncated the notes
+      // mid-section. Non-streaming, so stay under the HTTP timeout envelope.
+      max_tokens: 16000,
       messages: [{ role: "user", content: prompt }],
     });
 
@@ -68,9 +70,9 @@ function callAnthropic(apiKey: string, prompt: string): Promise<string> {
         try {
           const parsed = JSON.parse(data);
 
-          // Thinking is on by default on current models, so the first content
-          // block is not necessarily the text — select by type rather than
-          // position.
+          // `content` is a union of block types and the text block is not
+          // guaranteed to be first (a thinking-enabled model puts a thinking
+          // block there). Select by type rather than by position.
           const text = (parsed.content ?? []).find(
             (block: { type?: string }) => block.type === "text",
           )?.text;
