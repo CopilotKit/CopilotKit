@@ -86,9 +86,7 @@ test("BrandNav puts Intelligence next to Cookbook", () => {
 });
 
 test("BrandNav keeps space between the center rail and search", () => {
-  expect(brandNavSource).toContain(
-    "grid-cols-[auto_minmax(0,1fr)_auto]",
-  );
+  expect(brandNavSource).toContain("grid-cols-[auto_minmax(0,1fr)_auto]");
   expect(brandNavSource).toContain("gap-x-8");
   expect(brandNavSource).toContain("pl-4");
   expect(globalsCss).toContain(
