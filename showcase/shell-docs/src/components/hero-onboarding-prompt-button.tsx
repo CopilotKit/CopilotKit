@@ -17,7 +17,7 @@ import {
 
 type CopyState = "idle" | "copied" | "error";
 
-const IDLE_LABEL = "Copy prompt for your coding agent";
+const IDLE_LABEL = "Copy onboarding prompt";
 
 export interface HeroOnboardingPromptButtonProps {
   surface: string;

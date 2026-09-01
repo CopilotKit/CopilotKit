@@ -31,13 +31,13 @@ function mockClipboard(writeText: ReturnType<typeof vi.fn>) {
   return writeText;
 }
 
-it("renders the coding-agent copy label", () => {
+it("renders the onboarding copy label", () => {
   mockClipboard(vi.fn().mockResolvedValue(undefined));
 
   render(<HeroOnboardingPromptButton surface="docs-home-hero" />);
 
   expect(
-    screen.getByRole("button", { name: /copy prompt for your coding agent/i }),
+    screen.getByRole("button", { name: /copy onboarding prompt/i }),
   ).toBeTruthy();
 });
 

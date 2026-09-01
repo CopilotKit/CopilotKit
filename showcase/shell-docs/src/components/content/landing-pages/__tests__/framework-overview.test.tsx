@@ -40,7 +40,7 @@ describe("FrameworkOverview", () => {
     );
 
     // The prompt button carries the accent treatment...
-    expect(markup).toContain("Copy prompt for your coding agent");
+    expect(markup).toContain("Copy onboarding prompt");
     expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain("shell-docs-primary-cta");
     expect(markup).toContain("bg-[var(--accent)]");
@@ -55,8 +55,6 @@ describe("FrameworkOverview", () => {
     expect(markup).not.toContain("Start using agents");
     expect(markup).not.toContain("hero-cli-commands");
     expect(markup).not.toContain("npx copilotkit@latest create");
-
-    expect(markup).toContain("Paste into Claude Code, Codex, or Cursor");
   });
 
   it("renders the framework identity icon in accent purple", () => {

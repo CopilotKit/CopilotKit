@@ -9,9 +9,8 @@
 //
 // Both entry points arrive as slots, so each surface can supply its own wiring
 // (prompt text, quickstart href, analytics dimensions) while the layout, order
-// and spacing stay identical everywhere. A single muted hint line under the row
-// tells the reader where the copied prompt is meant to go. The row stacks
-// vertically on narrow viewports and sits side by side from `sm` up.
+// and spacing stay identical everywhere. The row stacks vertically on narrow
+// viewports and sits side by side from `sm` up.
 
 import React from "react";
 import Link from "next/link";
@@ -89,14 +88,9 @@ export function HeroStartActions({
   quickstart: React.ReactNode;
 }) {
   return (
-    <div className="flex max-w-[820px] flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {prompt}
-        {quickstart}
-      </div>
-      <p className="text-sm leading-snug text-[var(--text-muted)]">
-        Paste into Claude Code, Codex, or Cursor
-      </p>
+    <div className="flex max-w-[820px] flex-col gap-3 sm:flex-row sm:items-center">
+      {prompt}
+      {quickstart}
     </div>
   );
 }

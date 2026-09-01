@@ -67,18 +67,14 @@ describe("HeroStartActions", () => {
     ).toBeTruthy();
   });
 
-  it("renders the hint line as muted body text below the row", () => {
-    renderHero();
+  it("renders nothing beside the two slots", () => {
+    const { container } = renderHero();
 
-    const hint = screen.getByText("Paste into Claude Code, Codex, or Cursor");
+    // The row is the whole component: no hint line, no helper copy. The button
+    // label carries the "paste this into your agent" message on its own.
+    const row = container.firstElementChild;
 
-    expect(hint.tagName).toBe("P");
-    expect(hint.className).toContain("text-[var(--text-muted)]");
-    expect(hint.className).toContain("text-sm");
-    expect(
-      screen.getByTestId("quickstart-slot").compareDocumentPosition(hint) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(row?.children.length).toBe(2);
   });
 
   it("stacks the action row on mobile and lines it up from sm up", () => {
