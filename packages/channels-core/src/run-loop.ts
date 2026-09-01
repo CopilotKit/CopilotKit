@@ -367,6 +367,7 @@ export async function runAgentLoop(
   } = args;
   let innerRunError: Error | undefined;
   const innerRunUsage: TokenUsage[] = [];
+  let innerRunFinishReason: RunFinishedEvent["finishReason"];
   let hasDeliveryError = false;
   let deliveryError: unknown;
   const deferRendererError = (error: unknown): void => {
@@ -387,6 +388,7 @@ export async function runAgentLoop(
                   innerRunError ??= errorFromInnerRun(event);
                 },
                 onInnerRunFinished: (event) => {
+                  innerRunFinishReason = event.finishReason;
                   if (event.usage) innerRunUsage.push(...event.usage);
                 },
                 onRendererError: deferRendererError,
@@ -503,6 +505,9 @@ export async function runAgentLoop(
       threadId: args.canonicalRun.threadId,
       runId: args.canonicalRun.runId,
       ...(usage.length > 0 ? { usage } : {}),
+      ...(innerRunFinishReason !== undefined
+        ? { finishReason: innerRunFinishReason }
+        : {}),
     };
     await emitCanonicalLifecycleEvent(
       finishedEvent,
