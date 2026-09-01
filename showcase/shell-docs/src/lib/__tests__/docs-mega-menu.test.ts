@@ -32,9 +32,7 @@ describe("docs mega menu data", () => {
       description: "Threads, learning, and analytics",
       featured: true,
     });
-    expect(
-      shipColumn?.links.map((link) => [link.label, link.href]),
-    ).toEqual([
+    expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
       ["Intelligence", "/intelligence/overview"],
       ["Threads", "/threads"],
       ["Learning", "/backend/copilot-runtime"],
