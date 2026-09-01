@@ -175,21 +175,28 @@ export function navNodeToPageTreeNodes(
     // opt into icons with `showIcon: true` in frontmatter for targeted
     // cases like partner cookbook entries.
     //
-    // We MERGE icon + title into Fumadocs's `name` prop as a Fragment
-    // instead of passing the icon via the separate `icon` prop. The
-    // upstream `SidebarSeparator` renders `[item.icon, item.name]` as
-    // a child array, which triggers the React key-warning loop when
-    // both slots are populated. Combining them into a single ReactNode
-    // sidesteps that without forking Fumadocs. The separator's
-    // `inline-flex items-center gap-2` styling still aligns the SVG
-    // and label exactly as it would have with the prop split.
+    // Upcoming "guides coming soon" cards keep icon + copy inside
+    // `name`. Normal sections put the glyph on `icon` so a later folder
+    // wrap can render [icon, label, chevron] as one flex row.
     const icon = resolveSidebarIcon(node.icon);
-    const name = renderNavName(node.title, node.variant, icon, {
-      quickstartHref: node.quickstartHref,
-      referenceHref: node.referenceHref,
-      frontendDocsStatus: node.frontendDocsStatus,
-    });
-    return [{ type: "separator", name }];
+    const selfContained = node.variant === "frontend-docs-upcoming";
+    const name = renderNavName(
+      node.title,
+      node.variant,
+      selfContained ? icon : undefined,
+      {
+        quickstartHref: node.quickstartHref,
+        referenceHref: node.referenceHref,
+        frontendDocsStatus: node.frontendDocsStatus,
+      },
+    );
+    return [
+      {
+        type: "separator",
+        name,
+        ...(selfContained || !icon ? {} : { icon }),
+      },
+    ];
   }
   if (node.type === "page") {
     const icon = resolveSidebarIcon(node.icon);
@@ -250,14 +257,18 @@ export function navNodeToPageTreeNodes(
 export const SECTION_FOLDER_LABEL_CLASS = "shell-docs-sidebar-section-label";
 
 function wrapSectionFolderName(name: React.ReactNode): React.ReactNode {
-  // Fumadocs folder triggers render `[icon, name]` as an array. A key
-  // on this wrapper stops the missing-key warning that fires when
-  // `name` is a React element created in the page tree.
   return React.createElement(
     "span",
     { className: SECTION_FOLDER_LABEL_CLASS, key: "shell-docs-section-label" },
     name,
   );
+}
+
+function keyedNode(node: React.ReactNode, key: string): React.ReactNode {
+  if (React.isValidElement(node)) {
+    return React.cloneElement(node, { key });
+  }
+  return node;
 }
 
 // `---Section---` entries become PageTree separators, which Fumadocs
@@ -270,17 +281,27 @@ export function wrapSectionSeparatorsAsFolders(
   nodes: PageTree.Node[],
 ): PageTree.Node[] {
   const result: PageTree.Node[] = [];
-  let pending: { name: React.ReactNode; children: PageTree.Node[] } | null =
-    null;
+  let pending: {
+    name: React.ReactNode;
+    icon?: React.ReactNode;
+    children: PageTree.Node[];
+  } | null = null;
 
   const flush = () => {
     if (!pending) return;
     if (pending.children.length === 0) {
-      result.push({ type: "separator", name: pending.name });
+      result.push({
+        type: "separator",
+        name: pending.name,
+        ...(pending.icon ? { icon: pending.icon } : {}),
+      });
     } else {
       result.push({
         type: "folder",
         name: wrapSectionFolderName(pending.name),
+        ...(pending.icon
+          ? { icon: keyedNode(pending.icon, "shell-docs-section-icon") }
+          : {}),
         defaultOpen: false,
         children: pending.children,
       });
@@ -291,7 +312,11 @@ export function wrapSectionSeparatorsAsFolders(
   for (const node of nodes) {
     if (node.type === "separator") {
       flush();
-      pending = { name: node.name ?? "", children: [] };
+      pending = {
+        name: node.name ?? "",
+        icon: node.icon,
+        children: [],
+      };
       continue;
     }
     if (pending) {

@@ -776,14 +776,13 @@
  * the old separator look — small label, accent icon — and add the
  * chevron the folder trigger already ships. */
 .shell-docs-sidebar-section-label {
-  display: inline-flex;
   min-width: 0;
   flex: 1 1 auto;
-  align-items: center;
-  gap: 0.5rem;
 }
 
 .shell-docs-sidebar button:has(.shell-docs-sidebar-section-label) {
+  flex-wrap: nowrap;
+  align-items: center;
   margin-top: 0.25rem;
   padding-top: 1.25rem;
   padding-bottom: 0.5rem;
@@ -801,11 +800,11 @@
 
 .shell-docs-sidebar
   button:has(.shell-docs-sidebar-section-label)
-  .shell-docs-sidebar-section-label
-  svg {
+  svg:not([data-icon]) {
   color: var(--accent);
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
 }
 
 .shell-docs-react-docs-proxy {
