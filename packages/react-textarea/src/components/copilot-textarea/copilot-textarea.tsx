@@ -121,8 +121,17 @@ import { useMakeStandardInsertionOrEditingFunction } from "../../hooks/make-auto
 import merge from "lodash.merge";
 import type { AutosuggestionsConfigUserSpecified } from "../../types/autosuggestions-config/autosuggestions-config-user-specified";
 
-// Like the base copilot textarea props,
-// but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
+/**
+ * Like the base copilot textarea props,
+ * but with baseAutosuggestionsConfig replaced with autosuggestionsConfig.
+ *
+ * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+ * No 1:1 v2 replacement is available.
+ * Start with `@copilotkit/react-core/v2`.
+ * V2 docs: https://docs.copilotkit.ai/
+ * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
+ */
 export interface CopilotTextareaProps extends Omit<
   BaseCopilotTextareaProps,
   "baseAutosuggestionsConfig"
@@ -191,6 +200,13 @@ export interface CopilotTextareaProps extends Omit<
 
 /**
  * A copilot textarea that uses the standard autosuggestions function.
+ *
+ * @deprecated Since 1.68.2. The v1 SDK is deprecated. Use v2 instead.
+ * No 1:1 v2 replacement is available.
+ * Start with `@copilotkit/react-core/v2`.
+ * V2 docs: https://docs.copilotkit.ai/
+ * V2 reference docs: https://docs.copilotkit.ai/reference/v2
+ * Migration guide: https://docs.copilotkit.ai/migrate/v2
  */
 export const CopilotTextarea = React.forwardRef(
   (props: CopilotTextareaProps, ref: React.Ref<HTMLCopilotTextAreaElement>) => {
