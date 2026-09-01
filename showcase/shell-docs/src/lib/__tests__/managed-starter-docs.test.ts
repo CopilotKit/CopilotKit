@@ -5,16 +5,16 @@ import { expect, test } from "vitest";
 
 const CONTENT_DIR = path.resolve(import.meta.dirname, "../../content");
 const MANAGED_ONBOARDING_GUIDES = [
-  "docs/premium/managed-intelligence-platform.mdx",
+  "docs/intelligence/managed-intelligence-platform.mdx",
   "snippets/shared/cli/cli.mdx",
 ];
 const MANAGED_CTA_SOURCES = [
   ...MANAGED_ONBOARDING_GUIDES,
-  "docs/premium/intelligence-platform.mdx",
+  "docs/intelligence/intelligence-platform.mdx",
 ];
 const MANAGED_RUNTIME_GUIDES = [
   "docs/backend/runtime-endpoints.mdx",
-  "docs/premium/connect-your-runtime.mdx",
+  "docs/intelligence/connect-your-runtime.mdx",
   "snippets/shared/threads/headless-threads.mdx",
 ];
 const MANAGED_DASHBOARD_URL = "https://dashboard.operations.copilotkit.ai/";
@@ -120,7 +120,7 @@ test("names create as the init command alias across managed setup guides", () =>
 test("documents the managed CLI credential without an offline license token", () => {
   const oldKeyName = ["INTELLIGENCE", "API", "KEY"].join("_");
   const sources = [
-    "docs/premium/managed-intelligence-platform.mdx",
+    "docs/intelligence/managed-intelligence-platform.mdx",
     "snippets/shared/cli/cli.mdx",
     "snippets/shared/threads/headless-threads.mdx",
   ].map((relativePath) =>

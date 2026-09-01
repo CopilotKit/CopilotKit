@@ -121,11 +121,11 @@ It does not import agent state snapshots, framework transport noise, LangSmith t
 
     Create one new conversation through CopilotKit, then confirm that it appears in CopilotKit Intelligence and in the native persistence store that remains connected to your agent.
 
-    For the underlying persistence and replay model, see [Threads & Persistence Architecture](/premium/threads-explained).
+    For the underlying persistence and replay model, see [Threads & Persistence Architecture](/intelligence/threads-explained).
   </Step>
 </Steps>
 
 ## Deployment notes
 
-- **Cloud-hosted CopilotKit Intelligence:** export the destination values generated in the CLI-created app's `.env`, or pass them with `--api-url` and `--api-key`. `project select` can rewrite the app's generated values, but the importer still reads only flags or the current process environment. See [Cloud-hosted CopilotKit Intelligence](/premium/managed-intelligence-platform).
-- **Self-hosted CopilotKit Intelligence:** pass the deployment's app-api URL with `--api-url` and a project-scoped `cpk` runtime key with `--api-key`. See [Self-host CopilotKit Intelligence](/premium/self-hosting).
+- **Cloud-hosted CopilotKit Intelligence:** export the destination values generated in the CLI-created app's `.env`, or pass them with `--api-url` and `--api-key`. `project select` can rewrite the app's generated values, but the importer still reads only flags or the current process environment. See [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform).
+- **Self-hosted CopilotKit Intelligence:** pass the deployment's app-api URL with `--api-url` and a project-scoped `cpk` runtime key with `--api-key`. See [Self-host CopilotKit Intelligence](/intelligence/self-hosting).
