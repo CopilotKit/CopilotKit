@@ -80,12 +80,14 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
+  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
   HomeHeroAction,
   HomeModel,
   HomeRuntimeHealthTone,
+  HomeServiceId,
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
@@ -104,6 +106,7 @@ import {
   maybeShowDisclosure,
   trackErrorSignalViewed,
   trackHomeCtaClicked,
+  trackHomeFeaturePromptClicked,
   trackHomePromptCopied,
   trackHomeStoryBeatSelected,
   trackHomeViewed,
@@ -372,24 +375,24 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+type LauncherHudRowId = "inspector" | "threads" | "learning";
 
 const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
-const HUD_THREADS_OFF_LABEL = "Turn on Threads";
-const HUD_THREADS_ON_LABEL = "Threads on";
-const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
-const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
-const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
-const HUD_INTELLIGENCE_OFF_DETAIL =
-  "Connect Intelligence to use Threads and Learning.";
-const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
-const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
-const HUD_LEARNING_ON_LABEL = "Learning on";
-const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
-const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
+const HUD_THREADS_LABEL = "Threads";
+const HUD_THREADS_DETAIL =
+  "Inspect persistent conversations, messages, and agent state.";
+const HUD_LEARNING_LABEL = "Learning";
+const HUD_LEARNING_DETAIL =
+  "Turn agent interactions into reusable context for future runs.";
 const HUD_OPEN_INSPECTOR_DETAIL =
   "Same as clicking the circle. Opens the full Inspector.";
+
+type HomeFeaturePromptId = HomeServiceId;
+type HomeFeaturePromptTarget = Readonly<{
+  id: HomeFeaturePromptId;
+  label: string;
+  docsUrl: string;
+}>;
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -638,18 +641,8 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 function createPlaygroundThreadId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
 }
+
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
-const THREADS_RUNTIME_SETUP_DOCS_URL =
-  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
-const THREADS_RUNTIME_SETUP_PROMPT = [
-  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
-  "",
-  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
-  "",
-  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
-  "",
-  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
-].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 
@@ -826,7 +819,7 @@ type ThreadsExampleOverviewVideoState =
   | "ready"
   | "playing"
   | "failed";
-type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
+type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
 type ThreadsExampleOverviewVideoListeners = Readonly<{
   loadeddata: EventListener;
   play: EventListener;
@@ -6651,7 +6644,6 @@ export class WebInspectorElement extends LitElement {
   /** Hover/focus menu on the closed launcher. */
   private launcherHudOpen = false;
   private launcherHudSide: "left" | "right" = "left";
-  private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private launcherHudIntro = false;
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
@@ -6722,9 +6714,12 @@ export class WebInspectorElement extends LitElement {
   private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
   private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
   private threadsExampleOverviewVideoPlayOnNextBind = false;
-  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
-  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
-  private threadsSetupPromptCopyGeneration = 0;
+  private homeFeaturePromptCopyState: {
+    serviceId: HomeFeaturePromptId;
+    state: HomeFeaturePromptCopyState;
+  } | null = null;
+  private homeFeaturePromptCopyResetTimeoutId: number | null = null;
+  private homeFeaturePromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -7105,13 +7100,6 @@ export class WebInspectorElement extends LitElement {
 
   private getThreadsDocsUrl(): string {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
-  }
-
-  private getThreadsRuntimeSetupDocsUrl(): string {
-    return this.appendRefParam(
-      THREADS_RUNTIME_SETUP_DOCS_URL,
-      "cpk-inspector-threads",
-    );
   }
 
   private getThreadsIntelligenceSignupUrl(): string {
@@ -9822,8 +9810,8 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud__row {
         position: relative;
         display: grid;
-        grid-template-columns: 1fr 28px;
-        align-items: start;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
         border-radius: 7px;
         cursor: pointer;
       }
@@ -9833,21 +9821,24 @@ export class WebInspectorElement extends LitElement {
       }
 
       .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+      .cpk-launcher-hud__row:focus-within {
         background: rgb(255 255 255 / 0.06);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within {
         background: #f0f0f4;
+      }
+
+      .cpk-launcher-hud__primary {
+        position: relative;
+        display: flex;
+        min-width: 0;
       }
 
       .cpk-launcher-hud__action {
         display: flex;
+        width: 100%;
         gap: 8px;
         min-height: 32px;
         align-items: center;
@@ -9863,30 +9854,33 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
+      .cpk-launcher-hud__label {
+        min-width: 0;
+      }
+
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
         color: #010507;
       }
 
-      /* Stretch the row action over the whole tab, including the detail
-         copy. The help mark sits above this layer. */
+      /* Stretch the row action over the whole tab. The icon controls sit
+         above this layer and keep their own focused interactions. */
       .cpk-launcher-hud__action::after {
         content: "";
         position: absolute;
         inset: 0;
       }
 
-      .cpk-launcher-hud__check {
-        flex: none;
-        width: 14px;
-        height: 14px;
-        color: #34d399;
-      }
-
-      .cpk-launcher-hud__help {
+      .cpk-launcher-hud__controls {
         position: relative;
         z-index: 1;
+        display: flex;
+        gap: 2px;
+        align-items: center;
+        padding-right: 2px;
+      }
+
+      .cpk-launcher-hud__toggle {
         display: inline-flex;
-        width: 28px;
         height: 32px;
         align-items: center;
         justify-content: center;
@@ -9899,64 +9893,129 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
-      .cpk-launcher-hud__help span {
-        display: inline-flex;
-        width: 16px;
+      .cpk-launcher-hud__toggle {
+        width: 34px;
+      }
+
+      .cpk-launcher-hud__toggle-track {
+        position: relative;
+        display: block;
+        width: 28px;
         height: 16px;
-        align-items: center;
-        justify-content: center;
-        border: 1px dotted rgb(190 194 255 / 0.55);
+        border: 1px solid rgb(190 194 255 / 0.38);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+        transition:
+          border-color 120ms ease,
+          background 120ms ease;
+      }
+
+      .cpk-launcher-hud__toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 10px;
+        height: 10px;
         border-radius: 50%;
-        line-height: 1;
+        background: #8c8e99;
+        transition:
+          background 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
-        color: #68686e;
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: rgb(52 211 153 / 0.68);
+        background: rgb(52 211 153 / 0.2);
       }
 
-      .cpk-launcher-hud__help:focus-visible,
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #34d399;
+        transform: translateX(12px);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #c9c9d2;
+        background: #e7e7ec;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #777780;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #54b895;
+        background: #d8f5e9;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #087653;
+      }
+
+      .cpk-launcher-hud__toggle:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
         outline-offset: 1px;
       }
 
-      .cpk-launcher-hud__detail {
-        grid-column: 1 / -1;
-        max-height: 0;
-        margin: 0;
-        padding: 0 8px;
-        overflow: hidden;
-        color: rgb(255 255 255 / 0.78);
-        font-size: 11px;
-        font-weight: 400;
-        line-height: 1.4;
+      .cpk-launcher-hud__tooltip {
+        position: absolute;
+        right: auto;
+        bottom: calc(100% + 7px);
+        left: 50%;
+        z-index: 30;
+        width: max-content;
+        max-width: min(220px, 52vw);
+        padding: 7px 9px;
+        border: 1px solid #3a3d49;
+        border-radius: 4px;
+        background: #15171e;
+        color: #f3f4f8;
+        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1.45;
         opacity: 0;
         pointer-events: none;
-        transform: translateY(-6px);
+        transform: translate(-50%, 3px);
+        white-space: normal;
         transition:
-          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          opacity 150ms ease-out,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+          opacity 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
-        color: #68686e;
-      }
-
-      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"]
-        .cpk-launcher-hud__detail {
-        max-height: 72px;
-        padding: 0 8px 7px;
+      .cpk-launcher-hud__row:hover .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__tooltip {
         opacity: 1;
-        transform: none;
+        transform: translate(-50%, 0);
+      }
+
+      .cpk-launcher-hud__list:first-child .cpk-launcher-hud__tooltip {
+        top: calc(100% + 7px);
+        bottom: auto;
+        transform: translate(-50%, -3px);
+      }
+
+      .cpk-launcher-hud__list:first-child
+        .cpk-launcher-hud__row:hover
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud__list:first-child
+        .cpk-launcher-hud__row:focus-within
+        .cpk-launcher-hud__tooltip {
+        transform: translate(-50%, 0);
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud,
-        .cpk-launcher-hud__detail {
+        .cpk-launcher-hud__tooltip {
           transition: none;
         }
       }
@@ -10010,17 +10069,6 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      @keyframes cpk-launcher-hud-check-online {
-        from {
-          opacity: 0;
-          transform: scale(0.65);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
       .cpk-launcher-hud[data-cpk-hud-intro="true"] {
         animation: cpk-launcher-hud-intro var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -10037,16 +10085,10 @@ export class WebInspectorElement extends LitElement {
         animation-delay: var(--cpk-hud-row-delay);
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
-        animation: cpk-launcher-hud-check-online 220ms
-          cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
-      }
-
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud[data-cpk-hud-intro="true"],
-        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row,
-        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -10534,12 +10576,12 @@ export class WebInspectorElement extends LitElement {
     this.unsubscribeFromInspectorThreadBridge();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
-    this.threadsSetupPromptCopyGeneration += 1;
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
+    this.homeFeaturePromptCopyGeneration += 1;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
     }
-    this.threadsSetupPromptCopyState = "idle";
+    this.homeFeaturePromptCopyState = null;
     this.stopSignalPulse();
     this.cancelGestureTail();
     this.cancelLauncherHudIntro();
@@ -10927,7 +10969,6 @@ export class WebInspectorElement extends LitElement {
         this.launcherHudIntroEndTimer = null;
         this.launcherHudIntro = false;
         this.launcherHudOpen = false;
-        this.launcherHudHelp = null;
         this.requestUpdate();
       }, LAUNCHER_HUD_INTRO_MS.duration);
     }, delay);
@@ -10986,9 +11027,8 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
-    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
-    this.launcherHudHelp = null;
     this.requestUpdate();
   }
 
@@ -11054,44 +11094,16 @@ export class WebInspectorElement extends LitElement {
     this.openInspector("floating_button");
   };
 
-  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
-    this.requestUpdate();
-  };
-
   private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
     const target = event.target;
     if (
       target instanceof Element &&
-      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+      target.closest(".cpk-launcher-hud__controls, [data-cpk-hud-action]")
     ) {
       return;
     }
     this.handleHudActionClick(event, row);
   };
-
-  private renderHudCheck(): TemplateResult {
-    return html`
-      <svg
-        class="cpk-launcher-hud__check"
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-        focusable="false"
-        data-cpk-hud-check
-      >
-        <path
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M3 8.5 6.5 12 13 4.5"
-        />
-      </svg>
-    `;
-  }
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
@@ -11100,13 +11112,12 @@ export class WebInspectorElement extends LitElement {
     connected?: boolean;
     introIndex: number;
   }): TemplateResult {
-    const helpOpen = this.launcherHudHelp === args.id;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
-        data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        data-cpk-hud-action-kind="navigate"
         style=${styleMap({
           "--cpk-hud-row-index": `${args.introIndex}`,
           "--cpk-hud-row-delay": `${
@@ -11116,28 +11127,53 @@ export class WebInspectorElement extends LitElement {
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
-        <button
-          type="button"
-          class="cpk-launcher-hud__action"
-          data-cpk-hud-action
-          aria-describedby=${detailId}
-          @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
-        </button>
-        <button
-          type="button"
-          class="cpk-launcher-hud__help"
-          aria-expanded=${helpOpen ? "true" : "false"}
-          aria-controls=${detailId}
-          aria-label=${`About ${args.label}`}
-          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          <span aria-hidden="true">?</span>
-        </button>
-        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
+        <span class="cpk-launcher-hud__primary">
+          <button
+            type="button"
+            class="cpk-launcher-hud__action"
+            data-cpk-hud-action
+            aria-label=${
+              args.id === "inspector"
+                ? HUD_OPEN_INSPECTOR_LABEL
+                : `Open ${args.label} in Inspector`
+            }
+            aria-describedby=${detailId}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span class="cpk-launcher-hud__label">${args.label}</span>
+          </button>
+          <span
+            class="cpk-launcher-hud__tooltip"
+            id=${detailId}
+            role="tooltip"
+            >${args.detail}</span
+          >
+        </span>
+        <span class="cpk-launcher-hud__controls">
+          ${
+            args.id === "inspector"
+              ? nothing
+              : html`
+                  <button
+                    type="button"
+                    class="cpk-launcher-hud__toggle"
+                    data-cpk-hud-toggle=${args.id}
+                    data-enabled=${args.connected ? "true" : "false"}
+                    aria-label=${`Open ${args.label} in Inspector`}
+                    @click=${(event: Event) =>
+                      this.handleHudActionClick(event, args.id)}
+                    @pointerdown=${(event: Event) => event.stopPropagation()}
+                  >
+                    <span
+                      class="cpk-launcher-hud__toggle-track"
+                      aria-hidden="true"
+                    ></span>
+                  </button>
+                `
+          }
+        </span>
       </li>
     `;
   }
@@ -11154,7 +11190,6 @@ export class WebInspectorElement extends LitElement {
     const learningOn = homeModel.services.some(
       (service) => service.id === "memory" && service.enabled,
     );
-    const intelligenceOn = homeModel.hero.connection === "connected";
     return html`
       <div
         class="cpk-launcher-hud"
@@ -11181,34 +11216,17 @@ export class WebInspectorElement extends LitElement {
           <ul class="cpk-launcher-hud__list" role="list">
             ${this.renderHudRow({
               id: "threads",
-              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-              detail: threadsOn
-                ? HUD_THREADS_ON_DETAIL
-                : HUD_THREADS_OFF_DETAIL,
+              label: HUD_THREADS_LABEL,
+              detail: HUD_THREADS_DETAIL,
               connected: threadsOn,
               introIndex: 1,
             })}
             ${this.renderHudRow({
-              id: "intelligence",
-              label: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_LABEL
-                : HUD_INTELLIGENCE_OFF_LABEL,
-              detail: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_DETAIL
-                : HUD_INTELLIGENCE_OFF_DETAIL,
-              connected: intelligenceOn,
-              introIndex: 2,
-            })}
-            ${this.renderHudRow({
               id: "learning",
-              label: learningOn
-                ? HUD_LEARNING_ON_LABEL
-                : HUD_LEARNING_OFF_LABEL,
-              detail: learningOn
-                ? HUD_LEARNING_ON_DETAIL
-                : HUD_LEARNING_OFF_DETAIL,
+              label: HUD_LEARNING_LABEL,
+              detail: HUD_LEARNING_DETAIL,
               connected: learningOn,
-              introIndex: 3,
+              introIndex: 2,
             })}
           </ul>
         </div>
@@ -12142,25 +12160,94 @@ export class WebInspectorElement extends LitElement {
     const disabledServices = model.services.filter(
       (service) => !service.enabled,
     );
-    const renderService = (service: HomeModel["services"][number]) => html`
-      <a
+    const renderService = (service: HomeModel["services"][number]) => {
+      const copyState =
+        this.homeFeaturePromptCopyState?.serviceId === service.id
+          ? this.homeFeaturePromptCopyState.state
+          : "idle";
+      const stateDescription = `${service.label} is ${
+        service.enabled
+          ? "enabled in your runtime"
+          : "not enabled in your runtime"
+      }`;
+      const copyLabel =
+        copyState === "copied"
+          ? "Copied"
+          : copyState === "error"
+            ? "Copy failed"
+            : "Copy prompt";
+      const copyTitle = copyLabel;
+      return html`
+      <div
         class="inspector-home-feature"
         data-inspector-service=${service.id}
         data-state=${service.enabled ? "on" : "off"}
-        href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Learn more about ${service.label}, currently ${
-          service.enabled ? "on" : "off"
-        }"
+        role="listitem"
       >
-        <span>${service.label}</span>
-        <small>${service.enabled ? "On" : "Off"}</small>
-        <span class="inspector-home-feature-arrow" aria-hidden="true">
-          ${this.renderIcon("ArrowUpRight")}
+        <span
+          class="inspector-home-feature-status"
+          role="img"
+          aria-label=${stateDescription}
+          title=${stateDescription}
+        >
+          <span aria-hidden="true"></span>
         </span>
-      </a>
+        <a
+          class="inspector-home-feature-label"
+          data-inspector-home-feature-docs=${service.id}
+          href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open ${service.label} documentation in a new tab"
+        >
+          <span>${service.label}</span>
+          <span class="inspector-home-feature-label-icon" aria-hidden="true"
+            >${this.renderIcon("ArrowUpRight")}</span
+          >
+        </a>
+        <span class="inspector-home-feature-actions">
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <button
+                    type="button"
+                    class="inspector-home-feature-action inspector-system-health-url"
+                    data-inspector-home-feature-prompt=${service.id}
+                    data-copy-state=${copyState}
+                    data-full-value=${copyTitle}
+                    aria-label="${copyLabel} for ${service.label}"
+                    @click=${(event: Event) =>
+                      this.handleHomeFeaturePromptCopy(service, event)}
+                  >
+                    <span class="inspector-home-feature-action-icon" aria-hidden="true"
+                      >${this.renderIcon(copyState === "copied" ? "Check" : "Bot")}</span
+                    >
+                    <span class="inspector-home-feature-action-label"
+                      >${copyTitle}</span
+                    >
+                  </button>
+                `
+          }
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <span class="sr-only" aria-live="polite">
+                    ${
+                      copyState === "copied"
+                        ? `${service.label} implementation prompt copied.`
+                        : copyState === "error"
+                          ? `Could not copy the ${service.label} implementation prompt.`
+                          : ""
+                    }
+                  </span>
+                `
+          }
+        </span>
+      </div>
     `;
+    };
     return html`
       <section
         class="inspector-home-section inspector-home-features"
@@ -12169,7 +12256,7 @@ export class WebInspectorElement extends LitElement {
         <header class="inspector-home-section-header">
           <h2 class="inspector-home-section-title">Features</h2>
           <span>
-            ${enabledServices.length} active, ${disabledServices.length} off
+            ${enabledServices.length} enabled, ${disabledServices.length} available
           </span>
         </header>
         ${
@@ -12184,13 +12271,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="active"
-                  aria-label="Active features"
+                  aria-label="Enabled features"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Active</strong>
+                    <strong>Enabled</strong>
                     <span>${enabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       enabledServices.length > 0
                         ? enabledServices.map(renderService)
@@ -12203,13 +12290,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="available"
-                  aria-label="Available features"
+                  aria-label="Features available to add"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Available</strong>
+                    <strong>Available to add</strong>
                     <span>${disabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       disabledServices.length > 0
                         ? disabledServices.map(renderService)
@@ -12223,6 +12310,129 @@ export class WebInspectorElement extends LitElement {
             `
         }
       </section>
+    `;
+  }
+
+  private showHomeFeaturePromptCopyState(
+    serviceId: HomeFeaturePromptId,
+    state: Exclude<HomeFeaturePromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.homeFeaturePromptCopyGeneration
+    )
+      return;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+    }
+    this.homeFeaturePromptCopyState = { serviceId, state };
+    this.requestUpdate();
+    this.homeFeaturePromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.homeFeaturePromptCopyGeneration
+      )
+        return;
+      this.homeFeaturePromptCopyState = null;
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  private handleHomeFeaturePromptCopy = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+  ): Promise<void> => {
+    const generation = (this.homeFeaturePromptCopyGeneration += 1);
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+    }
+    this.homeFeaturePromptCopyState = null;
+    this.requestUpdate();
+
+    const onboardingRunId = createOnboardingRunId();
+    if (!this.core?.telemetryDisabled) {
+      trackHomeFeaturePromptClicked({
+        feature_id: service.id,
+        onboarding_run_id: onboardingRunId,
+      });
+    }
+
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) {
+      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
+      return;
+    }
+
+    try {
+      await clipboard.writeText(
+        homeFeatureImplementationPrompt(service, {
+          onboardingRunId,
+        }),
+      );
+      this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
+    } catch {
+      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
+    }
+  };
+
+  private getHomeFeaturePromptTarget(
+    serviceId: HomeFeaturePromptId,
+  ): HomeFeaturePromptTarget | undefined {
+    return this.getHomeModel().services.find(
+      (service) => service.id === serviceId,
+    );
+  }
+
+  private renderFeatureSetupPrompt(
+    serviceId: HomeFeaturePromptId,
+    className: string,
+  ): TemplateResult | typeof nothing {
+    const service = this.getHomeFeaturePromptTarget(serviceId);
+    if (!service) return nothing;
+    const copyState =
+      this.homeFeaturePromptCopyState?.serviceId === service.id
+        ? this.homeFeaturePromptCopyState.state
+        : "idle";
+    const label =
+      copyState === "copied"
+        ? "Copied"
+        : copyState === "error"
+          ? "Copy blocked"
+          : "Copy setup prompt";
+    return html`
+      <button
+        type="button"
+        class=${className}
+        data-inspector-feature-setup-prompt=${service.id}
+        data-inspector-threads-setup-prompt=${
+          service.id === "threads" ? "" : nothing
+        }
+        data-copy-state=${copyState}
+        aria-label=${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt. Try again`
+              : `Copy setup prompt for ${service.label}`
+        }
+        @click=${(event: Event) =>
+          this.handleHomeFeaturePromptCopy(service, event)}
+      >
+        ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
+        ${label}
+      </button>
+      <span class="sr-only" aria-live="polite">
+        ${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied.`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt.`
+              : ""
+        }
+      </span>
     `;
   }
 
@@ -16753,61 +16963,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  /** Show a copy result briefly and announce it to assistive technology. */
-  private showThreadsSetupPromptCopyState(
-    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
-    generation: number,
-  ): void {
-    if (
-      !this.isConnected ||
-      generation !== this.threadsSetupPromptCopyGeneration
-    ) {
-      return;
-    }
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-    }
-    this.threadsSetupPromptCopyState = state;
-    this.requestUpdate();
-    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
-      if (
-        !this.isConnected ||
-        generation !== this.threadsSetupPromptCopyGeneration
-      ) {
-        return;
-      }
-      this.threadsSetupPromptCopyState = "idle";
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-      this.requestUpdate();
-    }, 2_000);
-  }
-
-  /** Copy the static, docs-backed Rich Threads repair prompt. */
-  private handleThreadsSetupPromptCopy = async (
-    event?: Event,
-  ): Promise<void> => {
-    const generation = (this.threadsSetupPromptCopyGeneration += 1);
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-    }
-    this.threadsSetupPromptCopyState = "idle";
-    this.requestUpdate();
-
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showThreadsSetupPromptCopyState("error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
-      this.showThreadsSetupPromptCopyState("copied", generation);
-    } catch {
-      this.showThreadsSetupPromptCopyState("error", generation);
-    }
-  };
-
   private renderThreadsExampleOverview(locked: boolean) {
     const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
     const { lockedAction } = this.inspectorMetadataProjection;
@@ -16839,58 +16994,10 @@ export class WebInspectorElement extends LitElement {
             ${
               locked
                 ? html`
-                  ${
-                    this.inspectorMetadataProjection.licenseState === "valid"
-                      ? html`
-                        <button
-                          data-inspector-threads-setup-prompt
-                          type="button"
-                          aria-label=${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy setup prompt failed. Try again"
-                                : "Copy setup prompt for your coding agent"
-                          }
-                          @click=${this.handleThreadsSetupPromptCopy}
-                        >
-                          ${this.renderIcon(
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Check"
-                              : "Copy",
-                          )}
-                          ${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy blocked"
-                                : "Copy prompt for your agent"
-                          }
-                        </button>
-                        <a
-                          data-inspector-threads-setup-link
-                          href=${this.getThreadsRuntimeSetupDocsUrl()}
-                          target="_blank"
-                          rel="noopener"
-                          aria-label="Open setup guide (opens in a new tab)"
-                        >
-                          Open setup guide
-                        </a>
-                        <span
-                          class="sr-only"
-                          data-inspector-threads-setup-copy-status
-                          aria-live="polite"
-                          >${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied."
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Setup prompt copy failed. Open the setup guide and copy it manually."
-                                : ""
-                          }</span
-                        >
-                      `
-                      : nothing
-                  }
+                  ${this.renderFeatureSetupPrompt(
+                    "threads",
+                    "cpk-threads-overview-action cpk-threads-overview-action-primary",
+                  )}
                   ${
                     lockedAction
                       ? this.renderInspectorAction(lockedAction, "locked")
@@ -17223,8 +17330,13 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
-    // 1. Locked teaser — intelligence not configured or memories not available.
-    if (!this.core?.intelligence || !this._memoriesAvailable) {
+    const learningEnabled = this.getHomeModel().services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    // 1. Locked teaser — use the same entitlement-aware capability decision
+    // as Home and the launcher so an unavailable feature always lands on its
+    // setup path instead of an enabled-looking empty state.
+    if (!learningEnabled) {
       return html`
         <div class="cpk-memory-locked">
           ${this.renderThreadsLockedBackgroundMockup()}
@@ -17244,6 +17356,10 @@ export class WebInspectorElement extends LitElement {
               }
             </p>
             <div class="cpk-memory-locked-actions">
+              ${this.renderFeatureSetupPrompt(
+                "memory",
+                "cpk-memory-locked-action",
+              )}
               <a
                 href=${this.getTalkToEngineerUrl()}
                 target="_blank"

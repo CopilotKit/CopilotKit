@@ -3294,6 +3294,7 @@ type MemoryMockCore = {
   telemetryDisabled: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
+  licenseStatus?: "valid" | "none" | "expired" | "unknown";
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -3314,6 +3315,7 @@ function makeCoreWithMemory(
     available?: boolean;
     telemetryDisabled?: boolean;
     realtimeStatus?: MemoryStoreState["realtimeStatus"];
+    licenseStatus?: "valid" | "none" | "expired" | "unknown";
   } = {},
 ): MemoryMockCore {
   const available = opts.available ?? true;
@@ -3331,6 +3333,7 @@ function makeCoreWithMemory(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     // Intelligence present → locked teaser is NOT shown (unless available=false).
     intelligence: { wsUrl: "wss://localhost" },
+    licenseStatus: opts.licenseStatus,
     subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
       unsubscribe: () => undefined,
     }),
@@ -3513,6 +3516,19 @@ describe("WebInspectorElement memories — view states", () => {
       memoryList,
       "cpk-memory-list should NOT render when locked",
     ).toBeNull();
+  });
+
+  it("renders the setup landing when Intelligence is present but unlicensed", async () => {
+    const core = makeCoreWithMemory([], { licenseStatus: "none" });
+    const el = await mountMemories(core);
+
+    expect(el.shadowRoot?.querySelector(".cpk-memory-locked")).not.toBeNull();
+    expect(
+      el.shadowRoot?.querySelector(
+        '[data-inspector-feature-setup-prompt="memory"]',
+      ),
+    ).not.toBeNull();
+    expect(el.shadowRoot?.querySelector("cpk-memory-list")).toBeNull();
   });
 
   it("does not use Threads onboarding UTM attribution for locked memory CTAs", async () => {

@@ -747,8 +747,8 @@ test("the launcher animates opacity, transform and a clip — nothing that force
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
   // Two for the halo, one per direction for both launcher reveals, and one
-  // each for the HUD row and connected check stagger.
-  expect(keyframes).toHaveLength(8);
+  // for the HUD row stagger.
+  expect(keyframes).toHaveLength(7);
 
   const animated = new Set(
     keyframes

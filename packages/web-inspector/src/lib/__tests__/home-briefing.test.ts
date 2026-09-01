@@ -4,6 +4,7 @@ import { projectInspectorMetadata } from "../inspector-metadata.js";
 import {
   announcementPreview,
   buildHomeModel,
+  homeFeatureImplementationPrompt,
   homeHeroActionFromMetadata,
   runtimeConnectionNeedsAttention,
 } from "../home-briefing.js";
@@ -64,6 +65,27 @@ describe("home-briefing", () => {
       "audio",
       "websocket",
     ]);
+    const learning = model.services.find((service) => service.id === "memory");
+    const suggestions = model.services.find(
+      (service) => service.id === "suggestions",
+    );
+    const voice = model.services.find((service) => service.id === "audio");
+    expect(learning).toMatchObject({ label: "Learning" });
+    expect(voice).toMatchObject({ label: "Voice" });
+    expect(suggestions).toMatchObject({
+      docsUrl:
+        "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+    });
+    expect(
+      homeFeatureImplementationPrompt(learning!, {
+        onboardingRunId: "21bcf98aa5fd",
+      }),
+    )
+      .toBe(`Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run 21bcf98aa5fd --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
+
+This task is specifically to enable Learning, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that Learning is not already enabled. Then read the Learning guide (https://docs.copilotkit.ai/premium/intelligence-platform) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
+
+Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves Learning works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`);
   });
 
   it("marks a linked project as connected and keeps Threads usage on the project card", () => {

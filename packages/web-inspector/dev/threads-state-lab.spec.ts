@@ -1473,42 +1473,19 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
               overviewCopy.description,
             );
           }
-          const setupLinks = collectDeep(
-            root,
-            "[data-inspector-threads-setup-link]",
-          );
           const setupPrompts = collectDeep(
             root,
-            "[data-inspector-threads-setup-prompt]",
+            '[data-inspector-feature-setup-prompt="threads"]',
           );
-          const expectsSetup =
-            scenario.capability !== "enabled" &&
-            scenario.runtimeInfo.licenseStatus === "valid";
-          expect(setupLinks, `${key}: setup link presence`).toHaveLength(
-            expectsSetup ? 1 : 0,
-          );
+          const expectsSetup = scenario.capability !== "enabled";
           expect(setupPrompts, `${key}: setup prompt presence`).toHaveLength(
             expectsSetup ? 1 : 0,
           );
-          if (setupLinks.length === 1) {
-            const setupLink = setupLinks[0];
-            expect(
-              setupLink?.textContent?.trim(),
-              `${key}: setup link label`,
-            ).toBe("Open setup guide");
-            const setupUrl = new URL(setupLink?.getAttribute("href") ?? "");
-            expect(setupUrl.pathname, `${key}: setup link path`).toBe(
-              "/backend/runtime-endpoints",
-            );
-            expect(setupUrl.hash, `${key}: setup link anchor`).toBe(
-              "#enable-rich-threads-routes",
-            );
-          }
           if (setupPrompts.length === 1) {
             expect(
               setupPrompts[0]?.textContent?.trim(),
               `${key}: setup prompt label`,
-            ).toBe("Copy prompt for your agent");
+            ).toBe("Copy setup prompt");
           }
 
           const usage = scenario.inspectorMetadata?.usage;
