@@ -103,7 +103,11 @@ test.each([
   try {
     const response = await handler(request);
 
-    expect(fetchIntelligence).toHaveBeenCalledTimes(1);
+    expect(
+      fetchIntelligence.mock.calls.filter(
+        ([url]) => url === "https://api.example.com/api/inspector/metadata",
+      ),
+    ).toHaveLength(1);
     expect(fetchIntelligence).toHaveBeenCalledWith(
       "https://api.example.com/api/inspector/metadata",
       {
@@ -141,7 +145,11 @@ test("drops malformed expiry without dropping base usage or sibling modules", as
   try {
     const response = await handler(request);
 
-    expect(fetchIntelligence).toHaveBeenCalledTimes(1);
+    expect(
+      fetchIntelligence.mock.calls.filter(
+        ([url]) => url === "https://api.example.com/api/inspector/metadata",
+      ),
+    ).toHaveLength(1);
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toStrictEqual({
       schemaVersion: 1,

@@ -533,7 +533,7 @@ describe("framework nav", () => {
       },
       {
         title: "Threads & Persistence Architecture",
-        slug: "premium/threads-explained",
+        slug: "intelligence/threads-explained",
       },
     ];
     const withoutDrawer = expected.filter(
@@ -598,9 +598,10 @@ describe("framework nav", () => {
         "does not load `.env` or `.copilotkit/project.json` automatically",
       );
       expect(source).toContain('export INTELLIGENCE_API_URL="https://..."');
-      expect(source).toContain('export INTELLIGENCE_API_KEY="cpk_..."');
+      expect(source).toContain('export CPK_INTELLIGENCE_API_KEY="cpk-..."');
+      expect(source).not.toContain('export CPK_INTELLIGENCE_API_KEY="cpk_..."');
       expect(source).toContain(
-        "does not need an Enterprise Intelligence URL or API key",
+        "does not need a CopilotKit Intelligence URL or API key",
       );
     }
 
@@ -635,7 +636,7 @@ describe("framework nav", () => {
     );
     expect(headless).toContain("adding a custom thread UI to an existing app");
     expect(headless).toContain(
-      "Your `CopilotRuntime` must be connected to Enterprise Intelligence",
+      "Your `CopilotRuntime` must be connected to CopilotKit Intelligence",
     );
     expect(headless).not.toContain("npx copilotkit@latest init");
   });
@@ -645,7 +646,8 @@ describe("framework nav", () => {
       path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
       "utf8",
     );
-    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
+    const architecture =
+      loadDoc("intelligence/threads-explained")?.source ?? "";
 
     for (const source of [lifecycle, architecture]) {
       const normalized = source.replace(/\s+/g, " ");
@@ -662,14 +664,14 @@ describe("framework nav", () => {
 
   it("links the hosted Intelligence guide to the Rich Threads journey", () => {
     const managed =
-      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
+      loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
     expect(managed).toContain("[Rich Threads overview](/threads)");
     expect(managed).toContain("[CopilotKit CLI](/cli)");
     expect(managed).toContain("[Headless Threads](/headless-threads)");
   });
 
-  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+  it("uses the generated Intelligence section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
     expect(navTree.some((node) => node.title === "Premium Features")).toBe(
@@ -677,12 +679,12 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(hasSectionPage(navTree, "Basics", "Headless Threads")).toBe(true);
-    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "Enterprise Intelligence Platform",
-      "Cloud-Hosted Enterprise Intelligence",
+    expect(sectionPages(navTree, "Intelligence")).toEqual([
+      "CopilotKit Intelligence",
+      "Cloud-hosted CopilotKit Intelligence",
       "Connect your runtime to Intelligence",
-      "Self-Hosting Enterprise Intelligence",
-      "Enterprise Intelligence Architecture",
+      "Self-host CopilotKit Intelligence",
+      "CopilotKit Intelligence architecture",
     ]);
   });
 });

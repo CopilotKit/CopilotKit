@@ -25,12 +25,12 @@
 // demo's tool, renderer, and e2e document. See
 // `src/mastra/tools/background-research.ts` and `tests/e2e/background-agents.spec.ts`.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
@@ -58,12 +58,12 @@ const runtime = new CopilotRuntime({
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
-      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-        endpoint: "/api/copilotkit-background-agents",
-        serviceAdapter: new ExperimentalEmptyAdapter(),
+      const copilotHandler = createCopilotRuntimeHandler({
         runtime,
+        basePath: "/api/copilotkit-background-agents",
+        mode: "single-route",
       });
-      return await handleRequest(req);
+      return await copilotHandler(req);
     } catch (error: unknown) {
       const e = error as { message?: string; stack?: string };
       return NextResponse.json(

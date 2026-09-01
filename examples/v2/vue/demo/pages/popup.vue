@@ -40,7 +40,7 @@ const PopupChat = defineComponent({
 </script>
 
 <template>
-  <CopilotKitProvider runtime-url="/api/copilotkit" show-dev-console="auto">
+  <CopilotKitProvider runtime-url="/api/copilotkit">
     <div
       class="relative min-h-screen bg-gradient-to-br from-slate-100 via-white to-slate-200"
     >

@@ -208,7 +208,7 @@ async function setup(
     telemetryBodies,
     open: async () => {
       const button = inspector.shadowRoot?.querySelector<HTMLButtonElement>(
-        'button[aria-label="Web Inspector"]',
+        'button[aria-label^="Web Inspector"]',
       );
       if (!button) throw new Error("Web Inspector opener was not rendered");
       button.click();

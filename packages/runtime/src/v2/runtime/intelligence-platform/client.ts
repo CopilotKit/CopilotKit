@@ -1,6 +1,117 @@
 import { logger, parseInspectorMetadataV1 } from "@copilotkit/shared";
-import type { InspectorMetadataV1 } from "@copilotkit/shared";
+import type {
+  InspectorMetadataV1,
+  RuntimeEntitlementResponse,
+} from "@copilotkit/shared";
 import { randomUUID } from "crypto";
+import { z } from "zod";
+import type { GetLearningContainerId } from "../core/learning";
+
+const RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS = 1_500;
+const RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS = 30_000;
+const RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS = 5_000;
+
+interface RuntimeEntitlementCacheEntry {
+  readonly expiresAt: number;
+  readonly response: RuntimeEntitlementResponse;
+}
+
+interface RuntimeEntitlementFailureEntry {
+  readonly error: unknown;
+  readonly expiresAt: number;
+}
+
+/** Whether a response grants Runtime access and therefore cannot be served stale. */
+function grantsRuntimeAccess(response: RuntimeEntitlementResponse): boolean {
+  return response.status === "ready" && response.entitlement.active;
+}
+
+/** Whether an HTTP status can recover without changing Runtime configuration. */
+function isRetryableRuntimeEntitlementStatus(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+const runtimeEntitlementSchema = z
+  .object({
+    active: z.boolean(),
+    source: z.enum(["managedOrgSubscription", "selfHostedDeploymentLicense"]),
+    features: z.record(z.string(), z.boolean()),
+    limits: z.record(z.string(), z.number()),
+    planCode: z.string().optional(),
+    entitlementSource: z.string().optional(),
+  })
+  .strict();
+
+const runtimeEntitlementResponseSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      status: z.literal("ready"),
+      entitlement: runtimeEntitlementSchema,
+    })
+    .strict(),
+  z
+    .object({
+      status: z.enum(["degraded", "misconfigured", "unavailable"]),
+      error: z
+        .object({
+          code: z.string(),
+          message: z.string(),
+          retryable: z.boolean(),
+          requestId: z.string().optional(),
+          traceId: z.string().optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+const legacyRuntimeEntitlementTransportSchema = runtimeEntitlementSchema.extend(
+  {
+    organizationId: z.string(),
+  },
+);
+
+/** Check the published App API response union without widening its type. */
+function isPublishedRuntimeEntitlementResponse(
+  value: unknown,
+): value is RuntimeEntitlementResponse {
+  return runtimeEntitlementResponseSchema.safeParse(value).success;
+}
+
+/**
+ * Validate the published App API response union, with flat-response support
+ * during mixed-version rollouts.
+ */
+function normalizeRuntimeEntitlementTransport(
+  value: unknown,
+): RuntimeEntitlementResponse | undefined {
+  if (isPublishedRuntimeEntitlementResponse(value)) {
+    return value;
+  }
+
+  const legacyResponse =
+    legacyRuntimeEntitlementTransportSchema.safeParse(value);
+  if (!legacyResponse.success) {
+    return undefined;
+  }
+
+  const transport = legacyResponse.data;
+  return {
+    status: "ready",
+    entitlement: {
+      active: transport.active,
+      source: transport.source,
+      features: transport.features,
+      limits: transport.limits,
+      ...(transport.planCode !== undefined
+        ? { planCode: transport.planCode }
+        : {}),
+      ...(transport.entitlementSource !== undefined
+        ? { entitlementSource: transport.entitlementSource }
+        : {}),
+    },
+  };
+}
 
 /**
  * Header name carrying the per-call end-user identity that the CopilotKit
@@ -32,13 +143,13 @@ const memoryRequestHeaders = (
 });
 
 /**
- * REST base URL of CopilotKit's managed Intelligence platform — the default
+ * REST base URL of cloud-hosted CopilotKit Intelligence — the default
  * when {@link CopilotKitIntelligenceConfig.apiUrl} is omitted.
  */
 const MANAGED_INTELLIGENCE_API_URL = "https://api.intelligence.copilotkit.ai";
 
 /**
- * Websocket base URL of CopilotKit's managed Intelligence platform — the
+ * Websocket base URL of cloud-hosted CopilotKit Intelligence — the
  * default when {@link CopilotKitIntelligenceConfig.wsUrl} is omitted.
  *
  * A different host from {@link MANAGED_INTELLIGENCE_API_URL}: the API and
@@ -50,7 +161,7 @@ const MANAGED_INTELLIGENCE_WS_URL = "wss://realtime.intelligence.copilotkit.ai";
 const INSPECTOR_METADATA_REQUEST_TIMEOUT_MS = 5_000;
 
 /**
- * Error thrown when an Intelligence platform HTTP request returns a non-2xx
+ * Error thrown when a CopilotKit Intelligence HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
  * parsing the error message string.
@@ -71,10 +182,45 @@ export class PlatformRequestError extends Error {
     message: string,
     /** The HTTP status code returned by the platform (e.g. 404, 409, 500). */
     public readonly status: number,
+    /** Whether retrying may succeed without changing client configuration. */
+    public readonly retryable?: boolean,
   ) {
     super(message);
     this.name = "PlatformRequestError";
   }
+}
+
+/** Copy a public Runtime entitlement so callers cannot mutate cached authority. */
+function cloneRuntimeEntitlementResponse(
+  response: RuntimeEntitlementResponse,
+): RuntimeEntitlementResponse {
+  if (response.status === "ready") {
+    return {
+      status: "ready",
+      entitlement: {
+        ...response.entitlement,
+        features: { ...response.entitlement.features },
+        limits: { ...response.entitlement.limits },
+      },
+    };
+  }
+
+  return {
+    status: response.status,
+    error: { ...response.error },
+  };
+}
+
+/** Copy a cached Error while preserving its concrete type and own fields. */
+function cloneRuntimeEntitlementError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return Object.create(
+    Object.getPrototypeOf(error),
+    Object.getOwnPropertyDescriptors(error),
+  ) as Error;
 }
 
 /** Payload passed to `onThreadDeleted` listeners. */
@@ -86,7 +232,7 @@ export interface ThreadDeletedPayload {
 
 export interface CopilotKitIntelligenceConfig {
   /**
-   * Base URL of the intelligence platform API.
+   * Base URL of the CopilotKit Intelligence API.
    *
    * Defaults to CopilotKit's managed platform,
    * `https://api.intelligence.copilotkit.ai`. Set it only when pointing at a
@@ -106,10 +252,18 @@ export interface CopilotKitIntelligenceConfig {
    * different deployments, which logs a warning.
    */
   wsUrl?: string;
-  /** API key for authenticating with the intelligence platform */
+  /** API key for authenticating with CopilotKit Intelligence */
   apiKey: string;
   /**
-   * Enable Enterprise Learning — expose the Intelligence platform's
+   * Chooses the stable Learning Container ID for each Intelligence run.
+   * The callback receives the resolved application user and AG-UI run input.
+   * It must return the same ID for every run on one Thread because a Thread
+   * cannot move between Learning Containers after its first assignment.
+   * Return `null` or `undefined` to leave the Thread unassigned.
+   */
+  getLearningContainerId?: GetLearningContainerId;
+  /**
+   * Enable Enterprise Learning — expose CopilotKit Intelligence's
    * built-in tools (bash + thread/memory tools) to agent runs on an
    * intelligence runtime that resolve a user. Attached uniformly across
    * agent frameworks by `attachIntelligenceEnterpriseLearning` via
@@ -321,7 +475,7 @@ export interface AnnotateParams {
   threadId: string;
   /**
    * Discriminator identifying the annotation type.
-   * Must match a type known to the Intelligence platform
+   * Must match a type known to CopilotKit Intelligence
    * (for example, `"user_action"`).
    */
   type: string;
@@ -453,7 +607,7 @@ interface ThreadEnvelope {
 }
 
 /**
- * Client for the CopilotKit Intelligence Platform REST API.
+ * Client for the CopilotKit Intelligence REST API.
  *
  * Construct the client once and pass it to any consumers that need it
  * (e.g. `CopilotRuntime`, `IntelligenceAgentRunner`):
@@ -462,7 +616,7 @@ interface ThreadEnvelope {
  * import { CopilotKitIntelligence, CopilotRuntime } from "@copilotkit/runtime";
  *
  * const intelligence = new CopilotKitIntelligence({
- *   apiKey: process.env.INTELLIGENCE_API_KEY!,
+ *   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -471,14 +625,19 @@ interface ThreadEnvelope {
  * });
  * ```
  *
- * `apiUrl` and `wsUrl` default to CopilotKit's managed Intelligence platform.
- * Override both together to target a self-hosted or non-production deployment:
+ * `apiUrl` and `wsUrl` default to cloud-hosted CopilotKit Intelligence —
+ * `https://api.intelligence.copilotkit.ai` and
+ * `wss://realtime.intelligence.copilotkit.ai`. Those are the values for the
+ * managed service; leaving both unset is always correct against it.
+ *
+ * Override both together to target a non-production or future self-hosted
+ * deployment (the hosts below are placeholders — substitute your own):
  *
  * ```ts
  * const intelligence = new CopilotKitIntelligence({
- *   apiUrl: "https://intelligence.internal",
- *   wsUrl: "wss://realtime.intelligence.internal",
- *   apiKey: process.env.INTELLIGENCE_API_KEY!,
+ *   apiUrl: "https://api.intelligence.example.com",
+ *   wsUrl: "wss://realtime.intelligence.example.com",
+ *   apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
  * });
  * ```
  */
@@ -489,11 +648,23 @@ export class CopilotKitIntelligence {
   #channelsWsUrl: string;
   #apiKey: string;
   #enterpriseLearningEnabled: boolean;
+  #getLearningContainerId?: GetLearningContainerId;
+  #runtimeEntitlementsCache?: RuntimeEntitlementCacheEntry;
+  #runtimeEntitlementsFailure?: RuntimeEntitlementFailureEntry;
+  #runtimeEntitlementsInFlight?: Promise<RuntimeEntitlementResponse>;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
 
   constructor(config: CopilotKitIntelligenceConfig) {
+    if (
+      config.getLearningContainerId !== undefined &&
+      typeof config.getLearningContainerId !== "function"
+    ) {
+      throw new Error(
+        "CopilotKitIntelligence `getLearningContainerId` must be a callback",
+      );
+    }
     const configuredApiUrl = configuredUrl(config.apiUrl);
     const configuredWsUrl = configuredUrl(config.wsUrl);
     warnOnPartialHostOverride(configuredApiUrl, configuredWsUrl);
@@ -511,6 +682,7 @@ export class CopilotKitIntelligence {
     this.#channelsWsUrl = deriveChannelsWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
     this.#enterpriseLearningEnabled = config.enableEnterpriseLearning ?? false;
+    this.#getLearningContainerId = config.getLearningContainerId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -608,6 +780,11 @@ export class CopilotKitIntelligence {
     return this.#apiKey;
   }
 
+  /** @internal Used by the Intelligence runtime to assign Learning Containers. */
+  ɵgetLearningContainerId(): GetLearningContainerId | undefined {
+    return this.#getLearningContainerId;
+  }
+
   /** @internal Used by `attachIntelligenceEnterpriseLearning` to gate MCP attachment. */
   ɵisEnterpriseLearningEnabled(): boolean {
     return this.#enterpriseLearningEnabled;
@@ -678,6 +855,142 @@ export class CopilotKitIntelligence {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+    }
+  }
+
+  /**
+   * Resolve the Runtime entitlement projection for this project.
+   *
+   * Concurrent calls share one request. Active grants cache for 30 seconds;
+   * inactive results and failures cache for 5 seconds. Callers receive copies
+   * so they cannot mutate cached authority.
+   */
+  async getRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const now = Date.now();
+    if (
+      this.#runtimeEntitlementsCache &&
+      now < this.#runtimeEntitlementsCache.expiresAt
+    ) {
+      return cloneRuntimeEntitlementResponse(
+        this.#runtimeEntitlementsCache.response,
+      );
+    }
+    if (
+      this.#runtimeEntitlementsFailure &&
+      now < this.#runtimeEntitlementsFailure.expiresAt
+    ) {
+      throw cloneRuntimeEntitlementError(
+        this.#runtimeEntitlementsFailure.error,
+      );
+    }
+
+    const request =
+      this.#runtimeEntitlementsInFlight ??
+      this.#fetchRuntimeEntitlements()
+        .then((response) => {
+          this.#runtimeEntitlementsFailure = undefined;
+          this.#runtimeEntitlementsCache = {
+            response,
+            expiresAt:
+              Date.now() +
+              (grantsRuntimeAccess(response)
+                ? RUNTIME_ENTITLEMENTS_SUCCESS_TTL_MS
+                : RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS),
+          };
+          return response;
+        })
+        .catch((error: unknown) => {
+          this.#runtimeEntitlementsFailure = {
+            error,
+            expiresAt: Date.now() + RUNTIME_ENTITLEMENTS_NEGATIVE_TTL_MS,
+          };
+          throw error;
+        });
+    this.#runtimeEntitlementsInFlight = request;
+    try {
+      return cloneRuntimeEntitlementResponse(await request);
+    } catch (error) {
+      throw cloneRuntimeEntitlementError(error);
+    } finally {
+      if (this.#runtimeEntitlementsInFlight === request) {
+        this.#runtimeEntitlementsInFlight = undefined;
+      }
+    }
+  }
+
+  /** Perform one bounded Runtime entitlement request without caching. */
+  async #fetchRuntimeEntitlements(): Promise<RuntimeEntitlementResponse> {
+    const path = "/api/entitlements/runtime";
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      RUNTIME_ENTITLEMENTS_REQUEST_TIMEOUT_MS,
+    );
+
+    try {
+      const response = await fetch(`${this.#apiUrl}${path}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.#apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        await response.body?.cancel();
+        logger.error(
+          { status: response.status, path },
+          "Runtime entitlement request failed",
+        );
+        throw new PlatformRequestError(
+          `Runtime entitlement request failed with status ${response.status}`,
+          response.status,
+          isRetryableRuntimeEntitlementStatus(response.status),
+        );
+      }
+
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+
+      const normalized = normalizeRuntimeEntitlementTransport(payload);
+      if (!normalized) {
+        throw new PlatformRequestError(
+          "Runtime entitlement response was malformed",
+          502,
+          false,
+        );
+      }
+      return normalized;
+    } catch (error) {
+      if (error instanceof PlatformRequestError) {
+        throw error;
+      }
+      if (
+        controller.signal.aborted ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new PlatformRequestError(
+          "Runtime entitlement request timed out",
+          504,
+          true,
+        );
+      }
+      throw new PlatformRequestError(
+        "Runtime entitlement request failed",
+        502,
+        true,
+      );
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -1188,7 +1501,7 @@ export class CopilotKitIntelligence {
   }
 
   /**
-   * Annotate a thread event on the Intelligence platform's general annotation
+   * Annotate a thread event on CopilotKit Intelligence's general annotation
    * endpoint (`PUT /connector/annotate/:clientEventId`).
    *
    * This is the generalized replacement for the old

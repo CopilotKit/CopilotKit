@@ -107,7 +107,10 @@ describe("buildFlightCadence — what the strip is drawn from", () => {
   });
 
   it("drops trips outside the drawn window instead of clamping them onto its edge", () => {
-    const far = flight({ id: "f1", departureLocal: "2020-01-01T09:00:00-05:00" });
+    const far = flight({
+      id: "f1",
+      departureLocal: "2020-01-01T09:00:00-05:00",
+    });
     const cadence = buildFlightCadence([far], [booking("b1", "f1")], NOW);
     expect(cadence.markers).toHaveLength(0);
   });

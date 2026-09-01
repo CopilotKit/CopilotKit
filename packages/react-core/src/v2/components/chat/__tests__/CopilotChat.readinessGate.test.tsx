@@ -12,7 +12,7 @@ import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 // CopilotListeners.defaultAgentAbsent.test.tsx / v1-explicit-threadid-bridge.test.tsx
 // and used by Showcase). It defaults to negotiated (`"auto"`) transport, so the
 // single-endpoint suite below pins `useSingleEndpoint` explicitly.
-import { CopilotKit } from "../../../../components/copilot-provider/copilotkit";
+import { CopilotKit } from "../../../../v1-deprecated/components/copilot-provider/copilotkit";
 import { useCopilotKit } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 import {

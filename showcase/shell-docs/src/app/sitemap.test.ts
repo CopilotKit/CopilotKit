@@ -207,12 +207,16 @@ test("publishes shared Runtime and Intelligence docs once on the Angular surface
     urls.some((url) => url.endsWith("/angular/backend/copilot-runtime")),
   ).toBe(true);
   expect(
-    urls.some((url) => url.endsWith("/angular/premium/intelligence-platform")),
+    urls.some((url) =>
+      url.endsWith("/angular/intelligence/intelligence-platform"),
+    ),
   ).toBe(true);
   expect(urls.some((url) => url.endsWith("/angular/auth"))).toBe(true);
   expect(
     urls.some((url) =>
-      url.endsWith("/angular/langgraph-python/premium/intelligence-platform"),
+      url.endsWith(
+        "/angular/langgraph-python/intelligence/intelligence-platform",
+      ),
     ),
   ).toBe(false);
 });

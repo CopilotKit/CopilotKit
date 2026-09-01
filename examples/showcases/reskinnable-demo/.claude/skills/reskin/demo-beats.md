@@ -97,7 +97,7 @@ not `status` (`tools.tsx:553-572`).
 
 **⚠️ Runtime-conditional.** Durable cross-reload thread history exists only in
 **Intelligence mode** — all three of `INTELLIGENCE_API_URL`,
-`INTELLIGENCE_GATEWAY_WS_URL`, `INTELLIGENCE_API_KEY` set. The default OSS path
+`INTELLIGENCE_GATEWAY_WS_URL`, `CPK_INTELLIGENCE_API_KEY` set. The default OSS path
 uses `InMemoryAgentRunner` and is ephemeral. No skin code persists anything.
 Demo this beat in Intelligence mode or not at all — and write your tools
 replay-safe regardless, because the failure is invisible until you reload.
@@ -221,8 +221,8 @@ filter through the page's real query params, and (iv) leaves the applied levers
 `navigateTo` does not earn this beat.
 
 ⚠️ **"Confirm the levers with them first" is read TWO ways, and one of them
-kills the beat.** You mean *the card confirms*; the model can just as well hear
-*ask them in chat*. Then it answers
+kills the beat.** You mean _the card confirms_; the model can just as well hear
+_ask them in chat_. Then it answers
 
 > Confirm the levers and I'll take you there: **pending** only, sorted by
 > **oldest first**, top **10**.

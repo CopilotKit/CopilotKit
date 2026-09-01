@@ -1,0 +1,184 @@
+---
+title: Agent App Context
+icon: "lucide/BookA"
+description: Share app specific context with your CrewAI Flow.
+---
+
+## What is this?
+
+One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.
+This way, you can notify your agent of what is going on in your app in real time.
+
+Some examples might be: the current user, the current page, the rows currently on screen.
+
+## When should I use this?
+
+Use this when the agent's answer has to be about data your application holds rather than data the
+user retypes into the chat. A queue, a selection, a cart, a filtered table: the page already has it,
+and `useAgentContext` is how the agent gets it.
+
+<Callout type="warn" title="CrewAI needs a field on your state class">
+    Unlike the [built-in agent](/built-in-agent/agent-app-context), a CrewAI Flow does **not** receive
+    this context automatically, and the gap is easy to miss because it does not look like a missing
+    field. The AG-UI adapter writes your entries into the run state under a `context` key — but
+    `CopilotKitState` does not declare `context`, and a Flow state is a Pydantic model, so the key is
+    dropped on validation before any `@start()` method runs.
+
+    That means `self.state.context` does not exist in the shape the quickstart shows, and reading it
+    raises nothing — it is simply never there. Your crew still answers, fluently and in the right
+    shape, from nothing. Step 2 below declares the field so the value survives, and step 3 puts it in
+    front of the model.
+</Callout>
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Share data with your agent
+
+        The [`useAgentContext` hook](/reference/v2/hooks/useAgentContext) adds data as context to the Copilot.
+
+        ```tsx title="YourComponent.tsx" showLineNumbers
+        "use client" // only necessary if you are using Next.js with the App Router. // [!code highlight]
+        import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+        import { useState } from 'react';
+
+        export function YourComponent() {
+            // Create colleagues state with some sample data
+            const [colleagues, setColleagues] = useState([
+                { id: 1, name: "John Doe", role: "Developer" },
+                { id: 2, name: "Jane Smith", role: "Designer" },
+                { id: 3, name: "Bob Wilson", role: "Product Manager" }
+            ]);
+
+            // Define agent context
+            // [!code highlight:4]
+            useAgentContext({
+                description: "The current user's colleagues",
+                value: colleagues,
+            });
+            return (
+                // Your custom UI component
+                <>...</>
+            );
+        }
+        ```
+    </Step>
+
+    <Step>
+        ### Declare `context` on your state class
+
+        This is the step that is easy to skip, because nothing fails loudly without it. Subclass
+        `CopilotKitState` as usual and add the field yourself.
+
+        ```python title="flow.py"
+        from typing import Any
+
+        from ag_ui_crewai import CopilotKitState
+        from pydantic import Field
+
+        class ColleaguesState(CopilotKitState):
+            # Without this field Pydantic drops the entries the adapter just wrote.
+            context: list[dict[str, Any]] = Field(default_factory=list) # [!code highlight]
+        ```
+
+        Each entry is a plain dict with the `description` and `value` you registered on the frontend.
+        `value` arrives JSON-encoded as a string for anything that is not already a string.
+    </Step>
+
+    <Step>
+        ### Render the context into the crew's work
+
+        Declaring the field makes the data reachable. It does not put it in the prompt. Fold the
+        entries into the text your crew actually reads, the same way you fold in the user's message.
+
+        ```python title="flow.py"
+        import json
+
+        from crewai import Agent, Crew, LLM, Process, Task
+        from crewai.flow.flow import Flow, start
+
+        BASE_BACKSTORY = """You are a helpful assistant that can help emailing colleagues.
+
+        Answer only about the colleagues the page below sent you. If that list is empty, say the
+        page sent no colleagues. If it holds colleagues but none of them match what the user asked
+        about, say so and name the ones the page did send. Never invent a colleague."""
+
+
+        def render_context(entries: list[dict[str, Any]]) -> str:
+            """Turn the entries the frontend sent into prompt text."""
+            if not entries:
+                return "The page sent no context entries."
+
+            blocks = []
+            for entry in entries:
+                description = entry.get("description", "(no description)")
+                value = entry.get("value", "")
+                if not isinstance(value, str):
+                    value = json.dumps(value, ensure_ascii=False)
+                blocks.append(f"### {description}\n{value}")
+            return "\n\n".join(blocks)
+
+
+        class ColleaguesFlow(Flow[ColleaguesState]):
+            @start()
+            async def answer(self) -> str:
+                question = "\n".join(
+                    str(message.get("content", ""))
+                    for message in self.state.messages
+                    if message.get("role") == "user"
+                ).strip()
+
+                # The field declared in step 2 is what makes this readable.
+                page_context = render_context(self.state.context) # [!code highlight]
+
+                agent = Agent(
+                    role="Colleague assistant",
+                    goal="Answer about the colleagues the page sent, and nothing else.",
+                    backstory=BASE_BACKSTORY,
+                    llm=LLM(model="openai/gpt-4.1-mini"),
+                )
+                task = Task(
+                    description=(
+                        "## Context from the page\n\n{page_context}\n\n"
+                        "## The user asked\n\n{question}"
+                    ),
+                    expected_output="A direct answer grounded only in the context above.",
+                    agent=agent,
+                )
+                crew = Crew(agents=[agent], tasks=[task], process=Process.sequential)
+                result = await crew.kickoff_async(
+                    # [!code highlight:2]
+                    inputs={"page_context": page_context, "question": question},
+                )
+
+                # A Flow's return value is not sent to the UI. Append the answer to
+                # `messages` or the turn finishes with nothing rendered.
+                # [!code highlight:2]
+                self.state.messages.append({"role": "assistant", "content": str(result)})
+                return str(result)
+        ```
+
+        <Callout>
+            Pass the rendered context through `inputs` rather than formatting it into the
+            `description` string yourself. CrewAI interpolates `{placeholder}` in a task description
+            from `inputs`, so context full of JSON braces stays verbatim instead of being read as
+            more placeholders.
+        </Callout>
+    </Step>
+
+    <Step>
+        ### Give it a try!
+
+        Ask your agent a question about the context. It should be able to answer.
+
+        Then check the answer against your own records, because this integration fails quietly. The
+        reliable check is a control: send the same request once with the context and once with an
+        empty context. Two answers that describe the same record mean the context changed nothing,
+        and the agent is answering from its own invention.
+
+        A crew whose backstory forbids invention refuses instead of inventing, which looks safer and
+        is the same defect — it is still answering with nothing. Compare against the empty control
+        either way.
+    </Step>
+</Steps>

@@ -2,7 +2,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-The CopilotKit CLI helps you create CopilotKit apps connected to Enterprise Intelligence, whether cloud-hosted or self-hosted. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and conversation history.
+The CopilotKit CLI helps you create CopilotKit apps connected to CopilotKit Intelligence, whether cloud-hosted or self-hosted. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and conversation history.
 
 Use the CLI when you want to start a new app, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
@@ -18,7 +18,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Prerequisites
 
 - Node.js 20+
-- A CopilotKit account for Cloud-Hosted Enterprise Intelligence
+- A CopilotKit account for cloud-hosted CopilotKit Intelligence
 - An OpenAI API key or another model provider key for the starter app you choose
 
 <Callout type="info" title="Team Self-hosted is a plan, not a deployment login">
@@ -28,7 +28,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 ## Start a new app
 
 <Callout type="info" title="Creating vs. adding to an existing app">
-  `create` (aliased as `init`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
+  `init` (aliased as `create`) scaffolds a brand-new project in its own directory — it prompts for an app name and does not detect or bootstrap an app you already have. To add CopilotKit to an existing app, follow the manual installation in the [Quickstart](/quickstart) instead.
 </Callout>
 
 <Steps>
@@ -39,7 +39,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
     npx copilotkit@latest create
     ```
 
-    The CLI prompts for the app name and framework, opens browser sign-in when needed, scaffolds the starter, and connects the app to a cloud-hosted Enterprise Intelligence project.
+    The CLI prompts for the app name and framework, opens browser sign-in when needed, scaffolds the starter, and connects the app to a cloud-hosted CopilotKit Intelligence project.
   </Step>
 
   <Step>
@@ -81,15 +81,24 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
   <Step>
     ### Use the generated environment
 
-    The CLI writes the hosted platform URLs and project-scoped runtime API key to `.env`.
+    `init` and its `create` alias write the hosted platform URLs, `SL_ENABLED`,
+    and project-scoped runtime API key to `.env`.
 
     ```bash title=".env"
     INTELLIGENCE_API_URL=https://...
     INTELLIGENCE_GATEWAY_WS_URL=wss://...
-    INTELLIGENCE_API_KEY=cpk_...
+    CPK_INTELLIGENCE_API_KEY=cpk-...
+    CPK_TELEMETRY_ID=...
+    SL_ENABLED=true
     ```
 
-    Keep `INTELLIGENCE_API_KEY` on the server side. It is a runtime key for the selected project, not a frontend token.
+    Keep `CPK_INTELLIGENCE_API_KEY` on the server side. The project key connects
+    the Runtime to Intelligence. `CPK_TELEMETRY_ID` is an optional, non-secret
+    analytics identity.
+
+    Managed project setup does not issue `COPILOTKIT_LICENSE_TOKEN`. That token
+    is only for offline or self-hosted licensing and does not replace the
+    managed project API key.
   </Step>
 
   <Step>
@@ -105,7 +114,7 @@ Use the CLI when you want to start a new app, import historical ADK or LangGraph
 
 ## Import and synchronize historical conversations
 
-Use `import` from a CopilotKit app created with the CLI and Enterprise Intelligence enabled. The importer targets the Enterprise Intelligence project already selected for the current directory.
+Use `import` from a CopilotKit app created with the CLI and CopilotKit Intelligence enabled. The importer targets the CopilotKit Intelligence project already selected for the current directory.
 
 <Tabs groupId="cli-import-source" items={["ADK", "LangGraph"]}>
   <Tab value="ADK">
@@ -138,7 +147,7 @@ Before the real import, export the destination values from that `.env`:
 
 ```bash title="Terminal"
 export INTELLIGENCE_API_URL="https://..."
-export INTELLIGENCE_API_KEY="cpk_..."
+export CPK_INTELLIGENCE_API_KEY="cpk-..."
 ```
 
 The importer reads `--api-url` and `--api-key` or the current process environment. It does not load `.env` or `.copilotkit/project.json` automatically. `COPILOTKIT_API_KEY` is also accepted for the key.
@@ -146,6 +155,61 @@ The importer reads `--api-url` and `--api-key` or the current process environmen
 Project selection updates the app configuration; the importer still receives its destination through flags or exported environment variables.
 
 For the full adoption flow, see [Import & Synchronize Thread History](/threads-import). Source-specific setup lives in [Synchronize ADK threads](/google-adk/threads-import) and [Synchronize LangGraph threads](/langgraph-python/threads-import).
+
+## Verify your setup
+
+`verify` answers the question every integration reaches: *is this actually
+working?* It checks the wiring from outside the browser, so it is the proof to
+reach for on a surface that has no browser at all — React Native, or a runtime
+on a remote host.
+
+```bash
+npx copilotkit@latest verify
+```
+
+It checks that a hosted project is selected, that a project API key
+authenticates, that the runtime responds, and that the runtime declares at least
+one agent — then reports the runtime version, the agent framework, gateway
+wiring, and license state.
+
+<Callout type="warn" title="Read the individual checks, not the summary">
+  Every check reports **PASS**, **FAIL**, or **UNKNOWN**. `UNKNOWN` means the
+  check could not run. It never means the check passed.
+</Callout>
+
+To prove the agent actually *runs* rather than that it is *configured*, add
+`--round-trip`. It sends one real request through the runtime and reads the
+answer back off the thread:
+
+```bash
+npx copilotkit@latest verify --round-trip
+```
+
+<Callout type="warn" title="What --round-trip does not prove">
+  It sends a **fixed** prompt and records the answer's character count and any
+  tool-call names — **never the answer's text**. It proves an answer came back;
+  it can never tell you what the answer said, so it is no substitute for
+  checking a response against the data your project actually holds.
+
+  It also proves an agent answered under the *declared id*, not **which
+  deployment** answered — a runtime pointed at another project's agent responds
+  identically.
+
+  Because it runs the agent, it costs a model call and records a thread. That is
+  why it is opt-in rather than the default.
+</Callout>
+
+| Option | What it does |
+|---|---|
+| `--runtime-url <url>` | The runtime endpoint to probe. Default `http://localhost:3000/api/copilotkit` — pass this whenever your runtime is elsewhere. |
+| `--round-trip` | Also run the agent and read its answer back. |
+| `--agent <id>` | Which declared agent to run, when the runtime declares several. |
+| `--expect-runtime <mode>` | `intelligence` (default) or `oss`. With `oss`, hosted-project and credential checks do not apply. |
+| `--timeout <seconds>` | How long to wait for the answer. Default `90`. |
+| `--header "<name>: <value>"` | Extra request header, repeatable. Use it when your `identifyUser` reads a session the CLI does not carry. |
+| `--json` | Emit a machine-readable payload alone on stdout. |
+
+`verify` exits non-zero unless every check passed, so it works as a CI gate.
 
 ## Auth commands
 
@@ -159,10 +223,10 @@ For the full adoption flow, see [Import & Synchronize Thread History](/threads-i
 
 | Command | What it does |
 |---|---|
-| `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
+| `npx copilotkit@latest project select` | Selects or creates a cloud-hosted CopilotKit Intelligence project for the current directory. |
 | `npx copilotkit@latest import --source adk --dry-run` | Previews historical Google ADK conversation threads before import. |
 | `npx copilotkit@latest import --source langgraph --dry-run` | Previews historical LangGraph conversation threads before import. |
-| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
+| `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that still require one. |
 | `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
 
 Re-running `project select` is safe when you need to move a CLI-created app to a different cloud-hosted project. The command updates `.copilotkit/project.json` and provisions a project-scoped API key for the selected project.
@@ -176,7 +240,7 @@ Re-running `project select` is safe when you need to move a CLI-created app to a
 
 ## Next steps
 
-- **Cloud-hosted platform:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
+- **Cloud-hosted platform:** [Cloud-hosted CopilotKit Intelligence](/intelligence/managed-intelligence-platform) — login, projects, API keys, threads, and plans in the hosted web app
 - **Add threads:** use the [Threads Drawer](/prebuilt-components/copilot-threads-drawer) for a drop-in thread switcher, or [Headless Threads](/headless-threads) to build your own thread UI
 - **Synchronize thread history:** [Import & Synchronize Thread History](/threads-import) — import existing ADK or LangGraph conversations and keep future CopilotKit runs synchronized
-- **Self-hosting:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — run the Enterprise Intelligence Platform in your own Kubernetes cluster
+- **Self-hosting:** [Self-host CopilotKit Intelligence](/intelligence/self-hosting) — run CopilotKit Intelligence in your own Kubernetes cluster

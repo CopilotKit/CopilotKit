@@ -1,5 +1,5 @@
 // Pure, Bolt-free Slack ingress semantics. Shared by the local Slack adapter's
-// Bolt listener AND the Intelligence-side webhook ingress (OSS-362), so the
+// Bolt listener AND the Intelligence-side webhook ingress, so the
 // platform-specific parsing (mention stripping, stable event-id derivation,
 // real-user-message filtering, field extraction) lives in ONE place instead of
 // being duplicated. No `@slack/bolt`, no Slack credentials, no network.
@@ -247,6 +247,32 @@ export function normalizeSlackEvent(
     const text = deleted ? "" : String(message.text ?? "").trim();
     const hasFiles = hasFilesOn(message);
     if (!deleted && !text && !hasFiles) return undefined;
+    /**
+     * `message_changed` does not mean somebody edited the text. Slack also
+     * sends it when a reply lands in the message's thread, when a link
+     * unfurls, and when attachments are added — and every one of those carries
+     * a fresh `revisionId`, which is exactly what the engine's dedup keys on
+     * (deliberately: a real edit must not be swallowed as a duplicate).
+     *
+     * Forwarding them turns one @mention into an unbounded loop. The bot
+     * answers, the answer revises the parent message, the revision arrives
+     * still carrying the mention, and it answers again — observed live as
+     * ~50 identical replies to one "@bot say hi" in eight seconds.
+     *
+     * `previous_message` is the direct evidence when Slack sends it. When it
+     * does not, `edited` stands in: Slack stamps that only when a person
+     * actually edited the message, and the metadata-only revisions that cause
+     * the loop have neither.
+     */
+    if (subtype === "message_changed") {
+      const previousText =
+        typeof previous?.text === "string" ? previous.text.trim() : undefined;
+      const textChanged =
+        previousText !== undefined
+          ? previousText !== text
+          : edited !== undefined;
+      if (!textChanged) return undefined;
+    }
     const isDM = event.channel_type === "im";
     const eventId = deriveEventId(body, event, channel);
     const mentioned =

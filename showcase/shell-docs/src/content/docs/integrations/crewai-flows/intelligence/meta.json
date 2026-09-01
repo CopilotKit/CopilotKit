@@ -1,0 +1,5 @@
+{
+  "title": "Intelligence",
+  "icon": "lucide/Star",
+  "pages": ["overview", "self-hosting"]
+}

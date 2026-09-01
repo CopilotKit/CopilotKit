@@ -15,7 +15,10 @@ import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 import { getRuntimeErrorReporter } from "../../core/runtime-error-reporter";
 import type { RuntimeErrorPhase } from "../../core/runtime-error-reporter";
-import { resolveLearningContainerId } from "../../core/learning";
+import {
+  resolveLearningContainerId,
+  resolveLearningContainerSelector,
+} from "../../core/learning";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 
 /**
@@ -70,6 +73,8 @@ export async function handleIntelligenceRun({
   input,
   startTime,
 }: HandleIntelligenceRunParams): Promise<Response> {
+  const runtimeTelemetry = runtime.telemetry ?? telemetry;
+
   if (!runtime.intelligence) {
     return Response.json(
       {
@@ -88,14 +93,22 @@ export async function handleIntelligenceRun({
 
   let learningContainerId: string | undefined;
   try {
-    learningContainerId = await resolveLearningContainerId(runtime.learning, {
-      surface: "web",
-      request,
-      threadId: input.threadId,
-      runId: input.runId,
-      agentId,
-      userId,
-    });
+    const selector = runtime.intelligence.ɵgetLearningContainerId?.();
+    learningContainerId = selector
+      ? await resolveLearningContainerSelector(selector, {
+          surface: "web",
+          user,
+          agentId,
+          input,
+        })
+      : await resolveLearningContainerId(runtime.learning, {
+          surface: "web",
+          request,
+          threadId: input.threadId,
+          runId: input.runId,
+          agentId,
+          userId,
+        });
   } catch (error) {
     logger.error("Failed to resolve Learning Container:", error);
     return Response.json(
@@ -229,7 +242,7 @@ export async function handleIntelligenceRun({
     }
   }
 
-  telemetry.capture("oss.runtime.agent_execution_stream_started", {});
+  runtimeTelemetry.capture("oss.runtime.agent_execution_stream_started", {});
 
   // Start heartbeat timer to renew the thread lock.
   let heartbeatStopped = false;
@@ -344,14 +357,17 @@ export async function handleIntelligenceRun({
         } else {
           cleanupLock("runner-error");
         }
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+        runtimeTelemetry.capture("oss.runtime.agent_execution_stream_errored", {
           error: error instanceof Error ? error.message : String(error),
         });
         logger.error("Error running agent:", error);
       },
       complete: () => {
         clearHeartbeat();
-        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        runtimeTelemetry.capture(
+          "oss.runtime.agent_execution_stream_ended",
+          {},
+        );
       },
     });
 

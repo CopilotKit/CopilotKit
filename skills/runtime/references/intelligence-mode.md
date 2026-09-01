@@ -11,7 +11,7 @@ need on-prem durable threads today, use SSE mode with a persistent runner
 (`SqliteAgentRunner` or a custom one) instead.
 
 Obtain `apiKey` from the CopilotKit Intelligence dashboard, or let `copilotkit project select`
-provision a project-scoped key into `.env` as `INTELLIGENCE_API_KEY`.
+provision a project-scoped key into `.env` as `CPK_INTELLIGENCE_API_KEY`.
 
 ### URL format
 
@@ -57,8 +57,8 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  // apiUrl / wsUrl default to the managed Intelligence platform — leave them unset.
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  // apiUrl / wsUrl default to cloud-hosted CopilotKit Intelligence — leave them unset.
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotRuntime({
@@ -220,7 +220,7 @@ Correct:
 ```typescript
 new CopilotKitIntelligence({
   // No apiUrl / wsUrl — they default to the managed platform.
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 // For on-prem durability without Intelligence: SSE mode + SqliteAgentRunner.
 ```

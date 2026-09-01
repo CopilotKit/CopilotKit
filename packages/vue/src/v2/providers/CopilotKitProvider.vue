@@ -15,8 +15,11 @@ import type {
   CopilotKitCoreSubscriber,
   FrontendTool,
 } from "@copilotkit/core";
-import { schemaToJsonSchema } from "@copilotkit/shared";
-import type { RuntimeLicenseStatus } from "@copilotkit/shared";
+import { schemaToJsonSchema, shouldEnableInspector } from "@copilotkit/shared";
+import type {
+  RuntimeEntitlementResponse,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
@@ -34,7 +37,8 @@ import {
   MCPAppsActivityRenderer,
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
-import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
+import { CopilotKitKey, InspectorKey, SandboxFunctionsKey } from "./keys";
+import type { VueInspectorOpenRequest } from "./keys";
 import {
   LicenseContextKey,
   createLicenseContextValue,
@@ -47,13 +51,11 @@ import type {
   SandboxFunction,
   VueActivityMessageRenderer,
   VueFrontendTool,
-  VueHumanInTheLoop,
   VueToolCallRenderer,
 } from "../types";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
-
 // Canonical A2UI viewer theme default (matches @copilotkit/a2ui-renderer).
 // Defined locally to avoid pulling React dependencies from a2ui-renderer.
 const viewerTheme: Record<string, unknown> = {};
@@ -103,32 +105,34 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   renderCustomMessages: () => [],
   renderActivityMessages: () => [],
   openGenerativeUI: undefined,
-  showDevConsole: false,
   useSingleEndpoint: undefined,
   a2ui: undefined,
+  enableInspector: undefined,
 });
 
 const shouldRenderInspector = ref(false);
 
-const updateInspectorVisibility = () => {
-  if (props.showDevConsole === true) {
-    shouldRenderInspector.value = true;
-    return;
-  }
-  if (props.showDevConsole === "auto") {
-    if (typeof window === "undefined") {
-      shouldRenderInspector.value = false;
-      return;
-    }
-    const localhostHosts = new Set(["localhost", "127.0.0.1"]);
-    shouldRenderInspector.value = localhostHosts.has(window.location.hostname);
-    return;
-  }
-  shouldRenderInspector.value = false;
-};
+function updateInspectorVisibility(): void {
+  shouldRenderInspector.value = shouldEnableInspector({
+    enableInspector: props.enableInspector,
+    isBrowser: true,
+    isDevelopment: process.env.NODE_ENV === "development",
+  });
+}
 
-watch(() => props.showDevConsole, updateInspectorVisibility, {
-  immediate: true,
+onMounted(updateInspectorVisibility);
+watch(() => props.enableInspector, updateInspectorVisibility);
+
+const inspectorOpenRequest = ref<VueInspectorOpenRequest | null>(null);
+const isInspectorEnabled = computed(() => shouldRenderInspector.value);
+
+function openInspector(request: VueInspectorOpenRequest) {
+  inspectorOpenRequest.value = { ...request };
+}
+
+provide(InspectorKey, {
+  isInspectorEnabled,
+  openInspector,
 });
 
 const initialFrontendTools = props.frontendTools;
@@ -292,6 +296,10 @@ const allRenderCustomMessages = computed(
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
 const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
+const runtimeEntitlements = ref<RuntimeEntitlementResponse | undefined>(
+  undefined,
+);
+const runtimeEntitlementRetryPending = ref(false);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -458,15 +466,14 @@ watch(
         runtimeA2UIEnabled.value = core.a2uiEnabled;
         runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
         runtimeLicenseStatus.value = core.licenseStatus;
+        runtimeEntitlements.value = core.runtimeEntitlements;
+        runtimeEntitlementRetryPending.value =
+          core.runtimeEntitlementRetryPending;
         triggerRef(copilotkit);
       },
     });
     const sub5 = core.subscribe({
-      onError: (event: {
-        error: Error;
-        code: CopilotKitCoreErrorCode;
-        context: Record<string, any>;
-      }) => {
+      onError: (event) => {
         void props.onError?.({
           error: event.error,
           code: event.code,
@@ -555,6 +562,9 @@ onMounted(() => {
   runtimeOpenGenerativeUIEnabled.value =
     copilotkit.value.openGenerativeUIEnabled;
   runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
+  runtimeEntitlements.value = copilotkit.value.runtimeEntitlements;
+  runtimeEntitlementRetryPending.value =
+    copilotkit.value.runtimeEntitlementRetryPending;
   didMountRef.value = true;
 });
 
@@ -631,23 +641,70 @@ provide(CopilotKitKey, {
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
 
-// License context — driven by server-reported `/info` license status.
-const licenseContextValue = computed<LicenseContextValue>(() =>
-  createLicenseContextValue(runtimeLicenseStatus.value),
+// License context — driven by structured and legacy Runtime authority.
+const retryableRuntimeEntitlementFailure = computed(
+  () =>
+    runtimeEntitlements.value?.status !== "ready" &&
+    runtimeEntitlements.value?.error.retryable === true,
 );
+const hasNonReadyRuntimeEntitlement = computed(
+  () =>
+    runtimeEntitlements.value !== undefined &&
+    runtimeEntitlements.value.status !== "ready",
+);
+const hasLegacyRuntimeEntitlementFallback = computed(
+  () =>
+    runtimeLicenseStatus.value === "valid" ||
+    runtimeLicenseStatus.value === "expiring",
+);
+const runtimeEntitlementRetryInProgress = computed(
+  () =>
+    retryableRuntimeEntitlementFailure.value &&
+    runtimeEntitlementRetryPending.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+const runtimeEntitlementFailureSettled = computed(
+  () =>
+    hasNonReadyRuntimeEntitlement.value &&
+    !runtimeEntitlementRetryInProgress.value &&
+    !hasLegacyRuntimeEntitlementFallback.value,
+);
+const licenseContextValue = computed<LicenseContextValue>(() => {
+  const runtimeLicenseContext = createLicenseContextValue(
+    runtimeEntitlementRetryInProgress.value
+      ? undefined
+      : runtimeLicenseStatus.value,
+    runtimeEntitlements.value,
+  );
+  if (!runtimeEntitlementFailureSettled.value) {
+    return runtimeLicenseContext;
+  }
+
+  return {
+    ...runtimeLicenseContext,
+    checkFeature: () => false,
+    getLimit: () => null,
+  };
+});
 provide(LicenseContextKey, licenseContextValue);
 
+const runtimeLicenseWarningStatus = computed(() =>
+  runtimeEntitlementRetryInProgress.value
+    ? undefined
+    : (licenseContextValue.value.status ?? undefined),
+);
 const showNoLicenseBanner = computed(
-  () => runtimeLicenseStatus.value === "none" && !resolvedPublicKey.value,
+  () =>
+    runtimeLicenseWarningStatus.value === "none" && !resolvedPublicKey.value,
 );
 const showExpiredBanner = computed(
-  () => runtimeLicenseStatus.value === "expired",
+  () => runtimeLicenseWarningStatus.value === "expired",
 );
 const showInvalidBanner = computed(
-  () => runtimeLicenseStatus.value === "invalid",
+  () => runtimeLicenseWarningStatus.value === "invalid",
 );
 const showExpiringBanner = computed(
-  () => runtimeLicenseStatus.value === "expiring",
+  () => runtimeLicenseWarningStatus.value === "expiring",
 );
 </script>
 
@@ -656,7 +713,7 @@ const showExpiringBanner = computed(
   <CopilotKitInspector
     v-if="shouldRenderInspector"
     :core="copilotkit"
-    :default-anchor="props.inspectorDefaultAnchor"
+    :open-request="inspectorOpenRequest"
   />
   <!-- License warnings — driven by server-reported status -->
   <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />

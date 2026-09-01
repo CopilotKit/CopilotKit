@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default function MCPAppsDemoPage() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit-mcp" showDevConsole="auto">
+    <CopilotKitProvider runtimeUrl="/api/copilotkit-mcp">
       <AppLayout />
     </CopilotKitProvider>
   );

@@ -16,11 +16,8 @@ import {
 } from "lucide-react";
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
-<OpsPlatformCTA
-  variant="card"
-  title="Ship the Built-in Agent to production"
-  body="Add persistent threads and the inspector with the Enterprise Intelligence Platform."
-  ctaLabel="Create a free account"
+<IntelligenceOnboardingPrompt
+  feature="learning"
   surface="docs_built_in_agent_quickstart"
 />
 
@@ -38,7 +35,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Create a free account
 
-        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> on our Enterprise Intelligence Platform to get a license key. You'll use it later to enable persistent threads and the inspector.
+        <SignupLink surface="docs_built_in_agent_quickstart_step1">Sign up for a free developer account</SignupLink> for CopilotKit Intelligence to get a license key. You'll use it later to enable persistent threads and the inspector.
     </Step>
 
     <Step>
@@ -98,31 +95,54 @@ Before you begin, you'll need the following:
           [the docs landing](/).
         </Callout>
 
-        ```ts title="app/api/copilotkit/route.ts"
+        ```ts title="app/api/copilotkit/[[...slug]]/route.ts" doctest="component"
         import {
+          CopilotKitIntelligence,
           CopilotRuntime,
-          copilotRuntimeNextJSAppRouterEndpoint,
-        } from "@copilotkit/runtime";
+          createCopilotRuntimeHandler,
+        } from "@copilotkit/runtime/v2";
         import { BuiltInAgent } from "@copilotkit/runtime/v2"; // [!code highlight]
-        import { NextRequest } from "next/server";
 
         const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
           model: "openai:gpt-5.4-mini",
         });
 
         const runtime = new CopilotRuntime({
-          agents: { default: builtInAgent }, // [!code highlight]
+          agents: { default: builtInAgent }, // [!code highlight],
+          // [!code highlight:8]
+          intelligence: new CopilotKitIntelligence({
+            apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
+          }),
+          // Threads are per-user. Without this, every visitor shares one history.
+          identifyUser: (request) => ({
+            id: request.headers.get("x-user-id") ?? "anonymous",
+            name: request.headers.get("x-user-name") ?? "Anonymous",
+          }),
         });
 
-        export const POST = async (req: NextRequest) => {
-          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-            runtime,
-            endpoint: "/api/copilotkit",
-          });
+        const handler = createCopilotRuntimeHandler({
+          runtime,
+          basePath: "/api/copilotkit",
+        });
 
-          return handleRequest(req);
-        };
+        export const GET = handler;
+        export const POST = handler;
         ```
+
+        The runtime reads the project API key from step 1. Add it to the app that serves
+        this route:
+
+        ```plaintext title=".env.local"
+        CPK_INTELLIGENCE_API_KEY=cpk-...
+        ```
+
+        <Callout type="info" title="Running without the Intelligence Platform?">
+          Drop the `intelligence` and `identifyUser` options and the runtime falls back
+          to SSE mode with an in-memory runner. Chat still works, but Threads and the
+          Inspector stay locked and the key is never read. See
+          [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the
+          full constructor and how to confirm the key is in use.
+        </Callout>
     </Step>
     <Step>
         ### Configure CopilotKit Provider
@@ -130,10 +150,12 @@ Before you begin, you'll need the following:
         Wrap your application with the CopilotKit provider:
 
         <Callout type="info" title="Which provider goes with which handler?">
-          `<CopilotKit>` here is the backward-compatible wrapper. It sets no transport
-          by default, so it detects the single-route `copilotRuntimeNextJSAppRouterEndpoint`
-          above on its own. `<CopilotKitProvider>` is the v2 provider from the same
-          package and detects the transport the same way. They are not aliases — see
+          `<CopilotKit>` here is the backward-compatible wrapper, and every released
+          version pins it to the single-route transport — which is why it needs the
+          explicit `useSingleEndpoint={false}` below to reach the multi-route
+          `createCopilotRuntimeHandler` route above. `<CopilotKitProvider>` is the v2
+          provider from the same package and detects the transport from `/info` on
+          its own. They are not aliases — see
           [Provider and handler pairs](/backend/runtime-endpoints#provider-and-handler-pairs).
         </Callout>
 
@@ -149,7 +171,7 @@ Before you begin, you'll need the following:
             <html lang="en">
               <body>
                 {/* [!code highlight:3] */}
-                <CopilotKit runtimeUrl="/api/copilotkit">
+                <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
                   {children}
                 </CopilotKit>
               </body>
@@ -157,6 +179,14 @@ Before you begin, you'll need the following:
           );
         }
         ```
+
+        <Callout type="info" title="This relative runtimeUrl assumes Next.js serves the runtime">
+          `/api/copilotkit` resolves only because Next.js serves your app and the runtime from the
+          same origin. A client-only frontend has no shared origin, so it needs a standalone runtime
+          server of its own and an absolute `runtimeUrl` such as
+          `http://localhost:8200/api/copilotkit`. The per-frontend guides at `/react-spa`, `/vue`,
+          `/angular` and `/react-native` each show that setup.
+        </Callout>
     </Step>
     <Step>
         ### Add the chat interface

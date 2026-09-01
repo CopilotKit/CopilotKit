@@ -23,7 +23,7 @@ for both Slack and Microsoft Teams.
 
 <OpsPlatformCTA
   variant="inline"
-  title="Get started with Enterprise Intelligence"
+  title="Get started with CopilotKit Intelligence"
   body="Create a free project to configure and manage your Slack Channel."
   surface="docs:slack/quickstart:intelligence"
 />
@@ -34,7 +34,7 @@ for both Slack and Microsoft Teams.
 
 <OpsPlatformCTA
   variant="inline"
-  title="Get started with Enterprise Intelligence"
+  title="Get started with CopilotKit Intelligence"
   body="Create a free project to configure and manage your Microsoft Teams Channel."
   surface="docs:teams/quickstart:intelligence"
 />
@@ -43,7 +43,7 @@ for both Slack and Microsoft Teams.
 
 <Image
   src="/images/channels/intelligence-channels-overview.png"
-  alt="The Copilot Intelligence channel creation wizard showing the channel name, Code, and Slack and Teams platform options."
+  alt="The CopilotKit Intelligence channel creation wizard showing the channel name, Code, and Slack and Teams platform options."
   width={3188}
   height={1778}
   className="my-8 w-full rounded-xl border border-fd-border"
@@ -268,7 +268,7 @@ for both Slack and Microsoft Teams.
     long-running Channels process with:
 
     ```dotenv title=".env"
-    INTELLIGENCE_API_KEY=<project-api-key>
+    CPK_INTELLIGENCE_API_KEY=<project-api-key>
     CHANNEL_CODE=<your-channel-code>
 
     # Optional paired overrides for self-hosted or non-production Intelligence:
@@ -303,7 +303,7 @@ for both Slack and Microsoft Teams.
 
 Your Slack Channel should now be **Waiting for runtime**. Continue to
 [Connect and run your agent](/slack/connect) with `CHANNEL_CODE` and
-`INTELLIGENCE_API_KEY`.
+`CPK_INTELLIGENCE_API_KEY`.
 
 </FrontendOnly>
 
@@ -311,6 +311,6 @@ Your Slack Channel should now be **Waiting for runtime**. Continue to
 
 Your Microsoft Teams Channel should now be **Waiting for runtime**. Continue to
 [Connect and run your agent](/teams/connect) with `CHANNEL_CODE` and
-`INTELLIGENCE_API_KEY`.
+`CPK_INTELLIGENCE_API_KEY`.
 
 </FrontendOnly>

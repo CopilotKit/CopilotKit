@@ -14,6 +14,12 @@ Importing the package auto-installs the [polyfills](/reference/react-native#poly
   supported on React Native. Point `runtimeUrl` at a self-hosted runtime.
 </Callout>
 
+<Callout type="info">
+  Native iOS and Android applications do not have a built-in Inspector yet. The
+  browser Inspector requires a DOM and is intentionally excluded from the React
+  Native dependency graph, so this provider does not expose an inspector prop.
+</Callout>
+
 ## Import
 
 ```tsx

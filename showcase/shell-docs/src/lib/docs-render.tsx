@@ -625,7 +625,7 @@ export function buildFrameworkOnlyNav(
   const prefix = `integrations/${folder}/`;
 
   // Recursive slug rewrite so nested groups (e.g. `human-in-the-loop/`,
-  // `premium/`) also get the prefix stripped from their children.
+  // `intelligence/`) also get the prefix stripped from their children.
   //
   // Two `index` cases need rewriting:
   //   1. Top-level `index` → "" so the framework-root entry resolves to
@@ -677,26 +677,26 @@ export function buildRootSurfaceNav(folder: string): NavNode[] {
   return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
 }
 
-const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
+const SHARED_ROOT_SECTIONS = ["Intelligence", "Platforms"];
 
 // Sections pulled from the root `meta.json` into the Built-in Agent
 // sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
 // BIA is the default framework and its docs render at the bare root
 // URLs, so its sidebar must also navigate the agnostic pages that live
 // outside BIA's authored tree (Concepts, the Runtime/backend pages,
-// Intelligence Platform, Deploy, What's New, Migrate, …). Without this, landing
+// Intelligence, Deploy, What's New, Migrate, …). Without this, landing
 // on an agnostic page like `/concepts/architecture` swaps the sidebar
 // to the root `meta.json` IA — the jarring "two docs colliding" flip.
 //
 // Each title slots into a matching empty `---Section---` placeholder in
 // BIA's `meta.json` when present (so position is author-controlled),
-// otherwise the section appends at the end. "Intelligence Platform" and
+// otherwise the section appends at the end. "Intelligence" and
 // "Platforms" stay in the list so the root surface keeps the generated
-// Intelligence Platform IA and shared platform guides.
+// Intelligence IA and shared platform guides.
 const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
-  "Intelligence Platform",
+  "Intelligence",
   "Deploy",
   "Platforms",
   "Other",
@@ -776,7 +776,7 @@ function appendSharedThreadArchitecturePage(navTree: NavNode[]): NavNode[] {
 
   const architecturePage = findPageBySlug(
     rootGroup.children,
-    "premium/threads-explained",
+    "intelligence/threads-explained",
   );
   if (architecturePage?.type !== "page") return navTree;
 
@@ -1070,19 +1070,19 @@ export const SNIPPET_MAP: Record<string, string> = {
   FrontEndToolsImpl: "shared/app-control/frontend-tools.mdx", // alias of FrontendTools
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   Interactive: "shared/generative-ui/interactive.mdx",
   MCPApps: "shared/generative-ui/mcp-apps.mdx",
   MCPSetup: "shared/guides/mcp-server-setup.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
   HeadlessThreads: "shared/threads/headless-threads.mdx",
   Threads: "shared/threads/headless-threads.mdx",
@@ -1134,8 +1134,8 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   inspector: "Inspector",
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
-  "premium/headless-ui": "HeadlessUI",
-  "premium/overview": "Overview",
+  "intelligence/headless-ui": "HeadlessUI",
+  "intelligence/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",

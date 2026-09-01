@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve as resolvePath } from "node:path";
 
 import {
   TELEMETRY_DOCS_URL,
@@ -20,6 +20,7 @@ import {
   trackThreadsLockedViewed,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
+  trackThreadsTryFromHereClicked,
   trackWhatsNewClicked,
   trackWhatsNewSignalViewed,
   trackWhatsNewViewed,
@@ -44,9 +45,8 @@ import {
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
 const webInspectorPackage = JSON.parse(
-  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+  readFileSync(resolvePath(process.cwd(), "package.json"), "utf8"),
 ) as { version: string };
-
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
   // + disclosure-shown flags don't leak across cases.
@@ -82,12 +82,9 @@ describe("track()", () => {
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url).toBe(TELEMETRY_INGEST_URL);
     expect(init?.method).toBe("POST");
-    expect((init?.headers as Record<string, string>)["Content-Type"]).toBe(
-      "application/json",
-    );
-    expect(
-      (init?.headers as Record<string, string>)["X-CopilotKit-Telemetry-Id"],
-    ).toMatch(/^[0-9a-f-]{36}$/);
+    const headers = new Headers(init?.headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+    expect(headers.get("X-CopilotKit-Telemetry-Id")).toMatch(/^[0-9a-f-]{36}$/);
 
     // Ben confirmed shape (telemetry-sink-ingest/index.ts:127-134):
     // package is a top-level object { name, version? }, NOT inside properties.
@@ -142,7 +139,7 @@ describe("track()", () => {
 
     expect(() => track(TELEMETRY_EVENTS.threadsTabClicked)).not.toThrow();
 
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((done) => setTimeout(done, 0));
   });
 
   it("does not send when fetch is unavailable (SSR / pre-fetch environment)", async () => {
@@ -345,6 +342,33 @@ describe("typed helpers", () => {
     });
   });
 
+  it("trackThreadsTryFromHereClicked sends outcome without thread ids", async () => {
+    trackThreadsTryFromHereClicked({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "valid",
+      telemetry_disabled: false,
+      leaf_key: "threads",
+      outcome: "success",
+    });
+    await Promise.resolve();
+    const [, init] = fetchMock.mock.calls[0]!;
+    const body = JSON.parse((init?.body as string) ?? "{}") as {
+      event: string;
+      properties: Record<string, unknown>;
+    };
+    expect(body.event).toBe(TELEMETRY_EVENTS.threadsTryFromHereClicked);
+    expect(body.properties).toMatchObject({
+      outcome: "success",
+      leaf_key: "threads",
+      runtime_mode: "sse",
+    });
+    expect(body.properties).not.toHaveProperty("thread_id");
+    expect(body.properties).not.toHaveProperty("message");
+  });
+
   it("sends required threads CTA and viewed events", async () => {
     trackThreadsLockedViewed({
       intelligence_status: "intelligence_not_enabled",
@@ -464,10 +488,10 @@ describe("event catalogue", () => {
     ]);
   });
 
-  it("holds twenty-three event names, all under the owned oss.inspector prefix", () => {
+  it("holds twenty-seven event names, all under the owned oss.inspector prefix", () => {
     const names = Object.values(TELEMETRY_EVENTS) as string[];
 
-    expect(names).toHaveLength(23);
+    expect(names).toHaveLength(27);
     expect(names.filter((name) => !name.startsWith("oss.inspector."))).toEqual(
       [],
     );

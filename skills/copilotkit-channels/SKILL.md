@@ -225,7 +225,7 @@ The agent is **framework-agnostic**: `agent` accepts any AG-UI `AbstractAgent`, 
 import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
 });
 
 const runtime = new CopilotRuntime({

@@ -4,6 +4,9 @@
 # Stack: <stack_name_base>-st  (isolated from deploy-langgraph.sh)
 # Using Terraform instead? See infra-terraform/README.md
 set -euo pipefail
+set +a
+set +x
+export -n CPK_INTELLIGENCE_API_KEY
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PATTERN="strands-single-agent"
@@ -18,25 +21,75 @@ for arg in "$@"; do
   [[ "$arg" == "--skip-backend" ]] && SKIP_BACKEND=true
 done
 
+if [ "$SKIP_BACKEND" = false ]; then
+  if [ ! -f "$SCRIPT_DIR/.env" ]; then
+    echo "ERROR: $SCRIPT_DIR/.env is required. Copy .env.example and add your managed project credentials."
+    exit 1
+  fi
+
+  INTELLIGENCE_API_URL_OVERRIDE_SET=false
+  if [ "${INTELLIGENCE_API_URL+x}" = x ]; then
+    INTELLIGENCE_API_URL_OVERRIDE="$INTELLIGENCE_API_URL"
+    INTELLIGENCE_API_URL_OVERRIDE_SET=true
+  fi
+  INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=false
+  if [ "${INTELLIGENCE_GATEWAY_WS_URL+x}" = x ]; then
+    INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE="$INTELLIGENCE_GATEWAY_WS_URL"
+    INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET=true
+  fi
+
+  source "$SCRIPT_DIR/.env"
+  set +a
+  set +x
+  if [ "$INTELLIGENCE_API_URL_OVERRIDE_SET" = true ]; then
+    export INTELLIGENCE_API_URL="$INTELLIGENCE_API_URL_OVERRIDE"
+  fi
+  if [ "$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE_SET" = true ]; then
+    export INTELLIGENCE_GATEWAY_WS_URL="$INTELLIGENCE_GATEWAY_WS_URL_OVERRIDE"
+  fi
+  : "${CPK_INTELLIGENCE_API_KEY:?CPK_INTELLIGENCE_API_KEY is required in .env}"
+  export -n CPK_INTELLIGENCE_API_KEY
+  export INTELLIGENCE_API_URL="${INTELLIGENCE_API_URL:-}"
+  export INTELLIGENCE_GATEWAY_WS_URL="${INTELLIGENCE_GATEWAY_WS_URL:-}"
+fi
+export CPK_TELEMETRY_ID="${CPK_TELEMETRY_ID:-}"
+
 echo "── CopilotKit + AWS AgentCore (Strands) ────────────────────────────────"
 
 # ── Preflight checks ──────────────────────────────────────────────────────────
 check_command() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 is required but not installed."; exit 1; }
 }
+validate_remote_override() {
+  local name="$1"
+  local value="$2"
+  local required_scheme="$3"
+  local example="$4"
+  if [[ -n "$value" && "$value" =~ ^[a-zA-Z][a-zA-Z0-9+.-]*://(localhost|127\.0\.0\.1|host\.docker\.internal)([:/]|$) ]]; then
+    echo "ERROR: $name must be a non-local endpoint reachable from AWS (for example, $example). Set it in .env or prefix the deploy command."
+    exit 1
+  fi
+  if [[ -n "$value" && ! "$value" =~ ^${required_scheme}:// ]]; then
+    echo "ERROR: $name must use $required_scheme:// (for example, $example). Set it in .env or prefix the deploy command."
+    exit 1
+  fi
+}
 check_command aws
-check_command node
-check_command python3
-check_command docker
+check_command uv
+if [ "$SKIP_BACKEND" = false ]; then
+  validate_remote_override INTELLIGENCE_API_URL "${INTELLIGENCE_API_URL:-}" https "https://intelligence.example.com"
+  validate_remote_override INTELLIGENCE_GATEWAY_WS_URL "${INTELLIGENCE_GATEWAY_WS_URL:-}" wss "wss://gateway.example.com"
+  check_command node
+  check_command docker
+fi
 
-python3 -c "import sys; assert sys.version_info >= (3,8), 'Python 3.8+ required'" || exit 1
 aws sts get-caller-identity --query "Account" --output text >/dev/null 2>&1 || \
   { echo "ERROR: AWS credentials not configured. Run: aws configure"; exit 1; }
 
 echo "✓ Preflight checks passed"
 
 # ── Patch config.yaml (pattern + stack name suffix) ──────────────────────────
-python3 - "$CONFIG" "$PATTERN" "$SUFFIX" <<'PYEOF'
+uv run --project "$SCRIPT_DIR" python - "$CONFIG" "$PATTERN" "$SUFFIX" <<'PYEOF'
 import re, sys
 config_path, pattern, suffix = sys.argv[1], sys.argv[2], sys.argv[3]
 with open(config_path) as f:
@@ -56,8 +109,22 @@ PYEOF
 
 # ── CDK deploy ───────────────────────────────────────────────────────────────
 if [ "$SKIP_BACKEND" = true ]; then
+  unset CPK_INTELLIGENCE_API_KEY
   echo "⚡ Skipping backend deploy (--skip-backend)"
 else
+  # Materialize backend credentials only while backend resources are deployed.
+  CPK_INTELLIGENCE_API_KEY_SECRET_NAME=$(uv run --project "$SCRIPT_DIR" python -c "import re; c=open('$CONFIG').read(); print(re.search(r'^copilotkit_intelligence_api_key_secret_name:\s*([^#\s]+)', c, re.MULTILINE).group(1))")
+  if aws secretsmanager describe-secret --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" >/dev/null 2>&1; then
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager put-secret-value --secret-id "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
+  else
+    CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID=$(printf '%s' "$CPK_INTELLIGENCE_API_KEY" | aws secretsmanager create-secret --name "$CPK_INTELLIGENCE_API_KEY_SECRET_NAME" --secret-string file:///dev/stdin --query VersionId --output text)
+  fi
+  unset CPK_INTELLIGENCE_API_KEY
+
+  : "${CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID:?Secrets Manager did not return a managed key version ID}"
+  export CPK_INTELLIGENCE_API_KEY_SECRET_VERSION_ID
+  echo "✓ Managed Intelligence key stored in Secrets Manager"
+
   echo "Deploying infrastructure (this takes ~10–15 min on first run)..."
   cd "$CDK_DIR"
   npm install --silent
@@ -70,9 +137,9 @@ fi
 if [ "$SKIP_FRONTEND" = true ]; then
   echo "⚡ Skipping frontend deploy (--skip-frontend)"
 else
-  STACK_NAME=$(python3 -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
+  STACK_NAME=$(uv run --project "$SCRIPT_DIR" python -c "import re; c=open('$CONFIG').read(); print(re.search(r'stack_name_base:\s*([\w-]+)', c).group(1))")
   echo "Deploying frontend for stack: $STACK_NAME"
-  python3 scripts/deploy-frontend.py "$STACK_NAME"
+  uv run --project "$SCRIPT_DIR" "$SCRIPT_DIR/scripts/deploy-frontend.py" "$STACK_NAME"
 fi
 echo ""
 echo "✓ Done!"

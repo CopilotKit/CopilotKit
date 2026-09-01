@@ -520,6 +520,21 @@ const nextConfig: NextConfig = {
         destination: "/quickstart",
         permanent: true,
       },
+      // The Intelligence folder was renamed `premium/` → `intelligence/`
+      // (OSS-1078). Without these two entries the catch-all below strips
+      // the prefix to `/premium/...`, which the middleware then renames in
+      // a second hop. Naming the rename here keeps BIA at one hop, like
+      // every other framework slug.
+      {
+        source: "/built-in-agent/premium",
+        destination: "/intelligence/overview",
+        permanent: true,
+      },
+      {
+        source: "/built-in-agent/premium/:path*",
+        destination: "/intelligence/:path*",
+        permanent: true,
+      },
       {
         source: "/built-in-agent/:path*",
         destination: "/:path*",
@@ -675,12 +690,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/learn/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {
         source: "/learn/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
@@ -746,8 +761,8 @@ const nextConfig: NextConfig = {
 
       // Concepts subgroup tightened: protocol pages moved into a new
       // /agentic-protocols/ section under Get Started, the
-      // Intelligence Platform + Threads explanation pages moved to
-      // Enterprise (/premium/), and three-types-of-gen-ui merged into
+      // Intelligence + Threads explanation pages moved to
+      // Enterprise (/intelligence/), and three-types-of-gen-ui merged into
       // /concepts/generative-ui-overview. Per-path redirects below
       // catch URLs that were live in the brief window between the
       // first /learn/ consolidation pass and this restructure.
@@ -773,12 +788,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/concepts/intelligence-platform",
-        destination: "/premium/intelligence-platform",
+        destination: "/intelligence/intelligence-platform",
         permanent: true,
       },
       {
         source: "/concepts/threads",
-        destination: "/premium/threads-explained",
+        destination: "/intelligence/threads-explained",
         permanent: true,
       },
       {

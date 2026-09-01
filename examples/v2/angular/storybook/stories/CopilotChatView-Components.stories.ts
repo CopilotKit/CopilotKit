@@ -737,7 +737,7 @@ export class ServiceBasedExampleComponent {
     @Component({
       selector: "story-service-input",
       standalone: true,
-      imports: [CommonModule, FormsModule],
+      imports: [FormsModule],
       template: `
         <div
           style="
