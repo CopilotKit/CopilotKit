@@ -59,7 +59,10 @@ export type ChannelProviderPayload =
       blocks?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
-      kind: "slack.message.delete" | "teams.message.delete";
+      kind:
+        | "slack.message.delete"
+        | "teams.message.delete"
+        | "discord.message.delete";
       providerReference: string;
     }
   | {
@@ -80,11 +83,24 @@ export type ChannelProviderPayload =
       cards?: ReadonlyArray<Readonly<Record<string, unknown>>>;
     }
   | {
+      kind: "discord.message.create";
+      text: string;
+      components?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }
+  | {
+      kind: "discord.message.replace";
+      providerReference: string;
+      text: string;
+      components?: ReadonlyArray<Readonly<Record<string, unknown>>>;
+    }
+  | {
       kind:
         | "slack.reaction.add"
         | "slack.reaction.remove"
         | "teams.reaction.add"
-        | "teams.reaction.remove";
+        | "teams.reaction.remove"
+        | "discord.reaction.add"
+        | "discord.reaction.remove";
       providerReference: string;
       reaction: string;
     }
@@ -95,7 +111,7 @@ export type ChannelProviderPayload =
       altText?: string;
     }
   | {
-      kind: "teams.file.create";
+      kind: "teams.file.create" | "discord.file.create";
       fileHandle: string;
       filename: string;
       title?: string;
@@ -106,7 +122,10 @@ export type ChannelProviderPayload =
       fileHandle: string;
     }
   | {
-      kind: "slack.image.create" | "teams.image.create";
+      kind:
+        | "slack.image.create"
+        | "teams.image.create"
+        | "discord.image.create";
       fileHandle: string;
       altText: string;
     };
@@ -313,6 +332,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.message.delete":
     case "teams.message.delete":
+    case "discord.message.delete":
       return (
         hasExactFields(value, ["kind", "providerReference"]) &&
         validReference(value.providerReference)
@@ -335,10 +355,29 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.text, 0, 40_000) &&
         optionalRecordArray(value.cards, 25)
       );
+    case "discord.message.create":
+      return (
+        hasExactFields(value, ["kind", "text", "components"], ["components"]) &&
+        boundedString(value.text, 0, 40_000) &&
+        optionalRecordArray(value.components, 40)
+      );
+    case "discord.message.replace":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "providerReference", "text", "components"],
+          ["components"],
+        ) &&
+        validReference(value.providerReference) &&
+        boundedString(value.text, 0, 40_000) &&
+        optionalRecordArray(value.components, 40)
+      );
     case "slack.reaction.add":
     case "slack.reaction.remove":
     case "teams.reaction.add":
     case "teams.reaction.remove":
+    case "discord.reaction.add":
+    case "discord.reaction.remove":
       return (
         hasExactFields(value, ["kind", "providerReference", "reaction"]) &&
         validReference(value.providerReference) &&
@@ -356,6 +395,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         optionalBoundedString(value.altText, 2_000)
       );
     case "teams.file.create":
+    case "discord.file.create":
       return (
         hasExactFields(
           value,
@@ -374,6 +414,7 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
       );
     case "slack.image.create":
     case "teams.image.create":
+    case "discord.image.create":
       return (
         hasExactFields(value, ["kind", "fileHandle", "altText"]) &&
         boundedString(value.fileHandle, 1, 128) &&

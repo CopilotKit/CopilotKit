@@ -41,12 +41,12 @@ export interface RealtimeGatewaySession {
  * - `channel_not_declared`: the project has no Channel with that name.
  *
  * A Runtime declares EVERY supported adapter per Channel (the launcher emits a
- * `slack` and a `teams` pair unconditionally), so the Gateway folds the adapter
- * states BEST-of — `attached` > `unhealthy` > `not_attached` — answering "is at
- * least one provider bound?". A correctly configured Slack-only Channel is
- * therefore `attached`, not dragged to `not_attached` by the Teams adapter
- * nobody asked for. The two Channel-level states above are properties of the
- * Channel row and dominate every adapter state.
+ * `slack`, `teams`, and `discord` triple unconditionally), so the Gateway folds
+ * the adapter states BEST-of — `attached` > `unhealthy` > `not_attached` —
+ * answering "is at least one provider bound?". A correctly configured Slack-only
+ * Channel is therefore `attached`, not dragged to `not_attached` by the Teams
+ * or Discord adapter nobody asked for. The two Channel-level states above are
+ * properties of the Channel row and dominate every adapter state.
  */
 export type ChannelProviderState =
   | "attached"

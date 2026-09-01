@@ -2359,6 +2359,9 @@ importers:
       '@copilotkit/channels-core':
         specifier: workspace:^
         version: link:../channels-core
+      '@copilotkit/channels-discord':
+        specifier: workspace:^
+        version: link:../channels-discord
       '@copilotkit/channels-slack':
         specifier: workspace:^
         version: link:../channels-slack
@@ -14735,7 +14738,7 @@ packages:
     resolution: {integrity: sha512-7Yx/SXSOcQq5HiiV3orevHUFn+pmMB4cgbEkDYgnkUWb0WfeQ/wa2yFv6D5ICiCQOVpjA7vYDXrC7AGO8yjDHA==}
     engines: {node: ^18.0.0 || >=20.0.0}
     peerDependencies:
-      vite: '>=6.4.2'
+      vite: 7.3.2
       vue: ^3.2.25
 
   '@vitejs/plugin-vue@6.0.7':
@@ -42122,7 +42125,7 @@ snapshots:
       obug: 2.1.1
       std-env: 4.0.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@26.1.0)(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   '@vitest/expect@3.2.4':
     dependencies:
@@ -42297,7 +42300,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.19.11)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@25.6.0)(@vitest/ui@3.2.4)(jiti@2.7.0)(jsdom@29.1.0(@noble/hashes@1.8.0))(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0)
 
   '@vitest/utils@3.2.4':
     dependencies:
