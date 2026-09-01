@@ -4,6 +4,7 @@ import { CopilotKitIntelligence } from "../../intelligence-platform";
 import { ChannelManager } from "../channel-manager";
 import type { ActivateChannelEngine, ChannelsHandle } from "../channel-manager";
 import { telemetry } from "../../telemetry";
+import type { TelemetryCapture } from "../../telemetry/telemetry-client";
 
 /* ------------------------------------------------------------------------------------------------
  * Reconnection is delegated to the Phoenix connection layer (the launcher's
@@ -256,6 +257,40 @@ describe("ChannelManager connection health (onStateChange)", () => {
  * customer reported it. These events make an outage — and its end — reportable.
  * --------------------------------------------------------------------------------------------- */
 describe("ChannelManager drop/recovery telemetry (OSS-825)", () => {
+  it("uses an injected telemetry capture instead of the process singleton", async () => {
+    const defaultCaptureSpy = vi
+      .spyOn(telemetry, "capture")
+      .mockResolvedValue(undefined);
+    const scopedCapture = vi.fn().mockResolvedValue(undefined);
+    const scopedTelemetry = { capture: scopedCapture } as TelemetryCapture;
+    try {
+      const handle = observableHandle();
+      const engine: ActivateChannelEngine = vi.fn(async () => handle);
+      const args = {
+        intelligence: fakeIntelligence(),
+        channels: [
+          createChannel({ identifyUser: "platform", name: "support" }),
+        ],
+        activateChannel: engine,
+        telemetry: scopedTelemetry,
+      };
+      const mgr = new ChannelManager(args);
+      mgr.activate();
+      await mgr.ready();
+
+      handle.fireState("reconnecting", { reason: "socket dropped" });
+
+      expect(scopedCapture).toHaveBeenCalledWith(
+        "oss.runtime.channel_session_dropped",
+        { reason: "socket dropped" },
+      );
+      expect(defaultCaptureSpy).not.toHaveBeenCalled();
+      await mgr.stop();
+    } finally {
+      defaultCaptureSpy.mockRestore();
+    }
+  });
+
   it("captures a dropped event carrying the transport cause", async () => {
     const captureSpy = vi
       .spyOn(telemetry, "capture")

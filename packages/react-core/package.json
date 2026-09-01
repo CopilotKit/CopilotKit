@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/react-core",
-  "version": "1.69.3",
+  "version": "1.70.0",
   "private": false,
   "keywords": [
     "ai",
@@ -75,8 +75,8 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.57",
-    "@ag-ui/core": "0.0.57",
+    "@ag-ui/client": "0.0.59",
+    "@ag-ui/core": "0.0.59",
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/runtime-client-gql": "workspace:*",

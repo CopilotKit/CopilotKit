@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, test, vi } from "vitest";
 
@@ -17,20 +18,40 @@ vi.mock("posthog-js/react", () => ({
   usePostHog: () => ({ capture: vi.fn() }),
 }));
 
-vi.mock("@clerk/nextjs", () => ({
-  useUser: () => {
-    if (clerkState.shouldThrow) throw new Error("Clerk unavailable");
+vi.mock("@clerk/nextjs", () => {
+  const UserButton = Object.assign(
+    ({ children }: { children?: ReactNode }) => (
+      <div>
+        <button type="button">Account menu</button>
+        {children}
+      </div>
+    ),
+    {
+      MenuItems: ({ children }: { children?: ReactNode }) => children,
+      Link: ({ href, label }: { href: string; label: string }) => (
+        <a href={href}>{label}</a>
+      ),
+    },
+  );
 
-    return {
-      isLoaded: clerkState.isLoaded,
-      isSignedIn: clerkState.isSignedIn,
-    };
-  },
-  UserButton: () => <button type="button">Account menu</button>,
-}));
+  return {
+    useUser: () => {
+      if (clerkState.shouldThrow) throw new Error("Clerk unavailable");
+
+      return {
+        isLoaded: clerkState.isLoaded,
+        isSignedIn: clerkState.isSignedIn,
+      };
+    },
+    UserButton,
+  };
+});
 
 import { BrandNav, buildDocsAuthEntryHref } from "../brand-nav";
-import { DocsAuthFallbackBoundary } from "../docs-public-auth-control";
+import {
+  buildDocsUserMenuHref,
+  DocsAuthFallbackBoundary,
+} from "../docs-public-auth-control";
 
 const brandNavSource = readFileSync(
   new URL("../brand-nav.tsx", import.meta.url),
@@ -83,7 +104,30 @@ test("BrandNav renders Clerk's user button in the desktop auth slot", () => {
   const markup = renderToStaticMarkup(<BrandNav />);
 
   expect(markup).toContain("Account menu");
+  expect(markup).toContain(
+    'href="https://dashboard.operations.copilotkit.ai/intelligence"',
+  );
+  expect(markup).toContain("Intelligence");
+  expect(markup).toContain(
+    'href="https://dashboard.operations.copilotkit.ai/pricing"',
+  );
+  expect(markup).toContain("Manage your plan");
   expect(markup).not.toContain("Get CopilotKit Intelligence free");
+});
+
+test("BrandNav uses the environment-specific Ops origin for user menu links", () => {
+  expect(
+    buildDocsUserMenuHref(
+      "/intelligence",
+      "https://dashboard.staging.operations.copilotkit.ai",
+    ),
+  ).toBe("https://dashboard.staging.operations.copilotkit.ai/intelligence");
+  expect(
+    buildDocsUserMenuHref(
+      "/pricing",
+      "https://dashboard.staging.operations.copilotkit.ai",
+    ),
+  ).toBe("https://dashboard.staging.operations.copilotkit.ai/pricing");
 });
 
 test("BrandNav sends public auth entry to Intelligence onboarding", () => {

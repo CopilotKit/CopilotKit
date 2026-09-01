@@ -1,8 +1,8 @@
 === SEO Redirect Decommission Report (last 30 days) ===
-Total redirects defined: 388
+Total redirects defined: 390
 Total hits: 12,537
 Redirects with hits: 13
-Zero-hit candidates: 375
+Zero-hit candidates: 377
 
 Top 10 most-hit redirects:
   D1                        5,432 hits
@@ -94,9 +94,10 @@ Decommission candidates (zero hits):
   F9                        /langgraph/generative-ui/interactive/interrupt-based → /langgraph-python/generative-ui/your-components/interrupt-based
   FI-concepts               /concepts → /concepts/architecture
   FI-migrate                /migrate → /migrate/v2
-  FI-premium                /premium → /premium/overview
+  FI-premium                /premium → /intelligence/overview
   FI-reference              /reference → /reference/v2
   FI-troubleshooting        /troubleshooting → /troubleshooting/common-issues
+  INTEL-observability-root  /premium/observability → /intelligence/overview
   L10                       /coagents/tutorials → /langgraph-python/tutorials
   L11                       /coagents/videos → /langgraph-python/videos
   L12                       /coagents/:path* → /langgraph-python/:path*
@@ -149,7 +150,8 @@ Decommission candidates (zero hits):
   P4                        /troubleshooting/:path* → /troubleshooting/:path*
   P5                        /custom-look-and-feel/:path* → /custom-look-and-feel/:path*
   P6                        /generative-ui/:path* → /generative-ui/:path*
-  P7                        /premium/:path* → /premium/:path*
+  P7                        /premium/:path* → /intelligence/:path*
+  P7-intelligence           /intelligence/:path* → /intelligence/:path*
   P8                        /contributing/:path* → /contributing/:path*
   P9                        /reference/v2/:path* → /reference/v2/:path*
   R10                       /agentic-chat-ui → /prebuilt-components

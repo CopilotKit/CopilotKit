@@ -144,6 +144,32 @@ describe("CopilotChatAssistantMessage", () => {
       });
     });
 
+    it("preserves props added to the bound Inspector button", () => {
+      renderWithProvider(
+        <CopilotKitInspectorContextProvider
+          value={{ isInspectorEnabled: true, openInspector: vi.fn() }}
+        >
+          <CopilotChatAssistantMessage message={basicMessage}>
+            {({ inspectorButton }) =>
+              React.cloneElement(
+                inspectorButton as React.ReactElement<
+                  React.ButtonHTMLAttributes<HTMLButtonElement>
+                >,
+                {
+                  className: "custom-inspector-button",
+                },
+              )
+            }
+          </CopilotChatAssistantMessage>
+        </CopilotKitInspectorContextProvider>,
+      );
+
+      const inspectorButton = screen.getByRole("button", {
+        name: "View in Inspector (local only)",
+      });
+      expect(inspectorButton.className).toContain("custom-inspector-button");
+    });
+
     it("renders all buttons when all callbacks provided", () => {
       renderWithProvider(
         <CopilotChatAssistantMessage

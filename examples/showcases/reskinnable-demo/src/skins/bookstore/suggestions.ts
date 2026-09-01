@@ -4,7 +4,7 @@ import type { Suggestion } from "@/shell/skin-contract";
  * ⚠️ RUNTIME REQUIREMENT — read before demoing this skin.
  *
  * Beats 2, 4 and 5 exist ONLY in Intelligence mode: all three of
- * INTELLIGENCE_API_URL, INTELLIGENCE_GATEWAY_WS_URL and INTELLIGENCE_API_KEY must
+ * INTELLIGENCE_API_URL, INTELLIGENCE_GATEWAY_WS_URL and CPK_INTELLIGENCE_API_KEY must
  * be set. On the default OSS path the runner is in-memory, so threads are
  * ephemeral and recall_memory does not exist — which removes THREE of this skin's
  * four headline claims and leaves a pretty storefront with a chatbot. Demo this

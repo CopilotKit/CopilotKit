@@ -21,7 +21,7 @@
         "threads-lifecycle",
         "threads-import",
         "threads-self-managed",
-        "premium/threads-explained"
+        "intelligence/threads-explained"
       ]
     },
     "custom-look-and-feel",
@@ -53,11 +53,11 @@
     "inspector",
     "vs-code-extension",
     "---Intelligence---",
-    "premium/overview",
-    "premium/managed-intelligence-platform",
-    "premium/connect-your-runtime",
-    "premium/self-hosting",
-    "premium/intelligence-platform",
+    "intelligence/overview",
+    "intelligence/managed-intelligence-platform",
+    "intelligence/connect-your-runtime",
+    "intelligence/self-hosting",
+    "intelligence/intelligence-platform",
     "---Deploy---",
     "...deploy",
     "---Other---",

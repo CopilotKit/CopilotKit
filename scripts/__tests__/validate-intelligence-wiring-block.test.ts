@@ -17,17 +17,19 @@ import {
  * every instance it tracks, and no smoke test sets `COPILOTKIT_LICENSE_TOKEN`,
  * so the `intelligence:` arm has never executed in CI (OSS-982).
  *
- * The block was already byte-identical in 21 of 22 starters when the check was
- * written, so this is a ratchet rather than a migration. What had drifted was
- * the warning comment — into five variants, two of them missing outright — and
- * that drift is how the localhost default of OSS-981 survived in all 22 copies.
+ * The block was already byte-identical in the 21 starters that use the shared
+ * demo-user setup when the check was written, so this is a ratchet rather than
+ * a migration. AgentCore uses request-bound Cognito identity and has a separate
+ * runtime security test. What had drifted was the warning comment — into five
+ * variants, two of them missing outright — and that drift is how the localhost
+ * default of OSS-981 survived in all 21 shared copies.
  */
 
 const CANONICAL = `  // --- copilotkit:intelligence (remove this block to opt out) ---
   ...(process.env.COPILOTKIT_LICENSE_TOKEN
     ? {
         intelligence: new CopilotKitIntelligence({
-          apiKey: process.env.INTELLIGENCE_API_KEY ?? "",
+          apiKey: process.env.CPK_INTELLIGENCE_API_KEY ?? "",
         }),
         identifyUser: () => ({ id: "demo-user", name: "Demo User" }),
         licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
@@ -169,8 +171,8 @@ describe("blockDiff", () => {
  * asserted against the starter inventory as well.
  */
 describe("the repository's wiring sites", () => {
-  it("finds one marked site in every starter that wires Intelligence", () => {
-    expect(markerFiles().length).toBeGreaterThanOrEqual(22);
+  it("finds one marked site in every starter with shared Intelligence wiring", () => {
+    expect(markerFiles().length).toBeGreaterThanOrEqual(21);
   });
 
   it("holds every site to one shape", () => {
