@@ -20,6 +20,7 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from textwrap import dedent
 from typing import Any, Literal
+from uuid import uuid4
 
 from ag_ui.core import BaseEvent
 from agent_framework import Agent, BaseChatClient
@@ -98,9 +99,8 @@ def build_system_prompt(tone: str, expertise: str, response_length: str) -> str:
 class AgentConfigFrameworkAgent(AgentFrameworkAgent):
     """AgentFrameworkAgent that rebuilds its system prompt per request.
 
-    Overrides ``run`` to read ``forwardedProps`` from the AG-UI input
-    and temporarily replace the wrapped agent's ``instructions`` option before
-    delegating to the standard orchestrator chain.
+    Overrides ``run`` to read ``forwardedProps`` from the AG-UI input and add
+    the resulting instructions to a request-local system message.
     """
 
     async def run(  # type: ignore[override]
@@ -112,22 +112,26 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
             props["tone"], props["expertise"], props["response_length"]
         )
 
-        options = getattr(self.agent, "default_options", None)
-        if not isinstance(options, dict):
+        messages = input_data.get("messages")
+        if not isinstance(messages, list) or len(messages) == 0:
             async for event in super().run(input_data):
                 yield event
             return
 
-        previous_instructions = options.get("instructions")
-        options["instructions"] = system_prompt
-        try:
-            async for event in super().run(input_data):
-                yield event
-        finally:
-            if previous_instructions is None:
-                options.pop("instructions", None)
-            else:
-                options["instructions"] = previous_instructions
+        run_id = input_data.get("runId") or str(uuid4())
+        request_input = dict(input_data)
+        request_input["runId"] = run_id
+        request_input["messages"] = [
+            {
+                "id": f"{run_id}-agent-config",
+                "role": "system",
+                "content": system_prompt,
+            },
+            *messages,
+        ]
+
+        async for event in super().run(request_input):
+            yield event
 
 
 def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFrameworkAgent:

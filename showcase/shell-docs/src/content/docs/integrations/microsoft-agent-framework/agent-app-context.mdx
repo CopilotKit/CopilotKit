@@ -161,8 +161,7 @@ This context can then be shared with your AG-UI server and agent logic.
                             value = json.dumps(value, ensure_ascii=False, indent=2)
                         except (TypeError, ValueError):
                             value = str(value)
-                    if value:
-                        lines.extend(["", description, value])
+                    lines.extend(["", description, value])
 
                 return "\n".join(lines) if len(lines) > 1 else None
 
@@ -180,7 +179,7 @@ This context can then be shared with your AG-UI server and agent logic.
                     # The adapter skips the model when messages are empty. Context
                     # alone must not create an unsolicited model call.
                     if context_prompt and isinstance(messages, list) and messages:
-                        run_id = input_data.get("run_id") or input_data.get("runId") or str(uuid4())
+                        run_id = input_data.get("runId") or str(uuid4())
                         request_input = dict(input_data)
                         request_input["runId"] = run_id
                         request_input["messages"] = [

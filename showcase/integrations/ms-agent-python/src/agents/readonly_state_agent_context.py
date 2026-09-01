@@ -53,9 +53,6 @@ def build_context_system_message(context: Any) -> str | None:
                 value = json.dumps(value, ensure_ascii=False, indent=2)
             except (TypeError, ValueError):
                 value = str(value)
-        if not value:
-            continue
-
         lines.append("")
         lines.append(description)
         lines.append(value)
@@ -93,7 +90,7 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
                 yield event
             return
 
-        run_id = input_data.get("run_id") or input_data.get("runId") or str(uuid4())
+        run_id = input_data.get("runId") or str(uuid4())
         request_input = dict(input_data)
         request_input["runId"] = run_id
         request_input["messages"] = [

@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 from ag_ui.core import RunFinishedEvent, RunStartedEvent
 from agent_framework_ag_ui import AgentFrameworkAgent
-
+from agents.agent_config_agent import AgentConfigFrameworkAgent
 from agents.readonly_state_agent_context import (
     SYSTEM_PROMPT,
     ReadonlyContextFrameworkAgent,
@@ -39,6 +39,13 @@ def test_non_string_context_values_are_rendered_as_json() -> None:
         '  "Viewed the pricing page",\n'
         '  "Watched the product demo"\n'
         "]"
+    )
+
+
+def test_empty_context_values_remain_visible_to_the_model() -> None:
+    assert (
+        build_context_system_message([{"description": "Current search", "value": ""}])
+        == "## Context from the application\n\nCurrent search\n"
     )
 
 
@@ -187,3 +194,57 @@ async def test_missing_run_ids_get_unique_context_message_ids(
     assert message_ids == [
         f"{input_data['runId']}-app-context" for input_data in observed_inputs
     ]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_agent_config_runs_keep_instructions_request_local(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    entered = {"alpha": asyncio.Event(), "bravo": asyncio.Event()}
+    release = asyncio.Event()
+    observed_inputs: dict[str, dict[str, Any]] = {}
+
+    async def capture_run(
+        _adapter: AgentFrameworkAgent,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[object, None]:
+        run_id = input_data["runId"]
+        entered[run_id].set()
+        if run_id == "alpha":
+            await entered["bravo"].wait()
+            release.set()
+        else:
+            await release.wait()
+        observed_inputs[run_id] = input_data
+        yield object()
+
+    monkeypatch.setattr(AgentFrameworkAgent, "run", capture_run)
+
+    wrapped_agent = SimpleNamespace(
+        name="agent_config",
+        description="",
+        default_options={"instructions": "Base instructions"},
+    )
+    adapter = AgentConfigFrameworkAgent(agent=wrapped_agent)
+
+    async def consume(run_id: str, tone: str) -> None:
+        async for _ in adapter.run(
+            {
+                "runId": run_id,
+                "messages": [{"id": f"{run_id}-user", "role": "user", "content": "Hi"}],
+                "forwardedProps": {"tone": tone},
+            }
+        ):
+            pass
+
+    await asyncio.wait_for(
+        asyncio.gather(consume("alpha", "casual"), consume("bravo", "enthusiastic")),
+        timeout=5,
+    )
+
+    assert (
+        "friendly, conversational"
+        in _context_message(observed_inputs["alpha"])["content"]
+    )
+    assert "upbeat, energetic" in _context_message(observed_inputs["bravo"])["content"]
+    assert wrapped_agent.default_options == {"instructions": "Base instructions"}
