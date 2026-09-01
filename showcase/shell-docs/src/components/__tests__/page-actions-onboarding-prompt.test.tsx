@@ -2,6 +2,7 @@
 
 import React from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -12,6 +13,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { OnboardingPromptCopyButton } from "../ai/page-actions";
 import {
   createIntelligenceOnboardingPrompt,
+  createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
 } from "@/lib/intelligence-onboarding-prompt";
 
@@ -28,6 +30,8 @@ vi.mock("posthog-js/react", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 /** Install a resolving clipboard stub and hand back its spy. */
@@ -38,19 +42,34 @@ function stubClipboard() {
 }
 
 /**
- * Click the button by role alone. Its accessible name is the label, which
- * changes to "Copied" after a successful copy, so a name-based query would
- * miss the second click of the per-click run-id test.
+ * Install a clipboard stub whose write stays pending until the returned
+ * `resolveWrite` is called, so a test can act while a copy is in flight.
+ */
+function stubPendingClipboard() {
+  let resolve: (() => void) | undefined;
+  const writeText = vi.fn(
+    () =>
+      new Promise<void>((resolveWrite) => {
+        resolve = resolveWrite;
+      }),
+  );
+  Object.assign(navigator, { clipboard: { writeText } });
+  return { writeText, resolveWrite: () => resolve?.() };
+}
+
+/**
+ * Click the button by role alone, so the query does not depend on the label.
  */
 function clickCopy() {
   fireEvent.click(screen.getByRole("button"));
 }
 
 it("copies the canonical prompt verbatim for the run id it reports", async () => {
-  // The byte-identity guard. The same prompt text ships from Intelligence and
-  // the Inspector, and the CLI parses the `--run <id>` it contains. Appending
-  // page context here — a title, the page URL, a framework hint — would break
-  // both the cross-surface diff and, if it landed after the flag, the parse.
+  // A LOCAL guard only: the expected text comes from the same helper the
+  // component calls, so this catches the component appending page context — a
+  // title, the page URL, a framework hint — or otherwise altering the string
+  // before the write. It does NOT compare against the Intelligence repo or the
+  // Inspector; keeping those three copies byte-identical is not verified here.
   const writeText = stubClipboard();
 
   render(<OnboardingPromptCopyButton />);
@@ -88,7 +107,7 @@ it("mints a run id in the shape the CLI validates", async () => {
   expect(properties.onboarding_run_id).toMatch(/^[A-Za-z0-9_-]{12}$/);
 });
 
-it("reports the shared onboarding event with all four properties", async () => {
+it("reports the shared onboarding event with exactly three properties", async () => {
   stubClipboard();
 
   render(<OnboardingPromptCopyButton />);
@@ -101,11 +120,14 @@ it("reports the shared onboarding event with all four properties", async () => {
     Record<string, unknown>,
   ];
   expect(event).toBe(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied);
+  // No `feature` key. Every other emitter of this event sends a value of the
+  // `IntelligenceOnboardingFeature` union ("learning" | "threads"); a fourth
+  // value that is not a feature would muddy existing breakdowns of that
+  // property. The distinction this button needs lives in `surface`.
   expect(properties).toEqual({
-    feature: "onboarding",
     from_path: "/quickstart",
     onboarding_run_id: expect.stringMatching(/^[A-Za-z0-9_-]{12}$/),
-    surface: "page-tools",
+    surface: "docs_page_tools_onboarding_prompt",
   });
 });
 
@@ -135,9 +157,92 @@ it("mints a fresh run id on every click", async () => {
   );
 });
 
-it("shows the blocked label and reports nothing when the clipboard rejects", async () => {
-  // A run id that never reached a clipboard is an onboarding attempt that
-  // cannot happen, so it must not enter the funnel as one.
+it("writes and reports once for two clicks while the first write is pending", async () => {
+  // The in-flight guard. Without it a double-click mints two run ids and
+  // reports two copies, while only the second write survives on the clipboard
+  // — so the CLI can close out at most one of them and the other is a
+  // permanently open funnel row.
+  const { writeText, resolveWrite } = stubPendingClipboard();
+
+  render(<OnboardingPromptCopyButton />);
+  const button = screen.getByRole("button");
+
+  // Native `.click()` inside one `act` scope, so React has not re-rendered
+  // (and applied `disabled`) between the two events. This exercises the ref
+  // guard inside the handler, not the disabled attribute.
+  await act(async () => {
+    button.click();
+    button.click();
+  });
+  expect(writeText).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    resolveWrite();
+  });
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalledTimes(1));
+  expect(writeText).toHaveBeenCalledTimes(1);
+});
+
+it("re-enables the button after a clipboard write rejects", async () => {
+  // The disabled window must not get stuck on the failure path, or one blocked
+  // copy would take the button out of service for the rest of the page view.
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+  Object.assign(navigator, { clipboard: { writeText } });
+
+  render(<OnboardingPromptCopyButton />);
+  clickCopy();
+
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
+  );
+  expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(
+    false,
+  );
+});
+
+it("keeps the label and swaps the icon on a successful copy", async () => {
+  // "Copied" is ~45px narrower than the idle label, so swapping it would slide
+  // "Copy Markdown" and "Open" leftward under the reader's cursor for 1800ms
+  // and back. `MarkdownCopyButton` next to it avoids that the same way.
+  stubClipboard();
+
+  const { container } = render(<OnboardingPromptCopyButton />);
+  const before = container.querySelectorAll("svg").length;
+  clickCopy();
+
+  await waitFor(() => expect(screen.getByText("Prompt copied")).toBeTruthy());
+  expect(
+    screen.getByRole("button", { name: /copy agent prompt/i }),
+  ).toBeTruthy();
+  expect(container.querySelectorAll("svg").length).toBe(before);
+});
+
+it("uses a caller-supplied child as the idle label", () => {
+  stubClipboard();
+
+  render(
+    <OnboardingPromptCopyButton>
+      Set up with an agent
+    </OnboardingPromptCopyButton>,
+  );
+
+  expect(
+    screen.getByRole("button", { name: /set up with an agent/i }),
+  ).toBeTruthy();
+});
+
+it("does not report ITS OWN event when the clipboard rejects", async () => {
+  // Scoped deliberately to this component's `docs.intelligence_onboarding_prompt_copied`
+  // call: a run id that never reached a clipboard is an onboarding attempt
+  // that cannot happen, so it must not enter the funnel as one.
+  //
+  // Other events may well have fired by then. The global tracker in
+  // `lib/providers/copy-tracker.tsx` wraps `navigator.clipboard.writeText` and
+  // captures `cli_command_copied` and `docs_conversion_copied` BEFORE it
+  // delegates to the real `writeText` — so on a blocked copy those two have
+  // already been reported. That tracker is not installed in this test.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
   const writeText = vi.fn().mockRejectedValue(new Error("denied"));
   Object.assign(navigator, { clipboard: { writeText } });
 
@@ -148,12 +253,21 @@ it("shows the blocked label and reports nothing when the clipboard rejects", asy
     expect(screen.getByRole("button", { name: /copy blocked/i })).toBeTruthy(),
   );
   expect(analytics.capture).not.toHaveBeenCalled();
+  // The rejection is swallowed rather than re-thrown, so the console line is
+  // the only trace a blocked copy leaves.
+  expect(consoleError).toHaveBeenCalledWith(
+    "[page-actions] Copy agent prompt failed",
+    expect.any(Error),
+  );
 });
 
-it("marks itself as the page-tools conversion surface for the global tracker", () => {
-  // `lib/providers/copy-tracker.tsx` resolves the surface with
-  // `document.activeElement.closest("[data-docs-copy-surface]")`, so the
-  // attribute has to be on the button, not on a wrapper around it.
+it("carries the conversion-surface attribute the global tracker looks for", () => {
+  // Asserts the attribute is present on the button and spelled the same as the
+  // `surface` event property. It does NOT exercise
+  // `lib/providers/copy-tracker.tsx` — that the tracker resolves the value is
+  // that module's own concern. The attribute is on the button rather than a
+  // wrapper because this button is the only element of the page-tools row that
+  // should count as this surface; `closest()` would find a wrapper just fine.
   stubClipboard();
 
   render(<OnboardingPromptCopyButton />);
@@ -163,4 +277,53 @@ it("marks itself as the page-tools conversion surface for the global tracker", (
       .getByRole("button", { name: /copy agent prompt/i })
       .getAttribute("data-docs-copy-surface"),
   ).toBe("docs_page_tools_onboarding_prompt");
+});
+
+it("survives unmounting while the clipboard write is still pending", async () => {
+  // The mounted/generation guards exist for exactly this: no state update and
+  // no reset timer may run against a component that is gone. The analytics
+  // call is deliberately still made — that write did reach the clipboard.
+  //
+  // React 19 no longer logs a "state update on an unmounted component"
+  // warning, so the console assertion alone would pass even with every guard
+  // deleted. The `setTimeout` assertion is the one with teeth: reaching
+  // `scheduleReset` after unmount means the generation check was skipped.
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const { resolveWrite } = stubPendingClipboard();
+
+  const { unmount } = render(<OnboardingPromptCopyButton />);
+  await act(async () => {
+    screen.getByRole("button").click();
+  });
+
+  unmount();
+  const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+  await act(async () => {
+    resolveWrite();
+  });
+
+  expect(setTimeoutSpy).not.toHaveBeenCalled();
+  expect(consoleError).not.toHaveBeenCalled();
+});
+
+it("mints a valid run id on all three createOnboardingRunId code paths", () => {
+  const shape = /^[A-Za-z0-9_-]{12}$/;
+
+  // 1. `crypto.randomUUID` — what jsdom and every current browser provide.
+  expect(createOnboardingRunId()).toMatch(shape);
+
+  // 2. `crypto.getRandomValues` only — older Safari, and any non-secure
+  //    context where `randomUUID` is withheld.
+  vi.stubGlobal("crypto", {
+    getRandomValues: (array: Uint8Array) => {
+      for (let i = 0; i < array.length; i += 1) array[i] = (i * 37) % 256;
+      return array;
+    },
+  });
+  expect(createOnboardingRunId()).toMatch(shape);
+
+  // 3. No web crypto at all — the `Math.random` last resort.
+  vi.stubGlobal("crypto", undefined);
+  expect(createOnboardingRunId()).toMatch(shape);
 });

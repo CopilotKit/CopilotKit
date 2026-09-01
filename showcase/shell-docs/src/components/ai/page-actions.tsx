@@ -156,7 +156,15 @@ export function MarkdownCopyButton({
 
 type OnboardingCopyState = "idle" | "copied" | "error";
 
-const ONBOARDING_COPY_SURFACE = "page-tools";
+/**
+ * One name for one surface. Used BOTH as the `surface` property of the
+ * analytics event and as the `data-docs-copy-surface` attribute the global
+ * copy tracker reads, so a breakdown on either resolves to the same row.
+ * `docs_`-prefixed snake_case matches every other surface value in the app
+ * (`docs_landing_learning` in `app/[[...slug]]/page.tsx`,
+ * `CHANNELS_ACTIVATION_SURFACES` in `lib/channels-activation-contracts.ts`).
+ */
+const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
 
 /**
  * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
@@ -178,6 +186,12 @@ export function OnboardingPromptCopyButton({
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
+  // Mirrors `MarkdownCopyButton`'s `isLoading`: the button is disabled while a
+  // clipboard write is pending. The ref is the actual guard — a double-click
+  // delivers both events before React re-renders, so both handlers would still
+  // read `false` from the state.
+  const [isCopying, setIsCopying] = useState(false);
+  const copyInFlightRef = useRef(false);
   // Timer/generation bookkeeping mirrors `rich-threads-setup-prompt.tsx`: a
   // pending reset from an earlier click must never resurrect "idle" over the
   // label a later click just set, and no timer may fire after unmount.
@@ -205,6 +219,15 @@ export function OnboardingPromptCopyButton({
   }
 
   async function copyPrompt() {
+    // Ignore clicks while a write is still pending. Two writes would mint two
+    // run ids and report two copies, but only the last one survives on the
+    // clipboard, so the CLI can close out at most one of them and the other
+    // stays an open funnel row forever — exactly what the per-click run id
+    // exists to prevent.
+    if (copyInFlightRef.current) return;
+    copyInFlightRef.current = true;
+    setIsCopying(true);
+
     const generation = (copyGenerationRef.current += 1);
     if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
     resetTimerRef.current = null;
@@ -216,26 +239,34 @@ export function OnboardingPromptCopyButton({
       await navigator.clipboard.writeText(
         createIntelligenceOnboardingPrompt(runId),
       );
-    } catch {
+    } catch (err) {
       // Unlike `MarkdownCopyButton` there is no `useCopyButton` hook to
       // signal, so the rejection is handled here and NOT re-thrown. No
       // analytics either: a run id that never reached a clipboard would
-      // report an onboarding attempt the CLI can never close out.
+      // report an onboarding attempt the CLI can never close out. It is still
+      // logged, so a blocked copy is at least observable in the console.
+      console.error("[page-actions] Copy agent prompt failed", err);
       if (!mountedRef.current || generation !== copyGenerationRef.current) {
         return;
       }
       setCopyState("error");
       scheduleReset(generation, 2600);
       return;
+    } finally {
+      // Release the guard on BOTH paths, so a rejected write cannot leave the
+      // button permanently disabled.
+      copyInFlightRef.current = false;
+      if (mountedRef.current) setIsCopying(false);
     }
 
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
-        // `feature` is an event property only — the docs banner's
-        // `IntelligenceOnboardingFeature` union stays as it is.
-        feature: "onboarding",
         from_path: pathname,
         onboarding_run_id: runId,
+        // No `feature` property: every other emitter of this event sends a
+        // value of the `IntelligenceOnboardingFeature` union
+        // ("learning" | "threads"), and this button is neither. The
+        // distinction it would carry lives in `surface` instead.
         surface: ONBOARDING_COPY_SURFACE,
       });
     } catch {
@@ -257,9 +288,14 @@ export function OnboardingPromptCopyButton({
         // conversion-surface attribute below cannot be clobbered.
         {...props}
         // The global tracker in `lib/providers/copy-tracker.tsx` resolves the
-        // surface via `document.activeElement.closest(...)`, so the attribute
-        // has to sit on the button itself, not on a wrapper.
-        data-docs-copy-surface="docs_page_tools_onboarding_prompt"
+        // surface via `document.activeElement.closest(...)`, which walks up
+        // the ancestor chain — a wrapper would work too (see
+        // `react/docs-conversion.tsx` and `rich-threads-setup-prompt.tsx`).
+        // It sits on the button deliberately: this button is the only element
+        // in the page-tools row that should count as this surface, and its
+        // two neighbours copy something else entirely.
+        data-docs-copy-surface={ONBOARDING_COPY_SURFACE}
+        disabled={isCopying}
         onClick={copyPrompt}
         className={cn(
           buttonVariants({
@@ -272,12 +308,22 @@ export function OnboardingPromptCopyButton({
           props.className,
         )}
       >
-        <Copy aria-hidden="true" />
-        {copyState === "copied"
-          ? "Copied"
-          : copyState === "error"
-            ? "Copy blocked"
-            : "Copy agent prompt"}
+        {copyState === "copied" ? (
+          <Check aria-hidden="true" />
+        ) : (
+          <Copy aria-hidden="true" />
+        )}
+        {/* Success swaps only the icon, matching `MarkdownCopyButton` right
+            next to it. A "Copied" label is ~45px narrower than the idle one,
+            so it would slide the two neighbours leftward under the reader's
+            cursor for 1800ms and back, and can un-wrap and re-wrap the row
+            near the mobile breakpoint. Failure keeps its label change: it is
+            rare, and the reader needs to be told the copy did not happen.
+            Either way the `aria-live` region below announces the outcome,
+            which is what a screen reader gets instead of the icon. */}
+        {copyState === "error"
+          ? "Copy blocked"
+          : (props.children ?? "Copy agent prompt")}
       </button>
       <span aria-live="polite" className="sr-only">
         {copyState === "copied"
