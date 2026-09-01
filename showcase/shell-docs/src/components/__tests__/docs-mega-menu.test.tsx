@@ -40,9 +40,9 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.closest("li")?.className).toContain(
     "shell-docs-mega-menu-featured-item",
   );
-  expect(screen.getByRole("link", { name: "Threads" }).getAttribute("href")).toBe(
-    "/threads",
-  );
+  expect(
+    screen.getByRole("link", { name: "Threads" }).getAttribute("href"),
+  ).toBe("/threads");
   expect(
     screen.getByRole("link", { name: "Learning" }).getAttribute("href"),
   ).toBe("/backend/copilot-runtime");
