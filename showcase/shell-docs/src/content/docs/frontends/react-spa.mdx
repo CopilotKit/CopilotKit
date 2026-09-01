@@ -6,6 +6,7 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import SharedEnvTwoHalfRepo from "@/snippets/shared/guides/shared-env-two-half-repo.mdx";
 
 The rest of these docs are the React docs. [Frontend tools](/frontend-tools), [generative UI](/generative-ui), [human-in-the-loop](/human-in-the-loop), [headless UI](/headless), [prebuilt components](/prebuilt-components) and the [React reference](/reference/v2) all work unchanged in a Vite or Create React App project.
 
@@ -41,19 +42,19 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-core @copilotkit/runtime
+                npm install @copilotkit/react-core @copilotkit/runtime dotenv
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-core @copilotkit/runtime
+                pnpm add @copilotkit/react-core @copilotkit/runtime dotenv
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-core @copilotkit/runtime
+                yarn add @copilotkit/react-core @copilotkit/runtime dotenv
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -65,6 +66,7 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         Your SPA has no server, so the runtime needs one of its own. Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` on its own port and registers a `default` built-in agent:
 
         ```ts title="server.ts"
+        import "dotenv/config"; // [!code highlight]
         import { createServer } from "node:http";
         import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -146,12 +148,28 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
     <Step>
         ### Run the runtime and app
 
-        You are running two dev servers, so they need two different ports. Start Copilot Runtime in one terminal:
+        You are running two dev servers, so they need two different ports.
+
+        Put your model key in a `.env` file beside `server.ts`. The runtime
+        reads it through the `dotenv/config` import above, so it survives
+        closing the terminal and a teammate cloning the repository:
+
+        ```plaintext title=".env"
+        OPENAI_API_KEY=sk-...
+        ```
+
+        Then start Copilot Runtime in one terminal:
 
         ```bash
-        export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+
+        <Callout type="info" title="Sharing one .env across both halves">
+          Your app and the runtime are already two processes, and adding an
+          agent backend makes three — all reading the same credential. See
+          [Environment variables in a two-half repository](#environment-variables-in-a-two-half-repository) below for the
+          layout and how each process loads it.
+        </Callout>
 
         Start the React app in another terminal:
 
@@ -173,7 +191,7 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
                 - **404s on `/api/copilotkit`**: Your `runtimeUrl` is relative. A SPA needs the absolute `http://localhost:8200/api/copilotkit`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/react-core/v2/styles.css` in your app entry.
-                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Model auth errors**: Confirm `.env` sits in the directory you start `npx tsx server.ts` from, and that `server.ts` imports `dotenv/config` on its first line. `dotenv` resolves `.env` against the working directory, not the file.
             </Accordion>
         </Accordions>
     </Step>
@@ -181,6 +199,10 @@ Exactly one instruction does not carry over: **where Copilot Runtime lives.** Th
         <OpenInspectorStep components={props.components} />
     </Step>
 </Steps>
+
+## Environment variables in a two-half repository
+
+<SharedEnvTwoHalfRepo components={props.components} />
 
 ## Next steps
 

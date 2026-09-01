@@ -5,6 +5,8 @@ icon: "lucide/Smartphone"
 hideTOC: true
 ---
 
+import SharedEnvTwoHalfRepo from "@/snippets/shared/guides/shared-env-two-half-repo.mdx";
+
 `@copilotkit/react-native` gives you CopilotKit's provider and hooks for React Native, plus optional pre-built chat components. This guide builds a fully custom chat UI with the hooks, backed by a [Copilot Runtime](/backend/copilot-runtime) endpoint on your server.
 
 The package has three import surfaces — `/headless` (provider + hooks, no native peer dependencies, **1.64.0+**), the root barrel, and `/components` (the rendered chat UI). See [Import surfaces](#import-surfaces) for what each one pulls in; this guide uses `/headless` throughout.
@@ -37,19 +39,19 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/react-native @copilotkit/runtime
+                npm install @copilotkit/react-native @copilotkit/runtime dotenv
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/react-native @copilotkit/runtime
+                pnpm add @copilotkit/react-native @copilotkit/runtime dotenv
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/react-native @copilotkit/runtime
+                yarn add @copilotkit/react-native @copilotkit/runtime dotenv
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -111,6 +113,7 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
         Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
 
         ```ts title="server.ts"
+        import "dotenv/config"; // [!code highlight]
         import { createServer } from "node:http";
         import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -264,12 +267,26 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
     <Step>
         ### Run the runtime and app
 
-        Start Copilot Runtime in one terminal:
+        Put your model key in a `.env` file beside `server.ts`. The runtime
+        reads it through the `dotenv/config` import above, so it survives
+        closing the terminal and a teammate cloning the repository:
+
+        ```plaintext title=".env"
+        OPENAI_API_KEY=sk-...
+        ```
+
+        Then start Copilot Runtime in one terminal:
 
         ```bash
-        export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+
+        <Callout type="info" title="Sharing one .env across both halves">
+          Your app and the runtime are already two processes, and adding an
+          agent backend makes three — all reading the same credential. See
+          [Environment variables in a two-half repository](#environment-variables-in-a-two-half-repository) below for the
+          layout and how each process loads it.
+        </Callout>
 
         Run the React Native app in another terminal:
 
@@ -302,7 +319,7 @@ The package has three import surfaces — `/headless` (provider + hooks, no nati
                 - **Metro can't resolve modules**: Clear the cache with `npx react-native start --reset-cache`.
                 - **Streaming not working**: Make sure polyfills are imported before any CopilotKit code in your entry point.
                 - **No response from the runtime**: Confirm the runtime server is running, `http://localhost:8200/api/copilotkit/info` returns the `default` agent, and the device can reach `runtimeUrl`. For physical devices, use your machine's LAN IP instead of `localhost`.
-                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Model auth errors**: Confirm `.env` sits in the directory you start `npx tsx server.ts` from, and that `server.ts` imports `dotenv/config` on its first line. `dotenv` resolves `.env` against the working directory, not the file.
                 - **`Property 'ReadableStream' doesn't exist`** (or the same for `TextEncoder`, `DOMException` or `Headers`): the polyfills did not install. In **1.69.2 and every earlier version** the `polyfills` barrel was published empty — the build dropped all five polyfill imports out of it — so following the setup above installed nothing and the first runtime call failed. Upgrade to the latest version, or, if you are pinned, use the [granular imports](#polyfills), which were never affected. This is the *opposite* of the conflict case below: here you have no polyfill at all, not a competing one.
                 - **Existing polyfill conflicts**: Use the granular imports instead of the barrel `polyfills` import.
             </Accordion>
@@ -505,10 +522,9 @@ The string form reads the matching provider API key from the environment. You ca
 
 To point the string model form at an OpenAI-compatible endpoint (a gateway, Azure OpenAI, a self-hosted server, etc.), set the base-URL environment variable — the runtime honors it when it constructs the provider:
 
-```bash
-export OPENAI_BASE_URL=https://your-gateway.example.com/v1
-export OPENAI_API_KEY=sk-...
-npx tsx server.ts
+```plaintext title=".env"
+OPENAI_BASE_URL=https://your-gateway.example.com/v1
+OPENAI_API_KEY=sk-...
 ```
 
 The same applies to `ANTHROPIC_BASE_URL` and `GOOGLE_GENERATIVE_AI_BASE_URL`. When the variable is unset, the provider falls back to its default endpoint, so this is fully backward compatible — you do **not** need to build a custom model instance just to change the base URL.
@@ -702,6 +718,10 @@ So read the records your app actually holds, and confirm the answer names those 
 - **Cloud provider props** — `publicApiKey` / `licenseToken` are not supported on the React Native provider; connect via `runtimeUrl`.
 - **Web-only rendering hooks** — `useDefaultRenderTool`, `useRenderCustomMessages`, and `useRenderActivityMessage` are not exported, because they render host DOM or link the web chat-message stack. `useRenderToolCall` **is** exported; use it to draw a registered tool call outside the chat.
 - **`useRenderTool` is not react-core's `useRenderTool`** — React Native's hook registers a frontend tool *as well as* a renderer (it routes through `useFrontendTool`), and that has three consequences. A `"*"` name is **not** a renderer-only wildcard as it is on the web: it registers a frontend tool named `*` and advertises it to the model, so register named renderers instead. Of the tool-level options `useFrontendTool` itself accepts, `followUp` and `available` are not forwarded, so neither can be set through this hook. And its `handler` type declares only `(args)`, omitting the `context` argument (`toolCall` / `agent` / `signal`) that core does pass at runtime, so a typed handler cannot reach it. All three are tracked for a follow-up that converges React Native onto react-core's hooks; until then reach for `useFrontendTool` directly when you need a tool-level option.
+
+## Environment variables in a two-half repository
+
+<SharedEnvTwoHalfRepo components={props.components} />
 
 ## Next steps
 

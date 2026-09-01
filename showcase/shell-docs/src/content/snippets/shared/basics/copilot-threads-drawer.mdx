@@ -90,6 +90,89 @@ between the list and the chat; here the drawer and the
 `CopilotChatConfigurationProvider` share that state, so there is none of that
 wiring to write.
 
+### Beside a popup or a sidebar
+
+The drawer is not tied to the inline `<CopilotChat>`. `<CopilotPopup>` and
+`<CopilotSidebar>` work the same way, and the popup is the common case when you
+are adding CopilotKit to a layout that has no room for a chat panel. The rule is
+identical: put the drawer and the chat surface inside **one shared**
+`<CopilotChatConfigurationProvider>`. The popup positions itself, so the drawer
+is its only layout neighbour:
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChatConfigurationProvider,
+  CopilotPopup,
+  CopilotThreadsDrawer,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+      {/* Both surfaces under ONE provider — this is what couples them. */}
+      <CopilotChatConfigurationProvider>
+        <CopilotThreadsDrawer />
+        <CopilotPopup />
+        {/* your app */}
+      </CopilotChatConfigurationProvider>
+    </CopilotKitProvider>
+  );
+}
+```
+
+On mobile widths (`<768px`) the popup and the drawer are mutually exclusive:
+opening the drawer closes the popup and vice versa. At `768px` and above both
+can be open at once.
+
+### How the drawer finds the active thread
+
+You do not pass the active thread to the drawer, and you do not read it back
+out. Both directions go through the shared `<CopilotChatConfigurationProvider>`:
+
+- **Reading.** The drawer highlights the row matching the configuration's
+  current `threadId`.
+- **Writing.** Selecting a row calls the configuration's `setActiveThreadId`,
+  which is what moves the chat — popup, sidebar, or inline — onto that thread
+  and replays its history.
+
+`<CopilotChat>` (and therefore `<CopilotPopup>` and `<CopilotSidebar>`, which
+wrap it) creates its *own* nested configuration internally. That nested
+configuration inherits the active thread from the provider above it, which is
+exactly why one shared ancestor is enough to couple the two — and why the
+ancestor is required.
+
+<Callout type="warn" title="No shared provider means the drawer renders but never tracks the chat">
+  If the drawer and the chat surface are siblings with no
+  `<CopilotChatConfigurationProvider>` around **both**, the drawer has no
+  configuration to read or write. It still renders and still lists threads, but
+  selecting a row is a silent no-op — no error, no warning, and a chat that
+  stays on whatever thread it minted for itself. If your drawer lists
+  conversations but clicking them does nothing, this is almost always why:
+  check that the provider wraps the chat surface too, not just the drawer.
+</Callout>
+
+If you need to own the active thread yourself instead — a v1 `setThreadId`, or
+your own router state — pass `onThreadSelect` and `onNewThread`. Supplying them
+takes precedence over the provider, so the drawer reports the user's intent and
+you decide what happens.
+
+### Before a thread is chosen
+
+A fresh install starts with no thread selected, which is a normal state rather
+than an error:
+
+- **No thread active yet.** On mount the configuration mints a new client-side
+  `threadId` that does not correspond to any stored thread, so **no row is
+  highlighted** and the chat shows its welcome screen. The thread is only
+  persisted once the first message runs, at which point it appears in the list.
+- **No threads at all.** The drawer renders `No threads yet.` in place of the
+  list. Replace that copy by projecting your own `slot="empty"` content (see
+  [Customization](#customization)).
+- **The "New Conversation" row** returns you to this state deliberately: it
+  resets the chat to a fresh, unpersisted thread and clears the highlight.
+
 ## Configuring the drawer
 
 `<CopilotThreadsDrawer>` works with zero props. The optional ones:

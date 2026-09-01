@@ -5,6 +5,8 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+import SharedEnvTwoHalfRepo from "@/snippets/shared/guides/shared-env-two-half-repo.mdx";
+
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
 
 <IntelligenceOnboardingPrompt
@@ -288,6 +290,36 @@ Before you begin, you'll need the following:
                   `main.py` sets uvicorn's port to `8123` above, which is the
                   port the runtime route below expects. Change both together if
                   you pick a different one.
+
+                  <Accordions>
+                    <Accordion title="Using the prebuilt create_agent instead of StateGraph">
+                      Most real agents start from LangChain's prebuilt
+                      `create_agent` rather than assembling a `StateGraph` by
+                      hand. It takes the same `checkpointer=` argument, and the
+                      result drops into `LangGraphAGUIAgent` unchanged — so
+                      substitute the graph and leave the rest of `main.py` as
+                      it is:
+
+                      ```python title="main.py (graph only)"
+                      from langchain.agents import create_agent
+                      from langgraph.checkpoint.memory import MemorySaver
+
+                      graph = create_agent(
+                        model="openai:gpt-4.1-mini",
+                        tools=[],
+                        system_prompt="You are a helpful assistant.",
+                        checkpointer=MemorySaver(), # [!code highlight]
+                      )
+                      ```
+
+                      `create_agent` supersedes the deprecated
+                      `create_react_agent`. The `checkpointer=` argument is
+                      required here for the same reason as above: without it
+                      `ag-ui-langgraph`'s `graph.aget_state(...)` raises
+                      `ValueError: No checkpointer set`. Swap `MemorySaver()`
+                      for a durable saver in production.
+                    </Accordion>
+                  </Accordions>
                 </Tab>
               </Tabs>
 
@@ -317,6 +349,17 @@ Before you begin, you'll need the following:
               npx create-next-app@latest frontend
               cd frontend
               ```
+
+              <Callout type="warn" title="Your .env is now one level up">
+                This puts the frontend in a subdirectory, so your agent's `.env`
+                sits in a sibling directory and the repository has two halves
+                that need the same credentials. Next.js reads `.env` from its
+                own project root only — it does **not** search parent
+                directories — so a key placed at the repository root is not
+                picked up here. See
+                [Environment variables in a two-half repository](#environment-variables-in-a-two-half-repository)
+                for the layout and the per-process loading.
+              </Callout>
           </Step>
           <Step>
               ### Install CopilotKit packages
@@ -628,6 +671,10 @@ Before you begin, you'll need the following:
     </Step>
 
 </Steps>
+
+## Environment variables in a two-half repository
+
+<SharedEnvTwoHalfRepo components={props.components} />
 
 ## Deploying to AWS?
 

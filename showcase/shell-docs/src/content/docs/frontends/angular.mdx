@@ -6,6 +6,7 @@ hideTOC: true
 ---
 
 import OpenInspectorStep from "@/snippets/shared/inspector/open-inspector-step.mdx";
+import SharedEnvTwoHalfRepo from "@/snippets/shared/guides/shared-env-two-half-repo.mdx";
 
 `@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI backed by [Copilot Runtime](/backend/copilot-runtime). When you select an agent backend in the sidebar, the backend step below changes with it; without a selection, the guide uses CopilotKit's `BuiltInAgent`.
 
@@ -51,19 +52,19 @@ headless APIs, and it supports zoneless applications.
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
                 ```bash
-                npm install @copilotkit/angular @angular/cdk @copilotkit/runtime
+                npm install @copilotkit/angular @angular/cdk @copilotkit/runtime dotenv
                 npm install -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="pnpm">
                 ```bash
-                pnpm add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                pnpm add @copilotkit/angular @angular/cdk @copilotkit/runtime dotenv
                 pnpm add -D tsx typescript @types/node
                 ```
             </Tab>
             <Tab value="yarn">
                 ```bash
-                yarn add @copilotkit/angular @angular/cdk @copilotkit/runtime
+                yarn add @copilotkit/angular @angular/cdk @copilotkit/runtime dotenv
                 yarn add -D tsx typescript @types/node
                 ```
             </Tab>
@@ -80,6 +81,7 @@ headless APIs, and it supports zoneless applications.
         Add a small Node server that hosts Copilot Runtime at `/api/copilotkit` and registers a `default` built-in agent:
 
         ```ts title="server.ts"
+        import "dotenv/config"; // [!code highlight]
         import { createServer } from "node:http";
         import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
@@ -202,12 +204,26 @@ headless APIs, and it supports zoneless applications.
       <Step>
         ### Run the runtime and app
 
-        Start Copilot Runtime in one terminal:
+        Put your model key in a `.env` file beside `server.ts`. The runtime
+        reads it through the `dotenv/config` import above, so it survives
+        closing the terminal and a teammate cloning the repository:
+
+        ```plaintext title=".env"
+        OPENAI_API_KEY=sk-...
+        ```
+
+        Then start Copilot Runtime in one terminal:
 
         ```bash
-        export OPENAI_API_KEY=sk-...
         npx tsx server.ts
         ```
+
+        <Callout type="info" title="Sharing one .env across both halves">
+          An Angular app and a standalone runtime are already two processes, and
+          adding an agent backend makes three — all reading the same credential.
+          See [Environment variables in a two-half repository](#environment-variables-in-a-two-half-repository)
+          below for the layout and how each process loads it.
+        </Callout>
 
         Start the Angular app in another terminal:
 
@@ -222,7 +238,7 @@ headless APIs, and it supports zoneless applications.
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
                 - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Angular app's origin in production.
-                - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
+                - **Model auth errors**: Confirm `.env` sits in the directory you start `npx tsx server.ts` from, and that `server.ts` imports `dotenv/config` on its first line. `dotenv` resolves `.env` against the working directory, not the file.
                 - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^22` on Angular 22.
                 - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
             </Accordion>
@@ -252,6 +268,10 @@ headless APIs, and it supports zoneless applications.
     </Step>
 
 </Steps>
+
+## Environment variables in a two-half repository
+
+<SharedEnvTwoHalfRepo components={props.components} />
 
 ## Next steps
 

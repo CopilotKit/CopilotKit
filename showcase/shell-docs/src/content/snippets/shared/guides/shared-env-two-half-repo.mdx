@@ -1,0 +1,138 @@
+Adding CopilotKit to an application that already exists almost always produces a
+**two-half repository**: the app you already had, and an agent you did not. One
+credential file at the repository root is the natural result — and it is the
+layout every CopilotKit starter ships — but the halves are separate processes,
+and each one loads that file differently.
+
+<Callout type="info" title="The browser is never a reader">
+  Model credentials are read by your **server-side** processes only — the
+  route handler, the standalone runtime, and the agent. Nothing in this section
+  reaches the browser bundle, which is the point: the key stays on your machine
+  and your server.
+</Callout>
+
+### The layout
+
+Keep the frontend at the repository root and the agent in a subdirectory. One
+`.env` at the root then sits where the frontend already looks for it, and the
+agent reaches up one level:
+
+```plaintext
+my-app/
+├── .env               # ← the only credential file
+├── package.json       # the frontend half (and its route handler, if it has one)
+├── src/
+└── agent/             # the agent half
+    └── ...
+```
+
+```plaintext title=".env"
+OPENAI_API_KEY=sk-...
+# Only if you are using CopilotKit Intelligence:
+CPK_INTELLIGENCE_API_KEY=cpk-...
+```
+
+Add `.env` to `.gitignore` and commit a `.env.example` beside it, so a teammate
+who clones the repository knows which values to supply.
+
+### Loading it, per process
+
+<Tabs groupId="env-consumer" items={['Next.js', 'Standalone Node runtime', 'Python agent', 'LangGraph CLI']}>
+  <Tab value="Next.js">
+    Next.js loads `.env` from **its own project root** and does not search
+    parent directories. With the layout above, the project root *is* the
+    repository root, so the file is picked up with no extra work — this is why
+    the layout is worth keeping.
+
+    If your Next.js app instead lives in a subdirectory (`frontend/`, say), a
+    root `.env` is **not** read, and the fix is to point Next's own loader at
+    the parent before the config is evaluated:
+
+    ```ts title="frontend/next.config.ts"
+    import path from "node:path";
+    import { loadEnvConfig } from "@next/env";
+
+    // Loads ../.env into process.env for server-side code (route handlers).
+    loadEnvConfig(path.resolve(process.cwd(), ".."));
+
+    export default {};
+    ```
+
+    Keep any `NEXT_PUBLIC_` values in the frontend's own `.env.local`, where
+    Next's build-time inlining already looks for them.
+  </Tab>
+
+  <Tab value="Standalone Node runtime">
+    A frontend with no route handler of its own — Angular, Vue, a
+    single-page app, a mobile app — runs Copilot Runtime as its **own
+    process**, which is a second reader of the same file. Load it on the first
+    line of the server entry, before anything that reads `process.env`:
+
+    ```ts title="server.ts"
+    import "dotenv/config"; // [!code highlight]
+    import { createServer } from "node:http";
+    // ...the rest of your runtime setup
+    ```
+
+    Install it alongside your other runtime dependencies:
+
+    ```bash
+    npm install dotenv
+    ```
+
+    `dotenv/config` resolves `.env` relative to the **working directory**, not
+    the file — so start the runtime from the repository root (an npm script in
+    the root `package.json` does this for you). Running `tsx server.ts` from
+    somewhere else will not find it.
+  </Tab>
+
+  <Tab value="Python agent">
+    A Python agent started from its own directory has the *agent* directory as
+    its working directory, so a bare `load_dotenv()` will not find a root
+    `.env`. Resolve the path from the file instead:
+
+    ```python title="agent/main.py"
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    # Load the repository-root .env (one level up from agent/) BEFORE importing
+    # anything that builds a model client at import time.
+    load_dotenv(Path(__file__).parent.parent / ".env") # [!code highlight]
+
+    from src.agent import graph  # constructs ChatOpenAI on import
+    ```
+
+    <Callout type="warn" title="Order matters here">
+      Importing a module that constructs a chat model at module level — a
+      top-level `ChatOpenAI(...)` — reads the key *during the import*. If
+      `load_dotenv` runs after that import, the key is not in the environment
+      yet and you get `OpenAIError: The api_key client option must be set`,
+      even though the `.env` file is correct. Load first, import second.
+    </Callout>
+
+    Add the loader to your agent's dependencies:
+
+    ```bash
+    uv add python-dotenv
+    ```
+  </Tab>
+
+  <Tab value="LangGraph CLI">
+    When the LangGraph CLI runs your graph (`langgraph dev`), it loads the env
+    file named in `langgraph.json`, resolved relative to that file. Point it at
+    the parent directory:
+
+    ```json title="agent/langgraph.json"
+    {
+      "dependencies": ["."],
+      "graphs": {
+        "sample_agent": "./main.py:graph"
+      },
+      "env": "../.env" // [!code highlight]
+    }
+    ```
+
+    This replaces the per-process loading above on the CLI path — the CLI puts
+    the values in the environment before your graph is imported.
+  </Tab>
+</Tabs>
