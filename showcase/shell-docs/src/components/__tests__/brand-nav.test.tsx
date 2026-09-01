@@ -70,6 +70,32 @@ const globalsCss = readFileSync(
   "utf8",
 );
 
+test("BrandNav opens docs from an Explore docs mega menu", () => {
+  expect(brandNavSource).toContain("DocsMegaMenu");
+  expect(brandNavSource).not.toContain('label: "Docs"');
+  expect(brandNavSource).not.toContain('href: "/"');
+});
+
+test("BrandNav puts Intelligence next to Cookbook", () => {
+  expect(brandNavSource).toContain('label: "Cookbook"');
+  expect(brandNavSource).toContain('label: "Intelligence"');
+  expect(brandNavSource).toContain("INTELLIGENCE_DOCS_HREF");
+  expect(brandNavSource.indexOf('label: "Cookbook"')).toBeLessThan(
+    brandNavSource.indexOf('label: "Intelligence"'),
+  );
+});
+
+test("BrandNav keeps space between the center rail and search", () => {
+  expect(brandNavSource).toContain(
+    "grid-cols-[auto_minmax(0,1fr)_auto]",
+  );
+  expect(brandNavSource).toContain("gap-x-8");
+  expect(brandNavSource).toContain("pl-4");
+  expect(globalsCss).toContain(
+    ".shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover",
+  );
+});
+
 test("BrandNav uses the docs grid desktop layout cap", () => {
   expect(brandNavSource).toContain("shell-docs-brand-nav-inner");
   expect(globalsCss).toContain(".shell-docs-brand-nav-inner");

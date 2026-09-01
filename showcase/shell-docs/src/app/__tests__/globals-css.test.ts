@@ -80,3 +80,29 @@ describe("globals.css cookbook sidebar", () => {
     );
   });
 });
+
+describe("globals.css sidebar Intelligence pin", () => {
+  it("stays muted until hover, then fills like the header Intelligence control", () => {
+    const idleBlock = globalsCss.match(
+      /\.shell-docs-intelligence-entry \{[\s\S]*?\n\}/,
+    )?.[0];
+    expect(idleBlock).toContain("background: transparent;");
+    expect(idleBlock).toContain("color: var(--text-muted);");
+    expect(idleBlock).not.toContain("background: var(--accent);");
+
+    const hoverBlock = globalsCss.match(
+      /\.shell-docs-intelligence-entry:hover,\s*\.shell-docs-intelligence-entry:focus-visible \{[\s\S]*?\n\}/,
+    )?.[0];
+    expect(hoverBlock).toContain("background: var(--accent);");
+    expect(hoverBlock).toContain("color: #fff;");
+  });
+});
+
+describe("globals.css sidebar section folders", () => {
+  it("styles collapsible section triggers separately from page links", () => {
+    expect(globalsCss).toContain(".shell-docs-sidebar-section-label");
+    expect(globalsCss).toContain(
+      ".shell-docs-sidebar button:has(.shell-docs-sidebar-section-label)",
+    );
+  });
+});

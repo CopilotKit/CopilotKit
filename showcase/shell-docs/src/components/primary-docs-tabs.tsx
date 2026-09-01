@@ -2,8 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChefHat } from "lucide-react";
+import { ChefHat, Star } from "lucide-react";
 import BookIcon from "./icons/book";
+import { DocsMegaMenu } from "./docs-mega-menu";
+import {
+  INTELLIGENCE_DOCS_HREF,
+  isDocsExplorePath,
+  isIntelligenceDocsPath,
+} from "@/lib/docs-mega-menu";
 
 const PRIMARY_DOCS_LINKS = [
   {
@@ -21,6 +27,11 @@ const PRIMARY_DOCS_LINKS = [
     label: "Cookbook",
     icon: <ChefHat className="h-4 w-4 text-current" />,
   },
+  {
+    href: INTELLIGENCE_DOCS_HREF,
+    label: "Intelligence",
+    icon: <Star className="h-4 w-4 text-current" />,
+  },
 ];
 
 function getActiveRoute(pathname: string) {
@@ -34,10 +45,20 @@ function getActiveRoute(pathname: string) {
     return "/cookbook";
   }
 
+  if (isIntelligenceDocsPath(pathname)) {
+    return INTELLIGENCE_DOCS_HREF;
+  }
+
   return "/";
 }
 
-export function PrimaryDocsTabs({ className }: { className?: string }) {
+export function PrimaryDocsTabs({
+  className,
+  exploreMenu = false,
+}: {
+  className?: string;
+  exploreMenu?: boolean;
+}) {
   const pathname = usePathname();
   const activeRoute = getActiveRoute(pathname);
 
@@ -45,15 +66,31 @@ export function PrimaryDocsTabs({ className }: { className?: string }) {
     <nav className={className} aria-label="Primary docs sections">
       {PRIMARY_DOCS_LINKS.map((link) => {
         const isActive = activeRoute === link.href;
+        const tabClassName = `shell-docs-radius-control shell-docs-primary-tab ${
+          isActive ? "shell-docs-nav-link-active" : "shell-docs-nav-link-idle"
+        }`;
+
+        if (exploreMenu && link.href === "/") {
+          return (
+            <DocsMegaMenu
+              key={link.href}
+              triggerClassName={`shell-docs-radius-control shell-docs-primary-tab ${
+                isDocsExplorePath(pathname)
+                  ? "shell-docs-nav-link-active"
+                  : "shell-docs-nav-link-idle"
+              }`}
+            />
+          );
+        }
 
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={`shell-docs-radius-control shell-docs-primary-tab ${
-              isActive
-                ? "shell-docs-nav-link-active"
-                : "shell-docs-nav-link-idle"
+            className={`${tabClassName}${
+              link.href === INTELLIGENCE_DOCS_HREF
+                ? " shell-docs-nav-link-intelligence"
+                : ""
             }`}
             aria-current={isActive ? "page" : undefined}
           >
