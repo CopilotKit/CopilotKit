@@ -1,8 +1,8 @@
 :bar_chart: *SEO Redirect Decommission Report* (last 30 days)
-Total redirects defined: 388
+Total redirects defined: 390
 Total hits: 12,537
 
-:warning: *375 redirect(s) with zero hits — decommission candidates:*
+:warning: *377 redirect(s) with zero hits — decommission candidates:*
   • B1
   • B2
   • B3
@@ -59,6 +59,7 @@ Total hits: 12,537
   • FI-premium
   • FI-reference
   • FI-troubleshooting
+  • INTEL-observability-root
   • L10
   • L11
   • L12
@@ -92,6 +93,7 @@ Total hits: 12,537
   • P5
   • P6
   • P7
+  • P7-intelligence
   • P8
   • P9
   • R10
