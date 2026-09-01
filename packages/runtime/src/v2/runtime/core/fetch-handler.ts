@@ -272,6 +272,7 @@ function getOrCreateChannelManager(
       ? { lockKeyPrefix: runtime.lockKeyPrefix }
       : {}),
     channels: runtime.channels,
+    telemetry: runtime.telemetry,
     // Bridge the manager's diagnostic sink to the shared logger. Without this
     // every `this.log?.(...)` breadcrumb in the manager (setup_required,
     // failed-to-activate, dropped-session, teardown-stop failures) is a no-op,

@@ -6,13 +6,15 @@ import {
   ɵCpkThreadDetails,
 } from "../index.js";
 import type { ThreadDebuggerProvider } from "../index.js";
-import type { CopilotKitCore } from "@copilotkit/core";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import {
+  CopilotKitCore,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type { InspectorOpenSource } from "../lib/telemetry.js";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, test, expect, vi, beforeEach, afterEach } from "vitest";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -583,28 +585,22 @@ function createDeferred<T>(): {
   });
   return { promise, resolve, reject };
 }
+/**
+ * Drive the threadId-change `updated()` block once so its reset path runs
+ * before a cache test seeds the state it intends to inspect.
+ */
+async function settleThread(
+  el: ɵCpkThreadDetails,
+  internals: ThreadDetailsInternals,
+  threadId: string,
+): Promise<void> {
+  internals.threadId = threadId;
+  await el.updateComplete;
+}
 describe("ɵCpkThreadDetails caching", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
   });
-
-  /**
-   * Drive the threadId-change `updated()` block once so its reset path
-   * runs on entry, then seed the data the test cares about AFTER. If we
-   * seed before the first updateComplete, `updated()` immediately nulls
-   * `_fetchedState` / `_fetchedEvents` / `_conversation` (and
-   * `fetchMessages` re-clears `_conversation` when no `runtimeUrl` is
-   * configured, as in this jsdom test), so the assertions below would
-   * be running against an empty element.
-   */
-  async function settleThread(
-    el: ɵCpkThreadDetails,
-    internals: ThreadDetailsInternals,
-    threadId: string,
-  ): Promise<void> {
-    internals.threadId = threadId;
-    await el.updateComplete;
-  }
 
   it("threadId change drops template and timeline item caches", async () => {
     const { el, internals } = createThreadDetails();
@@ -2001,6 +1997,10 @@ describe("WebInspectorElement open + What's new telemetry", () => {
 // the headers configured on <CopilotKit> (e.g. X-CSRF / auth), otherwise the
 // requests 403 in environments that enforce CSRF/auth checks.
 
+type RuntimeEntitlementDiagnostics = NonNullable<
+  CopilotKitCore["runtimeEntitlements"]
+>;
+
 type HeaderMockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
@@ -2012,6 +2012,7 @@ type HeaderMockCore = {
   // assertions about pre-handshake segmentation pass for the wrong reason.
   runtimeMode: string;
   licenseStatus?: string;
+  runtimeEntitlements?: RuntimeEntitlementDiagnostics;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
@@ -2037,6 +2038,10 @@ function createHeaderMockCore(
   headers: Record<string, string>,
   endpointOverrides: Partial<HeaderMockCore["threadEndpoints"]> = {},
   telemetryDisabled = true,
+  diagnostics: Pick<
+    HeaderMockCore,
+    "runtimeEntitlements" | "licenseStatus"
+  > = {},
 ) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   // Delegates to the live `globalThis.fetch` so every existing assertion on the
@@ -2123,6 +2128,394 @@ function createHeaderMockCore(
 const headersOf = (call: unknown[]) =>
   (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
 
+/** Return the rendered text inside the nested Threads list component. */
+const threadListText = (inspector: WebInspectorElement) =>
+  inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
+    ?.textContent ?? "";
+
+/** Create an isolated Runtime-diagnostics browser fixture. */
+function setupRuntimeDiagnostics() {
+  document.body.innerHTML = "";
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+
+  const threadListCalls = () =>
+    fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("/threads?"),
+    );
+
+  /** Mount the Threads view with one capability and entitlement state. */
+  async function mountThreadsWithCapability(
+    threadListAvailable: boolean,
+    diagnostics: Pick<HeaderMockCore, "runtimeEntitlements" | "licenseStatus">,
+  ): Promise<WebInspectorElement> {
+    fetchMock.mockImplementation((input) => {
+      const url = String(input);
+      if (url.endsWith("/info")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              version: "1.0.0",
+              agents: {
+                alpha: {
+                  name: "alpha",
+                  className: "HttpAgent",
+                  description: "Alpha",
+                },
+              },
+              audioFileTranscriptionEnabled: false,
+              mode: "intelligence",
+              threadEndpoints: {
+                list: threadListAvailable,
+                inspect: true,
+                mutations: true,
+                realtimeMetadata: true,
+              },
+              telemetryDisabled: true,
+              ...diagnostics,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      if (url.includes("/threads?")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ threads: [] }), { status: 200 }),
+        );
+      }
+      if (url.includes("announcement.json")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              timestamp: "2026-07-11T00:00:00.000Z",
+              previewText: "",
+              announcement: "Inspector",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        );
+      }
+      return Promise.reject(new Error(`Unexpected URL ${url}`));
+    });
+    const core = new CopilotKitCore({
+      runtimeUrl: "http://localhost/api",
+      runtimeTransport: "rest",
+    });
+    await vi.waitFor(() => {
+      expect(core.runtimeConnectionStatus).toBe(
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+      );
+    });
+
+    localStorage.removeItem("cpk:inspector:state");
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = core;
+    await inspector.updateComplete;
+
+    const openInspector =
+      inspector.shadowRoot?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Web Inspector"]',
+      );
+    expect(openInspector).not.toBeNull();
+    openInspector?.click();
+    await inspector.updateComplete;
+
+    const threadsButton = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Threads");
+    expect(threadsButton).toBeDefined();
+    threadsButton?.click();
+    await inspector.updateComplete;
+
+    return inspector;
+  }
+
+  return {
+    fetchMock,
+    mountThreadsWithCapability,
+    threadListCalls,
+    teardown: () => {
+      document.body.innerHTML = "";
+      vi.unstubAllGlobals();
+    },
+  };
+}
+
+test.each([
+  {
+    diagnostic: "ready entitlement",
+    status: "ready",
+    legacyStatus: "expired",
+    runtimeEntitlements: {
+      status: "ready",
+      entitlement: {
+        active: true,
+        source: "managedOrgSubscription",
+        features: { msteams: true },
+        limits: { "threads.retention_hours": 120 },
+        planCode: "pro",
+        entitlementSource: "clerk_subscription",
+      },
+    },
+    errorMessage: undefined,
+    errorCode: undefined,
+    requestId: undefined,
+    traceId: undefined,
+    lockedHeading: "Renew Intelligence to inspect Threads.",
+  },
+  {
+    diagnostic: "expired self-hosted entitlement",
+    status: "degraded",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "degraded",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+        message: "Self-hosted license has expired.",
+        retryable: false,
+        requestId: "req-expired",
+        traceId: "trace-expired",
+      },
+    },
+    errorMessage: "Self-hosted license has expired.",
+    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_EXPIRED",
+    requestId: "req-expired",
+    traceId: "trace-expired",
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "misconfigured self-hosted entitlement",
+    status: "misconfigured",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "misconfigured",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+        message: "Self-hosted license configuration is missing or invalid.",
+        retryable: false,
+      },
+    },
+    errorMessage: "Self-hosted license configuration is missing or invalid.",
+    errorCode: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+    requestId: undefined,
+    traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "unavailable managed entitlement",
+    status: "unavailable",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "unavailable",
+      error: {
+        code: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+        message: "Managed entitlement resolution is temporarily unavailable.",
+        retryable: true,
+      },
+    },
+    errorMessage: "Managed entitlement resolution is temporarily unavailable.",
+    errorCode: "RUNTIME_ENTITLEMENTS_MANAGED_UNAVAILABLE",
+    requestId: undefined,
+    traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+  {
+    diagnostic: "SDK fail-soft entitlement lookup",
+    status: "unavailable",
+    legacyStatus: "valid",
+    runtimeEntitlements: {
+      status: "unavailable",
+      error: {
+        code: "runtime_entitlements_unavailable",
+        message: "Runtime entitlement lookup failed",
+        retryable: true,
+      },
+    },
+    errorMessage: "Runtime entitlement lookup failed",
+    errorCode: "runtime_entitlements_unavailable",
+    requestId: undefined,
+    traceId: undefined,
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+] as const)(
+  "renders structured Runtime entitlement diagnostics for $diagnostic",
+  async ({
+    status,
+    legacyStatus,
+    runtimeEntitlements,
+    errorMessage,
+    errorCode,
+    requestId,
+    traceId,
+    lockedHeading,
+  }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(false, {
+        runtimeEntitlements,
+        licenseStatus: legacyStatus,
+      });
+
+      const diagnostics = inspector.shadowRoot?.querySelectorAll(
+        "[data-runtime-entitlement-status]",
+      );
+      const diagnostic = inspector.shadowRoot?.querySelector<HTMLElement>(
+        `[data-runtime-entitlement-status="${status}"]`,
+      );
+
+      expect(diagnostics).toHaveLength(1);
+      expect(diagnostic).not.toBeNull();
+      if (errorMessage) {
+        expect(diagnostic?.textContent).toContain(errorMessage);
+      }
+      if (errorCode) {
+        expect(diagnostic?.textContent).toContain(errorCode);
+      }
+      if (requestId) {
+        expect(diagnostic?.textContent).toContain(requestId);
+      }
+      if (traceId) {
+        expect(diagnostic?.textContent).toContain(traceId);
+      }
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
+      expect(
+        fixture.fetchMock.mock.calls.some((call) =>
+          String(call[0]).includes("/threads"),
+        ),
+      ).toBe(false);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test("falls back to expired legacy license diagnostics when structured entitlements are omitted", async () => {
+  const fixture = setupRuntimeDiagnostics();
+
+  try {
+    const inspector = await fixture.mountThreadsWithCapability(false, {
+      licenseStatus: "expired",
+    });
+
+    const diagnostics = inspector.shadowRoot?.querySelectorAll(
+      "[data-runtime-entitlement-status]",
+    );
+    const degraded = inspector.shadowRoot?.querySelector(
+      '[data-runtime-entitlement-status="degraded"]',
+    );
+
+    expect(diagnostics).toHaveLength(1);
+    expect(degraded).not.toBeNull();
+    expect(inspector.shadowRoot?.textContent ?? "").toContain(
+      "Renew Intelligence to inspect Threads.",
+    );
+  } finally {
+    fixture.teardown();
+  }
+});
+
+test.each([
+  {
+    diagnostic: "structured misconfiguration",
+    diagnostics: {
+      runtimeEntitlements: {
+        status: "misconfigured",
+        error: {
+          code: "RUNTIME_ENTITLEMENTS_SELF_HOSTED_MISCONFIGURED",
+          message: "Self-hosted license configuration is missing or invalid.",
+          retryable: false,
+        },
+      },
+      licenseStatus: "valid",
+    },
+  },
+  {
+    diagnostic: "legacy expired license",
+    diagnostics: { licenseStatus: "expired" },
+  },
+] as const)(
+  "keeps Threads available for $diagnostic when the Runtime advertises list capability",
+  async ({ diagnostics }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(
+        true,
+        diagnostics,
+      );
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      await vi.waitFor(() => {
+        expect(threadListText(inspector)).toContain("Realtime thread sync");
+      });
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(inspector.shadowRoot?.textContent ?? "").not.toContain(
+        "Enable Intelligence to inspect Threads.",
+      );
+      expect(fixture.threadListCalls().length).toBeGreaterThan(0);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
+test.each([
+  {
+    diagnostic: "structured ready entitlement",
+    diagnostics: {
+      runtimeEntitlements: {
+        status: "ready",
+        entitlement: {
+          active: true,
+          source: "managedOrgSubscription",
+          features: { msteams: true },
+          limits: { "threads.retention_hours": 120 },
+        },
+      },
+      licenseStatus: "expired",
+    },
+    lockedHeading: "Renew Intelligence to inspect Threads.",
+  },
+  {
+    diagnostic: "legacy valid license",
+    diagnostics: { licenseStatus: "valid" },
+    lockedHeading: "Finish setting up Rich Threads",
+  },
+] as const)(
+  "keeps Threads unavailable for $diagnostic when the Runtime omits list capability",
+  async ({ diagnostics, lockedHeading }) => {
+    const fixture = setupRuntimeDiagnostics();
+
+    try {
+      const inspector = await fixture.mountThreadsWithCapability(
+        false,
+        diagnostics,
+      );
+
+      const threadsButton = Array.from(
+        inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ??
+          [],
+      ).find((button) => button.textContent?.trim() === "Threads");
+      expect(threadsButton).toBeDefined();
+      expect(inspector.shadowRoot?.textContent ?? "").toContain(lockedHeading);
+      expect(threadListText(inspector)).not.toContain(
+        "Threads are persistent, inspectable conversations",
+      );
+      expect(fixture.threadListCalls()).toHaveLength(0);
+    } finally {
+      fixture.teardown();
+    }
+  },
+);
+
 describe("WebInspectorElement owned thread store headers (#5581)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -2145,9 +2538,6 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
           properties: Record<string, unknown>;
         };
       });
-  const threadListText = (inspector: WebInspectorElement) =>
-    inspector.shadowRoot?.querySelector("cpk-thread-list")?.shadowRoot
-      ?.textContent ?? "";
   const expectNoUtmParams = (url: URL) => {
     expect(url.searchParams.has("utm_source")).toBe(false);
     expect(url.searchParams.has("utm_medium")).toBe(false);
@@ -3345,10 +3735,10 @@ describe("cpk-memory-list", () => {
     const el = await mountList(threeMemories);
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length).toBe(3);
-    const contents = Array.from(cards ?? []).map((card) =>
+    const renderedMemoryText = Array.from(cards ?? []).map((card) =>
       card.querySelector(".cpk-ml__content")?.textContent?.trim(),
     );
-    expect(contents).toEqual([
+    expect(renderedMemoryText).toEqual([
       "Likes cats",
       "First login was on a Monday",
       "Deploys on Thursdays",

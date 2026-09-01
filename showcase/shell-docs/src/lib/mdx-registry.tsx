@@ -106,13 +106,13 @@ const Callout = DocsCallout;
 // Keeping this map alongside the stub definitions also makes the
 // mapping discoverable from a single place.
 const STUB_PARTIAL_MAP: Record<string, string> = {
-  Inspector: "shared/premium/inspector.mdx",
+  Inspector: "shared/intelligence/inspector.mdx",
   GenerativeUISpecsOverview: "shared/generative-ui-specs-overview.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   A2UI: "shared/generative-ui/a2ui.mdx",
   HeadlessUI: "shared/basics/headless-ui.mdx",
-  Overview: "shared/premium/overview.mdx",
+  Overview: "shared/intelligence/overview.mdx",
   CommonIssues: "shared/troubleshooting/common-issues.mdx",
   ErrorDebugging: "shared/troubleshooting/error-debugging.mdx",
   DebugMode: "shared/troubleshooting/debug-mode.mdx",
@@ -121,7 +121,7 @@ const STUB_PARTIAL_MAP: Record<string, string> = {
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  SelfHosting: "shared/premium/self-hosting.mdx",
+  SelfHosting: "shared/intelligence/self-hosting.mdx",
   CodingAgents: "shared/coding-agents.mdx",
   CustomAgent: "shared/backend/custom-agent.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",

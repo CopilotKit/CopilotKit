@@ -127,7 +127,7 @@ When you register multiple agents, the runtime handles discovery and routing aut
 
 [Threads](/threads), the [inspector](/inspector), and other CopilotKit Intelligence capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
-The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/premium/connect-your-runtime) for the constructor and where the project API key comes from.
+The examples below take `intelligence` and `identifyUser` as given. `intelligence` is a `CopilotKitIntelligence` instance — see [Connect your runtime to Intelligence](/intelligence/connect-your-runtime) for the constructor and where the project API key comes from.
 
 #### Assign Threads to Learning Containers
 
@@ -136,7 +136,7 @@ ID in the Intelligence SDK:
 
 ```ts title="runtime.ts"
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   getLearningContainerId: () => "support-quality",
 });
 ```
@@ -146,7 +146,7 @@ The same API handles web and Channel runs:
 
 ```ts title="runtime.ts"
 const intelligence = new CopilotKitIntelligence({
-  apiKey: process.env.INTELLIGENCE_API_KEY!,
+  apiKey: process.env.CPK_INTELLIGENCE_API_KEY!,
   getLearningContainerId: async ({ surface, user, agentId, input }) => {
     return chooseLearningContainer({
       surface,

@@ -38,12 +38,12 @@ function buildAgents() {
  *
  *   INTELLIGENCE_API_URL          e.g. http://localhost:4201
  *   INTELLIGENCE_GATEWAY_WS_URL   e.g. ws://localhost:4401
- *   INTELLIGENCE_API_KEY          e.g. cpk_...
+ *   CPK_INTELLIGENCE_API_KEY          e.g. cpk_...
  *   COPILOTKIT_LICENSE_TOKEN      (optional) read automatically by the runtime
  */
 const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
 const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
-const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+const intelligenceApiKey = process.env.CPK_INTELLIGENCE_API_KEY;
 
 const intelligenceEnabled = Boolean(
   intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,

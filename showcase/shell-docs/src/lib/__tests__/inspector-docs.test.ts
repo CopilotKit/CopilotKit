@@ -128,7 +128,7 @@ test("mapped feature pages import the matching Inspector Callout", () => {
   expect(read("docs/human-in-the-loop/index.mdx")).toContain(
     "open-inspector-pane-frontend-tools.mdx",
   );
-  expect(read("snippets/shared/premium/overview.mdx")).toContain(
+  expect(read("snippets/shared/intelligence/overview.mdx")).toContain(
     "open-inspector-pane-learning.mdx",
   );
 });

@@ -952,10 +952,19 @@ const FOLDER_INDEX: RedirectEntry[] = [
     source: "/migrate",
     destination: "/migrate/v2",
   },
+  // The Intelligence docs folder was renamed `premium/` →
+  // `intelligence/` (OSS-1078). FI-premium keeps its id — the bare
+  // legacy folder URL is unchanged — but now points straight at the
+  // renamed page so the old URL resolves in ONE hop.
   {
     id: "FI-premium",
     source: "/premium",
-    destination: "/premium/overview",
+    destination: "/intelligence/overview",
+  },
+  {
+    id: "FI-intelligence",
+    source: "/intelligence",
+    destination: "/intelligence/overview",
   },
   {
     id: "FI-concepts",
@@ -969,25 +978,111 @@ const FOLDER_INDEX: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Every framework slug whose `/<fw>/premium/*` URLs were live on the SEO
+// surface: the canonical (post-cutover) slugs AND the legacy upstream
+// ones, deduped. Both the retired-page entries and the
+// `premium/` → `intelligence/` rename below key off this list, so a
+// legacy-slug URL is handled directly instead of chaining through
+// SR-wild×/P1× and picking up a second hop.
+// ---------------------------------------------------------------------------
+
+const PREMIUM_URL_FRAMEWORKS: string[] = [
+  ...new Set<string>([...CANONICAL_FRAMEWORKS, ...FRAMEWORKS]),
+];
+
+// ---------------------------------------------------------------------------
 // Retired Intelligence pages.
 // ---------------------------------------------------------------------------
 
 const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  // Sources keep the legacy `premium` segment (that is the URL the SEO
+  // surface saw); destinations follow the `premium/` → `intelligence/`
+  // folder rename (OSS-1078). These are EXACT entries, so middleware
+  // step 1a matches them before the `/premium/:path*` wildcard below —
+  // the retired page lands on the overview in one hop instead of being
+  // rewritten to a nonexistent `/intelligence/observability`.
   {
     id: "INTEL-observability-root",
     source: "/premium/observability",
-    destination: "/premium/overview",
+    destination: "/intelligence/overview",
   },
   {
     id: "INTEL-observability-connectors",
     source: "/troubleshooting/observability-connectors",
-    destination: "/premium/overview",
+    destination: "/intelligence/overview",
   },
-  ...CANONICAL_FRAMEWORKS.map((framework) => ({
+  // Expanded over the LEGACY slugs as well as the canonical ones: the
+  // page is retired, so `/<legacy-fw>/premium/observability` has to be
+  // caught by an exact entry here. Without it the
+  // INTEL-rename-wild×<legacy-fw> wildcard below would rewrite it to a
+  // nonexistent `/<canonical-fw>/intelligence/observability`.
+  ...PREMIUM_URL_FRAMEWORKS.map((framework) => ({
     id: `INTEL-observability×${framework}`,
     source: `/${framework}/premium/observability`,
-    destination: destinationPath(framework, "premium/overview"),
+    destination: destinationPath(
+      canonicalSlug(framework),
+      "intelligence/overview",
+    ),
   })),
+];
+
+// ---------------------------------------------------------------------------
+// `premium/` → `intelligence/` content-folder rename (OSS-1078).
+//
+// Only the parent segment changed — every page slug under the folder
+// (`overview`, `managed-intelligence-platform`, `connect-your-runtime`,
+// `self-hosting`, `intelligence-platform`, `threads-explained`,
+// `headless-ui`) is unchanged. So this is expressed as WILDCARDS rather
+// than one SUBPATH_RENAMES entry per page: `/premium/:path*` →
+// `/intelligence/:path*` covers today's pages, their `.md`/`.mdx` LLM
+// variants, and any page added under `intelligence/` later without
+// anyone having to touch this table.
+//
+// Two surfaces are covered:
+//   - the root surface (`/premium/...`);
+//   - every framework scope (`/<fw>/premium/...`). Each framework needs
+//     its own entry: middleware step 1b only consults a wildcard for a
+//     framework-scoped request when the wildcard's OWN first segment is
+//     that same framework slug. Legacy slugs are listed alongside the
+//     canonical ones so `/langgraph/premium/x` lands on
+//     `/langgraph-python/intelligence/x` in ONE hop instead of chaining
+//     through SR-wild×langgraph / P1×langgraph.
+//
+// The bare framework-scoped folder URL gets its own exact entry because
+// a wildcard prefix here always ends in `/premium/`, so `/<fw>/premium`
+// on its own never matches one. The bare ROOT folder URL is already
+// covered by FI-premium in FOLDER_INDEX (retargeted with the rename) —
+// no entry is duplicated here, since a duplicate exact source would
+// silently overwrite it in the middleware's exact-match Map.
+//
+// No loop and no chain: no source in this file carries an
+// `/intelligence` segment, and every source here carries the `premium`
+// segment that the destinations drop. The wildcards are spread BEFORE
+// SLUG_RENAME_REDIRECTS / WILDCARD_REDIRECTS so the broad legacy roots
+// — which stay last, per the ordering note above — cannot hijack them.
+// ---------------------------------------------------------------------------
+
+const INTELLIGENCE_FOLDER_RENAMES: RedirectEntry[] = [
+  {
+    id: "INTEL-rename-wild",
+    source: "/premium/:path*",
+    destination: "/intelligence/:path*",
+  },
+  ...PREMIUM_URL_FRAMEWORKS.flatMap((fw): RedirectEntry[] => {
+    const fwDest = canonicalSlug(fw);
+    return [
+      {
+        id: `INTEL-rename-wild×${fw}`,
+        source: `/${fw}/premium/:path*`,
+        destination: destinationPath(fwDest, "intelligence/:path*"),
+      },
+      {
+        id: `INTEL-rename-root×${fw}`,
+        source: `/${fw}/premium`,
+        destination: destinationPath(fwDest, "intelligence/overview"),
+      },
+    ];
+  }),
 ];
 
 // ---------------------------------------------------------------------------
@@ -1116,6 +1211,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
   ...RETIRED_INTELLIGENCE_REDIRECTS,
+  ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...FOLDER_INDEX,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),
@@ -1123,6 +1219,10 @@ export const seoRedirects: RedirectEntry[] = [
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => e.source.includes(":path*")),
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => e.source.includes(":path*")),
   ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => e.source.includes(":path*")),
+  // premium/ -> intelligence/ wildcards: BEFORE the slug-rename and
+  // legacy-root catch-alls so `/langgraph/premium/x` is rewritten in one
+  // hop instead of being swallowed by SR-wild×langgraph.
+  ...INTELLIGENCE_FOLDER_RENAMES.filter((e) => e.source.includes(":path*")),
   ...SLUG_RENAME_REDIRECTS,
   ...WILDCARD_REDIRECTS,
 ];

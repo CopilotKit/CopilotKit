@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.69.3",
+  "version": "1.70.0",
   "description": "Core web utilities for CopilotKit2",
   "license": "MIT",
   "repository": {
