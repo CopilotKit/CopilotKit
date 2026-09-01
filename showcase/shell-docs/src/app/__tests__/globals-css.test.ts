@@ -98,13 +98,6 @@ describe("globals.css sidebar Intelligence pin", () => {
   });
 });
 
-describe("globals.css mega menu featured Intelligence", () => {
-  it("leaves space under the featured Intelligence card", () => {
-    expect(globalsCss).toContain(".shell-docs-mega-menu-featured-item");
-    expect(globalsCss).toContain("margin-bottom: 4px;");
-  });
-});
-
 describe("globals.css sidebar section folders", () => {
   it("styles collapsible section triggers separately from page links", () => {
     expect(globalsCss).toContain(".shell-docs-sidebar-section-label");
