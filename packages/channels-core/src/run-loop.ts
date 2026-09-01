@@ -21,6 +21,7 @@ import type {
   ContextEntry,
 } from "./tools.js";
 import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
+import type { ChannelActorIdentity } from "./identity.js";
 import {
   channelDeliveryErrorDetails,
   isChannelDeliveryTerminatedError,
@@ -49,6 +50,31 @@ export interface RunLoopArgs {
    * lifecycle around the whole loop.
    */
   canonicalRun?: CanonicalRunIdentity;
+  /**
+   * Who is speaking this turn. Forwarded to the agent as
+   * `forwardedProps.channelActor` on every run this loop performs, including a
+   * resume — a resume's actor is whoever pressed the button, which is not
+   * always whoever started the turn.
+   *
+   * Supplied by the Thread from the ingress event, never by a caller passing a
+   * value of its own: an agent that acts as this person has to be reading the
+   * platform's word for who spoke.
+   */
+  identity?: ChannelActorIdentity;
+}
+
+/**
+ * The identity half of `forwardedProps`, as a spreadable object.
+ *
+ * Empty when the turn named nobody, so the run carries no `channelActor` key at
+ * all rather than one holding `undefined`. An agent then gets the same answer
+ * from a missing key and an anonymous turn, instead of two shapes meaning one
+ * thing.
+ */
+function forwardedIdentity(
+  identity: ChannelActorIdentity | undefined,
+): Record<string, unknown> {
+  return identity ? { channelActor: identity } : {};
 }
 
 interface SubscriberFanoutOptions {
@@ -251,7 +277,9 @@ async function emitCanonicalLifecycleEvent(
     state: args.agent.state,
     tools: [...args.toolDescriptors],
     context: [...args.context],
-    forwardedProps: {},
+    // Mirrors what the loop actually sends, so a subscriber reading `input`
+    // sees the same turn the agent saw.
+    forwardedProps: forwardedIdentity(args.identity),
   };
   const baseParams = {
     messages: args.agent.messages,
@@ -361,13 +389,22 @@ export async function runAgentLoop(
     for (let i = 0; i < maxIterations; i++) {
       if (resume) {
         await agent.runAgent(
-          { forwardedProps: { command: resume } },
+          {
+            forwardedProps: {
+              ...forwardedIdentity(args.identity),
+              command: resume,
+            },
+          },
           subscriber,
         );
         resume = undefined;
       } else {
         await agent.runAgent(
-          { tools: toolDescriptors as never, context: context as never },
+          {
+            tools: toolDescriptors as never,
+            context: context as never,
+            forwardedProps: forwardedIdentity(args.identity),
+          },
           subscriber,
         );
       }

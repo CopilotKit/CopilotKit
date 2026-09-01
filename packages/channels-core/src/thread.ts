@@ -31,6 +31,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { StateStore } from "./state/state-store.js";
 import { validateSchema } from "./standard-schema.js";
 import type { StandardSchemaV1 } from "./standard-schema.js";
+import { channelActorIdentity } from "./identity.js";
 import { hasMemoryAccess, resolveMemoryGrant } from "./memory.js";
 import type { MemoryGrant, ResolvedChannelMemory } from "./memory.js";
 import type { ChannelComponentRenderContext } from "./channel-component.js";
@@ -756,6 +757,7 @@ export class Thread implements ThreadInterface {
       // reported as agent_run_failed (with the right stage) instead of being
       // hidden behind an already-sent success event.
       let stage: "agent" | "finalize" = "agent";
+      const identity = channelActorIdentity(this.deps.actor, this.platform);
       try {
         const loopArgs: RunLoopArgs = {
           agent: session.agent,
@@ -763,6 +765,9 @@ export class Thread implements ThreadInterface {
           tools,
           toolDescriptors,
           context,
+          // The platform's word for who spoke, taken from this Thread's ingress
+          // rather than from the run's caller. See `channelActorIdentity`.
+          ...(identity ? { identity } : {}),
           makeToolCtx: (): ChannelToolContext => ({
             thread: this,
             message: this.deps.message,
