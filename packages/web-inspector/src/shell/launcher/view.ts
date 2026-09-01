@@ -107,7 +107,7 @@ export function renderLauncherView(
             ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
             : activeSignal === NEWS_SIGNAL_ID
               ? `${LAUNCHER_BASE_LABEL}, ${LAUNCHER_UNREAD_LABEL}`
-            : LAUNCHER_BASE_LABEL
+              : LAUNCHER_BASE_LABEL
         }
         title=${HUD_INSPECTOR_LABEL}
         data-drag-context="button"

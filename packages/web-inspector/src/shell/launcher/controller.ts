@@ -623,8 +623,7 @@ export class LauncherController {
   ): void => {
     event.preventDefault();
     event.stopPropagation();
-    this.state.hudLandingMenu =
-      row === "threads" ? "threads" : "memories";
+    this.state.hudLandingMenu = row === "threads" ? "threads" : "memories";
     this.closeHud();
     this.host.openInspector();
   };

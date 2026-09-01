@@ -645,9 +645,7 @@ export const homeViewBaseStyles = css`
     border-radius: 999px;
     background-color: #ffffff;
   }
-  .inspector-home-feature[data-state="on"]
-    .inspector-home-feature-status
-    > span {
+  .inspector-home-feature[data-state="on"] .inspector-home-feature-status > span {
     border-color: #087653;
     background-color: #087653;
   }

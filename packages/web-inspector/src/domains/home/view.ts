@@ -22,10 +22,7 @@ export type HomeViewActions = HomeIntelligenceViewActions &
     openLastEvent: (eventId: string, agentId?: string) => void;
   }>;
 
-export type HomeViewOptions = Omit<
-  HomeIntelligenceViewOptions,
-  "renderIcon"
-> &
+export type HomeViewOptions = Omit<HomeIntelligenceViewOptions, "renderIcon"> &
   Readonly<{
     announcementPreview?: TemplateResult | typeof nothing;
     appendRefParam: (href: string, ref: string) => string;
@@ -363,13 +360,13 @@ function renderFeatures(
         <span>${enabled.length} enabled, ${disabled.length} available</span>
       </header>
       ${
-      model.services.length === 0
-        ? html`
-            <p class="inspector-home-features-empty">
-              Feature availability is unavailable for this runtime.
-            </p>
-          `
-        : html`<div class="inspector-home-feature-groups">
+        model.services.length === 0
+          ? html`
+              <p class="inspector-home-features-empty">
+                Feature availability is unavailable for this runtime.
+              </p>
+            `
+          : html`<div class="inspector-home-feature-groups">
             ${renderGroup("active", enabled)}${renderGroup(
               "available",
               disabled,

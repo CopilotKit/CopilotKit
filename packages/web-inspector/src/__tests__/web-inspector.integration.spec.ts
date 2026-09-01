@@ -1,7 +1,4 @@
-import {
-  configureWebInspectorElement,
-  WebInspectorElement,
-} from "../index.js";
+import { configureWebInspectorElement, WebInspectorElement } from "../index.js";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,

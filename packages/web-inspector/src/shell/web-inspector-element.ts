@@ -141,9 +141,7 @@ import {
   trackThreadsTalkToEngineerClicked,
   trackThreadsTryFromHereClicked,
 } from "../shared/telemetry/privacy.js";
-import {
-  createOnboardingRunId,
-} from "../domains/home/onboarding-prompt.js";
+import { createOnboardingRunId } from "../domains/home/onboarding-prompt.js";
 import type { DisplayValue } from "../shared/display/types.js";
 import type {
   ThreadDebuggerMessage,
@@ -2511,10 +2509,7 @@ export class WebInspectorElement extends LitElement {
     if (!service) return nothing;
     return renderFeatureSetupPromptButton({
       service,
-      copyState: homeFeaturePromptCopyState(
-        this.homeFeatureSetup,
-        service.id,
-      ),
+      copyState: homeFeaturePromptCopyState(this.homeFeatureSetup, service.id),
       className,
       copy: (event) => {
         void this.handleHomeFeaturePromptCopy(service, event);

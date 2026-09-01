@@ -72,9 +72,7 @@ export const LAUNCHER_HUD_INTRO_MS = {
   blockedRetry: 250,
 } as const;
 
-export type LauncherHudRowId =
-  | "threads"
-  | "learning";
+export type LauncherHudRowId = "threads" | "learning";
 
 export const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
 export const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;

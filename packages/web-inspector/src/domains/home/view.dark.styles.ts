@@ -246,8 +246,7 @@ export const homeViewDarkStyles = css`
     border-color: #8ce1c5;
     background-color: #8ce1c5;
   }
-  .inspector-window[data-color-scheme="dark"]
-    .inspector-home-feature-action {
+  .inspector-window[data-color-scheme="dark"] .inspector-home-feature-action {
     border-color: #464957;
     background-color: #20232d;
     color: #d4d7e0;
