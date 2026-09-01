@@ -32,6 +32,13 @@ type TestEvent =
 function lifecycleBatch(
   runId: string,
   middle: readonly TestEvent[],
+  usage?: Array<{
+    provider?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+  }>,
 ): TestEvent[] {
   return [
     {
@@ -44,7 +51,8 @@ function lifecycleBatch(
       type: EventType.RUN_FINISHED,
       threadId: "inner-thread",
       runId,
-    },
+      ...(usage ? { usage } : {}),
+    } as RunFinishedEvent,
   ];
 }
 
@@ -61,6 +69,7 @@ async function emitBatch(
   agent: FakeAgent,
   runId: string,
   middle: readonly TestEvent[],
+  usage?: Parameters<typeof lifecycleBatch>[2],
 ): Promise<void> {
   const input: RunAgentInput = {
     threadId: agent.threadId,
@@ -78,7 +87,7 @@ async function emitBatch(
     input,
   };
 
-  for (const event of lifecycleBatch(runId, middle)) {
+  for (const event of lifecycleBatch(runId, middle, usage)) {
     await subscriber.onEvent?.({ ...params, event });
     switch (event.type) {
       case EventType.RUN_STARTED:
@@ -112,6 +121,82 @@ async function emitBatch(
     }
   }
 }
+
+test("managed runAgentLoop aggregates token usage across agent iterations", async () => {
+  let agent!: FakeAgent;
+  agent = new FakeAgent([
+    (subscriber) =>
+      emitBatch(
+        subscriber,
+        agent,
+        "inner-run-1",
+        [{ type: EventType.TOOL_CALL_END, toolCallId: "tool-call-1" }],
+        [
+          {
+            provider: "openai",
+            model: "gpt-5-mini",
+            inputTokens: 10,
+            outputTokens: 4,
+            totalTokens: 14,
+          },
+        ],
+      ),
+    (subscriber) =>
+      emitBatch(
+        subscriber,
+        agent,
+        "inner-run-2",
+        [],
+        [
+          {
+            provider: "openai",
+            model: "gpt-5-mini",
+            inputTokens: 12,
+            outputTokens: 3,
+            totalTokens: 15,
+          },
+        ],
+      ),
+  ]);
+  const { renderer } = setupRenderer();
+  const ingestedEvents: BaseEvent[] = [];
+  const echo: ChannelTool = {
+    name: "echo",
+    description: "Return the value.",
+    parameters: z.object({ value: z.string() }),
+    handler: ({ value }) => value,
+  };
+
+  await runAgentLoop({
+    agent,
+    renderer,
+    tools: new Map([["echo", echo]]),
+    toolDescriptors: [],
+    context: [],
+    makeToolCtx: () => {
+      throw new Error("tool context is not used by this test");
+    },
+    subscriber: {
+      onEvent: ({ event }) => {
+        ingestedEvents.push(event);
+      },
+    },
+    canonicalRun,
+  });
+
+  expect(ingestedEvents.at(-1)).toMatchObject({
+    type: EventType.RUN_FINISHED,
+    usage: [
+      {
+        provider: "openai",
+        model: "gpt-5-mini",
+        inputTokens: 22,
+        outputTokens: 7,
+        totalTokens: 29,
+      },
+    ],
+  });
+});
 
 function setupRenderer(
   options: { failOnContent?: boolean; failOnFinish?: boolean } = {},

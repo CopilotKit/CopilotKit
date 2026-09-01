@@ -99,6 +99,18 @@ export type LockConflictDecision = "drop" | "force";
 export type ChannelConcurrency = "parallel" | "serial" | "drop";
 
 /**
+ * Public agent boundary for Channels.
+ *
+ * AG-UI agents from compatible client versions have the same runtime contract,
+ * but their private class fields make TypeScript treat the classes as distinct.
+ * Channels needs `clone()` at configuration time and validates the clone before
+ * each run.
+ */
+interface ChannelAgentInput {
+  clone(): unknown;
+}
+
+/**
  * Isolate an agent for one turn via `clone()`.
  *
  * Applied to every configured shape, so the object a turn runs on is never one
@@ -434,7 +446,7 @@ export interface CreateChannelOptions<
    * configure direct Slack with `slack({ replyContinuation })` instead.
    */
   replyContinuation?: ReplyContinuationOptions;
-  agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  agent?: ChannelAgentInput | ((threadId: string) => ChannelAgentInput);
   /**
    * Tolerate the AG-UI event streams real agents emit. On by default.
    *
@@ -674,7 +686,10 @@ export function createChannel<
       opts.sanitizeAgentEvents === false
         ? (agent: AbstractAgent) => agent
         : sanitizeAgentEventStream;
-    const a = opts.agent;
+    const a = opts.agent as
+      | AbstractAgent
+      | ((threadId: string) => AbstractAgent)
+      | undefined;
     if (!a) {
       return () => {
         throw new Error(
