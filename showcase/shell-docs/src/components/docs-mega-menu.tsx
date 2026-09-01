@@ -112,7 +112,10 @@ export function DocsMegaMenu({
           onPointerEnter={openFromPointer}
           onPointerLeave={scheduleClose}
         >
-          <BookOpen className="h-4 w-4 shrink-0 text-current" aria-hidden="true" />
+          <BookOpen
+            className="h-4 w-4 shrink-0 text-current"
+            aria-hidden="true"
+          />
           <span>Explore docs</span>
           <ChevronDown
             className={`h-3.5 w-3.5 text-current transition-transform duration-150 ${

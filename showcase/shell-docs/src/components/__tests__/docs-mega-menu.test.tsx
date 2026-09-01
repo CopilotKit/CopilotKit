@@ -34,5 +34,7 @@ test("opens a five-column docs map with Intelligence featured", () => {
 
   const intelligence = screen.getByRole("link", { name: /Intelligence/ });
   expect(intelligence.getAttribute("href")).toBe("/intelligence/overview");
-  expect(intelligence.className).toContain("shell-docs-mega-menu-link-featured");
+  expect(intelligence.className).toContain(
+    "shell-docs-mega-menu-link-featured",
+  );
 });

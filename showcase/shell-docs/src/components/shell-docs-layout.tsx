@@ -48,10 +48,7 @@ export function ShellDocsLayout({
       // our custom one.
       sidebar={{
         banner: (
-          <div
-            key="shell-docs-sidebar-banner"
-            className="flex flex-col gap-2"
-          >
+          <div key="shell-docs-sidebar-banner" className="flex flex-col gap-2">
             {banner}
             <SidebarIntelligenceEntry />
             <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
