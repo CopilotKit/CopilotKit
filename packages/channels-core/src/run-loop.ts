@@ -5,8 +5,10 @@ import type {
   BaseEvent,
   RunAgentInput,
   RunErrorEvent,
+  RunFinishedEvent,
 } from "@ag-ui/client";
-import type { Message } from "@ag-ui/core";
+import { aggregateTokenUsage } from "@ag-ui/core";
+import type { Message, TokenUsage } from "@ag-ui/core";
 import type {
   RunRenderer,
   CapturedToolCall,
@@ -85,6 +87,7 @@ function forwardedIdentity(
 interface SubscriberFanoutOptions {
   canonicalRun?: CanonicalRunIdentity;
   onInnerRunError?: (event: RunErrorEvent) => void;
+  onInnerRunFinished?: (event: RunFinishedEvent) => void;
   onRendererError?: (error: unknown) => void;
   /** Stops provider callbacks after their first terminal delivery error. */
   isRendererClosed?: () => boolean;
@@ -190,8 +193,13 @@ function canonicalizeSubscriberParams(
       event.type === EventType.RUN_FINISHED ||
       event.type === EventType.RUN_ERROR)
   ) {
-    if (event.type === EventType.RUN_ERROR) {
-      options.onInnerRunError?.(event as RunErrorEvent);
+    if (!stampedEvents.has(event)) {
+      stampedEvents.set(event, event);
+      if (event.type === EventType.RUN_ERROR) {
+        options.onInnerRunError?.(event as RunErrorEvent);
+      } else if (event.type === EventType.RUN_FINISHED) {
+        options.onInnerRunFinished?.(event as RunFinishedEvent);
+      }
     }
     return undefined;
   }
@@ -358,6 +366,8 @@ export async function runAgentLoop(
     initialResume,
   } = args;
   let innerRunError: Error | undefined;
+  const innerRunUsage: TokenUsage[] = [];
+  let innerRunFinishReason: RunFinishedEvent["finishReason"];
   let hasDeliveryError = false;
   let deliveryError: unknown;
   const deferRendererError = (error: unknown): void => {
@@ -376,6 +386,10 @@ export async function runAgentLoop(
                 canonicalRun: args.canonicalRun,
                 onInnerRunError: (event) => {
                   innerRunError ??= errorFromInnerRun(event);
+                },
+                onInnerRunFinished: (event) => {
+                  innerRunFinishReason = event.finishReason;
+                  if (event.usage) innerRunUsage.push(...event.usage);
                 },
                 onRendererError: deferRendererError,
                 isRendererClosed,
@@ -485,10 +499,15 @@ export async function runAgentLoop(
       isRendererClosed,
     );
     const result = await executeIterations();
-    const finishedEvent: BaseEvent = {
+    const usage = aggregateTokenUsage(innerRunUsage);
+    const finishedEvent: RunFinishedEvent = {
       type: EventType.RUN_FINISHED,
       threadId: args.canonicalRun.threadId,
       runId: args.canonicalRun.runId,
+      ...(usage.length > 0 ? { usage } : {}),
+      ...(innerRunFinishReason !== undefined
+        ? { finishReason: innerRunFinishReason }
+        : {}),
     };
     await emitCanonicalLifecycleEvent(
       finishedEvent,
