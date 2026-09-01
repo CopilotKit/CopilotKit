@@ -14,7 +14,7 @@
 #     the normal flow failed BEFORE npm publish succeeded.
 #   - workflow_dispatch with mode=prerelease → canary publish. Bumps versions
 #     in the build job to <X.Y.Z>-canary.<suffix>, publishes with --tag canary,
-#     skips tag push + GH Release + Notion notification.
+#     skips tag push + GH Release + Slack notification.
 name: release / publish
 
 # This workflow handles two independent release lanes:
@@ -384,10 +384,9 @@ jobs:
       # or `prepare`, so `pnpm pack` runs no lifecycle scripts; voice's
       # `prepublishOnly` fires for neither `pnpm pack` nor `npm publish <tarball>`.
       #
-      # Stable keeps the FULL install: publish-release.ts additionally imports
-      # lib/notion.js and the channels umbrella verifier runs a root workspace
-      # script, so its dependency surface is wider and far less worth trimming on
-      # the highest-stakes path.
+      # Stable keeps the FULL install: the channels umbrella verifier runs a
+      # root workspace script, so its dependency surface is wider and far less
+      # worth trimming on the highest-stakes path.
       - name: Install Dependencies (prerelease — root + packages only)
         if: ${{ steps.meta.outputs.mode == 'prerelease' }}
         run: pnpm install --frozen-lockfile --filter . --filter "./packages/**"
@@ -425,7 +424,6 @@ jobs:
         if: ${{ inputs.dry-run != true }}
         env:
           NODE_AUTH_TOKEN: ""
-          NOTION_API_KEY: ${{ steps.meta.outputs.mode == 'stable' && secrets.NOTION_API_KEY || '' }}
           PUBLISH_SCRIPT: ${{ steps.meta.outputs.mode == 'prerelease' && 'prerelease.ts' || 'publish-release.ts' }}
           SCOPE: ${{ steps.meta.outputs.scope }}
         run: |

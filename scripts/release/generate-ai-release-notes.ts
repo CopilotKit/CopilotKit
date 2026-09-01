@@ -1,16 +1,15 @@
 /**
- * AI-powered release notes generator + Notion draft creator.
+ * AI-powered release notes generator.
  *
  * 1. Reads the raw changelog from release-notes.md
  * 2. Calls Claude API to generate polished release notes
- * 3. Creates a Notion page with the draft (for human editing)
- * 4. Writes release-notes.md with the AI version
- * 5. Outputs the Notion page URL + ID for the workflow
+ * 3. Writes release-notes.md with the AI version
+ *
+ * release-notes.md is committed to the release PR branch, which is both the
+ * review surface and how the notes reach the publish job.
  *
  * Env vars:
- *   ANTHROPIC_API_KEY           — for AI generation (falls back to raw if missing)
- *   NOTION_API_KEY              — for creating the Notion draft (skipped if missing)
- *   NOTION_RELEASE_NOTES_PAGE   — parent page ID in Notion
+ *   ANTHROPIC_API_KEY — for AI generation (falls back to raw if missing)
  *
  * Usage: tsx scripts/release/generate-ai-release-notes.ts <version>
  */
@@ -21,7 +20,6 @@ import https from "https";
 import { spawnSync } from "child_process";
 import { ROOT } from "./lib/config.js";
 import { GIT_LOG_FORMAT, parseCommitLog } from "./lib/changes.js";
-import { createReleaseDraft } from "./lib/notion.js";
 
 function getRecentCommits(count = 50): string {
   const result = spawnSync(
@@ -142,36 +140,6 @@ Output ONLY the release notes content, nothing else.`;
     );
   }
 
-  // Step 2: Create a Notion draft page for human editing
-  const notionKey = process.env.NOTION_API_KEY;
-  const notionParent = process.env.NOTION_RELEASE_NOTES_PAGE;
-
-  if (notionKey && notionParent) {
-    console.log("Creating Notion release notes draft...");
-    try {
-      const { pageId, url } = await createReleaseDraft(version, finalNotes);
-      console.log(`Notion draft created: ${url}`);
-
-      // Write the Notion reference so the publish workflow can find it
-      const notionRef = { pageId, url, version };
-      const refPath = path.join(ROOT, "release-notes-notion.json");
-      fs.writeFileSync(refPath, JSON.stringify(notionRef, null, 2) + "\n");
-
-      // Output for CI
-      const outputPath = process.env.GITHUB_OUTPUT;
-      if (outputPath) {
-        fs.appendFileSync(outputPath, `notion_url=${url}\n`);
-        fs.appendFileSync(outputPath, `notion_page_id=${pageId}\n`);
-      }
-    } catch (err: any) {
-      console.error(`Notion draft creation failed: ${err.message}`);
-      console.log("Continuing without Notion draft.");
-    }
-  } else {
-    console.log(
-      "No NOTION_API_KEY/NOTION_RELEASE_NOTES_PAGE found. Skipping Notion draft.",
-    );
-  }
 }
 
 main().catch((err) => {

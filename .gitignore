@@ -71,10 +71,6 @@ private-agents.md
 # Agent screenshots from the Inspector workbench skill. Session-only. Never commit.
 .inspector-workbench/
 
-# Release artifacts
-release-notes.md
-release-notes-notion.json
-
 # Binary artifacts
 *.dSYM/
 *.exe
