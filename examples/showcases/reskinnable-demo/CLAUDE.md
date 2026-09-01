@@ -341,7 +341,7 @@ agentId={skin.id}` → `SkinProvider` (runs `skin.useData?.()`) → chat-inbox +
   the boundary section above). Env-gated: pure SSE `CopilotRuntime` +
   `InMemoryAgentRunner` by default (OSS path); a `CopilotKitIntelligence` runtime
   when `INTELLIGENCE_API_URL`, `INTELLIGENCE_GATEWAY_WS_URL`, and
-  `INTELLIGENCE_API_KEY` are all set.
+  `CPK_INTELLIGENCE_API_KEY` are all set.
 
 ## The inset frame
 

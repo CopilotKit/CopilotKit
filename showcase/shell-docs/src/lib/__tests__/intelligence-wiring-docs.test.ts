@@ -9,7 +9,7 @@ const CONTENT_DIR = path.resolve(import.meta.dirname, "../../content");
  * The wiring page published by OSS-881. Any page that configures a runtime with
  * `intelligence` but never builds the client has to send the reader here.
  */
-const WIRING_PAGE = "/premium/connect-your-runtime";
+const WIRING_PAGE = "/intelligence/connect-your-runtime";
 
 const TS_FENCE = /```(?:ts|typescript|tsx)[^\n]*\n([\s\S]*?)```/g;
 

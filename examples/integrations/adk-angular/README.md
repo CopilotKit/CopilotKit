@@ -78,22 +78,27 @@ The Angular app talks to the runtime (`http://localhost:8200/api/copilotkit`), a
 
 The threads drawer and persistent conversation memory are powered by **CopilotKit Intelligence**. They are **off by default** — the drawer renders a locked "Upgrade" state until you enable Intelligence.
 
-To enable them, set `COPILOTKIT_LICENSE_TOKEN` (and the Intelligence endpoint vars) in `.env`. See the commented block in `.env.example`:
+To enable them, set `CPK_INTELLIGENCE_API_KEY` in `.env`. Only set the endpoint
+variables and license token when targeting a self-hosted or offline Intelligence
+deployment. See the commented block in `.env.example`:
 
 ```bash
-COPILOTKIT_LICENSE_TOKEN=
+COPILOTKIT_LICENSE_TOKEN= # self-hosted/offline only
 INTELLIGENCE_API_URL=http://localhost:4201
 INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:4401
-INTELLIGENCE_API_KEY=
+CPK_INTELLIGENCE_API_KEY=
 ```
 
-Run `copilotkit license` to provision a license. When `COPILOTKIT_LICENSE_TOKEN` is set, `server.ts` wires `CopilotKitIntelligence` (threads + memory); otherwise it falls back to an in-memory runner and the drawer stays locked.
+When `CPK_INTELLIGENCE_API_KEY` is set, `server.ts` wires
+`CopilotKitIntelligence` (threads + memory); otherwise it falls back to an
+in-memory runner and the drawer stays locked.
 
 > **Notes for the Intelligence path:**
 >
 > - The managed-Intelligence path requires **Node.js ≥ 22** (the base UI + runtime run on Node 20+).
 > - `server.ts` ships a demo `identifyUser` stub returning `demo-user`. CopilotKit Intelligence requires the identified user to actually exist, so thread persistence needs a **real, provisioned user id** — replace the stub with your auth-derived identity (the `copilotkit` CLI provisions one when it scaffolds a project). Leaving `demo-user` in place can cause thread operations to fail.
-> - Set `INTELLIGENCE_API_KEY` whenever you set `COPILOTKIT_LICENSE_TOKEN`. The runtime builds `CopilotKitIntelligence` off the license token alone; if the API key is missing, threads/memory fail with an opaque auth error at request time rather than a clear startup error.
+> - The runtime selects managed Intelligence from `CPK_INTELLIGENCE_API_KEY`;
+>   `COPILOTKIT_LICENSE_TOKEN` is only for self-hosted or offline licensing.
 
 ## 📚 Documentation
 
