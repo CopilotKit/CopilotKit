@@ -9,6 +9,7 @@ import {
   isNoiseCommit,
   parseCommitLog,
   parsePrNumber,
+  withBranchMessages,
 } from "./changes.js";
 
 const spawnSyncMock = vi.hoisted(() => vi.fn());
@@ -26,7 +27,14 @@ function mockGitHistory(): void {
     }
 
     if (args[0] === "log") {
+      // withBranchMessages probes `<sha>^1..<sha>^2`; a non-merge makes that
+      // range invalid, which git reports as a non-zero exit.
+      if (args.some((arg) => arg.includes("^1.."))) {
+        return { status: 1, stdout: "" };
+      }
+
       return {
+        status: 0,
         stdout:
           "abc1234\x1ffeat(channels): shared release\x1fRelease details\n\nBREAKING CHANGE: migrate the channel config\x1e\n",
       };
@@ -57,7 +65,7 @@ describe("Channels release history", () => {
       lastTag: "channels/v0.1.1",
       commitCount: 1,
     });
-    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+    expect(spawnSyncMock).toHaveBeenCalledWith(
       "git",
       [
         "log",
@@ -71,7 +79,7 @@ describe("Channels release history", () => {
     );
   });
 
-  it("preserves multiline commit bodies and trailers from real git history", async () => {
+  it("preserves multiline commit bodies and trailers from real git history", { timeout: 30_000 }, async () => {
     const actualChildProcess = await vi.importActual("child_process");
     const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
     const repository = mkdtempSync(join(tmpdir(), "copilotkit-release-"));
@@ -150,7 +158,7 @@ describe("Release-note commit selection", () => {
 
     getChangesSummary("channels", { pathspecs: ["packages/channels"] });
 
-    expect(spawnSyncMock).toHaveBeenLastCalledWith(
+    expect(spawnSyncMock).toHaveBeenCalledWith(
       "git",
       [
         "log",
@@ -164,7 +172,7 @@ describe("Release-note commit selection", () => {
     );
   });
 
-  it("collapses a merged PR to one entry and drops the other scope's work", async () => {
+  it("collapses a merged PR to one entry and drops the other scope's work", { timeout: 30_000 }, async () => {
     const actualChildProcess = await vi.importActual("child_process");
     const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
     const repository = mkdtempSync(join(tmpdir(), "copilotkit-firstparent-"));
@@ -231,6 +239,83 @@ describe("Release-note commit selection", () => {
       // from the channels scope.
       expect(subjects).toEqual(["feat(angular): add registerComponent (#6773)"]);
       expect(parseCommitLog(output)[0].pr).toBe(6773);
+    } finally {
+      rmSync(repository, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Breaking-change footers on branch commits", () => {
+  it("folds a merged PR's branch messages into the merge commit body", { timeout: 30_000 }, async () => {
+    const actualChildProcess = await vi.importActual("child_process");
+    const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
+    const repository = mkdtempSync(join(tmpdir(), "copilotkit-branchbody-"));
+
+    const git = (args: string[]) => {
+      const result = spawnSync("git", args, {
+        cwd: repository,
+        encoding: "utf8",
+      });
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout;
+    };
+
+    try {
+      git(["init", "--quiet", "--initial-branch=main"]);
+      git(["config", "user.name", "Release Test"]);
+      git(["config", "user.email", "release-test@example.com"]);
+      git(["commit", "--quiet", "--allow-empty", "-m", "chore: baseline"]);
+
+      git(["checkout", "--quiet", "-b", "feature"]);
+      git([
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "refactor(core)!: drop the legacy registry",
+        "-m",
+        "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
+      ]);
+      git(["checkout", "--quiet", "main"]);
+      // A merge message that says nothing about the break — the footer exists
+      // only on the branch commit.
+      git([
+        "merge",
+        "--quiet",
+        "--no-ff",
+        "feature",
+        "-m",
+        "refactor(core)!: converge the registry (#1234)",
+      ]);
+
+      const mergeSha = git(["rev-parse", "HEAD"]).trim();
+
+      // withBranchMessages shells out with cwd: ROOT, so run it against a real
+      // clone of this history rather than mocking the boundary away.
+      spawnSyncMock.mockImplementation((command: string, args: string[]) =>
+        spawnSync(command, args, { cwd: repository, encoding: "utf8" }),
+      );
+
+      const merge = {
+        hash: mergeSha,
+        subject: "refactor(core)!: converge the registry (#1234)",
+        body: "",
+        pr: 1234,
+      };
+
+      expect(withBranchMessages(merge).body).toContain(
+        "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
+      );
+
+      // A non-merge commit makes `sha^1..sha^2` invalid; that must be a no-op,
+      // not a throw.
+      const baseline = {
+        hash: git(["rev-parse", "HEAD^1"]).trim(),
+        subject: "chore: baseline",
+        body: "",
+        pr: null,
+      };
+      expect(withBranchMessages(baseline)).toEqual(baseline);
     } finally {
       rmSync(repository, { recursive: true, force: true });
     }
