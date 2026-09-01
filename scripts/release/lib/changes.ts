@@ -33,6 +33,30 @@ export function getLastReleaseTag(scope: ReleaseScope): string | null {
 export interface Commit {
   hash: string;
   subject: string;
+  body: string;
+}
+
+export const GIT_LOG_FORMAT = "%H%x1f%s%x1f%b%x1e";
+
+export function parseCommitLog(output: string): Commit[] {
+  return output
+    .split("\x1e")
+    .map((record) => record.replace(/^\r?\n/, "").trimEnd())
+    .filter(Boolean)
+    .flatMap((record) => {
+      const firstSeparator = record.indexOf("\x1f");
+      const secondSeparator = record.indexOf("\x1f", firstSeparator + 1);
+
+      if (firstSeparator === -1 || secondSeparator === -1) return [];
+
+      return [
+        {
+          hash: record.slice(0, firstSeparator),
+          subject: record.slice(firstSeparator + 1, secondSeparator),
+          body: record.slice(secondSeparator + 1).trim(),
+        },
+      ];
+    });
 }
 
 function getCommitsSince(lastTag: string | null): Commit[] {
@@ -40,21 +64,11 @@ function getCommitsSince(lastTag: string | null): Commit[] {
 
   const result = spawnSync(
     "git",
-    ["log", range, "--oneline", "--no-merges", "--format=%H %s"],
+    ["log", range, "--no-merges", `--format=${GIT_LOG_FORMAT}`],
     { cwd: ROOT, encoding: "utf8" },
   );
 
-  return result.stdout
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => {
-      const spaceIdx = line.indexOf(" ");
-      return {
-        hash: line.slice(0, spaceIdx),
-        subject: line.slice(spaceIdx + 1),
-      };
-    });
+  return parseCommitLog(result.stdout);
 }
 
 export function getCommitsSinceLastRelease(scope: ReleaseScope): Commit[] {

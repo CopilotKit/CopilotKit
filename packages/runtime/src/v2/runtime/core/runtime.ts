@@ -39,16 +39,27 @@ import type { CopilotKitIntelligence } from "../intelligence-platform";
 // by the Channel-listener bootstrap — not here.
 import type { Channel } from "@copilotkit/channels-core";
 import telemetry from "../telemetry/telemetry-client";
+import type { TelemetryCapture } from "../telemetry/telemetry-client";
+import {
+  firstNonBlankLicenseToken,
+  firstNonBlankTelemetryId,
+} from "../telemetry/telemetry-identity";
 import {
   attachRuntimeErrorReporter,
   getRuntimeErrorReporterFromOptions,
 } from "./runtime-error-reporter";
-import type { CopilotRuntimeLearningConfig } from "./learning";
+import type {
+  CopilotRuntimeLearningConfig,
+  CopilotRuntimeUser,
+} from "./learning";
 import { assertStableLearningContainerId } from "./learning";
 
 export type {
+  CopilotRuntimeUser,
   CopilotRuntimeLearningConfig,
   CopilotRuntimeLearningContext,
+  GetLearningContainerId,
+  LearningContainerSelectorInput,
 } from "./learning";
 
 export const VERSION = pkg.version;
@@ -166,6 +177,8 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   afterRequestMiddleware?: AfterRequestMiddleware;
   /** Signed license token for server-side feature verification. Falls back to COPILOTKIT_LICENSE_TOKEN env var. */
   licenseToken?: string;
+  /** Standalone telemetry identity. Falls back to CPK_TELEMETRY_ID before legacy license identity. */
+  telemetryId?: string;
   /**
    * Properties added to every telemetry event this runtime sends.
    *
@@ -207,11 +220,6 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   exposeMemoryRoutes?: boolean;
 }
 
-export interface CopilotRuntimeUser {
-  id: string;
-  name: string;
-}
-
 export type IdentifyUserCallback = (
   request: Request,
 ) => MaybePromise<CopilotRuntimeUser>;
@@ -246,7 +254,10 @@ export interface CopilotSseRuntimeOptions extends BaseCopilotRuntimeOptions {
 interface CopilotIntelligenceRuntimeBaseOptions extends BaseCopilotRuntimeOptions {
   /** Configures Intelligence mode for durable threads and realtime events. */
   intelligence: CopilotKitIntelligence;
-  /** Chooses one stable Learning Container ID for each web or Channel run. */
+  /**
+   * Chooses one stable Learning Container ID for each web or Channel run.
+   * @deprecated Configure `getLearningContainerId` on `CopilotKitIntelligence`.
+   */
   ɵlearning?: CopilotRuntimeLearningConfig;
   /** Auto-generate short names for newly created threads. */
   generateThreadNames?: boolean;
@@ -311,6 +322,11 @@ export interface CopilotRuntimeLike {
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
   /**
+   * Runtime-bound telemetry capture. Optional so external implementations of
+   * this published interface remain source-compatible.
+   */
+  telemetry?: TelemetryCapture;
+  /**
    * Resolved inbound-header forwarding policy read by the /run and /connect call
    * sites. Optional on the published interface so an external `CopilotRuntimeLike`
    * implementor predating this field stays source-compatible (non-breaking minor
@@ -361,6 +377,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
+  public readonly telemetry: TelemetryCapture;
   public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
   public readonly exposeMemoryRoutes: boolean;
   public readonly memory?: CopilotRuntimeMemoryConfig;
@@ -401,17 +418,25 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     // Resolve the license token once (matching the license-verifier's env
     // fallback) so telemetry attribution and subclass feature gating share
     // one value.
-    this.resolvedLicenseToken =
-      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    this.resolvedLicenseToken = firstNonBlankLicenseToken(
+      options.licenseToken,
+      process.env.COPILOTKIT_LICENSE_TOKEN,
+    );
 
-    // Attribute telemetry to the licensed customer for *every* runtime mode.
-    // Done in the shared base (not the subclasses) so SSE and Intelligence
-    // runtimes behave identically — previously only CopilotIntelligenceRuntime
-    // set this, so self-hosted SSE users never got a telemetry_id on their
-    // runtime events even with a license token configured.
-    if (this.resolvedLicenseToken) {
-      telemetry.setLicenseToken(this.resolvedLicenseToken);
-    }
+    // Snapshot identity and sampling authority for this runtime. Capture
+    // scopes share process-level telemetry settings but cannot be rewritten by
+    // another runtime's construction.
+    const resolvedTelemetryId = firstNonBlankTelemetryId(
+      options.telemetryId,
+      process.env.CPK_TELEMETRY_ID,
+    );
+    this.telemetry = telemetry.createScope(
+      resolvedTelemetryId !== undefined
+        ? { telemetryId: resolvedTelemetryId }
+        : this.resolvedLicenseToken !== undefined
+          ? { licenseToken: this.resolvedLicenseToken }
+          : {},
+    );
 
     // Set here rather than per event, beside the license token and for the same
     // reason: it describes the caller, not the call, and every event should
@@ -570,6 +595,14 @@ export class CopilotIntelligenceRuntime
       );
     }
     if (
+      rawOptions.ɵlearning !== undefined &&
+      options.intelligence.ɵgetLearningContainerId?.() !== undefined
+    ) {
+      throw new Error(
+        "Configure Learning Containers with `getLearningContainerId` on `CopilotKitIntelligence`; do not also pass deprecated `ɵlearning` to `CopilotRuntime`",
+      );
+    }
+    if (
       typeof (rawOptions.ɵlearning as { containerId?: unknown } | undefined)
         ?.containerId === "string"
     ) {
@@ -595,7 +628,7 @@ export class CopilotIntelligenceRuntime
     // Telemetry attribution is handled by the base constructor for all modes;
     // here we only need the token for feature gating. Reuse the base-resolved
     // value so gating and attribution can never disagree.
-    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken);
+    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken ?? "");
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
@@ -676,6 +709,8 @@ export interface RuntimeWithDeclaredChannels {
  * `CopilotRuntime` name resolves as a type as well as a value.
  */
 export interface CopilotRuntime extends CopilotRuntimeLike {
+  /** Telemetry capture bound to this runtime's construction-time identity. */
+  telemetry: TelemetryCapture;
   /** Auto-generate short thread names; `undefined` in SSE mode. */
   generateThreadNames?: boolean;
   /** Thread lock TTL in seconds; `undefined` in SSE mode. */
@@ -732,7 +767,7 @@ export interface CopilotRuntimeConstructor {
  * channel-presence brand can flow from construction into the handler type.
  */
 class CopilotRuntimeShim implements CopilotRuntime {
-  private delegate: CopilotRuntimeLike;
+  private delegate: CopilotSseRuntime | CopilotIntelligenceRuntime;
 
   constructor(options: CopilotRuntimeOptions) {
     this.delegate = hasIntelligenceOptions(options)
@@ -841,6 +876,10 @@ class CopilotRuntimeShim implements CopilotRuntime {
 
   get debugLogger(): CopilotRuntimeLogger | undefined {
     return this.delegate.debugLogger;
+  }
+
+  get telemetry(): TelemetryCapture {
+    return this.delegate.telemetry;
   }
 
   get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {

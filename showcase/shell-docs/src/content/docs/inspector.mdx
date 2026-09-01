@@ -18,6 +18,23 @@ return to the last pane you used.
   muted
 />
 
+## Where Inspector runs
+
+Inspector is a browser overlay: it mounts a custom element into the page's DOM.
+It runs on React, Next.js, React SPA, Vue, and Angular.
+
+There is no React Native build of Inspector, and `@copilotkit/react-native` does
+not ship it. Channels — Slack and Teams — have no browser surface either. On
+those surfaces none of the panes below are reachable.
+
+Debug a React Native integration with these instead:
+
+| Instead of this pane | Use |
+| --- | --- |
+| Agent, and whether the runtime answers | `npx copilotkit verify --round-trip`, which sends one request through the runtime and reads the answer back off the thread. See [Proving it works](/react-native#proving-it-works). |
+| Errors and tool calls | Runtime [Debug Mode](/troubleshooting/debug-mode) beside the device log — `adb logcat` on Android, where a redbox appears that a screen capture never shows. |
+| Threads | The thread view in [CopilotKit Intelligence](/intelligence/overview). |
+
 ## Navigation and Threads
 
 The sidebar has three groups:
@@ -215,3 +232,7 @@ configures it through `provideCopilotKit({ enableInspector: false })`.
 Legacy `showDevConsole` props no longer control the Inspector. Use
 `enableInspector` in every browser framework. Native iOS and Android
 applications do not have a built-in Inspector yet.
+
+Inspector telemetry uses its own browser identity and direct delivery path. It
+works whether or not the Runtime has `CPK_TELEMETRY_ID`, and it follows the
+existing telemetry opt-outs.

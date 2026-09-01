@@ -36,6 +36,7 @@ packages:
   - "examples/teams"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
+  # No npm lockfile here: installs with pnpm from the root pnpm-lock.yaml.
   - "showcase/harness"
   - "showcase/eval-webhook"
   - "showcase/angular"

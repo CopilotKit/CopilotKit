@@ -9,6 +9,7 @@ import type {
 } from "@ag-ui/client";
 import type {
   AgentContentPart,
+  ApplicationUser,
   ChannelNode,
   EmojiValue,
   MessageRef,
@@ -108,6 +109,8 @@ export interface CanonicalChannelRunArgs {
   threadId: string;
   runId: string;
   userId: string;
+  /** Canonical application user when the Channel identity strategy resolved one. */
+  user?: ApplicationUser | null;
   memory?: ResolvedChannelMemory;
   agentId: string;
   tools: readonly AgentToolDescriptor[];
@@ -501,6 +504,7 @@ export class DeliveryAdapter implements PlatformAdapter {
       threadId,
       runId,
       userId: target.delivery.appUserId,
+      user: args.user ?? null,
       memory: args.memory,
       agentId: this.options.channelName,
       tools: args.tools,

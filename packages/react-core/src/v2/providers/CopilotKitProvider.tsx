@@ -27,6 +27,7 @@ import { createLicenseContextValue } from "@copilotkit/shared";
 import type {
   LicenseContextValue,
   DebugConfig,
+  RuntimeEntitlementResponse,
   RuntimeLicenseStatus,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
@@ -328,6 +329,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
+  const [runtimeEntitlements, setRuntimeEntitlements] = useState<
+    RuntimeEntitlementResponse | undefined
+  >(undefined);
+  const [runtimeEntitlementRetryPending, setRuntimeEntitlementRetryPending] =
+    useState(false);
 
   const requestInspectorOpen = useCallback(
     (request: CopilotKitInspectorOpenRequest) => {
@@ -689,7 +695,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // past the `/info` resolution. If that happens, the settled values would be
   // lost forever. To close the race we read the CURRENT values immediately, so a
   // status that already resolved is captured whether or not we caught its event.
-  // This MUST mirror the subscriber below (all three values), otherwise a missed
+  // This MUST mirror the subscriber below (all five values), otherwise a missed
   // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
   // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
@@ -697,6 +703,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
       setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
       setRuntimeLicenseStatus(copilotkit.licenseStatus);
+      setRuntimeEntitlements(copilotkit.runtimeEntitlements);
+      setRuntimeEntitlementRetryPending(
+        copilotkit.runtimeEntitlementRetryPending,
+      );
     };
     const subscription = copilotkit.subscribe({
       onRuntimeConnectionStatusChanged: syncRuntimeInfo,
@@ -915,11 +925,47 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [copilotkit, executingToolCallIds],
   );
 
-  // License context — driven by server-reported status via /info endpoint
-  const licenseContextValue = useMemo(
-    () => createLicenseContextValue(runtimeLicenseStatus),
-    [runtimeLicenseStatus],
-  );
+  // License context — driven by server-reported authority via /info endpoint
+  const retryableRuntimeEntitlementFailure =
+    runtimeEntitlements?.status !== "ready" &&
+    runtimeEntitlements?.error.retryable === true;
+  const hasNonReadyRuntimeEntitlement =
+    runtimeEntitlements !== undefined && runtimeEntitlements.status !== "ready";
+  const hasLegacyRuntimeEntitlementFallback =
+    runtimeLicenseStatus === "valid" || runtimeLicenseStatus === "expiring";
+  const runtimeEntitlementRetryInProgress =
+    retryableRuntimeEntitlementFailure &&
+    runtimeEntitlementRetryPending &&
+    !hasLegacyRuntimeEntitlementFallback;
+  const runtimeEntitlementFailureSettled =
+    hasNonReadyRuntimeEntitlement &&
+    !runtimeEntitlementRetryInProgress &&
+    !hasLegacyRuntimeEntitlementFallback;
+  const licenseContextValue = useMemo<LicenseContextValue>(() => {
+    const runtimeLicenseContext = createLicenseContextValue(
+      runtimeEntitlementRetryInProgress ? undefined : runtimeLicenseStatus,
+      runtimeEntitlements,
+    );
+    if (!runtimeEntitlementFailureSettled) {
+      return runtimeLicenseContext;
+    }
+
+    // The Runtime has neither managed authority nor a usable legacy fallback.
+    // Keep its truthful status, but deny feature-only consumers.
+    return {
+      ...runtimeLicenseContext,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+  }, [
+    runtimeEntitlementFailureSettled,
+    runtimeEntitlementRetryInProgress,
+    runtimeEntitlements,
+    runtimeLicenseStatus,
+  ]);
+  const runtimeLicenseWarningStatus = runtimeEntitlementRetryInProgress
+    ? undefined
+    : (licenseContextValue.status ?? undefined);
 
   return (
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
@@ -942,16 +988,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             ) : null}
           </CopilotKitInspectorContextProvider>
           {/* License warnings — driven by server-reported status */}
-          {runtimeLicenseStatus === "none" && !resolvedPublicKey && (
+          {runtimeLicenseWarningStatus === "none" && !resolvedPublicKey && (
             <LicenseWarningBanner type="no_license" />
           )}
-          {runtimeLicenseStatus === "expired" && (
+          {runtimeLicenseWarningStatus === "expired" && (
             <LicenseWarningBanner type="expired" />
           )}
-          {runtimeLicenseStatus === "invalid" && (
+          {runtimeLicenseWarningStatus === "invalid" && (
             <LicenseWarningBanner type="invalid" />
           )}
-          {runtimeLicenseStatus === "expiring" && (
+          {runtimeLicenseWarningStatus === "expiring" && (
             <LicenseWarningBanner type="expiring" />
           )}
         </LicenseContext.Provider>

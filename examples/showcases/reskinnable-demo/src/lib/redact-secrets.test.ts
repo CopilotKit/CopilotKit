@@ -10,14 +10,14 @@ import { envSecretNeedles, redactSecrets } from "./redact-secrets";
 /** Distinctive on purpose: asserting against `localhost` proves little. */
 const API_URL = "http://memory.internal.example:7250";
 const WS_URL = "ws://gateway.internal.example:7253";
-const API_KEY = "cpk_s2PRVSED_seed0privat0longtoken01";
+const API_KEY = "cpk-s2PRVSED_seed0_privat0longtoken01";
 const LICENSE = "eyJhbGciOiJFZERTQSJ9.license-payload.sig";
 const OPENAI_KEY = "sk-proj-abcdef0123456789";
 
 function stubEverySecret() {
   vi.stubEnv("INTELLIGENCE_API_URL", API_URL);
   vi.stubEnv("INTELLIGENCE_GATEWAY_WS_URL", WS_URL);
-  vi.stubEnv("INTELLIGENCE_API_KEY", API_KEY);
+  vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
   vi.stubEnv("COPILOTKIT_LICENSE_TOKEN", LICENSE);
   vi.stubEnv("OPENAI_API_KEY", OPENAI_KEY);
 }
@@ -27,7 +27,7 @@ function stubNoSecrets() {
   for (const key of [
     "INTELLIGENCE_API_URL",
     "INTELLIGENCE_GATEWAY_WS_URL",
-    "INTELLIGENCE_API_KEY",
+    "CPK_INTELLIGENCE_API_KEY",
     "COPILOTKIT_LICENSE_TOKEN",
     "OPENAI_API_KEY",
   ]) {
@@ -104,7 +104,7 @@ describe("redactSecrets", () => {
     // A malformed env is exactly the case whose parse error quotes it verbatim,
     // and `new URL()` throws, so only the raw forms are derivable.
     vi.stubEnv("INTELLIGENCE_API_URL", "memory.internal.example:not-a-port");
-    vi.stubEnv("INTELLIGENCE_API_KEY", API_KEY);
+    vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
 
     expect(
       redactSecrets(
@@ -131,7 +131,7 @@ describe("redactSecrets", () => {
 
     it("treats a set-but-empty env var the same as unset", () => {
       stubNoSecrets();
-      vi.stubEnv("INTELLIGENCE_API_KEY", "");
+      vi.stubEnv("CPK_INTELLIGENCE_API_KEY", "");
 
       expect(envSecretNeedles()).toEqual([]);
       expect(redactSecrets("HTTP 401 unauthorized")).toBe(
@@ -143,7 +143,7 @@ describe("redactSecrets", () => {
       // The OSS path sets no Intelligence vars at all; a partly-configured env
       // must still be covered for what it does hold, not skipped wholesale.
       stubNoSecrets();
-      vi.stubEnv("INTELLIGENCE_API_KEY", API_KEY);
+      vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
 
       const out = redactSecrets(`HTTP 401 invalid api key ${API_KEY}`);
       expect(out).toBe("HTTP 401 invalid api key <intelligence-api-key>");
@@ -167,7 +167,7 @@ describe("redactSecrets", () => {
       // practically, under `vi.stubEnv`).
       stubNoSecrets();
       expect(envSecretNeedles()).toEqual([]);
-      vi.stubEnv("INTELLIGENCE_API_KEY", API_KEY);
+      vi.stubEnv("CPK_INTELLIGENCE_API_KEY", API_KEY);
       expect(envSecretNeedles().map((n) => n.value)).toEqual([API_KEY]);
     });
 
