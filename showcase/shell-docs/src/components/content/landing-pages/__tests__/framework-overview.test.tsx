@@ -31,7 +31,7 @@ describe("FrameworkOverview", () => {
     },
   );
 
-  it("renders the primary quickstart CTA and optional agent CLI setup action", () => {
+  it("makes the coding-agent prompt the primary hero action and Quickstart secondary", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
@@ -39,13 +39,24 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain("Quickstart");
-    expect(markup).toContain("Start using agents");
-    expect(markup).toContain('aria-controls="hero-cli-commands"');
-    expect(markup).toContain("border-[var(--accent)]");
-    expect(markup).toContain("bg-[var(--accent)]");
+    // The prompt button carries the accent treatment...
+    expect(markup).toContain("Copy prompt for your coding agent");
+    expect(markup).toContain('data-surface="docs_framework_hero"');
     expect(markup).toContain("shell-docs-primary-cta");
+    expect(markup).toContain("bg-[var(--accent)]");
     expect(markup).toContain("text-[var(--primary-foreground)]");
+
+    // ...and Quickstart keeps its place beside it in the bordered treatment.
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain("shell-docs-cta-link");
+    expect(markup).toContain("bg-[var(--bg-surface)]");
+
+    // The removed CLI command menu must not come back through this surface.
+    expect(markup).not.toContain("Start using agents");
+    expect(markup).not.toContain("hero-cli-commands");
+    expect(markup).not.toContain("npx copilotkit@latest create");
+
+    expect(markup).toContain("Paste into Claude Code, Codex, or Cursor");
   });
 
   it("renders the framework identity icon in accent purple", () => {
