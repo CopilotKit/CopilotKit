@@ -37,9 +37,6 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.className).toContain(
     "shell-docs-mega-menu-link-featured",
   );
-  expect(intelligence.closest("li")?.className).toContain(
-    "shell-docs-mega-menu-featured-item",
-  );
   expect(
     screen.getByRole("link", { name: "Threads" }).getAttribute("href"),
   ).toBe("/threads");

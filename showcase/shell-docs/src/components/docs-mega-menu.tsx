@@ -152,14 +152,7 @@ export function DocsMegaMenu({
                     const Icon = MEGA_MENU_ICONS[link.icon];
                     const featured = link.featured === true;
                     return (
-                      <li
-                        key={link.href}
-                        className={
-                          featured
-                            ? "shell-docs-mega-menu-featured-item"
-                            : undefined
-                        }
-                      >
+                      <li key={link.href}>
                         <Link
                           href={link.href}
                           onClick={() => setOpen(false)}
