@@ -99,7 +99,15 @@ class ReadonlyContextFrameworkAgent(AgentFrameworkAgent):
                 "role": "system",
                 "content": context_prompt,
             },
-            *messages,
+            *[
+                message
+                for message in messages
+                if not (
+                    isinstance(message, dict)
+                    and isinstance(message.get("id"), str)
+                    and message["id"].endswith("-app-context")
+                )
+            ],
         ]
 
         async for event in super().run(request_input):

@@ -5,10 +5,9 @@ AG-UI run input's ``forwardedProps`` and composes its system prompt dynamically
 per turn.
 
 The CopilotKit provider's ``properties`` prop is wired through the runtime as
-``forwardedProps`` on each AG-UI run. Because Microsoft Agent Framework agents
-store their system prompt in ``default_options["instructions"]``, we subclass
-``AgentFrameworkAgent`` and intercept ``run`` to swap in a freshly-built
-instruction string for the duration of each invocation.
+``forwardedProps`` on each AG-UI run. We subclass ``AgentFrameworkAgent`` and
+prepend a request-local system message built from those properties. Each turn
+replaces the prior injected message instead of mutating the shared agent.
 
 Invalid or missing values fall back to the corresponding ``DEFAULT_*``
 constant -- this function never raises so the demo can't deadlock on a bad
@@ -127,7 +126,15 @@ class AgentConfigFrameworkAgent(AgentFrameworkAgent):
                 "role": "system",
                 "content": system_prompt,
             },
-            *messages,
+            *[
+                message
+                for message in messages
+                if not (
+                    isinstance(message, dict)
+                    and isinstance(message.get("id"), str)
+                    and message["id"].endswith("-agent-config")
+                )
+            ],
         ]
 
         async for event in super().run(request_input):
@@ -138,8 +145,8 @@ def create_agent_config_agent(chat_client: BaseChatClient) -> AgentConfigFramewo
     """Instantiate the Agent Config demo agent.
 
     The base MS Agent Framework ``Agent`` carries only a neutral fallback
-    instruction. The real behavioural steering happens in the per-request
-    instruction string applied by ``AgentConfigFrameworkAgent.run``.
+    instruction. The real behavioural steering happens in the request-local
+    system message applied by ``AgentConfigFrameworkAgent.run``.
     """
     base_agent = Agent(
         client=chat_client,

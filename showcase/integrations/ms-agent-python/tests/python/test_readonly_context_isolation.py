@@ -248,3 +248,78 @@ async def test_concurrent_agent_config_runs_keep_instructions_request_local(
     )
     assert "upbeat, energetic" in _context_message(observed_inputs["bravo"])["content"]
     assert wrapped_agent.default_options == {"instructions": "Base instructions"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("agent_kind", "message_suffix"),
+    [
+        ("app-context", "-app-context"),
+        ("agent-config", "-agent-config"),
+    ],
+)
+async def test_snapshot_round_trip_replaces_the_previous_request_directive(
+    monkeypatch: pytest.MonkeyPatch,
+    agent_kind: str,
+    message_suffix: str,
+) -> None:
+    """A prior snapshot must not make request-local directives accumulate."""
+    observed_inputs: list[dict[str, Any]] = []
+
+    async def capture_run(
+        _adapter: AgentFrameworkAgent,
+        input_data: dict[str, Any],
+    ) -> AsyncGenerator[object, None]:
+        observed_inputs.append(input_data)
+        yield object()
+
+    monkeypatch.setattr(AgentFrameworkAgent, "run", capture_run)
+
+    wrapped_agent = SimpleNamespace(
+        name=agent_kind,
+        description="",
+        default_options={"instructions": "Base instructions"},
+    )
+    if agent_kind == "app-context":
+        adapter: AgentFrameworkAgent = ReadonlyContextFrameworkAgent(
+            agent=wrapped_agent
+        )
+        request_data = {
+            "context": [{"description": "User name", "value": "Ada"}],
+        }
+    else:
+        adapter = AgentConfigFrameworkAgent(agent=wrapped_agent)
+        request_data = {"forwardedProps": {"tone": "casual"}}
+
+    async def consume(input_data: dict[str, Any]) -> None:
+        async for _ in adapter.run(input_data):
+            pass
+
+    await consume(
+        {
+            "runId": "turn-one",
+            "messages": [{"id": "user-one", "role": "user", "content": "Hi"}],
+            **request_data,
+        }
+    )
+    snapshot_messages = observed_inputs[-1]["messages"]
+
+    await consume(
+        {
+            "runId": "turn-two",
+            "messages": [
+                *snapshot_messages,
+                {"id": "user-two", "role": "user", "content": "Again"},
+            ],
+            **request_data,
+        }
+    )
+
+    directive_ids = [
+        message["id"]
+        for message in observed_inputs[-1]["messages"]
+        if isinstance(message, dict)
+        and isinstance(message.get("id"), str)
+        and message["id"].endswith(message_suffix)
+    ]
+    assert directive_ids == [f"turn-two{message_suffix}"]

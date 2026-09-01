@@ -84,6 +84,7 @@ test("renders request-local app context forwarding for Microsoft Agent Python", 
   expect(output).toContain("class ContextAwareAgent(AgentFrameworkAgent)");
   expect(output).toContain("request_input = dict(input_data)");
   expect(output).toContain('request_input["messages"]');
+  expect(output).toContain('message["id"].endswith("-app-context")');
   expect(output).toContain("json.dumps(value, ensure_ascii=False, indent=2)");
   expect(output).toContain("or str(uuid4())");
   expect(output).toContain('"role": "system"');

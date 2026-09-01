@@ -188,7 +188,15 @@ This context can then be shared with your AG-UI server and agent logic.
                                 "role": "system",
                                 "content": context_prompt,
                             },
-                            *messages,
+                            *[
+                                message
+                                for message in messages
+                                if not (
+                                    isinstance(message, dict)
+                                    and isinstance(message.get("id"), str)
+                                    and message["id"].endswith("-app-context")
+                                )
+                            ],
                         ]
                         input_data = request_input
 
