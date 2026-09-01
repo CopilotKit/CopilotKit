@@ -420,17 +420,19 @@
 }
 
 .shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured {
+  align-items: center;
   background: var(--accent);
   color: #fff;
   border: 1px solid transparent;
 }
 
 .shell-docs-mega-menu-featured-item {
-  margin-bottom: 1rem;
+  margin-bottom: 4px;
 }
 
 .shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured
   .shell-docs-mega-menu-icon {
+  margin-top: 0;
   color: #fff;
 }
 

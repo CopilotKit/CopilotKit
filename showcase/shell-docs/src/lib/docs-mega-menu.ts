@@ -70,7 +70,6 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
         href: INTELLIGENCE_DOCS_HREF,
         label: "Intelligence",
         icon: "sparkles",
-        description: "Threads, learning, and analytics",
         featured: true,
       },
       { href: "/threads", label: "Threads", icon: "layers" },

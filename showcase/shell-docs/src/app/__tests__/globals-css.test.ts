@@ -101,7 +101,7 @@ describe("globals.css sidebar Intelligence pin", () => {
 describe("globals.css mega menu featured Intelligence", () => {
   it("leaves space under the featured Intelligence card", () => {
     expect(globalsCss).toContain(".shell-docs-mega-menu-featured-item");
-    expect(globalsCss).toContain("margin-bottom: 1rem;");
+    expect(globalsCss).toContain("margin-bottom: 4px;");
   });
 });
 
