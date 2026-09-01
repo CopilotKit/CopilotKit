@@ -533,7 +533,7 @@ describe("framework nav", () => {
       },
       {
         title: "Threads & Persistence Architecture",
-        slug: "premium/threads-explained",
+        slug: "intelligence/threads-explained",
       },
     ];
     const withoutDrawer = expected.filter(
@@ -646,7 +646,8 @@ describe("framework nav", () => {
       path.join(SNIPPETS_DIR, "shared/threads/threads-lifecycle.mdx"),
       "utf8",
     );
-    const architecture = loadDoc("premium/threads-explained")?.source ?? "";
+    const architecture =
+      loadDoc("intelligence/threads-explained")?.source ?? "";
 
     for (const source of [lifecycle, architecture]) {
       const normalized = source.replace(/\s+/g, " ");
@@ -663,7 +664,7 @@ describe("framework nav", () => {
 
   it("links the hosted Intelligence guide to the Rich Threads journey", () => {
     const managed =
-      loadDoc("premium/managed-intelligence-platform")?.source ?? "";
+      loadDoc("intelligence/managed-intelligence-platform")?.source ?? "";
 
     expect(managed).toContain("[Rich Threads overview](/threads)");
     expect(managed).toContain("[CopilotKit CLI](/cli)");
