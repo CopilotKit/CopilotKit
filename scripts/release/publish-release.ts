@@ -18,8 +18,6 @@
  * Usage: tsx scripts/release/publish-release.ts --scope <scope from release.config.json>
  */
 
-import fs from "fs";
-import path from "path";
 import { spawnSync } from "child_process";
 import {
   getCurrentVersion,
