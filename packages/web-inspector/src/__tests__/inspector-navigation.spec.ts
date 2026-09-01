@@ -1016,7 +1016,7 @@ test("trusted identity stays on Home while connection state moves into branded c
     );
     expect(features.textContent).toContain("Features");
     expect(features.textContent?.replace(/\s+/g, " ")).toContain(
-      "1 enabled, 6 available",
+      "0 enabled, 7 available",
     );
     expect(features.querySelectorAll("[data-inspector-service]")).toHaveLength(
       7,
@@ -1028,16 +1028,16 @@ test("trusted identity stays on Home while connection state moves into branded c
       features.querySelectorAll(
         '[data-feature-state-group="active"] [data-inspector-service]',
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       features.querySelectorAll(
         '[data-feature-state-group="available"] [data-inspector-service]',
       ),
-    ).toHaveLength(6);
+    ).toHaveLength(7);
     expect(
       features.querySelector<HTMLElement>('[data-inspector-service="memory"]')
         ?.dataset.state,
-    ).toBe("on");
+    ).toBe("off");
     const learning = requireElement(
       features.querySelector<HTMLElement>('[data-inspector-service="memory"]'),
       "Learning feature was not rendered",
@@ -1047,10 +1047,10 @@ test("trusted identity stays on Home while connection state moves into branded c
       learning
         .querySelector(".inspector-home-feature-status")
         ?.getAttribute("aria-label"),
-    ).toBe("Learning is enabled in your runtime");
+    ).toBe("Learning is not enabled in your runtime");
     expect(
       learning.querySelector('[data-inspector-home-feature-prompt="memory"]'),
-    ).toBeNull();
+    ).not.toBeNull();
     const learningDocs = requireElement(
       learning.querySelector<HTMLAnchorElement>(
         '[data-inspector-home-feature-docs="memory"]',

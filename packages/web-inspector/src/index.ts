@@ -375,17 +375,13 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "learning";
+type LauncherHudRowId = "threads" | "learning";
 
-const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
-const HUD_THREADS_LABEL = "Threads";
-const HUD_THREADS_DETAIL =
-  "Inspect persistent conversations, messages, and agent state.";
-const HUD_LEARNING_LABEL = "Learning";
-const HUD_LEARNING_DETAIL =
-  "Turn agent interactions into reusable context for future runs.";
-const HUD_OPEN_INSPECTOR_DETAIL =
-  "Same as clicking the circle. Opens the full Inspector.";
+const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
+const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
+const HUD_THREADS_LABEL = "Rich Threads";
+const HUD_LEARNING_LABEL = "Automatic Learning";
+const HUD_LEARN_MORE_LABEL = "Click to learn more";
 
 type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
@@ -591,13 +587,13 @@ type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
-const LAUNCHER_HUD_WIDTH = 248;
+const LAUNCHER_HUD_WIDTH = 258;
 /**
  * One page-load preview of the launcher's feature HUD.
  *
- * The card arrives after the host page has had a beat to settle. Its four rows
- * then come online in order, stay readable, and leave together. Nothing is
- * persisted: a new Inspector element means a new preview.
+ * The card arrives after the host page has had a beat to settle. Its feature
+ * rows then come online in order, stay readable, and leave together. Nothing
+ * is persisted: a new Inspector element means a new preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
@@ -9717,56 +9713,64 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud {
         --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-line: rgb(190 194 255 / 0.38);
+        --hud-accent: #b8adf5;
+        --hud-accent-soft: rgb(184 173 245 / 0.13);
+        --hud-hover-fill: #252231;
         --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
-        top: 0;
         z-index: 4;
-        padding-right: 14px;
+        width: 258px;
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transform: translateX(8px);
         transition:
           opacity 160ms ease,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
       }
 
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] {
+        top: 0;
+        bottom: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"] {
+        top: auto;
+        bottom: 0;
+      }
+
       .cpk-launcher-hud[data-cpk-hud-side="left"] {
         right: 100%;
+        left: auto;
         padding-right: 14px;
-        padding-left: 0;
+        transform: translateX(8px);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] {
         left: 100%;
         right: auto;
-        padding-right: 0;
         padding-left: 14px;
         transform: translateX(-8px);
       }
 
-      .console-button-wrapper[data-cpk-hud="open"]
-        .cpk-launcher-hud[data-cpk-hud-side="right"] {
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
         transform: none;
       }
 
       .cpk-launcher-hud__card {
         position: relative;
-        width: 228px;
-        padding: 4px;
-        border: 1px dotted var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
+        display: grid;
+        width: 244px;
+        gap: 8px;
         color: #fff;
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] {
         --hud-fill: #fff;
-        --hud-line: #d8d8e8;
+        --hud-line: #ddd6f4;
+        --hud-accent: #6757b0;
+        --hud-accent-soft: #f1edff;
+        --hud-hover-fill: #f1edff;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
@@ -9776,23 +9780,35 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
-        z-index: 1;
+        z-index: 2;
         width: 10px;
         height: 10px;
         border: 0;
-        /* The card frosts the page behind it, so it reads lighter than the
-           raw fill. Mix a little white so the arrow matches the glass card
-           without going lighter than the HUD. */
-        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
-        transform: translateY(-50%) rotate(45deg);
+        background: var(--hud-fill);
+        transform: rotate(45deg);
+        transition: background 120ms ease;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
         right: 9px;
+        border-top: 1px solid var(--hud-line);
+        border-right: 1px solid var(--hud-line);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
         left: 9px;
+        border-bottom: 1px solid var(--hud-line);
+        border-left: 1px solid var(--hud-line);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] .cpk-launcher-hud__arrow {
+        top: calc(var(--cpk-launcher-size) / 2 - 5px);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]
+        .cpk-launcher-hud__arrow {
+        top: auto;
+        bottom: calc(var(--cpk-launcher-size) / 2 - 5px);
       }
 
       .cpk-launcher-hud__list {
@@ -9801,10 +9817,148 @@ export class WebInspectorElement extends LitElement {
         list-style: none;
       }
 
-      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
-        margin-top: 4px;
-        padding-top: 4px;
-        border-top: 1px dotted var(--hud-line);
+      .cpk-launcher-hud__masthead {
+        position: relative;
+        z-index: 1;
+        margin-top: 6px;
+        padding: 0;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
+        transition: background 120ms ease;
+      }
+
+      .cpk-launcher-hud__news-wrap {
+        position: relative;
+        margin: 0;
+      }
+
+      .cpk-launcher-hud__news {
+        position: relative;
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 12px 11px;
+        border: 0;
+        border-radius: calc(var(--cpk-inspector-shell-radius) - 1px);
+        background: transparent;
+        color: #fff;
+        font-family: inherit;
+        line-height: 1;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news:hover,
+      .cpk-launcher-hud__news:focus-visible {
+        background: transparent;
+      }
+
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:hover),
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:focus-visible),
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:hover)
+        .cpk-launcher-hud__arrow,
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:focus-visible)
+        .cpk-launcher-hud__arrow {
+        background: var(--hud-hover-fill);
+      }
+
+      .cpk-launcher-hud__news:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.32;
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+
+      .cpk-launcher-hud__news-label {
+        position: absolute;
+        top: -9px;
+        left: 12px;
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #7563c7;
+        color: #fff;
+        box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .cpk-launcher-hud__news-dismiss {
+        position: absolute;
+        top: -1px;
+        right: 2px;
+        z-index: 2;
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: rgb(255 255 255 / 0.68);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        background: var(--hud-accent-soft);
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss {
+        color: #6e697c;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:focus-visible {
+        color: #27233a;
+      }
+
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-dismiss svg {
+        width: 7px;
+        height: 7px;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__news {
+        color: #17131f;
+      }
+
+      .cpk-launcher-hud__feature-list {
+        position: relative;
+        z-index: 1;
+        padding: 5px;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
       }
 
       .cpk-launcher-hud__row {
@@ -9812,12 +9966,14 @@ export class WebInspectorElement extends LitElement {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        border-radius: 7px;
+        min-height: 54px;
+        border-radius: 9px;
         cursor: pointer;
       }
 
       .cpk-launcher-hud__row + .cpk-launcher-hud__row {
-        margin-top: 1px;
+        border-top: 1px solid var(--hud-line);
+        border-radius: 0 0 9px 9px;
       }
 
       .cpk-launcher-hud__row:hover,
@@ -9827,7 +9983,7 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within {
-        background: #f0f0f4;
+        background: #f7f5ff;
       }
 
       .cpk-launcher-hud__primary {
@@ -9840,11 +9996,11 @@ export class WebInspectorElement extends LitElement {
         display: flex;
         width: 100%;
         gap: 8px;
-        min-height: 32px;
+        min-height: 52px;
         align-items: center;
-        padding: 6px 8px;
+        padding: 7px 4px;
         border: 0;
-        border-radius: 7px;
+        border-radius: 9px;
         background: transparent;
         color: #fff;
         font-family: inherit;
@@ -9856,6 +10012,23 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__label {
         min-width: 0;
+      }
+
+      .cpk-launcher-hud__feature-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 32px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        color: var(--hud-accent);
+      }
+
+      .cpk-launcher-hud__feature-icon svg {
+        width: 17px;
+        height: 17px;
+        stroke-width: 1.8;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
@@ -9874,14 +10047,51 @@ export class WebInspectorElement extends LitElement {
         position: relative;
         z-index: 1;
         display: flex;
-        gap: 2px;
+        gap: 0;
         align-items: center;
-        padding-right: 2px;
+        padding-right: 5px;
+      }
+
+      .cpk-launcher-hud__learn-more {
+        display: inline-flex;
+        width: 24px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: rgb(190 194 255 / 0.72);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud__learn-more:focus-visible {
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more {
+        color: #777080;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:focus-visible {
+        color: #4b416b;
+      }
+
+      .cpk-launcher-hud__learn-more svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.8;
       }
 
       .cpk-launcher-hud__toggle {
         display: inline-flex;
-        height: 32px;
+        width: 38px;
+        height: 44px;
         align-items: center;
         justify-content: center;
         padding: 0;
@@ -9893,15 +10103,16 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
-      .cpk-launcher-hud__toggle {
-        width: 34px;
+      .cpk-launcher-hud__toggle:disabled {
+        cursor: not-allowed;
+        opacity: 1;
       }
 
       .cpk-launcher-hud__toggle-track {
         position: relative;
         display: block;
-        width: 28px;
-        height: 16px;
+        width: 34px;
+        height: 20px;
         border: 1px solid rgb(190 194 255 / 0.38);
         border-radius: 999px;
         background: rgb(255 255 255 / 0.08);
@@ -9915,8 +10126,8 @@ export class WebInspectorElement extends LitElement {
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 10px;
-        height: 10px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
         background: #8c8e99;
         transition:
@@ -9926,14 +10137,14 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: rgb(52 211 153 / 0.68);
-        background: rgb(52 211 153 / 0.2);
+        border-color: var(--hud-accent);
+        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
       }
 
       .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track::after {
-        background: #34d399;
-        transform: translateX(12px);
+        background: #fff;
+        transform: translateX(14px);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
@@ -9950,17 +10161,18 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track {
-        border-color: #54b895;
-        background: #d8f5e9;
+        border-color: #6757b0;
+        background: #7563c7;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__toggle[data-enabled="true"]
         .cpk-launcher-hud__toggle-track::after {
-        background: #087653;
+        background: #fff;
       }
 
       .cpk-launcher-hud__toggle:focus-visible,
+      .cpk-launcher-hud__learn-more:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
         outline-offset: 1px;
@@ -9968,9 +10180,7 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud__tooltip {
         position: absolute;
-        right: auto;
-        bottom: calc(100% + 7px);
-        left: 50%;
+        top: 50%;
         z-index: 30;
         width: max-content;
         max-width: min(220px, 52vw);
@@ -9985,32 +10195,39 @@ export class WebInspectorElement extends LitElement {
         line-height: 1.45;
         opacity: 0;
         pointer-events: none;
-        transform: translate(-50%, 3px);
+        transform: translate(3px, -50%);
         white-space: normal;
         transition:
           opacity 120ms ease,
           transform 120ms ease;
       }
 
-      .cpk-launcher-hud__row:hover .cpk-launcher-hud__tooltip,
-      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__tooltip {
-        opacity: 1;
-        transform: translate(-50%, 0);
-      }
-
-      .cpk-launcher-hud__list:first-child .cpk-launcher-hud__tooltip {
-        top: calc(100% + 7px);
-        bottom: auto;
-        transform: translate(-50%, -3px);
-      }
-
-      .cpk-launcher-hud__list:first-child
-        .cpk-launcher-hud__row:hover
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
         .cpk-launcher-hud__tooltip,
-      .cpk-launcher-hud__list:first-child
-        .cpk-launcher-hud__row:focus-within
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
         .cpk-launcher-hud__tooltip {
-        transform: translate(-50%, 0);
+        opacity: 1;
+        transform: translate(0, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__tooltip {
+        right: calc(100% + 8px);
+        left: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__tooltip {
+        right: auto;
+        left: calc(100% + 8px);
+        transform: translate(-3px, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
+        .cpk-launcher-hud__tooltip {
+        transform: translate(0, -50%);
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -10132,13 +10349,13 @@ export class WebInspectorElement extends LitElement {
       }
 
       .inspector-account-strip {
-        background: linear-gradient(
-          90deg,
-          #ffffff 0%,
-          #f3f1ff 58%,
-          #eefbf7 100%
-        ) !important;
+        background: #f7f6fd !important;
         color: #010507 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .drag-handle,
+      .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
+        background: #15171e !important;
       }
 
       /* ── Tab buttons ─────────────────────────────────────────────── */
@@ -10793,15 +11010,7 @@ export class WebInspectorElement extends LitElement {
               ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
               : LAUNCHER_BASE_LABEL
           }
-          title=${
-            // Visible text, so it is offered for the announcement only. No
-            // error detail is rendered over the host application: a developer
-            // who ships the Inspector to production must not leak internal
-            // failure detail to their end users.
-            activeSignal === NEWS_SIGNAL_ID
-              ? `${WHATS_NEW_VIEW_LABEL} — unread`
-              : nothing
-          }
+          title=${HUD_INSPECTOR_LABEL}
           data-drag-context="button"
           data-cpk-signal=${signal ? signal.tone : nothing}
           data-cpk-signal-pulsing=${
@@ -10829,9 +11038,9 @@ export class WebInspectorElement extends LitElement {
           />
           ${
             // Purely decorative: the button is the target, it carries the
-            // hover hint and the accessible name, and an unread announcement
-            // is announced by its navigation entry, which is where a keyboard
-            // user arrives.
+            // stable hover hint and the accessible name, and an unread
+            // announcement is announced by its navigation entry, which is
+            // where a keyboard user arrives.
             activeSignal !== null
               ? html`<span
                     class="cpk-launcher-signal-wash"
@@ -11083,13 +11292,7 @@ export class WebInspectorElement extends LitElement {
     event.preventDefault();
     event.stopPropagation();
     this.hudLandingMenu =
-      row === "inspector"
-        ? null
-        : row === "threads"
-          ? "threads"
-          : row === "learning"
-            ? "memories"
-            : "home";
+      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
     this.closeLauncherHud();
     this.openInspector("floating_button");
   };
@@ -11105,10 +11308,39 @@ export class WebInspectorElement extends LitElement {
     this.handleHudActionClick(event, row);
   };
 
+  private handleHudNewsClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.hudLandingMenu = WHATS_NEW_MENU_KEY;
+    this.closeLauncherHud();
+    this.openInspector("floating_button");
+  };
+
+  private handleHudNewsDismissClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearNewsSignal();
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(".console-button")
+      ?.focus({ preventScroll: true });
+  };
+
+  private getUnreadAnnouncementTitle(): string | null {
+    if (!this.newsSignalArmed || !this.announcementLoaded) return null;
+    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const titleCharacters = Array.from(title);
+    return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
+      ? `${titleCharacters
+          .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
+          .join("")
+          .trimEnd()}...`
+      : title;
+  }
+
   private renderHudRow(args: {
     id: LauncherHudRowId;
     label: string;
-    detail: string;
+    icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult {
@@ -11132,47 +11364,59 @@ export class WebInspectorElement extends LitElement {
             type="button"
             class="cpk-launcher-hud__action"
             data-cpk-hud-action
-            aria-label=${
-              args.id === "inspector"
-                ? HUD_OPEN_INSPECTOR_LABEL
-                : `Open ${args.label} in Inspector`
-            }
-            aria-describedby=${detailId}
+            aria-label=${`Open ${args.label} in Inspector`}
             @click=${(event: Event) =>
               this.handleHudActionClick(event, args.id)}
             @pointerdown=${(event: Event) => event.stopPropagation()}
           >
+            <span
+              class="cpk-launcher-hud__feature-icon"
+              data-cpk-hud-icon=${args.id}
+              aria-hidden="true"
+              >${this.renderIcon(args.icon)}</span
+            >
             <span class="cpk-launcher-hud__label">${args.label}</span>
           </button>
           <span
             class="cpk-launcher-hud__tooltip"
             id=${detailId}
             role="tooltip"
-            >${args.detail}</span
+            >${HUD_LEARN_MORE_LABEL}</span
           >
         </span>
         <span class="cpk-launcher-hud__controls">
-          ${
-            args.id === "inspector"
-              ? nothing
-              : html`
-                  <button
-                    type="button"
-                    class="cpk-launcher-hud__toggle"
-                    data-cpk-hud-toggle=${args.id}
-                    data-enabled=${args.connected ? "true" : "false"}
-                    aria-label=${`Open ${args.label} in Inspector`}
-                    @click=${(event: Event) =>
-                      this.handleHudActionClick(event, args.id)}
-                    @pointerdown=${(event: Event) => event.stopPropagation()}
-                  >
-                    <span
-                      class="cpk-launcher-hud__toggle-track"
-                      aria-hidden="true"
-                    ></span>
-                  </button>
-                `
-          }
+          <button
+            type="button"
+            class="cpk-launcher-hud__learn-more"
+            data-cpk-hud-learn-more=${args.id}
+            aria-label=${`Learn more about ${args.label}`}
+            aria-describedby=${detailId}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            ${this.renderIcon("CircleHelp")}
+          </button>
+          <button
+            type="button"
+            class="cpk-launcher-hud__toggle"
+            data-cpk-hud-toggle=${args.id}
+            data-enabled=${args.connected ? "true" : "false"}
+            aria-label=${
+              args.connected
+                ? `${args.label} is enabled`
+                : `Open ${args.label} in Inspector`
+            }
+            ?disabled=${args.connected}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span
+              class="cpk-launcher-hud__toggle-track"
+              aria-hidden="true"
+            ></span>
+          </button>
         </span>
       </li>
     `;
@@ -11190,12 +11434,14 @@ export class WebInspectorElement extends LitElement {
     const learningOn = homeModel.services.some(
       (service) => service.id === "memory" && service.enabled,
     );
+    const announcementTitle = this.getUnreadAnnouncementTitle();
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
@@ -11205,28 +11451,61 @@ export class WebInspectorElement extends LitElement {
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "inspector",
-              label: HUD_OPEN_INSPECTOR_LABEL,
-              detail: HUD_OPEN_INSPECTOR_DETAIL,
-              introIndex: 0,
-            })}
-          </ul>
-          <ul class="cpk-launcher-hud__list" role="list">
+          ${
+            announcementTitle
+              ? html`
+                  <div class="cpk-launcher-hud__masthead">
+                    <div class="cpk-launcher-hud__news-wrap">
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news"
+                        data-cpk-hud-news
+                        aria-label=${`Open new notification: ${announcementTitle}`}
+                        @click=${this.handleHudNewsClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        <span
+                          class="cpk-launcher-hud__news-label"
+                          data-cpk-hud-news-label
+                          aria-hidden="true"
+                          >New</span
+                        >
+                        <span class="cpk-launcher-hud__news-title"
+                          >${announcementTitle}</span
+                        >
+                      </button>
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news-dismiss"
+                        data-cpk-hud-news-dismiss
+                        aria-label="Dismiss notification"
+                        @click=${this.handleHudNewsDismissClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        ${this.renderIcon("X")}
+                      </button>
+                    </div>
+                  </div>
+                `
+              : nothing
+          }
+          <ul
+            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+            role="list"
+          >
             ${this.renderHudRow({
               id: "threads",
               label: HUD_THREADS_LABEL,
-              detail: HUD_THREADS_DETAIL,
+              icon: "MessageSquare",
               connected: threadsOn,
-              introIndex: 1,
+              introIndex: 0,
             })}
             ${this.renderHudRow({
               id: "learning",
               label: HUD_LEARNING_LABEL,
-              detail: HUD_LEARNING_DETAIL,
+              icon: "Brain",
               connected: learningOn,
-              introIndex: 2,
+              introIndex: 1,
             })}
           </ul>
         </div>
@@ -11586,7 +11865,13 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      memoriesOn: this._memoriesAvailable,
+      // `available` begins optimistic inside the lazy Memory store. Until the
+      // first capability probe has actually settled, showing Learning as on
+      // would be a false positive that corrects itself only after navigation.
+      memoriesOn:
+        this._memorySubscribed &&
+        !this._memoriesLoading &&
+        this._memoriesAvailable,
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -14314,8 +14599,10 @@ export class WebInspectorElement extends LitElement {
     const hudMenu = this.hudLandingMenu;
     this.hudLandingMenu = null;
     if (hudMenu) {
-      this.selectedMenu = hudMenu;
-      this.lastSelectedMenuByGroup[getGroupForMenu(hudMenu)] = hudMenu;
+      // Use the same activation path as sidebar navigation. In particular,
+      // Learning must initialize its lazy memory subscription before deciding
+      // whether to show the enabled view or the setup gate.
+      this.handleMenuSelect(hudMenu);
     } else if (activeSignalAtOpen !== null && source === "floating_button") {
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
@@ -17330,6 +17617,9 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
+    // Once the user enters Learning, its lazy subscription is the capability
+    // probe. Preserve the loading state while that request is in flight, then
+    // let an unavailable response fall through to the setup gate.
     const learningEnabled = this.getHomeModel().services.some(
       (service) => service.id === "memory" && service.enabled,
     );
