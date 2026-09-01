@@ -80,12 +80,14 @@ import type {
 } from "./lib/inspector-metadata.js";
 import {
   buildHomeModel,
+  homeFeatureImplementationPrompt,
   runtimeConnectionNeedsAttention,
 } from "./lib/home-briefing.js";
 import type {
   HomeHeroAction,
   HomeModel,
   HomeRuntimeHealthTone,
+  HomeServiceId,
 } from "./lib/home-briefing.js";
 import {
   INSPECTOR_GROUPS,
@@ -104,6 +106,7 @@ import {
   maybeShowDisclosure,
   trackErrorSignalViewed,
   trackHomeCtaClicked,
+  trackHomeFeaturePromptClicked,
   trackHomePromptCopied,
   trackHomeStoryBeatSelected,
   trackHomeViewed,
@@ -372,24 +375,20 @@ const EVENT_ERROR_GUIDANCE: Readonly<
  */
 const PILL_SUBLINE_LABEL = "Open Inspector for details";
 
-type LauncherHudRowId = "inspector" | "threads" | "intelligence" | "learning";
+type LauncherHudRowId = "threads" | "learning";
 
-const HUD_OPEN_INSPECTOR_LABEL = "Open Inspector";
-const HUD_THREADS_OFF_LABEL = "Turn on Threads";
-const HUD_THREADS_ON_LABEL = "Threads on";
-const HUD_INTELLIGENCE_OFF_LABEL = "Turn on Intelligence";
-const HUD_INTELLIGENCE_ON_LABEL = "Intelligence connected";
-const HUD_THREADS_OFF_DETAIL = "Inspect conversations from this app.";
-const HUD_THREADS_ON_DETAIL = "Threads is on. Opens the Threads view.";
-const HUD_INTELLIGENCE_OFF_DETAIL =
-  "Connect Intelligence to use Threads and Learning.";
-const HUD_INTELLIGENCE_ON_DETAIL = "Intelligence is connected. Opens Home.";
-const HUD_LEARNING_OFF_LABEL = "Turn on Learning";
-const HUD_LEARNING_ON_LABEL = "Learning on";
-const HUD_LEARNING_OFF_DETAIL = "Connect Intelligence to use Learning.";
-const HUD_LEARNING_ON_DETAIL = "Learning is on. Opens the Learning view.";
-const HUD_OPEN_INSPECTOR_DETAIL =
-  "Same as clicking the circle. Opens the full Inspector.";
+const HUD_INSPECTOR_LABEL = "CopilotKit Inspector";
+const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
+const HUD_THREADS_LABEL = "Rich Threads";
+const HUD_LEARNING_LABEL = "Automatic Learning";
+const HUD_LEARN_MORE_LABEL = "Click to learn more";
+
+type HomeFeaturePromptId = HomeServiceId;
+type HomeFeaturePromptTarget = Readonly<{
+  id: HomeFeaturePromptId;
+  label: string;
+  docsUrl: string;
+}>;
 
 const LAUNCHER_SIGNALS: Readonly<
   Record<LauncherSignalKey, LauncherSignalDefinition>
@@ -588,13 +587,13 @@ type InspectorColorScheme = "light" | "dark";
 
 const EDGE_MARGIN = 16;
 /** HUD card plus the hover bridge. Used to pick left vs right. */
-const LAUNCHER_HUD_WIDTH = 248;
+const LAUNCHER_HUD_WIDTH = 258;
 /**
  * One page-load preview of the launcher's feature HUD.
  *
- * The card arrives after the host page has had a beat to settle. Its four rows
- * then come online in order, stay readable, and leave together. Nothing is
- * persisted: a new Inspector element means a new preview.
+ * The card arrives after the host page has had a beat to settle. Its feature
+ * rows then come online in order, stay readable, and leave together. Nothing
+ * is persisted: a new Inspector element means a new preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
@@ -638,18 +637,8 @@ const CAPABILITIES_TAB_LABEL = "Capabilities";
 function createPlaygroundThreadId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `playground-${Date.now()}`;
 }
+
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
-const THREADS_RUNTIME_SETUP_DOCS_URL =
-  "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes";
-const THREADS_RUNTIME_SETUP_PROMPT = [
-  `Read ${THREADS_RUNTIME_SETUP_DOCS_URL} and finish setting up Rich Threads in this repository.`,
-  "",
-  "First inspect the repository's agent instructions, installed CopilotKit versions, Runtime adapter, frontend provider, route or proxy setup, and existing authentication. Preserve the current framework and deployment model. Preserve existing authentication middleware and access checks on every Runtime route.",
-  "",
-  "Follow the guide to enable the multi-route Runtime, align the frontend transport, scope identifyUser to the existing server-verified signed-in application user, and expose the full Runtime subtree for GET, POST, PATCH, and DELETE. Never use a fixed demo identity in production. If no trusted user identity exists, stop and ask me which auth source to use.",
-  "",
-  "Start the app and verify GET {basePath}/info reports threadEndpoints.list, inspect, mutations, and realtimeMetadata as true. Run focused tests, lint, and typecheck. Report the files changed, commands run, and verification result. If blocked, explain the missing input; do not invent setup.",
-].join("\n");
 const SELF_HOSTED_INTELLIGENCE_URL =
   "https://docs.copilotkit.ai/premium/self-hosting";
 
@@ -826,7 +815,7 @@ type ThreadsExampleOverviewVideoState =
   | "ready"
   | "playing"
   | "failed";
-type ThreadsSetupPromptCopyState = "idle" | "copied" | "error";
+type HomeFeaturePromptCopyState = "idle" | "copied" | "error";
 type ThreadsExampleOverviewVideoListeners = Readonly<{
   loadeddata: EventListener;
   play: EventListener;
@@ -6651,7 +6640,6 @@ export class WebInspectorElement extends LitElement {
   /** Hover/focus menu on the closed launcher. */
   private launcherHudOpen = false;
   private launcherHudSide: "left" | "right" = "left";
-  private launcherHudHelp: LauncherHudRowId | null = null;
   private launcherHudCloseTimer: ReturnType<typeof setTimeout> | null = null;
   private launcherHudIntro = false;
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
@@ -6722,9 +6710,12 @@ export class WebInspectorElement extends LitElement {
   private threadsExampleOverviewVideoPlayAttemptGeneration = 0;
   private threadsExampleOverviewVideoPlayPromise: Promise<void> | null = null;
   private threadsExampleOverviewVideoPlayOnNextBind = false;
-  private threadsSetupPromptCopyState: ThreadsSetupPromptCopyState = "idle";
-  private threadsSetupPromptCopyResetTimeoutId: number | null = null;
-  private threadsSetupPromptCopyGeneration = 0;
+  private homeFeaturePromptCopyState: {
+    serviceId: HomeFeaturePromptId;
+    state: HomeFeaturePromptCopyState;
+  } | null = null;
+  private homeFeaturePromptCopyResetTimeoutId: number | null = null;
+  private homeFeaturePromptCopyGeneration = 0;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -7105,13 +7096,6 @@ export class WebInspectorElement extends LitElement {
 
   private getThreadsDocsUrl(): string {
     return this.appendRefParam(THREADS_DOCS_URL, "cpk-inspector-threads");
-  }
-
-  private getThreadsRuntimeSetupDocsUrl(): string {
-    return this.appendRefParam(
-      THREADS_RUNTIME_SETUP_DOCS_URL,
-      "cpk-inspector-threads",
-    );
   }
 
   private getThreadsIntelligenceSignupUrl(): string {
@@ -9729,56 +9713,64 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud {
         --hud-fill: var(--cpk-inspector-surface-dark);
-        --hud-line: rgb(190 194 255 / 0.5);
+        --hud-line: rgb(190 194 255 / 0.38);
+        --hud-accent: #b8adf5;
+        --hud-accent-soft: rgb(184 173 245 / 0.13);
+        --hud-hover-fill: #252231;
         --hud-blur: blur(12px) saturate(1.2);
         position: absolute;
-        top: 0;
         z-index: 4;
-        padding-right: 14px;
+        width: 258px;
         pointer-events: none;
         opacity: 0;
         visibility: hidden;
-        transform: translateX(8px);
         transition:
           opacity 160ms ease,
           transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
       }
 
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] {
+        top: 0;
+        bottom: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"] {
+        top: auto;
+        bottom: 0;
+      }
+
       .cpk-launcher-hud[data-cpk-hud-side="left"] {
         right: 100%;
+        left: auto;
         padding-right: 14px;
-        padding-left: 0;
+        transform: translateX(8px);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] {
         left: 100%;
         right: auto;
-        padding-right: 0;
         padding-left: 14px;
         transform: translateX(-8px);
       }
 
-      .console-button-wrapper[data-cpk-hud="open"]
-        .cpk-launcher-hud[data-cpk-hud-side="right"] {
+      .console-button-wrapper[data-cpk-hud="open"] .cpk-launcher-hud {
         transform: none;
       }
 
       .cpk-launcher-hud__card {
         position: relative;
-        width: 228px;
-        padding: 4px;
-        border: 1px dotted var(--hud-line);
-        border-radius: var(--cpk-inspector-shell-radius);
-        background: var(--hud-fill);
+        display: grid;
+        width: 244px;
+        gap: 8px;
         color: #fff;
-        backdrop-filter: var(--hud-blur);
-        -webkit-backdrop-filter: var(--hud-blur);
-        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] {
         --hud-fill: #fff;
-        --hud-line: #d8d8e8;
+        --hud-line: #ddd6f4;
+        --hud-accent: #6757b0;
+        --hud-accent-soft: #f1edff;
+        --hud-hover-fill: #f1edff;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__card {
@@ -9788,23 +9780,35 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud__arrow {
         position: absolute;
         top: calc(var(--cpk-launcher-size) / 2);
-        z-index: 1;
+        z-index: 2;
         width: 10px;
         height: 10px;
         border: 0;
-        /* The card frosts the page behind it, so it reads lighter than the
-           raw fill. Mix a little white so the arrow matches the glass card
-           without going lighter than the HUD. */
-        background: color-mix(in srgb, var(--hud-fill) 88%, white 12%);
-        transform: translateY(-50%) rotate(45deg);
+        background: var(--hud-fill);
+        transform: rotate(45deg);
+        transition: background 120ms ease;
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__arrow {
         right: 9px;
+        border-top: 1px solid var(--hud-line);
+        border-right: 1px solid var(--hud-line);
       }
 
       .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__arrow {
         left: 9px;
+        border-bottom: 1px solid var(--hud-line);
+        border-left: 1px solid var(--hud-line);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="top"] .cpk-launcher-hud__arrow {
+        top: calc(var(--cpk-launcher-size) / 2 - 5px);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]
+        .cpk-launcher-hud__arrow {
+        top: auto;
+        bottom: calc(var(--cpk-launcher-size) / 2 - 5px);
       }
 
       .cpk-launcher-hud__list {
@@ -9813,47 +9817,190 @@ export class WebInspectorElement extends LitElement {
         list-style: none;
       }
 
-      .cpk-launcher-hud__list + .cpk-launcher-hud__list {
-        margin-top: 4px;
-        padding-top: 4px;
-        border-top: 1px dotted var(--hud-line);
+      .cpk-launcher-hud__masthead {
+        position: relative;
+        z-index: 1;
+        margin-top: 6px;
+        padding: 0;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
+        transition: background 120ms ease;
+      }
+
+      .cpk-launcher-hud__news-wrap {
+        position: relative;
+        margin: 0;
+      }
+
+      .cpk-launcher-hud__news {
+        position: relative;
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 18px 12px 11px;
+        border: 0;
+        border-radius: calc(var(--cpk-inspector-shell-radius) - 1px);
+        background: transparent;
+        color: #fff;
+        font-family: inherit;
+        line-height: 1;
+        text-align: start;
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news:hover,
+      .cpk-launcher-hud__news:focus-visible {
+        background: transparent;
+      }
+
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:hover),
+      .cpk-launcher-hud__masthead:has(.cpk-launcher-hud__news:focus-visible),
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:hover)
+        .cpk-launcher-hud__arrow,
+      .cpk-launcher-hud:has(.cpk-launcher-hud__news:focus-visible)
+        .cpk-launcher-hud__arrow {
+        background: var(--hud-hover-fill);
+      }
+
+      .cpk-launcher-hud__news:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 650;
+        line-height: 1.32;
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+
+      .cpk-launcher-hud__news-label {
+        position: absolute;
+        top: -9px;
+        left: 12px;
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: #7563c7;
+        color: #fff;
+        box-shadow: 0 3px 8px rgb(46 37 91 / 0.18);
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .cpk-launcher-hud__news-dismiss {
+        position: absolute;
+        top: -1px;
+        right: 2px;
+        z-index: 2;
+        display: inline-flex;
+        width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: rgb(255 255 255 / 0.68);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        background: var(--hud-accent-soft);
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss {
+        color: #6e697c;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__news-dismiss:focus-visible {
+        color: #27233a;
+      }
+
+      .cpk-launcher-hud__news-dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__news-dismiss svg {
+        width: 7px;
+        height: 7px;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__news {
+        color: #17131f;
+      }
+
+      .cpk-launcher-hud__feature-list {
+        position: relative;
+        z-index: 1;
+        padding: 5px;
+        border: 1px solid var(--hud-line);
+        border-radius: var(--cpk-inspector-shell-radius);
+        background: var(--hud-fill);
+        backdrop-filter: var(--hud-blur);
+        -webkit-backdrop-filter: var(--hud-blur);
+        box-shadow: 0 10px 28px rgb(46 37 91 / 0.16);
       }
 
       .cpk-launcher-hud__row {
         position: relative;
         display: grid;
-        grid-template-columns: 1fr 28px;
-        align-items: start;
-        border-radius: 7px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        min-height: 54px;
+        border-radius: 9px;
         cursor: pointer;
       }
 
       .cpk-launcher-hud__row + .cpk-launcher-hud__row {
-        margin-top: 1px;
+        border-top: 1px solid var(--hud-line);
+        border-radius: 0 0 9px 9px;
       }
 
       .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
+      .cpk-launcher-hud__row:focus-within {
         background: rgb(255 255 255 / 0.06);
       }
 
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:hover,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__row:focus-within,
-      .cpk-launcher-hud[data-color-scheme="light"]
-        .cpk-launcher-hud__row[data-cpk-hud-help="open"] {
-        background: #f0f0f4;
+      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__row:focus-within {
+        background: #f7f5ff;
+      }
+
+      .cpk-launcher-hud__primary {
+        position: relative;
+        display: flex;
+        min-width: 0;
       }
 
       .cpk-launcher-hud__action {
         display: flex;
+        width: 100%;
         gap: 8px;
-        min-height: 32px;
+        min-height: 52px;
         align-items: center;
-        padding: 6px 8px;
+        padding: 7px 4px;
         border: 0;
-        border-radius: 7px;
+        border-radius: 9px;
         background: transparent;
         color: #fff;
         font-family: inherit;
@@ -9863,31 +10010,88 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
+      .cpk-launcher-hud__label {
+        min-width: 0;
+      }
+
+      .cpk-launcher-hud__feature-icon {
+        display: inline-flex;
+        width: 28px;
+        height: 32px;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        color: var(--hud-accent);
+      }
+
+      .cpk-launcher-hud__feature-icon svg {
+        width: 17px;
+        height: 17px;
+        stroke-width: 1.8;
+      }
+
       .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__action {
         color: #010507;
       }
 
-      /* Stretch the row action over the whole tab, including the detail
-         copy. The help mark sits above this layer. */
+      /* Stretch the row action over the whole tab. The icon controls sit
+         above this layer and keep their own focused interactions. */
       .cpk-launcher-hud__action::after {
         content: "";
         position: absolute;
         inset: 0;
       }
 
-      .cpk-launcher-hud__check {
-        flex: none;
-        width: 14px;
-        height: 14px;
-        color: #34d399;
-      }
-
-      .cpk-launcher-hud__help {
+      .cpk-launcher-hud__controls {
         position: relative;
         z-index: 1;
+        display: flex;
+        gap: 0;
+        align-items: center;
+        padding-right: 5px;
+      }
+
+      .cpk-launcher-hud__learn-more {
         display: inline-flex;
-        width: 28px;
-        height: 32px;
+        width: 24px;
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: rgb(190 194 255 / 0.72);
+        cursor: pointer;
+      }
+
+      .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud__learn-more:focus-visible {
+        color: #fff;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more {
+        color: #777080;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__learn-more:focus-visible {
+        color: #4b416b;
+      }
+
+      .cpk-launcher-hud__learn-more svg {
+        width: 16px;
+        height: 16px;
+        stroke-width: 1.8;
+      }
+
+      .cpk-launcher-hud__toggle {
+        display: inline-flex;
+        width: 38px;
+        height: 44px;
         align-items: center;
         justify-content: center;
         padding: 0;
@@ -9899,64 +10103,136 @@ export class WebInspectorElement extends LitElement {
         cursor: pointer;
       }
 
-      .cpk-launcher-hud__help span {
-        display: inline-flex;
-        width: 16px;
-        height: 16px;
-        align-items: center;
-        justify-content: center;
-        border: 1px dotted rgb(190 194 255 / 0.55);
+      .cpk-launcher-hud__toggle:disabled {
+        cursor: not-allowed;
+        opacity: 1;
+      }
+
+      .cpk-launcher-hud__toggle-track {
+        position: relative;
+        display: block;
+        width: 34px;
+        height: 20px;
+        border: 1px solid rgb(190 194 255 / 0.38);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 0.08);
+        transition:
+          border-color 120ms ease,
+          background 120ms ease;
+      }
+
+      .cpk-launcher-hud__toggle-track::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        line-height: 1;
+        background: #8c8e99;
+        transition:
+          background 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__help {
-        color: #68686e;
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: var(--hud-accent);
+        background: color-mix(in srgb, var(--hud-accent) 76%, transparent);
       }
 
-      .cpk-launcher-hud__help:focus-visible,
+      .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #fff;
+        transform: translateX(14px);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #c9c9d2;
+        background: #e7e7ec;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #777780;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track {
+        border-color: #6757b0;
+        background: #7563c7;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__toggle[data-enabled="true"]
+        .cpk-launcher-hud__toggle-track::after {
+        background: #fff;
+      }
+
+      .cpk-launcher-hud__toggle:focus-visible,
+      .cpk-launcher-hud__learn-more:focus-visible,
       .cpk-launcher-hud__action:focus-visible {
         outline: 2px solid #bec2ff;
         outline-offset: 1px;
       }
 
-      .cpk-launcher-hud__detail {
-        grid-column: 1 / -1;
-        max-height: 0;
-        margin: 0;
-        padding: 0 8px;
-        overflow: hidden;
-        color: rgb(255 255 255 / 0.78);
-        font-size: 11px;
-        font-weight: 400;
-        line-height: 1.4;
+      .cpk-launcher-hud__tooltip {
+        position: absolute;
+        top: 50%;
+        z-index: 30;
+        width: max-content;
+        max-width: min(220px, 52vw);
+        padding: 7px 9px;
+        border: 1px solid #3a3d49;
+        border-radius: 4px;
+        background: #15171e;
+        color: #f3f4f8;
+        box-shadow: 0 8px 20px rgb(1 5 7 / 0.18);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1.45;
         opacity: 0;
         pointer-events: none;
-        transform: translateY(-6px);
+        transform: translate(3px, -50%);
+        white-space: normal;
         transition:
-          max-height 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          opacity 150ms ease-out,
-          transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
-          padding-bottom 200ms cubic-bezier(0.16, 1, 0.3, 1);
+          opacity 120ms ease,
+          transform 120ms ease;
       }
 
-      .cpk-launcher-hud[data-color-scheme="light"] .cpk-launcher-hud__detail {
-        color: #68686e;
-      }
-
-      .cpk-launcher-hud__row:hover .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row:focus-within .cpk-launcher-hud__detail,
-      .cpk-launcher-hud__row[data-cpk-hud-help="open"]
-        .cpk-launcher-hud__detail {
-        max-height: 72px;
-        padding: 0 8px 7px;
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
+        .cpk-launcher-hud__tooltip {
         opacity: 1;
-        transform: none;
+        transform: translate(0, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="left"] .cpk-launcher-hud__tooltip {
+        right: calc(100% + 8px);
+        left: auto;
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"] .cpk-launcher-hud__tooltip {
+        right: auto;
+        left: calc(100% + 8px);
+        transform: translate(-3px, -50%);
+      }
+
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:hover)
+        .cpk-launcher-hud__tooltip,
+      .cpk-launcher-hud[data-cpk-hud-side="right"]
+        .cpk-launcher-hud__row:has(.cpk-launcher-hud__learn-more:focus-visible)
+        .cpk-launcher-hud__tooltip {
+        transform: translate(0, -50%);
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud,
-        .cpk-launcher-hud__detail {
+        .cpk-launcher-hud__tooltip {
           transition: none;
         }
       }
@@ -10010,17 +10286,6 @@ export class WebInspectorElement extends LitElement {
         }
       }
 
-      @keyframes cpk-launcher-hud-check-online {
-        from {
-          opacity: 0;
-          transform: scale(0.65);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
       .cpk-launcher-hud[data-cpk-hud-intro="true"] {
         animation: cpk-launcher-hud-intro var(--cpk-launcher-hud-intro-duration)
           cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -10037,16 +10302,10 @@ export class WebInspectorElement extends LitElement {
         animation-delay: var(--cpk-hud-row-delay);
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
-        animation: cpk-launcher-hud-check-online 220ms
-          cubic-bezier(0.16, 1, 0.3, 1) both;
-        animation-delay: calc(var(--cpk-hud-row-delay) + 90ms);
-      }
-
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud[data-cpk-hud-intro="true"],
-        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row,
-        .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__check {
+        .cpk-launcher-hud[data-cpk-hud-intro="true"]
+          .cpk-launcher-hud__row {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -10090,13 +10349,13 @@ export class WebInspectorElement extends LitElement {
       }
 
       .inspector-account-strip {
-        background: linear-gradient(
-          90deg,
-          #ffffff 0%,
-          #f3f1ff 58%,
-          #eefbf7 100%
-        ) !important;
+        background: #f7f6fd !important;
         color: #010507 !important;
+      }
+
+      .inspector-window[data-color-scheme="dark"] .drag-handle,
+      .inspector-window[data-color-scheme="dark"] .inspector-account-strip {
+        background: #15171e !important;
       }
 
       /* ── Tab buttons ─────────────────────────────────────────────── */
@@ -10534,12 +10793,12 @@ export class WebInspectorElement extends LitElement {
     this.unsubscribeFromInspectorThreadBridge();
     this.stopIntelligenceStory();
     this.clearIntelligencePromptReset();
-    this.threadsSetupPromptCopyGeneration += 1;
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
+    this.homeFeaturePromptCopyGeneration += 1;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
     }
-    this.threadsSetupPromptCopyState = "idle";
+    this.homeFeaturePromptCopyState = null;
     this.stopSignalPulse();
     this.cancelGestureTail();
     this.cancelLauncherHudIntro();
@@ -10751,15 +11010,7 @@ export class WebInspectorElement extends LitElement {
               ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
               : LAUNCHER_BASE_LABEL
           }
-          title=${
-            // Visible text, so it is offered for the announcement only. No
-            // error detail is rendered over the host application: a developer
-            // who ships the Inspector to production must not leak internal
-            // failure detail to their end users.
-            activeSignal === NEWS_SIGNAL_ID
-              ? `${WHATS_NEW_VIEW_LABEL} — unread`
-              : nothing
-          }
+          title=${HUD_INSPECTOR_LABEL}
           data-drag-context="button"
           data-cpk-signal=${signal ? signal.tone : nothing}
           data-cpk-signal-pulsing=${
@@ -10787,9 +11038,9 @@ export class WebInspectorElement extends LitElement {
           />
           ${
             // Purely decorative: the button is the target, it carries the
-            // hover hint and the accessible name, and an unread announcement
-            // is announced by its navigation entry, which is where a keyboard
-            // user arrives.
+            // stable hover hint and the accessible name, and an unread
+            // announcement is announced by its navigation entry, which is
+            // where a keyboard user arrives.
             activeSignal !== null
               ? html`<span
                     class="cpk-launcher-signal-wash"
@@ -10927,7 +11178,6 @@ export class WebInspectorElement extends LitElement {
         this.launcherHudIntroEndTimer = null;
         this.launcherHudIntro = false;
         this.launcherHudOpen = false;
-        this.launcherHudHelp = null;
         this.requestUpdate();
       }, LAUNCHER_HUD_INTRO_MS.duration);
     }, delay);
@@ -10986,9 +11236,8 @@ export class WebInspectorElement extends LitElement {
       clearTimeout(this.launcherHudCloseTimer);
       this.launcherHudCloseTimer = null;
     }
-    if (!this.launcherHudOpen && this.launcherHudHelp === null) return;
+    if (!this.launcherHudOpen) return;
     this.launcherHudOpen = false;
-    this.launcherHudHelp = null;
     this.requestUpdate();
   }
 
@@ -11043,70 +11292,64 @@ export class WebInspectorElement extends LitElement {
     event.preventDefault();
     event.stopPropagation();
     this.hudLandingMenu =
-      row === "inspector"
-        ? null
-        : row === "threads"
-          ? "threads"
-          : row === "learning"
-            ? "memories"
-            : "home";
+      row === "threads" ? "threads" : row === "learning" ? "memories" : "home";
     this.closeLauncherHud();
     this.openInspector("floating_button");
-  };
-
-  private handleHudHelpClick = (event: Event, row: LauncherHudRowId): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.launcherHudHelp = this.launcherHudHelp === row ? null : row;
-    this.requestUpdate();
   };
 
   private handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {
     const target = event.target;
     if (
       target instanceof Element &&
-      target.closest(".cpk-launcher-hud__help, [data-cpk-hud-action]")
+      target.closest(".cpk-launcher-hud__controls, [data-cpk-hud-action]")
     ) {
       return;
     }
     this.handleHudActionClick(event, row);
   };
 
-  private renderHudCheck(): TemplateResult {
-    return html`
-      <svg
-        class="cpk-launcher-hud__check"
-        viewBox="0 0 16 16"
-        aria-hidden="true"
-        focusable="false"
-        data-cpk-hud-check
-      >
-        <path
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M3 8.5 6.5 12 13 4.5"
-        />
-      </svg>
-    `;
+  private handleHudNewsClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.hudLandingMenu = WHATS_NEW_MENU_KEY;
+    this.closeLauncherHud();
+    this.openInspector("floating_button");
+  };
+
+  private handleHudNewsDismissClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.clearNewsSignal();
+    this.activeRoot
+      .querySelector<HTMLButtonElement>(".console-button")
+      ?.focus({ preventScroll: true });
+  };
+
+  private getUnreadAnnouncementTitle(): string | null {
+    if (!this.newsSignalArmed || !this.announcementLoaded) return null;
+    const title = this.announcementPreviewText?.trim() || "New in CopilotKit";
+    const titleCharacters = Array.from(title);
+    return titleCharacters.length > HUD_ANNOUNCEMENT_TITLE_LIMIT
+      ? `${titleCharacters
+          .slice(0, HUD_ANNOUNCEMENT_TITLE_LIMIT)
+          .join("")
+          .trimEnd()}...`
+      : title;
   }
 
   private renderHudRow(args: {
     id: LauncherHudRowId;
     label: string;
-    detail: string;
+    icon: LucideIconName;
     connected?: boolean;
     introIndex: number;
   }): TemplateResult {
-    const helpOpen = this.launcherHudHelp === args.id;
     const detailId = `cpk-hud-detail-${args.id}`;
     return html`
       <li
         class="cpk-launcher-hud__row"
         data-cpk-hud-row=${args.id}
-        data-cpk-hud-help=${helpOpen ? "open" : nothing}
+        data-cpk-hud-action-kind="navigate"
         style=${styleMap({
           "--cpk-hud-row-index": `${args.introIndex}`,
           "--cpk-hud-row-delay": `${
@@ -11116,28 +11359,65 @@ export class WebInspectorElement extends LitElement {
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
-        <button
-          type="button"
-          class="cpk-launcher-hud__action"
-          data-cpk-hud-action
-          aria-describedby=${detailId}
-          @click=${(event: Event) => this.handleHudActionClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          ${args.connected ? this.renderHudCheck() : nothing}${args.label}
-        </button>
-        <button
-          type="button"
-          class="cpk-launcher-hud__help"
-          aria-expanded=${helpOpen ? "true" : "false"}
-          aria-controls=${detailId}
-          aria-label=${`About ${args.label}`}
-          @click=${(event: Event) => this.handleHudHelpClick(event, args.id)}
-          @pointerdown=${(event: Event) => event.stopPropagation()}
-        >
-          <span aria-hidden="true">?</span>
-        </button>
-        <p class="cpk-launcher-hud__detail" id=${detailId}>${args.detail}</p>
+        <span class="cpk-launcher-hud__primary">
+          <button
+            type="button"
+            class="cpk-launcher-hud__action"
+            data-cpk-hud-action
+            aria-label=${`Open ${args.label} in Inspector`}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span
+              class="cpk-launcher-hud__feature-icon"
+              data-cpk-hud-icon=${args.id}
+              aria-hidden="true"
+              >${this.renderIcon(args.icon)}</span
+            >
+            <span class="cpk-launcher-hud__label">${args.label}</span>
+          </button>
+          <span
+            class="cpk-launcher-hud__tooltip"
+            id=${detailId}
+            role="tooltip"
+            >${HUD_LEARN_MORE_LABEL}</span
+          >
+        </span>
+        <span class="cpk-launcher-hud__controls">
+          <button
+            type="button"
+            class="cpk-launcher-hud__learn-more"
+            data-cpk-hud-learn-more=${args.id}
+            aria-label=${`Learn more about ${args.label}`}
+            aria-describedby=${detailId}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            ${this.renderIcon("CircleHelp")}
+          </button>
+          <button
+            type="button"
+            class="cpk-launcher-hud__toggle"
+            data-cpk-hud-toggle=${args.id}
+            data-enabled=${args.connected ? "true" : "false"}
+            aria-label=${
+              args.connected
+                ? `${args.label} is enabled`
+                : `Open ${args.label} in Inspector`
+            }
+            ?disabled=${args.connected}
+            @click=${(event: Event) =>
+              this.handleHudActionClick(event, args.id)}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span
+              class="cpk-launcher-hud__toggle-track"
+              aria-hidden="true"
+            ></span>
+          </button>
+        </span>
       </li>
     `;
   }
@@ -11154,13 +11434,14 @@ export class WebInspectorElement extends LitElement {
     const learningOn = homeModel.services.some(
       (service) => service.id === "memory" && service.enabled,
     );
-    const intelligenceOn = homeModel.hero.connection === "connected";
+    const announcementTitle = this.getUnreadAnnouncementTitle();
     return html`
       <div
         class="cpk-launcher-hud"
         id="cpk-launcher-hud"
         data-cpk-launcher-hud
         data-cpk-hud-side=${this.launcherHudSide}
+        data-cpk-hud-vertical=${this.contextState.button.anchor.vertical}
         data-cpk-hud-intro=${this.launcherHudIntro ? "true" : nothing}
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
@@ -11170,45 +11451,61 @@ export class WebInspectorElement extends LitElement {
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
         <div class="cpk-launcher-hud__card">
-          <ul class="cpk-launcher-hud__list" role="list">
-            ${this.renderHudRow({
-              id: "inspector",
-              label: HUD_OPEN_INSPECTOR_LABEL,
-              detail: HUD_OPEN_INSPECTOR_DETAIL,
-              introIndex: 0,
-            })}
-          </ul>
-          <ul class="cpk-launcher-hud__list" role="list">
+          ${
+            announcementTitle
+              ? html`
+                  <div class="cpk-launcher-hud__masthead">
+                    <div class="cpk-launcher-hud__news-wrap">
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news"
+                        data-cpk-hud-news
+                        aria-label=${`Open new notification: ${announcementTitle}`}
+                        @click=${this.handleHudNewsClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        <span
+                          class="cpk-launcher-hud__news-label"
+                          data-cpk-hud-news-label
+                          aria-hidden="true"
+                          >New</span
+                        >
+                        <span class="cpk-launcher-hud__news-title"
+                          >${announcementTitle}</span
+                        >
+                      </button>
+                      <button
+                        type="button"
+                        class="cpk-launcher-hud__news-dismiss"
+                        data-cpk-hud-news-dismiss
+                        aria-label="Dismiss notification"
+                        @click=${this.handleHudNewsDismissClick}
+                        @pointerdown=${(event: Event) => event.stopPropagation()}
+                      >
+                        ${this.renderIcon("X")}
+                      </button>
+                    </div>
+                  </div>
+                `
+              : nothing
+          }
+          <ul
+            class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
+            role="list"
+          >
             ${this.renderHudRow({
               id: "threads",
-              label: threadsOn ? HUD_THREADS_ON_LABEL : HUD_THREADS_OFF_LABEL,
-              detail: threadsOn
-                ? HUD_THREADS_ON_DETAIL
-                : HUD_THREADS_OFF_DETAIL,
+              label: HUD_THREADS_LABEL,
+              icon: "MessageSquare",
               connected: threadsOn,
-              introIndex: 1,
-            })}
-            ${this.renderHudRow({
-              id: "intelligence",
-              label: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_LABEL
-                : HUD_INTELLIGENCE_OFF_LABEL,
-              detail: intelligenceOn
-                ? HUD_INTELLIGENCE_ON_DETAIL
-                : HUD_INTELLIGENCE_OFF_DETAIL,
-              connected: intelligenceOn,
-              introIndex: 2,
+              introIndex: 0,
             })}
             ${this.renderHudRow({
               id: "learning",
-              label: learningOn
-                ? HUD_LEARNING_ON_LABEL
-                : HUD_LEARNING_OFF_LABEL,
-              detail: learningOn
-                ? HUD_LEARNING_ON_DETAIL
-                : HUD_LEARNING_OFF_DETAIL,
+              label: HUD_LEARNING_LABEL,
+              icon: "Brain",
               connected: learningOn,
-              introIndex: 3,
+              introIndex: 1,
             })}
           </ul>
         </div>
@@ -11568,7 +11865,13 @@ export class WebInspectorElement extends LitElement {
             timestamp: lastRuntimeEvent.timestamp,
           }
         : undefined,
-      memoriesOn: this._memoriesAvailable,
+      // `available` begins optimistic inside the lazy Memory store. Until the
+      // first capability probe has actually settled, showing Learning as on
+      // would be a false positive that corrects itself only after navigation.
+      memoriesOn:
+        this._memorySubscribed &&
+        !this._memoriesLoading &&
+        this._memoriesAvailable,
       a2uiOn: this._core?.a2uiEnabled === true,
       openGenUiOn: this._core?.openGenerativeUIEnabled === true,
       suggestionsOn: this._core?.suggestions === true,
@@ -12142,25 +12445,94 @@ export class WebInspectorElement extends LitElement {
     const disabledServices = model.services.filter(
       (service) => !service.enabled,
     );
-    const renderService = (service: HomeModel["services"][number]) => html`
-      <a
+    const renderService = (service: HomeModel["services"][number]) => {
+      const copyState =
+        this.homeFeaturePromptCopyState?.serviceId === service.id
+          ? this.homeFeaturePromptCopyState.state
+          : "idle";
+      const stateDescription = `${service.label} is ${
+        service.enabled
+          ? "enabled in your runtime"
+          : "not enabled in your runtime"
+      }`;
+      const copyLabel =
+        copyState === "copied"
+          ? "Copied"
+          : copyState === "error"
+            ? "Copy failed"
+            : "Copy prompt";
+      const copyTitle = copyLabel;
+      return html`
+      <div
         class="inspector-home-feature"
         data-inspector-service=${service.id}
         data-state=${service.enabled ? "on" : "off"}
-        href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Learn more about ${service.label}, currently ${
-          service.enabled ? "on" : "off"
-        }"
+        role="listitem"
       >
-        <span>${service.label}</span>
-        <small>${service.enabled ? "On" : "Off"}</small>
-        <span class="inspector-home-feature-arrow" aria-hidden="true">
-          ${this.renderIcon("ArrowUpRight")}
+        <span
+          class="inspector-home-feature-status"
+          role="img"
+          aria-label=${stateDescription}
+          title=${stateDescription}
+        >
+          <span aria-hidden="true"></span>
         </span>
-      </a>
+        <a
+          class="inspector-home-feature-label"
+          data-inspector-home-feature-docs=${service.id}
+          href=${this.appendRefParam(service.docsUrl, "cpk-inspector-home")}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open ${service.label} documentation in a new tab"
+        >
+          <span>${service.label}</span>
+          <span class="inspector-home-feature-label-icon" aria-hidden="true"
+            >${this.renderIcon("ArrowUpRight")}</span
+          >
+        </a>
+        <span class="inspector-home-feature-actions">
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <button
+                    type="button"
+                    class="inspector-home-feature-action inspector-system-health-url"
+                    data-inspector-home-feature-prompt=${service.id}
+                    data-copy-state=${copyState}
+                    data-full-value=${copyTitle}
+                    aria-label="${copyLabel} for ${service.label}"
+                    @click=${(event: Event) =>
+                      this.handleHomeFeaturePromptCopy(service, event)}
+                  >
+                    <span class="inspector-home-feature-action-icon" aria-hidden="true"
+                      >${this.renderIcon(copyState === "copied" ? "Check" : "Bot")}</span
+                    >
+                    <span class="inspector-home-feature-action-label"
+                      >${copyTitle}</span
+                    >
+                  </button>
+                `
+          }
+          ${
+            service.enabled
+              ? nothing
+              : html`
+                  <span class="sr-only" aria-live="polite">
+                    ${
+                      copyState === "copied"
+                        ? `${service.label} implementation prompt copied.`
+                        : copyState === "error"
+                          ? `Could not copy the ${service.label} implementation prompt.`
+                          : ""
+                    }
+                  </span>
+                `
+          }
+        </span>
+      </div>
     `;
+    };
     return html`
       <section
         class="inspector-home-section inspector-home-features"
@@ -12169,7 +12541,7 @@ export class WebInspectorElement extends LitElement {
         <header class="inspector-home-section-header">
           <h2 class="inspector-home-section-title">Features</h2>
           <span>
-            ${enabledServices.length} active, ${disabledServices.length} off
+            ${enabledServices.length} enabled, ${disabledServices.length} available
           </span>
         </header>
         ${
@@ -12184,13 +12556,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="active"
-                  aria-label="Active features"
+                  aria-label="Enabled features"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Active</strong>
+                    <strong>Enabled</strong>
                     <span>${enabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       enabledServices.length > 0
                         ? enabledServices.map(renderService)
@@ -12203,13 +12575,13 @@ export class WebInspectorElement extends LitElement {
                 <section
                   class="inspector-home-feature-group"
                   data-feature-state-group="available"
-                  aria-label="Available features"
+                  aria-label="Features available to add"
                 >
                   <header class="inspector-home-feature-group-header">
-                    <strong>Available</strong>
+                    <strong>Available to add</strong>
                     <span>${disabledServices.length}</span>
                   </header>
-                  <div class="inspector-home-feature-list">
+                  <div class="inspector-home-feature-list" role="list">
                     ${
                       disabledServices.length > 0
                         ? disabledServices.map(renderService)
@@ -12223,6 +12595,129 @@ export class WebInspectorElement extends LitElement {
             `
         }
       </section>
+    `;
+  }
+
+  private showHomeFeaturePromptCopyState(
+    serviceId: HomeFeaturePromptId,
+    state: Exclude<HomeFeaturePromptCopyState, "idle">,
+    generation: number,
+  ): void {
+    if (
+      !this.isConnected ||
+      generation !== this.homeFeaturePromptCopyGeneration
+    )
+      return;
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+    }
+    this.homeFeaturePromptCopyState = { serviceId, state };
+    this.requestUpdate();
+    this.homeFeaturePromptCopyResetTimeoutId = window.setTimeout(() => {
+      if (
+        !this.isConnected ||
+        generation !== this.homeFeaturePromptCopyGeneration
+      )
+        return;
+      this.homeFeaturePromptCopyState = null;
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+      this.requestUpdate();
+    }, 2_000);
+  }
+
+  private handleHomeFeaturePromptCopy = async (
+    service: HomeFeaturePromptTarget,
+    event?: Event,
+  ): Promise<void> => {
+    const generation = (this.homeFeaturePromptCopyGeneration += 1);
+    if (this.homeFeaturePromptCopyResetTimeoutId !== null) {
+      window.clearTimeout(this.homeFeaturePromptCopyResetTimeoutId);
+      this.homeFeaturePromptCopyResetTimeoutId = null;
+    }
+    this.homeFeaturePromptCopyState = null;
+    this.requestUpdate();
+
+    const onboardingRunId = createOnboardingRunId();
+    if (!this.core?.telemetryDisabled) {
+      trackHomeFeaturePromptClicked({
+        feature_id: service.id,
+        onboarding_run_id: onboardingRunId,
+      });
+    }
+
+    const clipboard = this.getClipboard(event);
+    if (!clipboard?.writeText) {
+      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
+      return;
+    }
+
+    try {
+      await clipboard.writeText(
+        homeFeatureImplementationPrompt(service, {
+          onboardingRunId,
+        }),
+      );
+      this.showHomeFeaturePromptCopyState(service.id, "copied", generation);
+    } catch {
+      this.showHomeFeaturePromptCopyState(service.id, "error", generation);
+    }
+  };
+
+  private getHomeFeaturePromptTarget(
+    serviceId: HomeFeaturePromptId,
+  ): HomeFeaturePromptTarget | undefined {
+    return this.getHomeModel().services.find(
+      (service) => service.id === serviceId,
+    );
+  }
+
+  private renderFeatureSetupPrompt(
+    serviceId: HomeFeaturePromptId,
+    className: string,
+  ): TemplateResult | typeof nothing {
+    const service = this.getHomeFeaturePromptTarget(serviceId);
+    if (!service) return nothing;
+    const copyState =
+      this.homeFeaturePromptCopyState?.serviceId === service.id
+        ? this.homeFeaturePromptCopyState.state
+        : "idle";
+    const label =
+      copyState === "copied"
+        ? "Copied"
+        : copyState === "error"
+          ? "Copy blocked"
+          : "Copy setup prompt";
+    return html`
+      <button
+        type="button"
+        class=${className}
+        data-inspector-feature-setup-prompt=${service.id}
+        data-inspector-threads-setup-prompt=${
+          service.id === "threads" ? "" : nothing
+        }
+        data-copy-state=${copyState}
+        aria-label=${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt. Try again`
+              : `Copy setup prompt for ${service.label}`
+        }
+        @click=${(event: Event) =>
+          this.handleHomeFeaturePromptCopy(service, event)}
+      >
+        ${this.renderIcon(copyState === "copied" ? "Check" : "Copy")}
+        ${label}
+      </button>
+      <span class="sr-only" aria-live="polite">
+        ${
+          copyState === "copied"
+            ? `${service.label} setup prompt copied.`
+            : copyState === "error"
+              ? `Could not copy the ${service.label} setup prompt.`
+              : ""
+        }
+      </span>
     `;
   }
 
@@ -14104,8 +14599,10 @@ export class WebInspectorElement extends LitElement {
     const hudMenu = this.hudLandingMenu;
     this.hudLandingMenu = null;
     if (hudMenu) {
-      this.selectedMenu = hudMenu;
-      this.lastSelectedMenuByGroup[getGroupForMenu(hudMenu)] = hudMenu;
+      // Use the same activation path as sidebar navigation. In particular,
+      // Learning must initialize its lazy memory subscription before deciding
+      // whether to show the enabled view or the setup gate.
+      this.handleMenuSelect(hudMenu);
     } else if (activeSignalAtOpen !== null && source === "floating_button") {
       const landing = LAUNCHER_SIGNALS[activeSignalAtOpen].landingTarget;
       this.selectedMenu = landing;
@@ -16753,61 +17250,6 @@ export class WebInspectorElement extends LitElement {
     `;
   }
 
-  /** Show a copy result briefly and announce it to assistive technology. */
-  private showThreadsSetupPromptCopyState(
-    state: Exclude<ThreadsSetupPromptCopyState, "idle">,
-    generation: number,
-  ): void {
-    if (
-      !this.isConnected ||
-      generation !== this.threadsSetupPromptCopyGeneration
-    ) {
-      return;
-    }
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-    }
-    this.threadsSetupPromptCopyState = state;
-    this.requestUpdate();
-    this.threadsSetupPromptCopyResetTimeoutId = window.setTimeout(() => {
-      if (
-        !this.isConnected ||
-        generation !== this.threadsSetupPromptCopyGeneration
-      ) {
-        return;
-      }
-      this.threadsSetupPromptCopyState = "idle";
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-      this.requestUpdate();
-    }, 2_000);
-  }
-
-  /** Copy the static, docs-backed Rich Threads repair prompt. */
-  private handleThreadsSetupPromptCopy = async (
-    event?: Event,
-  ): Promise<void> => {
-    const generation = (this.threadsSetupPromptCopyGeneration += 1);
-    if (this.threadsSetupPromptCopyResetTimeoutId !== null) {
-      window.clearTimeout(this.threadsSetupPromptCopyResetTimeoutId);
-      this.threadsSetupPromptCopyResetTimeoutId = null;
-    }
-    this.threadsSetupPromptCopyState = "idle";
-    this.requestUpdate();
-
-    const clipboard = this.getClipboard(event);
-    if (!clipboard?.writeText) {
-      this.showThreadsSetupPromptCopyState("error", generation);
-      return;
-    }
-
-    try {
-      await clipboard.writeText(THREADS_RUNTIME_SETUP_PROMPT);
-      this.showThreadsSetupPromptCopyState("copied", generation);
-    } catch {
-      this.showThreadsSetupPromptCopyState("error", generation);
-    }
-  };
-
   private renderThreadsExampleOverview(locked: boolean) {
     const lockedCopy = locked ? this.getThreadsLockedCopy() : undefined;
     const { lockedAction } = this.inspectorMetadataProjection;
@@ -16839,58 +17281,10 @@ export class WebInspectorElement extends LitElement {
             ${
               locked
                 ? html`
-                  ${
-                    this.inspectorMetadataProjection.licenseState === "valid"
-                      ? html`
-                        <button
-                          data-inspector-threads-setup-prompt
-                          type="button"
-                          aria-label=${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy setup prompt failed. Try again"
-                                : "Copy setup prompt for your coding agent"
-                          }
-                          @click=${this.handleThreadsSetupPromptCopy}
-                        >
-                          ${this.renderIcon(
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Check"
-                              : "Copy",
-                          )}
-                          ${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Copied"
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Copy blocked"
-                                : "Copy prompt for your agent"
-                          }
-                        </button>
-                        <a
-                          data-inspector-threads-setup-link
-                          href=${this.getThreadsRuntimeSetupDocsUrl()}
-                          target="_blank"
-                          rel="noopener"
-                          aria-label="Open setup guide (opens in a new tab)"
-                        >
-                          Open setup guide
-                        </a>
-                        <span
-                          class="sr-only"
-                          data-inspector-threads-setup-copy-status
-                          aria-live="polite"
-                          >${
-                            this.threadsSetupPromptCopyState === "copied"
-                              ? "Setup prompt copied."
-                              : this.threadsSetupPromptCopyState === "error"
-                                ? "Setup prompt copy failed. Open the setup guide and copy it manually."
-                                : ""
-                          }</span
-                        >
-                      `
-                      : nothing
-                  }
+                  ${this.renderFeatureSetupPrompt(
+                    "threads",
+                    "cpk-threads-overview-action cpk-threads-overview-action-primary",
+                  )}
                   ${
                     lockedAction
                       ? this.renderInspectorAction(lockedAction, "locked")
@@ -17223,8 +17617,16 @@ export class WebInspectorElement extends LitElement {
   }
 
   private renderMemoriesView() {
-    // 1. Locked teaser — intelligence not configured or memories not available.
-    if (!this.core?.intelligence || !this._memoriesAvailable) {
+    // Once the user enters Learning, its lazy subscription is the capability
+    // probe. Preserve the loading state while that request is in flight, then
+    // let an unavailable response fall through to the setup gate.
+    const learningEnabled = this.getHomeModel().services.some(
+      (service) => service.id === "memory" && service.enabled,
+    );
+    // 1. Locked teaser — use the same entitlement-aware capability decision
+    // as Home and the launcher so an unavailable feature always lands on its
+    // setup path instead of an enabled-looking empty state.
+    if (!learningEnabled) {
       return html`
         <div class="cpk-memory-locked">
           ${this.renderThreadsLockedBackgroundMockup()}
@@ -17244,6 +17646,10 @@ export class WebInspectorElement extends LitElement {
               }
             </p>
             <div class="cpk-memory-locked-actions">
+              ${this.renderFeatureSetupPrompt(
+                "memory",
+                "cpk-memory-locked-action",
+              )}
               <a
                 href=${this.getTalkToEngineerUrl()}
                 target="_blank"
