@@ -294,9 +294,10 @@ export function FrameworkOverview({
               so a framework-scoped variant would be a promise the CLI does not
               keep. The quickstart slot is a direct link here because a
               framework is already selected. Frameworks with bespoke setup
-              (e.g. a2a's `git clone`, ms-agent-dotnet) keep their own
-              copy-command chip because those commands aren't interchangeable
-              with the CLI. */}
+              (e.g. the Claude Agent SDK's `init --framework`) lead with the
+              same prompt and Quickstart, then keep their own copy-command chip
+              as a third action: that command is not interchangeable with the
+              generic CLI one, and nothing else on the page carries it. */}
           <div className="mt-7">
             {isGenericInit ? (
               <HeroStartActions
@@ -315,11 +316,13 @@ export function FrameworkOverview({
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <HeroOnboardingPromptButton surface="docs_framework_hero" />
                 <QuickstartLinkButton
                   href={link(rawGuideLink)}
                   frontend={selectedFrontend}
                   backend={currentFramework}
                   fromPath={overviewPath}
+                  variant="secondary"
                 />
                 <button
                   type="button"
