@@ -28,6 +28,7 @@ import {
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
   getFrontendGuidanceContentSlug,
+  getVueDocsPageRoutes,
 } from "@/lib/frontend-page-content";
 import {
   CHANNEL_FRONTENDS,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/channel-guide-routes";
 import { loadDoc } from "@/lib/docs-render";
 import type { NavNode } from "@/lib/docs-render";
+import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
   getAngularDocsNavTree,
   resolveAngularDoc,
@@ -179,6 +181,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
         lastModified: resolveLastModified(doc.filePath),
       });
     }
+  }
+
+  // Vue derives its discoverable routes from the root navigation tree, so
+  // sitemap coverage follows the same frontend-resolution policy as its UI.
+  for (const { slugPath, canonicalSlugPath } of getVueDocsPageRoutes()) {
+    if (!slugPath) continue;
+    const resolution = resolveFrontendDocPage("vue", slugPath);
+    if (resolution.status !== "found") continue;
+    const doc = loadDoc(resolution.contentSlugPath);
+    if (!doc) continue;
+    pushUnique({
+      url: `${baseUrl}/vue/${canonicalSlugPath}`,
+      lastModified: resolveLastModified(doc.filePath),
+    });
   }
 
   // Slack and Teams each expose the maintained shared Channels guides for

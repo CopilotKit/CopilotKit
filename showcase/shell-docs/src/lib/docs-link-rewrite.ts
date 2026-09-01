@@ -9,6 +9,7 @@ import {
 } from "@/lib/channel-guide-routes";
 import { isChannelFrontend } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
+import { referenceVersionHref } from "@/lib/reference-items";
 import {
   GLOBAL_DOCS_ROUTE_SLUGS,
   RESERVED_ROUTE_SLUGS,
@@ -65,6 +66,25 @@ function canonicalAngularHref(href: string): string {
   return canonicalSlug ? `/${canonicalSlug}${suffix}` : `/${suffix}`;
 }
 
+function resolveVueReferenceHref(href: string): string | null {
+  const referencePath = stripPathPrefix(href, "/reference");
+  if (referencePath === null) return null;
+
+  const suffixIndex = referencePath.search(/[?#]/);
+  const pathname =
+    suffixIndex === -1 ? referencePath : referencePath.slice(0, suffixIndex);
+  const suffix = suffixIndex === -1 ? "" : referencePath.slice(suffixIndex);
+  const rootReactPath = pathname.replace(/^\/v2(?:\/|$)/, "/");
+
+  if (
+    /^\/(?:v1|react-native|vue|angular|core|channels)(?:\/|$)/.test(pathname)
+  ) {
+    return null;
+  }
+
+  return `${referenceVersionHref("vue", rootReactPath)}${suffix}`;
+}
+
 /**
  * Keep authored MDX links inside the active docs surface.
  *
@@ -95,6 +115,11 @@ export function resolveDocsHref(
   if (legacyIntegrationPath !== null) return legacyIntegrationPath;
 
   const firstSegment = href.slice(1).split(/[/?#]/, 1)[0];
+
+  if (frontendOverride === "vue") {
+    const vueReferenceHref = resolveVueReferenceHref(href);
+    if (vueReferenceHref) return vueReferenceHref;
+  }
 
   if (frontendOverride && isChannelFrontend(frontendOverride)) {
     const sameFrontendPath = stripPathPrefix(href, `/${frontendOverride}`);

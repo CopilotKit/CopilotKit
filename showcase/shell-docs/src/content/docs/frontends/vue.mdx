@@ -90,6 +90,10 @@ The runtime runs on your server, keeps model credentials out of the browser, and
           );
         });
         ```
+
+        <Callout type="info" title="Vite and Copilot Runtime run on separate origins">
+          Vite serves the Vue app (usually on `http://localhost:5173`) while this Node server runs on `http://localhost:8200`. Because the browser calls across those origins, `cors: true` is required for local development; the Node listener does not enable CORS by default.
+        </Callout>
     </Step>
     <Step>
         ### Import the styles
@@ -118,7 +122,6 @@ The runtime runs on your server, keeps model credentials out of the browser, and
           <!-- [!code highlight:8] -->
           <CopilotKitProvider
             runtime-url="http://localhost:8200/api/copilotkit"
-            show-dev-console="auto"
           >
             <div style="height: 100vh">
               <CopilotChat />
@@ -128,7 +131,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
         ```
 
         <Callout type="info" title="Pick your chat layout">
-          `CopilotChat` is a full-height chat. Swap it for `CopilotSidebar` (a collapsible side panel) or `CopilotPopup` (a floating widget) for a different layout. They take the same props.
+          `CopilotChat` is the full-height chat surface. Use `CopilotSidebar` for a fixed side panel with open/close behavior, or `CopilotPopup` for a floating panel with a toggle button. They share core agent and chat wiring, but each surface also has layout-specific props and behavior.
         </Callout>
     </Step>
     <Step>
@@ -153,7 +156,7 @@ The runtime runs on your server, keeps model credentials out of the browser, and
             <Accordion title="Troubleshooting">
                 - **Chat renders unstyled**: Make sure you imported `@copilotkit/vue/styles.css` in your app entry.
                 - **No response from the agent**: Confirm the runtime server is running and `http://localhost:8200/api/copilotkit/info` returns agent information.
-                - **CORS errors**: Keep `cors: true` in `createCopilotNodeListener` for local development, or configure CORS to allow your Vue app's origin in production.
+                - **CORS errors**: The Vite app and Node runtime use different origins. Keep `cors: true` in `createCopilotNodeListener` for local development; the Node listener is CORS-disabled by default. Configure an explicit allowed origin before deploying.
                 - **Model auth errors**: Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx server.ts`.
             </Accordion>
         </Accordions>
@@ -165,9 +168,11 @@ The runtime runs on your server, keeps model credentials out of the browser, and
 
 ## Where to go next
 
-- [Generative UI in Vue](/vue/guides/generative-ui): render a tool result as a card, an A2UI surface, or sandboxed UI instead of plain text. This is the same regardless of which agent framework you put behind the runtime.
-- [Copilot Runtime](/backend/copilot-runtime): runtime setup, auth, middleware, and routing.
-- [Built-in Agent quickstart](/quickstart): configure the in-process agent used in this quickstart.
-- [Integrations](/integrations/langgraph): connect LangGraph, CrewAI, Mastra, and other agents through the runtime.
+- [Copilot Runtime](/backend/copilot-runtime): the backend layer this frontend connects to.
+- [Built-in Agent quickstart](/integrations/built-in-agent/quickstart): a framework-neutral path if you want CopilotKit to own the agent too.
+- [Generative UI](/vue/generative-ui/tool-based): render a tool result as a card or another interactive surface instead of plain text.
+- [Threads](/threads): persist conversations and work with the thread API directly.
+- [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer): add a ready-made thread switcher beside the chat.
+- [Vue API reference](/reference/vue): find the current `@copilotkit/vue/v2` component and composable APIs.
 
-The composables (`useAgent`, `useFrontendTool`, `useHumanInTheLoop`, and more) mirror the React SDK. See the [`@copilotkit/vue` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/vue) for the full API, slot-based customization, and Nuxt SSR setup.
+The Vue reference also covers slot-based customization, thread management, interrupts, and lazy-loaded custom elements for SSR.

@@ -1,0 +1,192 @@
+---
+title: Headless Threads
+description: "Build a custom thread UI with useThreads while CopilotKit handles persistence, replay, synchronization, and lifecycle infrastructure."
+icon: "lucide/MessageSquareMore"
+doc_type: how-to
+---
+
+## What is this?
+
+CopilotKit Rich Threads enable persistent, resumable multi-turn conversations. The `useThreads` composable lists, creates, renames, archives, and deletes CopilotKit Intelligence threads with realtime synchronization. Threads work with any agent framework because CopilotKit Intelligence stores conversation history server-side, so users can close their browser and pick up where they left off. It does not list or mutate native LangGraph, ADK, or other framework stores unless your backend explicitly bridges those systems.
+
+<IntelligenceOnboardingPrompt feature="threads" surface="docs_threads" />
+
+<Callout type="info" title="Prebuilt thread UI: Threads Drawer">
+  If your app came from a CopilotKit CLI starter, it may already include the prebuilt **[Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer)**. Keep it for the shortest path to a production thread switcher. Use the `useThreads` steps below when adding custom thread UI or replacing the Drawer with your own layout and interactions, including thread rename.
+</Callout>
+
+## When should I use this?
+
+- Your app needs multiple saved conversations per user, like a chat-history sidebar.
+- Users should be able to resume a prior conversation across sessions or devices.
+- You want realtime sync so threads created on one tab appear on another.
+- You need to let users organize conversations by renaming or archiving them.
+
+## Prerequisites
+
+- A CopilotKit application connected to CopilotKit Intelligence
+- The current `@copilotkit/vue` v2 package
+- A model provider key supported by your runtime
+
+For multi-user applications, configure the runtime to [scope Rich Threads to the signed-in user](/vue/threads-lifecycle#scope-rich-threads-to-the-signed-in-user) before exposing thread lists or lifecycle actions.
+
+## Implementation
+
+<Callout type="info" title="Migrating existing history?">
+  Threads capture new CopilotKit conversations once your app is connected to CopilotKit Intelligence. To move historical Google ADK or LangGraph conversations into the same store, start with [Import & Synchronize Thread History](/threads-import), or the framework-specific synchronization guide.
+</Callout>
+
+<Steps>
+  <Step>
+    ### Configure your Runtime with CopilotKit Intelligence
+
+    Your `CopilotRuntime` must be connected to CopilotKit Intelligence before the thread UI can list and resume conversations. CLI-created starters generate this setup; otherwise follow [Connect your runtime to Intelligence](/premium/connect-your-runtime).
+
+    ```typescript title="server.ts"
+    import {
+      CopilotKitIntelligence,
+      CopilotRuntime,
+    } from "@copilotkit/runtime/v2";
+
+    const runtime = new CopilotRuntime({
+      agents: { default: agent },
+      intelligence: new CopilotKitIntelligence({
+        apiKey: process.env.INTELLIGENCE_API_KEY!,
+      }),
+      identifyUser: async (request) => {
+        const session = await verifyAppSession(request);
+        if (!session?.user) throw new Error("Unauthorized");
+        return { id: session.user.id, name: session.user.name };
+      },
+      // generateThreadNames: false,
+      // lockTtlSeconds: 20,
+      // lockHeartbeatIntervalSeconds: 15,
+      // lockKeyPrefix: "my-app",
+    });
+    ```
+
+    Keep the project-scoped `INTELLIGENCE_API_KEY` on the server. Existing Intelligence-enabled apps should retain their current runtime configuration.
+
+    | Option | Default | Max | Description |
+    | --- | --- | --- | --- |
+    | `lockTtlSeconds` | `20` | `3600` | How long a run lock is held before it expires. |
+    | `lockHeartbeatIntervalSeconds` | `15` | `3000` | How often the runtime renews the lock. |
+    | `lockKeyPrefix` | — | — | Optional Redis prefix when several apps share one instance. |
+  </Step>
+
+  <Step>
+    ### List and manage threads with useThreads
+
+    `useThreads` returns reactive refs for the thread list and loading state, plus mutation methods.
+
+    ```vue title="src/components/ThreadSidebar.vue"
+    <script setup lang="ts">
+    import {
+      useCopilotChatConfiguration,
+      useThreads,
+    } from "@copilotkit/vue/v2";
+
+    const config = useCopilotChatConfiguration();
+    const {
+      threads,
+      isLoading,
+      renameThread,
+      archiveThread,
+      deleteThread,
+    } = useThreads({ agentId: "my-agent" });
+    </script>
+
+    <template>
+      <p v-if="isLoading">Loading…</p>
+      <ul v-else>
+        <li v-for="thread in threads" :key="thread.id">
+          <button
+            @click="config?.setActiveThreadId(thread.id, { explicit: true })"
+          >
+            {{ thread.name ?? "New conversation" }}
+          </button>
+          <button @click="renameThread(thread.id, 'Renamed')">Rename</button>
+          <button @click="archiveThread(thread.id)">Archive</button>
+          <button @click="deleteThread(thread.id)">Delete</button>
+        </li>
+      </ul>
+    </template>
+    ```
+
+    The array is sorted by recent activity and stays synchronized in realtime. `archiveThread` is a soft delete hidden from the default list; pass `includeArchived: true` to include archived threads. `deleteThread` is permanent and irreversible. Neither method shows a confirmation dialog, so add one where appropriate.
+  </Step>
+
+  <Step>
+    ### Switch between threads
+
+    Keep the list and chat inside one `CopilotChatConfigurationProvider`. Selecting a row with `setActiveThreadId(..., { explicit: true })` clears the current view, connects the chat to the selected thread, and replays its history. If a run is still active, the chat rejoins its stream.
+
+    ```vue title="src/App.vue"
+    <script setup lang="ts">
+    import {
+      CopilotChat,
+      CopilotChatConfigurationProvider,
+      CopilotKitProvider,
+    } from "@copilotkit/vue/v2";
+    import ThreadSidebar from "./components/ThreadSidebar.vue";
+    </script>
+
+    <template>
+      <CopilotKitProvider runtime-url="/api/copilotkit">
+        <CopilotChatConfigurationProvider agent-id="my-agent">
+          <div class="flex" style="height: 100dvh">
+            <ThreadSidebar />
+            <CopilotChat />
+          </div>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    </template>
+    ```
+
+    <WhenFrameworkHas flag="thread_persistence_pattern" equals="langgraph">
+      <Callout type="info" title="LangGraph persistence">
+        CopilotKit forwards the explicit thread id as the AG-UI `threadId`. A LangGraph backend can use or map it to its own checkpoint identifier. LangGraph Platform ids must be UUIDs. Rename, archive, and delete affect CopilotKit Intelligence only unless your backend adds a bridge.
+      </Callout>
+    </WhenFrameworkHas>
+
+    <WhenFrameworkHas flag="thread_persistence_pattern" equals="adk-session">
+      <Callout type="info" title="ADK sessions">
+        An ADK backend can map the AG-UI `threadId` to an ADK session id. Durable ADK persistence still requires a durable ADK session service. `useThreads` manages CopilotKit Intelligence records, not ADK's native session store.
+      </Callout>
+    </WhenFrameworkHas>
+  </Step>
+
+  <Step>
+    ### Add pagination for large thread lists
+
+    Pass `limit` for cursor-based pagination and render `fetchMoreThreads` while more pages remain:
+
+    ```vue
+    <script setup lang="ts">
+    const {
+      threads,
+      hasMoreThreads,
+      isFetchingMoreThreads,
+      fetchMoreThreads,
+    } = useThreads({ agentId: "my-agent", limit: 20 });
+    </script>
+
+    <template>
+      <button
+        v-if="hasMoreThreads"
+        :disabled="isFetchingMoreThreads"
+        @click="fetchMoreThreads"
+      >
+        {{ isFetchingMoreThreads ? "Loading…" : "Load more" }}
+      </button>
+    </template>
+    ```
+  </Step>
+</Steps>
+
+## Next steps
+
+- **Prebuilt UI:** [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer) — the drop-in Vue thread switcher.
+- **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay and realtime sync.
+- **Production self-hosting:** [Self-host CopilotKit Intelligence](/premium/self-hosting).
+- **API reference:** [`useThreads`](/reference/vue/hooks/useThreads) — parameters, return values, and types.

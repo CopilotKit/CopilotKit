@@ -1,0 +1,187 @@
+---
+title: "CopilotThreadsDrawer"
+description: "Vue 3 threads drawer that lists and manages conversations next to CopilotChat"
+---
+
+## Overview
+
+`CopilotThreadsDrawer` renders the prebuilt conversation drawer beside [`CopilotChat`](/reference/vue/components/CopilotChat). It is a thin Vue wrapper around the framework-agnostic `<copilotkit-threads-drawer>` custom element and stays SSR-safe by loading that element only on mount. The drawer reads from [`useThreads`](/reference/vue/hooks/useThreads), follows the surrounding chat configuration when one is present, and lets the user switch, start, archive, unarchive, delete, and filter threads.
+
+When `onThreadSelect` and `onNewThread` are omitted, the wrapper drives the surrounding chat configuration directly: selecting a row calls `setActiveThreadId(threadId, { explicit: true })`, and the "New Conversation" action resets the chat with `startNewThread()`. Provide those callbacks only if you want to control the active thread yourself.
+
+Thread rename is not exposed in the drawer row menu. Use [`useThreads`](/reference/vue/hooks/useThreads) for headless rename support.
+
+<Callout type="info">
+  The threads drawer requires a license. When it is not licensed, the component
+  renders the locked state and keeps the thread store disabled. Visit
+  [copilotkit.ai/pricing](https://copilotkit.ai/pricing) for details.
+</Callout>
+
+## Import
+
+```vue
+<script setup lang="ts">
+import { CopilotThreadsDrawer } from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+```
+
+## Props
+
+<PropertyReference name="agentId" type="string">
+  The agent whose threads to list and manage. Defaults to the agent from the
+  surrounding chat configuration, or the platform default when none is set.
+</PropertyReference>
+
+<PropertyReference name="onThreadSelect" type="(threadId: string) => void">
+  Optional escape hatch called when the user picks a thread row. When omitted,
+  the drawer drives the surrounding chat configuration directly.
+</PropertyReference>
+
+<PropertyReference name="onNewThread" type="() => void">
+  Optional escape hatch called when the user starts a new thread. When omitted,
+  the drawer resets the surrounding chat configuration to a fresh thread.
+</PropertyReference>
+
+<PropertyReference name="onLicensed" type="() => void">
+  Called when the underlying drawer emits `licensed`, after the license check
+  resolves.
+</PropertyReference>
+
+<PropertyReference name="licenseUrl" type="string">
+  URL shown in the licensed upsell state. When omitted, the underlying element's
+  default license URL is used.
+</PropertyReference>
+
+<PropertyReference name="label" type="string" default="Threads">
+  Accessible label for the drawer region and thread listbox.
+</PropertyReference>
+
+<PropertyReference name="recentLabel" type="string" default="Recent Conversations">
+  Text of the section heading shown above the thread list.
+</PropertyReference>
+
+<PropertyReference name="limit" type="number">
+  Page size for thread pagination. When set, the drawer shows a load-more
+  control while additional pages remain.
+</PropertyReference>
+
+<PropertyReference name="collapsible" type="boolean" default="true">
+  Whether the drawer offers a collapse toggle on desktop. When `false`, the
+  drawer stays expanded.
+</PropertyReference>
+
+<PropertyReference name="dataTestId" type="string" default="copilot-threads-drawer">
+  `data-testid` applied to the underlying custom element.
+</PropertyReference>
+
+## Events
+
+The Vue wrapper emits the following events.
+
+| Event | Payload | Fired when |
+| --- | --- | --- |
+| `collapse-change` | `collapsed: boolean` | The desktop collapse state changes |
+
+## Slots
+
+Vue uses named slots in place of React render props. `CopilotThreadsDrawer` only defines one scoped Vue slot; everything else is projected into the underlying custom element with a `slot` attribute.
+
+<PropertyReference name="row" type="{ thread: Thread }">
+  Replaces the default row content for every thread. The wrapper renders the
+  slot as light-DOM children with `slot="row:{id}"`, so the custom element
+  keeps the row chrome around your content. This is all-or-nothing: once the
+  slot is defined, there is no per-row fallback to the built-in row.
+</PropertyReference>
+
+Light-DOM children with these `slot` names are projected into the drawer:
+
+| Slot | Replaces |
+| --- | --- |
+| `header` | The drawer header region |
+| `empty` | The empty-state body |
+| `footer` | A footer region |
+| `memories` | The reserved memories surface |
+| `launcher-icon` | The icon inside the mobile launcher |
+| `licensed` | The licensed upsell content |
+
+Style the shadow DOM with `::part()`. The drawer exposes the usual structural and action parts, including the root, header, list, row, menu, new-thread button, section heading, filter controls, collapse controls, launcher, load-more, fetch-more-error, and licensed surfaces.
+
+## Usage
+
+### Basic usage
+
+Wrap the drawer and `CopilotChat` in a shared `CopilotChatConfigurationProvider` so they operate on the same active thread. This example includes the surrounding `CopilotKitProvider`, so it is runnable as shown.
+
+```vue
+<script setup lang="ts">
+import {
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+  CopilotKitProvider,
+  CopilotThreadsDrawer,
+} from "@copilotkit/vue/v2";
+import "@copilotkit/vue/styles.css";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="http://localhost:8200/api/copilotkit">
+    <CopilotChatConfigurationProvider agent-id="support">
+      <div class="flex h-full">
+        <CopilotThreadsDrawer agent-id="support" />
+        <CopilotChat agent-id="support" />
+      </div>
+    </CopilotChatConfigurationProvider>
+  </CopilotKitProvider>
+</template>
+```
+
+### Custom row and projected chrome
+
+```vue
+<script setup lang="ts">
+import { CopilotThreadsDrawer } from "@copilotkit/vue/v2";
+</script>
+
+<template>
+  <CopilotThreadsDrawer label="History">
+    <span slot="header">My conversations</span>
+    <span slot="empty">No threads yet.</span>
+
+    <template #row="{ thread }">
+      <strong>{{ thread.name ?? "New conversation" }}</strong>
+    </template>
+  </CopilotThreadsDrawer>
+</template>
+```
+
+### Observing collapse state
+
+```vue
+<script setup lang="ts">
+import { CopilotThreadsDrawer } from "@copilotkit/vue/v2";
+
+function onCollapseChange(collapsed: boolean) {
+  console.log("drawer collapsed:", collapsed);
+}
+</script>
+
+<template>
+  <CopilotThreadsDrawer @collapse-change="onCollapseChange" />
+</template>
+```
+
+## Behavior
+
+- The drawer registers itself with the surrounding chat configuration so the mobile launcher can appear.
+- When callbacks are omitted, selecting a row calls `setActiveThreadId` and "New Conversation" calls `startNewThread`.
+- Archive, unarchive, delete, and pagination all flow through `useThreads`.
+- The drawer stays inert while unlicensed, which keeps the thread store from fetching until licensing resolves.
+- Rename is headless only; use `useThreads().renameThread()` if you need that action.
+- The wrapper is SSR-safe because the custom element is imported lazily on the client.
+
+## Related
+
+- [`CopilotChat`](/reference/vue/components/CopilotChat) - the chat surface this drawer usually drives
+- [`CopilotChatConfigurationProvider`](/reference/vue/components/CopilotChatConfigurationProvider) - shared configuration context
+- [`useThreads`](/reference/vue/hooks/useThreads) - the headless thread data and mutation layer

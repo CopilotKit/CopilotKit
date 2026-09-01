@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { loadDoc } from "../docs-render";
 import { renderPageToLlmText } from "../llm-text";
 
-const ROUTE = "frontends/vue/guides/generative-ui";
+const ROUTE = "frontends/vue/generative-ui/tool-based";
 
 function loadVueGenerativeUiDoc() {
   const doc = loadDoc(ROUTE);
@@ -14,16 +14,13 @@ function loadVueGenerativeUiDoc() {
 }
 
 // `@copilotkit/vue/v2` exports its own `useComponent` — a Vue-native composable, not the
-// React one — and it is the shortest path to the case this guide's "your components" row
-// covers: the agent decides when to show a component and nothing else runs. The guide
-// shipped naming only `useRenderTool` and `useFrontendTool`, both of which ask the reader
-// for more than the case needs, and it is the page a developer lands on after the
-// onboarding graph has already told them to reach for `useComponent` (OSS-1034).
-test("the Vue generative-UI guide teaches the useComponent composable", () => {
+// React one — and it is the shortest path to the case where the agent decides
+// when to show a component and nothing else runs.
+test("the Vue components-as-tools route teaches the useComponent composable", () => {
   const doc = loadVueGenerativeUiDoc();
   const source = readFileSync(doc.filePath, "utf8");
   const llmText = renderPageToLlmText({
-    url: `vue/guides/generative-ui`,
+    url: `vue/generative-ui/tool-based`,
     title: doc.fm.title,
     description: doc.fm.description,
     filePath: doc.filePath,
@@ -35,22 +32,17 @@ test("the Vue generative-UI guide teaches the useComponent composable", () => {
     expect(output, "imports it from the Vue package").toMatch(
       /useComponent[^\n]*from "@copilotkit\/vue\/v2"|from "@copilotkit\/vue\/v2"[^\n]*useComponent/,
     );
-    // The distinction is the whole point of having both. `useComponent` declares the tool
-    // from the frontend; `useRenderTool` draws a tool the agent already owns.
+    // The distinction is the whole point of having both. `useComponent` is
+    // the tool; tool rendering wraps an existing backend tool.
     expect(output, "separates it from useRenderTool").toContain(
-      "already owns the tool",
+      "wraps a real backend tool",
     );
   }
 });
 
-// A reader choosing a path reads the table, not the body. Naming the composable only in
-// prose leaves the table recommending the longer route for the simpler job.
-test("the Vue path table offers useComponent for a display-only component", () => {
+test("the direct Vue route describes useComponent as the simple generative UI path", () => {
   const source = readFileSync(loadVueGenerativeUiDoc().filePath, "utf8");
-  const tableRows = source
-    .split("\n")
-    .filter((line) => line.startsWith("| ") && line.includes("|"));
 
-  const displayOnlyRow = tableRows.find((row) => row.includes("useComponent"));
-  expect(displayOnlyRow, "a path-table row names useComponent").toBeDefined();
+  expect(source).toContain("simplest form of Generative UI");
+  expect(source).toContain("agent decides when to show it");
 });

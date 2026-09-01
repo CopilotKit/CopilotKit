@@ -40,7 +40,7 @@ import {
   getAngularDocsNavTree,
   resolveAngularDoc,
 } from "@/lib/angular-doc-navigation";
-import { buildAngularBackendOverview } from "@/lib/angular-backend-overview";
+import { buildFrontendBackendOverview } from "@/lib/secondary-frontend-backend-overview";
 import { docsComponents } from "@/lib/mdx-registry";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
@@ -562,18 +562,25 @@ export default async function FrameworkScopedDocsPage({
         );
       }
 
-      if (framework === "angular" && activeBackendFramework) {
+      if (
+        (framework === "angular" || framework === "vue") &&
+        activeBackendFramework
+      ) {
         return (
           <FrameworkRootPage
             framework={activeBackendFramework}
             preferIndexMdx
-            frontendOverride="angular"
+            frontendOverride={framework}
             slugHrefPrefix={frontendRoutePath(
               framework,
               "",
               activeBackendFramework,
             )}
-            navTreeOverride={getAngularDocsNavTree(activeBackendFramework)}
+            navTreeOverride={
+              framework === "angular"
+                ? getAngularDocsNavTree(activeBackendFramework)
+                : getFrontendQuickstartNavTree(framework)
+            }
             sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
           />
         );
@@ -1109,7 +1116,12 @@ async function FrameworkRootPage({
   const indexContentPath = `integrations/${docsFolder}/index`;
   const indexDoc = loadDoc(indexContentPath);
 
-  if (preferIndexMdx && docsMode !== "generated" && indexDoc) {
+  if (
+    preferIndexMdx &&
+    docsMode !== "generated" &&
+    indexDoc &&
+    frontendOverride !== "vue"
+  ) {
     return (
       <DocsPageView
         slugPath=""
@@ -1123,12 +1135,13 @@ async function FrameworkRootPage({
     );
   }
 
-  // Tier 1: data-driven FrameworkOverview. ONLY for `generated` mode —
-  // `authored` frameworks skip straight to Tier 2 so their ported
+  // Tier 1: data-driven FrameworkOverview. This is for `generated` mode,
+  // plus the catalog-backed Vue frontend overview on authored backends.
+  // Other `authored` frameworks skip straight to Tier 2 so their ported
   // index.mdx (not the auto-generated catalog landing) renders at
   // `/<framework>`.
   const overview = frameworkOverviews[framework];
-  if (overview && docsMode === "generated") {
+  if (overview && (docsMode === "generated" || frontendOverride === "vue")) {
     let afterFeatures: React.ReactNode = undefined;
     if (overview.hasAfterFeaturesMdx) {
       const mdxPath = path.join(
@@ -1216,8 +1229,8 @@ async function FrameworkRootPage({
       }
     }
     const scopedOverview =
-      frontendOverride === "angular"
-        ? buildAngularBackendOverview(overview, framework)
+      frontendOverride === "angular" || frontendOverride === "vue"
+        ? buildFrontendBackendOverview(frontendOverride, overview, framework)
         : overview;
 
     return (

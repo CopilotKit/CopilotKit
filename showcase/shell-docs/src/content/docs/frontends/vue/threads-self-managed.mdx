@@ -1,0 +1,135 @@
+---
+title: Self-Managed Thread Persistence
+nav_title: Self-Managed Persistence
+description: "What conversation persistence looks like without CopilotKit Intelligence: own the threadId, persist at the framework layer, build the thread list yourself."
+icon: "lucide/Database"
+doc_type: explanation
+---
+
+A common question is: _how do I point CopilotKit's threads at my own database instead of CopilotKit Intelligence?_
+
+The honest answer is that you cannot, because there is no such extension point. CopilotKit does not define a bring-your-own thread backend endpoint spec. [Rich Threads](/threads) — `useThreads`, the [Threads Drawer](/vue/prebuilt-components/copilot-threads-drawer), cross-device sync, and replayable event history — are a capability of [CopilotKit Intelligence](/premium/overview), not an interface with a swappable implementation.
+
+What you *can* do without the platform is persist conversations yourself. That path works, but it looks different from Rich Threads, and the tradeoffs matter.
+
+## What each path gives you
+
+| | Self-managed | CopilotKit Intelligence |
+| --- | --- | --- |
+| Conversation survives a page reload | Yes, if your framework checkpoints it | Yes |
+| Conversation follows the user across devices | Yes, if your store is server-side and user-scoped | Yes |
+| Thread list, rename, archive, delete | You build it | `useThreads`, built in |
+| Full AG-UI event history replayed into the UI | No — you restore framework state, not the event log | Yes |
+| Generative UI and multimodal history restored | No | Yes |
+| Realtime sync across tabs and devices | No | Yes |
+| Resuming a run that is still in flight | No | Yes |
+
+The fourth row is the critical boundary. Framework-native persistence stores agent state; it does not store the AG-UI event stream that produced the visible conversation. A restored run can continue correctly while the UI still loses rendered tool calls, streamed reasoning, and attachments.
+
+## The self-managed path
+
+Three pieces, none of them CopilotKit-specific.
+
+### 1. Own the `threadId`
+
+Do not let CopilotKit mint the id. Mint it, store it, and pass it in. That id is the value correlating the browser, runtime, and agent store.
+
+```vue
+<CopilotChat agent-id="my-agent" :thread-id="conversationId" />
+```
+
+An auto-minted id is recreated on component remount, which silently starts a new conversation. See [Thread lifecycle](/vue/threads-lifecycle#how-the-threadid-is-created) for the precedence rules.
+
+### 2. Persist at the framework layer
+
+CopilotKit forwards the id to your agent as the AG-UI `threadId`. Use it directly, or map it to the framework's native identifier, and let that framework persist its state.
+
+<Tabs items={["LangGraph", "Other frameworks"]}>
+  <Tab value="LangGraph">
+    A checkpointer persists graph state per thread:
+
+    ```python title="agent.py"
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+    checkpointer = AsyncPostgresSaver.from_conn_string(DB_URL)
+    graph = builder.compile(checkpointer=checkpointer)
+    ```
+
+    The incoming id becomes the checkpointer's `thread_id`, so the next run against that id resumes from stored state.
+
+    <Callout type="info">
+      A checkpointer creates LangGraph's own tables. It does **not** create a CopilotKit threads table, and configuring one does not make `useThreads()` work.
+    </Callout>
+  </Tab>
+  <Tab value="Other frameworks">
+    The same shape applies wherever the framework keeps durable state — CrewAI memory, an ADK session service, or your own store keyed by the AG-UI thread id.
+  </Tab>
+</Tabs>
+
+### 3. Build the thread list yourself
+
+`useThreads()` is platform-backed and will not return your database rows. The conversation list is application code: a table of `(thread_id, user_id, title, updated_at)` that you query and render, with the selected id handed to `<CopilotChat :thread-id="..." />`.
+
+Scope every query to the signed-in user and check ownership on the runtime side; see [Thread authorization](/auth#thread-authorization).
+
+## Restoring the visible conversation
+
+Framework state alone does not repopulate the UI. To show prior text messages on mount, read them from your store and set them on the agent:
+
+```vue title="src/components/RestoreHistory.vue"
+<script setup lang="ts">
+import { watch } from "vue";
+import { useAgent } from "@copilotkit/vue/v2";
+
+const props = defineProps<{ threadId: string }>();
+const { agent } = useAgent({ agentId: "my-agent" });
+
+watch(
+  () => [agent.value, props.threadId] as const,
+  async ([current, threadId], _previous, onCleanup) => {
+    if (!current) return;
+    let cancelled = false;
+    onCleanup(() => { cancelled = true; });
+
+    const messages = await myApi.getMessages(threadId);
+    if (!cancelled) current.setMessages(messages);
+  },
+  { immediate: true },
+);
+</script>
+
+<template />
+```
+
+```vue title="src/App.vue"
+<script setup lang="ts">
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/vue/v2";
+import RestoreHistory from "./components/RestoreHistory.vue";
+
+const conversationId = "conversation_42";
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit">
+    <RestoreHistory :thread-id="conversationId" />
+    <CopilotChat agent-id="my-agent" :thread-id="conversationId" />
+  </CopilotKitProvider>
+</template>
+```
+
+This restores text. It does not restore generative UI, tool-call renders, or attachments; those require replay of the AG-UI event history.
+
+## When to stop building this and use the platform
+
+Self-managed persistence can fit simple, mostly textual conversations when you already operate a database and auth layer and prefer to own storage.
+
+It stops being cheaper once you need rename/archive UI, conversations that look exactly the same on return, realtime synchronization, or rejoining an active run. At that point you are reimplementing the platform boundary described in [OSS vs Enterprise](/concepts/oss-vs-enterprise).
+
+If you have existing conversations in a framework store and want them as Rich Threads, [Importing and synchronizing thread history](/threads-import) covers the migration.
+
+## Related
+
+- [Thread lifecycle](/vue/threads-lifecycle) — how ids are minted, hydrated, and switched.
+- [Thread authorization](/auth#thread-authorization) — scope threads to their owner.
+- [OSS vs CopilotKit Intelligence](/concepts/oss-vs-enterprise) — where the capability boundary sits.
+- [Rich Threads](/threads) — what the platform-backed path looks like.
