@@ -1156,49 +1156,7 @@ test("rejoins and retries the same seq after packet_out_of_order", async () => {
   expect(result).toEqual({ providerReference: "pref_v1_message_01" });
 });
 
-test("recovers Redis seq after packet_out_of_order rejects the exact retry", async () => {
-  const first = channel();
-  const second = channel();
-  vi.mocked(first.push).mockRejectedValue(outOfOrderError());
-  vi.mocked(second.push).mockImplementation((_event, packet) => {
-    const body = packet as { seq: number };
-    if (body.seq !== 3) {
-      return Promise.reject(outOfOrderError());
-    }
-    return Promise.resolve(acknowledgement(packet));
-  });
-  const reconnect = vi.fn().mockResolvedValue({
-    channel: second,
-    owner: {
-      ownerGeneration: 8,
-      runtimeInstanceId: "rti_runtime_01",
-    },
-    deliveryExpiresAt: "2099-07-29T18:00:00.000Z",
-  });
-  const session = new ClaimedChannelDelivery(
-    preparedDelivery(),
-    {
-      ownerGeneration: 7,
-      runtimeInstanceId: "rti_runtime_01",
-    },
-    first,
-    reconnect,
-  );
-
-  const result = await session.effect("response_01", {
-    kind: "slack.message.create",
-    text: "Hello",
-  });
-
-  const accepted = vi
-    .mocked(second.push)
-    .mock.calls.map((call) => call[1] as { seq: number })
-    .find((packet) => packet.seq === 3);
-  expect(accepted?.seq).toBe(3);
-  expect(result).toEqual({ providerReference: "pref_v1_message_01" });
-});
-
-test("keeps the packet path open after packet_out_of_order is exhausted", async () => {
+test("keeps seq 0 after packet_out_of_order exhausts the exact retry", async () => {
   const first = channel();
   const second = channel();
   const third = channel();
@@ -1245,6 +1203,8 @@ test("keeps the packet path open after packet_out_of_order is exhausted", async 
       text: "World",
     }),
   ).resolves.toEqual({ providerReference: "pref_v1_message_01" });
+  const recovered = vi.mocked(third.push).mock.calls[0]![1] as { seq: number };
+  expect(recovered.seq).toBe(0);
 });
 
 test("polls the same packet after a retry-wait result", async () => {

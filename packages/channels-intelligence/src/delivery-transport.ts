@@ -42,7 +42,6 @@ const DEFAULT_MAX_PENDING_DELIVERIES = 32;
 const DEFERRED_CLAIM_RETRY_MS = 50;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const PACKET_EVENT = "packet";
-const PACKET_SEQ_RECOVERY_MAX = 8;
 
 export type ChannelDeliveryAdapter = "slack" | "teams";
 
@@ -694,7 +693,9 @@ export class ClaimedChannelDelivery {
         if (error instanceof ChannelDeliveryStoppedError) throw error;
         // Redis nextSeq survives join. packet_out_of_order means the push seq
         // does not match Redis, or the one packet slot is not applied yet.
-        // Rejoin and retry the exact packet. Do not reset seq to 0.
+        // Rejoin and retry the exact packet. Do not reset seq, and do not
+        // probe other seq values — that mints new packet ids and can leave
+        // nextSeq at the last probe (8) so every later packet also fails.
         const outOfOrder =
           error instanceof RealtimeGatewayPushError &&
           error.code === "packet_out_of_order";
@@ -702,8 +703,6 @@ export class ClaimedChannelDelivery {
           throw error;
         }
         if (outOfOrder && attempt >= 1) {
-          const recovered = await this.recoverPacketSeq(packet.payload);
-          if (recovered) return recovered;
           throw error;
         }
         // Claim/join validation failures are permanent — do not thrash reconnect.
@@ -744,50 +743,6 @@ export class ClaimedChannelDelivery {
       }
     }
     throw new Error("Channel delivery ownership expired");
-  }
-
-  /**
-   * Redis nextSeq is not in the join reply. After an exact retry still
-   * returns packet_out_of_order, try the payload at seq 0..8 until Redis
-   * accepts one.
-   */
-  private async recoverPacketSeq(
-    payload: ChannelDeliveryPayload,
-  ): Promise<ChannelDeliveryPacketAck | undefined> {
-    for (let seq = 0; seq <= PACKET_SEQ_RECOVERY_MAX; seq += 1) {
-      throwIfStopped(this.signal);
-      this.nextSeq = seq;
-      const candidate = this.buildPacket(payload);
-      this.unacknowledgedPacket = candidate;
-      try {
-        const acknowledgement = (await this.channel.push(
-          PACKET_EVENT,
-          candidate,
-        )) as ChannelDeliveryPacketAck;
-        this.assertExactAcknowledgement(candidate, acknowledgement);
-        if (acknowledgement.phase !== "retry_wait") {
-          return acknowledgement;
-        }
-        const retryAtMs = Date.parse(acknowledgement.retryAt ?? "");
-        await waitUnlessStopped(
-          Math.max(0, retryAtMs - Date.now()),
-          this.signal,
-        );
-        const retried = (await this.channel.push(
-          PACKET_EVENT,
-          candidate,
-        )) as ChannelDeliveryPacketAck;
-        this.assertExactAcknowledgement(candidate, retried);
-        if (retried.phase !== "retry_wait") return retried;
-      } catch (error) {
-        const recoverable =
-          error instanceof RealtimeGatewayPushError &&
-          (error.code === "packet_out_of_order" ||
-            error.code === "packet_conflict");
-        if (!recoverable) throw error;
-      }
-    }
-    return undefined;
   }
 
   private assertExactAcknowledgement(
