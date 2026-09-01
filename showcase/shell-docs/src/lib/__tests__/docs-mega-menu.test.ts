@@ -29,9 +29,20 @@ describe("docs mega menu data", () => {
       href: "/intelligence/overview",
       label: "Intelligence",
       icon: "sparkles",
-      description: "Durable state and operational visibility",
+      description: "Threads, learning, and analytics",
       featured: true,
     });
+    expect(
+      shipColumn?.links.map((link) => [link.label, link.href]),
+    ).toEqual([
+      ["Intelligence", "/intelligence/overview"],
+      ["Threads", "/threads"],
+      ["Learning", "/backend/copilot-runtime"],
+      ["Analytics", "/intelligence/managed-intelligence-platform"],
+      ["Inspector", "/inspector"],
+      ["Deploy", "/deploy/agentcore"],
+      ["Self-hosting", "/intelligence/self-hosting"],
+    ]);
   });
 });
 

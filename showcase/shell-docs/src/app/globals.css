@@ -425,6 +425,10 @@
   border: 1px solid transparent;
 }
 
+.shell-docs-mega-menu-featured-item {
+  margin-bottom: 1rem;
+}
+
 .shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured
   .shell-docs-mega-menu-icon {
   color: #fff;

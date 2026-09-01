@@ -37,4 +37,16 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.className).toContain(
     "shell-docs-mega-menu-link-featured",
   );
+  expect(intelligence.closest("li")?.className).toContain(
+    "shell-docs-mega-menu-featured-item",
+  );
+  expect(screen.getByRole("link", { name: "Threads" }).getAttribute("href")).toBe(
+    "/threads",
+  );
+  expect(
+    screen.getByRole("link", { name: "Learning" }).getAttribute("href"),
+  ).toBe("/backend/copilot-runtime");
+  expect(
+    screen.getByRole("link", { name: "Analytics" }).getAttribute("href"),
+  ).toBe("/intelligence/managed-intelligence-platform");
 });

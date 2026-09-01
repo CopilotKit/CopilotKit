@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   Atom,
+  BarChart3,
   Blocks,
   BookOpen,
   Bot,
   Box,
+  Brain,
   ChevronDown,
   Cloud,
-  Database,
   Layers,
   Link2,
   MessageSquare,
@@ -42,13 +43,14 @@ const MEGA_MENU_ICONS: Record<MegaMenuIconName, LucideIcon> = {
   refresh: RefreshCw,
   link: Link2,
   blocks: Blocks,
-  database: Database,
   search: Search,
   cloud: Cloud,
   server: Server,
   atom: Atom,
   box: Box,
   radio: Radio,
+  brain: Brain,
+  chart: BarChart3,
 };
 
 const HOVER_CLOSE_DELAY_MS = 160;
@@ -150,7 +152,14 @@ export function DocsMegaMenu({
                     const Icon = MEGA_MENU_ICONS[link.icon];
                     const featured = link.featured === true;
                     return (
-                      <li key={link.href}>
+                      <li
+                        key={link.href}
+                        className={
+                          featured
+                            ? "shell-docs-mega-menu-featured-item"
+                            : undefined
+                        }
+                      >
                         <Link
                           href={link.href}
                           onClick={() => setOpen(false)}
