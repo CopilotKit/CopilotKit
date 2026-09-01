@@ -565,10 +565,9 @@ export class DeliveryAdapter implements PlatformAdapter {
     };
     try {
       if (target.delivery.adapter === "slack") {
-        if (hasManagedSlackFile(ir)) {
-          await waitForManagedSlackFile();
-          await this.pingSlackStatus(target.claimedDelivery);
-        }
+        // Slack file readiness lives in Intelligence: slack.message.create
+        // uploads unshared files, polls files.info, then posts. A client
+        // sleep here runs before Slack has the files.
         return await withManagedSlackFileRetry(send);
       }
       return await send();
@@ -1747,41 +1746,7 @@ function normalizeTaskStatus(
 }
 
 const SLACK_FILE_POST_ATTEMPTS = 5;
-const SLACK_FILE_READY_ATTEMPTS = 12;
 const SLACK_FILE_READY_SLEEP_MS = 200;
-const SLACK_FILE_INITIAL_WAIT_MS =
-  SLACK_FILE_READY_SLEEP_MS * SLACK_FILE_READY_ATTEMPTS;
-
-function hasManagedSlackFile(nodes: readonly ChannelNode[]): boolean {
-  const visit = (node: ChannelNode): boolean => {
-    const fileId = node.props.fileId;
-    const slackFileId = node.props.slackFileId;
-    if (typeof fileId === "string" && fileId.length > 0) return true;
-    if (typeof slackFileId === "string" && slackFileId.length > 0) return true;
-    const children = node.props.children;
-    const list = Array.isArray(children)
-      ? children
-      : children === undefined || children === null
-        ? []
-        : [children];
-    return list.some(
-      (child) =>
-        typeof child === "object" &&
-        child !== null &&
-        "type" in child &&
-        "props" in child &&
-        visit(child as ChannelNode),
-    );
-  };
-  return nodes.some(visit);
-}
-
-/** Direct Slack polls files.info. Managed Slack cannot, so wait the same budget. */
-function waitForManagedSlackFile(): Promise<void> {
-  return new Promise((resolve) =>
-    setTimeout(resolve, SLACK_FILE_INITIAL_WAIT_MS),
-  );
-}
 
 function isUnreadyManagedSlackFileError(error: unknown): boolean {
   if (!(error instanceof ChannelProviderDeliveryError)) return false;
