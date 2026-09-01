@@ -14,7 +14,7 @@ const CHANNEL_DELIVERY_ERROR_DETAILS = Symbol.for(
 /** Safe provider diagnostics that may cross the canonical AG-UI error path. */
 export interface ChannelDeliveryErrorDetails {
   readonly category: "validation";
-  readonly provider: "slack" | "teams";
+  readonly provider: "slack" | "teams" | "discord";
   readonly operation: string;
   readonly effectKind: string;
   readonly providerCode: "invalid_arguments" | "invalid_blocks";
@@ -88,7 +88,9 @@ function isChannelDeliveryErrorDetails(
   return (
     Object.keys(details).every((field) => allowed.has(field)) &&
     details.category === "validation" &&
-    (details.provider === "slack" || details.provider === "teams") &&
+    (details.provider === "slack" ||
+      details.provider === "teams" ||
+      details.provider === "discord") &&
     boundedString(details.operation, 80) &&
     boundedString(details.effectKind, 80) &&
     (details.providerCode === "invalid_arguments" ||
