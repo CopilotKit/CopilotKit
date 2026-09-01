@@ -79,56 +79,66 @@ describe("Channels release history", () => {
     );
   });
 
-  it("preserves multiline commit bodies and trailers from real git history", { timeout: 30_000 }, async () => {
-    const actualChildProcess = await vi.importActual("child_process");
-    const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
-    const repository = mkdtempSync(join(tmpdir(), "copilotkit-release-"));
+  it(
+    "preserves multiline commit bodies and trailers from real git history",
+    { timeout: 30_000 },
+    async () => {
+      const actualChildProcess = await vi.importActual("child_process");
+      const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
+      const repository = mkdtempSync(join(tmpdir(), "copilotkit-release-"));
 
-    const git = (args: string[]) => {
-      const result = spawnSync("git", args, {
-        cwd: repository,
-        encoding: "utf8",
-      });
-      expect(result.status, result.stderr).toBe(0);
-      return result.stdout;
-    };
+      const git = (args: string[]) => {
+        const result = spawnSync("git", args, {
+          cwd: repository,
+          encoding: "utf8",
+        });
+        expect(result.status, result.stderr).toBe(0);
+        return result.stdout;
+      };
 
-    try {
-      git(["init", "--quiet"]);
-      git(["config", "user.name", "Release Test"]);
-      git(["config", "user.email", "release-test@example.com"]);
-      git(["commit", "--quiet", "--allow-empty", "-m", "fix(core): baseline"]);
-      git([
-        "commit",
-        "--quiet",
-        "--allow-empty",
-        "-m",
-        "feat(runtime)!: replace the transport",
-        "-m",
-        "The transport now streams every response.\n\nBREAKING CHANGE: configure a streaming adapter before upgrading.\nKeep existing adapters until migration is complete.\n\nCo-authored-by: Release Test <release-test@example.com>",
-      ]);
+      try {
+        git(["init", "--quiet"]);
+        git(["config", "user.name", "Release Test"]);
+        git(["config", "user.email", "release-test@example.com"]);
+        git([
+          "commit",
+          "--quiet",
+          "--allow-empty",
+          "-m",
+          "fix(core): baseline",
+        ]);
+        git([
+          "commit",
+          "--quiet",
+          "--allow-empty",
+          "-m",
+          "feat(runtime)!: replace the transport",
+          "-m",
+          "The transport now streams every response.\n\nBREAKING CHANGE: configure a streaming adapter before upgrading.\nKeep existing adapters until migration is complete.\n\nCo-authored-by: Release Test <release-test@example.com>",
+        ]);
 
-      const output = git([
-        "log",
-        "HEAD",
-        "--no-merges",
-        `--format=${GIT_LOG_FORMAT}`,
-      ]);
+        const output = git([
+          "log",
+          "HEAD",
+          "--no-merges",
+          `--format=${GIT_LOG_FORMAT}`,
+        ]);
 
-      expect(parseCommitLog(output)).toEqual([
-        expect.objectContaining({
-          subject: "feat(runtime)!: replace the transport",
-          body: "The transport now streams every response.\n\nBREAKING CHANGE: configure a streaming adapter before upgrading.\nKeep existing adapters until migration is complete.\n\nCo-authored-by: Release Test <release-test@example.com>",
-        }),
-        expect.objectContaining({
-          subject: "fix(core): baseline",
-          body: "",
-        }),
-      ]);
-    } finally {
-      rmSync(repository, { recursive: true, force: true });
-    }
-  });
+        expect(parseCommitLog(output)).toEqual([
+          expect.objectContaining({
+            subject: "feat(runtime)!: replace the transport",
+            body: "The transport now streams every response.\n\nBREAKING CHANGE: configure a streaming adapter before upgrading.\nKeep existing adapters until migration is complete.\n\nCo-authored-by: Release Test <release-test@example.com>",
+          }),
+          expect.objectContaining({
+            subject: "fix(core): baseline",
+            body: "",
+          }),
+        ]);
+      } finally {
+        rmSync(repository, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe("Release-note commit selection", () => {
@@ -172,152 +182,162 @@ describe("Release-note commit selection", () => {
     );
   });
 
-  it("collapses a merged PR to one entry and drops the other scope's work", { timeout: 30_000 }, async () => {
-    const actualChildProcess = await vi.importActual("child_process");
-    const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
-    const repository = mkdtempSync(join(tmpdir(), "copilotkit-firstparent-"));
+  it(
+    "collapses a merged PR to one entry and drops the other scope's work",
+    { timeout: 30_000 },
+    async () => {
+      const actualChildProcess = await vi.importActual("child_process");
+      const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
+      const repository = mkdtempSync(join(tmpdir(), "copilotkit-firstparent-"));
 
-    const git = (args: string[]) => {
-      const result = spawnSync("git", args, {
-        cwd: repository,
-        encoding: "utf8",
-      });
-      expect(result.status, result.stderr).toBe(0);
-      return result.stdout;
-    };
-    const write = (file: string, contents: string) => {
-      mkdirSync(join(repository, dirname(file)), { recursive: true });
-      writeFileSync(join(repository, file), contents);
-    };
+      const git = (args: string[]) => {
+        const result = spawnSync("git", args, {
+          cwd: repository,
+          encoding: "utf8",
+        });
+        expect(result.status, result.stderr).toBe(0);
+        return result.stdout;
+      };
+      const write = (file: string, contents: string) => {
+        mkdirSync(join(repository, dirname(file)), { recursive: true });
+        writeFileSync(join(repository, file), contents);
+      };
 
-    try {
-      git(["init", "--quiet", "--initial-branch=main"]);
-      git(["config", "user.name", "Release Test"]);
-      git(["config", "user.email", "release-test@example.com"]);
+      try {
+        git(["init", "--quiet", "--initial-branch=main"]);
+        git(["config", "user.name", "Release Test"]);
+        git(["config", "user.email", "release-test@example.com"]);
 
-      write("packages/angular/a.ts", "base");
-      git(["add", "-A"]);
-      git(["commit", "--quiet", "-m", "chore: baseline"]);
+        write("packages/angular/a.ts", "base");
+        git(["add", "-A"]);
+        git(["commit", "--quiet", "-m", "chore: baseline"]);
 
-      // A feature branch with two noisy intermediate commits, merged as a PR.
-      git(["checkout", "--quiet", "-b", "feature"]);
-      write("packages/angular/a.ts", "one");
-      git(["add", "-A"]);
-      git(["commit", "--quiet", "-m", "feat(angular): half of the feature"]);
-      write("packages/angular/a.ts", "two");
-      git(["add", "-A"]);
-      git(["commit", "--quiet", "-m", "test(angular): cover the feature"]);
-      git(["checkout", "--quiet", "main"]);
-      git([
-        "merge",
-        "--quiet",
-        "--no-ff",
-        "feature",
-        "-m",
-        "feat(angular): add registerComponent (#6773)",
-      ]);
+        // A feature branch with two noisy intermediate commits, merged as a PR.
+        git(["checkout", "--quiet", "-b", "feature"]);
+        write("packages/angular/a.ts", "one");
+        git(["add", "-A"]);
+        git(["commit", "--quiet", "-m", "feat(angular): half of the feature"]);
+        write("packages/angular/a.ts", "two");
+        git(["add", "-A"]);
+        git(["commit", "--quiet", "-m", "test(angular): cover the feature"]);
+        git(["checkout", "--quiet", "main"]);
+        git([
+          "merge",
+          "--quiet",
+          "--no-ff",
+          "feature",
+          "-m",
+          "feat(angular): add registerComponent (#6773)",
+        ]);
 
-      // Work in a package that belongs to a DIFFERENT release scope.
-      write("packages/channels-core/b.ts", "other");
-      git(["add", "-A"]);
-      git(["commit", "--quiet", "-m", "feat(channels): unrelated lane"]);
+        // Work in a package that belongs to a DIFFERENT release scope.
+        write("packages/channels-core/b.ts", "other");
+        git(["add", "-A"]);
+        git(["commit", "--quiet", "-m", "feat(channels): unrelated lane"]);
 
-      const output = git([
-        "log",
-        "HEAD",
-        "--first-parent",
-        `--format=${GIT_LOG_FORMAT}`,
-        "--",
-        "packages/angular",
-      ]);
+        const output = git([
+          "log",
+          "HEAD",
+          "--first-parent",
+          `--format=${GIT_LOG_FORMAT}`,
+          "--",
+          "packages/angular",
+        ]);
 
-      const subjects = parseCommitLog(output)
-        .filter((c) => !isNoiseCommit(c.subject))
-        .map((c) => c.subject);
+        const subjects = parseCommitLog(output)
+          .filter((c) => !isNoiseCommit(c.subject))
+          .map((c) => c.subject);
 
-      // One entry for the whole PR — not its two branch commits — and nothing
-      // from the channels scope.
-      expect(subjects).toEqual(["feat(angular): add registerComponent (#6773)"]);
-      expect(parseCommitLog(output)[0].pr).toBe(6773);
-    } finally {
-      rmSync(repository, { recursive: true, force: true });
-    }
-  });
+        // One entry for the whole PR — not its two branch commits — and nothing
+        // from the channels scope.
+        expect(subjects).toEqual([
+          "feat(angular): add registerComponent (#6773)",
+        ]);
+        expect(parseCommitLog(output)[0].pr).toBe(6773);
+      } finally {
+        rmSync(repository, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
 describe("Breaking-change footers on branch commits", () => {
-  it("folds a merged PR's branch messages into the merge commit body", { timeout: 30_000 }, async () => {
-    const actualChildProcess = await vi.importActual("child_process");
-    const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
-    const repository = mkdtempSync(join(tmpdir(), "copilotkit-branchbody-"));
+  it(
+    "folds a merged PR's branch messages into the merge commit body",
+    { timeout: 30_000 },
+    async () => {
+      const actualChildProcess = await vi.importActual("child_process");
+      const spawnSync = actualChildProcess.spawnSync as typeof spawnSyncMock;
+      const repository = mkdtempSync(join(tmpdir(), "copilotkit-branchbody-"));
 
-    const git = (args: string[]) => {
-      const result = spawnSync("git", args, {
-        cwd: repository,
-        encoding: "utf8",
-      });
-      expect(result.status, result.stderr).toBe(0);
-      return result.stdout;
-    };
-
-    try {
-      git(["init", "--quiet", "--initial-branch=main"]);
-      git(["config", "user.name", "Release Test"]);
-      git(["config", "user.email", "release-test@example.com"]);
-      git(["commit", "--quiet", "--allow-empty", "-m", "chore: baseline"]);
-
-      git(["checkout", "--quiet", "-b", "feature"]);
-      git([
-        "commit",
-        "--quiet",
-        "--allow-empty",
-        "-m",
-        "refactor(core)!: drop the legacy registry",
-        "-m",
-        "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
-      ]);
-      git(["checkout", "--quiet", "main"]);
-      // A merge message that says nothing about the break — the footer exists
-      // only on the branch commit.
-      git([
-        "merge",
-        "--quiet",
-        "--no-ff",
-        "feature",
-        "-m",
-        "refactor(core)!: converge the registry (#1234)",
-      ]);
-
-      const mergeSha = git(["rev-parse", "HEAD"]).trim();
-
-      // withBranchMessages shells out with cwd: ROOT, so run it against a real
-      // clone of this history rather than mocking the boundary away.
-      spawnSyncMock.mockImplementation((command: string, args: string[]) =>
-        spawnSync(command, args, { cwd: repository, encoding: "utf8" }),
-      );
-
-      const merge = {
-        hash: mergeSha,
-        subject: "refactor(core)!: converge the registry (#1234)",
-        body: "",
-        pr: 1234,
+      const git = (args: string[]) => {
+        const result = spawnSync("git", args, {
+          cwd: repository,
+          encoding: "utf8",
+        });
+        expect(result.status, result.stderr).toBe(0);
+        return result.stdout;
       };
 
-      expect(withBranchMessages(merge).body).toContain(
-        "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
-      );
+      try {
+        git(["init", "--quiet", "--initial-branch=main"]);
+        git(["config", "user.name", "Release Test"]);
+        git(["config", "user.email", "release-test@example.com"]);
+        git(["commit", "--quiet", "--allow-empty", "-m", "chore: baseline"]);
 
-      // A non-merge commit makes `sha^1..sha^2` invalid; that must be a no-op,
-      // not a throw.
-      const baseline = {
-        hash: git(["rev-parse", "HEAD^1"]).trim(),
-        subject: "chore: baseline",
-        body: "",
-        pr: null,
-      };
-      expect(withBranchMessages(baseline)).toEqual(baseline);
-    } finally {
-      rmSync(repository, { recursive: true, force: true });
-    }
-  });
+        git(["checkout", "--quiet", "-b", "feature"]);
+        git([
+          "commit",
+          "--quiet",
+          "--allow-empty",
+          "-m",
+          "refactor(core)!: drop the legacy registry",
+          "-m",
+          "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
+        ]);
+        git(["checkout", "--quiet", "main"]);
+        // A merge message that says nothing about the break — the footer exists
+        // only on the branch commit.
+        git([
+          "merge",
+          "--quiet",
+          "--no-ff",
+          "feature",
+          "-m",
+          "refactor(core)!: converge the registry (#1234)",
+        ]);
+
+        const mergeSha = git(["rev-parse", "HEAD"]).trim();
+
+        // withBranchMessages shells out with cwd: ROOT, so run it against a real
+        // clone of this history rather than mocking the boundary away.
+        spawnSyncMock.mockImplementation((command: string, args: string[]) =>
+          spawnSync(command, args, { cwd: repository, encoding: "utf8" }),
+        );
+
+        const merge = {
+          hash: mergeSha,
+          subject: "refactor(core)!: converge the registry (#1234)",
+          body: "",
+          pr: 1234,
+        };
+
+        expect(withBranchMessages(merge).body).toContain(
+          "BREAKING CHANGE: useLegacyRegistry is removed; use the shared one.",
+        );
+
+        // A non-merge commit makes `sha^1..sha^2` invalid; that must be a no-op,
+        // not a throw.
+        const baseline = {
+          hash: git(["rev-parse", "HEAD^1"]).trim(),
+          subject: "chore: baseline",
+          body: "",
+          pr: null,
+        };
+        expect(withBranchMessages(baseline)).toEqual(baseline);
+      } finally {
+        rmSync(repository, { recursive: true, force: true });
+      }
+    },
+  );
 });

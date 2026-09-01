@@ -108,7 +108,7 @@ jobs:
       - name: Generate AI release notes
         if: inputs.dry_run != true
         id: ai_notes
-        run: pnpm tsx scripts/release/generate-ai-release-notes.ts "${{ steps.prepare.outputs.version }}"
+        run: pnpm tsx scripts/release/generate-ai-release-notes.ts "${{ steps.prepare.outputs.version }}" "${{ inputs.scope }}"
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
