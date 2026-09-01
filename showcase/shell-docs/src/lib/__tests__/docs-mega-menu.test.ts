@@ -29,7 +29,6 @@ describe("docs mega menu data", () => {
       href: "/intelligence/overview",
       label: "Intelligence",
       icon: "sparkles",
-      description: "Threads, learning, and analytics",
       featured: true,
     });
     expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
