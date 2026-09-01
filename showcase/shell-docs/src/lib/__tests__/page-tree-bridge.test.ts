@@ -62,6 +62,7 @@ describe("navTreeToPageTree section folders", () => {
     expect(basics).toBeDefined();
     expect(concepts?.defaultOpen).toBe(false);
     expect(basics?.defaultOpen).toBe(false);
+    expect(concepts?.icon).toBeTruthy();
     expect(nodeNameText(concepts?.name)).toContain(SECTION_FOLDER_LABEL_CLASS);
     expect(
       concepts?.children

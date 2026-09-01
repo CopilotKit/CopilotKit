@@ -104,5 +104,7 @@ describe("globals.css sidebar section folders", () => {
     expect(globalsCss).toContain(
       ".shell-docs-sidebar button:has(.shell-docs-sidebar-section-label)",
     );
+    expect(globalsCss).toContain("flex-wrap: nowrap;");
+    expect(globalsCss).toContain("svg:not([data-icon])");
   });
 });
