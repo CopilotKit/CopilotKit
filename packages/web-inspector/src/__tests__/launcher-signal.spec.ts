@@ -114,6 +114,24 @@ function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
   );
 }
 
+async function openHud(inspector: WebInspectorElement): Promise<void> {
+  const wrapper = requireElement(
+    root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
+  );
+  wrapper.dispatchEvent(
+    new PointerEvent("pointerenter", { bubbles: true, composed: true }),
+  );
+  await settle(inspector);
+}
+
+function hudNewsButton(
+  inspector: WebInspectorElement,
+): HTMLButtonElement | null {
+  return root(inspector).querySelector<HTMLButtonElement>(
+    "[data-cpk-hud-news]",
+  );
+}
+
 /** The static unread marker on the What's new navigation entry. */
 function navUnreadMarker(inspector: WebInspectorElement): HTMLElement | null {
   return (
@@ -747,8 +765,8 @@ test("the launcher animates opacity, transform and a clip — nothing that force
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
   // Two for the halo, one per direction for both launcher reveals, and one
-  // each for the HUD row and connected check stagger.
-  expect(keyframes).toHaveLength(8);
+  // for the HUD row stagger.
+  expect(keyframes).toHaveLength(7);
 
   const animated = new Set(
     keyframes
@@ -933,6 +951,60 @@ test("the marked navigation entry is the way into What's new", async () => {
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
+test("the HUD names an unread announcement and marks it as new", async () => {
+  const context = await setup();
+
+  await openHud(context.inspector);
+
+  const news = requireElement(hudNewsButton(context.inspector));
+  expect(news.getAttribute("aria-label")).toBe(
+    "Open new notification: Channels are here",
+  );
+  expect(news.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "New Channels are here",
+  );
+  expect(
+    root(context.inspector)
+      .querySelector("[data-cpk-hud-news-label]")
+      ?.textContent?.trim(),
+  ).toBe("New");
+  const titleRule =
+    /\.cpk-launcher-hud__news-title\s*\{([\s\S]*?)\}/.exec(
+      stylesheetText(context.inspector),
+    )?.[1] ?? "";
+  expect(titleRule).toContain("white-space: normal");
+  expect(titleRule).not.toContain("text-overflow: ellipsis");
+});
+
+test("the HUD announcement opens What's new and retires the unread signal", async () => {
+  const context = await setup({ persistedMenu: "ag-ui-events" });
+  await openHud(context.inspector);
+
+  await click(context.inspector, hudNewsButton(context.inspector));
+
+  expect(whatsNewState(context.inspector)).toBe("content");
+  expect(navUnreadMarker(context.inspector)).toBeNull();
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("the HUD omits a read announcement", async () => {
+  const context = await setup({ readTimestamp: TIMESTAMP });
+
+  await openHud(context.inspector);
+
+  expect(hudNewsButton(context.inspector)).toBeNull();
+});
+
+test("the HUD keeps an unread announcement useful without preview text", async () => {
+  const context = await setup({ feed: announcement({ previewText: "" }) });
+
+  await openHud(context.inspector);
+
+  expect(hudNewsButton(context.inspector)?.textContent).toContain(
+    "New in CopilotKit",
+  );
+});
+
 test("a mouse press with nothing unread still restores the reader's tab", async () => {
   const context = await setup({
     persistedMenu: "ag-ui-events",
@@ -964,11 +1036,11 @@ test("with nothing unread the launcher restores the tab the reader left", async 
   ).not.toBeNull();
 });
 
-test("the launcher carries the unread hint on itself, not on the dot", async () => {
+test("the launcher uses a stable product title while the dot carries unread state", async () => {
   const context = await setup();
 
   expect(launcherButton(context.inspector).getAttribute("title")).toBe(
-    "What's new — unread",
+    "CopilotKit Inspector",
   );
   expect(
     requireElement(launcherDot(context.inspector)).getAttribute("title"),

@@ -1,4 +1,4 @@
-import type { CopilotKitCore } from "@copilotkit/core";
+import type { CopilotKitCore, Memory } from "@copilotkit/core";
 import type { InspectorMetadataV1, RuntimeInfo } from "@copilotkit/shared";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 
@@ -42,8 +42,15 @@ export const EDGE_SCENARIO_KEYS = [
   "telemetry-disabled",
 ] as const;
 
+export const LEARNING_SCENARIO_KEYS = [
+  "learning-enabled-existing",
+  "learning-enabled-empty",
+  "learning-disabled",
+] as const;
+
 export const ALL_SCENARIO_KEYS = [
   ...CORE_SCENARIO_KEYS,
+  ...LEARNING_SCENARIO_KEYS,
   ...EDGE_SCENARIO_KEYS,
 ] as const;
 
@@ -98,7 +105,7 @@ export interface ThreadsStateScenario {
   readonly joinCode: string;
   readonly joinToken: string;
   readonly listError?: Readonly<{ status: number; message: string }>;
-  readonly initialMenu?: "home" | "threads";
+  readonly initialMenu?: "home" | "threads" | "memories";
   readonly initialAgentEvents?: readonly Readonly<{
     type: "RUN_ERROR";
     runId: string;
@@ -106,6 +113,8 @@ export interface ThreadsStateScenario {
     code: string;
   }>[];
   readonly media: "normal" | "video_error" | "reduced_motion";
+  readonly learning: "enabled" | "disabled";
+  readonly memories: readonly Memory[];
 }
 
 const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
@@ -433,17 +442,33 @@ function buildScenario(
     | "expectedNewestThreadId"
     | "joinCode"
     | "joinToken"
-  >,
+    | "learning"
+    | "memories"
+  > &
+    Partial<Pick<ThreadsStateScenario, "learning" | "memories">>,
 ): ThreadsStateScenario {
   const expectedNewestThreadId = newestThreadId(input.threads);
+  const initialExpectedRequests = expectedRequests(
+    input.capability,
+    input.data,
+  );
   return {
     ...input,
     agentId: AGENT_ID,
     details: threadDetails(input.threads),
-    expectedRequests: expectedRequests(input.capability, input.data),
+    expectedRequests:
+      input.initialMenu === "memories"
+        ? {
+            ...initialExpectedRequests,
+            inspect: 0,
+            state: 0,
+          }
+        : initialExpectedRequests,
     ...(expectedNewestThreadId ? { expectedNewestThreadId } : {}),
     joinCode: `threads-lab-${input.key}`,
     joinToken: `threads-lab-token-${input.key}`,
+    learning: input.learning ?? "disabled",
+    memories: input.memories ?? [],
   };
 }
 
@@ -814,8 +839,89 @@ function edgeScenario(
   }
 }
 
+function learningMemoryFixtures(
+  key: (typeof LEARNING_SCENARIO_KEYS)[number],
+  threads: readonly ThreadFixture[],
+): readonly Memory[] {
+  const [earlierThread, newestThread] = threads;
+  return [
+    {
+      id: `${key}-topical-preference`,
+      kind: "topical",
+      scope: "user",
+      content:
+        "Prefers concise implementation plans with the highest-risk verification step listed first.",
+      sourceThreadIds: newestThread ? [newestThread.id] : [],
+      invalidatedAt: null,
+    },
+    {
+      id: `${key}-episodic-resolution`,
+      kind: "episodic",
+      scope: "user",
+      content:
+        "Resolved the onboarding follow-up by validating the local Inspector flow before requesting review.",
+      sourceThreadIds: threads.map((thread) => thread.id),
+      invalidatedAt: null,
+    },
+    {
+      id: `${key}-operational-handoff`,
+      kind: "operational",
+      scope: "project",
+      content:
+        "For launch reviews, include a working local preview and a screenshot of the final state.",
+      sourceThreadIds: earlierThread ? [earlierThread.id] : [],
+      invalidatedAt: null,
+    },
+  ];
+}
+
+function buildLearningScenario(
+  key: (typeof LEARNING_SCENARIO_KEYS)[number],
+): ThreadsStateScenario {
+  const threads = threadFixtures(key);
+  const enabled = key !== "learning-disabled";
+  const memories =
+    key === "learning-enabled-existing"
+      ? learningMemoryFixtures(key, threads)
+      : [];
+  const inspectorMetadata = metadata("pro", {
+    used: 122,
+    limit: { kind: "finite", value: 5_000 },
+    expiringSoonCount: 7,
+    action: { kind: "manage_plan", url: MANAGE_PLAN_URL },
+  });
+  const label =
+    key === "learning-enabled-existing"
+      ? "Automatic Learning · enabled · records"
+      : key === "learning-enabled-empty"
+        ? "Automatic Learning · enabled · empty"
+        : "Automatic Learning · disabled";
+  const description = enabled
+    ? `${memories.length || "No"} learning record${memories.length === 1 ? "" : "s"}; Memory API enabled.`
+    : "Memory API unavailable; the Learning setup gate is shown.";
+
+  return buildScenario({
+    key,
+    label,
+    description,
+    deployment: "managed",
+    plan: "pro",
+    capability: "enabled",
+    data: "existing",
+    runtimeInfo: runtimeInfo(key, { capability: "enabled" }),
+    inspectorMetadata,
+    inspectorMetadataBody: inspectorMetadata,
+    threads,
+    media: "normal",
+    initialMenu: "memories",
+    learning: enabled ? "enabled" : "disabled",
+    memories,
+  });
+}
+
 const scenarios = [
   ...CORE_SCENARIO_KEYS.map(buildCoreScenario),
+  ...LEARNING_SCENARIO_KEYS.map(buildLearningScenario),
   ...EDGE_SCENARIO_KEYS.map(edgeScenario),
 ];
 
@@ -826,6 +932,7 @@ export const THREADS_STATE_SCENARIOS = deepFreeze(
 );
 
 deepFreeze(CORE_SCENARIO_KEYS);
+deepFreeze(LEARNING_SCENARIO_KEYS);
 deepFreeze(EDGE_SCENARIO_KEYS);
 deepFreeze(ALL_SCENARIO_KEYS);
 deepFreeze(THREAD_REQUEST_KINDS);

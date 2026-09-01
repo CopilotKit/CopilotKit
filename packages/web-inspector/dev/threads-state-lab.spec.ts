@@ -13,6 +13,7 @@ import {
   ALL_SCENARIO_KEYS,
   CORE_SCENARIO_KEYS,
   EDGE_SCENARIO_KEYS,
+  LEARNING_SCENARIO_KEYS,
   LAB_RESET_STORAGE_KEYS,
   THREAD_REQUEST_KINDS,
   THREADS_STATE_SCENARIOS,
@@ -85,6 +86,12 @@ const EXPECTED_EDGE_KEYS = [
   "video-error",
   "reduced-motion",
   "telemetry-disabled",
+] as const;
+
+const EXPECTED_LEARNING_KEYS = [
+  "learning-enabled-existing",
+  "learning-enabled-empty",
+  "learning-disabled",
 ] as const;
 
 const EXPECTED_RECORDING_THREADS = [
@@ -479,14 +486,16 @@ function nextSocketMessage(socket: WebSocket): Promise<unknown> {
   });
 }
 
-test("exports the exact ordered 34-scenario route catalog", () => {
+test("exports the exact ordered 37-scenario route catalog", () => {
   expect(CORE_SCENARIO_KEYS).toEqual(EXPECTED_CORE_KEYS);
+  expect(LEARNING_SCENARIO_KEYS).toEqual(EXPECTED_LEARNING_KEYS);
   expect(EDGE_SCENARIO_KEYS).toEqual(EXPECTED_EDGE_KEYS);
   expect(ALL_SCENARIO_KEYS).toEqual([
     ...EXPECTED_CORE_KEYS,
+    ...EXPECTED_LEARNING_KEYS,
     ...EXPECTED_EDGE_KEYS,
   ]);
-  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(34);
+  expect(new Set(ALL_SCENARIO_KEYS).size).toBe(37);
   expect(Object.keys(THREADS_STATE_SCENARIOS)).toEqual(ALL_SCENARIO_KEYS);
 });
 
@@ -505,6 +514,7 @@ test("models a deterministic CopilotKit agent RunError on Home", () => {
 
 test("deep-freezes every fixture and produces deterministic JSON", () => {
   assertDeeplyFrozen(CORE_SCENARIO_KEYS);
+  assertDeeplyFrozen(LEARNING_SCENARIO_KEYS);
   assertDeeplyFrozen(EDGE_SCENARIO_KEYS);
   assertDeeplyFrozen(ALL_SCENARIO_KEYS);
   assertDeeplyFrozen(THREADS_STATE_SCENARIOS);
@@ -541,6 +551,26 @@ test("models every plan deployment capability and data matrix cell", () => {
       expect(metadata?.plan?.code).not.toBe("team_self_hosted");
     }
   }
+});
+
+test("models enabled, empty, and disabled Automatic Learning fixtures", () => {
+  const existing = getThreadsStateScenario("learning-enabled-existing");
+  const empty = getThreadsStateScenario("learning-enabled-empty");
+  const disabled = getThreadsStateScenario("learning-disabled");
+
+  expect(existing.learning).toBe("enabled");
+  expect(existing.initialMenu).toBe("memories");
+  expect(existing.memories.map((memory) => memory.kind)).toEqual([
+    "topical",
+    "episodic",
+    "operational",
+  ]);
+  expect(empty.learning).toBe("enabled");
+  expect(empty.initialMenu).toBe("memories");
+  expect(empty.memories).toEqual([]);
+  expect(disabled.learning).toBe("disabled");
+  expect(disabled.initialMenu).toBe("memories");
+  expect(disabled.memories).toEqual([]);
 });
 
 test("models zero-thread routes with available usage as true zero states", () => {
@@ -741,6 +771,50 @@ test("serves deterministic list and bounded list-error responses", async () => {
   expect(await readJson(failure)).toEqual({
     error: "Thread list unavailable in this lab scenario.",
   });
+  await runtime.dispose();
+});
+
+test("serves Automatic Learning records, realtime credentials, recall, and the disabled gate", async () => {
+  const runtime = createThreadsStateLabRuntime();
+  const enabledBase =
+    "http://127.0.0.1/inspector-lab-runtime/learning-enabled-existing";
+  const list = await runtime.handleRequest(
+    new Request(`${enabledBase}/memories`),
+  );
+  expect(await readJson(list)).toMatchObject({
+    memories: [
+      { kind: "topical" },
+      { kind: "episodic" },
+      { kind: "operational" },
+    ],
+  });
+  const subscribe = await runtime.handleRequest(
+    new Request(`${enabledBase}/memories/subscribe`, {
+      method: "POST",
+      body: "{}",
+    }),
+  );
+  expect(await readJson(subscribe)).toEqual({
+    joinToken: "threads-lab-token-learning-enabled-existing",
+    joinCode: "memories-threads-lab-learning-enabled-existing",
+  });
+  const recall = await runtime.handleRequest(
+    new Request(`${enabledBase}/memories/recall`, {
+      method: "POST",
+      body: JSON.stringify({ query: "launch review" }),
+    }),
+  );
+  const recallBody = (await readJson(recall)) as { memories: unknown[] };
+  expect(recallBody).toMatchObject({
+    memories: expect.any(Array),
+  });
+  expect(recallBody.memories[0]).toMatchObject({ score: 0.95 });
+  const disabled = await runtime.handleRequest(
+    new Request(
+      "http://127.0.0.1/inspector-lab-runtime/learning-disabled/memories",
+    ),
+  );
+  expect(disabled.status).toBe(404);
   await runtime.dispose();
 });
 
@@ -1258,7 +1332,7 @@ test("runs teardown before real select and reset control navigation", async () =
   }
 });
 
-test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 routes", async () => {
+test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 routes", async () => {
   const restoreNodeBridges = installNodeIntegrationBridges();
   const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
     window,
@@ -1473,42 +1547,19 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 34 r
               overviewCopy.description,
             );
           }
-          const setupLinks = collectDeep(
-            root,
-            "[data-inspector-threads-setup-link]",
-          );
           const setupPrompts = collectDeep(
             root,
-            "[data-inspector-threads-setup-prompt]",
+            '[data-inspector-feature-setup-prompt="threads"]',
           );
-          const expectsSetup =
-            scenario.capability !== "enabled" &&
-            scenario.runtimeInfo.licenseStatus === "valid";
-          expect(setupLinks, `${key}: setup link presence`).toHaveLength(
-            expectsSetup ? 1 : 0,
-          );
+          const expectsSetup = scenario.capability !== "enabled";
           expect(setupPrompts, `${key}: setup prompt presence`).toHaveLength(
             expectsSetup ? 1 : 0,
           );
-          if (setupLinks.length === 1) {
-            const setupLink = setupLinks[0];
-            expect(
-              setupLink?.textContent?.trim(),
-              `${key}: setup link label`,
-            ).toBe("Open setup guide");
-            const setupUrl = new URL(setupLink?.getAttribute("href") ?? "");
-            expect(setupUrl.pathname, `${key}: setup link path`).toBe(
-              "/backend/runtime-endpoints",
-            );
-            expect(setupUrl.hash, `${key}: setup link anchor`).toBe(
-              "#enable-rich-threads-routes",
-            );
-          }
           if (setupPrompts.length === 1) {
             expect(
               setupPrompts[0]?.textContent?.trim(),
               `${key}: setup prompt label`,
-            ).toBe("Copy prompt for your agent");
+            ).toBe("Copy setup prompt");
           }
 
           const usage = scenario.inspectorMetadata?.usage;
