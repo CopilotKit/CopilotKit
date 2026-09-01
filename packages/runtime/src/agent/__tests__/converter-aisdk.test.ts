@@ -14,6 +14,7 @@ import {
   toolCallDelta,
   toolCall,
   toolResult,
+  toolError,
   reasoningStart,
   reasoningDelta,
   reasoningEnd,
@@ -277,6 +278,32 @@ describe("AI SDK Converter", () => {
       );
       expect(JSON.parse(eventField<string>(resultsB[0], "content"))).toBe(
         "resultB",
+      );
+    });
+
+    it("tool errors emit a visible result instead of silently succeeding", async () => {
+      const agent = createAgent("aisdk", [
+        toolCall("tc-error", "getCats", { limit: 1 }),
+        toolError("tc-error", "getCats", new Error("Missing API key")),
+        finish(),
+      ]);
+      const input = createDefaultInput();
+      const events = await collectEvents(agent.run(input));
+
+      expectLifecycleWrapped(events);
+
+      const resultEvents = events.filter(
+        (event) => event.type === EventType.TOOL_CALL_RESULT,
+      );
+      expect(resultEvents).toHaveLength(1);
+      expect(eventField<string>(resultEvents[0], "toolCallId")).toBe(
+        "tc-error",
+      );
+      expect(eventField<string>(resultEvents[0], "content")).toBe(
+        "Error: Missing API key",
+      );
+      expect(events.some((event) => event.type === EventType.RUN_ERROR)).toBe(
+        false,
       );
     });
   });
@@ -742,30 +769,27 @@ describe("AI SDK Converter", () => {
   // ---------------------------------------------------------------------------
 
   describe("Edge Cases", () => {
-    it("unknown event types are silently ignored", async () => {
+    it("unknown event types fail the run instead of being silently ignored", async () => {
       const agent = createAgent("aisdk", [
         { type: "some-unknown-event", data: "hello" },
         textDelta("text after unknown"),
-        { type: "another-mystery-event" },
-        finish(),
       ]);
       const input = createDefaultInput();
-      const events = await collectEvents(agent.run(input));
-
-      expectLifecycleWrapped(events);
-
-      // Should still have the text chunk
-      const textChunks = events.filter(
-        (e) => e.type === EventType.TEXT_MESSAGE_CHUNK,
+      const { events, errored } = await collectEventsIncludingErrors(
+        agent.run(input),
       );
-      expect(textChunks).toHaveLength(1);
 
-      // No events for unknown types — only RUN_STARTED, TEXT_MESSAGE_CHUNK, RUN_FINISHED
-      expectEventSequence(events, [
-        EventType.RUN_STARTED,
-        EventType.TEXT_MESSAGE_CHUNK,
-        EventType.RUN_FINISHED,
-      ]);
+      expect(errored).toBe(true);
+      const errorEvents = events.filter(
+        (event) => event.type === EventType.RUN_ERROR,
+      );
+      expect(errorEvents).toHaveLength(1);
+      expect(eventField<string>(errorEvents[0], "message")).toBe(
+        "Unsupported AI SDK stream part: some-unknown-event",
+      );
+      expect(
+        events.some((event) => event.type === EventType.RUN_FINISHED),
+      ).toBe(false);
     });
 
     it("large text deltas (100k chars) are passed through", async () => {
