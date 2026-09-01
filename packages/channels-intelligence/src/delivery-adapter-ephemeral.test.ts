@@ -96,6 +96,25 @@ describe("DeliveryAdapter ephemeral posts", () => {
     expect(effect).not.toHaveBeenCalled();
   });
 
+  it("refuses a request that names no recipient at all", async () => {
+    const effect = vi.fn(async () => ({}));
+    const session = { effect } as unknown as ClaimedChannelDelivery;
+    const managed = adapter() as PlatformAdapter;
+
+    // An empty user id identifies nobody, so it cannot agree with this turn's
+    // recipient — sending anyway would report success for a turn the caller
+    // never named.
+    await expect(
+      managed.postEphemeral?.(
+        { claimedDelivery: session, delivery: delivery() },
+        "",
+        [{ type: "text", props: { value: "Only you can see this" } }],
+        { fallbackToDM: true },
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    expect(effect).not.toHaveBeenCalled();
+  });
+
   it("refuses a turn with no identified recipient", async () => {
     const effect = vi.fn(async () => ({}));
     const session = { effect } as unknown as ClaimedChannelDelivery;

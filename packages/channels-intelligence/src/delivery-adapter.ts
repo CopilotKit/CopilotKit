@@ -334,7 +334,7 @@ export class DeliveryAdapter implements PlatformAdapter {
     if (!recipient) {
       return { ok: false, error: "This turn has no identified recipient" };
     }
-    if (requested && requested !== recipient) {
+    if (requested !== recipient) {
       return {
         ok: false,
         error: `A managed ephemeral message reaches only this turn's own recipient (${recipient})`,
