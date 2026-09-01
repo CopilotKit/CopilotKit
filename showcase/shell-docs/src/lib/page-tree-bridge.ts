@@ -13,6 +13,10 @@
 //   - Separator { type: 'separator'; name }
 //   - Folder { type: 'folder'; name; children; defaultOpen?; index? }
 //
+// Top-level `section` nodes become folders (not separators) so the
+// sidebar can collapse Concepts / Basics / Get Started. Empty
+// separators stay separators.
+//
 // We pre-bake the URL using `slugHrefPrefix` (the value DocsPageView
 // already uses for its own hrefs): a framework-scoped render passes
 // `/<framework>` and the sidebar renders `/<framework>/<slug>` links
@@ -243,6 +247,72 @@ export function navNodeToPageTreeNodes(
   ];
 }
 
+export const SECTION_FOLDER_LABEL_CLASS = "shell-docs-sidebar-section-label";
+
+function wrapSectionFolderName(name: React.ReactNode): React.ReactNode {
+  // Fumadocs folder triggers render `[icon, name]` as an array. A key
+  // on this wrapper stops the missing-key warning that fires when
+  // `name` is a React element created in the page tree.
+  return React.createElement(
+    "span",
+    { className: SECTION_FOLDER_LABEL_CLASS, key: "shell-docs-section-label" },
+    name,
+  );
+}
+
+// `---Section---` entries become PageTree separators, which Fumadocs
+// renders as static labels. Wrap each separator and the nodes that
+// follow it (until the next separator) into a folder so Concepts,
+// Basics, and the other top-level sections collapse like nested
+// groups. Empty separators stay separators — that keeps self-contained
+// nodes such as the frontend "guides coming soon" card as labels.
+export function wrapSectionSeparatorsAsFolders(
+  nodes: PageTree.Node[],
+): PageTree.Node[] {
+  const result: PageTree.Node[] = [];
+  let pending: { name: React.ReactNode; children: PageTree.Node[] } | null =
+    null;
+
+  const flush = () => {
+    if (!pending) return;
+    if (pending.children.length === 0) {
+      result.push({ type: "separator", name: pending.name });
+    } else {
+      result.push({
+        type: "folder",
+        name: wrapSectionFolderName(pending.name),
+        defaultOpen: false,
+        children: pending.children,
+      });
+    }
+    pending = null;
+  };
+
+  for (const node of nodes) {
+    if (node.type === "separator") {
+      flush();
+      pending = { name: node.name ?? "", children: [] };
+      continue;
+    }
+    if (pending) {
+      pending.children.push(node);
+    } else {
+      result.push(node);
+    }
+  }
+  flush();
+  return result;
+}
+
+function buildPageTreeChildren(
+  tree: NavNode[],
+  slugHrefPrefix: string,
+): PageTree.Node[] {
+  return wrapSectionSeparatorsAsFolders(
+    tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+  );
+}
+
 // Cache by the (memoized) NavNode[] reference so successive calls with
 // the same tree + prefix skip re-allocating the PageTree. `buildNavTree`
 // returns the same reference for the same `(dir, prefix)` in prod, so
@@ -262,7 +332,7 @@ export function navTreeToPageTree(
     if (hit) return hit;
     const built: PageTree.Root = {
       name: rootName,
-      children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+      children: buildPageTreeChildren(tree, slugHrefPrefix),
     };
     if (!perTree) {
       perTree = new Map();
@@ -273,6 +343,6 @@ export function navTreeToPageTree(
   }
   return {
     name: rootName,
-    children: tree.flatMap((n) => navNodeToPageTreeNodes(n, slugHrefPrefix)),
+    children: buildPageTreeChildren(tree, slugHrefPrefix),
   };
 }

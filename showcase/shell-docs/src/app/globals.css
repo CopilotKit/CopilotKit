@@ -318,6 +318,154 @@
   color: var(--accent);
 }
 
+.shell-docs-intelligence-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--shell-docs-radius-control);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    transform 100ms ease-out;
+}
+
+.shell-docs-intelligence-entry svg {
+  fill: none;
+}
+
+.shell-docs-intelligence-entry:hover,
+.shell-docs-intelligence-entry:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.shell-docs-intelligence-entry:hover svg,
+.shell-docs-intelligence-entry:focus-visible svg {
+  fill: currentColor;
+}
+
+.shell-docs-intelligence-entry:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.shell-docs-intelligence-entry:active {
+  transform: scale(0.96);
+}
+
+.shell-docs-intelligence-entry-active {
+  background: color-mix(in oklch, var(--accent) 13%, transparent);
+  color: var(--accent);
+}
+
+.shell-docs-intelligence-entry-active:hover,
+.shell-docs-intelligence-entry-active:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dark .shell-docs-intelligence-entry-active {
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
+}
+
+.shell-docs-mega-menu {
+  padding: 1.25rem 1.5rem;
+}
+
+.shell-docs-mega-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.25rem 1.5rem;
+}
+
+.shell-docs-mega-menu-heading {
+  margin: 0 0 0.75rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shell-docs-mega-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell-docs-mega-menu-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--shell-docs-radius-control);
+  color: var(--text);
+  font-size: 0.8125rem;
+  text-decoration: none;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.shell-docs-mega-menu-link:hover,
+.shell-docs-mega-menu-link:focus-visible {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured .shell-docs-mega-menu-icon {
+  color: #fff;
+}
+
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured:hover,
+.shell-docs-mega-menu-link.shell-docs-mega-menu-link-featured:focus-visible {
+  background: var(--accent-strong);
+  color: #fff;
+}
+
+.shell-docs-mega-menu-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+@media (max-width: 1279px) {
+  .shell-docs-mega-menu-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: min(70vh, 32rem);
+    overflow: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-docs-intelligence-entry,
+  .shell-docs-mega-menu-link {
+    transition: none;
+  }
+
+  .shell-docs-intelligence-entry:active {
+    transform: none;
+  }
+}
+
 .shell-docs-warning-surface {
   border-color: var(--warning-border);
   border-left-color: var(--warning);
@@ -434,6 +582,20 @@
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, var(--border)),
     0 1px 0 rgba(0, 0, 0, 0.25);
   color: var(--accent);
+}
+
+.shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover,
+.shell-docs-nav-link-active.shell-docs-nav-link-intelligence:hover,
+.shell-docs-nav-link-intelligence:focus-visible {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+.dark .shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover,
+.dark .shell-docs-nav-link-active.shell-docs-nav-link-intelligence:hover {
+  background: var(--accent);
+  color: #fff;
 }
 
 /* shell-docs sidebar overrides.
@@ -606,6 +768,43 @@
   font-weight: 600 !important;
   color: var(--text-muted) !important;
   letter-spacing: 0 !important;
+}
+
+/* Top-level docs sections (Concepts, Basics, Get Started, …) render as
+ * Fumadocs folder triggers after wrapSectionSeparatorsAsFolders. Keep
+ * the old separator look — small label, accent icon — and add the
+ * chevron the folder trigger already ships. */
+.shell-docs-sidebar-section-label {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shell-docs-sidebar button:has(.shell-docs-sidebar-section-label) {
+  margin-top: 0.25rem;
+  padding-top: 1.25rem;
+  padding-bottom: 0.5rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.shell-docs-sidebar
+  [data-radix-scroll-area-viewport]
+  button:has(.shell-docs-sidebar-section-label):first-of-type {
+  margin-top: 0;
+  padding-top: 0.5rem;
+}
+
+.shell-docs-sidebar
+  button:has(.shell-docs-sidebar-section-label)
+  .shell-docs-sidebar-section-label
+  svg {
+  color: var(--accent);
+  width: 16px;
+  height: 16px;
 }
 
 .shell-docs-react-docs-proxy {

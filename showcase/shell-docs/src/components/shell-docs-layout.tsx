@@ -9,6 +9,7 @@ import GithubIcon from "./icons/github";
 import DiscordIcon from "./icons/discord";
 import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
 import { PrimaryDocsTabs } from "./primary-docs-tabs";
+import { SidebarIntelligenceEntry } from "./sidebar-intelligence-entry";
 
 // Shared Fumadocs `DocsLayout` chrome used by every shell-docs route.
 // All five callers (home overview, framework root, framework-scoped MDX
@@ -47,9 +48,13 @@ export function ShellDocsLayout({
       // our custom one.
       sidebar={{
         banner: (
-          <div key="shell-docs-sidebar-banner" className="flex flex-col">
-            <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
+          <div
+            key="shell-docs-sidebar-banner"
+            className="flex flex-col gap-2"
+          >
             {banner}
+            <SidebarIntelligenceEntry />
+            <PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />
           </div>
         ),
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.
