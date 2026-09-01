@@ -8,9 +8,9 @@ import { useLearningContainers } from "./use-learning-containers";
  * sourced from the surrounding `<CopilotChatConfigurationProvider>` at
  * render time.
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This type supports only the legacy plural-container annotation.
+ * Configure `getLearningContainerId` on `CopilotKitIntelligence` for new
+ * Intelligence runtimes.
  */
 export type UseLearningContainersInCurrentThreadArgs = Omit<
   UseLearningContainersArgs,
@@ -44,9 +44,9 @@ export type UseLearningContainersInCurrentThreadArgs = Omit<
  * }
  * ```
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This hook supports only the legacy plural-container annotation.
+ * Configure `getLearningContainerId` on `CopilotKitIntelligence` for new
+ * Intelligence runtimes.
  */
 export function useLearningContainersInCurrentThread({
   learningContainers,
