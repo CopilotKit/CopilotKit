@@ -111,6 +111,36 @@ export function parseCommitLog(output: string): Commit[] {
 }
 
 /**
+ * A merge commit's own body is the PR description, which is usually where a
+ * `BREAKING CHANGE:` footer lives — but not always. A footer written on a
+ * branch commit reaches neither the merge subject nor the merge body, so
+ * selecting mainline commits alone silently drops it (measured: 2 real notes
+ * lost across v1.60.0..HEAD).
+ *
+ * Fold each merge's branch messages into its body so downstream extraction
+ * sees the whole PR while the entry list stays one-per-PR. Non-merge commits
+ * make the range invalid, which git reports as a non-zero exit — treated here
+ * as "no branch commits" rather than an error.
+ */
+export function withBranchMessages(commit: Commit): Commit {
+  const result = spawnSync(
+    "git",
+    ["log", `${commit.hash}^1..${commit.hash}^2`, "--format=%s%n%b"],
+    { cwd: ROOT, encoding: "utf8" },
+  );
+
+  if (result.status !== 0) return commit;
+
+  const branchMessages = (result.stdout ?? "").trim();
+  if (!branchMessages) return commit;
+
+  return {
+    ...commit,
+    body: [commit.body, branchMessages].filter(Boolean).join("\n\n"),
+  };
+}
+
+/**
  * Mainline commits in `range` that touched `pathspecs`.
  *
  * `--first-parent` (not `--no-merges`) is what makes these read as PRs. This
@@ -127,9 +157,13 @@ function getCommitsSince(
   const args = ["log", range, "--first-parent", `--format=${GIT_LOG_FORMAT}`];
   if (pathspecs.length > 0) args.push("--", ...pathspecs);
 
-  const result = spawnSync("git", args, { cwd: ROOT, encoding: "utf8" });
+  const result = spawnSync("git", args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024 * 64,
+  });
 
-  return parseCommitLog(result.stdout);
+  return parseCommitLog(result.stdout).map(withBranchMessages);
 }
 
 export function getCommitsSinceLastRelease(scope: ReleaseScope): Commit[] {
