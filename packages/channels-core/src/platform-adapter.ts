@@ -2,6 +2,7 @@ import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
   AgentContentPart,
   ApplicationUser,
+  ChannelAuthoredActor,
   ChannelNode,
   EmojiValue,
   EphemeralResult,
@@ -166,6 +167,12 @@ export interface IncomingTurn extends IngressEventBase, IngressIds {
    */
   contentParts?: AgentContentPart[];
   platform: string;
+  /**
+   * Set when this turn was composed on an application surface rather than the
+   * provider surface. Provider-authored turns omit it, so an adapter that
+   * cannot produce application turns needs no change at all.
+   */
+  authoredBy?: ChannelAuthoredActor;
 }
 
 export interface InteractionEvent extends IngressEventBase, IngressIds {

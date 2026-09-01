@@ -434,6 +434,31 @@ export interface CreateChannelOptions<
    * configure direct Slack with `slack({ replyContinuation })` instead.
    */
   replyContinuation?: ReplyContinuationOptions;
+  /**
+   * Per-replica ceiling on managed deliveries executing at once.
+   *
+   * The managed delivery transport has always accepted this, but a Channel
+   * activated through `CopilotRuntime` had no way to set it, so every such
+   * deployment ran on the transport default of 8 regardless of how the host was
+   * sized. Since a replica's throughput is about
+   * `maxConcurrentDeliveries / meanTurnSeconds`, that default — not the agent
+   * and not the provider — was the binding constraint on managed throughput.
+   *
+   * Unset keeps the transport default, so raising it is an explicit decision by
+   * an operator who knows what the host and the agent can absorb.
+   *
+   * Ignored for direct-adapter Channels, which do not go through the managed
+   * delivery transport.
+   */
+  maxConcurrentDeliveries?: number;
+  /**
+   * Per-replica ceiling on managed deliveries that are claimed but not yet
+   * executing. Invitations beyond
+   * `maxConcurrentDeliveries + maxPendingDeliveries` are declined as overflow
+   * and left for another replica rather than queued locally, so this trades
+   * local tail latency against how often this replica declines work.
+   */
+  maxPendingDeliveries?: number;
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /**
    * Tolerate the AG-UI event streams real agents emit. On by default.
@@ -483,6 +508,17 @@ export interface Channel<TState = unknown> {
    * Undefined leaves the provider defaults in place.
    */
   readonly replyContinuation?: ReplyContinuationOptions;
+  /**
+   * Managed delivery capacity from `createChannel({ maxConcurrentDeliveries })`.
+   * Undefined leaves the delivery transport's own default in place.
+   */
+  readonly maxConcurrentDeliveries?: number;
+  /**
+   * Managed pending-delivery capacity from
+   * `createChannel({ maxPendingDeliveries })`. Undefined leaves the delivery
+   * transport's own default in place.
+   */
+  readonly maxPendingDeliveries?: number;
   /** Declared slash-command names (normalized). Surfaced for Channel activation metadata. */
   readonly commandNames: string[];
   onMention(h: ChannelHandler<TState>): void;
@@ -559,6 +595,11 @@ function msgFromTurn(turn: IncomingTurn): ChannelMessage {
     eventId: turn.eventId,
     turnId: turn.turnId,
     deliveryId: turn.deliveryId,
+    // Carried, never interpreted. Core deliberately takes no branch on the
+    // authoring surface: routing, dedup and ordering must stay identical for a
+    // web-composed turn and a provider one, or the two surfaces stop being one
+    // conversation. Only the handler's own rendering may read this.
+    authoredBy: turn.authoredBy,
   };
 }
 
@@ -1323,6 +1364,12 @@ export function createChannel<
       : {}),
     ...(opts.replyContinuation !== undefined
       ? { replyContinuation: opts.replyContinuation }
+      : {}),
+    ...(opts.maxConcurrentDeliveries !== undefined
+      ? { maxConcurrentDeliveries: opts.maxConcurrentDeliveries }
+      : {}),
+    ...(opts.maxPendingDeliveries !== undefined
+      ? { maxPendingDeliveries: opts.maxPendingDeliveries }
       : {}),
     get adapters() {
       // Defensive read-only copy: mutating the returned array must not affect

@@ -404,6 +404,10 @@ export interface ChannelsIntelligenceModule {
       showToolStatus?: boolean;
       /** Optional per-Channel tuning for continuation messages on long replies. */
       replyContinuation?: ReplyContinuationOptions;
+      /** Optional per-replica ceiling on deliveries executing at once. */
+      maxConcurrentDeliveries?: number;
+      /** Optional per-replica ceiling on claimed-but-not-executing deliveries. */
+      maxPendingDeliveries?: number;
       /** Intelligence app-api HTTP base URL, forwarded to the transport so the
        * managed realtime path enables file/history parity (HTTP-only) — OSS-476. */
       appApiBaseUrl?: string;
@@ -515,6 +519,16 @@ export async function defaultActivateChannel(
       : {}),
     ...(config.replyContinuation !== undefined
       ? { replyContinuation: config.replyContinuation }
+      : {}),
+    // Forward the delivery capacity so a runtime-hosted managed Channel is not
+    // silently pinned to the transport defaults (8 concurrent / 32 pending).
+    // The launcher has always accepted these; only this call site was missing,
+    // which capped every runtime-activated Channel regardless of host size.
+    ...(config.maxConcurrentDeliveries !== undefined
+      ? { maxConcurrentDeliveries: config.maxConcurrentDeliveries }
+      : {}),
+    ...(config.maxPendingDeliveries !== undefined
+      ? { maxPendingDeliveries: config.maxPendingDeliveries }
       : {}),
     // Forward the app-api HTTP base URL so the transport wires file/history
     // (HTTP-only) on the NORMAL managed path — without this, Channels started by

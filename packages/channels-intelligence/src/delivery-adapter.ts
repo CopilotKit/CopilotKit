@@ -407,6 +407,13 @@ export class DeliveryAdapter implements PlatformAdapter {
                 ],
               }
             : {}),
+          // Only a text turn can be application-authored: an interaction, a
+          // reaction or a welcome is by construction something that happened on
+          // the provider surface, so forwarding an author there would describe
+          // an event that did not occur.
+          ...(delivery.turn.authoredBy !== undefined
+            ? { authoredBy: delivery.turn.authoredBy }
+            : {}),
         });
         return;
       }

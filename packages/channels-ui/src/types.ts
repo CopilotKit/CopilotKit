@@ -30,6 +30,48 @@ export interface ProviderActor {
   readonly email?: string;
 }
 
+/**
+ * Who authored an inbound turn when the provider surface did not.
+ *
+ * Present only on turns the managed path accepted from an authenticated
+ * application caller — a web composer continuing a Slack thread, for example.
+ * It is server-minted from that caller's verified session during authenticated
+ * ingress; no adapter, agent, tool result, or delivery payload may choose it.
+ * An application therefore cannot name itself as somebody else, so a handler
+ * may render it as attribution without re-verifying anything.
+ *
+ * Absent on every provider-authored turn, which is what keeps existing handlers
+ * unaffected: reading it is opt-in, and its absence means "the provider actor
+ * really did write this".
+ *
+ * Distinct from {@link ApplicationUser}, which is the identity a Channel
+ * developer selects for their own purposes and which the platform never
+ * verifies. This one is chosen by the platform and cannot be set by the
+ * developer, which is exactly why it is safe to render as attribution.
+ */
+export interface ChannelAuthoredActor {
+  /**
+   * Authoring surface class. A union rather than a boolean so a later class of
+   * author can be added without breaking handlers that switch on it.
+   */
+  readonly kind: "application";
+  /** Free-form surface label the application declared, e.g. `"web"`. */
+  readonly surface: string;
+  /**
+   * Opaque, tenant-scoped id of the authoring application user. This is NOT a
+   * provider user id: it never resolves to a Slack member, and passing it to a
+   * provider lookup is a bug rather than a fallback.
+   */
+  readonly appUserId: string;
+  /**
+   * Display name the managed path already rendered into the provider surface
+   * when it echoed this turn. Carried so a handler's own rendering agrees with
+   * what the provider thread already shows, instead of inventing a second name
+   * for the same person.
+   */
+  readonly displayName: string;
+}
+
 /** Provider-neutral identity and dispatch semantics for one message revision. */
 export interface MessageOperation {
   kind: "created" | "updated" | "deleted";
@@ -86,6 +128,12 @@ export interface IncomingMessage {
   turnId?: string;
   /** Lease/delivery id (managed/Intelligence path). */
   deliveryId?: string;
+  /**
+   * Application author, when this turn was composed off-provider (managed path
+   * only). Provider-authored turns omit it, so `authoredBy === undefined` is
+   * the check for "the provider actor wrote this".
+   */
+  authoredBy?: ChannelAuthoredActor;
 }
 
 /** Incoming message delivered specifically to `onMention` or `onMessage`. */

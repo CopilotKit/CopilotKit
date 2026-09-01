@@ -47,6 +47,26 @@ export interface ChannelActivationConfig {
    * messages. Unset leaves the provider renderer's defaults in place.
    */
   replyContinuation?: ReplyContinuationOptions;
+  /**
+   * Per-replica ceiling on deliveries executing at once.
+   *
+   * The delivery transport already accepts this, but the runtime never passed
+   * it, so a Channel activated by `CopilotRuntime` was pinned to the transport
+   * default of 8 no matter how the host was sized. That ceiling — not the
+   * agent, the provider, or the gateway — is what caps a replica at roughly
+   * `maxConcurrentDeliveries / meanTurnSeconds` turns per second.
+   *
+   * Left unset, the transport default still applies, so existing deployments
+   * keep their current behaviour exactly.
+   */
+  maxConcurrentDeliveries?: number;
+  /**
+   * Per-replica ceiling on claimed-but-not-yet-executing deliveries.
+   * Invitations past `maxConcurrentDeliveries + maxPendingDeliveries` are
+   * declined as overflow and left for another replica rather than queued here,
+   * so raising this trades tail latency for a lower decline rate.
+   */
+  maxPendingDeliveries?: number;
   /** Identifier for the runtime instance activating this Channel. */
   runtimeInstanceId: string;
 }
@@ -160,6 +180,12 @@ export function deriveChannelActivationConfig(args: {
       : {}),
     ...(channel.replyContinuation !== undefined
       ? { replyContinuation: channel.replyContinuation }
+      : {}),
+    ...(channel.maxConcurrentDeliveries !== undefined
+      ? { maxConcurrentDeliveries: channel.maxConcurrentDeliveries }
+      : {}),
+    ...(channel.maxPendingDeliveries !== undefined
+      ? { maxPendingDeliveries: channel.maxPendingDeliveries }
       : {}),
     runtimeInstanceId,
   };
