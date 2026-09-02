@@ -10,8 +10,8 @@ const readme = readFileSync(
 describe("README tutorial video", () => {
   it("labels the legacy video and links to current v2 guidance", () => {
     const videoSection = readme.match(
-      /## Tutorial Video(?<content>[\s\S]*?)## Overview/,
-    )?.groups?.content;
+      /## Tutorial Video([\s\S]*?)## Overview/,
+    )?.[1];
 
     expect(videoSection).toBeDefined();
     expect(videoSection).toContain("original CopilotKit v1 implementation");
