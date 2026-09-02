@@ -1,5 +1,6 @@
 // DocsPageTools — the page-tools row that sits under a docs page's title:
-// "Copy agent prompt" (framework-scoped pages only), "Copy Markdown", and the
+// "Copy agent prompt" (framework-scoped pages only, which at the root surface
+// means the Built-in Agent's own pages), "Copy Markdown", and the
 // "Open in <LLM>" popover. Fumadocs's upstream LLM page-actions feature.
 //
 // Extracted from `docs-page-view.tsx` so the one rule that governs the row —
@@ -23,8 +24,9 @@ export interface DocsPageToolsProps {
   /** Source file URL on GitHub for the "Open in GitHub" entry. */
   githubUrl: string;
   /**
-   * The agent framework this page is scoped to. Present ONLY for pages served
-   * under a `/<framework>/…` route; absent for the cookbook and for unscoped
+   * The agent framework this page is scoped to. Present for pages served
+   * under a `/<framework>/…` route and for root-surface pages that render
+   * Built-in-Agent-scoped; absent for the cookbook and for frameworkless
    * pages such as `/faq`. Its absence is what keeps the onboarding button off
    * those pages, so this prop is the gate, not a decoration.
    */

@@ -32,8 +32,12 @@ const ONBOARDING_AGENT_FRAMEWORKS = new Set([
  * Docs slugs the graph spells differently. Every other docs slug is passed
  * through unchanged and then checked against the graph's set, so only the
  * genuine disagreements need listing.
+ *
+ * `built-in-agent` is the docs slug for the framework the graph calls
+ * `built-in` — the same framework, spelled differently on each side.
  */
 const DOCS_SLUG_RENAMES: Record<string, string> = {
+  "built-in-agent": "built-in",
   "crewai-crews": "crewai-flows",
   strands: "strands-python",
 };
@@ -42,10 +46,10 @@ const DOCS_SLUG_RENAMES: Record<string, string> = {
  * Maps a docs registry integration slug to the onboarding graph's
  * agent-framework slug. Returns undefined when the graph has no equivalent.
  *
- * Frameworks the graph does not know (today `built-in-agent`,
- * `crewai-conversational-flows`, `langroid` and `spring-ai`) deliberately map
- * to nothing: naming them in the prompt would promise a path the CLI cannot
- * walk. Silence lets the graph ask instead.
+ * Frameworks the graph does not know (today `crewai-conversational-flows`,
+ * `langroid` and `spring-ai`) deliberately map to nothing: naming them in the
+ * prompt would promise a path the CLI cannot walk. Silence lets the graph ask
+ * instead.
  */
 export function onboardingFrameworkSlug(docsSlug: string): string | undefined {
   const candidate = DOCS_SLUG_RENAMES[docsSlug] ?? docsSlug;

@@ -55,9 +55,10 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
 }
 
 it("renders no onboarding button when no framework is passed", () => {
-  // What the cookbook routes and `unscoped-docs-page.tsx` get: they share
-  // `DocsPageView` with the framework route and opt out by simply not passing
-  // the prop. If the button ever became unconditional again, this fails.
+  // What the cookbook routes and the frameworkless root-surface pages
+  // (`/faq`, `/examples`) get: they share `DocsPageView` with the framework
+  // route and opt out by simply not passing the prop. If the button ever
+  // became unconditional again, this fails.
   renderRow();
 
   expect(screen.queryByRole("button", { name: /copy agent prompt/i })).toBe(

@@ -56,6 +56,12 @@ afterEach(() => {
  * framework sentence is non-empty and `agent_framework` is reportable.
  */
 const MASTRA = { slug: "mastra", name: "Mastra" };
+
+/**
+ * A registered framework the graph has NO node for, so the framework sentence
+ * is "" and `agent_framework` is left off the event entirely.
+ */
+const SPRING_AI = { slug: "spring-ai", name: "Spring AI" };
 const PAGE_MARKDOWN_URL = "/mastra/generative-ui.mdx";
 const PAGE_SENTENCE = ` The developer copied this prompt from ${DOCS_ORIGIN}${PAGE_MARKDOWN_URL}.`;
 
@@ -171,17 +177,15 @@ it("reads the base URL on click and not during render", () => {
 });
 
 it("appends no framework sentence for a framework the graph does not know", async () => {
-  // `built-in-agent` is one of the docs slugs the CLI's onboarding graph has
-  // no node for. Naming it would promise a path the CLI cannot walk, so the
+  // `spring-ai` is one of the docs slugs the CLI's onboarding graph has no
+  // node for. Naming it would promise a path the CLI cannot walk, so the
   // prompt stays silent about the framework and the page sentence — which has
   // to read correctly on its own — carries the whole of the added context.
   const writeText = stubClipboard();
 
-  expect(frameworkPromptSuffix("built-in-agent", "Built-in Agent")).toBe("");
+  expect(frameworkPromptSuffix(SPRING_AI.slug, SPRING_AI.name)).toBe("");
 
-  renderButton({
-    framework: { slug: "built-in-agent", name: "Built-in Agent" },
-  });
+  renderButton({ framework: SPRING_AI });
   clickCopy();
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
@@ -239,9 +243,7 @@ it("omits the framework property entirely when the graph has no slug", async () 
   // still shows up as a row in a PostHog breakdown.
   stubClipboard();
 
-  renderButton({
-    framework: { slug: "built-in-agent", name: "Built-in Agent" },
-  });
+  renderButton({ framework: SPRING_AI });
   clickCopy();
 
   await waitFor(() => expect(analytics.capture).toHaveBeenCalled());

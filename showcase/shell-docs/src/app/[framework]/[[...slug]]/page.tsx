@@ -60,6 +60,7 @@ import {
 import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
 import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -102,26 +103,6 @@ function frontendRoutePath(
   activeBackendFramework: string | null = null,
 ): string {
   return frontendPathForBackend(frontend, slugPath, activeBackendFramework);
-}
-
-/**
- * The `onboardingFramework` prop for a `DocsPageView` rendered by this route:
- * the docs registry slug plus its display name. This is the ONLY route that
- * passes it, which is what confines the page-tools "Copy agent prompt" button
- * to framework-scoped pages.
- *
- * Returns undefined when there is no framework to name — a frontend route with
- * no backend selected (`/vue/using-these-docs`), or a docs-only slug with no
- * registry record (`a2a`, `agent-spec`). Those pages then render no onboarding
- * button rather than a button whose prompt would name a framework the registry
- * cannot confirm a display name for.
- */
-function onboardingFrameworkFor(
-  slug: string | null | undefined,
-): { slug: string; name: string } | undefined {
-  if (!slug) return undefined;
-  const name = getIntegration(slug)?.name;
-  return name ? { slug, name } : undefined;
 }
 
 function isFrontendGuidanceSlug(slugPath: string): boolean {

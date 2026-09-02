@@ -262,7 +262,7 @@ export function OnboardingPromptCopyButton({
 
     // Reused verbatim from the hero button's helper so both surfaces name the
     // framework in the same words. It is "" for a framework the CLI's
-    // onboarding graph has no node for (`built-in-agent` among them), which
+    // onboarding graph has no node for (`langroid`, `spring-ai`, …), which
     // leaves the framework unnamed rather than promising a path the CLI
     // cannot walk.
     const frameworkSentence = frameworkPromptSuffix(
