@@ -104,6 +104,36 @@ test("catalog and example jobs check out the requested dispatch ref", () => {
   assert.ok(examplesJob[1].includes(requestedRef));
 });
 
+test("public example jobs run each app's unit tests and Travel's Python tests", () => {
+  const expectedDirectories = new Map([
+    ["form-filling", "examples/showcases/form-filling"],
+    ["travel", "examples/showcases/travel"],
+    ["research-canvas", "examples/canvas/research-canvas"],
+    ["chat-with-your-data", "examples/showcases/chat-with-your-data"],
+    ["state-machine", "examples/showcases/state-machine"],
+  ]);
+
+  for (const [example, directory] of expectedDirectories) {
+    assert.match(
+      publicExamplesWorkflow,
+      new RegExp(`- example: ${example}\\n\\s+directory: ${directory}`),
+    );
+  }
+
+  assert.match(
+    publicExamplesWorkflow,
+    /- name: Run example unit tests\n\s+working-directory: \$\{\{ matrix\.directory \}\}\n\s+run: pnpm test/,
+  );
+  assert.match(
+    publicExamplesWorkflow,
+    /- name: Set up uv for Travel tests\n\s+if: matrix\.example == 'travel'\n\s+uses: astral-sh\/setup-uv@[0-9a-f]{40}/,
+  );
+  assert.match(
+    publicExamplesWorkflow,
+    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/showcases\/travel\/agent\n\s+run: uv run --frozen --with pytest==9\.1\.1 python -m pytest tests/,
+  );
+});
+
 test("multi-agent canvas describes linked agents as monorepo directories", () => {
   assert.match(
     multiAgentCanvasReadme,

@@ -75,12 +75,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        example:
-          - form-filling
-          - travel
-          - research-canvas
-          - chat-with-your-data
-          - state-machine
+        include:
+          - example: form-filling
+            directory: examples/showcases/form-filling
+          - example: travel
+            directory: examples/showcases/travel
+          - example: research-canvas
+            directory: examples/canvas/research-canvas
+          - example: chat-with-your-data
+            directory: examples/showcases/chat-with-your-data
+          - example: state-machine
+            directory: examples/showcases/state-machine
 
     steps:
       - name: Checkout
@@ -139,6 +144,23 @@ jobs:
       - name: Build CopilotKit
         id: build-cpk
         run: pnpm build
+
+      - name: Run example unit tests
+        working-directory: ${{ matrix.directory }}
+        run: pnpm test
+
+      - name: Set up uv for Travel tests
+        if: matrix.example == 'travel'
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: examples/showcases/travel/agent/uv.lock
+
+      - name: Run Travel agent tests
+        if: matrix.example == 'travel'
+        working-directory: examples/showcases/travel/agent
+        run: uv run --frozen --with pytest==9.1.1 python -m pytest tests
 
       - name: Install e2e dependencies
         working-directory: examples/e2e
