@@ -5,8 +5,9 @@
  * 2. Calls Claude API to generate polished release notes
  * 3. Writes release-notes.md with the AI version
  *
- * release-notes.md is committed to the release PR branch, which is both the
- * review surface and how the notes reach the publish job.
+ * release-notes.md is untracked scratch. write-changelog.ts records the result
+ * in the lane's CHANGELOG.md, which is the committed artifact, the review
+ * surface, and how the notes reach the publish job.
  *
  * Env vars:
  *   ANTHROPIC_API_KEY — for AI generation (falls back to raw if missing)

@@ -112,6 +112,15 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
+      # release-notes.md is untracked scratch. The lane's CHANGELOG.md is the
+      # committed artifact: create-pull-request stages it (a tracked file), the
+      # release PR merges it to main, and the publish job reads the section back
+      # as the GitHub Release body.
+      - name: Record notes in the lane changelog
+        if: inputs.dry_run != true
+        id: changelog
+        run: pnpm tsx scripts/release/write-changelog.ts "${{ steps.prepare.outputs.version }}" "${{ inputs.scope }}"
+
       - name: Mint devops-bot token
         if: inputs.dry_run != true
         id: app-token
@@ -153,9 +162,9 @@ jobs:
             2. **CI runs on this PR** — the full test suite (unit tests, lint, type checks, build)
                must pass before merging. This is the review gate.
 
-            3. **Review the release notes** in `release-notes.md` in this PR.
-               Edit that file on this branch to change what ships — the publish job
-               reads it verbatim as the GitHub Release body.
+            3. **Review the release notes** in `${{ steps.changelog.outputs.changelog_path }}`
+               in this PR. Edit the top section on this branch to change what ships:
+               the publish job reads that section back as the GitHub Release body.
 
             4. **When this PR is merged**, the `release / publish` workflow automatically:
                - Builds all packages
@@ -167,7 +176,7 @@ jobs:
 
             - [ ] CI is green (tests, lint, types, build)
             - [ ] Version bumps look correct
-            - [ ] Release notes are accurate (edit `release-notes.md` on this branch)
+            - [ ] Release notes are accurate (edit `${{ steps.changelog.outputs.changelog_path }}` on this branch)
 
             ---
 

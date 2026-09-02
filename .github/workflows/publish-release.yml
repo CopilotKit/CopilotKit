@@ -491,6 +491,17 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
+      # The notes live in the lane's CHANGELOG.md, which the release PR merged to
+      # main. This materializes just this version's section as release-notes.md
+      # for the step below. It never fails the job: the packages are already
+      # published by this point, so a miss must not block the tag or the release.
+      - name: Read release notes from the lane changelog
+        if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+          VERSION: ${{ steps.publish.outputs.version }}
+        run: pnpm tsx scripts/release/extract-release-notes.ts "$VERSION" "$SCOPE"
+
       - name: Create GitHub Release
         if: ${{ success() && inputs.dry-run != true && steps.meta.outputs.mode != 'prerelease' }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
@@ -508,6 +519,8 @@ jobs:
             const version = process.env.RELEASE_VERSION;
             const name = scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
 
+            // Written by the preceding step from the lane's CHANGELOG.md. The
+            // fallback is a bodyless release, which the step annotates loudly.
             let body = "";
             try {
               body = fs.readFileSync("./release-notes.md", "utf8");
