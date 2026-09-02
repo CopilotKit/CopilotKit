@@ -156,6 +156,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
     agent.setState({
       ...currentState,
       trips: currentState.trips.filter((trip) => trip.id !== id),
+      selected_trip_id:
+        currentState.selected_trip_id === id
+          ? null
+          : currentState.selected_trip_id,
     });
   };
 
