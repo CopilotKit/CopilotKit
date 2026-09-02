@@ -63,11 +63,12 @@ export function Dashboard() {
     parameters: z.object({
       query: z.string().describe("The query to search the internet for."),
     }),
-    render: ({ parameters, status }) => {
+    render: ({ parameters, status, result }) => {
       return (
         <SearchResults
           query={parameters.query || "No query provided"}
           status={status}
+          result={result}
         />
       );
     },

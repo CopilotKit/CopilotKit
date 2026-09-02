@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
-    "test": "node --test current-time.test.mjs page-accessibility.test.mjs readme-runtime.test.mjs",
+    "test": "node --test current-time.test.mjs page-accessibility.test.mjs readme-runtime.test.mjs && tsx --test components/generative-ui/SearchResults.test.tsx",
     "start": "next start"
   },
   "dependencies": {
