@@ -34,6 +34,15 @@ function parseSearchResponse(result: string | undefined) {
   }
 }
 
+function isSafeSearchResultUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function SearchResults({ query, status, result }: SearchResultsProps) {
   const searchResponse = parseSearchResponse(result);
   const isErrorResult =
@@ -85,14 +94,18 @@ export function SearchResults({ query, status, result }: SearchResultsProps) {
               className="space-y-1 border-t border-gray-100 pt-2 dark:border-gray-700"
               key={searchResult.url}
             >
-              <a
-                className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-                href={searchResult.url}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {searchResult.title}
-              </a>
+              {isSafeSearchResultUrl(searchResult.url) ? (
+                <a
+                  className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                  href={searchResult.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {searchResult.title}
+                </a>
+              ) : (
+                <p className="text-sm font-medium">{searchResult.title}</p>
+              )}
               <p className="text-xs text-gray-600 dark:text-gray-300">
                 {searchResult.content}
               </p>
