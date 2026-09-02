@@ -2,7 +2,37 @@ import type { AssistantMessage as AgUiAssistantMessage } from "@copilotkit/react
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { AssistantMessage } from "./chat-message";
+import { AssistantMessage, normalizeMarkdownContent } from "./chat-message";
+
+describe("normalizeMarkdownContent", () => {
+  test.each([
+    ["string", "Show me an electric car", "Show me an electric car"],
+    [
+      "text-part array",
+      [
+        { type: "text", text: "Show me" },
+        {
+          type: "image",
+          source: { type: "data", value: "private-image-data" },
+        },
+        { type: "text", text: "an electric car" },
+      ],
+      "Show me\nan electric car",
+    ],
+    [
+      "text-part object",
+      { type: "text", text: "Show me an electric car" },
+      "Show me an electric car",
+    ],
+    [
+      "unknown content",
+      { type: "image", source: { type: "data", value: "private-image-data" } },
+      "Unsupported message content",
+    ],
+  ])("normalizes %s", (_name, content, expected) => {
+    expect(normalizeMarkdownContent(content)).toBe(expected);
+  });
+});
 
 function renderRunningAssistant(content: string): string {
   const message: AgUiAssistantMessage = {
