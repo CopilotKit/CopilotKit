@@ -1147,7 +1147,7 @@ test("rejects realtime for disabled and absent capabilities without counting sub
   }
 });
 
-test("parses direct links and limits reset to the two Inspector keys", () => {
+test("parses direct links and limits reset to the Inspector-owned keys", () => {
   expect(parseScenarioKey("team-enabled-existing")).toEqual({
     scenarioKey: "team-enabled-existing",
   });
@@ -1164,17 +1164,32 @@ test("parses direct links and limits reset to the two Inspector keys", () => {
   expect(LAB_RESET_STORAGE_KEYS).toEqual([
     "cpk:inspector:state",
     "cpk:inspector:threads-example-tour:v1",
+    "cpk:inspector:dismissed_until",
   ]);
 });
 
 test("executes exact storage reset copy and reduced-motion restoration", async () => {
   const removedKeys: string[] = [];
-  clearThreadsStateLabStorage({
-    removeItem(key) {
-      removedKeys.push(key);
+  const resetCookies: string[] = [];
+  clearThreadsStateLabStorage(
+    {
+      removeItem(key) {
+        removedKeys.push(key);
+      },
     },
-  });
+    {
+      get cookie() {
+        return resetCookies.at(-1) ?? "";
+      },
+      set cookie(value) {
+        resetCookies.push(value);
+      },
+    },
+  );
   expect(removedKeys).toEqual(LAB_RESET_STORAGE_KEYS);
+  expect(resetCookies).toEqual([
+    "cpk_inspector_dismissed_until=; Path=/; Max-Age=0; SameSite=Lax",
+  ]);
 
   const copiedValues: string[] = [];
   const copied = await copyThreadsStateLabDirectLink(
@@ -1245,10 +1260,19 @@ test("builds a clean launcher-notification replay", () => {
       }),
     ],
     ["cpk:inspector:announcement_read", "seen"],
+    ["cpk:inspector:dismissed_until", "later"],
   ]);
   const localRemoved: string[] = [];
   const sessionRemoved: string[] = [];
-  const cookieTarget = { cookie: "unchanged" };
+  const expiredCookies: string[] = [];
+  const cookieTarget = {
+    get cookie() {
+      return expiredCookies.at(-1) ?? "";
+    },
+    set cookie(value: string) {
+      expiredCookies.push(value);
+    },
+  };
 
   clearThreadsStateLabNotificationState(
     {
@@ -1268,11 +1292,15 @@ test("builds a clean launcher-notification replay", () => {
     dockMode: "docked-left",
     selectedMenu: "agents",
   });
-  expect(localRemoved).toEqual(["cpk:inspector:announcement_read"]);
+  expect(localRemoved).toEqual([
+    "cpk:inspector:announcement_read",
+    "cpk:inspector:dismissed_until",
+  ]);
   expect(sessionRemoved).toEqual(["cpk:inspector:pulsed"]);
-  expect(cookieTarget.cookie).toBe(
+  expect(expiredCookies).toEqual([
     "cpk_inspector_announcements=; Path=/; Max-Age=0; SameSite=Lax",
-  );
+    "cpk_inspector_dismissed_until=; Path=/; Max-Age=0; SameSite=Lax",
+  ]);
   expect(
     notificationReplayUrl(
       "http://127.0.0.1:5177/?scenario=free-figma-148-of-200&reset=1",

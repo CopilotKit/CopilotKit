@@ -99,6 +99,27 @@ export type LockConflictDecision = "drop" | "force";
 export type ChannelConcurrency = "parallel" | "serial" | "drop";
 
 /**
+ * Public agent boundary for Channels.
+ *
+ * AG-UI agents from compatible client versions have the same runtime contract,
+ * but their private class fields make TypeScript treat the classes as distinct.
+ * Channels needs `clone()` at configuration time and validates the clone before
+ * each run.
+ */
+interface ChannelAgentInput {
+  threadId: string;
+  messages: unknown[];
+  state: unknown;
+  isRunning: boolean;
+  clone(): ChannelAgentInput;
+  // Keep these callable shapes version-neutral. Their concrete AG-UI types
+  // include AbstractAgent in subscriber callbacks, which would restore the
+  // private-field incompatibility this structural boundary avoids.
+  runAgent(...args: never[]): Promise<unknown>;
+  addMessage(...args: never[]): void;
+}
+
+/**
  * Isolate an agent for one turn via `clone()`.
  *
  * Applied to every configured shape, so the object a turn runs on is never one
@@ -126,7 +147,7 @@ export type ChannelConcurrency = "parallel" | "serial" | "drop";
  * rather than refuses).
  */
 export function isolateAgentInstance(
-  prototype: AbstractAgent,
+  prototype: ChannelAgentInput,
   threadId: string,
 ): AbstractAgent {
   if (typeof prototype.clone !== "function") {
@@ -136,7 +157,7 @@ export function isolateAgentInstance(
         "including agents returned from an agent: (threadId) => ... factory.",
     );
   }
-  const cloned = prototype.clone() as AbstractAgent;
+  const cloned = prototype.clone();
   if (cloned == null || cloned === prototype) {
     throw new Error(
       "createChannel: agent.clone() must return a distinct instance for concurrent turns",
@@ -155,13 +176,16 @@ export function isolateAgentInstance(
   // Note this deliberately discards `HttpAgent.clone()`'s propagation of the
   // source's aborted state, which exists for callers that clone mid-run.
   cloned.isRunning = false;
-  const withAbort = cloned as AbstractAgent & {
+  const withAbort = cloned as ChannelAgentInput & {
     abortController?: AbortController;
   };
   if ("abortController" in withAbort) {
     withAbort.abortController = new AbortController();
   }
-  return cloned;
+  // From here on Channels calls the local AG-UI client API. The structural
+  // input contract above has checked every member Channels relies on without
+  // requiring the caller's AbstractAgent class identity to match ours.
+  return cloned as AbstractAgent;
 }
 
 /**
@@ -204,8 +228,8 @@ export function isolateAgentInstance(
  * just isn't wrapped. Only dropped state leaves an agent genuinely gutted.
  */
 function warnOnCloneDroppedOwnFields(
-  prototype: AbstractAgent,
-  cloned: AbstractAgent,
+  prototype: ChannelAgentInput,
+  cloned: ChannelAgentInput,
 ): void {
   const source = prototype as unknown as Record<string, unknown>;
   const dropped = Object.keys(prototype).filter(
@@ -434,7 +458,7 @@ export interface CreateChannelOptions<
    * configure direct Slack with `slack({ replyContinuation })` instead.
    */
   replyContinuation?: ReplyContinuationOptions;
-  agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  agent?: ChannelAgentInput | ((threadId: string) => ChannelAgentInput);
   /**
    * Tolerate the AG-UI event streams real agents emit. On by default.
    *

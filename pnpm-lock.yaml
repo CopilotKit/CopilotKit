@@ -3110,8 +3110,8 @@ importers:
         specifier: 0.0.59
         version: 0.0.59
       '@ag-ui/langgraph':
-        specifier: 0.0.42
-        version: 0.0.42(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
+        specifier: 0.0.43
+        version: 0.0.43(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
       '@ag-ui/mcp-apps-middleware':
         specifier: 0.0.3
         version: 0.0.3(@ag-ui/client@0.0.59)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
@@ -4119,6 +4119,12 @@ packages:
 
   '@ag-ui/langgraph@0.0.42':
     resolution: {integrity: sha512-dXasEbGQFJcasdoy5khYyDHZHYoD1/i7hioaP8cejfw+Dss4tLvN8ndzD6c5j0hmANaKscekl+zkF7UQq3sI9w==}
+    peerDependencies:
+      '@ag-ui/client': '>=0.0.42'
+      '@ag-ui/core': '>=0.0.42'
+
+  '@ag-ui/langgraph@0.0.43':
+    resolution: {integrity: sha512-eG8FBd7jQeo7lfraAz9fbuYM/sFJILnO7yFioCa/++cFygd5CpqpvVoUI1d/WEOzHYTwiuXYM5fPOQ8ZzQuYog==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
@@ -27422,14 +27428,14 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/langgraph@0.0.42(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))':
+  '@ag-ui/langgraph@0.0.42(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.4
       '@ag-ui/client': 0.0.59
       '@ag-ui/core': 0.0.59
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
-      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
+      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
+      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
+      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))
       partial-json: 0.1.7
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -27444,14 +27450,14 @@ snapshots:
       - ws
       - zod-to-json-schema
 
-  '@ag-ui/langgraph@0.0.42(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))':
+  '@ag-ui/langgraph@0.0.43(@ag-ui/client@0.0.59)(@ag-ui/core@0.0.59)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.4
       '@ag-ui/client': 0.0.59
       '@ag-ui/core': 0.0.59
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3)
-      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
-      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(ws@8.21.3))(@opentelemetry/api@1.9.0)(openai@6.44.0(ws@8.21.3)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.21.3)(zod-to-json-schema@3.25.2(zod@3.25.76))
+      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
+      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
+      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.2(zod@3.25.76))
       partial-json: 0.1.7
       rxjs: 7.8.1
     transitivePeerDependencies:

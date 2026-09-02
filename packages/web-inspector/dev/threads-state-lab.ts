@@ -121,11 +121,14 @@ const INSPECTOR_STATE_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_READ_STORAGE_KEY = "cpk:inspector:announcement_read";
 const ANNOUNCEMENT_PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const ANNOUNCEMENT_READ_COOKIE_NAME = "cpk_inspector_announcements";
+const INSPECTOR_DISMISSAL_STORAGE_KEY = "cpk:inspector:dismissed_until";
+const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
 const REPLAY_NOTIFICATION_QUERY_KEY = "replay-notification";
 
 export const LAB_RESET_STORAGE_KEYS = [
   INSPECTOR_STATE_STORAGE_KEY,
   "cpk:inspector:threads-example-tour:v1",
+  INSPECTOR_DISMISSAL_STORAGE_KEY,
 ] as const;
 
 export const DEFAULT_SCENARIO_KEY: ScenarioKey = "free-figma-148-of-200";
@@ -1037,11 +1040,15 @@ export function installThreadsStateLabNavigation(
   };
 }
 
-/** Removes only the two Inspector-owned keys reset by the scenario lab. */
+/** Removes only the Inspector-owned persistence reset by the scenario lab. */
 export function clearThreadsStateLabStorage(
   storage: Pick<Storage, "removeItem">,
+  cookieTarget?: { cookie: string },
 ): void {
   for (const key of LAB_RESET_STORAGE_KEYS) storage.removeItem(key);
+  if (cookieTarget) {
+    cookieTarget.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  }
 }
 
 /** Re-arms the notification while preserving the developer's Inspector setup. */
@@ -1069,8 +1076,10 @@ export function clearThreadsStateLabNotificationState(
     }
   }
   localStorage.removeItem(ANNOUNCEMENT_READ_STORAGE_KEY);
+  localStorage.removeItem(INSPECTOR_DISMISSAL_STORAGE_KEY);
   sessionStorage.removeItem(ANNOUNCEMENT_PULSED_SESSION_KEY);
   cookieTarget.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  cookieTarget.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
 /** Reload URL for a clean, closed launcher with the notification re-armed. */

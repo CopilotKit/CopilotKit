@@ -57,6 +57,34 @@ describe("FrameworkOverview", () => {
     expect(markup).not.toContain("npx copilotkit@latest create");
   });
 
+  it("leads with the prompt on a framework whose init command is bespoke", () => {
+    // The Claude Agent SDK overviews pass a framework-scoped init command, so
+    // they render the chip branch rather than the shared hero action row. They
+    // still have to lead with the prompt, and they still have to keep the
+    // command chip: nothing else on the page carries that command.
+    const initCommand =
+      "npx copilotkit@latest init --framework claude-sdk-python";
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={{ ...overviewData, initCommand }}
+        currentFramework="claude-sdk-python"
+      />,
+    );
+
+    expect(markup).toContain("Copy onboarding prompt");
+    expect(markup).toContain('data-surface="docs_framework_hero"');
+    expect(markup).toContain(initCommand);
+
+    // Prompt first, then Quickstart in the bordered treatment, then the chip.
+    expect(markup.indexOf("Copy onboarding prompt")).toBeLessThan(
+      markup.indexOf("Quickstart"),
+    );
+    expect(markup.indexOf("Quickstart")).toBeLessThan(
+      markup.indexOf(initCommand),
+    );
+    expect(markup).toContain("shell-docs-cta-link");
+  });
+
   it("renders the framework identity icon in accent purple", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
