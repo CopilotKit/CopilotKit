@@ -43,16 +43,20 @@ function useFrontendTool<T extends Record<string, unknown>>(
 
 <PropertyReference
   name="handler"
-  type="(args: T, context?: { toolCall, agent?, signal? }) => Promise<string>"
+  type="(args: T, context: FrontendToolHandlerContext) => Promise<unknown>"
   required
 >
   An async function that executes when the agent calls the tool. Receives the
-  validated, typed arguments and an optional context object: - `toolCall` -- the
-  raw tool call metadata - `agent` -- the agent instance that invoked the tool;
-  absent when the tool is invoked through WebMCP - `signal` -- an `AbortSignal`
-  that is aborted when the user stops the agent (via `stopAgent()` or
-  `agent.abortRun()`). Long-running handlers can check `signal.aborted` to exit
-  early.
+  validated, typed arguments and the context object:
+
+  - `toolCall` (`ToolCall`) -- the raw tool call metadata
+  - `agent` (`AbstractAgent | undefined`) -- the agent instance that invoked
+    the tool; absent when the tool is invoked through WebMCP
+  - `signal` (`AbortSignal | undefined`) -- an `AbortSignal` that is aborted
+    when the user stops the agent (via `stopAgent()` or `agent.abortRun()`).
+    Long-running handlers can check `signal.aborted` to exit early.
+
+  `FrontendToolHandlerContext` is exported from `@copilotkit/core`.
 </PropertyReference>
 
 <PropertyReference
