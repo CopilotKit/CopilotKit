@@ -155,6 +155,7 @@ export function isValidDockMode(value: unknown): value is DockMode {
 // across ports on one host; localStorage is not.
 export const INSPECTOR_DISMISSAL_MIRROR_KEY = "cpk:inspector:dismissed_until";
 export const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+export const INSPECTOR_DISMISSAL_MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type InspectorDismissalPayload = Readonly<{ until: number }>;
 
@@ -175,6 +176,11 @@ export function loadInspectorDismissedUntil(
     clearInspectorDismissal();
     return null;
   }
+  const maximumUntil = now + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
+  if (until > maximumUntil) {
+    saveInspectorDismissedUntil(maximumUntil, now);
+    return maximumUntil;
+  }
   return until;
 }
 
@@ -188,8 +194,14 @@ export function saveInspectorDismissedUntil(
     return;
   }
 
-  const payload = JSON.stringify({ until } satisfies InspectorDismissalPayload);
-  const maxAgeSeconds = Math.max(1, Math.ceil((until - now) / 1000));
+  const boundedUntil = Math.min(
+    until,
+    now + INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  );
+  const payload = JSON.stringify({
+    until: boundedUntil,
+  } satisfies InspectorDismissalPayload);
+  const maxAgeSeconds = Math.max(1, Math.ceil((boundedUntil - now) / 1000));
   writeCookie(
     INSPECTOR_DISMISSAL_COOKIE_NAME,
     payload,
@@ -204,6 +216,7 @@ export function clearInspectorDismissal(): void {
   removeLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY);
 }
 
+/** Parse a finite deadline from either persistence layer. */
 function parseInspectorDismissalPayload(raw: string | null): number | null {
   if (!raw) return null;
   try {

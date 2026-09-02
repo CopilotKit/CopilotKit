@@ -3992,6 +3992,11 @@ small.inspector-system-health-detail {
   background-color: #322e47;
 }
 
+.inspector-window[data-color-scheme="dark"]
+  .inspector-settings-dismiss:focus-visible {
+  outline-color: #bec2ff;
+}
+
 .inspector-window[data-color-scheme="dark"] .inspector-home-card,
 .inspector-window[data-color-scheme="dark"] .inspector-home-story,
 .inspector-window[data-color-scheme="dark"] .inspector-intelligence-hud,

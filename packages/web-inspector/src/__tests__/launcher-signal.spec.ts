@@ -55,6 +55,7 @@ type MountOptions = {
   feed?: AnnouncementFeed | "pending";
   persistedMenu?: string;
   persistedOpen?: boolean;
+  persistedDockMode?: "docked-left";
   legacyReadState?: string;
   /** Pre-record a timestamp as already read, in the host-scoped cookie. */
   readTimestamp?: string;
@@ -148,6 +149,11 @@ function dismissalDeadline(): number | null {
   return typeof payload.until === "number" ? payload.until : null;
 }
 
+/** Expire the host-scoped dismissal cookie used across localhost ports. */
+function clearDismissalCookie(): void {
+  document.cookie = `${DISMISSAL_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
+}
+
 /** The static unread marker on the What's new navigation entry. */
 function navUnreadMarker(inspector: WebInspectorElement): HTMLElement | null {
   return (
@@ -233,9 +239,16 @@ afterEach(() => {
 
 async function setup(options: MountOptions = {}): Promise<Harness> {
   document.body.replaceChildren();
+  document.body.style.marginLeft = "";
+  document.documentElement.style.overflowX = "";
+  clearDismissalCookie();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  if (options.persistedMenu !== undefined || options.persistedOpen) {
+  if (
+    options.persistedMenu !== undefined ||
+    options.persistedOpen ||
+    options.persistedDockMode !== undefined
+  ) {
     window.localStorage.setItem(
       INSPECTOR_STATE_KEY,
       JSON.stringify({
@@ -244,6 +257,9 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
           ? { selectedMenu: options.persistedMenu }
           : {}),
         ...(options.persistedOpen ? { isOpen: true } : {}),
+        ...(options.persistedDockMode !== undefined
+          ? { dockMode: options.persistedDockMode }
+          : {}),
       }),
     );
   }
@@ -302,6 +318,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
   const inspectors: WebInspectorElement[] = [];
 
   const teardown = (): void => {
+    clearDismissalCookie();
     for (const mounted of inspectors) mounted.remove();
     for (const core of cores) core.setRuntimeUrl(undefined);
     vi.unstubAllGlobals();
@@ -309,6 +326,8 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
     window.localStorage.clear();
     window.sessionStorage.clear();
     document.body.replaceChildren();
+    document.body.style.marginLeft = "";
+    document.documentElement.style.overflowX = "";
     document.getElementById("cpk-inspector-brand-fonts")?.remove();
   };
   cleanup = teardown;
@@ -1083,6 +1102,26 @@ test("the notification HUD hides the Inspector for a day across localhost ports"
   expect(root(otherPort).querySelector(".inspector-window")).toBeNull();
 });
 
+test("a host dismissal fully tears down an open docked Inspector", async () => {
+  const context = await setup({ persistedDockMode: "docked-left" });
+  document.body.style.marginLeft = "19px";
+  document.documentElement.style.overflowX = "auto";
+  await click(context.inspector, launcherButton(context.inspector));
+  expect(Number.parseFloat(document.body.style.marginLeft)).toBeGreaterThan(19);
+  expect(document.documentElement.style.overflowX).toBe("hidden");
+
+  const until = Date.now() + DAY_MS;
+  document.cookie = `${DISMISSAL_COOKIE_NAME}=${encodeURIComponent(
+    JSON.stringify({ until }),
+  )}; Path=/; SameSite=Lax`;
+  document.dispatchEvent(new Event("visibilitychange"));
+  await settle(context.inspector);
+
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(document.body.style.marginLeft).toBe("19px");
+  expect(document.documentElement.style.overflowX).toBe("auto");
+});
+
 test("the launcher returns automatically when a dismissal expires", async () => {
   const context = await setup();
   await openHud(context.inspector);
@@ -1126,6 +1165,9 @@ test("Settings offers the longer one-week dismissal", async () => {
   );
   expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
     "Hide Inspector for one week",
+  );
+  expect(readFileSync("src/styles/generated.css", "utf8")).toContain(
+    ".inspector-window[data-color-scheme=dark] .inspector-settings-dismiss:focus-visible{outline-color:#bec2ff}",
   );
 
   const clickedAt = Date.now();

@@ -3,6 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import {
   clearInspectorDismissal,
   INSPECTOR_DISMISSAL_COOKIE_NAME,
+  INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   INSPECTOR_DISMISSAL_MIRROR_KEY,
   loadInspectorDismissedUntil,
   saveInspectorDismissedUntil,
@@ -47,4 +48,38 @@ test("expires the dismissal and removes its fallback state", () => {
     window.localStorage.getItem(INSPECTOR_DISMISSAL_MIRROR_KEY),
   ).toBeNull();
   expect(document.cookie).not.toContain(`${INSPECTOR_DISMISSAL_COOKIE_NAME}=`);
+});
+
+test("limits Inspector dismissals to the supported one-week duration", () => {
+  const requestedUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS * 2;
+  const maximumUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
+  saveInspectorDismissedUntil(requestedUntil, NOW);
+
+  expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
+  expect(
+    JSON.parse(
+      window.localStorage.getItem(INSPECTOR_DISMISSAL_MIRROR_KEY) ?? "null",
+    ),
+  ).toEqual({ until: maximumUntil });
+
+  window.localStorage.clear();
+  expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
+});
+
+test("bounds an untrusted host cookie and rewrites both persistence layers", () => {
+  const requestedUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS * 2;
+  const maximumUntil = NOW + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
+  document.cookie = `${INSPECTOR_DISMISSAL_COOKIE_NAME}=${encodeURIComponent(
+    JSON.stringify({ until: requestedUntil }),
+  )}; Path=/; SameSite=Lax`;
+
+  expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
+  expect(
+    JSON.parse(
+      window.localStorage.getItem(INSPECTOR_DISMISSAL_MIRROR_KEY) ?? "null",
+    ),
+  ).toEqual({ until: maximumUntil });
+
+  window.localStorage.clear();
+  expect(loadInspectorDismissedUntil(NOW)).toBe(maximumUntil);
 });

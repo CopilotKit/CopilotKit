@@ -55,6 +55,7 @@ import {
 } from "./lib/context-helpers.js";
 import {
   clearLegacyAnnouncementReadState,
+  INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   loadInspectorDismissedUntil,
   loadAnnouncementPulsedTimestamp,
   loadAnnouncementReadTimestamp,
@@ -390,7 +391,7 @@ const INSPECTOR_DISMISSAL_MS: Readonly<
   Record<InspectorDismissalDuration, number>
 > = {
   day: 24 * 60 * 60 * 1000,
-  week: 7 * 24 * 60 * 60 * 1000,
+  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
 };
 
 type HomeFeaturePromptId = HomeServiceId;
@@ -614,6 +615,7 @@ const LAUNCHER_HUD_INTRO_MS = {
   blockedRetry: 250,
 } as const;
 
+/** Return the staggered reveal delay for one launcher HUD layer. */
 const launcherHudWaterfallDelay = (introIndex: number): string =>
   `${
     LAUNCHER_HUD_INTRO_MS.waterfallStart +
@@ -11252,6 +11254,7 @@ export class WebInspectorElement extends LitElement {
     this.openInspector("floating_button");
   };
 
+  /** Whether a persisted temporary dismissal is still active. */
   private get isInspectorDismissed(): boolean {
     return (
       this.inspectorDismissedUntil !== null &&
@@ -11259,12 +11262,14 @@ export class WebInspectorElement extends LitElement {
     );
   }
 
+  /** Cancel the timer that restores Inspector after a temporary dismissal. */
   private clearInspectorDismissalTimer(): void {
     if (this.inspectorDismissalTimer === null) return;
     clearTimeout(this.inspectorDismissalTimer);
     this.inspectorDismissalTimer = null;
   }
 
+  /** Schedule Inspector to return just after its persisted deadline. */
   private scheduleInspectorDismissalExpiry(): void {
     this.clearInspectorDismissalTimer();
     if (this.inspectorDismissedUntil === null) return;
@@ -11275,13 +11280,15 @@ export class WebInspectorElement extends LitElement {
     }, delay);
   }
 
+  /** Reconcile this tab with host-scoped dismissal state from other ports. */
   private refreshInspectorDismissalState(): void {
     const hadDismissal = this.inspectorDismissedUntil !== null;
     this.inspectorDismissedUntil = loadInspectorDismissedUntil();
     this.clearInspectorDismissalTimer();
 
     if (this.inspectorDismissedUntil !== null) {
-      this.isOpen = false;
+      this.closePopOut();
+      this.closeInspector();
       this.scheduleInspectorDismissalExpiry();
       if (!hadDismissal) this.requestUpdate();
       return;
@@ -11299,6 +11306,7 @@ export class WebInspectorElement extends LitElement {
     });
   }
 
+  /** Hide Inspector for a supported duration and persist it for this host. */
   private dismissInspectorFor(duration: InspectorDismissalDuration): void {
     const now = Date.now();
     const until = now + INSPECTOR_DISMISSAL_MS[duration];
@@ -11495,6 +11503,7 @@ export class WebInspectorElement extends LitElement {
       ?.focus({ preventScroll: true });
   };
 
+  /** Apply the launcher HUD's one-day dismissal without opening Inspector. */
   private handleHudDismissDayClick = (event: Event): void => {
     event.preventDefault();
     event.stopPropagation();
