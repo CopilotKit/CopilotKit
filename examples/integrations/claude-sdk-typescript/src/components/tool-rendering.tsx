@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * Example tool-call card, styled with Tailwind CSS utility classes such as
+ * `flex`, `items-center`, `gap-2`, `list-none`, and `h-3 w-3`. This example
+ * compiles them through `@import "tailwindcss"` in `src/app/globals.css`,
+ * `tailwindcss` and `@tailwindcss/postcss` in `package.json`, and
+ * `postcss.config.mjs`.
+ *
+ * Copying this file into another project requires the same Tailwind build, or
+ * your own styles in place of these class names. See CopilotKit issue #4777.
+ */
+
 import { useEffect, useRef } from "react";
 import { Wrench, Check, ChevronDown } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
