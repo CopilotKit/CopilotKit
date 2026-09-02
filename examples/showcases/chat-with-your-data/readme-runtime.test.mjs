@@ -43,3 +43,7 @@ test("documents pnpm as the required workspace package manager", () => {
   assert.doesNotMatch(readme, /Using other package managers/);
   assert.doesNotMatch(readme, /^\s*(?:npm(?: run)?|yarn) (?:install|dev)\s*$/m);
 });
+
+test("does not document an unsupported openCopilot query parameter", () => {
+  assert.doesNotMatch(readme, /openCopilot/);
+});
