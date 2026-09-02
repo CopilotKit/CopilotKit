@@ -295,18 +295,17 @@ test.each([
 );
 
 test.each([
-  ["valid", "manage_plan", "Finish setting up Rich Threads", undefined],
+  ["valid", "manage_plan", "Finish setting up Rich Threads"],
   [
     "none",
     "enable_intelligence",
-    "Enable Intelligence to inspect Threads.",
-    "Enable Intelligence",
+    "Production-grade chat threads without the complexity. Self hostable.",
   ],
-  ["expired", "renew", "Renew Intelligence to inspect Threads.", "Renew"],
-  ["unknown", "manage_plan", "Threads are unavailable.", undefined],
+  ["expired", "renew", "Renew Intelligence to inspect Threads."],
+  ["unknown", "manage_plan", "Threads are unavailable."],
 ] as const)(
-  "locked Threads use %s license copy and action placement",
-  async (licenseState, actionKind, heading, actionLabel) => {
+  "locked Threads use %s license copy and the unified actions",
+  async (licenseState, actionKind, heading) => {
     const context = await setup({
       metadata: fullMetadata(licenseState, actionKind),
       runtimeLicense: licenseState,
@@ -320,13 +319,15 @@ test.each([
       const action = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="locked"]',
       );
+      const talk = root.querySelector<HTMLAnchorElement>(
+        '[data-inspector-locked-feature-talk="threads"]',
+      );
       expect(root.textContent).toContain(heading);
-      expect(action?.textContent?.trim()).toBe(actionLabel);
-      if (actionLabel !== undefined) {
-        expect(action?.href).toBe(
-          `https://cloud.copilotkit.ai/actions/${actionKind}`,
-        );
-      }
+      expect(action).toBeNull();
+      expect(talk?.textContent?.trim()).toBe("Talk to an Engineer");
+      expect(
+        root.querySelector('[data-inspector-feature-setup-prompt="threads"]'),
+      ).not.toBeNull();
     } finally {
       context.teardown();
     }
@@ -522,12 +523,9 @@ test("metadata usage stays independent from Threads capability and debug navigat
       Object.prototype.hasOwnProperty.call(usage ?? {}, "expiringSoonCount"),
     ).toBe(true);
     expect(root.textContent).toContain(
-      "Enable Intelligence to inspect Threads.",
+      "Production-grade chat threads without the complexity. Self hostable.",
     );
-    expect(lockedAction?.textContent?.trim()).toBe("Enable Intelligence");
-    expect(lockedAction?.href).toBe(
-      "https://cloud.copilotkit.ai/actions/enable_intelligence",
-    );
+    expect(lockedAction).toBeNull();
     expect(
       context.requests.filter((url) => url.includes("/threads?")),
     ).toHaveLength(0);
