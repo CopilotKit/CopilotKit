@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import type { Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { Mock } from "vitest";
 
 vi.mock("@copilotkit/react-core/v2", () => ({
   ToolCallStatus: { Executing: "executing" },
@@ -40,10 +41,27 @@ function getSaveButton(): HTMLButtonElement {
   return button;
 }
 
-async function approveEdit(
-  selectedPlaceIds: Set<string>,
-  placeIds?: string[][],
-) {
+type TripPlaceIds = {
+  tripId: string;
+  placeIds: string[];
+};
+
+type TripPlaceSelection = {
+  tripId: string;
+  placeIds?: string[];
+};
+
+type RespondMock = Mock<(result: unknown) => Promise<void>>;
+
+async function approveTrips({
+  selectedPlaceIdsByTrip,
+  tripPlaceIds,
+  type = "edit",
+}: {
+  selectedPlaceIdsByTrip: Map<string, Set<string>>;
+  tripPlaceIds: TripPlaceIds[];
+  type?: "add" | "edit";
+}) {
   const respond = vi.fn(async (_result: unknown): Promise<void> => {});
 
   await act(async () => {
@@ -53,74 +71,8 @@ async function approveEdit(
         respond={respond}
         approve="Save"
         reject="Cancel"
-        selectedPlaceIdsByTrip={new Map([["trip-1", selectedPlaceIds]])}
-        tripPlaceIds={(placeIds || [Array.from(selectedPlaceIds)]).map(
-          (currentPlaceIds) => ({
-            tripId: "trip-1",
-            placeIds: currentPlaceIds,
-          }),
-        )}
-        type="edit"
-      />,
-    );
-  });
-
-  await act(async () => getSaveButton().click());
-  return respond;
-}
-
-test("sends an explicit edit replacement response", async () => {
-  const respond = await approveEdit(new Set(["kept-place", "added-place"]));
-
-  expect(respond).toHaveBeenCalledWith(
-    JSON.stringify({
-      operation: "replace",
-      selections: [
-        {
-          tripId: "trip-1",
-          placeIds: ["kept-place", "added-place"],
-        },
-      ],
-    }),
-  );
-});
-
-test("uses every proposed place for an untouched edit approval", async () => {
-  const respond = await approveEdit(new Set(), [["kept-place", "added-place"]]);
-
-  expect(respond).toHaveBeenCalledWith(
-    JSON.stringify({
-      operation: "replace",
-      selections: [
-        {
-          tripId: "trip-1",
-          placeIds: ["kept-place", "added-place"],
-        },
-      ],
-    }),
-  );
-});
-
-async function approveMultipleTrips(type: "add" | "edit") {
-  const respond = vi.fn(async (_result: unknown): Promise<void> => {});
-
-  await act(async () => {
-    root.render(
-      <ActionButtons
-        status={ToolCallStatus.Executing}
-        respond={respond}
-        approve="Save"
-        reject="Cancel"
-        selectedPlaceIdsByTrip={
-          new Map([
-            ["trip-a", new Set(["a-selected"])],
-            ["trip-b", new Set(["b-selected"])],
-          ])
-        }
-        tripPlaceIds={[
-          { tripId: "trip-a", placeIds: ["a-selected", "a-other"] },
-          { tripId: "trip-b", placeIds: ["b-selected", "b-other"] },
-        ]}
+        selectedPlaceIdsByTrip={selectedPlaceIdsByTrip}
+        tripPlaceIds={tripPlaceIds}
         type={type}
       />,
     );
@@ -130,25 +82,112 @@ async function approveMultipleTrips(type: "add" | "edit") {
   return respond;
 }
 
-function expectMultiTripResponse(
-  respond: ReturnType<typeof vi.fn>,
+function expectResponse(
+  respond: RespondMock,
   operation: "replace" | "select",
+  selections: TripPlaceSelection[],
 ): void {
   expect(respond).toHaveBeenCalledWith(
-    JSON.stringify({
-      operation,
-      selections: [
-        { tripId: "trip-a", placeIds: ["a-selected"] },
-        { tripId: "trip-b", placeIds: ["b-selected"] },
-      ],
-    }),
+    JSON.stringify({ operation, selections }),
   );
 }
 
+test("sends an explicit edit replacement response", async () => {
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map([
+      ["trip-1", new Set(["kept-place", "added-place"])],
+    ]),
+    tripPlaceIds: [
+      { tripId: "trip-1", placeIds: ["kept-place", "added-place"] },
+    ],
+  });
+
+  expectResponse(respond, "replace", [
+    {
+      tripId: "trip-1",
+      placeIds: ["kept-place", "added-place"],
+    },
+  ]);
+});
+
+test("marks an untouched trip for default selection", async () => {
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map(),
+    tripPlaceIds: [
+      { tripId: "trip-1", placeIds: ["kept-place", "added-place"] },
+    ],
+  });
+
+  expectResponse(respond, "replace", [{ tripId: "trip-1" }]);
+});
+
+test("sends no place IDs for an explicitly empty trip", async () => {
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map([["trip-1", new Set()]]),
+    tripPlaceIds: [
+      { tripId: "trip-1", placeIds: ["kept-place", "added-place"] },
+    ],
+  });
+
+  expectResponse(respond, "replace", [{ tripId: "trip-1", placeIds: [] }]);
+});
+
 test("sends edit selections with their trip IDs", async () => {
-  expectMultiTripResponse(await approveMultipleTrips("edit"), "replace");
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map([
+      ["trip-a", new Set(["a-selected"])],
+      ["trip-b", new Set(["b-selected"])],
+    ]),
+    tripPlaceIds: [
+      { tripId: "trip-a", placeIds: ["a-selected", "a-other"] },
+      { tripId: "trip-b", placeIds: ["b-selected", "b-other"] },
+    ],
+  });
+
+  expectResponse(respond, "replace", [
+    { tripId: "trip-a", placeIds: ["a-selected"] },
+    { tripId: "trip-b", placeIds: ["b-selected"] },
+  ]);
 });
 
 test("sends add selections with their trip IDs", async () => {
-  expectMultiTripResponse(await approveMultipleTrips("add"), "select");
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map([
+      ["trip-a", new Set(["a-selected"])],
+      ["trip-b", new Set(["b-selected"])],
+    ]),
+    tripPlaceIds: [
+      { tripId: "trip-a", placeIds: ["a-selected", "a-other"] },
+      { tripId: "trip-b", placeIds: ["b-selected", "b-other"] },
+    ],
+    type: "add",
+  });
+
+  expectResponse(respond, "select", [
+    { tripId: "trip-a", placeIds: ["a-selected"] },
+    { tripId: "trip-b", placeIds: ["b-selected"] },
+  ]);
+});
+
+test("keeps untouched, empty, and subset selections separate by trip", async () => {
+  const respond = await approveTrips({
+    selectedPlaceIdsByTrip: new Map([
+      ["trip-empty", new Set()],
+      ["trip-subset", new Set(["subset-selected"])],
+    ]),
+    tripPlaceIds: [
+      { tripId: "trip-default", placeIds: ["default-place"] },
+      { tripId: "trip-empty", placeIds: ["empty-place"] },
+      {
+        tripId: "trip-subset",
+        placeIds: ["subset-selected", "subset-other"],
+      },
+    ],
+  });
+
+  expectResponse(respond, "replace", [
+    { tripId: "trip-default" },
+    { tripId: "trip-empty", placeIds: [] },
+    { tripId: "trip-subset", placeIds: ["subset-selected"] },
+  ]);
 });

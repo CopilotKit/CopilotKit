@@ -36,8 +36,16 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
                     f"Unsupported place operation: {response['operation']}"
                 )
             if "selections" in response:
+                trips_by_id = {trip["id"]: trip for trip in trips}
                 selected_place_ids_by_trip = {
-                    selection["tripId"]: selection["placeIds"]
+                    selection["tripId"]: (
+                        selection["placeIds"]
+                        if "placeIds" in selection
+                        else [
+                            place["id"]
+                            for place in trips_by_id[selection["tripId"]]["places"]
+                        ]
+                    )
                     for selection in response["selections"]
                 }
                 trips_to_filter = trips
