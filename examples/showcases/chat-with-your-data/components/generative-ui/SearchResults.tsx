@@ -17,7 +17,7 @@ const searchResponseSchema = z.object({
 
 type SearchResultsProps = {
   query: string;
-  status: "executing" | "inProgress" | "complete" | "error";
+  status: "executing" | "inProgress" | "complete";
   result: string | undefined;
 };
 
@@ -36,6 +36,11 @@ function parseSearchResponse(result: string | undefined) {
 
 export function SearchResults({ query, status, result }: SearchResultsProps) {
   const searchResponse = parseSearchResponse(result);
+  const isErrorResult =
+    status === "complete" && result?.startsWith("Error:") === true;
+  const errorMessage = isErrorResult
+    ? result.slice("Error:".length).trim()
+    : undefined;
 
   return (
     <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
@@ -62,7 +67,7 @@ export function SearchResults({ query, status, result }: SearchResultsProps) {
         </div>
       )}
 
-      {status === "complete" && (
+      {status === "complete" && !isErrorResult && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 text-xs text-green-500">
             <CheckCircle className="h-3 w-3" />
@@ -102,10 +107,13 @@ export function SearchResults({ query, status, result }: SearchResultsProps) {
         </div>
       )}
 
-      {status === "error" && (
-        <div className="flex items-center gap-2 text-xs text-red-500">
-          <AlertCircle className="h-3 w-3" />
-          <span>Error</span>
+      {isErrorResult && (
+        <div className="space-y-2 text-red-500">
+          <div className="flex items-center gap-2 text-xs">
+            <AlertCircle className="h-3 w-3" />
+            <span>Error</span>
+          </div>
+          {errorMessage && <p className="text-sm">{errorMessage}</p>}
         </div>
       )}
     </div>
