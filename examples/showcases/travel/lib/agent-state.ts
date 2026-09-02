@@ -2,8 +2,6 @@ import { z } from "zod";
 import { defaultTrips } from "./types";
 import type { AgentState } from "./types";
 
-const defaultSelectedTripId = defaultTrips[0]?.id ?? null;
-
 export const placeSchema = z.object({
   id: z.string().describe("The place ID"),
   name: z.string().describe("The place name"),
@@ -42,14 +40,21 @@ const initializedAgentStateSchema = z.object({
 });
 
 /**
- * Checks whether the agent state already contains safe values for the UI.
+ * Checks whether the agent state contains safe UI values and a valid selection.
  */
 export function isAgentStateInitialized(value: unknown): boolean {
-  return initializedAgentStateSchema.safeParse(value).success;
+  const state = initializedAgentStateSchema.safeParse(value);
+
+  if (!state.success) return false;
+  if (state.data.selected_trip_id === null) return true;
+
+  return state.data.trips.some(
+    (trip) => trip.id === state.data.selected_trip_id,
+  );
 }
 
 /**
- * Fills missing agent state with the travel example defaults.
+ * Fills missing agent state and selects the first normalized trip when needed.
  */
 export function normalizeAgentState(value: unknown): AgentState {
   const state =
@@ -59,14 +64,23 @@ export function normalizeAgentState(value: unknown): AgentState {
   const trips = agentTripsSchema.safeParse(state.trips);
   const selectedTripId = selectedTripIdSchema.safeParse(state.selected_trip_id);
   const searchProgress = searchProgressSchema.safeParse(state.search_progress);
+  const normalizedTrips = trips.success ? trips.data : defaultTrips;
+  const parsedSelectedTripId =
+    selectedTripId.success && state.selected_trip_id !== undefined
+      ? selectedTripId.data
+      : undefined;
+  const normalizedSelectedTripId =
+    parsedSelectedTripId === null
+      ? null
+      : parsedSelectedTripId !== undefined &&
+          normalizedTrips.some((trip) => trip.id === parsedSelectedTripId)
+        ? parsedSelectedTripId
+        : (normalizedTrips[0]?.id ?? null);
 
   return {
     ...state,
-    trips: trips.success ? trips.data : defaultTrips,
-    selected_trip_id:
-      selectedTripId.success && state.selected_trip_id !== undefined
-        ? selectedTripId.data
-        : defaultSelectedTripId,
+    trips: normalizedTrips,
+    selected_trip_id: normalizedSelectedTripId,
     search_progress: searchProgress.success ? searchProgress.data : undefined,
   };
 }

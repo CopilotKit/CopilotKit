@@ -74,6 +74,16 @@ test("uses the default selection when the selected trip ID is malformed", () => 
   expect(state.selected_trip_id).toBe(defaultTrips[0]?.id);
 });
 
+test("uses the first normalized trip when the selected trip ID is absent", () => {
+  const state = normalizeAgentState({
+    trips: [{ ...defaultTrips[0], places: [null] }],
+    selected_trip_id: "missing-trip",
+  });
+
+  expect(state.trips).toEqual(defaultTrips);
+  expect(state.selected_trip_id).toBe(defaultTrips[0]?.id);
+});
+
 test("rejects initialized state with an invalid nested trips array", () => {
   expect(
     isAgentStateInitialized({
@@ -112,4 +122,13 @@ test("accepts initialized state with valid trips and a selection", () => {
       selected_trip_id: defaultTrips[0]?.id,
     }),
   ).toBe(true);
+});
+
+test("rejects initialized state when the selected trip is absent", () => {
+  expect(
+    isAgentStateInitialized({
+      trips: defaultTrips,
+      selected_trip_id: "missing-trip",
+    }),
+  ).toBe(false);
 });
