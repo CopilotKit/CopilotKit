@@ -1,50 +1,67 @@
 ---
-title: "Step 1: Checkout the repo"
+title: "Step 1: Run the example"
 ---
 
 <Steps>
 <Step>
-### Checkout the starting branch
-We'll be working with the CopilotKit repository, specifically using a branch called `coagents-travel-tutorial-start`. This branch contains the starting code for our travel app tutorial.
+### Clone the current repository
 
 ```shell
-git clone -b coagents-travel-tutorial-start https://github.com/CopilotKit/CopilotKit.git
+git clone https://github.com/CopilotKit/CopilotKit.git
 cd CopilotKit
-```
-
-The tutorial code is located in the `examples/coagents-travel` directory, which contains:
-
-- `ui/`: A NextJS application where we'll integrate our LangGraph agent
-- `agent/`: A Python-based LangGraph agent that we'll be enhancing
-
-Go ahead and navigate to the example directory:
-
-```shell
-cd examples/coagents-travel
-```
-
-</Step>
-<Step>
-### Install dependencies
-First, let's set up the NextJS application. Navigate to the `ui` directory and install the dependencies:
-
-```shell
-cd ui
 pnpm install
 ```
 
+The completed v2 example lives at `examples/showcases/travel`. Its main parts
+are:
+
+- `app/`: the Next.js page and v2 runtime route
+- `components/`: the map, chat UI, and approval cards
+- `lib/`: shared agent state, types, and React hooks
+- `agent/`: the Python LangGraph agent and AG-UI server
+
 </Step>
 <Step>
-### Start the project
-Launch the development server:
+### Install the agent
+
+From the repository root, install the Python dependencies with the example's
+script:
 
 ```shell
-pnpm run dev
+cd examples/showcases/travel
+pnpm install:agent
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see the travel app in action. Take some time to explore the interface and familiarize yourself with its features.
+The script runs `uv sync` in the `agent/` directory.
+
+</Step>
+<Step>
+### Add the API keys
+
+Create `agent/.env` inside the travel example:
+
+```txt title="examples/showcases/travel/agent/.env"
+OPENAI_API_KEY=<your-openai-api-key>
+GOOGLE_MAPS_API_KEY=<your-google-maps-api-key>
+```
+
+You can get an OpenAI key from the [OpenAI API dashboard](https://platform.openai.com/api-keys)
+and a Google Maps key from the [Google Maps Platform guide](https://developers.google.com/maps/documentation/places/web-service/get-api-key#creating-api-keys).
+
+</Step>
+<Step>
+### Start the app and agent
+
+Run this command from `examples/showcases/travel`:
+
+```shell
+pnpm dev
+```
+
+This starts the Next.js app on [http://localhost:3000](http://localhost:3000)
+and the agent on port `8000`. Open the app and ask it to plan a trip.
 
 </Step>
 </Steps>
 
-Next, let's understand the LangGraph agent and how it works.
+Next, tour the LangGraph agent that powers the example.
