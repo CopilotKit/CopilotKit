@@ -17,21 +17,40 @@ interface AssistantMessageProps {
   toolCallsView: ReactNode;
 }
 
-function normalizeMarkdownContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (content == null) return "";
-  if (Array.isArray(content))
-    return content.map((c) => normalizeMarkdownContent(c)).join("");
+const unsupportedMessageContent = "Unsupported message content";
 
-  if (typeof content === "object") {
-    try {
-      return JSON.stringify(content);
-    } catch {
-      return String(content);
-    }
+function textFromContentPart(content: unknown): string | undefined {
+  if (typeof content === "string") return content;
+
+  if (
+    typeof content === "object" &&
+    content !== null &&
+    "type" in content &&
+    content.type === "text" &&
+    "text" in content &&
+    typeof content.text === "string"
+  ) {
+    return content.text;
   }
 
-  return String(content);
+  return undefined;
+}
+
+/** Convert supported message content into text without exposing protocol data. */
+export function normalizeMarkdownContent(content: unknown): string {
+  if (content == null) return "";
+
+  if (Array.isArray(content)) {
+    const textParts = content
+      .map((part) => textFromContentPart(part))
+      .filter((text): text is string => text !== undefined);
+
+    return textParts.length > 0
+      ? textParts.join("\n")
+      : unsupportedMessageContent;
+  }
+
+  return textFromContentPart(content) ?? unsupportedMessageContent;
 }
 
 export function UserMessage({ message }: UserMessageProps) {
