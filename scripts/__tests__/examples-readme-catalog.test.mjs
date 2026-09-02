@@ -50,6 +50,26 @@ function readmeCategory(category, heading) {
   return { declaredCount: Number(section[1]), links };
 }
 
+function workflowTriggerPaths(eventName) {
+  const eventSection = publicExamplesWorkflow.match(
+    new RegExp(
+      `^  ${eventName}:\\n([\\s\\S]*?)(?=^  (?:push|pull_request|workflow_dispatch):|^env:)`,
+      "m",
+    ),
+  );
+  assert.ok(eventSection, `workflow is missing the ${eventName} trigger`);
+
+  const pathsSection = eventSection[1].match(
+    /^    paths:\n((?:      - .+\n?)+)/m,
+  );
+  assert.ok(pathsSection, `${eventName} trigger is missing its paths filter`);
+
+  return Array.from(
+    pathsSection[1].matchAll(/^      - "([^"]+)"$/gm),
+    (match) => match[1],
+  );
+}
+
 for (const { directory, heading } of categories) {
   test(`${heading} count and links match the current example directories`, () => {
     const expectedNames = currentExampleNames(directory);
@@ -102,6 +122,38 @@ test("catalog and example jobs check out the requested dispatch ref", () => {
   assert.ok(examplesJob, "workflow is missing the examples job");
   assert.ok(catalogJob[1].includes(requestedRef));
   assert.ok(examplesJob[1].includes(requestedRef));
+});
+
+test("public example workflow watches its complete shared input set", () => {
+  const expectedPaths = [
+    "examples/**",
+    "scripts/__tests__/examples-readme-catalog.test.mjs",
+    "scripts/project.json",
+    ".github/workflows/test_e2e-public-examples.yml",
+    ".browserslistrc",
+    ".npmrc",
+    ".pnpmfile.cjs",
+    "package.json",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "nx.json",
+    "patches/**",
+    "packages/a2ui-renderer/**",
+    "packages/channels*/**",
+    "packages/core/**",
+    "packages/react-core/**",
+    "packages/runtime/**",
+    "packages/runtime-client-gql/**",
+    "packages/shared/**",
+    "packages/tsconfig/**",
+    "packages/typescript-config/**",
+    "packages/web-components/**",
+    "packages/web-inspector/**",
+  ];
+
+  assert.deepEqual(workflowTriggerPaths("push"), expectedPaths);
+  assert.deepEqual(workflowTriggerPaths("pull_request"), expectedPaths);
+  assert.equal(expectedPaths.includes("packages/**"), false);
 });
 
 test("public example jobs run each app's unit tests and Travel's Python tests", () => {
