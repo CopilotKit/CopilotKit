@@ -7,8 +7,11 @@ const frontendToolSample = readme.match(
 )?.[1];
 
 describe("README frontend tool sample", () => {
-  it("uses the shared parameters and enforces the incident date range", () => {
+  it("uses shared validation and form-update helpers", () => {
     expect(frontendToolSample).toBeDefined();
+    expect(frontendToolSample).toContain(
+      'import { applyIncidentReportFormValues } from "@/lib/apply-incident-report-form-values";',
+    );
     expect(frontendToolSample).toContain(
       'import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";',
     );
@@ -21,6 +24,10 @@ describe("README frontend tool sample", () => {
       "!incidentDate || !isIncidentDateAllowed(incidentDate)",
     );
     expect(frontendToolSample).toContain("from January 1, 1900 through today");
+    expect(frontendToolSample).toContain(
+      "applyIncidentReportFormValues(form.setValue, {",
+    );
+    expect(frontendToolSample).not.toContain("form.setValue(");
     expect(frontendToolSample).not.toContain("parameters: z.object(");
   });
 });
