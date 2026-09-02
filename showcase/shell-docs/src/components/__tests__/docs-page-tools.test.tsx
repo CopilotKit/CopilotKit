@@ -55,18 +55,19 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
   );
 }
 
-it("renders no onboarding button when no framework is passed", () => {
-  // No docs route omits the prop today — every surface has a framework to
-  // name, the root surface and the cookbook naming the Built-in Agent. This
-  // keeps the gate itself honest: the row must still render without it, and a
-  // caller that cannot name a framework must not get a prompt naming none.
+it("still renders the onboarding button when no framework is passed", () => {
+  // The surfaces that omit the prop are `a2a` and `agent-spec`: documented
+  // like frameworks, but absent from the registry, so there is no display
+  // name to put in the prompt. They are docs pages all the same, and the
+  // button's offer holds — the prompt just names no framework and lets the
+  // CLI's graph work the framework out from the repository, which it does
+  // regardless of what the prompt says.
   renderRow();
 
-  expect(screen.queryByRole("button", { name: /copy agent prompt/i })).toBe(
-    null,
-  );
-  // The rest of the row is untouched — narrowing the onboarding button must
-  // not take the markdown affordances with it.
+  expect(
+    screen.getByRole("button", { name: /copy agent prompt/i }),
+  ).toBeTruthy();
+  // The rest of the row is untouched.
   expect(screen.getByRole("button", { name: /copy markdown/i })).toBeTruthy();
   expect(screen.getByRole("button", { name: /^open$/i })).toBeTruthy();
 });

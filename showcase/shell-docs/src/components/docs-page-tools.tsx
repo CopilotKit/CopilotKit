@@ -2,11 +2,16 @@
 // "Copy agent prompt", "Copy Markdown", and the "Open in <LLM>" popover.
 // Fumadocs's upstream LLM page-actions feature.
 //
-// Extracted from `docs-page-view.tsx` so the one rule that governs the row —
-// no onboarding button unless the caller names an agent framework — sits in a
-// component small enough to unit-test. `DocsPageView` itself loads MDX off
-// disk and builds the whole nav tree, so asserting the presence or absence of
-// a button through it would mean standing up most of the docs pipeline.
+// Extracted from `docs-page-view.tsx` so the row sits in a component small
+// enough to unit-test. `DocsPageView` itself loads MDX off disk and builds the
+// whole nav tree, so asserting the row's contents through it would mean
+// standing up most of the docs pipeline.
+//
+// Every page that renders this row gets the onboarding button. `DocsPageView`
+// is only reached by docs surfaces, and the button's offer — set CopilotKit up
+// in this project — holds on all of them. Earlier revisions gated it on the
+// caller naming a framework, which made identical pages behave differently
+// depending on the URL the reader arrived through.
 
 import React from "react";
 import {
@@ -25,9 +30,9 @@ export interface DocsPageToolsProps {
   /**
    * The agent framework this page's docs are about. Present for pages served
    * under a `/<framework>/…` route, and equally for the root surface and the
-   * cookbook, where the framework in play is the Built-in Agent. Its absence
-   * is what keeps the onboarding button off a page, so this prop is the gate,
-   * not a decoration.
+   * cookbook, where the framework in play is the Built-in Agent. Absent only
+   * where the surface has no registry record to name (`a2a`, `agent-spec`);
+   * the button still renders there, its prompt simply names no framework.
    */
   onboardingFramework?: { slug: string; name: string };
 }
@@ -58,12 +63,10 @@ export function DocsPageTools({
   const markdownUrl = docsMarkdownUrl(slugHrefPrefix, slugPath);
   return (
     <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-      {onboardingFramework && (
-        <OnboardingPromptCopyButton
-          framework={onboardingFramework}
-          markdownUrl={markdownUrl}
-        />
-      )}
+      <OnboardingPromptCopyButton
+        framework={onboardingFramework}
+        markdownUrl={markdownUrl}
+      />
       <MarkdownCopyButton markdownUrl={markdownUrl} />
       <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={githubUrl} />
     </div>

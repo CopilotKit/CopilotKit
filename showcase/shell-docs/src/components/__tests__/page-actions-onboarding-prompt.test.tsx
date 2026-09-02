@@ -195,6 +195,41 @@ it("appends no framework sentence for a framework the graph does not know", asyn
   );
 });
 
+it("copies the page sentence alone when the caller names no framework", async () => {
+  // `a2a` and `agent-spec` are documented like frameworks but have no registry
+  // record, so there is no display name to substitute. The page still gets the
+  // button: the prompt names the page and stays silent about the framework,
+  // which the CLI's graph determines from the repository in any case.
+  const writeText = stubClipboard();
+
+  renderButton({ framework: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(writeText).toHaveBeenCalled());
+
+  const copied = writeText.mock.calls[0][0] as string;
+  const runId = (copied.match(/--run (\S+)/) ?? [])[1] as string;
+  expect(copied).toBe(
+    createIntelligenceOnboardingPrompt(runId) + PAGE_SENTENCE,
+  );
+  expect(copied).not.toContain("agent framework");
+});
+
+it("omits the framework property when the caller names no framework", async () => {
+  stubClipboard();
+
+  renderButton({ framework: undefined });
+  clickCopy();
+
+  await waitFor(() => expect(analytics.capture).toHaveBeenCalled());
+
+  const properties = analytics.capture.mock.calls[0][1] as Record<
+    string,
+    unknown
+  >;
+  expect(properties).not.toHaveProperty("agent_framework");
+});
+
 it("mints a run id in the shape the CLI validates", async () => {
   // `copilotkit onboard start --run <id>` rejects anything outside this
   // pattern, and it rejects silently as far as the docs reader is concerned:

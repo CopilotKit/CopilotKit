@@ -194,12 +194,16 @@ export function OnboardingPromptCopyButton({
   /**
    * The agent framework this docs page is about: `slug` is the docs registry
    * slug, `name` the display name. On the root surface and in the cookbook
-   * that is the Built-in Agent. Required, not optional: the button exists to
-   * name a framework, and `DocsPageView` gates it on the same pair being
-   * available. Frameworks the CLI's onboarding graph has no node for are
-   * handled downstream by `frameworkPromptSuffix`, not by omitting this prop.
+   * that is the Built-in Agent.
+   *
+   * Optional, because a docs surface can exist without a registry record to
+   * name — `a2a` and `agent-spec` are documented like frameworks but are not
+   * registered as integrations. Such a page still gets the button: the prompt
+   * simply names no framework, and the CLI's graph inspects the repository
+   * and asks, which is what it does anyway. Frameworks the graph has no node
+   * for are handled downstream by `frameworkPromptSuffix`.
    */
-  framework: { slug: string; name: string };
+  framework?: { slug: string; name: string };
   /**
    * The page's `.mdx` URL as a site-root-relative path — the same value the
    * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
@@ -265,10 +269,9 @@ export function OnboardingPromptCopyButton({
     // onboarding graph has no node for (`langroid`, `spring-ai`, …), which
     // leaves the framework unnamed rather than promising a path the CLI
     // cannot walk.
-    const frameworkSentence = frameworkPromptSuffix(
-      framework.slug,
-      framework.name,
-    );
+    const frameworkSentence = framework
+      ? frameworkPromptSuffix(framework.slug, framework.name)
+      : "";
     // `getClientBaseUrl()` is read HERE, inside the handler, and never during
     // render: on the server it returns the SSR placeholder (see the module
     // comment on that function), so a render-time read would put a different
@@ -309,7 +312,9 @@ export function OnboardingPromptCopyButton({
     // CLI records for the same run. Left off the payload entirely when the
     // graph has no equivalent, rather than sent as a placeholder that would
     // pollute breakdowns — same rule as the hero button.
-    const graphFramework = onboardingFrameworkSlug(framework.slug);
+    const graphFramework = framework
+      ? onboardingFrameworkSlug(framework.slug)
+      : undefined;
 
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
