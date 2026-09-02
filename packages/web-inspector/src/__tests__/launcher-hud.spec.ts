@@ -235,10 +235,17 @@ test("the HUD previews every feature in sequence on page load, then leaves", asy
     "Automatic Learning",
   ]);
   expect(
-    Array.from(
-      root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
-    ).map((row) => row.style.getPropertyValue("--cpk-hud-row-delay")),
-  ).toEqual(["180ms", "350ms"]);
+    [
+      root(inspector).querySelector<HTMLElement>(
+        ".cpk-launcher-hud__feature-list",
+      ),
+      ...Array.from(
+        root(inspector).querySelectorAll<HTMLElement>("[data-cpk-hud-row]"),
+      ),
+    ].map((item) =>
+      requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
+    ),
+  ).toEqual(["180ms", "350ms", "520ms"]);
 
   await vi.advanceTimersByTimeAsync(3400);
   await settle(inspector);

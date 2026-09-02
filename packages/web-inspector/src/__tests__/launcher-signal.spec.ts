@@ -781,9 +781,9 @@ test("the launcher animates opacity, transform and a clip — nothing that force
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
-  // Two for the halo, one per direction for both launcher reveals, and one
-  // for the HUD row stagger.
-  expect(keyframes).toHaveLength(7);
+  // Two for the halo, one per direction for the launcher pill, one for the
+  // HUD lifecycle, and one for its top-to-bottom waterfall.
+  expect(keyframes).toHaveLength(6);
 
   const animated = new Set(
     keyframes
@@ -1004,6 +1004,27 @@ test("the HUD announcement opens What's new and retires the unread signal", asyn
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
+test("dismissing the HUD notification keeps the one-day hide action", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector("[data-cpk-hud-news-dismiss]"),
+  );
+
+  expect(hudNewsButton(context.inspector)).toBeNull();
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  const featureList = requireElement(
+    root(context.inspector).querySelector(".cpk-launcher-hud__feature-list"),
+  );
+  expect(featureList.nextElementSibling).toBe(action);
+});
+
 test("the notification HUD hides the Inspector for a day across localhost ports", async () => {
   const context = await setup();
   await openHud(context.inspector);
@@ -1016,11 +1037,34 @@ test("the notification HUD hides the Inspector for a day across localhost ports"
   expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
     "Hide Inspector for a day",
   );
+  const dismissActionRule =
+    /\.cpk-launcher-hud__dismiss-day\s*\{([\s\S]*?)\}/.exec(
+      stylesheetText(context.inspector),
+    )?.[1] ?? "";
+  expect(dismissActionRule).toContain(
+    "border-radius: var(--cpk-inspector-shell-radius)",
+  );
   expect(action.closest(".cpk-launcher-hud__masthead")).toBeNull();
   const featureList = requireElement(
     root(context.inspector).querySelector(".cpk-launcher-hud__feature-list"),
   );
   expect(featureList.nextElementSibling).toBe(action);
+  expect(
+    [
+      root(context.inspector).querySelector<HTMLElement>(
+        ".cpk-launcher-hud__masthead",
+      ),
+      featureList,
+      ...Array.from(
+        root(context.inspector).querySelectorAll<HTMLElement>(
+          "[data-cpk-hud-row]",
+        ),
+      ),
+      action,
+    ].map((item) =>
+      requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
+    ),
+  ).toEqual(["180ms", "350ms", "520ms", "690ms", "860ms"]);
 
   const clickedAt = Date.now();
   await click(context.inspector, action);
@@ -1094,6 +1138,9 @@ test("the HUD omits a read announcement", async () => {
   await openHud(context.inspector);
 
   expect(hudNewsButton(context.inspector)).toBeNull();
+  expect(
+    root(context.inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
+  ).not.toBeNull();
 });
 
 test("the HUD keeps an unread announcement useful without preview text", async () => {

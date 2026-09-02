@@ -602,17 +602,23 @@ const LAUNCHER_HUD_WIDTH = 258;
  * One page-load preview of the launcher's feature HUD.
  *
  * The card arrives after the host page has had a beat to settle. Its feature
- * rows then come online in order, stay readable, and leave together. Nothing
- * is persisted: a new Inspector element means a new preview.
+ * contents then arrive from top to bottom, stay readable, and leave together.
+ * Nothing is persisted: a new Inspector element means a new preview.
  */
 const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
   duration: 3400,
-  rowStart: 180,
-  rowStagger: 170,
-  rowDuration: 300,
+  waterfallStart: 180,
+  waterfallStagger: 170,
+  waterfallDuration: 300,
   blockedRetry: 250,
 } as const;
+
+const launcherHudWaterfallDelay = (introIndex: number): string =>
+  `${
+    LAUNCHER_HUD_INTRO_MS.waterfallStart +
+    introIndex * LAUNCHER_HUD_INTRO_MS.waterfallStagger
+  }ms`;
 const DRAG_THRESHOLD = 6;
 const MIN_WINDOW_WIDTH = 880;
 const MIN_WINDOW_WIDTH_DOCKED_LEFT = 640;
@@ -9989,7 +9995,7 @@ export class WebInspectorElement extends LitElement {
         margin: 0;
         padding: 7px 13px;
         border: 1px solid var(--hud-line);
-        border-radius: 999px;
+        border-radius: var(--cpk-inspector-shell-radius);
         background: var(--hud-fill);
         color: #c9cad3;
         box-shadow: 0 8px 20px rgb(17 14 29 / 0.18);
@@ -10324,14 +10330,14 @@ export class WebInspectorElement extends LitElement {
 
       /*
        * On mount, borrow the hover HUD for one short introduction. The card
-       * establishes the destination first; its rows then resolve in order so
-       * the eye can count the available features instead of receiving one
-       * undifferentiated block. Only opacity and transform move.
+       * establishes the destination first; notification, features, and hide
+       * action then fall into place from top to bottom. Only opacity and
+       * transform move.
        */
       @keyframes cpk-launcher-hud-intro {
         0% {
           opacity: 0;
-          transform: translateX(8px);
+          transform: translateY(-4px);
         }
         8%,
         88% {
@@ -10340,30 +10346,14 @@ export class WebInspectorElement extends LitElement {
         }
         100% {
           opacity: 0;
-          transform: translateX(4px);
+          transform: translateY(3px);
         }
       }
 
-      @keyframes cpk-launcher-hud-intro-right {
-        0% {
-          opacity: 0;
-          transform: translateX(-8px);
-        }
-        8%,
-        88% {
-          opacity: 1;
-          transform: none;
-        }
-        100% {
-          opacity: 0;
-          transform: translateX(-4px);
-        }
-      }
-
-      @keyframes cpk-launcher-hud-row-online {
+      @keyframes cpk-launcher-hud-waterfall {
         from {
           opacity: 0;
-          transform: translateY(4px);
+          transform: translateY(-8px);
         }
         to {
           opacity: 1;
@@ -10376,21 +10366,28 @@ export class WebInspectorElement extends LitElement {
           cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
-      .cpk-launcher-hud[data-cpk-hud-intro="true"][data-cpk-hud-side="right"] {
-        animation-name: cpk-launcher-hud-intro-right;
-      }
-
-      .cpk-launcher-hud[data-cpk-hud-intro="true"] .cpk-launcher-hud__row {
-        animation: cpk-launcher-hud-row-online
-          var(--cpk-launcher-hud-row-duration) cubic-bezier(0.16, 1, 0.3, 1)
-          both;
-        animation-delay: var(--cpk-hud-row-delay);
+      .cpk-launcher-hud[data-cpk-hud-intro="true"]
+        :is(
+          .cpk-launcher-hud__masthead,
+          .cpk-launcher-hud__feature-list,
+          .cpk-launcher-hud__row,
+          .cpk-launcher-hud__dismiss-day
+        ) {
+        animation: cpk-launcher-hud-waterfall
+          var(--cpk-launcher-hud-waterfall-duration)
+          cubic-bezier(0.16, 1, 0.3, 1) both;
+        animation-delay: var(--cpk-hud-waterfall-delay);
       }
 
       @media (prefers-reduced-motion: reduce) {
         .cpk-launcher-hud[data-cpk-hud-intro="true"],
         .cpk-launcher-hud[data-cpk-hud-intro="true"]
-          .cpk-launcher-hud__row {
+          :is(
+            .cpk-launcher-hud__masthead,
+            .cpk-launcher-hud__feature-list,
+            .cpk-launcher-hud__row,
+            .cpk-launcher-hud__dismiss-day
+          ) {
           animation: none !important;
           opacity: 1;
           transform: none;
@@ -11530,11 +11527,9 @@ export class WebInspectorElement extends LitElement {
         data-cpk-hud-row=${args.id}
         data-cpk-hud-action-kind="navigate"
         style=${styleMap({
-          "--cpk-hud-row-index": `${args.introIndex}`,
-          "--cpk-hud-row-delay": `${
-            LAUNCHER_HUD_INTRO_MS.rowStart +
-            args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
-          }ms`,
+          "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+            args.introIndex,
+          ),
         })}
         @click=${(event: Event) => this.handleHudRowClick(event, args.id)}
       >
@@ -11614,6 +11609,7 @@ export class WebInspectorElement extends LitElement {
       (service) => service.id === "memory" && service.enabled,
     );
     const announcementTitle = this.getUnreadAnnouncementTitle();
+    const featureBlockIntroIndex = announcementTitle ? 1 : 0;
     return html`
       <div
         class="cpk-launcher-hud"
@@ -11625,7 +11621,7 @@ export class WebInspectorElement extends LitElement {
         data-color-scheme=${this.colorScheme}
         style=${styleMap({
           "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
-          "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+          "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
         })}
       >
         <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
@@ -11633,7 +11629,12 @@ export class WebInspectorElement extends LitElement {
           ${
             announcementTitle
               ? html`
-                  <div class="cpk-launcher-hud__masthead">
+                  <div
+                    class="cpk-launcher-hud__masthead"
+                    style=${styleMap({
+                      "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(0),
+                    })}
+                  >
                     <div class="cpk-launcher-hud__news-wrap">
                       <button
                         type="button"
@@ -11671,40 +11672,42 @@ export class WebInspectorElement extends LitElement {
           <ul
             class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
             role="list"
+            style=${styleMap({
+              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                featureBlockIntroIndex,
+              ),
+            })}
           >
             ${this.renderHudRow({
               id: "threads",
               label: HUD_THREADS_LABEL,
               icon: "MessageSquare",
               connected: threadsOn,
-              introIndex: 0,
+              introIndex: featureBlockIntroIndex + 1,
             })}
             ${this.renderHudRow({
               id: "learning",
               label: HUD_LEARNING_LABEL,
               icon: "Brain",
               connected: learningOn,
-              introIndex: 1,
+              introIndex: featureBlockIntroIndex + 2,
             })}
           </ul>
-          ${
-            announcementTitle
-              ? html`
-                  <button
-                    type="button"
-                    class="cpk-launcher-hud__dismiss-day"
-                    data-cpk-dismiss-inspector="day"
-                    @click=${this.handleHudDismissDayClick}
-                    @pointerdown=${(event: Event) => event.stopPropagation()}
-                  >
-                    <span aria-hidden="true"
-                      >${this.renderIcon("Clock")}</span
-                    >
-                    Hide Inspector for a day
-                  </button>
-                `
-              : nothing
-          }
+          <button
+            type="button"
+            class="cpk-launcher-hud__dismiss-day"
+            data-cpk-dismiss-inspector="day"
+            style=${styleMap({
+              "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+                featureBlockIntroIndex + 3,
+              ),
+            })}
+            @click=${this.handleHudDismissDayClick}
+            @pointerdown=${(event: Event) => event.stopPropagation()}
+          >
+            <span aria-hidden="true">${this.renderIcon("Clock")}</span>
+            Hide Inspector for a day
+          </button>
         </div>
       </div>
     `;
