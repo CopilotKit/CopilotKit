@@ -137,13 +137,13 @@ export type HomeBriefingInput = {
 
 const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
   threads: "https://docs.copilotkit.ai/threads",
-  memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  memory: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
   a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
   "open-gen-ui": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
   suggestions:
     "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
   audio: "https://docs.copilotkit.ai/voice",
-  websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  websocket: "https://docs.copilotkit.ai/intelligence/intelligence-platform",
 };
 
 /** Return the Home hero button for a trusted metadata action. */

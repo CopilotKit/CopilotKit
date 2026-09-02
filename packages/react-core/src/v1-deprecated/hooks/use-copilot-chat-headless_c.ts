@@ -21,7 +21,7 @@
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a CopilotKit Intelligence feature">
- * Read more about <a href="/premium/overview">CopilotKit Intelligence</a>.
+ * Read more about <a href="/intelligence/overview">CopilotKit Intelligence</a>.
  *
  * Usage is generous and **free** to get started.
  * </Callout>

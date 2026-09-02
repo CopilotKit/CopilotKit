@@ -223,7 +223,7 @@ export const getErrorActions = (error: CopilotKitError) => {
           label: "Show me how",
           onClick: () =>
             window.open(
-              "https://docs.copilotkit.ai/premium/overview#getting-access",
+              "https://docs.copilotkit.ai/intelligence/overview#plans-and-access",
               "_blank",
               "noopener,noreferrer",
             ),

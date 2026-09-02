@@ -1535,7 +1535,7 @@ test("self-hosted enabled zero Threads use only self-hosted onboarding", async (
   try {
     const root = harness.inspector.shadowRoot!;
     const selfHosted = root.querySelector<HTMLAnchorElement>(
-      'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+      'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
     );
 
     expect(selfHosted?.textContent?.trim()).toBe(
