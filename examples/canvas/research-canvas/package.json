@@ -33,6 +33,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@langchain/core": "^0.3.18",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^22.0.0",
     "@types/react": "19.0.1",
