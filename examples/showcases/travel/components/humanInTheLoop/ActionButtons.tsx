@@ -75,7 +75,10 @@ export const ActionButtons = ({
               if (type == "edit") {
                 console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
                 await sendResponse(
-                  JSON.stringify(Array.from(selectedPlaceIds) + "|||editMode"),
+                  JSON.stringify({
+                    operation: "replace",
+                    placeIds: Array.from(selectedPlaceIds),
+                  }),
                 );
               } else {
                 console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
@@ -88,7 +91,10 @@ export const ActionButtons = ({
               if (type == "edit") {
                 // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
                 await sendResponse(
-                  JSON.stringify(placeIds?.[0] + "|||editMode"),
+                  JSON.stringify({
+                    operation: "replace",
+                    placeIds: placeIds?.[0] || [],
+                  }),
                 );
               } else {
                 // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
