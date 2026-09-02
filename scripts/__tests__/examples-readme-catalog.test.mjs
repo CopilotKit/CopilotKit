@@ -177,6 +177,7 @@ test("public example workflow watches its complete shared input set", () => {
     "packages/react-core/**",
     "packages/runtime/**",
     "packages/runtime-client-gql/**",
+    "packages/sdk-js/**",
     "packages/shared/**",
     "packages/tsconfig/**",
     "packages/typescript-config/**",
