@@ -54,8 +54,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
       parameters: z.object({
         queries: z.array(z.string()).describe("The place searches to run"),
       }),
-      render: () =>
-        state.search_progress && state.search_progress.length > 0 ? (
+      render: ({ status }) =>
+        status === "executing" &&
+        state.search_progress &&
+        state.search_progress.length > 0 ? (
           <SearchProgress progress={state.search_progress} />
         ) : (
           <></>
