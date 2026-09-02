@@ -376,8 +376,13 @@ export const threadInspectorBaseStyles = css`
   }
 
   .cpk-td__show-more {
+    appearance: none;
     display: inline-block;
     margin-top: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
     font-size: 11px;
     font-weight: 500;
     color: #57575b;
@@ -401,13 +406,19 @@ export const threadInspectorBaseStyles = css`
   }
 
   .cpk-td__tool-header {
+    appearance: none;
     display: flex;
+    width: 100%;
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
+    border: 0;
     background: rgba(133, 236, 206, 0.15);
+    color: inherit;
     cursor: pointer;
+    font-family: inherit;
     font-size: 11px;
+    text-align: left;
     user-select: none;
   }
 

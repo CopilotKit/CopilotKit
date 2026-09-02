@@ -6,16 +6,33 @@ import {
   INSPECTOR_DISMISSAL_MAX_DURATION_MS,
   INSPECTOR_DISMISSAL_MIRROR_KEY,
   loadInspectorDismissedUntil,
+  loadInspectorState,
   saveInspectorDismissedUntil,
 } from "./inspector-state.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-01T19:00:00.000Z");
+const LEGACY_STATE_KEY = "cpk-test-inspector-state";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   clearInspectorDismissal();
+  document.cookie = `${LEGACY_STATE_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
   window.localStorage.clear();
   vi.useRealTimers();
+});
+
+test("falls back to legacy state when localStorage access is blocked", () => {
+  document.cookie = `${LEGACY_STATE_KEY}=${encodeURIComponent(
+    JSON.stringify({ selectedMenu: "threads" }),
+  )}; Path=/; SameSite=Lax`;
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new DOMException("Storage is blocked", "SecurityError");
+  });
+
+  expect(loadInspectorState(LEGACY_STATE_KEY)).toEqual({
+    selectedMenu: "threads",
+  });
 });
 
 test("persists an Inspector dismissal across localhost ports", () => {

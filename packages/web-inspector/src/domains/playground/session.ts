@@ -48,6 +48,45 @@ export interface PlaygroundThreadLoadInput {
   fetch: typeof globalThis.fetch;
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "::1" ||
+    normalized === "[::1]" ||
+    /^127(?:\.\d{1,3}){3}$/.test(normalized)
+  );
+}
+
+function assertSecureAuthenticatedRuntime(
+  runtimeUrl: string,
+  headers: Readonly<Record<string, string>>,
+): void {
+  if (Object.keys(headers).length === 0) return;
+
+  let parsedRuntimeUrl: URL;
+  try {
+    parsedRuntimeUrl = new URL(runtimeUrl, globalThis.location?.href);
+  } catch {
+    throw new Error(
+      "Authenticated thread loading requires an absolute HTTPS runtime URL.",
+    );
+  }
+
+  if (
+    parsedRuntimeUrl.protocol === "https:" ||
+    (parsedRuntimeUrl.protocol === "http:" &&
+      isLoopbackHostname(parsedRuntimeUrl.hostname))
+  ) {
+    return;
+  }
+
+  throw new Error(
+    "Authenticated thread loading requires HTTPS outside localhost.",
+  );
+}
+
 export function resolvePlaygroundAgentId(
   agents: Readonly<Record<string, AbstractAgent>>,
   preferredAgentId?: string,
@@ -342,6 +381,7 @@ export async function loadPlaygroundThread(
 export async function loadPlaygroundThreadSnapshot(
   input: PlaygroundThreadLoadInput,
 ) {
+  assertSecureAuthenticatedRuntime(input.runtimeUrl, input.headers);
   const baseUrl = input.runtimeUrl.replace(/\/+$/, "");
   const encodedThreadId = encodeURIComponent(input.thread.id);
   const [messagesResponse, stateResponse] = await Promise.all([

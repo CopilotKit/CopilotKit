@@ -130,6 +130,22 @@ describe("Playground sessions", () => {
 });
 
 describe("Playground thread loading", () => {
+  it("rejects authenticated thread loads over non-loopback HTTP", async () => {
+    const fetchThread = vi.fn<typeof globalThis.fetch>();
+
+    await expect(
+      loadPlaygroundThreadSnapshot({
+        thread: { id: "thread-1", agentId: "default" },
+        runtimeUrl: "http://runtime.example.com",
+        headers: { Authorization: "Bearer secret" },
+        fetch: fetchThread,
+      }),
+    ).rejects.toThrow(
+      "Authenticated thread loading requires HTTPS outside localhost.",
+    );
+    expect(fetchThread).not.toHaveBeenCalled();
+  });
+
   it("loads an encoded snapshot without mutating Playground state", async () => {
     const fetchThread = vi.fn<typeof globalThis.fetch>((input) => {
       const url = String(input);

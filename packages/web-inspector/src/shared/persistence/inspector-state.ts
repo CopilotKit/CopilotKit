@@ -160,7 +160,7 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
     return null;
   }
 
-  const raw = window.localStorage.getItem(storageKey);
+  const raw = readLocalStorageItem(storageKey);
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
@@ -173,21 +173,15 @@ export function loadInspectorState(storageKey: string): PersistedState | null {
   }
 
   // Backwards compatibility: try to read the legacy cookie and migrate it
-  if (typeof document !== "undefined") {
-    const prefix = `${storageKey}=`;
-    const entry = document.cookie
-      .split("; ")
-      .find((cookie) => cookie.startsWith(prefix));
-    if (entry) {
-      const legacyRaw = entry.substring(prefix.length);
-      try {
-        const parsed = JSON.parse(decodeURIComponent(legacyRaw));
-        if (parsed && typeof parsed === "object") {
-          return parsed as PersistedState;
-        }
-      } catch {
-        return null;
+  const legacyRaw = readCookie(storageKey);
+  if (legacyRaw) {
+    try {
+      const parsed = JSON.parse(legacyRaw);
+      if (parsed && typeof parsed === "object") {
+        return parsed as PersistedState;
       }
+    } catch {
+      return null;
     }
   }
 

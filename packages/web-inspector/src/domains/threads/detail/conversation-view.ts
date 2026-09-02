@@ -46,10 +46,12 @@ function renderBubble(
         ${shown}
         ${
           tooLong
-            ? html`<span
+            ? html`<button
+              type="button"
               class="cpk-td__show-more"
+              aria-expanded=${expanded ? "true" : "false"}
               @click=${() => options.onToggleMessage(item.id)}
-              >${expanded ? "Show less" : "Show more"}</span
+              >${expanded ? "Show less" : "Show more"}</button
             >`
             : nothing
         }
@@ -65,8 +67,10 @@ function renderToolBlock(
   const expanded = options.expandedTools.has(item.id);
   return html`
     <div class="cpk-td__tool-block">
-      <div
+      <button
+        type="button"
         class="cpk-td__tool-header"
+        aria-expanded=${expanded ? "true" : "false"}
         @click=${() => options.onToggleTool(item.id)}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -80,7 +84,7 @@ function renderToolBlock(
         </svg>
         <span class="cpk-td__tool-name">${item.toolName}</span>
         ${
-          item.result || Object.keys(item.arguments).length > 0
+          item.result !== null
             ? html`
                 <span class="cpk-td__tool-status">DONE</span>
               `
@@ -89,7 +93,7 @@ function renderToolBlock(
               `
         }
         <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
-      </div>
+      </button>
       ${
         expanded
           ? html`
