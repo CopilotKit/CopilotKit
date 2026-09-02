@@ -70,6 +70,13 @@ export interface MdxFrameworkOverviewProps {
    */
   currentFramework?: string;
   hrefPrefix?: string;
+  /**
+   * Forwarded to `FrameworkOverview.hideOnboardingPrompt`. Authored MDX never
+   * sets this either: `DocsPageView`'s components map injects it when that
+   * page already renders the page-tools onboarding button, so the hero does
+   * not repeat the same prompt.
+   */
+  hideOnboardingPrompt?: boolean;
 }
 
 export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
@@ -107,6 +114,7 @@ export function MdxFrameworkOverview(props: MdxFrameworkOverviewProps) {
       currentFramework={currentFramework}
       hrefPrefix={props.hrefPrefix}
       iconOverride={props.frameworkIcon}
+      hideOnboardingPrompt={props.hideOnboardingPrompt}
     />
   );
 }

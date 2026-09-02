@@ -5,6 +5,7 @@ import {
   cliFrameworkForDocsSlug,
   FrameworkOverview,
 } from "../framework-overview";
+import { MdxFrameworkOverview } from "../mdx-framework-overview";
 import type { FrameworkOverviewData } from "@/data/frameworks/types";
 
 const overviewData: FrameworkOverviewData = {
@@ -130,5 +131,85 @@ describe("FrameworkOverview", () => {
 
     expect(markup).toContain("custom Angular components");
     expect(markup).not.toContain("React components");
+  });
+
+  // `hideOnboardingPrompt` exists so a page that already offers the prompt in
+  // its page-tools row (DocsPageView passes the flag exactly when it rendered
+  // `OnboardingPromptCopyButton`) does not show the reader the same prompt
+  // twice. It must take out that button and nothing else.
+  it("drops the hero onboarding button when hideOnboardingPrompt is set", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+        hideOnboardingPrompt
+      />,
+    );
+
+    expect(markup).not.toContain("Copy onboarding prompt");
+    expect(markup).not.toContain('data-surface="docs_framework_hero"');
+
+    // The rest of the hero is untouched.
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain("shell-docs-cta-link");
+    expect(markup).toContain(overviewData.header);
+  });
+
+  it("keeps the hero onboarding button when hideOnboardingPrompt is absent", () => {
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={overviewData}
+        currentFramework="langgraph-python"
+      />,
+    );
+
+    expect(markup).toContain("Copy onboarding prompt");
+    expect(markup).toContain('data-surface="docs_framework_hero"');
+  });
+
+  it("drops only the prompt on a bespoke-init framework, keeping the command chip", () => {
+    // The bespoke-init hero is a second, hand-rolled action row rather than
+    // <HeroStartActions>, so it needs its own coverage.
+    const initCommand =
+      "npx copilotkit@latest init --framework claude-sdk-python";
+    const markup = renderToStaticMarkup(
+      <FrameworkOverview
+        data={{ ...overviewData, initCommand }}
+        currentFramework="claude-sdk-python"
+        hideOnboardingPrompt
+      />,
+    );
+
+    expect(markup).not.toContain("Copy onboarding prompt");
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain(initCommand);
+  });
+});
+
+describe("MdxFrameworkOverview", () => {
+  // The MDX-embedded hero is the case the flag was added for: DocsPageView's
+  // components map is what injects it, and it reaches the hero only through
+  // this adapter.
+  it("forwards hideOnboardingPrompt to the hero", () => {
+    const withFlag = renderToStaticMarkup(
+      <MdxFrameworkOverview
+        frameworkName="Mastra"
+        header="Bring your Mastra agents to your users"
+        guideLink="/mastra/quickstart"
+        currentFramework="mastra"
+        hideOnboardingPrompt
+      />,
+    );
+    const withoutFlag = renderToStaticMarkup(
+      <MdxFrameworkOverview
+        frameworkName="Mastra"
+        header="Bring your Mastra agents to your users"
+        guideLink="/mastra/quickstart"
+        currentFramework="mastra"
+      />,
+    );
+
+    expect(withFlag).not.toContain("Copy onboarding prompt");
+    expect(withoutFlag).toContain("Copy onboarding prompt");
   });
 });
