@@ -1,0 +1,600 @@
+import { parseInspectorMetadataV1 } from "@copilotkit/shared";
+import type {
+  InspectorMetadataV1,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
+
+export type InspectorLicenseState = "valid" | "none" | "expired" | "unknown";
+
+export type InspectorMetadataAction = Readonly<{
+  kind: "manage_plan" | "renew" | "enable_intelligence";
+  url: string;
+  label: "Manage Your Plan" | "Renew" | "Enable Intelligence";
+}>;
+
+export type InspectorThreadsUsage = Readonly<
+  NonNullable<InspectorMetadataV1["usage"]>
+>;
+
+export type InspectorMetadataProjection = Readonly<{
+  identity?: Readonly<{
+    organizationName: string;
+    projectName: string;
+  }>;
+  plan?: Readonly<{
+    code: string;
+    label: string;
+  }>;
+  usage?: InspectorThreadsUsage;
+  licenseState: InspectorLicenseState;
+  hasLicenseConflict: boolean;
+  threadsFooterAction?: InspectorMetadataAction;
+  lockedAction?: InspectorMetadataAction;
+}>;
+
+export function normalizeRuntimeLicenseState(
+  status: RuntimeLicenseStatus | undefined,
+): InspectorLicenseState {
+  switch (status) {
+    case "valid":
+    case "expiring":
+      return "valid";
+    case "none":
+      return "none";
+    case "expired":
+    case "invalid":
+      return "expired";
+    case "unknown":
+    default:
+      return "unknown";
+  }
+}
+
+function projectAction(
+  state: InspectorLicenseState,
+  action:
+    | {
+        readonly kind: "manage_plan" | "renew" | "enable_intelligence";
+        readonly url: string;
+      }
+    | undefined,
+): Pick<InspectorMetadataProjection, "threadsFooterAction" | "lockedAction"> {
+  if (state === "valid" && action?.kind === "manage_plan") {
+    return {
+      threadsFooterAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Manage Your Plan",
+      },
+    };
+  }
+
+  if (state === "none" && action?.kind === "enable_intelligence") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Enable Intelligence",
+      },
+    };
+  }
+
+  if (state === "expired" && action?.kind === "renew") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Renew",
+      },
+    };
+  }
+
+  if (state === "expired" && action?.kind === "manage_plan") {
+    return {
+      lockedAction: {
+        kind: action.kind,
+        url: action.url,
+        label: "Manage Your Plan",
+      },
+    };
+  }
+
+  return {};
+}
+
+export function projectInspectorMetadata(
+  value: unknown,
+  runtimeLicenseStatus: RuntimeLicenseStatus | undefined,
+): InspectorMetadataProjection {
+  const metadata = parseInspectorMetadataV1(value);
+  const runtimeState = normalizeRuntimeLicenseState(runtimeLicenseStatus);
+  const metadataState = metadata?.license?.state;
+  const hasLicenseConflict =
+    metadataState !== undefined &&
+    metadataState !== "unknown" &&
+    runtimeState !== "unknown" &&
+    metadataState !== runtimeState;
+  const licenseState = hasLicenseConflict
+    ? runtimeState
+    : (metadataState ?? runtimeState);
+
+  return {
+    ...(metadata?.identity === undefined
+      ? {}
+      : { identity: metadata.identity }),
+    ...(metadata?.plan === undefined ? {} : { plan: metadata.plan }),
+    ...(metadata?.usage === undefined ? {} : { usage: metadata.usage }),
+    licenseState,
+    hasLicenseConflict,
+    ...(hasLicenseConflict
+      ? {}
+      : projectAction(licenseState, metadata?.action)),
+  };
+}
+
+export type HomeHeroActionKind =
+  | "enable_intelligence"
+  | "manage_plan"
+  | "renew";
+
+export type HomeHeroAction = {
+  kind: HomeHeroActionKind;
+  url: string;
+  label: string;
+};
+
+export type HomeConnection = "connected" | "disconnected";
+
+export type HomeRuntimeConnectionState =
+  | "connected"
+  | "connecting"
+  | "disconnected"
+  | "error"
+  | "unavailable";
+
+export type HomeRuntimeHealthTone = "success" | "active" | "error" | "muted";
+
+export type HomeServiceId =
+  | "threads"
+  | "memory"
+  | "a2ui"
+  | "open-gen-ui"
+  | "suggestions"
+  | "audio"
+  | "websocket";
+
+export type HomeServiceTile = {
+  id: HomeServiceId;
+  label: string;
+  enabled: boolean;
+  url?: string;
+  docsUrl: string;
+};
+
+export type HomeFeatureImplementationPromptContext = {
+  onboardingRunId: string;
+};
+
+/**
+ * A self-contained handoff for a coding agent. It answers the onboarding
+ * workflow's session and feedback consent gates up front, while keeping the
+ * feature guide—not a generic product-onboarding branch—in control of the
+ * implementation plan.
+ */
+export function homeFeatureImplementationPrompt(
+  service: Pick<HomeServiceTile, "label" | "docsUrl">,
+  context: HomeFeatureImplementationPromptContext,
+): string {
+  return `Identify your coding-agent slug (for example, \`codex\` or \`claude-code\`). From the target project root, run \`npx copilotkit@latest onboard start --run ${context.onboardingRunId} --coding-agent <coding-agent-slug>\` and use its output as onboarding context. If it requires a CopilotKit CLI session check, you have permission to run it; never reveal credentials or send optional diagnostic feedback reports.
+
+This task is specifically to enable ${service.label}, not to re-onboard the application. First inspect the existing CopilotKit runtime, provider, agent, and UI wiring, and confirm that ${service.label} is not already enabled. Then read the ${service.label} guide (${service.docsUrl}) and make a short plan before editing. Preserve the project's framework, package manager, installed CopilotKit version, existing agent IDs, routes, provider layout, and working behavior. Do not create, select, or alter a CopilotKit Intelligence project—or add Intelligence configuration—unless this feature's official guide explicitly requires it or the user asks.
+
+Implement the smallest complete integration: wire every feature-required client and runtime configuration into the chat-to-agent path people already use, reuse local patterns, and do not invent environment values or hardcode secrets. Add or update focused tests and run the relevant project checks. Finish only after local validation proves ${service.label} works—not merely that the code compiles. Use a feature-specific runtime or Inspector capability check and, when the feature supports one, a representative UI interaction that proves the user-facing result. If the project overrides default rendering (for example, with a wildcard tool renderer), make that override compatible with this feature; a capability flag alone is not success. Summarize the changed files, validation, and any manual setup still required.`;
+}
+
+export type HomeModel = {
+  hero: {
+    connection: HomeConnection;
+    title: string;
+    body: string;
+    action?: HomeHeroAction;
+  };
+  project?: {
+    organizationName: string;
+    projectName: string;
+    planLabel?: string;
+    license: string;
+    usage?: {
+      used: number;
+      limitLabel: string;
+      ratio?: number;
+    };
+  };
+  projectLinked: boolean;
+  runtime: {
+    url?: string;
+    health: {
+      state: "healthy" | "checking" | "offline" | "error" | "unavailable";
+      label: string;
+      runtime: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+      };
+      liveUpdates: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+      };
+      lastEvent: {
+        label: string;
+        tone: HomeRuntimeHealthTone;
+        id?: string;
+        agentId?: string;
+        type?: string;
+        timestamp?: number;
+      };
+    };
+  };
+  services: HomeServiceTile[];
+};
+
+export type HomeBriefingInput = {
+  intelligenceConnected: boolean;
+  threadsAvailable: boolean;
+  metadata: InspectorMetadataProjection;
+  runtimeUrl?: string;
+  runtimeConnectionState: HomeRuntimeConnectionState;
+  lastRuntimeEvent?: {
+    id: string;
+    agentId: string;
+    type: string;
+    timestamp: number;
+  };
+  memoriesOn: boolean;
+  a2uiOn: boolean;
+  openGenUiOn: boolean;
+  suggestionsOn: boolean;
+  audioOn: boolean;
+  websocketUrl?: string;
+  intelligenceSignupUrl?: string;
+};
+
+const SERVICE_DOCS_URL: Record<HomeServiceId, string> = {
+  threads: "https://docs.copilotkit.ai/threads",
+  memory: "https://docs.copilotkit.ai/premium/intelligence-platform",
+  a2ui: "https://docs.copilotkit.ai/generative-ui/a2ui",
+  "open-gen-ui": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+  suggestions:
+    "https://docs.copilotkit.ai/reference/hooks/useConfigureSuggestions",
+  audio: "https://docs.copilotkit.ai/voice",
+  websocket: "https://docs.copilotkit.ai/premium/intelligence-platform",
+};
+
+/** Return the Home hero button for a trusted metadata action. */
+export function homeHeroActionFromMetadata(action: {
+  kind: HomeHeroActionKind;
+  url: string;
+}): HomeHeroAction {
+  if (action.kind === "manage_plan") {
+    return { kind: action.kind, url: action.url, label: "Manage plan" };
+  }
+
+  if (action.kind === "renew") {
+    return { kind: action.kind, url: action.url, label: "Renew plan" };
+  }
+
+  return {
+    kind: action.kind,
+    url: action.url,
+    label: "Setup Intelligence",
+  };
+}
+
+function connectIntelligenceAction(
+  action: HomeHeroAction | undefined,
+  connectUrl?: string,
+  licenseState?: InspectorMetadataProjection["licenseState"],
+): HomeHeroAction | undefined {
+  if (action) {
+    return action;
+  }
+
+  if (connectUrl && (licenseState === "none" || licenseState === "unknown")) {
+    return homeHeroActionFromMetadata({
+      kind: "enable_intelligence",
+      url: connectUrl,
+    });
+  }
+
+  return undefined;
+}
+
+function heroForState(args: {
+  connected: boolean;
+  action?: HomeHeroAction;
+  connectUrl?: string;
+  licenseState: InspectorMetadataProjection["licenseState"];
+}): HomeModel["hero"] {
+  if (!args.connected) {
+    const renewing = args.action?.kind === "renew";
+    return {
+      connection: "disconnected",
+      // Not "Intelligence is not setup" — that reads as a defect in the tool,
+      // and a defect gets dismissed. The heading names the product; the
+      // argument for it is made by the rotating copy on Home, which changes
+      // with the picture beside it.
+      title: renewing ? "Renew Intelligence" : "CopilotKit Intelligence",
+      // In install mode this is NOT the visible paragraph. The visible copy
+      // rotates every few seconds, which would make a screen reader announce a
+      // new sentence four times a loop, so the rotating text is hidden from
+      // assistive tech and this one stable sentence is exposed instead. It has
+      // to carry the whole chain on its own.
+      body: renewing
+        ? "Renew Intelligence to restore persistent Threads and Memory."
+        : "Intelligence keeps every thread your users have, finds evidence-backed patterns in them, and proposes skills you approve before your agent uses them.",
+      action: connectIntelligenceAction(
+        args.action,
+        args.connectUrl,
+        args.licenseState,
+      ),
+    };
+  }
+
+  return {
+    connection: "connected",
+    title: "Connected to Intelligence",
+    body: "Use Workbench to inspect threads and memory.",
+    action:
+      args.action?.kind === "enable_intelligence" ? undefined : args.action,
+  };
+}
+
+function usageFromMetadata(metadata: InspectorMetadataProjection):
+  | {
+      used: number;
+      limitLabel: string;
+      ratio?: number;
+    }
+  | undefined {
+  const usage = metadata.usage;
+  if (!usage) {
+    return undefined;
+  }
+
+  if (usage.limit.kind === "finite") {
+    return {
+      used: usage.used,
+      limitLabel: `${usage.used} / ${usage.limit.value}`,
+      ratio: usage.limit.value === 0 ? 1 : usage.used / usage.limit.value,
+    };
+  }
+
+  if (usage.limit.kind === "unlimited") {
+    return {
+      used: usage.used,
+      limitLabel: `${usage.used} / unlimited`,
+    };
+  }
+
+  return {
+    used: usage.used,
+    limitLabel: `${usage.used} used`,
+  };
+}
+
+function runtimeEventSignal(
+  event: HomeBriefingInput["lastRuntimeEvent"],
+): HomeModel["runtime"]["health"]["lastEvent"] {
+  if (!event) {
+    return { label: "No events yet", tone: "muted" };
+  }
+
+  const eventDetails = {
+    id: event.id,
+    agentId: event.agentId,
+    type: event.type,
+    timestamp: event.timestamp,
+  };
+
+  if (event.type === "RUN_ERROR" || event.type === "ERROR") {
+    return {
+      label: event.type === "RUN_ERROR" ? "Run error" : "Error",
+      tone: "error",
+      ...eventDetails,
+    };
+  }
+
+  if (event.type === "RUN_FINISHED") {
+    return {
+      label: "Run completed",
+      tone: "success",
+      ...eventDetails,
+    };
+  }
+
+  if (
+    event.type.endsWith("_START") ||
+    event.type.endsWith("_STARTED") ||
+    event.type.endsWith("_CONTENT") ||
+    event.type.endsWith("_ARGS") ||
+    event.type.endsWith("_DELTA")
+  ) {
+    return {
+      label: "Last event is in progress",
+      tone: "active",
+      ...eventDetails,
+    };
+  }
+
+  return {
+    label: "Last event received",
+    tone: "success",
+    ...eventDetails,
+  };
+}
+
+/**
+ * Whether the runtime *connection* needs attention — the single condition
+ * shared by System Health and the launcher's error signal, so the two can
+ * never disagree about whether the wiring is broken.
+ *
+ * Exactly one state counts. `disconnected` is also the initial value, so
+ * counting it would raise the signal on every page load; `connecting` is a
+ * normal startup step; `unavailable` means no Core is attached, which is not
+ * a defect of the developer's wiring.
+ *
+ * Note the deliberate asymmetry with `health.state`: a failed *run* also
+ * drives System Health to "Needs attention" while the connection is fine.
+ * That is an event rather than a state, and it is excluded from the launcher
+ * on purpose — see the launcher-signal comments in index.ts.
+ */
+export function runtimeConnectionNeedsAttention(
+  state: HomeRuntimeConnectionState,
+): boolean {
+  return state === "error";
+}
+
+function runtimeHealthFromInput(
+  input: HomeBriefingInput,
+): HomeModel["runtime"]["health"] {
+  const lastEvent = runtimeEventSignal(input.lastRuntimeEvent);
+
+  if (input.runtimeConnectionState === "connected") {
+    return {
+      state: lastEvent.tone === "error" ? "error" : "healthy",
+      label: lastEvent.tone === "error" ? "Needs attention" : "Healthy",
+      runtime: { label: "Available", tone: "success" },
+      liveUpdates: { label: "Ready", tone: "success" },
+      lastEvent,
+    };
+  }
+
+  if (input.runtimeConnectionState === "connecting") {
+    return {
+      state: "checking",
+      label: "Checking",
+      runtime: { label: "Checking", tone: "active" },
+      liveUpdates: { label: "Connecting", tone: "active" },
+      lastEvent,
+    };
+  }
+
+  if (input.runtimeConnectionState === "unavailable") {
+    return {
+      state: "unavailable",
+      label: "Unavailable",
+      runtime: { label: "Unavailable", tone: "muted" },
+      liveUpdates: { label: "Not attached", tone: "muted" },
+      lastEvent,
+    };
+  }
+
+  const needsAttention = runtimeConnectionNeedsAttention(
+    input.runtimeConnectionState,
+  );
+  return {
+    state: needsAttention ? "error" : "offline",
+    label: needsAttention ? "Runtime error" : "Offline",
+    runtime: { label: "Offline", tone: "error" },
+    liveUpdates: {
+      label: needsAttention ? "Error" : "Disconnected",
+      tone: "error",
+    },
+    lastEvent,
+  };
+}
+
+/** Build the Home briefing from data the Inspector already has. */
+export function buildHomeModel(input: HomeBriefingInput): HomeModel {
+  const metadataAction =
+    input.metadata.threadsFooterAction ?? input.metadata.lockedAction;
+  const action = metadataAction
+    ? homeHeroActionFromMetadata({
+        kind: metadataAction.kind,
+        url: metadataAction.url,
+      })
+    : undefined;
+
+  const identity = input.metadata.identity;
+  const projectLinked = Boolean(identity);
+  const intelligenceConnected =
+    input.metadata.licenseState === "valid" ||
+    (input.metadata.licenseState === "unknown" && input.intelligenceConnected);
+  const usage = usageFromMetadata(input.metadata);
+
+  return {
+    hero: heroForState({
+      connected: intelligenceConnected,
+      action,
+      connectUrl: input.intelligenceSignupUrl,
+      licenseState: input.metadata.licenseState,
+    }),
+    projectLinked,
+    project: identity
+      ? {
+          organizationName: identity.organizationName,
+          projectName: identity.projectName,
+          planLabel: input.metadata.plan?.label,
+          license: input.metadata.licenseState,
+          usage,
+        }
+      : input.metadata.plan || usage
+        ? {
+            organizationName: "Not linked",
+            projectName: "This runtime is not linked to a project",
+            planLabel: input.metadata.plan?.label,
+            license: input.metadata.licenseState,
+            usage,
+          }
+        : undefined,
+    runtime: {
+      url: input.runtimeUrl,
+      health: runtimeHealthFromInput(input),
+    },
+    services: [
+      {
+        id: "threads",
+        label: "Threads",
+        enabled: intelligenceConnected && input.threadsAvailable,
+        url: input.runtimeUrl,
+        docsUrl: SERVICE_DOCS_URL.threads,
+      },
+      {
+        id: "memory",
+        label: "Learning",
+        enabled: intelligenceConnected && input.memoriesOn,
+        docsUrl: SERVICE_DOCS_URL.memory,
+      },
+      {
+        id: "a2ui",
+        label: "A2UI",
+        enabled: input.a2uiOn,
+        docsUrl: SERVICE_DOCS_URL.a2ui,
+      },
+      {
+        id: "open-gen-ui",
+        label: "Open Gen UI",
+        enabled: input.openGenUiOn,
+        docsUrl: SERVICE_DOCS_URL["open-gen-ui"],
+      },
+      {
+        id: "suggestions",
+        label: "Suggestions",
+        enabled: input.suggestionsOn,
+        docsUrl: SERVICE_DOCS_URL.suggestions,
+      },
+      {
+        id: "audio",
+        label: "Voice",
+        enabled: input.audioOn,
+        docsUrl: SERVICE_DOCS_URL.audio,
+      },
+      {
+        id: "websocket",
+        label: "Websocket",
+        enabled: intelligenceConnected && Boolean(input.websocketUrl),
+        url: input.websocketUrl,
+        docsUrl: SERVICE_DOCS_URL.websocket,
+      },
+    ],
+  };
+}

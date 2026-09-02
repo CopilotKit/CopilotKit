@@ -6,10 +6,11 @@ import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { WebInspectorElement } from "../index.js";
+import { findInspectorCopyControl } from "../testing/inspector-elements.js";
 import {
   INSPECTOR_POP_OUT_NAME,
   POP_OUT_BLOCKED_MESSAGE,
-} from "../lib/pop-out.js";
+} from "../shell/window/pop-out.js";
 
 type PopOutWindowStub = {
   document: Document;
@@ -199,7 +200,7 @@ async function openWindowLayoutMenu(
   inspector: WebInspectorElement,
 ): Promise<ShadowRoot> {
   let root = requireShadow(inspector);
-  if (root.querySelector('[role="menu"][aria-label="Window layout"]')) {
+  if (root.querySelector("#cpk-inspector-layout-options")) {
     return root;
   }
   const trigger = requireElement(
@@ -211,7 +212,10 @@ async function openWindowLayoutMenu(
   trigger.click();
   await inspector.updateComplete;
   root = requireShadow(inspector);
-  expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+  expect(trigger.getAttribute("aria-expanded")).toBe("true");
+  expect(trigger.getAttribute("aria-controls")).toBe(
+    "cpk-inspector-layout-options",
+  );
   return root;
 }
 
@@ -222,7 +226,7 @@ async function requireWindowLayoutAction(
   const root = await openWindowLayoutMenu(inspector);
   return requireElement(
     root.querySelector<HTMLButtonElement>(
-      `[role="menuitem"][aria-label="${label}"]`,
+      `#cpk-inspector-layout-options button[aria-label="${label}"]`,
     ),
     `Window layout action was not rendered: ${label}`,
   );
@@ -1046,9 +1050,7 @@ describe("Inspector pop-out", () => {
         ),
         "Agent menu was not rendered in the pop-out",
       );
-      toggle.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      toggle.click();
       await context.inspector.updateComplete;
       await waitFor(
         () =>
@@ -1097,9 +1099,7 @@ describe("Inspector pop-out", () => {
         ),
         "Agent menu was not rendered in the pop-out",
       );
-      toggle.dispatchEvent(
-        new PointerEvent("pointerdown", { bubbles: true, cancelable: true }),
-      );
+      toggle.click();
       await context.inspector.updateComplete;
 
       const foreignButton = requireElement(
@@ -1144,15 +1144,16 @@ describe("Inspector pop-out", () => {
         "the pop-out Inspector to show the agent event",
       );
 
-      const eventRow = requireElement(
-        context.popDoc.querySelector<HTMLTableRowElement>("tbody tr"),
-        "Event row was not rendered in the pop-out",
+      const eventDisclosure = requireElement(
+        context.popDoc.querySelector<HTMLButtonElement>(
+          '.event-expansion-button[aria-label^="Expand RUN_STARTED event"]',
+        ),
+        "Event disclosure was not rendered in the pop-out",
       );
-      eventRow.click();
+      eventDisclosure.click();
       await context.inspector.updateComplete;
       await waitFor(() => {
-        const buttons = Array.from(context.popDoc.querySelectorAll("button"));
-        return buttons.some((button) => button.textContent?.includes("Copy"));
+        return findInspectorCopyControl(context.popDoc, "Copy") !== null;
       }, "the event Copy control in the pop-out");
 
       const pageWrite = vi.fn(async () => undefined);
@@ -1162,9 +1163,7 @@ describe("Inspector pop-out", () => {
       });
 
       const copy = requireElement(
-        Array.from(context.popDoc.querySelectorAll("button")).find((button) =>
-          button.textContent?.includes("Copy"),
-        ),
+        findInspectorCopyControl(context.popDoc, "Copy"),
         "Event Copy control was not rendered in the pop-out",
       );
       copy.click();

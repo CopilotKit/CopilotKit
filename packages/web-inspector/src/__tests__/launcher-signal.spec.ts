@@ -305,7 +305,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
           inspectorMetadata: false,
           licenseStatus: "unknown",
           // No telemetry from this suite: the funnel is asserted in
-          // web-inspector.spec.ts, behind the egress guard.
+          // web-inspector.integration.spec.ts, behind the egress guard.
           telemetryDisabled: true,
         });
       }
@@ -397,7 +397,7 @@ test("What's new remains directly below Home whether or not anything is unread",
 
   expect(navigationLabels(context.inspector)).toEqual([
     "Home",
-    "What's New",
+    "What's new",
     "Playground",
     "Threads",
     "Learning",
@@ -406,7 +406,7 @@ test("What's new remains directly below Home whether or not anything is unread",
     "Context",
   ]);
   expect(navUnreadMarker(context.inspector)).not.toBeNull();
-  expect(navigationLabels(context.inspector)[1]).toBe("What's New");
+  expect(navigationLabels(context.inspector)[1]).toBe("What's new");
 });
 
 test("a fresh developer lands on Home with the What's new preview", async () => {
@@ -693,6 +693,20 @@ test("the launcher beats once per tab, and again for a new announcement", async 
   expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(
     NEXT_TIMESTAMP,
   );
+});
+
+test("a feed resolved after unmount cannot consume the announcement beat", async () => {
+  const context = await setup({ feed: "pending" });
+
+  context.inspector.remove();
+  context.resolveFeed();
+  await settle(context.inspector);
+
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBeNull();
+
+  const reloaded = await context.remount();
+  expect(pulsing(reloaded)).toBe(true);
+  expect(window.sessionStorage.getItem(PULSED_SESSION_KEY)).toBe(TIMESTAMP);
 });
 
 test("an unread announcement waits to beat until the launcher is visible", async () => {
@@ -1236,6 +1250,9 @@ test("the launcher uses a stable product title while the dot carries unread stat
   expect(launcherButton(context.inspector).getAttribute("title")).toBe(
     "CopilotKit Inspector",
   );
+  expect(launcherButton(context.inspector).getAttribute("aria-label")).toBe(
+    "Web Inspector, What's new unread",
+  );
   expect(
     requireElement(launcherDot(context.inspector)).getAttribute("title"),
   ).toBeNull();
@@ -1251,7 +1268,7 @@ test("the navigation marker is static, and shares the dot's colour", async () =>
 
   const entry = requireElement(navUnreadMarker(context.inspector));
   expect(entry.querySelector(".inspector-nav-signal-dot")).not.toBeNull();
-  expect(entry.getAttribute("aria-label")).toBe("What's New, new content");
+  expect(entry.getAttribute("aria-label")).toBe("What's new, new content");
 
   const marker = requireElement(
     entry.querySelector<HTMLElement>(".inspector-nav-signal-dot"),

@@ -14,16 +14,16 @@ const cssRawImportPlugin = {
   name: "web-inspector-css-raw-import",
   enforce: "pre",
   transform(code: string, id: string): string | null {
-    if (!id.endsWith("/src/index.ts")) return null;
-    const cssImport = 'import tailwindStyles from "./styles/generated.css";';
+    if (!id.endsWith("/src/shell/web-inspector-element.ts")) return null;
+    const cssImport = 'import tailwindStyles from "../styles/generated.css";';
     if (!code.includes(cssImport)) {
       throw new Error(
-        "web-inspector dev CSS transform expected src/index.ts to include the generated.css import",
+        "web-inspector dev CSS transform expected the shell element to include the generated.css import",
       );
     }
     return code.replace(
       cssImport,
-      'import tailwindStyles from "./styles/generated.css?raw";',
+      'import tailwindStyles from "../styles/generated.css?raw";',
     );
   },
 } as const satisfies Plugin;

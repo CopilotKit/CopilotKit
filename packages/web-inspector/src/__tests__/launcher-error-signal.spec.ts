@@ -28,8 +28,12 @@ import type {
 import { afterEach, expect, test, vi } from "vitest";
 
 import type { AbstractAgent } from "@ag-ui/client";
+import { textContentIncludingJson } from "../testing/inspector-elements.js";
 import { WebInspectorElement } from "../index.js";
-import { TELEMETRY_EVENTS, TELEMETRY_INGEST_URL } from "../lib/telemetry.js";
+import {
+  TELEMETRY_EVENTS,
+  TELEMETRY_INGEST_URL,
+} from "../shared/telemetry/transport.js";
 
 const RUNTIME_URL = "https://runtime.error-signal.test";
 const AGENT_ID = "error-signal-agent";
@@ -2173,10 +2177,17 @@ test("a failed agent run names itself on the pill and lands on AG-UI Events", as
 
   await context.activate(pill(context.inspector));
   expect(currentMenu(context.inspector)).toBe("ag-ui-events");
+  const errorAction = root(context.inspector).querySelector<HTMLButtonElement>(
+    '[data-cpk-event-error="run"]',
+  );
+  expect(errorAction?.textContent).toContain("model refused the run");
+  expect(errorAction?.tagName).toBe("BUTTON");
+  expect(errorAction?.closest('[role="alert"]')).not.toBeNull();
   expect(
-    root(context.inspector).querySelector('[data-cpk-event-error="run"]')
-      ?.textContent,
-  ).toContain("model refused the run");
+    root(context.inspector).querySelector(
+      '[role="alert"][data-cpk-event-error="run"]',
+    ),
+  ).toBeNull();
 });
 
 test("a run error with no run to point at claims no highlight", async () => {
@@ -2459,7 +2470,7 @@ test("a run error names the agent and highlights RUN_ERROR", async () => {
   );
   expect(failedEvent).not.toBeNull();
   expect(failedEvent?.textContent).toContain("RUN_ERROR");
-  expect(failedEvent?.textContent).toContain(
+  expect(textContentIncludingJson(requireElement(failedEvent))).toContain(
     "Inspector lab: the agent run failed.",
   );
 });
