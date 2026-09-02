@@ -11,8 +11,10 @@ this subclass must be able to receive — which is why ``__init__`` forwards
 
 These tests deliberately assert behavior rather than upstream specifics: no
 enumerated flag names, no error-message text, no traceback locations. The
-supported range is ``ag-ui-langgraph>=0.0.42``, and CI exercises both 0.0.42
-and 0.0.43, so anything version-dependent is guarded rather than assumed.
+supported range is ``ag-ui-langgraph>=0.0.42``, and CI exercises the declared
+floor 0.0.42, the 0.0.43 whose ``clone()`` forwards its flags unconditionally,
+and the newest 0.0.44, so anything version-dependent is guarded rather than
+assumed.
 """
 
 import inspect
