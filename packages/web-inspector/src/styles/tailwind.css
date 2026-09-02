@@ -921,7 +921,8 @@
 }
 
 .inspector-settings-section-heading h2,
-.inspector-settings-status-row h3 {
+.inspector-settings-status-row h3,
+.inspector-settings-visibility h3 {
   margin: 0;
   color: #010507;
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
@@ -1062,6 +1063,61 @@
   height: 14px;
 }
 
+.inspector-settings-visibility {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  border-bottom: 1px solid #d5d3e4;
+  padding: 0 0 22px;
+}
+
+.inspector-settings-visibility h3 {
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.inspector-settings-visibility p {
+  max-width: 48ch;
+  margin: 8px 0 0;
+  color: #57575b;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.inspector-settings-dismiss {
+  display: inline-flex;
+  min-height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #c9c2e6;
+  border-radius: 7px;
+  background-color: #f5f2ff;
+  padding: 8px 11px;
+  color: #3f176f;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.inspector-settings-dismiss:hover {
+  border-color: #a69aca;
+  background-color: #eee8ff;
+}
+
+.inspector-settings-dismiss:focus-visible {
+  outline: 2px solid #6430ab;
+  outline-offset: 2px;
+}
+
+.inspector-settings-dismiss svg {
+  width: 14px;
+  height: 14px;
+}
+
 @media (max-width: 720px) {
   .inspector-settings {
     padding: 24px 20px 32px;
@@ -1081,6 +1137,11 @@
   .inspector-settings-status-row {
     flex-direction: column;
     gap: 12px;
+  }
+
+  .inspector-settings-visibility {
+    flex-direction: column;
+    gap: 16px;
   }
 
   .inspector-settings-private-content ul {
@@ -3834,6 +3895,7 @@ small.inspector-system-health-detail {
 
 .inspector-window[data-color-scheme="dark"] .inspector-settings-header,
 .inspector-window[data-color-scheme="dark"] .inspector-settings-privacy,
+.inspector-window[data-color-scheme="dark"] .inspector-settings-visibility,
 .inspector-window[data-color-scheme="dark"]
   .inspector-settings-private-content {
   border-color: #3a3d49;
@@ -3844,6 +3906,7 @@ small.inspector-system-health-detail {
   .inspector-settings-section-heading
   h2,
 .inspector-window[data-color-scheme="dark"] .inspector-settings-status-row h3,
+.inspector-window[data-color-scheme="dark"] .inspector-settings-visibility h3,
 .inspector-window[data-color-scheme="dark"]
   .inspector-settings-private-content
   strong {
@@ -3855,6 +3918,7 @@ small.inspector-system-health-detail {
   .inspector-settings-section-heading
   p,
 .inspector-window[data-color-scheme="dark"] .inspector-settings-status-row p,
+.inspector-window[data-color-scheme="dark"] .inspector-settings-visibility p,
 .inspector-window[data-color-scheme="dark"]
   .inspector-settings-private-content
   > p {
@@ -3901,6 +3965,17 @@ small.inspector-system-health-detail {
 .inspector-window[data-color-scheme="dark"]
   .inspector-settings-policy-link:hover {
   color: #ffffff;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-settings-dismiss {
+  border-color: #5d5975;
+  background-color: #272438;
+  color: #ded7ff;
+}
+
+.inspector-window[data-color-scheme="dark"] .inspector-settings-dismiss:hover {
+  border-color: #8179a7;
+  background-color: #322e47;
 }
 
 .inspector-window[data-color-scheme="dark"] .inspector-home-card,

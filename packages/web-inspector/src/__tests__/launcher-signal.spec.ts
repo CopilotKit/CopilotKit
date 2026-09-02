@@ -26,6 +26,9 @@ const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const LEGACY_ANNOUNCEMENT_KEY = "cpk:inspector:announcements";
 const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const READ_COOKIE_NAME = "cpk_inspector_announcements";
+const DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 const NEXT_TIMESTAMP = "2026-08-14T09:00:00.000Z";
@@ -132,6 +135,19 @@ function hudNewsButton(
   );
 }
 
+function dismissalDeadline(): number | null {
+  const entry = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${DISMISSAL_COOKIE_NAME}=`));
+  if (!entry) return null;
+  const separator = entry.indexOf("=");
+  const payload = JSON.parse(
+    decodeURIComponent(entry.slice(separator + 1)),
+  ) as { until?: unknown };
+  return typeof payload.until === "number" ? payload.until : null;
+}
+
 /** The static unread marker on the What's new navigation entry. */
 function navUnreadMarker(inspector: WebInspectorElement): HTMLElement | null {
   return (
@@ -212,6 +228,7 @@ let cleanup: (() => void) | null = null;
 afterEach(() => {
   cleanup?.();
   cleanup = null;
+  vi.useRealTimers();
 });
 
 async function setup(options: MountOptions = {}): Promise<Harness> {
@@ -985,6 +1002,90 @@ test("the HUD announcement opens What's new and retires the unread signal", asyn
   expect(whatsNewState(context.inspector)).toBe("content");
   expect(navUnreadMarker(context.inspector)).toBeNull();
   expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("the notification HUD closes the Inspector for a day across localhost ports", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Close Inspector for a day",
+  );
+  expect(action.closest(".cpk-launcher-hud__masthead")).toBeNull();
+  const featureList = requireElement(
+    root(context.inspector).querySelector(".cpk-launcher-hud__feature-list"),
+  );
+  expect(featureList.nextElementSibling).toBe(action);
+
+  const clickedAt = Date.now();
+  await click(context.inspector, action);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + DAY_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + DAY_MS);
+
+  context.changePort();
+  const otherPort = await context.remount();
+  expect(root(otherPort).querySelector(".console-button")).toBeNull();
+  expect(root(otherPort).querySelector(".inspector-window")).toBeNull();
+});
+
+test("the launcher returns automatically when a dismissal expires", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+
+  vi.useFakeTimers();
+  vi.setSystemTime(Date.now());
+  action.click();
+  await context.inspector.updateComplete;
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+
+  await vi.advanceTimersByTimeAsync(DAY_MS + 50);
+  await context.inspector.updateComplete;
+  await Promise.resolve();
+  expect(
+    root(context.inspector).querySelector(".console-button"),
+  ).not.toBeNull();
+});
+
+test("Settings offers the longer one-week dismissal", async () => {
+  const context = await setup({ persistedMenu: "threads" });
+  await click(context.inspector, launcherButton(context.inspector));
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      'button[aria-label="Settings"]',
+    ),
+  );
+
+  expect(
+    root(context.inspector).querySelector("[data-inspector-settings]"),
+  ).not.toBeNull();
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="week"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Close Inspector for one week",
+  );
+
+  const clickedAt = Date.now();
+  await click(context.inspector, action);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + WEEK_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);
 });
 
 test("the HUD omits a read announcement", async () => {

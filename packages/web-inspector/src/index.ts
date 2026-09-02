@@ -55,11 +55,13 @@ import {
 } from "./lib/context-helpers.js";
 import {
   clearLegacyAnnouncementReadState,
+  loadInspectorDismissedUntil,
   loadAnnouncementPulsedTimestamp,
   loadAnnouncementReadTimestamp,
   loadInspectorState,
   saveAnnouncementPulsedTimestamp,
   saveAnnouncementReadTimestamp,
+  saveInspectorDismissedUntil,
   saveInspectorState,
   isValidAnchor,
   isValidPosition,
@@ -382,6 +384,14 @@ const HUD_ANNOUNCEMENT_TITLE_LIMIT = 80;
 const HUD_THREADS_LABEL = "Rich Threads";
 const HUD_LEARNING_LABEL = "Automatic Learning";
 const HUD_LEARN_MORE_LABEL = "Click to learn more";
+
+type InspectorDismissalDuration = "day" | "week";
+const INSPECTOR_DISMISSAL_MS: Readonly<
+  Record<InspectorDismissalDuration, number>
+> = {
+  day: 24 * 60 * 60 * 1000,
+  week: 7 * 24 * 60 * 60 * 1000,
+};
 
 type HomeFeaturePromptId = HomeServiceId;
 type HomeFeaturePromptTarget = Readonly<{
@@ -6578,7 +6588,7 @@ export class WebInspectorElement extends LitElement {
   private pulsingSignal: LauncherSignalKey | null = null;
   /**
    * The single pending-beat slot. A beat that cannot land is deferred, never
-   * discarded — see `startSignalPulse` for the four reasons it cannot land.
+   * discarded — see `startSignalPulse` for the five reasons it cannot land.
    */
   private pendingPulseSignal: LauncherSignalKey | null = null;
   private pulseTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -6645,6 +6655,9 @@ export class WebInspectorElement extends LitElement {
   private launcherHudIntroStartTimer: ReturnType<typeof setTimeout> | null =
     null;
   private launcherHudIntroEndTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Host-wide deadline that suppresses both the Inspector and its launcher. */
+  private inspectorDismissedUntil: number | null = null;
+  private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   /**
    * Leaf a HUD row asked for. Consumed by `openInspector` so a red dot on
    * the circle cannot steal "Turn on Threads". Not a public open option.
@@ -9949,6 +9962,62 @@ export class WebInspectorElement extends LitElement {
         color: #17131f;
       }
 
+      .cpk-launcher-hud__dismiss-day {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        width: auto;
+        min-height: 32px;
+        align-items: center;
+        justify-content: center;
+        justify-self: center;
+        gap: 6px;
+        margin: 0;
+        padding: 7px 13px;
+        border: 1px solid var(--hud-line);
+        border-radius: 999px;
+        background: var(--hud-accent-soft);
+        color: var(--hud-accent);
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 650;
+        line-height: 1.2;
+        cursor: pointer;
+        transition:
+          border-color 120ms ease,
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .cpk-launcher-hud__dismiss-day:hover,
+      .cpk-launcher-hud__dismiss-day:focus-visible {
+        border-color: var(--hud-accent);
+        background: var(--hud-hover-fill);
+        color: var(--hud-accent);
+      }
+
+      .cpk-launcher-hud__dismiss-day:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
+      }
+
+      .cpk-launcher-hud__dismiss-day svg {
+        width: 12px;
+        height: 12px;
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day {
+        color: var(--hud-accent);
+      }
+
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day:hover,
+      .cpk-launcher-hud[data-color-scheme="light"]
+        .cpk-launcher-hud__dismiss-day:focus-visible {
+        color: #4b416b;
+      }
+
       .cpk-launcher-hud__feature-list {
         position: relative;
         z-index: 1;
@@ -10737,6 +10806,7 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.refreshInspectorDismissalState();
       this.subscribeToSystemColorScheme();
       this.exampleTourDismissed = this.readThreadsExampleTourDismissed();
       // The superseded, origin-scoped read state is discarded rather than
@@ -10745,7 +10815,9 @@ export class WebInspectorElement extends LitElement {
       // the key rather than leaving it means nothing can fall back to it.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
-      this.ensureAnnouncementLoading();
+      if (!this.isInspectorDismissed) {
+        this.ensureAnnouncementLoading();
+      }
       this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
@@ -10757,8 +10829,13 @@ export class WebInspectorElement extends LitElement {
 
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
-    // Flush point for defer reason 2: somebody is looking again.
-    if (document.visibilityState === "visible" && !this.isOpen) {
+    this.refreshInspectorDismissalState();
+    // Flush point for defer reason 3: somebody is looking again.
+    if (
+      document.visibilityState === "visible" &&
+      !this.isOpen &&
+      !this.isInspectorDismissed
+    ) {
       this.flushPendingSignalPulse();
     }
     this.requestUpdate();
@@ -10802,6 +10879,7 @@ export class WebInspectorElement extends LitElement {
     this.stopSignalPulse();
     this.cancelGestureTail();
     this.cancelLauncherHudIntro();
+    this.clearInspectorDismissalTimer();
     this.cancelThreadRefreshDebounce();
     this.clearInspectorUsageRefresh();
     this.cleanupThreadsExampleOverviewVideo();
@@ -10859,13 +10937,22 @@ export class WebInspectorElement extends LitElement {
       }
     }
 
-    this.ensureAnnouncementLoading();
+    if (this.isInspectorDismissed) {
+      // The close action persists this immediately. This branch also covers a
+      // different localhost port whose own Inspector state was still open.
+      this.persistState();
+    } else {
+      this.ensureAnnouncementLoading();
+    }
 
     this.updateHostTransform(this.isOpen ? "window" : "button");
-    this.scheduleLauncherHudIntro();
+    if (!this.isInspectorDismissed) {
+      this.scheduleLauncherHudIntro();
+    }
   }
 
   render() {
+    if (this.isInspectorDismissed) return nothing;
     return this.isOpen
       ? html`
           <div data-inspector-portal-anchor></div>
@@ -11152,19 +11239,89 @@ export class WebInspectorElement extends LitElement {
     this.openInspector("floating_button");
   };
 
+  private get isInspectorDismissed(): boolean {
+    return (
+      this.inspectorDismissedUntil !== null &&
+      this.inspectorDismissedUntil > Date.now()
+    );
+  }
+
+  private clearInspectorDismissalTimer(): void {
+    if (this.inspectorDismissalTimer === null) return;
+    clearTimeout(this.inspectorDismissalTimer);
+    this.inspectorDismissalTimer = null;
+  }
+
+  private scheduleInspectorDismissalExpiry(): void {
+    this.clearInspectorDismissalTimer();
+    if (this.inspectorDismissedUntil === null) return;
+    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    this.inspectorDismissalTimer = setTimeout(() => {
+      this.inspectorDismissalTimer = null;
+      this.refreshInspectorDismissalState();
+    }, delay);
+  }
+
+  private refreshInspectorDismissalState(): void {
+    const hadDismissal = this.inspectorDismissedUntil !== null;
+    this.inspectorDismissedUntil = loadInspectorDismissedUntil();
+    this.clearInspectorDismissalTimer();
+
+    if (this.inspectorDismissedUntil !== null) {
+      this.isOpen = false;
+      this.scheduleInspectorDismissalExpiry();
+      if (!hadDismissal) this.requestUpdate();
+      return;
+    }
+
+    if (!hadDismissal || !this.isConnected) return;
+    this.ensureAnnouncementLoading();
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      if (!this.isConnected || this.isInspectorDismissed) return;
+      this.measureContext("button");
+      this.applyAnchorPosition("button");
+      this.scheduleLauncherHudIntro();
+      this.flushPendingSignalPulse();
+    });
+  }
+
+  private dismissInspectorFor(duration: InspectorDismissalDuration): void {
+    const now = Date.now();
+    const until = now + INSPECTOR_DISMISSAL_MS[duration];
+    saveInspectorDismissedUntil(until, now);
+    this.inspectorDismissedUntil = until;
+    this.scheduleInspectorDismissalExpiry();
+    this.settingsOpen = false;
+    this.closeLauncherHud();
+    this.stopSignalPulse();
+    this.cancelGestureTail();
+    this.cancelLauncherHudIntro();
+    this.closePopOut();
+
+    if (this.isOpen) {
+      this.closeInspector();
+      return;
+    }
+
+    this.persistState();
+    this.requestUpdate();
+  }
+
   private isLauncherHudBlocked(): boolean {
-    return this.gestureSignal !== null;
+    return this.gestureSignal !== null || this.isInspectorDismissed;
   }
 
   private scheduleLauncherHudIntro(
     delay: number = LAUNCHER_HUD_INTRO_MS.delay,
   ): void {
+    if (this.isInspectorDismissed) return;
     if (this.launcherHudIntroStartTimer !== null) {
       clearTimeout(this.launcherHudIntroStartTimer);
     }
     this.launcherHudIntroStartTimer = setTimeout(() => {
       this.launcherHudIntroStartTimer = null;
-      if (!this.isConnected || this.isOpen) return;
+      if (!this.isConnected || this.isOpen || this.isInspectorDismissed) return;
       if (this.isLauncherHudBlocked()) {
         this.scheduleLauncherHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
         return;
@@ -11323,6 +11480,12 @@ export class WebInspectorElement extends LitElement {
     this.activeRoot
       .querySelector<HTMLButtonElement>(".console-button")
       ?.focus({ preventScroll: true });
+  };
+
+  private handleHudDismissDayClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.dismissInspectorFor("day");
   };
 
   private getUnreadAnnouncementTitle(): string | null {
@@ -11508,6 +11671,24 @@ export class WebInspectorElement extends LitElement {
               introIndex: 1,
             })}
           </ul>
+          ${
+            announcementTitle
+              ? html`
+                  <button
+                    type="button"
+                    class="cpk-launcher-hud__dismiss-day"
+                    data-cpk-dismiss-inspector="day"
+                    @click=${this.handleHudDismissDayClick}
+                    @pointerdown=${(event: Event) => event.stopPropagation()}
+                  >
+                    <span aria-hidden="true"
+                      >${this.renderIcon("Clock")}</span
+                    >
+                    Close Inspector for a day
+                  </button>
+                `
+              : nothing
+          }
         </div>
       </div>
     `;
@@ -14570,6 +14751,9 @@ export class WebInspectorElement extends LitElement {
     source: InspectorOpenSource,
     options: InspectorOpenOptions = {},
   ): void {
+    if (this.isInspectorDismissed) {
+      return;
+    }
     if (options.threadId) {
       this.focusThread(options);
     }
@@ -16190,6 +16374,40 @@ export class WebInspectorElement extends LitElement {
               Read the telemetry policy
               <span aria-hidden="true">${this.renderIcon("ArrowUpRight")}</span>
             </a>
+          </div>
+        </section>
+
+        <section
+          class="inspector-settings-section"
+          aria-labelledby="inspector-settings-visibility-title"
+        >
+          <div class="inspector-settings-section-heading">
+            <span class="inspector-settings-section-icon" aria-hidden="true">
+              ${this.renderIcon("EyeOff")}
+            </span>
+            <div>
+              <h2 id="inspector-settings-visibility-title">Visibility</h2>
+              <p>Temporarily hide the Inspector on this domain.</p>
+            </div>
+          </div>
+
+          <div class="inspector-settings-visibility">
+            <div>
+              <h3>Take a break from the Inspector</h3>
+              <p>
+                Hide the Inspector for seven days. It will return automatically
+                when the week is over.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="inspector-settings-dismiss"
+              data-cpk-dismiss-inspector="week"
+              @click=${() => this.dismissInspectorFor("week")}
+            >
+              <span aria-hidden="true">${this.renderIcon("Clock")}</span>
+              Close Inspector for one week
+            </button>
           </div>
         </section>
       </div>
@@ -20385,12 +20603,12 @@ export class WebInspectorElement extends LitElement {
   /**
    * Requests one beat for a signal, running it now or deferring it.
    *
-   * There is a single pending slot and four reasons a beat cannot land. All
-   * four are the same situation — "cannot land now, run later" — and treating
+   * There is a single pending slot and five reasons a beat cannot land. All
+   * five are the same situation — "cannot land now, run later" — and treating
    * them alike is the point: three separate behaviours for one situation would
    * not survive a third signal.
    *
-   * Reason 3 is not cosmetic. Starting a beat while one runs does not restart
+   * Reason 4 is not cosmetic. Starting a beat while one runs does not restart
    * the animation, because the attribute it binds to does not change value and
    * the pseudo-element selectors match on attribute *presence*; the running
    * beat would merely change colour mid-flight. A failure that arms during an
@@ -20399,7 +20617,7 @@ export class WebInspectorElement extends LitElement {
    *
    * A failure's beat is followed by a pill, and the whole 3.4-second gesture
    * holds this one slot for its full duration. That is not a second scheduling
-   * concept: reason 3 already says "another beat is running", and a gesture is
+   * concept: reason 4 already says "another beat is running", and a gesture is
    * simply a longer beat.
    */
   private startSignalPulse(key: LauncherSignalKey): void {
@@ -20407,12 +20625,14 @@ export class WebInspectorElement extends LitElement {
       // 1. The panel is open, so there is no visible launcher. Pop-out is the
       //    same case: the host page renders only a portal anchor.
       this.isOpen ||
-      // 2. Nobody is looking.
+      // 2. The developer deliberately hid the entire Inspector for a while.
+      this.isInspectorDismissed ||
+      // 3. Nobody is looking.
       (typeof document !== "undefined" &&
         document.visibilityState !== "visible") ||
-      // 3. Another beat — or the pill that follows it — is already running.
+      // 4. Another beat — or the pill that follows it — is already running.
       (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
-      // 4. Another signal currently owns the dot.
+      // 5. Another signal currently owns the dot.
       this.getActiveLauncherSignal() !== key;
 
     if (deferred) {
@@ -20461,7 +20681,7 @@ export class WebInspectorElement extends LitElement {
         this.endGesture();
         return;
       }
-      // Reason 3 has just cleared.
+      // Reason 4 has just cleared.
       this.flushPendingSignalPulse();
     }, LAUNCHER_SIGNALS[key].cadence);
   }
@@ -20508,7 +20728,7 @@ export class WebInspectorElement extends LitElement {
 
   /**
    * The signal holding the single gesture slot: a beat in flight, or the pill
-   * and spoken sentence that follow it. One slot, not two — see reason 3 in
+   * and spoken sentence that follow it. One slot, not two — see reason 4 in
    * `startSignalPulse`.
    */
   private get gestureSlotSignal(): LauncherSignalKey | null {
