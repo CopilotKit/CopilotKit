@@ -209,4 +209,74 @@ describe("useFrontendTool webmcp flag", () => {
 
     ui.unmount();
   });
+
+  it("registers and cleans up agent-scoped webmcp tools on the core", async () => {
+    let coreRef: CopilotKitCoreVue | null = null;
+
+    const ToolComponent = defineComponent({
+      setup() {
+        useFrontendTool({
+          name: "scopedTool",
+          description: "A WebMCP tool scoped to alpha",
+          agentId: "alpha",
+          webmcp: { annotations: { readOnlyHint: true } },
+          handler: async () => ({ ok: true }),
+        });
+        useFrontendTool({
+          name: "scopedTool",
+          description: "A WebMCP tool scoped to beta",
+          agentId: "beta",
+          webmcp: true,
+          handler: async () => ({ ok: true }),
+        });
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    const Host = defineComponent({
+      components: { ToolComponent, CoreCapture },
+      setup() {
+        return {
+          setCore: (core: CopilotKitCoreVue) => {
+            coreRef = core;
+          },
+        };
+      },
+      template: `
+        <div>
+          <ToolComponent />
+          <CoreCapture :on-core="setCore" />
+        </div>
+      `,
+    });
+
+    const ui = renderWithCopilotKit({
+      children: Host,
+    });
+
+    await waitFor(() => {
+      expect(coreRef).not.toBeNull();
+      const alphaTool = coreRef!.tools.find(
+        (entry) => entry.name === "scopedTool" && entry.agentId === "alpha",
+      );
+      expect(alphaTool).toBeDefined();
+      expect(alphaTool!.webmcp).toEqual({
+        annotations: { readOnlyHint: true },
+      });
+      const betaTool = coreRef!.tools.find(
+        (entry) => entry.name === "scopedTool" && entry.agentId === "beta",
+      );
+      expect(betaTool).toBeDefined();
+      expect(betaTool!.webmcp).toBe(true);
+    });
+
+    ui.unmount();
+
+    await waitFor(() => {
+      expect(
+        coreRef!.tools.filter((entry) => entry.name === "scopedTool").length,
+      ).toBe(0);
+    });
+  });
 });

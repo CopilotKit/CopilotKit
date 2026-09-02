@@ -169,7 +169,12 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       render: wrapRenderWithJsonResult(typedAction.render),
       available: normalizedAvailable,
       agentId: typedAction.agentId,
-      webmcp: typedAction.webmcp,
+      // Read webmcp at watch time: the action object may expose it as a getter
+      // over reactive state, and capturing the initial value here would
+      // re-register a stale configuration.
+      get webmcp() {
+        return typedAction.webmcp;
+      },
     },
     deps,
   );

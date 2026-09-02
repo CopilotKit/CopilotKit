@@ -104,6 +104,12 @@ export class WebMCPRegistry {
         .catch((error) => {
           // Registration failed (duplicate name, insecure context, permission
           // policy, ...). Drop the bookkeeping; the browser never registered.
+          // Only delete while this is still the active registration: an
+          // aborted registration can reject after a newer one already replaced
+          // it, and that replacement's bookkeeping must survive.
+          if (this.entries.get(name)?.controller !== controller) {
+            return;
+          }
           this.entries.delete(name);
           const message =
             error instanceof Error ? error.message : String(error);
@@ -115,6 +121,11 @@ export class WebMCPRegistry {
     }
   }
 
+  /**
+   * Build the WebMCP model-context tool for a frontend tool. The `execute`
+   * callback delegates to the frontend tool's own handler, so a browser agent
+   * call runs the same application code as an agent call.
+   */
   private buildModelContextTool(
     tool: FrontendTool<any> & { description: string },
   ): {
@@ -155,6 +166,7 @@ export class WebMCPRegistry {
     };
   }
 
+  /** Log `message` once per tool name. Repeated syncs must not spam the log. */
   private warnOnce(name: string, message: string): void {
     if (this.warnedNames.has(name)) {
       return;

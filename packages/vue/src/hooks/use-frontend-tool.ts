@@ -45,7 +45,6 @@ export function useFrontendTool<const T extends Parameter[] = []>(
     available,
     render,
     agentId,
-    webmcp,
   } = tool;
   const zodParameters = getZodParameters(parameters);
 
@@ -78,7 +77,12 @@ export function useFrontendTool<const T extends Parameter[] = []>(
       render: normalizedRender,
       available: available === undefined ? undefined : available !== "disabled",
       agentId,
-      webmcp,
+      // Read webmcp at watch time: the v1 args may expose it as a getter over
+      // reactive state, and capturing the initial value here would re-register
+      // a stale configuration.
+      get webmcp() {
+        return tool.webmcp;
+      },
     },
     deps,
   );

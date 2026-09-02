@@ -272,6 +272,63 @@ describe("RunHandler WebMCP registration", () => {
     expect(second.tools.map((t) => t.name)).toContain("sayHello");
   });
 
+  it("keeps the replacement when a stale registration rejects late", async () => {
+    const registered = new Map<string, { tool: any; signal: AbortSignal }>();
+    let rejectFirst!: (error: unknown) => void;
+    const registerTool = vi.fn(
+      async (tool: any, options: { signal: AbortSignal }) => {
+        if (registered.has(tool.name)) {
+          throw new DOMException("duplicate", "InvalidStateError");
+        }
+        registered.set(tool.name, { tool, signal: options.signal });
+        options.signal.addEventListener("abort", () => {
+          registered.delete(tool.name);
+        });
+        if (tool.description === "first") {
+          // Defer this registration's outcome; the test rejects it after a
+          // replacement has already been registered.
+          await new Promise((_resolve, reject) => {
+            rejectFirst = reject;
+          });
+        }
+      },
+    );
+    vi.stubGlobal("document", { modelContext: { registerTool } });
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+
+    const runHandler = createRunHandler();
+    runHandler.addTool({
+      name: "sayHello",
+      description: "first",
+      webmcp: true,
+    });
+
+    // Replace the tool object: the stale registration is aborted and a new
+    // one takes over while the first is still pending.
+    runHandler.removeTool("sayHello");
+    runHandler.addTool({
+      name: "sayHello",
+      description: "second",
+      webmcp: true,
+    });
+    await vi.waitFor(() => {
+      expect(registerTool).toHaveBeenCalledTimes(2);
+    });
+    expect(registered.get("sayHello")!.tool.description).toBe("second");
+
+    // The stale registration rejects after the replacement is registered.
+    // The guard must ignore it silently: the rejection belongs to a
+    // registration that was deliberately replaced.
+    rejectFirst(new Error("late failure"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(warnSpy).not.toHaveBeenCalled();
+
+    // The replacement's bookkeeping survived: removeTool aborts the live
+    // registration's own signal, so the browser entry goes away.
+    runHandler.removeTool("sayHello");
+    expect(registered.has("sayHello")).toBe(false);
+  });
+
   it("executes the tool handler when a browser agent calls the tool", async () => {
     const modelContext = stubWebMCP();
     const runHandler = createRunHandler();

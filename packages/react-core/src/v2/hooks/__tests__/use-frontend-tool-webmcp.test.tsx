@@ -6,7 +6,6 @@ import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { ReactFrontendTool } from "../../types";
 import { CopilotKitCoreReact } from "../../lib/react-core";
 import { renderWithCopilotKit } from "../../__tests__/utils/test-helpers";
-
 /**
  * Component that captures the copilotkit core ref for test assertions.
  */
@@ -110,7 +109,9 @@ describe("useFrontendTool webmcp flag", () => {
         parameters: z.object({ data: z.string() }),
         handler: async () => ({ ok: true }),
       };
-      useFrontendTool(tool, [readOnly]);
+      // No deps: the re-registration must come from the webmcp dependency
+      // alone, not from an explicit dependency on the same state.
+      useFrontendTool(tool);
 
       return (
         <button
@@ -151,5 +152,62 @@ describe("useFrontendTool webmcp flag", () => {
     });
 
     ui.unmount();
+  });
+
+  it("registers and cleans up agent-scoped webmcp tools on the core", async () => {
+    let coreRef: CopilotKitCoreReact | null = null;
+
+    const ToolComponent: React.FC = () => {
+      useFrontendTool({
+        name: "scopedTool",
+        description: "A WebMCP tool scoped to alpha",
+        agentId: "alpha",
+        webmcp: { annotations: { readOnlyHint: true } },
+        handler: async () => ({ ok: true }),
+      });
+      useFrontendTool({
+        name: "scopedTool",
+        description: "A WebMCP tool scoped to beta",
+        agentId: "beta",
+        webmcp: true,
+        handler: async () => ({ ok: true }),
+      });
+      return null;
+    };
+
+    const ui = renderWithCopilotKit({
+      children: (
+        <>
+          <ToolComponent />
+          <CoreCapture
+            onCore={(c) => {
+              coreRef = c;
+            }}
+          />
+        </>
+      ),
+    });
+
+    await waitFor(() => {
+      expect(coreRef).not.toBeNull();
+      const alphaTool = coreRef!.tools.find(
+        (t) => t.name === "scopedTool" && t.agentId === "alpha",
+      );
+      expect(alphaTool).toBeDefined();
+      expect(alphaTool!.webmcp).toEqual({ annotations: { readOnlyHint: true } });
+      const betaTool = coreRef!.tools.find(
+        (t) => t.name === "scopedTool" && t.agentId === "beta",
+      );
+      expect(betaTool).toBeDefined();
+      expect(betaTool!.webmcp).toBe(true);
+    });
+
+    ui.unmount();
+
+    await waitFor(() => {
+      expect(
+        coreRef!.tools.filter((t) => t.name === "scopedTool").length,
+      ).toBe(0);
+    });
   });
 });

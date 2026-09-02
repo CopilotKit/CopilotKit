@@ -45,6 +45,10 @@ export function createToolSchema(
   return schema;
 }
 
+/**
+ * Remove every `additionalProperties` key from a JSON schema tree, in place.
+ * Some LLM providers reject schemas that carry it.
+ */
 function stripAdditionalProperties(schema: unknown): void {
   if (!schema || typeof schema !== "object") {
     return;

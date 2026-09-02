@@ -69,8 +69,9 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
       The raw AG-UI tool call metadata, including the tool call `id`.
     </PropertyReference>
 
-    <PropertyReference name="context.agent" type="AbstractAgent">
-      The agent instance that invoked the tool.
+    <PropertyReference name="context.agent" type="AbstractAgent | undefined">
+      The agent instance that invoked the tool. Absent when the tool is invoked
+      through WebMCP.
     </PropertyReference>
 
     <PropertyReference name="context.signal" type="AbortSignal | undefined">
