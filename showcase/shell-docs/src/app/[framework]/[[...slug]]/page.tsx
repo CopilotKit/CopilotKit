@@ -104,6 +104,26 @@ function frontendRoutePath(
   return frontendPathForBackend(frontend, slugPath, activeBackendFramework);
 }
 
+/**
+ * The `onboardingFramework` prop for a `DocsPageView` rendered by this route:
+ * the docs registry slug plus its display name. This is the ONLY route that
+ * passes it, which is what confines the page-tools "Copy agent prompt" button
+ * to framework-scoped pages.
+ *
+ * Returns undefined when there is no framework to name — a frontend route with
+ * no backend selected (`/vue/using-these-docs`), or a docs-only slug with no
+ * registry record (`a2a`, `agent-spec`). Those pages then render no onboarding
+ * button rather than a button whose prompt would name a framework the registry
+ * cannot confirm a display name for.
+ */
+function onboardingFrameworkFor(
+  slug: string | null | undefined,
+): { slug: string; name: string } | undefined {
+  if (!slug) return undefined;
+  const name = getIntegration(slug)?.name;
+  return name ? { slug, name } : undefined;
+}
+
 function isFrontendGuidanceSlug(slugPath: string): boolean {
   return slugPath === "using-these-docs";
 }
@@ -668,6 +688,7 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={resolution.framework}
+          onboardingFramework={onboardingFrameworkFor(resolution.framework)}
           frontendOverride="angular"
           navTree={getAngularDocsNavTree(activeBackendFramework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -702,6 +723,10 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          // No `onboardingFramework`: this is the `else` of
+          // `if (activeBackendFramework)`, so there is no backend framework to
+          // name here by construction — the reader has picked a frontend
+          // (`/vue`, `/react-native`, …) and no agent framework yet.
           frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -939,6 +964,7 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      onboardingFramework={onboardingFrameworkFor(scopedFramework)}
       frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
@@ -974,6 +1000,12 @@ function ChannelGuideDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      // A channel guide with no backend selected still documents the
+      // Built-in Agent, so `ROOT_FRAMEWORK` is the framework being read
+      // about here, not a placeholder.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
       frontendOverride={frontend}
       navTree={getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1004,6 +1036,12 @@ function FrontendQuickstartDocsPage({
         activeBackendFramework ??
         (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
       }
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ??
+          (frontend === "slack" || frontend === "teams"
+            ? ROOT_FRAMEWORK
+            : null),
+      )}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1029,6 +1067,7 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
+      onboardingFramework={onboardingFrameworkFor(activeBackendFramework)}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1116,6 +1155,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}
@@ -1250,6 +1290,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}

@@ -19,6 +19,10 @@ import { buttonVariants } from "@/components/ui/button";
 import { usePathname } from "fumadocs-core/framework";
 import { usePostHog } from "posthog-js/react";
 import {
+  frameworkPromptSuffix,
+  onboardingFrameworkSlug,
+} from "@/lib/intelligence-onboarding-framework";
+import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -170,10 +174,12 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * Copies the canonical CopilotKit onboarding prompt so a reader can paste it
  * straight into their coding agent.
  *
- * The copied string is EXACTLY `createIntelligenceOnboardingPrompt(runId)`.
- * That text has to stay byte-identical with the sibling copies in the
- * Intelligence repo and the Inspector, so nothing — page title, page URL,
- * framework hint — may be appended to it here.
+ * The copied string is `createIntelligenceOnboardingPrompt(runId)` followed by
+ * two sentences of page context: which agent framework the reader is reading
+ * about, and which page they copied from. Both are statements of fact for the
+ * receiving agent, never instructions — the prompt itself is the only thing
+ * that tells the agent what to do, and the sibling copies in the Intelligence
+ * repo and the Inspector have to keep matching that part byte for byte.
  *
  * The run id is minted per click (not per page load), matching
  * `components/intelligence-onboarding-prompt.tsx`: one clipboard write is one
@@ -181,8 +187,27 @@ const ONBOARDING_COPY_SURFACE = "docs_page_tools_onboarding_prompt";
  * would collapse many attempts into one funnel row.
  */
 export function OnboardingPromptCopyButton({
+  framework,
+  markdownUrl,
   ...props
-}: ComponentProps<"button">) {
+}: ComponentProps<"button"> & {
+  /**
+   * The agent framework this docs page is scoped to: `slug` is the docs
+   * registry slug, `name` the display name. Required, not optional: this
+   * button is only meant to appear on framework-scoped docs pages, and
+   * `DocsPageView` gates it on the same pair being available. Frameworks the
+   * CLI's onboarding graph has no node for are handled downstream by
+   * `frameworkPromptSuffix`, not by omitting this prop.
+   */
+  framework: { slug: string; name: string };
+  /**
+   * The page's `.mdx` URL as a site-root-relative path — the same value the
+   * page-tools row hands `MarkdownCopyButton`. Passed in rather than derived
+   * from `usePathname()` so the URL named in the prompt and the URL the
+   * neighbouring button fetches can never drift apart.
+   */
+  markdownUrl: string;
+}) {
   const pathname = usePathname();
   const posthog = usePostHog();
   const [copyState, setCopyState] = useState<OnboardingCopyState>("idle");
@@ -235,9 +260,30 @@ export function OnboardingPromptCopyButton({
 
     const runId = createOnboardingRunId();
 
+    // Reused verbatim from the hero button's helper so both surfaces name the
+    // framework in the same words. It is "" for a framework the CLI's
+    // onboarding graph has no node for (`built-in-agent` among them), which
+    // leaves the framework unnamed rather than promising a path the CLI
+    // cannot walk.
+    const frameworkSentence = frameworkPromptSuffix(
+      framework.slug,
+      framework.name,
+    );
+    // `getClientBaseUrl()` is read HERE, inside the handler, and never during
+    // render: on the server it returns the SSR placeholder (see the module
+    // comment on that function), so a render-time read would put a different
+    // URL in the server HTML than in the hydrated client and mismatch.
+    // Trailing slash trimmed because `markdownUrl` already leads with one.
+    const pageUrl = `${getClientBaseUrl().replace(/\/+$/, "")}${markdownUrl}`;
+    // Stands on its own when `frameworkSentence` is "", which is why it names
+    // the page rather than referring back to it.
+    const pageSentence = ` The developer copied this prompt from ${pageUrl}.`;
+
     try {
       await navigator.clipboard.writeText(
-        createIntelligenceOnboardingPrompt(runId),
+        createIntelligenceOnboardingPrompt(runId) +
+          frameworkSentence +
+          pageSentence,
       );
     } catch (err) {
       // Unlike `MarkdownCopyButton` there is no `useCopyButton` hook to
@@ -259,6 +305,12 @@ export function OnboardingPromptCopyButton({
       if (mountedRef.current) setIsCopying(false);
     }
 
+    // The graph slug, not the docs slug, so this property joins the value the
+    // CLI records for the same run. Left off the payload entirely when the
+    // graph has no equivalent, rather than sent as a placeholder that would
+    // pollute breakdowns — same rule as the hero button.
+    const graphFramework = onboardingFrameworkSlug(framework.slug);
+
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
         from_path: pathname,
@@ -268,6 +320,7 @@ export function OnboardingPromptCopyButton({
         // ("learning" | "threads"), and this button is neither. The
         // distinction it would carry lives in `surface` instead.
         surface: ONBOARDING_COPY_SURFACE,
+        ...(graphFramework ? { agent_framework: graphFramework } : {}),
       });
     } catch {
       // Analytics must never break the copy the reader actually asked for.
