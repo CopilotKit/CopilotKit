@@ -68,8 +68,25 @@ class LangGraphAGUIAgent(LangGraphAgent):
         graph: CompiledStateGraph,
         description: Optional[str] = None,
         config: Union[Optional[RunnableConfig], dict] = None,
+        **kwargs: Any,
     ):
-        super().__init__(name=name, graph=graph, description=description, config=config)
+        """Wrap a LangGraph graph as a CopilotKit-flavored AG-UI agent.
+
+        Extra keyword arguments are forwarded to ``LangGraphAgent`` unchanged.
+        This is deliberate rather than a restated signature: ``clone()`` rebuilds
+        the agent through ``type(self)(...)`` and forwards the base class's own
+        behavior flags, and ``add_langgraph_fastapi_endpoint`` clones on every
+        request. A closed signature turns each flag the base adds into a 500 on
+        every request, and leaves those flags — such as the ``emit_raw_events``
+        payload opt-out — unreachable for CopilotKit users in the meantime.
+        """
+        super().__init__(
+            name=name,
+            graph=graph,
+            description=description,
+            config=config,
+            **kwargs,
+        )
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
         self._copilotkit_runtime_payload: dict[str, Any] | None = None
 
