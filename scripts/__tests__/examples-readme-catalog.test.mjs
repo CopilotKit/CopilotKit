@@ -111,3 +111,12 @@ test("multi-agent canvas describes linked agents as monorepo directories", () =>
   );
   assert.doesNotMatch(multiAgentCanvasReadme, /separate repositories/);
 });
+
+test("multi-agent canvas creates env files at the app roots", () => {
+  assert.doesNotMatch(multiAgentCanvasReadme, /example\.env/);
+  assert.match(multiAgentCanvasReadme, /Create `frontend\/\.env`:/);
+  assert.match(multiAgentCanvasReadme, /NEXT_PUBLIC_CPK_PUBLIC_API_KEY=\.\.\./);
+  assert.match(multiAgentCanvasReadme, /Create `agent\/\.env`:/);
+  assert.match(multiAgentCanvasReadme, /OPENAI_API_KEY=\.\.\./);
+  assert.match(multiAgentCanvasReadme, /LANGSMITH_API_KEY=\.\.\./);
+});

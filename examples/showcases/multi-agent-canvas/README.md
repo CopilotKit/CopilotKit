@@ -37,7 +37,7 @@ Make sure you have:
 
 ## Running the Frontend
 
-Rename the `example.env` file in the `frontend` folder to `.env`:
+Create `frontend/.env`:
 
 ```sh
 NEXT_PUBLIC_CPK_PUBLIC_API_KEY=...
@@ -75,7 +75,7 @@ The MCP Agent allows you to connect to various MCP-compatible servers:
 
 ## Running the MCP Agent Backend (Optional)
 
-Rename the `example.env` file in the `agent` folder to `.env`:
+Create `agent/.env`:
 
 ```sh
 OPENAI_API_KEY=...
