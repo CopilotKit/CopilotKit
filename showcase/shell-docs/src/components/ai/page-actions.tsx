@@ -192,12 +192,12 @@ export function OnboardingPromptCopyButton({
   ...props
 }: ComponentProps<"button"> & {
   /**
-   * The agent framework this docs page is scoped to: `slug` is the docs
-   * registry slug, `name` the display name. Required, not optional: this
-   * button is only meant to appear on framework-scoped docs pages, and
-   * `DocsPageView` gates it on the same pair being available. Frameworks the
-   * CLI's onboarding graph has no node for are handled downstream by
-   * `frameworkPromptSuffix`, not by omitting this prop.
+   * The agent framework this docs page is about: `slug` is the docs registry
+   * slug, `name` the display name. On the root surface and in the cookbook
+   * that is the Built-in Agent. Required, not optional: the button exists to
+   * name a framework, and `DocsPageView` gates it on the same pair being
+   * available. Frameworks the CLI's onboarding graph has no node for are
+   * handled downstream by `frameworkPromptSuffix`, not by omitting this prop.
    */
   framework: { slug: string; name: string };
   /**

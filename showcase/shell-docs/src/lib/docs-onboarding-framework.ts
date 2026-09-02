@@ -2,11 +2,12 @@
 // docs registry slug plus the display name the copied onboarding prompt
 // should call that framework.
 //
-// Shared between the framework-scoped route
-// (`app/[framework]/[[...slug]]/page.tsx`) and the root surface
-// (`components/unscoped-docs-page.tsx`), which are the two places that can
-// render a Built-in Agent page. Keeping it in one place is what stops the
-// display-name override below from existing on one surface and not the other.
+// Shared by every route that renders a docs page — the framework-scoped one
+// (`app/[framework]/[[...slug]]/page.tsx`), the root surface
+// (`components/unscoped-docs-page.tsx`) and the cookbook — so the display-name
+// override below cannot exist on one surface and not the others. A surface
+// with no framework in the URL passes `ROOT_FRAMEWORK`: the Built-in Agent is
+// what a reader there has selected, not the absence of a selection.
 
 import { getIntegration } from "@/lib/registry";
 
@@ -26,12 +27,15 @@ const PROMPT_DISPLAY_NAMES: Record<string, string> = {
 };
 
 /**
- * The `onboardingFramework` prop for a `DocsPageView`, or undefined when
- * there is no framework to name — a frontend route with no backend selected
- * (`/vue/using-these-docs`), a genuinely frameworkless root page (`/faq`), or
- * a docs-only slug with no registry record (`a2a`, `agent-spec`). Those pages
- * then render no onboarding button rather than a button whose prompt would
- * name a framework the registry cannot confirm a display name for.
+ * The `onboardingFramework` prop for a `DocsPageView`, or undefined when the
+ * caller has no slug to resolve or the slug has no registry record (`a2a`,
+ * `agent-spec`). Such a page renders no onboarding button rather than one
+ * whose prompt would name a framework the registry cannot confirm a display
+ * name for.
+ *
+ * Callers decide WHICH slug to pass; this function only refuses the ones the
+ * registry does not know. Every docs surface has one to pass — a URL-scoped
+ * framework, or `ROOT_FRAMEWORK` where the URL names none.
  */
 export function onboardingFrameworkFor(
   slug: string | null | undefined,

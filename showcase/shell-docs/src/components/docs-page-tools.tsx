@@ -1,13 +1,12 @@
 // DocsPageTools — the page-tools row that sits under a docs page's title:
-// "Copy agent prompt" (framework-scoped pages only, which at the root surface
-// means the Built-in Agent's own pages), "Copy Markdown", and the
-// "Open in <LLM>" popover. Fumadocs's upstream LLM page-actions feature.
+// "Copy agent prompt", "Copy Markdown", and the "Open in <LLM>" popover.
+// Fumadocs's upstream LLM page-actions feature.
 //
 // Extracted from `docs-page-view.tsx` so the one rule that governs the row —
-// no onboarding button unless the page is framework-scoped — sits in a
+// no onboarding button unless the caller names an agent framework — sits in a
 // component small enough to unit-test. `DocsPageView` itself loads MDX off
-// disk and builds the whole nav tree, so asserting the absence of a button
-// through it would mean standing up most of the docs pipeline.
+// disk and builds the whole nav tree, so asserting the presence or absence of
+// a button through it would mean standing up most of the docs pipeline.
 
 import React from "react";
 import {
@@ -24,11 +23,11 @@ export interface DocsPageToolsProps {
   /** Source file URL on GitHub for the "Open in GitHub" entry. */
   githubUrl: string;
   /**
-   * The agent framework this page is scoped to. Present for pages served
-   * under a `/<framework>/…` route and for root-surface pages that render
-   * Built-in-Agent-scoped; absent for the cookbook and for frameworkless
-   * pages such as `/faq`. Its absence is what keeps the onboarding button off
-   * those pages, so this prop is the gate, not a decoration.
+   * The agent framework this page's docs are about. Present for pages served
+   * under a `/<framework>/…` route, and equally for the root surface and the
+   * cookbook, where the framework in play is the Built-in Agent. Its absence
+   * is what keeps the onboarding button off a page, so this prop is the gate,
+   * not a decoration.
    */
   onboardingFramework?: { slug: string; name: string };
 }

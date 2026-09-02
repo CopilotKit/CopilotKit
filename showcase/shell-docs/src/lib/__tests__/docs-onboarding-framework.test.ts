@@ -6,8 +6,8 @@ describe("onboardingFrameworkFor", () => {
   it("trims the possessive out of the Built-in Agent's registry name", () => {
     // The registry calls it "CopilotKit's Built-in Agent", which the shared
     // prompt sentence would render as "the CopilotKit's Built-in Agent agent
-    // framework". The override lives here, at the one call site both the
-    // framework route and the root surface go through.
+    // framework". The override lives here, at the one call site every docs
+    // route goes through — framework, root surface and cookbook alike.
     expect(onboardingFrameworkFor("built-in-agent")).toEqual({
       slug: "built-in-agent",
       name: "Built-in Agent",

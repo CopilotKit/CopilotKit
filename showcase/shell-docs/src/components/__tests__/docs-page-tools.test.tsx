@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 
-// Guards the narrowed coverage of the page-tools "Copy agent prompt" button.
+// Guards the gate on the page-tools "Copy agent prompt" button.
 //
-// The rule is that the button appears only on framework-scoped docs pages, and
-// `DocsPageTools` is where that rule lives: no `onboardingFramework`, no
-// button. It is tested here rather than through `DocsPageView` because that
-// component reads MDX off disk, walks the content tree to build the sidebar,
-// and compiles the body through `next-mdx-remote` — none of which the rule
-// depends on. `DocsPageView` does nothing with the prop but forward it, so
-// this is the seam where a regression would actually show up.
+// The rule is that the button appears exactly when the caller names an agent
+// framework, and `DocsPageTools` is where that rule lives: no
+// `onboardingFramework`, no button. It is tested here rather than through
+// `DocsPageView` because that component reads MDX off disk, walks the content
+// tree to build the sidebar, and compiles the body through `next-mdx-remote` —
+// none of which the rule depends on. `DocsPageView` does nothing with the prop
+// but forward it, so this is the seam where a regression would actually show
+// up.
 
 import React from "react";
 import {
@@ -55,10 +56,10 @@ function renderRow(onboardingFramework?: { slug: string; name: string }): void {
 }
 
 it("renders no onboarding button when no framework is passed", () => {
-  // What the cookbook routes and the frameworkless root-surface pages
-  // (`/faq`, `/examples`) get: they share `DocsPageView` with the framework
-  // route and opt out by simply not passing the prop. If the button ever
-  // became unconditional again, this fails.
+  // No docs route omits the prop today — every surface has a framework to
+  // name, the root surface and the cookbook naming the Built-in Agent. This
+  // keeps the gate itself honest: the row must still render without it, and a
+  // caller that cannot name a framework must not get a prompt naming none.
   renderRow();
 
   expect(screen.queryByRole("button", { name: /copy agent prompt/i })).toBe(

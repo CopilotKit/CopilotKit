@@ -90,15 +90,15 @@ export interface DocsPageViewProps {
   frameworkOverride?: string | null;
   /**
    * The agent framework whose docs this page is: `slug` is the docs registry
-   * slug, `name` its display name. Only the framework-scoped route
-   * (`app/[framework]/[[...slug]]/page.tsx`) passes it, and passing it is
-   * what puts the "Copy agent prompt" button in the page-tools row — the
-   * cookbook routes and `unscoped-docs-page.tsx` share this component and
-   * get no button by simply leaving it off.
+   * slug, `name` its display name. Passing it is what puts the "Copy agent
+   * prompt" button in the page-tools row, and every docs route passes it: a
+   * `/<framework>/…` URL names that framework, while the root surface and the
+   * cookbook name the Built-in Agent, whose lens they are.
    *
    * Deliberately separate from `frameworkOverride`, which is a content
-   * concern (which framework's snippets and gated blocks to render) and is
-   * also set on pages that are not framework landings for the reader.
+   * concern (which framework's snippets and gated blocks to render). The two
+   * answer different questions and routinely differ — a page can name a
+   * framework in the prompt without resolving its content framework-scoped.
    */
   onboardingFramework?: { slug: string; name: string };
   /** Frontend selected by the URL. Defaults to React on the root surface. */
