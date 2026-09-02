@@ -7,16 +7,8 @@
  * `tailwindcss` and `@tailwindcss/postcss` in `package.json`, and
  * `postcss.config.mjs`.
  *
- * If you copy this file into a project that does not compile Tailwind, every
- * class resolves to nothing. The `<summary>` row then loses `flex` and falls
- * back to block layout, so the icons and the tool name stack in one column.
- * Two details confirm that cause:
- *
- *   - the native `<details>` triangle is visible, because `list-none` is gone
- *   - the icons sit at the lucide default of 24px, not the 12px of `h-3 w-3`
- *
- * Set Tailwind up in the target project, or replace these class names with
- * your own styles. Reported as CopilotKit issue #4777.
+ * Copying this file into another project requires the same Tailwind build, or
+ * your own styles in place of these class names. See CopilotKit issue #4777.
  */
 
 import { useEffect, useRef } from "react";
