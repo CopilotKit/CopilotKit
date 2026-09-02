@@ -13,7 +13,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
     <img src="https://img.shields.io/badge/Built%20with-CopilotKit-6963ff" alt="Built with CopilotKit"/>
   </a>
   <a href="https://nextjs.org" target="_blank">
-    <img src="https://img.shields.io/badge/Built%20with-Next.js%2015-black" alt="Built with Next.js"/>
+    <img src="https://img.shields.io/badge/Built%20with-Next.js%2016-black" alt="Built with Next.js"/>
   </a>
   <a href="https://ui.shadcn.com/" target="_blank">
     <img src="https://img.shields.io/badge/Styled%20with-shadcn%2Fui-black" alt="Styled with shadcn/ui"/>
@@ -24,7 +24,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.9.0+
 - npm, yarn, or pnpm
 
 ### Installation
