@@ -1,6 +1,6 @@
 # CopilotKit Examples
 
-This directory contains 52 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
+This directory contains 57 consolidated demo repositories showcasing CopilotKit integrations, canvas apps, and showcases.
 
 Each example is a self-contained project. To get started:
 
@@ -41,7 +41,7 @@ Framework integration starters demonstrating CopilotKit with various agent frame
 | [claude-sdk-python](./integrations/claude-sdk-python/)                 | Starter template using the Claude Agent SDK (Python) and CopilotKit                  |
 | [claude-sdk-typescript](./integrations/claude-sdk-typescript/)         | Starter template using the Claude Agent SDK (TypeScript) and CopilotKit              |
 
-## Canvas (7)
+## Canvas (8)
 
 AI-powered canvas applications with visual card interfaces, real-time state sync, and HITL workflows.
 
@@ -54,13 +54,16 @@ AI-powered canvas applications with visual card interfaces, real-time state sync
 | [mastra](./canvas/mastra/)                           | AG-UI canvas starter with Mastra — interactive cards with real-time AI sync             |
 | [gemini](./canvas/gemini/)                           | Open Gemini Canvas — post generator and stack analyzer agents (Gemini + LangGraph)      |
 | [mastra-pm](./canvas/mastra-pm/)                     | AG-UI + Mastra workshop — shared state, multiple clients, generative UI                 |
+| [research-canvas](./canvas/research-canvas/)         | Research workspace with model selection, shared agent state, and HITL resource controls |
 
-## Showcases (25)
+## Showcases (29)
 
 Full-featured demo applications highlighting CopilotKit capabilities in real-world scenarios.
 
 | Example                                                                 | Description                                                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [chat-with-your-data](./showcases/chat-with-your-data/)                 | AI-assisted sales dashboard with live data context and web search                                                   |
+| [form-filling](./showcases/form-filling/)                               | Conversational security incident form with structured AI updates                                                    |
 | [reskinnable-demo](./showcases/reskinnable-demo/)                       | Runtime-reskinnable demo — banking and airline skins over one shell, agent and all                                  |
 | [presentation](./showcases/presentation/)                               | PowerPoint-like web app built with CopilotKit                                                                       |
 | [deep-agents](./showcases/deep-agents/)                                 | Deep research assistant with planning, memory/files, and generative UI (Tavily)                                     |
@@ -84,5 +87,7 @@ Full-featured demo applications highlighting CopilotKit capabilities in real-wor
 | [enterprise-brex](./showcases/enterprise-brex/)                         | Enterprise banking demo with authorization, operations, and generative UI                                           |
 | [a2a-travel](./showcases/a2a-travel/)                                   | A2A + AG-UI multi-agent travel demo (LangGraph + Google ADK)                                                        |
 | [spreadsheet](./showcases/spreadsheet/)                                 | AI-powered Excel-like spreadsheet web app                                                                           |
+| [state-machine](./showcases/state-machine/)                             | Multi-stage car sales flow with generative UI and explicit state transitions                                        |
 | [todo](./showcases/todo/)                                               | Simple todo app built with CopilotKit                                                                               |
+| [travel](./showcases/travel/)                                           | Shared-state travel planner with map-based results and human approval                                               |
 | [strands-crm](./showcases/strands-crm/)                                 | Enterprise sales CRM — dashboard, pipeline, products, quotes, reports & agentic canvas (TypeScript Strands + AG-UI) |

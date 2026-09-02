@@ -202,172 +202,89 @@ importers:
         specifier: ^4.1.3
         version: 4.1.3(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/coverage-v8@3.2.4)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@18.19.130)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  examples/showcases/generative-ui-playground:
+  examples/canvas/research-canvas:
     dependencies:
-      '@a2a-js/sdk':
-        specifier: ^0.2.5
-        version: 0.2.5
-      '@a2ui/lit':
-        specifier: ^0.8.1
-        version: 0.8.3(signal-polyfill@0.2.2)
-      '@ag-ui/a2a':
-        specifier: ^0.0.6
-        version: 0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.59)
-      '@ag-ui/a2a-middleware':
-        specifier: ^0.0.2
-        version: 0.0.2(rxjs@7.8.1)
-      '@ag-ui/client':
-        specifier: ^0.0.42
-        version: 0.0.42
-      '@ag-ui/mcp-apps-middleware':
-        specifier: ^0.0.1
-        version: 0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@copilotkit/a2ui-renderer':
-        specifier: workspace:*
-        version: link:../../../packages/a2ui-renderer
-      '@copilotkit/core':
-        specifier: workspace:*
-        version: link:../../../packages/core
       '@copilotkit/react-core':
         specifier: workspace:*
         version: link:../../../packages/react-core
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../../../packages/runtime
-      '@copilotkit/shared':
-        specifier: workspace:*
-        version: link:../../../packages/shared
-      '@copilotkit/web-inspector':
-        specifier: workspace:*
-        version: link:../../../packages/web-inspector
-      '@monaco-editor/react':
-        specifier: ^4.7.0
-        version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      hono:
-        specifier: '>=4.11.7'
-        version: 4.12.15
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.2
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-icons':
+        specifier: ^1.3.2
+        version: 1.3.2(react@19.2.3)
+      '@radix-ui/react-select':
+        specifier: ^2.1.2
+        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-slot':
+        specifier: ^1.1.0
+        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
+      class-variance-authority:
+        specifier: ^0.7.0
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.451.0
+        version: 0.451.0(react@19.2.3)
       next:
-        specifier: 16.2.3
-        version: 16.2.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
+        specifier: ^16.0.10
+        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
       openai:
-        specifier: ^6.16.0
-        version: 6.24.0(ws@8.21.3)(zod@3.25.76)
+        specifier: ^4.85.1
+        version: 4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76)
       react:
         specifier: 19.2.3
         version: 19.2.3
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      tailwind-merge:
+        specifier: ^2.5.3
+        version: 2.6.0
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@4.1.18)
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
     devDependencies:
       '@tailwindcss/postcss':
-        specifier: ^4
+        specifier: ^4.1.18
         version: 4.1.18
       '@types/node':
-        specifier: ^20
-        version: 20.19.27
+        specifier: ^22.0.0
+        version: 22.19.3
       '@types/react':
         specifier: 19.1.8
         version: 19.1.8
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.1.8)
+      concurrently:
+        specifier: ^8.2.2
+        version: 8.2.2
+      oxlint:
+        specifier: ^1.51.0
+        version: 1.58.0
+      postcss:
+        specifier: ^8
+        version: 8.5.6
       tailwindcss:
-        specifier: ^4
-        version: 4.2.2
+        specifier: ^4.1.18
+        version: 4.1.18
       typescript:
         specifier: ^5
-        version: 5.9.3
-
-  examples/slack:
-    dependencies:
-      '@copilotkit/channels':
-        specifier: workspace:*
-        version: link:../../packages/channels
-      '@copilotkit/channels-intelligence':
-        specifier: workspace:*
-        version: link:../../packages/channels-intelligence
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      '@slack/bolt':
-        specifier: ^4.2.0
-        version: 4.7.3(@types/express@4.17.25)
-      '@slack/types':
-        specifier: ^2.21.1
-        version: 2.21.1
-      '@tanstack/ai':
-        specifier: ^0.42.0
-        version: 0.42.0(@opentelemetry/api@1.9.0)
-      '@tanstack/ai-mcp':
-        specifier: ^0.2.5
-        version: 0.2.5(@cfworker/json-schema@4.1.1)(@opentelemetry/api@1.9.0)(zod@3.25.76)
-      '@tanstack/ai-openai':
-        specifier: ^0.17.1
-        version: 0.17.1(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0))(ws@8.21.3)(zod@3.25.76)
-      playwright:
-        specifier: ^1.49.0
-        version: 1.59.1
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@notionhq/notion-mcp-server':
-        specifier: ^2.2.1
-        version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.11
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
+        version: 5.9.2
       vitest:
         specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@22.19.3)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  examples/teams:
-    dependencies:
-      '@copilotkit/channels':
-        specifier: workspace:*
-        version: link:../../packages/channels
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@microsoft/m365agentsplayground':
-        specifier: ^0.2.27
-        version: 0.2.27
-      '@types/node':
-        specifier: ^22.10.0
-        version: 22.19.11
-      dotenv:
-        specifier: ^16.4.5
-        version: 16.6.1
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
-      typescript:
-        specifier: ^5.6.3
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
-
-  examples/v1/chat-with-your-data:
+  examples/showcases/chat-with-your-data:
     dependencies:
       '@copilotkit/react-core':
         specifier: workspace:*
@@ -455,7 +372,7 @@ importers:
         specifier: ^5
         version: 5.9.2
 
-  examples/v1/form-filling:
+  examples/showcases/form-filling:
     dependencies:
       '@copilotkit/react-core':
         specifier: workspace:*
@@ -530,6 +447,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.1.8)
+      oxlint:
+        specifier: ^1.51.0
+        version: 1.58.0
       tailwindcss:
         specifier: ^4
         version: 4.1.18
@@ -539,6 +459,353 @@ importers:
       vitest:
         specifier: ^4.1.3
         version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@20.19.27)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+
+  examples/showcases/generative-ui-playground:
+    dependencies:
+      '@a2a-js/sdk':
+        specifier: ^0.2.5
+        version: 0.2.5
+      '@a2ui/lit':
+        specifier: ^0.8.1
+        version: 0.8.3(signal-polyfill@0.2.2)
+      '@ag-ui/a2a':
+        specifier: ^0.0.6
+        version: 0.0.6(@ag-ui/client@0.0.42)(@ag-ui/core@0.0.59)
+      '@ag-ui/a2a-middleware':
+        specifier: ^0.0.2
+        version: 0.0.2(rxjs@7.8.1)
+      '@ag-ui/client':
+        specifier: ^0.0.42
+        version: 0.0.42
+      '@ag-ui/mcp-apps-middleware':
+        specifier: ^0.0.1
+        version: 0.0.1(@ag-ui/client@0.0.42)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
+      '@copilotkit/a2ui-renderer':
+        specifier: workspace:*
+        version: link:../../../packages/a2ui-renderer
+      '@copilotkit/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../../../packages/react-core
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
+      '@copilotkit/shared':
+        specifier: workspace:*
+        version: link:../../../packages/shared
+      '@copilotkit/web-inspector':
+        specifier: workspace:*
+        version: link:../../../packages/web-inspector
+      '@monaco-editor/react':
+        specifier: ^4.7.0
+        version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      hono:
+        specifier: '>=4.11.7'
+        version: 4.12.15
+      next:
+        specifier: 16.2.3
+        version: 16.2.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
+      openai:
+        specifier: ^6.16.0
+        version: 6.24.0(ws@8.21.3)(zod@3.25.76)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.1.18
+      '@types/node':
+        specifier: ^20
+        version: 20.19.27
+      '@types/react':
+        specifier: 19.1.8
+        version: 19.1.8
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.1.8)
+      tailwindcss:
+        specifier: ^4
+        version: 4.2.2
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  examples/showcases/state-machine:
+    dependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../../../packages/react-core
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
+      clsx:
+        specifier: ^1.2.1
+        version: 1.2.1
+      motion:
+        specifier: ^11.18.1
+        version: 11.18.2(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      next:
+        specifier: ^16.0.10
+        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      reactflow:
+        specifier: ^11.11.4
+        version: 11.11.4(@types/react@19.1.8)(immer@11.1.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      tailwind-merge:
+        specifier: ^1.13.2
+        version: 1.14.0
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.13
+        version: 4.1.18
+      '@types/node':
+        specifier: ^20
+        version: 20.19.27
+      '@types/react':
+        specifier: 19.1.8
+        version: 19.1.8
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.1.8)
+      postcss:
+        specifier: ^8
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^4.1.13
+        version: 4.1.18
+      typescript:
+        specifier: ^5
+        version: 5.9.2
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+
+  examples/showcases/travel:
+    dependencies:
+      '@copilotkit/react-core':
+        specifier: workspace:*
+        version: link:../../../packages/react-core
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../../packages/runtime
+      '@radix-ui/react-accordion':
+        specifier: ^1.2.1
+        version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-checkbox':
+        specifier: ^1.1.1
+        version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-dialog':
+        specifier: ^1.1.2
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-dropdown-menu':
+        specifier: ^2.1.2
+        version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-icons':
+        specifier: ^1.3.2
+        version: 1.3.2(react@19.2.3)
+      '@radix-ui/react-label':
+        specifier: ^2.1.0
+        version: 2.1.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-popover':
+        specifier: ^1.1.2
+        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-scroll-area':
+        specifier: ^1.2.1
+        version: 1.2.10(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-select':
+        specifier: ^2.1.2
+        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-slot':
+        specifier: ^1.1.0
+        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
+      '@radix-ui/react-toast':
+        specifier: ^1.2.1
+        version: 1.2.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@radix-ui/react-tooltip':
+        specifier: ^1.1.4
+        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      class-variance-authority:
+        specifier: ^0.7.0
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      framer-motion:
+        specifier: ^11.3.12
+        version: 11.18.2(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      groq-sdk:
+        specifier: ^0.5.0
+        version: 0.5.0(encoding@0.1.13)
+      leaflet:
+        specifier: ^1.9.4
+        version: 1.9.4
+      lucide-react:
+        specifier: ^0.414.0
+        version: 0.414.0(react@19.2.3)
+      next:
+        specifier: ^16.0.10
+        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
+      react:
+        specifier: 19.2.3
+        version: 19.2.3
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
+      react-leaflet:
+        specifier: ^4.2.1
+        version: 4.2.1(leaflet@1.9.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      shiki:
+        specifier: ^3.20.0
+        version: 3.21.0
+      tailwind-merge:
+        specifier: ^2.4.0
+        version: 2.6.0
+      tailwindcss-animate:
+        specifier: ^1.0.7
+        version: 1.0.7(tailwindcss@4.1.18)
+      vaul:
+        specifier: ^1.1.1
+        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@tailwindcss/postcss':
+        specifier: ^4.1.18
+        version: 4.1.18
+      '@types/leaflet':
+        specifier: ^1.9.14
+        version: 1.9.21
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.3
+      '@types/react':
+        specifier: 19.1.8
+        version: 19.1.8
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.1.8)
+      concurrently:
+        specifier: ^8.2.2
+        version: 8.2.2
+      oxlint:
+        specifier: ^1.51.0
+        version: 1.58.0
+      postcss:
+        specifier: ^8
+        version: 8.5.6
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
+      typescript:
+        specifier: ^5
+        version: 5.9.2
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@22.19.3)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+
+  examples/slack:
+    dependencies:
+      '@copilotkit/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
+      '@copilotkit/channels-intelligence':
+        specifier: workspace:*
+        version: link:../../packages/channels-intelligence
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@slack/bolt':
+        specifier: ^4.2.0
+        version: 4.7.3(@types/express@4.17.25)
+      '@slack/types':
+        specifier: ^2.21.1
+        version: 2.21.1
+      '@tanstack/ai':
+        specifier: ^0.42.0
+        version: 0.42.0(@opentelemetry/api@1.9.0)
+      '@tanstack/ai-mcp':
+        specifier: ^0.2.5
+        version: 0.2.5(@cfworker/json-schema@4.1.1)(@opentelemetry/api@1.9.0)(zod@3.25.76)
+      '@tanstack/ai-openai':
+        specifier: ^0.17.1
+        version: 0.17.1(@tanstack/ai@0.42.0(@opentelemetry/api@1.9.0))(ws@8.21.3)(zod@3.25.76)
+      playwright:
+        specifier: ^1.49.0
+        version: 1.59.1
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@notionhq/notion-mcp-server':
+        specifier: ^2.2.1
+        version: 2.2.1(@cfworker/json-schema@4.1.1)(js-yaml@4.1.1)
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+
+  examples/teams:
+    dependencies:
+      '@copilotkit/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@microsoft/m365agentsplayground':
+        specifier: ^0.2.27
+        version: 0.2.27
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.6.7)(lightningcss@1.32.0)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   examples/v1/next-openai:
     dependencies:
@@ -780,264 +1047,6 @@ importers:
       typescript:
         specifier: ^5.2.3
         version: 5.9.2
-
-  examples/v1/research-canvas:
-    dependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../../../packages/react-core
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime
-      '@radix-ui/react-dialog':
-        specifier: ^1.1.2
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-icons':
-        specifier: ^1.3.2
-        version: 1.3.2(react@19.2.3)
-      '@radix-ui/react-select':
-        specifier: ^2.1.2
-        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-slot':
-        specifier: ^1.1.0
-        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
-      class-variance-authority:
-        specifier: ^0.7.0
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      lucide-react:
-        specifier: ^0.451.0
-        version: 0.451.0(react@19.2.3)
-      next:
-        specifier: ^16.0.10
-        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
-      openai:
-        specifier: ^4.85.1
-        version: 4.104.0(encoding@0.1.13)(ws@8.21.3)(zod@3.25.76)
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-      tailwind-merge:
-        specifier: ^2.5.3
-        version: 2.6.0
-      tailwindcss-animate:
-        specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@4.1.18)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.18
-        version: 4.1.18
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.3
-      '@types/react':
-        specifier: 19.1.8
-        version: 19.1.8
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.3(@types/react@19.1.8)
-      concurrently:
-        specifier: ^8.2.2
-        version: 8.2.2
-      postcss:
-        specifier: ^8
-        version: 8.5.6
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
-      typescript:
-        specifier: ^5
-        version: 5.9.2
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@22.19.3)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
-
-  examples/v1/state-machine:
-    dependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../../../packages/react-core
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime
-      clsx:
-        specifier: ^1.2.1
-        version: 1.2.1
-      motion:
-        specifier: ^11.18.1
-        version: 11.18.2(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next:
-        specifier: ^16.0.10
-        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-      reactflow:
-        specifier: ^11.11.4
-        version: 11.11.4(@types/react@19.1.8)(immer@11.1.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      tailwind-merge:
-        specifier: ^1.13.2
-        version: 1.14.0
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.13
-        version: 4.1.18
-      '@types/node':
-        specifier: ^20
-        version: 20.19.27
-      '@types/react':
-        specifier: 19.1.8
-        version: 19.1.8
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.3(@types/react@19.1.8)
-      postcss:
-        specifier: ^8
-        version: 8.5.6
-      tailwindcss:
-        specifier: ^4.1.13
-        version: 4.1.18
-      typescript:
-        specifier: ^5
-        version: 5.9.2
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@20.19.27)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@20.19.27)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
-
-  examples/v1/travel:
-    dependencies:
-      '@copilotkit/react-core':
-        specifier: workspace:*
-        version: link:../../../packages/react-core
-      '@copilotkit/runtime':
-        specifier: workspace:*
-        version: link:../../../packages/runtime
-      '@radix-ui/react-accordion':
-        specifier: ^1.2.1
-        version: 1.2.12(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-checkbox':
-        specifier: ^1.1.1
-        version: 1.3.3(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-dialog':
-        specifier: ^1.1.2
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-dropdown-menu':
-        specifier: ^2.1.2
-        version: 2.1.16(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-icons':
-        specifier: ^1.3.2
-        version: 1.3.2(react@19.2.3)
-      '@radix-ui/react-label':
-        specifier: ^2.1.0
-        version: 2.1.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-popover':
-        specifier: ^1.1.2
-        version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-scroll-area':
-        specifier: ^1.2.1
-        version: 1.2.10(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-select':
-        specifier: ^2.1.2
-        version: 2.2.6(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-slot':
-        specifier: ^1.1.0
-        version: 1.2.4(@types/react@19.1.8)(react@19.2.3)
-      '@radix-ui/react-toast':
-        specifier: ^1.2.1
-        version: 1.2.15(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@radix-ui/react-tooltip':
-        specifier: ^1.1.4
-        version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      class-variance-authority:
-        specifier: ^0.7.0
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      framer-motion:
-        specifier: ^11.3.12
-        version: 11.18.2(@emotion/is-prop-valid@1.4.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      groq-sdk:
-        specifier: ^0.5.0
-        version: 0.5.0(encoding@0.1.13)
-      leaflet:
-        specifier: ^1.9.4
-        version: 1.9.4
-      lucide-react:
-        specifier: ^0.414.0
-        version: 0.414.0(react@19.2.3)
-      next:
-        specifier: ^16.0.10
-        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
-      react:
-        specifier: 19.2.3
-        version: 19.2.3
-      react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
-      react-leaflet:
-        specifier: ^4.2.1
-        version: 4.2.1(leaflet@1.9.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      shiki:
-        specifier: ^3.20.0
-        version: 3.21.0
-      tailwind-merge:
-        specifier: ^2.4.0
-        version: 2.6.0
-      tailwindcss-animate:
-        specifier: ^1.0.7
-        version: 1.0.7(tailwindcss@4.1.18)
-      vaul:
-        specifier: ^1.1.1
-        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.1.8))(@types/react@19.1.8)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      zod:
-        specifier: '>=3.22.3'
-        version: 3.25.76
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.18
-        version: 4.1.18
-      '@types/leaflet':
-        specifier: ^1.9.14
-        version: 1.9.21
-      '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.3
-      '@types/react':
-        specifier: 19.1.8
-        version: 19.1.8
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.3(@types/react@19.1.8)
-      concurrently:
-        specifier: ^8.2.2
-        version: 8.2.2
-      postcss:
-        specifier: ^8
-        version: 8.5.6
-      tailwindcss:
-        specifier: ^4.1.18
-        version: 4.1.18
-      typescript:
-        specifier: ^5
-        version: 5.9.2
-      vitest:
-        specifier: ^4.1.3
-        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@8.1.5(@types/node@22.19.3)(esbuild@0.27.3)(jiti@2.7.0)(less@4.6.7)(sass@1.101.0)(terser@5.49.0)(tsx@4.21.0)(yaml@2.9.0))
 
   examples/v2/angular/demo:
     dependencies:
