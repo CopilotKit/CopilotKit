@@ -10,6 +10,10 @@ import { Copy } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import {
+  frameworkPromptSuffix,
+  onboardingFrameworkSlug,
+} from "@/lib/intelligence-onboarding-framework";
+import {
   createIntelligenceOnboardingPrompt,
   createOnboardingRunId,
   INTELLIGENCE_ONBOARDING_EVENTS,
@@ -21,10 +25,17 @@ const IDLE_LABEL = "Copy onboarding prompt";
 
 export interface HeroOnboardingPromptButtonProps {
   surface: string;
+  /**
+   * The framework landing page this button sits on: `slug` is the docs
+   * registry slug, `name` the display name. Omitted on the docs home, where
+   * there is no framework to name and the prompt stays canonical.
+   */
+  framework?: { slug: string; name: string };
 }
 
 export function HeroOnboardingPromptButton({
   surface,
+  framework,
 }: HeroOnboardingPromptButtonProps): React.JSX.Element {
   const pathname = usePathname();
   const posthog = usePostHog();
@@ -68,9 +79,17 @@ export function HeroOnboardingPromptButton({
 
     const runId = createOnboardingRunId();
 
+    // Naming the visitor's framework saves the CLI's prompt graph a question.
+    // The suffix is "" both on the docs home and for a framework the graph has
+    // no node for, so appending it unconditionally leaves the canonical prompt
+    // byte-identical in exactly the cases that must stay canonical.
+    const promptSuffix = framework
+      ? frameworkPromptSuffix(framework.slug, framework.name)
+      : "";
+
     try {
       await navigator.clipboard.writeText(
-        createIntelligenceOnboardingPrompt(runId),
+        createIntelligenceOnboardingPrompt(runId) + promptSuffix,
       );
     } catch {
       if (!isCurrent(generation)) return;
@@ -82,11 +101,19 @@ export function HeroOnboardingPromptButton({
     if (!isCurrent(generation)) return;
     setCopyState("copied");
 
+    // The graph slug, not the docs slug, so this property joins the value the
+    // CLI records for the same run. Left off entirely when there is nothing to
+    // report, rather than sent as a placeholder that would pollute breakdowns.
+    const graphFramework = framework
+      ? onboardingFrameworkSlug(framework.slug)
+      : undefined;
+
     try {
       posthog?.capture(INTELLIGENCE_ONBOARDING_EVENTS.promptCopied, {
         from_path: pathname,
         onboarding_run_id: runId,
         surface,
+        ...(graphFramework ? { agent_framework: graphFramework } : {}),
       });
     } catch {
       // Analytics must never break the copy interaction.

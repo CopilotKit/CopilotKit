@@ -184,9 +184,10 @@ export function FrameworkOverview({
   };
 
   // Frameworks whose init is the generic top-level command get the shared hero
-  // action row (matching the home hero). Frameworks with bespoke setup (e.g.
-  // a2a's `git clone`, ms-agent-dotnet) keep their own single command chip —
-  // those commands aren't interchangeable with the CLI.
+  // action row (matching the home hero). Frameworks with bespoke setup keep
+  // their own single command chip, because those commands aren't
+  // interchangeable with the CLI's generic one: a2a clones a repository, and
+  // the Claude Agent SDK records pass `init --framework claude-sdk-*`.
   const isGenericInit = initCommand.trim() === "npx copilotkit@latest init";
 
   const [activeDemo, setActiveDemo] = useState<string>(
@@ -302,7 +303,13 @@ export function FrameworkOverview({
             {isGenericInit ? (
               <HeroStartActions
                 prompt={
-                  <HeroOnboardingPromptButton surface="docs_framework_hero" />
+                  <HeroOnboardingPromptButton
+                    surface="docs_framework_hero"
+                    framework={{
+                      slug: currentFramework,
+                      name: frameworkName,
+                    }}
+                  />
                 }
                 quickstart={
                   <QuickstartLinkButton
@@ -316,7 +323,13 @@ export function FrameworkOverview({
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <HeroOnboardingPromptButton surface="docs_framework_hero" />
+                <HeroOnboardingPromptButton
+                  surface="docs_framework_hero"
+                  framework={{
+                    slug: currentFramework,
+                    name: frameworkName,
+                  }}
+                />
                 <QuickstartLinkButton
                   href={link(rawGuideLink)}
                   frontend={selectedFrontend}
