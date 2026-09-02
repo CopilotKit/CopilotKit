@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { fillIncidentReportFormParameters } from "./incident-report-tool";
 
 function setup() {
@@ -85,4 +85,40 @@ test("rejects suggested actions containing only whitespace", () => {
   });
 
   expect(result.success).toBe(false);
+});
+
+test("enforces the incident date boundaries", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 8, 2, 12));
+
+  try {
+    const { input } = setup();
+
+    expect(
+      fillIncidentReportFormParameters.safeParse({
+        ...input,
+        date: "1899-12-31",
+      }).success,
+    ).toBe(false);
+    expect(
+      fillIncidentReportFormParameters.safeParse({
+        ...input,
+        date: "1900-01-01",
+      }).success,
+    ).toBe(true);
+    expect(
+      fillIncidentReportFormParameters.safeParse({
+        ...input,
+        date: "2026-09-02",
+      }).success,
+    ).toBe(true);
+    expect(
+      fillIncidentReportFormParameters.safeParse({
+        ...input,
+        date: "2026-09-03",
+      }).success,
+    ).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
 });

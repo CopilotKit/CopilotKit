@@ -1,5 +1,18 @@
 import { expect, test } from "vitest";
-import { parseIncidentDate, serializeIncidentDate } from "./incident-date";
+import {
+  isIncidentDateAllowed,
+  parseIncidentDate,
+  serializeIncidentDate,
+} from "./incident-date";
+
+test("checks incident date boundaries against an explicit current date", () => {
+  const today = new Date(2026, 8, 2, 12);
+
+  expect(isIncidentDateAllowed(new Date(1899, 11, 31), today)).toBe(false);
+  expect(isIncidentDateAllowed(new Date(1900, 0, 1), today)).toBe(true);
+  expect(isIncidentDateAllowed(new Date(2026, 8, 2), today)).toBe(true);
+  expect(isIncidentDateAllowed(new Date(2026, 8, 3), today)).toBe(false);
+});
 
 test("parses an ISO calendar date as a local calendar date", () => {
   const result = parseIncidentDate("2026-08-31");
