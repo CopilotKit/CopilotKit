@@ -486,7 +486,7 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
     "connectAgentContext(this.configContext)",
   );
   expect(angularAgentConfig).toContain(
-    "The backend half is also a single node.",
+    "The framework setup above shows the exact backend bridge",
   );
   expect(angularAgentConfig).not.toContain("useAgentContext({");
   expect(angularSubagents).toContain(
@@ -549,6 +549,18 @@ test.each([
     expect(output).not.toContain("chat.tsx - useAgent run control");
     expect(output).not.toContain('agentId: "headless-simple"');
   }
+});
+
+test("keeps programmatic control on one client-safe React example", () => {
+  const doc = loadDoc("programmatic-control");
+  const example = doc?.source.match(
+    /```tsx title="frontend\/src\/app\/agent-trigger\.tsx"\n([\s\S]*?)```/,
+  )?.[1];
+
+  expect(example).toMatch(
+    /^"use client";\n\nimport \{ useAgent, useCopilotKit \} from "@copilotkit\/react-core\/v2";/,
+  );
+  expect(loadDoc("integrations/langgraph/programmatic-control")).toBeNull();
 });
 
 test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
@@ -630,6 +642,52 @@ test.each([
     expect(output).not.toContain("render: ({ state })");
   },
 );
+
+test("renders executable Claude SDK shared-state wiring on both public routes", () => {
+  const doc = loadDoc("shared-state");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/shared-state`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "shared-state",
+        framework,
+      },
+      { framework },
+    );
+
+  const python = render("claude-sdk-python");
+  expect(python).toContain("tools=[SET_NOTES_TOOL]");
+  expect(python).toContain('if tc["name"] == "set_notes"');
+  expect(python).toContain("StateSnapshotEvent");
+  expect(python).toContain("ToolCallResultEvent");
+  expect(python).toContain("run_shared_state_read_write_agent");
+  expect(python).toContain("intentionally uses its own Messages API loop");
+  expect(python).not.toContain("<FrameworkSetup");
+  expect(python).not.toContain("@region[");
+
+  const typeScript = render("claude-sdk-typescript");
+  expect(typeScript).toContain(
+    "toolSchemas: [SET_NOTES_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(typeScript).toContain("runWithClaudeAgentSdk({");
+  expect(typeScript).toContain("createSdkMcpServer({");
+  expect(typeScript).toContain("mcp__copilotkit__set_notes");
+  expect(typeScript).toContain('toolName === "set_notes"');
+  expect(typeScript).toContain("direct Anthropic Messages API fallback");
+  expect(typeScript).not.toContain("<FrameworkSetup");
+  expect(typeScript).not.toContain("@region[");
+
+  const control = render("langgraph-typescript");
+  expect(control).not.toContain("mcp__copilotkit__set_notes");
+  expect(control).not.toContain("run_shared_state_read_write_agent");
+  expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain("<FrameworkSetup");
+});
 
 test("publishes both canonical Strands starter commands in LLM text", () => {
   const loadSlug = "integrations/aws-strands/quickstart";

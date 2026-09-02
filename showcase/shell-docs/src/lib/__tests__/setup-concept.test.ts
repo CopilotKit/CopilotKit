@@ -84,6 +84,29 @@ test.each([
   },
 );
 
+test.each([
+  ["claude-sdk-python", "tools=[SET_NOTES_TOOL]"],
+  ["claude-sdk-typescript", "mcp__copilotkit__set_notes"],
+])(
+  "the visual FrameworkSetup path renders %s shared-state wiring",
+  async (framework, expectedIdentifier) => {
+    const result = await FrameworkSetup({
+      concept: "shared-state-setup",
+      currentFramework: framework,
+    });
+    expect(result).not.toBeNull();
+    if (!result) {
+      throw new Error(`Expected ${framework} shared-state setup content`);
+    }
+    const source = (result.props as { children?: unknown }).children;
+
+    expect(source).toContain(expectedIdentifier);
+    expect(source).not.toContain("<DemoCode");
+    expect(source).not.toContain("@region[");
+    expect(mocks.mdxRemote).toHaveBeenCalledOnce();
+  },
+);
+
 // A snippet that is not bundled and a bundled snippet that fails to compile both left
 // `FrameworkSetup` returning `null`, so a rendering defect shipped looking exactly like a
 // deliberate omission — the only trace a `console.error` nobody reads in production
