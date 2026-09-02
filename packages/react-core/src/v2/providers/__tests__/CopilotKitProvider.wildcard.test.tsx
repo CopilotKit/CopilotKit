@@ -1,7 +1,8 @@
-import { renderHook } from "@testing-library/react";
+import { render, renderHook } from "@testing-library/react";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { ToolCallStatus } from "@copilotkit/core";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
@@ -118,8 +119,11 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
 
   describe("Wildcard Human-in-the-Loop", () => {
     it("should register wildcard human-in-the-loop tool", () => {
-      const WildcardComponent: React.FC<any> = ({ args }) => (
-        <div>Unknown interaction: {args.toolName}</div>
+      const WildcardComponent: React.FC<any> = ({ name, respond }) => (
+        <div>
+          <span data-testid="wildcard-name">{name}</span>
+          <span data-testid="wildcard-respond">{typeof respond}</span>
+        </div>
       );
 
       const wildcardHitl: ReactHumanInTheLoop = {
@@ -147,7 +151,21 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
         (rc) => rc.name === "*",
       );
       expect(wildcardRender).toBeDefined();
-      expect(wildcardRender?.render).toBe(WildcardComponent);
+      // The registered render is the provider's wrapper, which supplies
+      // `respond` and forwards the invoked tool name. Assert both, since the
+      // invoked name is the whole point of a catch-all registration.
+      const Registered = wildcardRender!.render;
+      const { getByTestId } = render(
+        <Registered
+          name="deleteFile"
+          toolCallId="tc-1"
+          args={{ toolName: "deleteFile", args: {} }}
+          status={ToolCallStatus.Executing}
+          result={undefined}
+        />,
+      );
+      expect(getByTestId("wildcard-name").textContent).toBe("deleteFile");
+      expect(getByTestId("wildcard-respond").textContent).toBe("function");
     });
 
     it("should support wildcard human-in-the-loop with agentId", () => {
