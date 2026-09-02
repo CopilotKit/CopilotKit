@@ -20,6 +20,27 @@ test("falls back to default trips when an agent trip or place is invalid", () =>
   expect(state.trips).toEqual(defaultTrips);
 });
 
+test("preserves agent trips with a null place description", () => {
+  const trips = [
+    {
+      ...defaultTrips[0],
+      places: [
+        {
+          ...defaultTrips[0].places[0],
+          description: null,
+        },
+      ],
+    },
+  ];
+
+  const state = normalizeAgentState({
+    trips,
+    selected_trip_id: trips[0].id,
+  });
+
+  expect(state.trips).toEqual(trips);
+});
+
 test("drops malformed search progress", () => {
   const state = normalizeAgentState({
     trips: defaultTrips,

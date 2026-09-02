@@ -11,7 +11,7 @@ export const placeSchema = z.object({
   latitude: z.number().describe("The place latitude"),
   longitude: z.number().describe("The place longitude"),
   rating: z.number().describe("The place rating"),
-  description: z.string().optional().describe("A short place description"),
+  description: z.string().nullable().describe("A short place description"),
 });
 
 export const tripSchema = z.object({

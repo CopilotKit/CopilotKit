@@ -5,7 +5,7 @@ export type Place = {
   latitude: number;
   longitude: number;
   rating: number;
-  description?: string;
+  description: string | null;
 };
 
 export type Trip = {
