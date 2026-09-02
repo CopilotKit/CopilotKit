@@ -53,8 +53,13 @@ async function approveEdit(
         respond={respond}
         approve="Save"
         reject="Cancel"
-        selectedPlaceIds={selectedPlaceIds}
-        placeIds={placeIds}
+        selectedPlaceIdsByTrip={new Map([["trip-1", selectedPlaceIds]])}
+        tripPlaceIds={(placeIds || [Array.from(selectedPlaceIds)]).map(
+          (currentPlaceIds) => ({
+            tripId: "trip-1",
+            placeIds: currentPlaceIds,
+          }),
+        )}
         type="edit"
       />,
     );
@@ -70,7 +75,12 @@ test("sends an explicit edit replacement response", async () => {
   expect(respond).toHaveBeenCalledWith(
     JSON.stringify({
       operation: "replace",
-      placeIds: ["kept-place", "added-place"],
+      selections: [
+        {
+          tripId: "trip-1",
+          placeIds: ["kept-place", "added-place"],
+        },
+      ],
     }),
   );
 });
@@ -81,7 +91,64 @@ test("uses every proposed place for an untouched edit approval", async () => {
   expect(respond).toHaveBeenCalledWith(
     JSON.stringify({
       operation: "replace",
-      placeIds: ["kept-place", "added-place"],
+      selections: [
+        {
+          tripId: "trip-1",
+          placeIds: ["kept-place", "added-place"],
+        },
+      ],
     }),
   );
+});
+
+async function approveMultipleTrips(type: "add" | "edit") {
+  const respond = vi.fn(async (_result: unknown): Promise<void> => {});
+
+  await act(async () => {
+    root.render(
+      <ActionButtons
+        status={ToolCallStatus.Executing}
+        respond={respond}
+        approve="Save"
+        reject="Cancel"
+        selectedPlaceIdsByTrip={
+          new Map([
+            ["trip-a", new Set(["a-selected"])],
+            ["trip-b", new Set(["b-selected"])],
+          ])
+        }
+        tripPlaceIds={[
+          { tripId: "trip-a", placeIds: ["a-selected", "a-other"] },
+          { tripId: "trip-b", placeIds: ["b-selected", "b-other"] },
+        ]}
+        type={type}
+      />,
+    );
+  });
+
+  await act(async () => getSaveButton().click());
+  return respond;
+}
+
+function expectMultiTripResponse(
+  respond: ReturnType<typeof vi.fn>,
+  operation: "replace" | "select",
+): void {
+  expect(respond).toHaveBeenCalledWith(
+    JSON.stringify({
+      operation,
+      selections: [
+        { tripId: "trip-a", placeIds: ["a-selected"] },
+        { tripId: "trip-b", placeIds: ["b-selected"] },
+      ],
+    }),
+  );
+}
+
+test("sends edit selections with their trip IDs", async () => {
+  expectMultiTripResponse(await approveMultipleTrips("edit"), "replace");
+});
+
+test("sends add selections with their trip IDs", async () => {
+  expectMultiTripResponse(await approveMultipleTrips("add"), "select");
 });

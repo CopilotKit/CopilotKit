@@ -3,15 +3,22 @@ import { Button } from "../ui/button";
 import { useEffect, useRef, useState } from "react";
 import { submitResponse } from "./response-submission";
 
+export type PlaceSelectionsByTrip = Map<string, Set<string>>;
+
+type TripPlaceIds = {
+  tripId: string;
+  placeIds: string[];
+};
+
 export type ActionButtonsProps = {
   status: ToolCallStatus;
   respond?: (result: unknown) => Promise<void>;
   approve: React.ReactNode;
   reject: React.ReactNode;
-  selectedPlaceIds?: Set<string>;
+  selectedPlaceIdsByTrip?: PlaceSelectionsByTrip;
   type?: "edit" | "add";
-  placeIds?: string[][];
-  setSelectedPlaceIds?: (placeIds: Set<string>) => void;
+  tripPlaceIds?: TripPlaceIds[];
+  setSelectedPlaceIdsByTrip?: (selections: PlaceSelectionsByTrip) => void;
 };
 
 export const ActionButtons = ({
@@ -19,10 +26,10 @@ export const ActionButtons = ({
   respond,
   approve,
   reject,
-  selectedPlaceIds,
+  selectedPlaceIdsByTrip,
   type = "add",
-  placeIds,
-  setSelectedPlaceIds,
+  tripPlaceIds,
+  setSelectedPlaceIdsByTrip,
 }: ActionButtonsProps) => {
   const pendingResponse = useRef(false);
   const [isPending, setIsPending] = useState(false);
@@ -32,12 +39,12 @@ export const ActionButtons = ({
   } | null>(null);
 
   useEffect(() => {
-    console.log(placeIds, "placeIdsplaceIdsplaceIds");
-  }, [placeIds]);
+    console.log(tripPlaceIds, "placeIdsplaceIdsplaceIds");
+  }, [tripPlaceIds]);
 
   useEffect(() => {
-    console.log(selectedPlaceIds, "btn");
-  }, [selectedPlaceIds]);
+    console.log(selectedPlaceIdsByTrip, "btn");
+  }, [selectedPlaceIdsByTrip]);
 
   const sendResponse = async (result: unknown) => {
     if (!respond) return;
@@ -71,37 +78,39 @@ export const ActionButtons = ({
           className="w-full"
           disabled={status !== ToolCallStatus.Executing || isPending}
           onClick={async () => {
-            if (selectedPlaceIds && selectedPlaceIds.size > 0) {
-              if (type == "edit") {
-                console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-                await sendResponse(
-                  JSON.stringify({
-                    operation: "replace",
-                    placeIds: Array.from(selectedPlaceIds),
-                  }),
-                );
-              } else {
-                console.log(Array.from(selectedPlaceIds), "selectedPlaceIds");
-                await sendResponse(
-                  JSON.stringify(Array.from(selectedPlaceIds) + "|||addMode"),
-                );
-              }
-            } else if (selectedPlaceIds && selectedPlaceIds.size == 0) {
-              setSelectedPlaceIds?.(new Set(placeIds?.[0] || []));
-              if (type == "edit") {
-                // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-                await sendResponse(
-                  JSON.stringify({
-                    operation: "replace",
-                    placeIds: placeIds?.[0] || [],
-                  }),
-                );
-              } else {
-                // console.log(Array.from(selectedPlaceIds), "selectedPlaceIds")
-                await sendResponse(
-                  JSON.stringify(placeIds?.[0] + "|||addMode"),
+            if (selectedPlaceIdsByTrip) {
+              const selections = (tripPlaceIds || []).map(
+                ({ tripId, placeIds }) => {
+                  const selectedPlaceIds = selectedPlaceIdsByTrip.get(tripId);
+                  return {
+                    tripId,
+                    placeIds:
+                      selectedPlaceIds && selectedPlaceIds.size > 0
+                        ? Array.from(selectedPlaceIds)
+                        : placeIds,
+                  };
+                },
+              );
+              if (
+                selections.some(
+                  ({ tripId }) => !selectedPlaceIdsByTrip.get(tripId)?.size,
+                )
+              ) {
+                setSelectedPlaceIdsByTrip?.(
+                  new Map(
+                    selections.map(({ tripId, placeIds }) => [
+                      tripId,
+                      new Set(placeIds),
+                    ]),
+                  ),
                 );
               }
+              await sendResponse(
+                JSON.stringify({
+                  operation: type === "edit" ? "replace" : "select",
+                  selections,
+                }),
+              );
             } else {
               await sendResponse("SEND");
             }
