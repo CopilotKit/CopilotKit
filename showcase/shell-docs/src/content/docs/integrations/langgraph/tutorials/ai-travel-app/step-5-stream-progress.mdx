@@ -37,7 +37,7 @@ The node creates one progress item per query and emits the state before the
 search starts:
 
 ```python title="examples/showcases/travel/agent/src/search.py"
-state["search_progress"] = state.get("search_progress", [])
+state["search_progress"] = []
 queries = ai_message.tool_calls[0]["args"]["queries"]
 
 for query in queries:
