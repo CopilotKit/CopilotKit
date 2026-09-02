@@ -9731,6 +9731,8 @@ export class WebInspectorElement extends LitElement {
         --hud-accent-soft: rgb(184 173 245 / 0.13);
         --hud-hover-fill: #252231;
         --hud-blur: blur(12px) saturate(1.2);
+        --hud-card-gap: 8px;
+        --hud-dismiss-day-height: 32px;
         position: absolute;
         z-index: 4;
         width: 258px;
@@ -9774,7 +9776,7 @@ export class WebInspectorElement extends LitElement {
         position: relative;
         display: grid;
         width: 244px;
-        gap: 8px;
+        gap: var(--hud-card-gap);
         color: #fff;
       }
 
@@ -9822,6 +9824,18 @@ export class WebInspectorElement extends LitElement {
         .cpk-launcher-hud__arrow {
         top: auto;
         bottom: calc(var(--cpk-launcher-size) / 2 - 5px);
+      }
+
+      /* A bottom-anchored HUD can end with the narrower dismissal bubble.
+         Keep the pointer attached to the full-width feature panel instead of
+         letting it float in the empty space beside that final action. */
+      .cpk-launcher-hud[data-cpk-hud-vertical="bottom"]:has(
+          .cpk-launcher-hud__dismiss-day
+        )
+        .cpk-launcher-hud__arrow {
+        bottom: calc(
+          var(--hud-dismiss-day-height) + var(--hud-card-gap) + 2px
+        );
       }
 
       .cpk-launcher-hud__list {
@@ -9967,7 +9981,7 @@ export class WebInspectorElement extends LitElement {
         z-index: 1;
         display: flex;
         width: auto;
-        min-height: 32px;
+        min-height: var(--hud-dismiss-day-height);
         align-items: center;
         justify-content: center;
         justify-self: center;
@@ -9976,8 +9990,9 @@ export class WebInspectorElement extends LitElement {
         padding: 7px 13px;
         border: 1px solid var(--hud-line);
         border-radius: 999px;
-        background: var(--hud-accent-soft);
-        color: var(--hud-accent);
+        background: var(--hud-fill);
+        color: #c9cad3;
+        box-shadow: 0 8px 20px rgb(17 14 29 / 0.18);
         font-family: inherit;
         font-size: 10px;
         font-weight: 650;
@@ -9993,7 +10008,7 @@ export class WebInspectorElement extends LitElement {
       .cpk-launcher-hud__dismiss-day:focus-visible {
         border-color: var(--hud-accent);
         background: var(--hud-hover-fill);
-        color: var(--hud-accent);
+        color: #f3f4f8;
       }
 
       .cpk-launcher-hud__dismiss-day:focus-visible {
@@ -10008,14 +10023,15 @@ export class WebInspectorElement extends LitElement {
 
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__dismiss-day {
-        color: var(--hud-accent);
+        box-shadow: 0 8px 20px rgb(46 37 91 / 0.12);
+        color: #5f6068;
       }
 
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__dismiss-day:hover,
       .cpk-launcher-hud[data-color-scheme="light"]
         .cpk-launcher-hud__dismiss-day:focus-visible {
-        color: #4b416b;
+        color: #36373d;
       }
 
       .cpk-launcher-hud__feature-list {
@@ -11684,7 +11700,7 @@ export class WebInspectorElement extends LitElement {
                     <span aria-hidden="true"
                       >${this.renderIcon("Clock")}</span
                     >
-                    Close Inspector for a day
+                    Hide Inspector for a day
                   </button>
                 `
               : nothing
@@ -16406,7 +16422,7 @@ export class WebInspectorElement extends LitElement {
               @click=${() => this.dismissInspectorFor("week")}
             >
               <span aria-hidden="true">${this.renderIcon("Clock")}</span>
-              Close Inspector for one week
+              Hide Inspector for one week
             </button>
           </div>
         </section>

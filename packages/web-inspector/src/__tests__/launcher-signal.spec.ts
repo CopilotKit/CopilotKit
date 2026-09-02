@@ -1004,7 +1004,7 @@ test("the HUD announcement opens What's new and retires the unread signal", asyn
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
-test("the notification HUD closes the Inspector for a day across localhost ports", async () => {
+test("the notification HUD hides the Inspector for a day across localhost ports", async () => {
   const context = await setup();
   await openHud(context.inspector);
 
@@ -1014,7 +1014,7 @@ test("the notification HUD closes the Inspector for a day across localhost ports
     ),
   );
   expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
-    "Close Inspector for a day",
+    "Hide Inspector for a day",
   );
   expect(action.closest(".cpk-launcher-hud__masthead")).toBeNull();
   const featureList = requireElement(
@@ -1077,7 +1077,7 @@ test("Settings offers the longer one-week dismissal", async () => {
     ),
   );
   expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
-    "Close Inspector for one week",
+    "Hide Inspector for one week",
   );
 
   const clickedAt = Date.now();
