@@ -551,6 +551,18 @@ test.each([
   }
 });
 
+test("keeps programmatic control on one client-safe React example", () => {
+  const doc = loadDoc("programmatic-control");
+  const example = doc?.source.match(
+    /```tsx title="frontend\/src\/app\/agent-trigger\.tsx"\n([\s\S]*?)```/,
+  )?.[1];
+
+  expect(example).toMatch(
+    /^"use client";\n\nimport \{ useAgent, useCopilotKit \} from "@copilotkit\/react-core\/v2";/,
+  );
+  expect(loadDoc("integrations/langgraph/programmatic-control")).toBeNull();
+});
+
 test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   "renders a lifecycle-safe shared-state initializer for %s",
   (framework) => {
