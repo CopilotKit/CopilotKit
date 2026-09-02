@@ -3,13 +3,8 @@ import { AnimatedCard } from "@/components/animated-card";
 import { useGlobalState } from "@/lib/stages";
 import { submitOnce } from "@/lib/single-submit";
 import type { SubmissionFailure } from "@/lib/single-submit";
-import type {
-  Car,
-  CardInfo,
-  ContactInfo,
-  FinancingInfo,
-  Order,
-} from "@/lib/types";
+import type { Order } from "@/lib/types";
+import { createOrderConfirmation } from "./selected-payment";
 
 import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
@@ -26,6 +21,12 @@ export const ConfirmOrder = ({
 }: ConfirmOrderProps) => {
   const { selectedCar, contactInfo, cardInfo, financingInfo } =
     useGlobalState();
+  const order = createOrderConfirmation({
+    car: selectedCar,
+    contactInfo,
+    cardInfo,
+    financingInfo,
+  });
 
   return (
     <AnimatedCard className="w-[500px]" status={status}>
@@ -51,34 +52,27 @@ export const ConfirmOrder = ({
           <span className="text-gray-600">{contactInfo?.name}</span>
         </div>
 
-        <div className="flex justify-between items-center border-b border-blue-100 pb-2">
-          <span className="font-medium">Payment</span>
-          <span className="text-gray-600">
-            {cardInfo?.type} ****{cardInfo?.cardNumber?.slice(-4)}
-          </span>
-        </div>
+        {order?.paymentType === "card" && (
+          <div className="flex justify-between items-center border-b border-blue-100 pb-2">
+            <span className="font-medium">Payment</span>
+            <span className="text-gray-600">
+              {order.cardInfo.type} ****{order.cardInfo.cardNumber.slice(-4)}
+            </span>
+          </div>
+        )}
 
-        <div className="flex justify-between items-center">
-          <span className="font-medium">Financing</span>
-          <span className="text-gray-600">
-            {financingInfo?.loanTerm} months
-          </span>
-        </div>
+        {order?.paymentType === "financing" && (
+          <div className="flex justify-between items-center">
+            <span className="font-medium">Financing</span>
+            <span className="text-gray-600">
+              {order.financingInfo.loanTerm} months
+            </span>
+          </div>
+        )}
       </div>
 
-      {status === ToolCallStatus.Executing && (
-        <ActionButtons
-          onConfirm={() =>
-            onConfirm({
-              car: selectedCar || ({} as Car),
-              contactInfo: contactInfo || ({} as ContactInfo),
-              cardInfo: cardInfo || ({} as CardInfo),
-              financingInfo: financingInfo || ({} as FinancingInfo),
-              paymentType: cardInfo ? "card" : "financing",
-            })
-          }
-          onCancel={onCancel}
-        />
+      {status === ToolCallStatus.Executing && order && (
+        <ActionButtons onConfirm={() => onConfirm(order)} onCancel={onCancel} />
       )}
     </AnimatedCard>
   );
