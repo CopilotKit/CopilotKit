@@ -11,7 +11,6 @@ from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_st
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
-
 from src.state import AgentState
 
 
@@ -26,9 +25,11 @@ PLACES_FIELD_MASK = (
 )
 
 
-def _search_places(query: str, query_index: int) -> list[dict]:
+async def _search_places(
+    client: httpx.AsyncClient, query: str, query_index: int
+) -> list[dict]:
     """Search Places API (New) and map its response to the shared Place shape."""
-    response = httpx.post(
+    response = await client.post(
         PLACES_SEARCH_URL,
         json={"textQuery": query},
         headers={
@@ -83,10 +84,11 @@ async def search_node(state: AgentState, config: RunnableConfig):
     await copilotkit_emit_state(config, state)
 
     places = []
-    for i, query in enumerate(queries):
-        places.extend(_search_places(query, i))
-        state["search_progress"][i]["done"] = True
-        await copilotkit_emit_state(config, state)
+    async with httpx.AsyncClient() as client:
+        for i, query in enumerate(queries):
+            places.extend(await _search_places(client, query, i))
+            state["search_progress"][i]["done"] = True
+            await copilotkit_emit_state(config, state)
 
     state["search_progress"] = []
     await copilotkit_emit_state(config, state)

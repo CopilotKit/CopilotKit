@@ -11,6 +11,45 @@ from src.search import search_node
 
 
 class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
+    async def test_awaits_places_api_request(self):
+        response = MagicMock()
+        response.json.return_value = {"places": []}
+
+        client = MagicMock()
+        client.post = AsyncMock(return_value=response)
+        client_context = MagicMock()
+        client_context.__aenter__ = AsyncMock(return_value=client)
+        client_context.__aexit__ = AsyncMock(return_value=None)
+
+        message = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "search_for_places",
+                    "args": {"queries": ["parks in San Francisco"]},
+                    "id": "search-call",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        state = {"messages": [message], "search_progress": []}
+
+        with (
+            patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": TEST_API_KEY}),
+            patch("httpx.AsyncClient", return_value=client_context) as async_client,
+            patch(
+                "httpx.post",
+                side_effect=AssertionError(
+                    "Places requests must not block the event loop"
+                ),
+            ),
+            patch("src.search.copilotkit_emit_state", new_callable=AsyncMock),
+        ):
+            await search_node(state, {})
+
+        async_client.assert_called_once_with()
+        client.post.assert_awaited_once()
+
     async def test_uses_places_api_new_and_maps_optional_fields(self):
         response = MagicMock()
         response.json.return_value = {
@@ -39,16 +78,22 @@ class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
         )
         state = {"messages": [message], "search_progress": []}
 
+        client = MagicMock()
+        client.post = AsyncMock(return_value=response)
+        client_context = MagicMock()
+        client_context.__aenter__ = AsyncMock(return_value=client)
+        client_context.__aexit__ = AsyncMock(return_value=None)
+
         with (
             patch.dict(os.environ, {"GOOGLE_MAPS_API_KEY": TEST_API_KEY}),
-            patch("httpx.post", return_value=response) as post,
+            patch("httpx.AsyncClient", return_value=client_context),
             patch("src.search.gmaps", create=True) as legacy_client,
             patch("src.search.copilotkit_emit_state", new_callable=AsyncMock),
         ):
             legacy_client.places.return_value = {"results": []}
             result = await search_node(state, {})
 
-        post.assert_called_once_with(
+        client.post.assert_awaited_once_with(
             "https://places.googleapis.com/v1/places:searchText",
             json={"textQuery": "parks in San Francisco"},
             headers={
