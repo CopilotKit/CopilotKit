@@ -1621,7 +1621,7 @@ test("drives the real Core, Inspector, stores, surfaces, and ledger for all 37 r
           );
           const selfHostedIntelligenceOnboarding = collectDeep(
             main,
-            'a[href^="https://docs.copilotkit.ai/premium/self-hosting"]',
+            'a[href^="https://docs.copilotkit.ai/intelligence/self-hosting"]',
           );
           const showsEnabledZeroOverview =
             scenario.capability === "enabled" && scenario.data === "zero";

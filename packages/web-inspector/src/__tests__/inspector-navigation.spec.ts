@@ -1068,7 +1068,7 @@ test("trusted identity stays on Home while connection state moves into branded c
     expect(learningDocs.textContent).toContain("Learning");
     expect(learningDocs.querySelector("svg")).not.toBeNull();
     expect(learningDocs.href).toBe(
-      "https://docs.copilotkit.ai/premium/intelligence-platform?ref=cpk-inspector-home",
+      "https://docs.copilotkit.ai/intelligence/intelligence-platform?ref=cpk-inspector-home",
     );
     expect(
       learning.firstElementChild?.classList.contains(

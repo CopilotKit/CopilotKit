@@ -640,7 +640,7 @@ function createPlaygroundThreadId(): string {
 
 const THREADS_DOCS_URL = "https://docs.copilotkit.ai/threads";
 const SELF_HOSTED_INTELLIGENCE_URL =
-  "https://docs.copilotkit.ai/premium/self-hosting";
+  "https://docs.copilotkit.ai/intelligence/self-hosting";
 
 // ── The Intelligence story on Home ────────────────────────────────────────
 //
