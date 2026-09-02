@@ -18,11 +18,6 @@ const runtime = new CopilotRuntime({
           langsmithApiKey: process.env.LANGSMITH_API_KEY,
           graphId: "research_agent",
         }),
-        research_agent_google_genai: new LangGraphAgent({
-          deploymentUrl,
-          langsmithApiKey: process.env.LANGSMITH_API_KEY,
-          graphId: "research_agent_google_genai",
-        }),
       };
     }
 
@@ -32,9 +27,6 @@ const runtime = new CopilotRuntime({
     return {
       research_agent: new LangGraphHttpAgent({
         url: `${baseUrl}/agents/research_agent`,
-      }),
-      research_agent_google_genai: new LangGraphHttpAgent({
-        url: `${baseUrl}/agents/research_agent_google_genai`,
       }),
     };
   },

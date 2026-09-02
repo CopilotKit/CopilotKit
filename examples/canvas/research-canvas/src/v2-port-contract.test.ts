@@ -17,12 +17,17 @@ test("loads the LangGraph deployment URL only from server configuration", () => 
   expect(modelSelectorProvider).not.toContain("lgcDeploymentUrl");
 });
 
-test("offers only agent implementations that exist in the example", () => {
+test("routes every supported model through the bundled research agent", () => {
   const modelSelector = readSource("./components/ModelSelector.tsx");
   const modelSelectorProvider = readSource("./lib/model-selector-provider.tsx");
+  const route = readSource("./app/api/copilotkit/[[...slug]]/route.ts");
 
   expect(modelSelector).not.toContain('value="crewai"');
+  expect(modelSelector).toContain('value="google_genai"');
   expect(modelSelectorProvider).not.toContain("research_agent_crewai");
+  expect(modelSelectorProvider).toContain('const agent = "research_agent";');
+  expect(modelSelectorProvider).not.toContain("research_agent_google_genai");
+  expect(route).not.toContain("research_agent_google_genai");
 });
 
 test("uses the HSL primary token as a valid CSS color", () => {
