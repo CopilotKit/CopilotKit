@@ -97,6 +97,15 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
     Optional agent scope. When set, the tool is only offered to the agent with
     this id. Cleanup on destroy is scoped to the same `agentId`.
   </PropertyReference>
+
+  <PropertyReference name="webmcp" type="boolean | { annotations?: { readOnlyHint?: boolean; untrustedContentHint?: boolean } }">
+    Also expose the tool to browser agents through the WebMCP API
+    (`document.modelContext`). Pass `true` to register with default
+    annotations, or an object to register with WebMCP annotations. The same
+    `handler` runs when a browser agent calls the tool; the context then has
+    no `agent`. This is a no-op where WebMCP is not available (browsers
+    without the API enabled).
+  </PropertyReference>
 </PropertyReference>
 
 ## Return Value
@@ -112,6 +121,7 @@ function registerFrontendTool<Args extends Record<string, unknown>>(
   renderers with the same `name` and optional `agentId`. Registrations sharing
   that key are removed together.
 - **Optional renderer.** When you pass a `component`, it is registered alongside the tool so the chat can render the tool call's progress and result.
+- **WebMCP registration.** With `webmcp` set, the tool is also registered on `document.modelContext` for as long as the owning injector is alive. The tool needs a `description` for this (WebMCP rejects tools without one).
 
 ## Usage
 
