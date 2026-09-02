@@ -12,7 +12,7 @@ Open Multi-Agent Canvas, created by [CopilotKit](https://github.com/CopilotKit/C
 
 ## Existing Agents
 
-Check out these awesome agents (they live in separate repositories). You can run them separately or deploy them on LangSmith:
+Check out these awesome agents (they live in separate directories in this repository). You can run them separately or deploy them on LangSmith:
 
 - [CoAgents Travel Agent](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/travel/agent)
 - [CoAgents AI Researcher](https://github.com/CopilotKit/CopilotKit/tree/main/examples/canvas/research-canvas/agents)
