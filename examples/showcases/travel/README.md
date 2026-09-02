@@ -81,7 +81,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    pnpm install:agent
    ```
 
-4. Create a `.env` file in the project root:
+4. Create `agent/.env`:
 
    ```
    OPENAI_API_KEY=your_openai_api_key
