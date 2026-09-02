@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "test": "node --test page-accessibility.test.mjs",
     "start": "next start"
   },
   "dependencies": {
