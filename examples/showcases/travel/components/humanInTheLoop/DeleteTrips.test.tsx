@@ -10,7 +10,20 @@ vi.mock("@copilotkit/react-core/v2", () => ({
 
 vi.mock("@/components/PlaceCard", () => ({
   PlaceCard: ({ place }: { place: Place }) => (
-    <span data-place-id={place.id}>{place.name}</span>
+    <article aria-label={`${place.name} details`}>
+      <h3>{place.name}</h3>
+      <p>{place.address}</p>
+      <p>{place.description}</p>
+    </article>
+  ),
+}));
+
+vi.mock("./ActionButtons", () => ({
+  ActionButtons: () => (
+    <div data-delete-trip-actions>
+      <button type="button">Cancel</button>
+      <button type="button">Delete</button>
+    </div>
   ),
 }));
 
@@ -30,23 +43,41 @@ const trip: Trip = {
       latitude: 38.7078,
       longitude: -9.1366,
       rating: 4.7,
-      description: null,
+      description: "Historic plaza beside the Tagus River",
     },
   ],
 };
 
-test("keeps deleted-trip details and disabled controls in the completed card", () => {
-  const markup = renderToStaticMarkup(
+function setup(status: ToolCallStatus) {
+  return renderToStaticMarkup(
     <DeleteTrips
       args={{ trip_ids: [trip.id] }}
-      status={ToolCallStatus.Complete}
+      status={status}
       trips={[trip]}
     />,
   );
+}
 
-  expect(markup).toContain("Lisbon conference");
-  expect(markup).toContain('data-place-id="place-1"');
+test("keeps deleted-trip details and omits actions in the completed card", () => {
+  const markup = setup(ToolCallStatus.Complete);
+
+  expect(markup).toContain(trip.name);
+  expect(markup).toContain(trip.places[0].name);
+  expect(markup).toContain(trip.places[0].address);
+  expect(markup).toContain(trip.places[0].description);
+  expect(markup).not.toContain("data-delete-trip-actions");
+  expect(markup).not.toContain(">Cancel</button>");
+  expect(markup).not.toContain(">Delete</button>");
+});
+
+test("shows trip details and actions while deletion awaits approval", () => {
+  const markup = setup(ToolCallStatus.Executing);
+
+  expect(markup).toContain(trip.name);
+  expect(markup).toContain(trip.places[0].name);
+  expect(markup).toContain(trip.places[0].address);
+  expect(markup).toContain(trip.places[0].description);
+  expect(markup).toContain("data-delete-trip-actions");
   expect(markup).toContain("Delete");
   expect(markup).toContain("Cancel");
-  expect(markup.match(/<button[^>]*disabled=""/g)).toHaveLength(2);
 });
