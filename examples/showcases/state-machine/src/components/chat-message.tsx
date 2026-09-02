@@ -79,7 +79,7 @@ export function AssistantMessage({
 }: AssistantMessageProps) {
   const content = normalizeMarkdownContent(message?.content);
   const isLatestMessage = messages?.[messages.length - 1]?.id === message.id;
-  const showLoading = Boolean(isRunning && isLatestMessage);
+  const showLoading = Boolean(isRunning && isLatestMessage && !content);
 
   return (
     <div className="flex items-start gap-4 px-6 py-4">
