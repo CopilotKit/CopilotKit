@@ -122,6 +122,7 @@ This allows the AI to update the form fields.
 
 ```tsx
 import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { applyIncidentReportFormValues } from "@/lib/apply-incident-report-form-values";
 import { isIncidentDateAllowed, parseIncidentDate } from "@/lib/incident-date";
 import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
 
@@ -135,13 +136,15 @@ useFrontendTool({
       return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
     }
 
-    form.setValue("name", action.fullName);
-    form.setValue("email", action.email);
-    form.setValue("description", action.incidentDescription);
-    form.setValue("date", incidentDate);
-    form.setValue("impactLevel", action.incidentLevel);
-    form.setValue("incidentType", action.incidentType);
-    form.setValue("suggestedActions", action.suggestedActions);
+    applyIncidentReportFormValues(form.setValue, {
+      name: action.fullName,
+      email: action.email,
+      description: action.incidentDescription,
+      date: incidentDate,
+      impactLevel: action.incidentLevel,
+      incidentType: action.incidentType,
+      suggestedActions: action.suggestedActions,
+    });
     return "Updated the incident report form.";
   },
 });

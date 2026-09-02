@@ -45,6 +45,7 @@ import {
 import { incidentReportFormSchema } from "@/lib/incident-report-form";
 import type { IncidentReportFormValues } from "@/lib/incident-report-form";
 import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
+import { applyIncidentReportFormValues } from "@/lib/apply-incident-report-form-values";
 
 export function IncidentReportForm() {
   const form = useForm<IncidentReportFormValues>({
@@ -98,13 +99,15 @@ export function IncidentReportForm() {
         return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
       }
 
-      form.setValue("name", action.fullName);
-      form.setValue("email", action.email);
-      form.setValue("description", action.incidentDescription);
-      form.setValue("date", incidentDate);
-      form.setValue("impactLevel", action.incidentLevel);
-      form.setValue("incidentType", action.incidentType);
-      form.setValue("suggestedActions", action.suggestedActions);
+      applyIncidentReportFormValues(form.setValue, {
+        name: action.fullName,
+        email: action.email,
+        description: action.incidentDescription,
+        date: incidentDate,
+        impactLevel: action.incidentLevel,
+        incidentType: action.incidentType,
+        suggestedActions: action.suggestedActions,
+      });
       return "Updated the incident report form.";
     },
   });
