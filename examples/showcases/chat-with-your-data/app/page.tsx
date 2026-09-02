@@ -5,12 +5,25 @@ import { Dashboard } from "../components/Dashboard";
 import { Header } from "../components/Header";
 import { Footer } from "../components/Footer";
 import { CustomAssistantMessage } from "../components/AssistantMessage";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { startCurrentTimeUpdates } from "../lib/current-time.mjs";
 
 function HomeContent() {
+  const [currentTime, setCurrentTime] = useState(() =>
+    new Date().toLocaleTimeString(),
+  );
+
+  useEffect(
+    () =>
+      startCurrentTimeUpdates(() => {
+        setCurrentTime(new Date().toLocaleTimeString());
+      }),
+    [],
+  );
+
   useAgentContext({
     description: "Current time",
-    value: new Date().toLocaleTimeString(),
+    value: currentTime,
   });
 
   return (
