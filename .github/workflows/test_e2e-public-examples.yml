@@ -160,7 +160,7 @@ jobs:
       - name: Run Travel agent tests
         if: matrix.example == 'travel'
         working-directory: examples/showcases/travel/agent
-        run: uv run --frozen --with pytest==9.1.1 python -m pytest tests
+        run: uv run --locked --with pytest==9.1.1 python -m pytest tests
 
       - name: Install e2e dependencies
         working-directory: examples/e2e

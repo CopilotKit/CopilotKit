@@ -130,7 +130,7 @@ test("public example jobs run each app's unit tests and Travel's Python tests", 
   );
   assert.match(
     publicExamplesWorkflow,
-    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/showcases\/travel\/agent\n\s+run: uv run --frozen --with pytest==9\.1\.1 python -m pytest tests/,
+    /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/showcases\/travel\/agent\n\s+run: uv run --locked --with pytest==9\.1\.1 python -m pytest tests/,
   );
 });
 
