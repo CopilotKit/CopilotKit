@@ -5,6 +5,7 @@
  * v2 composable (useFrontendTool, useHumanInTheLoop, or useRenderTool).
  */
 import type { WatchSource } from "vue";
+import type { WebMCPToolConfig } from "@copilotkit/core";
 import type { Parameter, MappedParameterTypes } from "@copilotkit/shared";
 import { getZodParameters, parseJson } from "@copilotkit/shared";
 import { useFrontendTool as useFrontendToolV2 } from "../v2/hooks/use-frontend-tool";
@@ -38,6 +39,12 @@ export interface FrontendAction<T extends Parameter[] | [] = []> {
   renderAndWaitForResponse?: VueFrontendTool<MappedParameterTypes<T>>["render"];
   renderAndWait?: VueFrontendTool<MappedParameterTypes<T>>["render"];
   agentId?: string;
+  /**
+   * Also expose this action to browser agents through the WebMCP API
+   * (`document.modelContext`). `true` uses default annotations;
+   * `{ annotations }` provides WebMCP annotations.
+   */
+  webmcp?: boolean | WebMCPToolConfig;
 }
 
 export interface CatchAllFrontendAction {
@@ -162,6 +169,7 @@ export function useCopilotAction<const T extends Parameter[] | [] = []>(
       render: wrapRenderWithJsonResult(typedAction.render),
       available: normalizedAvailable,
       agentId: typedAction.agentId,
+      webmcp: typedAction.webmcp,
     },
     deps,
   );
