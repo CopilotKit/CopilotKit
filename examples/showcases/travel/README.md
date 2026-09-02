@@ -12,7 +12,7 @@ This example uses CopilotKit v2. If you are updating a v1 app, follow the [v2 mi
     <img src="https://img.shields.io/badge/Built%20with-CopilotKit-6963ff" alt="Built with CopilotKit"/>
   </a>
   <a href="https://nextjs.org" target="_blank">
-    <img src="https://img.shields.io/badge/Built%20with-Next.js%2014-black" alt="Built with Next.js"/>
+    <img src="https://img.shields.io/badge/Built%20with-Next.js%2016-black" alt="Built with Next.js"/>
   </a>
   <a href="https://www.langchain.com/langgraph" target="_blank">
     <img src="https://img.shields.io/badge/Powered%20by-LangGraph-blue" alt="Powered by LangGraph"/>
@@ -44,7 +44,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20.9.0+
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/) package manager
 - pnpm 10+
 - A Google Maps Platform project with Places API (New) enabled
