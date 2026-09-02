@@ -50,8 +50,8 @@ function readmeCategory(category, heading) {
   return { declaredCount: Number(section[1]), links };
 }
 
-function workflowTriggerPaths(eventName) {
-  const eventSection = publicExamplesWorkflow.match(
+function workflowTriggerPaths(eventName, workflow = publicExamplesWorkflow) {
+  const eventSection = workflow.match(
     new RegExp(
       `^  ${eventName}:\\n([\\s\\S]*?)(?=^  (?:push|pull_request|workflow_dispatch):|^env:)`,
       "m",
@@ -64,11 +64,32 @@ function workflowTriggerPaths(eventName) {
   );
   assert.ok(pathsSection, `${eventName} trigger is missing its paths filter`);
 
-  return Array.from(
-    pathsSection[1].matchAll(/^      - "([^"]+)"$/gm),
-    (match) => match[1],
-  );
+  return pathsSection[1]
+    .trimEnd()
+    .split("\n")
+    .map((line) => {
+      const item = line.match(/^      - (?:"([^"]+)"|'([^']+)'|([^'"].*))$/);
+      assert.ok(item, `unsupported path entry: ${line.trim()}`);
+      return item[1] ?? item[2] ?? item[3].trim();
+    });
 }
+
+test("workflow trigger parser reads all valid YAML path quoting styles", () => {
+  const workflow = `on:
+  push:
+    paths:
+      - "examples/**"
+      - 'packages/**'
+      - scripts/**
+env:
+`;
+
+  assert.deepEqual(workflowTriggerPaths("push", workflow), [
+    "examples/**",
+    "packages/**",
+    "scripts/**",
+  ]);
+});
 
 for (const { directory, heading } of categories) {
   test(`${heading} count and links match the current example directories`, () => {
