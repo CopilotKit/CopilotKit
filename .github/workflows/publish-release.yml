@@ -20,7 +20,12 @@ name: release / publish
 # This workflow handles two independent release lanes:
 #
 # 1. npm (TypeScript) — fires on merged release/publish/* PRs or manual dispatch.
-#    Build → publish via nx release + OIDC trusted publishers.
+#    Build with `nx run-many -t build` → `pnpm pack` each package →
+#    `npm publish <tarball>` from scripts/release/publish-release.ts, under the
+#    OIDC trusted-publisher binding above. This does NOT use `nx release`: the
+#    publish path needs the pinned npm from scripts/release/lib/npm-cli.ts
+#    (>= 11.5.1 for OIDC; the runner ships 10.x), and versioning/notes happen
+#    earlier, in the release PR that stable-release.yml opens.
 #
 # 2. PyPI (Python SDK) — fires on any merged PR that bumps sdk-python/pyproject.toml.
 #    Detects version change vs PyPI registry, builds with poetry, publishes with uv.
