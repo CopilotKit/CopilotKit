@@ -11,6 +11,7 @@ from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_st
 from langchain.tools import tool
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
+
 from src.state import AgentState
 
 
@@ -75,7 +76,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
         ],
     )
 
-    state["search_progress"] = state.get("search_progress", [])
+    state["search_progress"] = []
     queries = ai_message.tool_calls[0]["args"]["queries"]
 
     for query in queries:

@@ -11,6 +11,60 @@ from src.search import search_node
 
 
 class SearchNodeTest(unittest.IsolatedAsyncioTestCase):
+    async def test_replaces_stale_progress_before_tracking_current_queries(self):
+        message = AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "search_for_places",
+                    "args": {"queries": ["parks", "museums"]},
+                    "id": "search-call",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        state = {
+            "messages": [message],
+            "search_progress": [
+                {"query": "stale search", "results": [], "done": False}
+            ],
+        }
+        emitted_progress = []
+
+        async def capture_progress(_, emitted_state):
+            emitted_progress.append(
+                [dict(progress) for progress in emitted_state["search_progress"]]
+            )
+
+        with (
+            patch("src.search._search_places", new_callable=AsyncMock, return_value=[]),
+            patch(
+                "src.search.copilotkit_emit_state",
+                new_callable=AsyncMock,
+                side_effect=capture_progress,
+            ),
+        ):
+            await search_node(state, {})
+
+        self.assertEqual(
+            emitted_progress,
+            [
+                [
+                    {"query": "parks", "results": [], "done": False},
+                    {"query": "museums", "results": [], "done": False},
+                ],
+                [
+                    {"query": "parks", "results": [], "done": True},
+                    {"query": "museums", "results": [], "done": False},
+                ],
+                [
+                    {"query": "parks", "results": [], "done": True},
+                    {"query": "museums", "results": [], "done": True},
+                ],
+                [],
+            ],
+        )
+
     async def test_awaits_places_api_request(self):
         response = MagicMock()
         response.json.return_value = {"places": []}
