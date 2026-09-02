@@ -49,7 +49,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
      # Using yarn
      yarn install
      
-     # Using pnpm
+     # Using npm
      npm install
      ```
    </details>
@@ -73,7 +73,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
      # Using yarn
      yarn dev
      
-     # Using pnpm
+     # Using npm
      npm run dev
      ```
    </details>
