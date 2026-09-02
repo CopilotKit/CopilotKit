@@ -1,4 +1,5 @@
 const resourceCache = new Map<string, string>();
+const resourceLoadsInFlight = new Map<string, Promise<string>>();
 
 /** Returns a previously loaded resource, when present. */
 export function getCachedResource(url: string): string | undefined {
@@ -15,7 +16,19 @@ export async function getOrLoadResource(
     return cached;
   }
 
-  const resource = await load();
-  resourceCache.set(url, resource);
-  return resource;
+  const inFlight = resourceLoadsInFlight.get(url);
+  if (inFlight !== undefined) {
+    return inFlight;
+  }
+
+  const resourceLoad = load()
+    .then((resource) => {
+      resourceCache.set(url, resource);
+      return resource;
+    })
+    .finally(() => {
+      resourceLoadsInFlight.delete(url);
+    });
+  resourceLoadsInFlight.set(url, resourceLoad);
+  return resourceLoad;
 }
