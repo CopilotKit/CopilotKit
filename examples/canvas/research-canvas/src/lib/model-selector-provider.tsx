@@ -35,10 +35,7 @@ export const ModelSelectorProvider = ({
   );
   const [hidden, setHidden] = useState<boolean>(false);
 
-  let agent = "research_agent";
-  if (model === "google_genai") {
-    agent = "research_agent_google_genai";
-  }
+  const agent = "research_agent";
 
   return (
     <ModelSelectorContext.Provider
