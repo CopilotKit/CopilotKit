@@ -88,3 +88,15 @@ test("retries a failed download and exposes only the successful content", async 
   expect(dependencyMocks.fetchPublicText).toHaveBeenCalledTimes(2);
   expect(getResource(url)).toBe("Downloaded article");
 });
+
+test("treats empty downloaded text as cached", async () => {
+  const url = "https://example.com/empty-download";
+  dependencyMocks.fetchPublicText.mockResolvedValue("<main></main>");
+
+  await download_node(createAgentState(url), {});
+  const secondResult = await download_node(createAgentState(url), {});
+
+  expect(secondResult.logs).toEqual([]);
+  expect(dependencyMocks.fetchPublicText).toHaveBeenCalledTimes(1);
+  expect(getResource(url)).toBe("");
+});

@@ -35,7 +35,7 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
 
   // Find resources that are not downloaded
   for (const resource of resources) {
-    if (!getResource(resource.url)) {
+    if (getCachedResource(resource.url) === undefined) {
       resourcesToDownload.push(resource);
       logs.push({
         message: `Downloading ${resource.url}`,
