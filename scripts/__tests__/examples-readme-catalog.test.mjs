@@ -103,3 +103,11 @@ test("catalog and example jobs check out the requested dispatch ref", () => {
   assert.ok(catalogJob[1].includes(requestedRef));
   assert.ok(examplesJob[1].includes(requestedRef));
 });
+
+test("multi-agent canvas describes linked agents as monorepo directories", () => {
+  assert.match(
+    multiAgentCanvasReadme,
+    /they live in separate directories in this repository/,
+  );
+  assert.doesNotMatch(multiAgentCanvasReadme, /separate repositories/);
+});
