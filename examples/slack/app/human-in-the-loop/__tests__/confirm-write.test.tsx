@@ -244,8 +244,9 @@ describe("ConfirmWrite", () => {
     // wait on a model call.
     expect(calls).toEqual(["update", "runAgent", "update"]);
 
-    const prompt = (runAgent.mock.calls[0] as unknown as [{ prompt: string }])[0]
-      .prompt;
+    const prompt = (
+      runAgent.mock.calls[0] as unknown as [{ prompt: string }]
+    )[0].prompt;
     expect(prompt).toContain("APPROVED");
     expect(prompt).toContain("Create Linear issue");
     expect(prompt).toContain("CPK-9");

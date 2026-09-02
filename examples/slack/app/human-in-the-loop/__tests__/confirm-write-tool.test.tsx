@@ -64,10 +64,13 @@ describe("confirm_write tool", () => {
     // fakeThread throws if awaitChoice is reached, so completing proves the
     // handler returned on its own — the managed path rejects awaitChoice.
     await expect(
-      confirmWriteTool.handler({ action: "Create Linear issue" } as never, {
-        thread,
-        platform: "slack",
-      } as never),
+      confirmWriteTool.handler(
+        { action: "Create Linear issue" } as never,
+        {
+          thread,
+          platform: "slack",
+        } as never,
+      ),
     ).resolves.toBeTypeOf("string");
   });
 });
