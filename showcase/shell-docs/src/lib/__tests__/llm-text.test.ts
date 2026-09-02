@@ -604,6 +604,45 @@ test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   },
 );
 
+test.each([
+  [
+    "strands-typescript",
+    "integrations/aws-strands/shared-state/in-app-agent-read",
+    'language: "spanish"',
+  ],
+  [
+    "pydantic-ai",
+    "integrations/pydantic-ai/shared-state/in-app-agent-read",
+    'language: "english"',
+  ],
+] as const)(
+  "renders supported state initialization on the %s read route",
+  (framework, loadSlug, initialLanguage) => {
+    const doc = loadDoc(loadSlug);
+    expect(doc).not.toBeNull();
+
+    const output = renderPageToLlmText(
+      {
+        url: `${framework}/shared-state/in-app-agent-read`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug,
+        framework,
+      },
+      { framework },
+    );
+
+    expect(output).toContain("const { agent, isReady } = useAgent({");
+    expect(output).toContain(
+      "if (!isReady || state.language !== undefined) return;",
+    );
+    expect(output).toContain(initialLanguage);
+    expect(output).not.toMatch(/\binitialState\s*:/);
+    expect(output).not.toContain("render: ({ state })");
+  },
+);
+
 test("renders executable Claude SDK shared-state wiring on both public routes", () => {
   const doc = loadDoc("shared-state");
   expect(doc).not.toBeNull();
