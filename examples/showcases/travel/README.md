@@ -43,7 +43,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 ### Prerequisites
 
 - Node.js 18+
-- Python 3.11+ with [uv](https://docs.astral.sh/uv/) package manager
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/) package manager
 - npm, yarn, or pnpm
 - A Google Maps Platform project with Places API (New) enabled
 
