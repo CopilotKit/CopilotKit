@@ -149,6 +149,86 @@ export function isValidDockMode(value: unknown): value is DockMode {
   return value === "floating" || value === "docked-left";
 }
 
+// Inspector dismissal is intentionally host-scoped rather than origin-scoped.
+// A developer who closes the Inspector on localhost:3000 should not see it
+// again on localhost:5173 during the same dismissal window. Cookies are shared
+// across ports on one host; localStorage is not.
+export const INSPECTOR_DISMISSAL_MIRROR_KEY = "cpk:inspector:dismissed_until";
+export const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+export const INSPECTOR_DISMISSAL_MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
+
+type InspectorDismissalPayload = Readonly<{ until: number }>;
+
+/** Return the active host-scoped Inspector dismissal deadline, if any. */
+export function loadInspectorDismissedUntil(
+  now: number = Date.now(),
+): number | null {
+  const until =
+    parseInspectorDismissalPayload(
+      readCookie(INSPECTOR_DISMISSAL_COOKIE_NAME),
+    ) ??
+    parseInspectorDismissalPayload(
+      readLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY),
+    );
+
+  if (until === null) return null;
+  if (until <= now) {
+    clearInspectorDismissal();
+    return null;
+  }
+  const maximumUntil = now + INSPECTOR_DISMISSAL_MAX_DURATION_MS;
+  if (until > maximumUntil) {
+    saveInspectorDismissedUntil(maximumUntil, now);
+    return maximumUntil;
+  }
+  return until;
+}
+
+/** Persist a dismissal across browser sessions and localhost ports. */
+export function saveInspectorDismissedUntil(
+  until: number,
+  now: number = Date.now(),
+): void {
+  if (!Number.isFinite(until) || until <= now) {
+    clearInspectorDismissal();
+    return;
+  }
+
+  const boundedUntil = Math.min(
+    until,
+    now + INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  );
+  const payload = JSON.stringify({
+    until: boundedUntil,
+  } satisfies InspectorDismissalPayload);
+  const maxAgeSeconds = Math.max(1, Math.ceil((boundedUntil - now) / 1000));
+  writeCookie(
+    INSPECTOR_DISMISSAL_COOKIE_NAME,
+    payload,
+    `Max-Age=${maxAgeSeconds}`,
+  );
+  writeLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY, payload);
+}
+
+/** Clear both persistence layers, including an expired host cookie. */
+export function clearInspectorDismissal(): void {
+  writeCookie(INSPECTOR_DISMISSAL_COOKIE_NAME, "", "Max-Age=0");
+  removeLocalStorageItem(INSPECTOR_DISMISSAL_MIRROR_KEY);
+}
+
+/** Parse a finite deadline from either persistence layer. */
+function parseInspectorDismissalPayload(raw: string | null): number | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<InspectorDismissalPayload>;
+    return typeof parsed.until === "number" && Number.isFinite(parsed.until)
+      ? parsed.until
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // Announcement read state — "have I read this announcement" is a property of
 // the person, not of the project, so it must survive a change of localhost
 // port. localStorage cannot express that: it is partitioned by origin and
@@ -247,32 +327,44 @@ function parseTimestampPayload(raw: string | null): string | null {
 }
 
 function readAnnouncementCookie(): string | null {
+  return readCookie(ANNOUNCEMENT_READ_COOKIE_NAME);
+}
+
+function writeAnnouncementCookie(value: string): void {
+  writeCookie(
+    ANNOUNCEMENT_READ_COOKIE_NAME,
+    value,
+    `Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}`,
+  );
+}
+
+function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   try {
     for (const entry of document.cookie.split(";")) {
       const separator = entry.indexOf("=");
       if (separator === -1) continue;
-      if (entry.slice(0, separator).trim() !== ANNOUNCEMENT_READ_COOKIE_NAME) {
-        continue;
-      }
+      if (entry.slice(0, separator).trim() !== name) continue;
       return decodeURIComponent(entry.slice(separator + 1).trim());
     }
   } catch {
-    // Cookie access throws in sandboxed documents — fall through to the
-    // mirror rather than breaking the host app.
+    // Cookie access throws in sandboxed documents. Callers fall back to their
+    // origin-scoped mirror rather than breaking the host app.
   }
   return null;
 }
 
-function writeAnnouncementCookie(value: string): void {
+function writeCookie(name: string, value: string, lifetime: string): void {
   if (typeof document === "undefined") return;
   try {
-    document.cookie = `${ANNOUNCEMENT_READ_COOKIE_NAME}=${encodeURIComponent(
+    // No Domain attribute: the cookie belongs to exactly this host, while
+    // remaining shared by every port on that host.
+    document.cookie = `${name}=${encodeURIComponent(
       value,
-    )}; Path=/; Max-Age=${ANNOUNCEMENT_READ_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax`;
+    )}; Path=/; ${lifetime}; SameSite=Lax`;
   } catch {
-    // No-op — the mirror below is what a cookie-blocking browser falls back
-    // to, and neither may break the host app.
+    // The localStorage mirror gives cookie-blocking browsers per-origin
+    // persistence, and neither storage layer may break the host app.
   }
 }
 

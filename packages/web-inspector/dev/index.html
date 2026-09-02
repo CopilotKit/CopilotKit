@@ -35,7 +35,8 @@
       }
 
       button,
-      select {
+      select,
+      input {
         min-height: 40px;
         border: 1px solid #69818c;
         border-radius: 2px;
@@ -57,14 +58,21 @@
 
       button:focus-visible,
       select:focus-visible,
+      input:focus-visible,
       summary:focus-visible {
         outline: 3px solid #087e99;
         outline-offset: 2px;
       }
 
       select {
-        width: min(440px, 100%);
+        width: 100%;
         padding: 7px 34px 7px 10px;
+      }
+
+      input {
+        width: 100%;
+        min-width: 0;
+        padding: 7px 10px;
       }
 
       .topbar {
@@ -72,7 +80,7 @@
         grid-template-columns: minmax(180px, 0.65fr) minmax(320px, 1.35fr) auto;
         align-items: end;
         gap: 16px;
-        padding: 14px 18px;
+        padding: 14px 92px 14px 18px;
         border-bottom: 1px solid #b7c8cf;
         background: #ffffff;
       }
@@ -97,6 +105,35 @@
         display: block;
         margin: 0 0 5px;
         font-weight: 600;
+      }
+
+      .notification-row,
+      .notification-custom-controls {
+        display: flex;
+        min-width: 0;
+        gap: 6px;
+      }
+
+      .notification-field[data-source="custom"] #notification-source {
+        width: 116px;
+        flex: 0 0 116px;
+      }
+
+      .notification-custom-controls {
+        flex: 1 1 auto;
+      }
+
+      .notification-custom-controls input {
+        flex: 1 1 auto;
+      }
+
+      .notification-custom-controls[hidden] {
+        display: none;
+      }
+
+      #apply-notification {
+        flex: 0 0 auto;
+        padding-inline: 10px;
       }
 
       .actions {
@@ -301,7 +338,7 @@
       @media (max-width: 680px) {
         .topbar {
           gap: 11px;
-          padding: 12px;
+          padding: 12px 84px 12px 12px;
         }
 
         .workspace {
@@ -327,7 +364,7 @@
     <header class="topbar">
       <div class="title">
         <h1>Inspector Threads state lab</h1>
-        <p>34 local fixtures · no Intelligence service</p>
+        <p>37 local fixtures · no Intelligence service</p>
       </div>
       <label>
         <span class="field-label">Scenario</span>
@@ -359,6 +396,35 @@
       </section>
 
       <aside class="console" aria-label="Scenario validation console">
+        <section>
+          <h2>Notification</h2>
+          <div
+            id="notification-field"
+            class="notification-field"
+            data-source="live"
+          >
+            <div class="notification-row">
+              <select id="notification-source" aria-label="Notification source">
+                <option value="live">Live</option>
+                <option value="custom">Custom</option>
+              </select>
+              <div
+                id="notification-custom-controls"
+                class="notification-custom-controls"
+                hidden
+              >
+                <input
+                  id="notification-custom-text"
+                  type="text"
+                  maxlength="240"
+                  placeholder="Write notification text"
+                  aria-label="Custom notification text"
+                />
+                <button id="apply-notification" type="button">Apply</button>
+              </div>
+            </div>
+          </div>
+        </section>
         <section>
           <h2>Live state</h2>
           <dl class="state-grid">

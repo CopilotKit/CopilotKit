@@ -8,9 +8,9 @@ const DEFAULT_CONTAINERS: string[] = ["project"];
 /**
  * Arguments for {@link useLearningContainers}.
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This interface supports only the legacy plural-container
+ * annotation. Configure `getLearningContainerId` on `CopilotKitIntelligence`
+ * for new Intelligence runtimes.
  */
 export interface UseLearningContainersArgs {
   /** Thread to apply the learning-container selection to. */
@@ -55,9 +55,9 @@ export interface UseLearningContainersArgs {
  * }
  * ```
  *
- * @deprecated Legacy plural-container annotation compatibility only. New
- * Intelligence runtimes assign one container with `ɵlearning.containerId` on
- * `CopilotRuntime`.
+ * @deprecated This hook supports only the legacy plural-container annotation.
+ * Configure `getLearningContainerId` on `CopilotKitIntelligence` for new
+ * Intelligence runtimes.
  */
 export function useLearningContainers({
   threadId,

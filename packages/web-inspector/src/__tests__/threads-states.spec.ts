@@ -1091,8 +1091,6 @@ type LockedActionCase = Readonly<{
   actionUrl?: string;
   heading: string;
   description?: string;
-  setupLabel?: "Open setup guide";
-  promptLabel?: "Copy prompt for your agent";
   bodyLabel?: string;
   footerLabel?: string;
 }>;
@@ -1106,8 +1104,6 @@ const lockedActionCases: ReadonlyArray<LockedActionCase> = [
     actionUrl: "https://cloud.copilotkit.ai/actions/manage",
     heading: "Finish setting up Rich Threads",
     description: "Copy this prompt into your coding agent to finish the setup.",
-    setupLabel: "Open setup guide",
-    promptLabel: "Copy prompt for your agent",
     footerLabel: "Manage Your Plan",
   },
   {
@@ -1191,9 +1187,6 @@ test.each(lockedActionCases)(
       const footerAction = root.querySelector<HTMLAnchorElement>(
         '[data-inspector-action-placement="threads-footer"]',
       );
-      const setupAction = root.querySelector<HTMLAnchorElement>(
-        "[data-inspector-threads-setup-link]",
-      );
       const promptAction = root.querySelector<HTMLButtonElement>(
         "[data-inspector-threads-setup-prompt]",
       );
@@ -1203,24 +1196,9 @@ test.each(lockedActionCases)(
         expect(root.textContent).toContain(case_.description);
       }
       expect(harness.rows()).toHaveLength(3);
-      expect(setupAction?.textContent?.trim()).toBe(case_.setupLabel);
-      expect(promptAction?.textContent?.trim()).toBe(case_.promptLabel);
+      expect(promptAction?.textContent?.trim()).toBe("Copy setup prompt");
       expect(bodyAction?.textContent?.trim()).toBe(case_.bodyLabel);
       expect(footerAction?.textContent?.trim()).toBe(case_.footerLabel);
-      if (case_.setupLabel) {
-        const setupUrl = new URL(setupAction!.href);
-        expect(setupUrl.origin).toBe("https://docs.copilotkit.ai");
-        expect(setupUrl.pathname).toBe("/backend/runtime-endpoints");
-        expect(setupUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
-        expect(setupUrl.hash).toBe("#enable-rich-threads-routes");
-        expect(setupAction?.target).toBe("_blank");
-        expect(setupAction?.rel.split(/\s+/)).toContain("noopener");
-        expect(setupAction?.getAttribute("aria-label")).toBe(
-          "Open setup guide (opens in a new tab)",
-        );
-      } else {
-        expect(setupAction).toBeNull();
-      }
       if (case_.bodyLabel) {
         expect(bodyAction?.href).toBe(case_.actionUrl);
         expect(bodyAction?.target).toBe("_blank");
@@ -1228,14 +1206,10 @@ test.each(lockedActionCases)(
       } else {
         expect(bodyAction).toBeNull();
       }
-      if (case_.promptLabel) {
-        expect(promptAction?.type).toBe("button");
-        expect(promptAction?.getAttribute("aria-label")).toBe(
-          "Copy setup prompt for your coding agent",
-        );
-      } else {
-        expect(promptAction).toBeNull();
-      }
+      expect(promptAction?.type).toBe("button");
+      expect(promptAction?.getAttribute("aria-label")).toBe(
+        "Copy setup prompt for Threads",
+      );
       if (case_.footerLabel) {
         expect(footerAction?.href).toBe(case_.actionUrl);
       } else {
@@ -1249,7 +1223,7 @@ test.each(lockedActionCases)(
   },
 );
 
-test("valid locked Threads copy an autonomous setup prompt", async () => {
+test("locked Threads copy the feature setup prompt", async () => {
   const writeText = vi
     .fn<(text: string) => Promise<void>>()
     .mockResolvedValue();
@@ -1267,25 +1241,17 @@ test("valid locked Threads copy an autonomous setup prompt", async () => {
 
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const prompt = writeText.mock.calls[0]?.[0] ?? "";
-    expect(prompt).toContain(
-      "https://docs.copilotkit.ai/backend/runtime-endpoints#enable-rich-threads-routes",
-    );
-    expect(prompt).toContain("identifyUser");
-    expect(prompt).toContain(
-      "Preserve existing authentication middleware and access checks",
-    );
-    expect(prompt).toContain("GET, POST, PATCH, and DELETE");
-    expect(prompt).toContain("threadEndpoints");
+    expect(prompt).toContain("This task is specifically to enable Threads");
+    expect(prompt).toContain("https://docs.copilotkit.ai/threads");
+    expect(prompt).toContain("Preserve the project's framework");
 
     await harness.flush();
     expect(
       root.querySelector("[data-inspector-threads-setup-prompt]")?.textContent,
     ).toContain("Copied");
-    const status = root.querySelector(
-      "[data-inspector-threads-setup-copy-status]",
-    );
+    const status = promptAction.nextElementSibling;
     expect(status?.getAttribute("aria-live")).toBe("polite");
-    expect(status?.textContent?.trim()).toBe("Setup prompt copied.");
+    expect(status?.textContent?.trim()).toBe("Threads setup prompt copied.");
   } finally {
     await harness.teardown();
     restoreClipboard();

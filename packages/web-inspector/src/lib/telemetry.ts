@@ -54,6 +54,7 @@ export const TELEMETRY_EVENTS = {
   memoriesTabClicked: "oss.inspector.memories_tab_clicked",
   homeViewed: "oss.inspector.home_viewed",
   homeCtaClicked: "oss.inspector.home_cta_clicked",
+  homeFeaturePromptClicked: "oss.inspector.home_feature_prompt_clicked",
   // Carries the CLI's own `onboarding_run_id`, which is the whole point: it is
   // the first event that can be joined to `cli.onboarding.completed` on the
   // Intelligence side. `home_cta_clicked` only ever proved someone clicked a
@@ -621,6 +622,23 @@ export function trackHomeCtaClicked(props: InspectorHomeTelemetryProps): void {
     action_kind: props.action_kind,
     group_key: props.group_key ?? "home",
     leaf_key: props.leaf_key ?? "home",
+  });
+}
+
+/**
+ * Correlates a copied feature setup prompt with its onboarding run. The run ID
+ * is generated locally for this click, not derived from account or runtime
+ * data, so it can be safely joined with the onboarding flow downstream.
+ */
+export function trackHomeFeaturePromptClicked(props: {
+  feature_id: string;
+  onboarding_run_id: string;
+}): void {
+  track(TELEMETRY_EVENTS.homeFeaturePromptClicked, {
+    feature_id: props.feature_id,
+    onboarding_run_id: props.onboarding_run_id,
+    group_key: "home",
+    leaf_key: "home",
   });
 }
 

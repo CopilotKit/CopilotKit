@@ -5,8 +5,10 @@ import type {
   BaseEvent,
   RunAgentInput,
   RunErrorEvent,
+  RunFinishedEvent,
 } from "@ag-ui/client";
-import type { Message } from "@ag-ui/core";
+import { aggregateTokenUsage } from "@ag-ui/core";
+import type { Message, TokenUsage } from "@ag-ui/core";
 import type {
   RunRenderer,
   CapturedToolCall,
@@ -21,6 +23,7 @@ import type {
   ContextEntry,
 } from "./tools.js";
 import { parseToolArgs, stringifyHandlerResult } from "./tools.js";
+import type { ChannelActorIdentity } from "./identity.js";
 import {
   channelDeliveryErrorDetails,
   isChannelDeliveryTerminatedError,
@@ -54,11 +57,37 @@ export interface RunLoopArgs {
    * lifecycle around the whole loop.
    */
   canonicalRun?: CanonicalRunIdentity;
+  /**
+   * Who is speaking this turn. Forwarded to the agent as
+   * `forwardedProps.channelActor` on every run this loop performs, including a
+   * resume — a resume's actor is whoever pressed the button, which is not
+   * always whoever started the turn.
+   *
+   * Supplied by the Thread from the ingress event, never by a caller passing a
+   * value of its own: an agent that acts as this person has to be reading the
+   * platform's word for who spoke.
+   */
+  identity?: ChannelActorIdentity;
+}
+
+/**
+ * The identity half of `forwardedProps`, as a spreadable object.
+ *
+ * Empty when the turn named nobody, so the run carries no `channelActor` key at
+ * all rather than one holding `undefined`. An agent then gets the same answer
+ * from a missing key and an anonymous turn, instead of two shapes meaning one
+ * thing.
+ */
+function forwardedIdentity(
+  identity: ChannelActorIdentity | undefined,
+): Record<string, unknown> {
+  return identity ? { channelActor: identity } : {};
 }
 
 interface SubscriberFanoutOptions {
   canonicalRun?: CanonicalRunIdentity;
   onInnerRunError?: (event: RunErrorEvent) => void;
+  onInnerRunFinished?: (event: RunFinishedEvent) => void;
   onRendererError?: (error: unknown) => void;
   /** Stops provider callbacks after their first terminal delivery error. */
   isRendererClosed?: () => boolean;
@@ -164,8 +193,13 @@ function canonicalizeSubscriberParams(
       event.type === EventType.RUN_FINISHED ||
       event.type === EventType.RUN_ERROR)
   ) {
-    if (event.type === EventType.RUN_ERROR) {
-      options.onInnerRunError?.(event as RunErrorEvent);
+    if (!stampedEvents.has(event)) {
+      stampedEvents.set(event, event);
+      if (event.type === EventType.RUN_ERROR) {
+        options.onInnerRunError?.(event as RunErrorEvent);
+      } else if (event.type === EventType.RUN_FINISHED) {
+        options.onInnerRunFinished?.(event as RunFinishedEvent);
+      }
     }
     return undefined;
   }
@@ -256,7 +290,9 @@ async function emitCanonicalLifecycleEvent(
     state: args.agent.state,
     tools: [...args.toolDescriptors],
     context: [...args.context],
-    forwardedProps: {},
+    // Mirrors what the loop actually sends, so a subscriber reading `input`
+    // sees the same turn the agent saw.
+    forwardedProps: forwardedIdentity(args.identity),
   };
   const baseParams = {
     messages: args.agent.messages,
@@ -330,6 +366,8 @@ export async function runAgentLoop(
     initialResume,
   } = args;
   let innerRunError: Error | undefined;
+  const innerRunUsage: TokenUsage[] = [];
+  let innerRunFinishReason: RunFinishedEvent["finishReason"];
   let hasDeliveryError = false;
   let deliveryError: unknown;
   const deferRendererError = (error: unknown): void => {
@@ -349,6 +387,10 @@ export async function runAgentLoop(
                 onInnerRunError: (event) => {
                   innerRunError ??= errorFromInnerRun(event);
                 },
+                onInnerRunFinished: (event) => {
+                  innerRunFinishReason = event.finishReason;
+                  if (event.usage) innerRunUsage.push(...event.usage);
+                },
                 onRendererError: deferRendererError,
                 isRendererClosed,
               }
@@ -366,13 +408,22 @@ export async function runAgentLoop(
     for (let i = 0; i < maxIterations; i++) {
       if (resume) {
         await agent.runAgent(
-          { forwardedProps: { command: resume } },
+          {
+            forwardedProps: {
+              ...forwardedIdentity(args.identity),
+              command: resume,
+            },
+          },
           subscriber,
         );
         resume = undefined;
       } else {
         await agent.runAgent(
-          { tools: toolDescriptors as never, context: context as never },
+          {
+            tools: toolDescriptors as never,
+            context: context as never,
+            forwardedProps: forwardedIdentity(args.identity),
+          },
           subscriber,
         );
       }
@@ -448,10 +499,15 @@ export async function runAgentLoop(
       isRendererClosed,
     );
     const result = await executeIterations();
-    const finishedEvent: BaseEvent = {
+    const usage = aggregateTokenUsage(innerRunUsage);
+    const finishedEvent: RunFinishedEvent = {
       type: EventType.RUN_FINISHED,
       threadId: args.canonicalRun.threadId,
       runId: args.canonicalRun.runId,
+      ...(usage.length > 0 ? { usage } : {}),
+      ...(innerRunFinishReason !== undefined
+        ? { finishReason: innerRunFinishReason }
+        : {}),
     };
     await emitCanonicalLifecycleEvent(
       finishedEvent,

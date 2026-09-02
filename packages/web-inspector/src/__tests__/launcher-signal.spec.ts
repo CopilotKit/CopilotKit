@@ -26,6 +26,9 @@ const INSPECTOR_STATE_KEY = "cpk:inspector:state";
 const LEGACY_ANNOUNCEMENT_KEY = "cpk:inspector:announcements";
 const PULSED_SESSION_KEY = "cpk:inspector:pulsed";
 const READ_COOKIE_NAME = "cpk_inspector_announcements";
+const DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 
 const TIMESTAMP = "2026-08-01T09:00:00.000Z";
 const NEXT_TIMESTAMP = "2026-08-14T09:00:00.000Z";
@@ -52,6 +55,7 @@ type MountOptions = {
   feed?: AnnouncementFeed | "pending";
   persistedMenu?: string;
   persistedOpen?: boolean;
+  persistedDockMode?: "docked-left";
   legacyReadState?: string;
   /** Pre-record a timestamp as already read, in the host-scoped cookie. */
   readTimestamp?: string;
@@ -112,6 +116,42 @@ function launcherButton(inspector: WebInspectorElement): HTMLButtonElement {
       'button[aria-label^="Web Inspector"]',
     ),
   );
+}
+
+async function openHud(inspector: WebInspectorElement): Promise<void> {
+  const wrapper = requireElement(
+    root(inspector).querySelector<HTMLElement>(".console-button-wrapper"),
+  );
+  wrapper.dispatchEvent(
+    new PointerEvent("pointerenter", { bubbles: true, composed: true }),
+  );
+  await settle(inspector);
+}
+
+function hudNewsButton(
+  inspector: WebInspectorElement,
+): HTMLButtonElement | null {
+  return root(inspector).querySelector<HTMLButtonElement>(
+    "[data-cpk-hud-news]",
+  );
+}
+
+function dismissalDeadline(): number | null {
+  const entry = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${DISMISSAL_COOKIE_NAME}=`));
+  if (!entry) return null;
+  const separator = entry.indexOf("=");
+  const payload = JSON.parse(
+    decodeURIComponent(entry.slice(separator + 1)),
+  ) as { until?: unknown };
+  return typeof payload.until === "number" ? payload.until : null;
+}
+
+/** Expire the host-scoped dismissal cookie used across localhost ports. */
+function clearDismissalCookie(): void {
+  document.cookie = `${DISMISSAL_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax`;
 }
 
 /** The static unread marker on the What's new navigation entry. */
@@ -194,13 +234,21 @@ let cleanup: (() => void) | null = null;
 afterEach(() => {
   cleanup?.();
   cleanup = null;
+  vi.useRealTimers();
 });
 
 async function setup(options: MountOptions = {}): Promise<Harness> {
   document.body.replaceChildren();
+  document.body.style.marginLeft = "";
+  document.documentElement.style.overflowX = "";
+  clearDismissalCookie();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  if (options.persistedMenu !== undefined || options.persistedOpen) {
+  if (
+    options.persistedMenu !== undefined ||
+    options.persistedOpen ||
+    options.persistedDockMode !== undefined
+  ) {
     window.localStorage.setItem(
       INSPECTOR_STATE_KEY,
       JSON.stringify({
@@ -209,6 +257,9 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
           ? { selectedMenu: options.persistedMenu }
           : {}),
         ...(options.persistedOpen ? { isOpen: true } : {}),
+        ...(options.persistedDockMode !== undefined
+          ? { dockMode: options.persistedDockMode }
+          : {}),
       }),
     );
   }
@@ -267,6 +318,7 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
   const inspectors: WebInspectorElement[] = [];
 
   const teardown = (): void => {
+    clearDismissalCookie();
     for (const mounted of inspectors) mounted.remove();
     for (const core of cores) core.setRuntimeUrl(undefined);
     vi.unstubAllGlobals();
@@ -274,6 +326,8 @@ async function setup(options: MountOptions = {}): Promise<Harness> {
     window.localStorage.clear();
     window.sessionStorage.clear();
     document.body.replaceChildren();
+    document.body.style.marginLeft = "";
+    document.documentElement.style.overflowX = "";
     document.getElementById("cpk-inspector-brand-fonts")?.remove();
   };
   cleanup = teardown;
@@ -746,9 +800,9 @@ test("the launcher animates opacity, transform and a clip — nothing that force
     css.matchAll(/@keyframes\s+cpk-launcher-[\w-]+\s*\{([\s\S]*?\}\s*)\}/g),
   );
   const keyframes = keyframeMatches.map((match) => match[1] ?? "");
-  // Two for the halo, one per direction for both launcher reveals, and one
-  // each for the HUD row and connected check stagger.
-  expect(keyframes).toHaveLength(8);
+  // Two for the halo, one per direction for the launcher pill, one for the
+  // HUD lifecycle, and one for its top-to-bottom waterfall.
+  expect(keyframes).toHaveLength(6);
 
   const animated = new Set(
     keyframes
@@ -933,6 +987,218 @@ test("the marked navigation entry is the way into What's new", async () => {
   expect(launcherDot(context.inspector)).toBeNull();
 });
 
+test("the HUD names an unread announcement and marks it as new", async () => {
+  const context = await setup();
+
+  await openHud(context.inspector);
+
+  const news = requireElement(hudNewsButton(context.inspector));
+  expect(news.getAttribute("aria-label")).toBe(
+    "Open new notification: Channels are here",
+  );
+  expect(news.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "New Channels are here",
+  );
+  expect(
+    root(context.inspector)
+      .querySelector("[data-cpk-hud-news-label]")
+      ?.textContent?.trim(),
+  ).toBe("New");
+  const titleRule =
+    /\.cpk-launcher-hud__news-title\s*\{([\s\S]*?)\}/.exec(
+      stylesheetText(context.inspector),
+    )?.[1] ?? "";
+  expect(titleRule).toContain("white-space: normal");
+  expect(titleRule).not.toContain("text-overflow: ellipsis");
+});
+
+test("the HUD announcement opens What's new and retires the unread signal", async () => {
+  const context = await setup({ persistedMenu: "ag-ui-events" });
+  await openHud(context.inspector);
+
+  await click(context.inspector, hudNewsButton(context.inspector));
+
+  expect(whatsNewState(context.inspector)).toBe("content");
+  expect(navUnreadMarker(context.inspector)).toBeNull();
+  expect(launcherDot(context.inspector)).toBeNull();
+});
+
+test("dismissing the HUD notification keeps the one-day hide action", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector("[data-cpk-hud-news-dismiss]"),
+  );
+
+  expect(hudNewsButton(context.inspector)).toBeNull();
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  const featureList = requireElement(
+    root(context.inspector).querySelector<HTMLElement>(
+      ".cpk-launcher-hud__feature-list",
+    ),
+  );
+  expect(featureList.nextElementSibling).toBe(action);
+});
+
+test("the notification HUD hides the Inspector for a day across localhost ports", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Hide Inspector for a day",
+  );
+  const dismissActionRule =
+    /\.cpk-launcher-hud__dismiss-day\s*\{([\s\S]*?)\}/.exec(
+      stylesheetText(context.inspector),
+    )?.[1] ?? "";
+  expect(dismissActionRule).toContain(
+    "border-radius: var(--cpk-inspector-shell-radius)",
+  );
+  expect(action.closest(".cpk-launcher-hud__masthead")).toBeNull();
+  const featureList = requireElement(
+    root(context.inspector).querySelector<HTMLElement>(
+      ".cpk-launcher-hud__feature-list",
+    ),
+  );
+  expect(featureList.nextElementSibling).toBe(action);
+  expect(
+    [
+      root(context.inspector).querySelector<HTMLElement>(
+        ".cpk-launcher-hud__masthead",
+      ),
+      featureList,
+      ...Array.from(
+        root(context.inspector).querySelectorAll<HTMLElement>(
+          "[data-cpk-hud-row]",
+        ),
+      ),
+      action,
+    ].map((item) =>
+      requireElement(item).style.getPropertyValue("--cpk-hud-waterfall-delay"),
+    ),
+  ).toEqual(["180ms", "350ms", "520ms", "690ms", "860ms"]);
+
+  const clickedAt = Date.now();
+  await click(context.inspector, action);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + DAY_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + DAY_MS);
+
+  context.changePort();
+  const otherPort = await context.remount();
+  expect(root(otherPort).querySelector(".console-button")).toBeNull();
+  expect(root(otherPort).querySelector(".inspector-window")).toBeNull();
+});
+
+test("a host dismissal fully tears down an open docked Inspector", async () => {
+  const context = await setup({ persistedDockMode: "docked-left" });
+  document.body.style.marginLeft = "19px";
+  document.documentElement.style.overflowX = "auto";
+  await click(context.inspector, launcherButton(context.inspector));
+  expect(Number.parseFloat(document.body.style.marginLeft)).toBeGreaterThan(19);
+  expect(document.documentElement.style.overflowX).toBe("hidden");
+
+  const until = Date.now() + DAY_MS;
+  document.cookie = `${DISMISSAL_COOKIE_NAME}=${encodeURIComponent(
+    JSON.stringify({ until }),
+  )}; Path=/; SameSite=Lax`;
+  document.dispatchEvent(new Event("visibilitychange"));
+  await settle(context.inspector);
+
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(document.body.style.marginLeft).toBe("19px");
+  expect(document.documentElement.style.overflowX).toBe("auto");
+});
+
+test("the launcher returns automatically when a dismissal expires", async () => {
+  const context = await setup();
+  await openHud(context.inspector);
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="day"]',
+    ),
+  );
+
+  vi.useFakeTimers();
+  vi.setSystemTime(Date.now());
+  action.click();
+  await context.inspector.updateComplete;
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+
+  await vi.advanceTimersByTimeAsync(DAY_MS + 50);
+  await context.inspector.updateComplete;
+  await Promise.resolve();
+  expect(
+    root(context.inspector).querySelector(".console-button"),
+  ).not.toBeNull();
+});
+
+test("Settings offers the longer one-week dismissal", async () => {
+  const context = await setup({ persistedMenu: "threads" });
+  await click(context.inspector, launcherButton(context.inspector));
+  await click(
+    context.inspector,
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      'button[aria-label="Settings"]',
+    ),
+  );
+
+  expect(
+    root(context.inspector).querySelector("[data-inspector-settings]"),
+  ).not.toBeNull();
+  const action = requireElement(
+    root(context.inspector).querySelector<HTMLButtonElement>(
+      '[data-cpk-dismiss-inspector="week"]',
+    ),
+  );
+  expect(action.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "Hide Inspector for one week",
+  );
+  expect(readFileSync("src/styles/generated.css", "utf8")).toContain(
+    ".inspector-window[data-color-scheme=dark] .inspector-settings-dismiss:focus-visible{outline-color:#bec2ff}",
+  );
+
+  const clickedAt = Date.now();
+  await click(context.inspector, action);
+  expect(root(context.inspector).querySelector(".console-button")).toBeNull();
+  expect(root(context.inspector).querySelector(".inspector-window")).toBeNull();
+  expect(dismissalDeadline()).toBeGreaterThanOrEqual(clickedAt + WEEK_MS);
+  expect(dismissalDeadline()).toBeLessThanOrEqual(Date.now() + WEEK_MS);
+});
+
+test("the HUD omits a read announcement", async () => {
+  const context = await setup({ readTimestamp: TIMESTAMP });
+
+  await openHud(context.inspector);
+
+  expect(hudNewsButton(context.inspector)).toBeNull();
+  expect(
+    root(context.inspector).querySelector('[data-cpk-dismiss-inspector="day"]'),
+  ).not.toBeNull();
+});
+
+test("the HUD keeps an unread announcement useful without preview text", async () => {
+  const context = await setup({ feed: announcement({ previewText: "" }) });
+
+  await openHud(context.inspector);
+
+  expect(hudNewsButton(context.inspector)?.textContent).toContain(
+    "New in CopilotKit",
+  );
+});
+
 test("a mouse press with nothing unread still restores the reader's tab", async () => {
   const context = await setup({
     persistedMenu: "ag-ui-events",
@@ -964,11 +1230,11 @@ test("with nothing unread the launcher restores the tab the reader left", async 
   ).not.toBeNull();
 });
 
-test("the launcher carries the unread hint on itself, not on the dot", async () => {
+test("the launcher uses a stable product title while the dot carries unread state", async () => {
   const context = await setup();
 
   expect(launcherButton(context.inspector).getAttribute("title")).toBe(
-    "What's new — unread",
+    "CopilotKit Inspector",
   );
   expect(
     requireElement(launcherDot(context.inspector)).getAttribute("title"),

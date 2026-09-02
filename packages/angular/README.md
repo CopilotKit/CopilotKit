@@ -5,6 +5,8 @@ ships standalone chat, popup, and sidebar components as well as signal-based
 headless APIs, tool and activity renderers, threads, memories, interrupts,
 attachments, A2UI, Open Generative UI, and opt-in MCP Apps support.
 
+Want to contribute? Read the [Angular contribution guide](https://github.com/CopilotKit/CopilotKit/blob/main/packages/angular/CONTRIBUTING.md).
+
 ## Installation
 
 ```bash
