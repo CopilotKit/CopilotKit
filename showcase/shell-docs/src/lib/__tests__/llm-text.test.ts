@@ -592,6 +592,52 @@ test.each(["langgraph-python", "strands", "strands-typescript", "google-adk"])(
   },
 );
 
+test("renders executable Claude SDK shared-state wiring on both public routes", () => {
+  const doc = loadDoc("shared-state");
+  expect(doc).not.toBeNull();
+
+  const render = (framework: string) =>
+    renderPageToLlmText(
+      {
+        url: `${framework}/shared-state`,
+        title: doc!.fm.title,
+        description: doc!.fm.description,
+        filePath: doc!.filePath,
+        loadSlug: "shared-state",
+        framework,
+      },
+      { framework },
+    );
+
+  const python = render("claude-sdk-python");
+  expect(python).toContain("tools=[SET_NOTES_TOOL]");
+  expect(python).toContain('if tc["name"] == "set_notes"');
+  expect(python).toContain("StateSnapshotEvent");
+  expect(python).toContain("ToolCallResultEvent");
+  expect(python).toContain("run_shared_state_read_write_agent");
+  expect(python).toContain("intentionally uses its own Messages API loop");
+  expect(python).not.toContain("<FrameworkSetup");
+  expect(python).not.toContain("@region[");
+
+  const typeScript = render("claude-sdk-typescript");
+  expect(typeScript).toContain(
+    "toolSchemas: [SET_NOTES_TOOL_SCHEMA] as Anthropic.Tool[]",
+  );
+  expect(typeScript).toContain("runWithClaudeAgentSdk({");
+  expect(typeScript).toContain("createSdkMcpServer({");
+  expect(typeScript).toContain("mcp__copilotkit__set_notes");
+  expect(typeScript).toContain('toolName === "set_notes"');
+  expect(typeScript).toContain("direct Anthropic Messages API fallback");
+  expect(typeScript).not.toContain("<FrameworkSetup");
+  expect(typeScript).not.toContain("@region[");
+
+  const control = render("langgraph-typescript");
+  expect(control).not.toContain("mcp__copilotkit__set_notes");
+  expect(control).not.toContain("run_shared_state_read_write_agent");
+  expect(control).not.toContain("ClaudeAgentAdapter");
+  expect(control).not.toContain("<FrameworkSetup");
+});
+
 test("publishes both canonical Strands starter commands in LLM text", () => {
   const loadSlug = "integrations/aws-strands/quickstart";
   const doc = loadDoc(loadSlug);
