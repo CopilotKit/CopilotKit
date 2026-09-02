@@ -187,6 +187,13 @@ test("public example jobs run each app's unit tests and Travel's Python tests", 
   );
 });
 
+test("public example jobs run the Research Canvas TypeScript agent tests", () => {
+  assert.match(
+    publicExamplesWorkflow,
+    /- name: Run Research Canvas TypeScript agent tests\n\s+if: matrix\.example == 'research-canvas'\n\s+working-directory: examples\/canvas\/research-canvas\n\s+run: pnpm exec vitest run agents\/typescript\/src\/\*\.test\.ts/,
+  );
+});
+
 test("multi-agent canvas describes linked agents as monorepo directories", () => {
   assert.match(
     multiAgentCanvasReadme,
