@@ -6,6 +6,19 @@ const readFixture = (relativePath: string): string =>
   readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
 
 describe("README prerequisites", () => {
+  it("requires pnpm for workspace dependencies", () => {
+    const readme = readFixture("./README.md");
+    const packageJson = JSON.parse(readFixture("./package.json")) as {
+      dependencies: Record<string, string>;
+    };
+
+    expect(Object.values(packageJson.dependencies)).toContain("workspace:*");
+    expect(readme).toContain("- pnpm");
+    expect(readme).not.toContain("npm, yarn, or pnpm");
+    expect(readme).not.toContain("Using other package managers");
+    expect(readme).not.toMatch(/\b(?:npm|yarn) (?:install|run dev|dev)/);
+  });
+
   it("stores local agent API keys in the agent working directory", () => {
     const readme = readFixture("./README.md");
     const packageJson = JSON.parse(readFixture("./package.json")) as {
