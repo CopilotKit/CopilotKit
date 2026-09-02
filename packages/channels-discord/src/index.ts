@@ -19,6 +19,16 @@ export { decodeInteraction } from "./interaction.js";
 
 export { conversationKeyOf } from "./types.js";
 export type { ReplyTarget, IncomingTurn } from "./types.js";
+export {
+  DEFAULT_DISCORD_RESPOND_TO_OPTIONS,
+  resolveDiscordRespondToOptions,
+} from "./types.js";
+export type {
+  DiscordMentionReplyMode,
+  DiscordAppMentionOptions,
+  DiscordRespondToOptions,
+  ResolvedDiscordRespondToOptions,
+} from "./types.js";
 
 export {
   renderComponents,
