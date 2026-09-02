@@ -1020,7 +1020,9 @@ test("dismissing the HUD notification keeps the one-day hide action", async () =
     ),
   );
   const featureList = requireElement(
-    root(context.inspector).querySelector(".cpk-launcher-hud__feature-list"),
+    root(context.inspector).querySelector<HTMLElement>(
+      ".cpk-launcher-hud__feature-list",
+    ),
   );
   expect(featureList.nextElementSibling).toBe(action);
 });
@@ -1046,7 +1048,9 @@ test("the notification HUD hides the Inspector for a day across localhost ports"
   );
   expect(action.closest(".cpk-launcher-hud__masthead")).toBeNull();
   const featureList = requireElement(
-    root(context.inspector).querySelector(".cpk-launcher-hud__feature-list"),
+    root(context.inspector).querySelector<HTMLElement>(
+      ".cpk-launcher-hud__feature-list",
+    ),
   );
   expect(featureList.nextElementSibling).toBe(action);
   expect(
