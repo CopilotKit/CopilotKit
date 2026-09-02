@@ -14,7 +14,7 @@ import { z } from "zod";
 export function ResearchCanvas() {
   const { model, agent } = useModelSelectorContext();
 
-  const { agent: researchAgent } = useAgent({ agentId: agent });
+  const { agent: researchAgent, isReady } = useAgent({ agentId: agent });
   const state: AgentState = {
     model,
     research_question: "",
@@ -24,6 +24,10 @@ export function ResearchCanvas() {
     ...(researchAgent.state as Partial<AgentState> | undefined),
   };
   const setState = (nextState: AgentState) => {
+    if (!isReady) {
+      return;
+    }
+
     researchAgent.setState(nextState);
   };
   const resources: Resource[] = state.resources || [];
@@ -128,7 +132,11 @@ export function ResearchCanvas() {
 
   return (
     <div className="w-full h-full overflow-y-auto p-10 bg-[#F5F8FF]">
-      <div className="space-y-8 pb-10">
+      <fieldset
+        disabled={!isReady}
+        aria-busy={!isReady}
+        className="min-w-0 space-y-8 border-0 p-0 pb-10"
+      >
         <div>
           <h2 className="text-lg font-medium mb-3 text-primary">
             Research Question
@@ -171,8 +179,8 @@ export function ResearchCanvas() {
           {resources.length !== 0 && (
             <Resources
               resources={resources}
-              handleCardClick={handleCardClick}
-              removeResource={removeResource}
+              handleCardClick={isReady ? handleCardClick : undefined}
+              removeResource={isReady ? removeResource : undefined}
             />
           )}
         </div>
@@ -192,7 +200,7 @@ export function ResearchCanvas() {
             style={{ minHeight: "200px" }}
           />
         </div>
-      </div>
+      </fieldset>
     </div>
   );
 }
