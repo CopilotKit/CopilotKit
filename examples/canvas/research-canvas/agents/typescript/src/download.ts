@@ -17,16 +17,12 @@ export function getResource(url: string): string {
 }
 
 async function downloadResource(url: string): Promise<string> {
-  try {
-    return await getOrLoadResource(url, () =>
-      withAbortTimeout(5000, async (signal) => {
-        const htmlContent = await fetchPublicText(url, signal);
-        return htmlToText(htmlContent);
-      }),
-    );
-  } catch (error) {
-    return `Error downloading resource: ${error}`;
-  }
+  return getOrLoadResource(url, () =>
+    withAbortTimeout(5000, async (signal) => {
+      const htmlContent = await fetchPublicText(url, signal);
+      return htmlToText(htmlContent);
+    }),
+  );
 }
 
 export async function download_node(state: AgentState, config: RunnableConfig) {
@@ -59,7 +55,15 @@ export async function download_node(state: AgentState, config: RunnableConfig) {
   // Download the resources
   for (let i = 0; i < resourcesToDownload.length; i++) {
     const resource = resourcesToDownload[i];
-    await downloadResource(resource.url);
+    try {
+      await downloadResource(resource.url);
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error));
+      failure.message = `Failed to download ${resource.url}: ${failure.message}`;
+      logs[logsOffset + i]["message"] = failure.message;
+      await copilotkitEmitState(config, state);
+      throw failure;
+    }
     logs[logsOffset + i]["done"] = true;
     await copilotkitEmitState(config, state);
   }
