@@ -174,6 +174,10 @@ describe("Playground thread loading", () => {
     expect(fetchThread.mock.calls[0]?.[1]?.headers).toEqual({
       Authorization: "Bearer test",
     });
+    expect(fetchThread.mock.calls.map(([, init]) => init?.redirect)).toEqual([
+      "error",
+      "error",
+    ]);
     expect(result).toMatchObject({
       threadId: "thread/with spaces",
       agentId: "default",

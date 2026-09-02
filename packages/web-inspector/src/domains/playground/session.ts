@@ -387,9 +387,11 @@ export async function loadPlaygroundThreadSnapshot(
   const [messagesResponse, stateResponse] = await Promise.all([
     input.fetch(`${baseUrl}/threads/${encodedThreadId}/messages`, {
       headers: { ...input.headers },
+      redirect: "error",
     }),
     input.fetch(`${baseUrl}/threads/${encodedThreadId}/state`, {
       headers: { ...input.headers },
+      redirect: "error",
     }),
   ]);
   if (!messagesResponse.ok) {
