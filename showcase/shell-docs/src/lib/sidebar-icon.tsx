@@ -13,7 +13,7 @@
 import React from "react";
 import Image from "next/image";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
-import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { CopilotKitIcon } from "@/components/copilotkit-icon";
 import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
@@ -140,11 +140,10 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/Wrench": <Wrench />,
   "lucide/Zap": <Zap />,
   // Custom marks — used by section headers for framework / enterprise
-  // scaffolding. The CopilotKit kite is the inline gradient mark from
-  // BrandNav; the LangGraph mark comes from the framework-icons set so
+  // scaffolding. The LangGraph mark comes from the framework-icons set so
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
-  "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/copilotkit-kite": <CopilotKitIcon />,
   "custom/react": <FrontendLogo icon="react" size={16} />,
   "custom/daytona": (
     <Image

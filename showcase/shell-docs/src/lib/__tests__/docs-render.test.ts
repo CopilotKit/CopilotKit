@@ -15,6 +15,7 @@ vi.mock("../registry", async (importOriginal) => {
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
+  buildRootSurfaceNav,
   CONTENT_DIR,
   inlineSnippets,
   loadDoc,
@@ -114,6 +115,30 @@ function sectionPages(navTree: NavNode[], section: string): string[] {
   return pages;
 }
 
+function sectionTitles(navTree: NavNode[]): string[] {
+  return navTree
+    .filter(
+      (node): node is Extract<NavNode, { type: "section" }> =>
+        node.type === "section",
+    )
+    .map((node) => node.title);
+}
+
+function sectionNodes(navTree: NavNode[], section: string): NavNode[] {
+  const sectionIndex = navTree.findIndex(
+    (node) => node.type === "section" && node.title === section,
+  );
+  if (sectionIndex === -1) return [];
+
+  const nextSectionIndex = navTree.findIndex(
+    (node, index) => index > sectionIndex && node.type === "section",
+  );
+  return navTree.slice(
+    sectionIndex + 1,
+    nextSectionIndex === -1 ? undefined : nextSectionIndex,
+  );
+}
+
 function collectMdxFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const filePath = path.join(dir, entry.name);
@@ -201,7 +226,7 @@ describe("loadDoc", () => {
   it("resolves clean URLs to files stored under route-group folders", () => {
     const doc = loadDoc("integrations/aws-strands/telemetry");
 
-    expect(doc?.filePath).toContain(
+    expect(doc?.filePath.replaceAll("\\", "/")).toContain(
       "integrations/aws-strands/(other)/telemetry/index.mdx",
     );
   });
@@ -466,6 +491,82 @@ describe("cookbook nav", () => {
 });
 
 describe("framework nav", () => {
+  it("uses the requested section flow on the root docs surface", () => {
+    const navTree = buildRootSurfaceNav("built-in-agent");
+    const titles = sectionTitles(navTree);
+    const gettingStarted = sectionNodes(navTree, "Getting Started");
+    const quickstartIndex = gettingStarted.findIndex(
+      (node) => node.type === "page" && node.slug === "quickstart",
+    );
+    const deployment = sectionNodes(navTree, "Deployment");
+    const runtime = deployment.find(
+      (node) => node.type === "group" && node.title === "Runtime",
+    );
+
+    expect(titles).toEqual([
+      "Getting Started",
+      "Basics",
+      "Generative UI",
+      "App Control",
+      "Intelligence",
+      "Built-in Agent",
+      "Deployment",
+      "Concepts",
+      "Other",
+    ]);
+    expect(gettingStarted[quickstartIndex + 1]).toMatchObject({
+      type: "page",
+      title: "CopilotKit Intelligence",
+      icon: "custom/copilotkit-kite",
+    });
+    expect(runtime).toMatchObject({ type: "group", title: "Runtime" });
+    expect(
+      runtime?.type === "group" &&
+        hasPageTitle(runtime.children, "Copilot Runtime"),
+    ).toBe(true);
+    expect(titles).not.toContain("Runtime");
+    expect(titles).not.toContain("Deploy");
+  });
+
+  it("uses the same section flow for generated and authored frameworks", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("ag2");
+
+    expect(sectionTitles(generatedNav)).toEqual([
+      "Getting Started",
+      "Basics",
+      "Generative UI",
+      "App Control",
+      "Intelligence",
+      "LangGraph (Python)",
+      "Deployment",
+      "Concepts",
+      "Observe & Operate",
+      "Other",
+    ]);
+    expect(sectionTitles(authoredNav)).toEqual([
+      "Getting Started",
+      "Basics",
+      "Generative UI",
+      "App Control",
+      "Intelligence",
+      "AG2",
+      "Deployment",
+      "Troubleshooting",
+      "Other",
+    ]);
+    expect(hasSectionPage(authoredNav, "Deployment", "Copilot Runtime")).toBe(
+      true,
+    );
+    expect(
+      hasSectionPage(authoredNav, "Getting Started", "CopilotKit Intelligence"),
+    ).toBe(true);
+  });
+
   it("leaves Slack and Teams platform guides ungated", () => {
     const slack = loadDoc("frontends/slack");
     const teams = loadDoc("frontends/teams");

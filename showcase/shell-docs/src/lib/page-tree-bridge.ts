@@ -302,7 +302,9 @@ export function wrapSectionSeparatorsAsFolders(
         ...(pending.icon
           ? { icon: keyedNode(pending.icon, "shell-docs-section-icon") }
           : {}),
-        defaultOpen: false,
+        defaultOpen:
+          typeof pending.name === "string" &&
+          ["Get Started", "Getting Started"].includes(pending.name),
         children: pending.children,
       });
     }

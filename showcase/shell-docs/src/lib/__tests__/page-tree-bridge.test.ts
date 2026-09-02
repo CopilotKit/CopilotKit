@@ -25,6 +25,8 @@ function folderNamed(
 
 describe("navTreeToPageTree section folders", () => {
   const navTree: NavNode[] = [
+    { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
+    { type: "page", title: "Introduction", slug: "" },
     { type: "section", title: "Concepts", icon: "lucide/BookOpen" },
     { type: "page", title: "Architecture", slug: "concepts/architecture" },
     { type: "page", title: "Which Hook", slug: "concepts/which-hook" },
@@ -54,10 +56,12 @@ describe("navTreeToPageTree section folders", () => {
 
   const pageTree = navTreeToPageTree(navTree, "");
 
-  it("turns labeled sections into collapsed folders", () => {
+  it("opens Getting Started and collapses the other labeled sections", () => {
+    const gettingStarted = folderNamed(pageTree.children, "Getting Started");
     const concepts = folderNamed(pageTree.children, "Concepts");
     const basics = folderNamed(pageTree.children, "Basics");
 
+    expect(gettingStarted?.defaultOpen).toBe(true);
     expect(concepts).toBeDefined();
     expect(basics).toBeDefined();
     expect(concepts?.defaultOpen).toBe(false);

@@ -6,16 +6,13 @@ const layoutSource = readFileSync(
   "utf8",
 );
 
-test("sidebar banner puts pickers above the Intelligence pin", () => {
+test("sidebar banner keeps the pickers above the mobile docs tabs", () => {
   const bannerIndex = layoutSource.lastIndexOf("{banner}");
-  const intelligenceIndex = layoutSource.lastIndexOf(
-    "<SidebarIntelligenceEntry",
-  );
   const tabsIndex = layoutSource.indexOf(
     '<PrimaryDocsTabs className="shell-docs-mobile-sidebar-tabs" />',
   );
 
   expect(bannerIndex).toBeGreaterThanOrEqual(0);
-  expect(intelligenceIndex).toBeGreaterThan(bannerIndex);
-  expect(tabsIndex).toBeGreaterThan(intelligenceIndex);
+  expect(tabsIndex).toBeGreaterThan(bannerIndex);
+  expect(layoutSource).not.toContain("SidebarIntelligenceEntry");
 });
