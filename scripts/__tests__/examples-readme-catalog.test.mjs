@@ -80,6 +80,26 @@ function workflowTriggerPaths(eventName, workflow = publicExamplesWorkflow) {
     });
 }
 
+function publicExamplesJob() {
+  const job = publicExamplesWorkflow.match(/^  examples:\n([\s\S]*)$/m);
+  assert.ok(job, "workflow is missing the examples job");
+  return job[1];
+}
+
+function publicExampleMatrix() {
+  const matrix = publicExamplesJob().match(
+    /^      matrix:\n        include:\n((?:          - example: [^\n]+\n            directory: [^\n]+\n?)+)/m,
+  );
+  assert.ok(matrix, "examples job is missing its matrix include rows");
+
+  return Array.from(
+    matrix[1].matchAll(
+      /^          - example: ([^\n]+)\n            directory: ([^\n]+)$/gm,
+    ),
+    ([, example, directory]) => ({ example, directory }),
+  );
+}
+
 test("workflow trigger parser reads all valid YAML path quoting styles", () => {
   const workflow = `on:
   push:
@@ -191,31 +211,39 @@ test("public example workflow watches its complete shared input set", () => {
 });
 
 test("public example jobs run each app's unit tests and Travel's Python tests", () => {
-  const expectedDirectories = new Map([
-    ["form-filling", "examples/showcases/form-filling"],
-    ["travel", "examples/showcases/travel"],
-    ["research-canvas", "examples/canvas/research-canvas"],
-    ["chat-with-your-data", "examples/showcases/chat-with-your-data"],
-    ["state-machine", "examples/showcases/state-machine"],
-  ]);
+  const expectedMatrix = [
+    {
+      example: "form-filling",
+      directory: "examples/showcases/form-filling",
+    },
+    { example: "travel", directory: "examples/showcases/travel" },
+    {
+      example: "research-canvas",
+      directory: "examples/canvas/research-canvas",
+    },
+    {
+      example: "chat-with-your-data",
+      directory: "examples/showcases/chat-with-your-data",
+    },
+    {
+      example: "state-machine",
+      directory: "examples/showcases/state-machine",
+    },
+  ];
+  const examplesJob = publicExamplesJob();
 
-  for (const [example, directory] of expectedDirectories) {
-    assert.match(
-      publicExamplesWorkflow,
-      new RegExp(`- example: ${example}\\n\\s+directory: ${directory}`),
-    );
-  }
+  assert.deepEqual(publicExampleMatrix(), expectedMatrix);
 
   assert.match(
-    publicExamplesWorkflow,
+    examplesJob,
     /- name: Run example unit tests\n\s+working-directory: \$\{\{ matrix\.directory \}\}\n\s+run: pnpm test/,
   );
   assert.match(
-    publicExamplesWorkflow,
+    examplesJob,
     /- name: Set up uv for Travel tests\n\s+if: matrix\.example == 'travel'\n\s+uses: astral-sh\/setup-uv@[0-9a-f]{40}/,
   );
   assert.match(
-    publicExamplesWorkflow,
+    examplesJob,
     /- name: Run Travel agent tests\n\s+if: matrix\.example == 'travel'\n\s+working-directory: examples\/showcases\/travel\/agent\n\s+run: uv run --locked --with pytest==9\.1\.1 python -m pytest tests/,
   );
 });
