@@ -32,7 +32,18 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
     },
+    "./telemetry": {
+      "import": "./dist/telemetry/index.mjs",
+      "require": "./dist/telemetry/index.cjs"
+    },
     "./package.json": "./package.json"
+  },
+  "typesVersions": {
+    "*": {
+      "telemetry": [
+        "./dist/telemetry/index.d.cts"
+      ]
+    }
   },
   "publishConfig": {
     "access": "public"
