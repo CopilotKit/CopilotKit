@@ -1,33 +1,24 @@
 import React, { useRef, useState } from "react";
 import { AnimatedCard } from "@/components/animated-card";
-import { useGlobalState } from "@/lib/stages";
 import { submitOnce } from "@/lib/single-submit";
 import type { SubmissionFailure } from "@/lib/single-submit";
 import type { Order } from "@/lib/types";
-import { createOrderConfirmation } from "./selected-payment";
 
 import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 interface ConfirmOrderProps {
+  order: Order | null;
   onConfirm: (order: Order) => Promise<void> | void;
   onCancel: () => Promise<void> | void;
   status: ToolCallStatus;
 }
 
 export const ConfirmOrder = ({
+  order,
   onConfirm,
   onCancel,
   status,
 }: ConfirmOrderProps) => {
-  const { selectedCar, contactInfo, cardInfo, financingInfo } =
-    useGlobalState();
-  const order = createOrderConfirmation({
-    car: selectedCar,
-    contactInfo,
-    cardInfo,
-    financingInfo,
-  });
-
   return (
     <AnimatedCard className="w-[500px]" status={status}>
       <h2 className="text-2xl font-bold mb-4 text-gray-800">Order Summary</h2>
@@ -36,23 +27,23 @@ export const ConfirmOrder = ({
         <div className="flex justify-between items-center border-b border-blue-100 pb-2">
           <span className="font-medium">Vehicle</span>
           <span className="text-gray-600">
-            {selectedCar?.year} {selectedCar?.make} {selectedCar?.model}
+            {order?.car.year} {order?.car.make} {order?.car.model}
           </span>
         </div>
 
         <div className="flex justify-between items-center border-b border-blue-100 pb-2">
           <span className="font-medium">Price</span>
           <span className="text-gray-600">
-            ${selectedCar?.price?.toLocaleString()}
+            ${order?.car.price?.toLocaleString()}
           </span>
         </div>
 
         <div className="flex justify-between items-center border-b border-blue-100 pb-2">
           <span className="font-medium">Customer</span>
-          <span className="text-gray-600">{contactInfo?.name}</span>
+          <span className="text-gray-600">{order?.contactInfo.name}</span>
         </div>
 
-        {order?.paymentType === "card" && (
+        {order?.paymentType === "card" && order.cardInfo && (
           <div className="flex justify-between items-center border-b border-blue-100 pb-2">
             <span className="font-medium">Payment</span>
             <span className="text-gray-600">
@@ -61,7 +52,7 @@ export const ConfirmOrder = ({
           </div>
         )}
 
-        {order?.paymentType === "financing" && (
+        {order?.paymentType === "financing" && order.financingInfo && (
           <div className="flex justify-between items-center">
             <span className="font-medium">Financing</span>
             <span className="text-gray-600">

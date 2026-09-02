@@ -8,18 +8,10 @@ import type { ContactInfo } from "../../lib/types/contact-info";
 import type { FinancingInfo } from "../../lib/types/financing-info";
 import { availableCardInfo } from "../../lib/types/payment-info";
 
-const stateMocks = vi.hoisted(() => ({
-  useGlobalState: vi.fn(),
-}));
-
 vi.mock("@/components/animated-card", () => ({
   AnimatedCard: ({ children }: { children: ReactNode }) => (
     <section>{children}</section>
   ),
-}));
-
-vi.mock("@/lib/stages", () => ({
-  useGlobalState: stateMocks.useGlobalState,
 }));
 
 vi.mock("@/lib/single-submit", () => ({
@@ -51,14 +43,15 @@ function renderSummary(payment: {
   cardInfo: typeof cardInfo | null;
   financingInfo: FinancingInfo | null;
 }): string {
-  stateMocks.useGlobalState.mockReturnValue({
-    selectedCar: cars[0],
+  const order = createOrderConfirmation({
+    car: cars[0],
     contactInfo,
     ...payment,
   });
 
   return renderToStaticMarkup(
     <ConfirmOrder
+      order={order}
       status={ToolCallStatus.Complete}
       onConfirm={vi.fn()}
       onCancel={vi.fn()}
