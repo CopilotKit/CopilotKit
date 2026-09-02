@@ -39,6 +39,19 @@ describe("README prerequisites", () => {
     );
   });
 
+  it("starts only the frontend when using Copilot Cloud", () => {
+    const readme = readFixture("./README.md");
+    const packageJson = JSON.parse(readFixture("./package.json")) as {
+      scripts: { dev: string; "dev:ui": string };
+    };
+
+    expect(packageJson.scripts.dev).toContain("npm run dev:agent");
+    expect(packageJson.scripts["dev:ui"]).toBe("next dev");
+    expect(readme).toContain(
+      "When using Copilot Cloud, start only the frontend:\n\n   ```bash\n   pnpm dev:ui\n   ```",
+    );
+  });
+
   it("matches the Python version required by the agent lockfile", () => {
     const readme = readFixture("./README.md");
     const lockfile = readFixture("./agent/uv.lock");
