@@ -518,10 +518,10 @@ describe("DeliveryAdapter.keepAlive", () => {
 });
 
 describe("DeliveryAdapter.stageFile", () => {
-  it("stores Slack bytes and returns the handle without posting a file", async () => {
+  it("stores Slack bytes then uploads them unshared before returning the handle", async () => {
     const session = {
       uploadFile: vi.fn().mockResolvedValue("fileref_stage_01"),
-      effect: vi.fn(),
+      effect: vi.fn().mockResolvedValue({}),
     } as unknown as ClaimedChannelDelivery;
 
     await expect(
@@ -539,7 +539,30 @@ describe("DeliveryAdapter.stageFile", () => {
         altText: "Hat",
       },
     );
-    expect(session.effect).not.toHaveBeenCalled();
+    expect(session.effect).toHaveBeenCalledWith(
+      expect.stringMatching(/^response_/),
+      {
+        kind: "slack.image.create",
+        fileHandle: "fileref_stage_01",
+        altText: "Hat",
+        share: false,
+      },
+    );
+  });
+
+  it("throws when the unshared Slack image packet fails", async () => {
+    const session = {
+      uploadFile: vi.fn().mockResolvedValue("fileref_stage_01"),
+      effect: vi.fn().mockRejectedValue(new Error("image create failed")),
+    } as unknown as ClaimedChannelDelivery;
+
+    await expect(
+      makeAdapter().stageFile(replyTarget(session), {
+        bytes: new Uint8Array([1]),
+        filename: "hat.png",
+        altText: "Hat",
+      }),
+    ).rejects.toThrow("image create failed");
   });
 
   it("throws when Slack upload fails so the carousel post cannot continue", async () => {
