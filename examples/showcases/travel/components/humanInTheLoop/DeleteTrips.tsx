@@ -2,7 +2,7 @@ import type { Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Trash } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
-import type { ToolCallStatus } from "@copilotkit/react-core/v2";
+import { ToolCallStatus } from "@copilotkit/react-core/v2";
 
 export type DeleteTripsProps = {
   args: Partial<{ trip_ids: string[] }>;
@@ -35,20 +35,22 @@ export const DeleteTrips = ({
           </div>
         </div>
       ))}
-      <ActionButtons
-        status={status}
-        respond={respond}
-        approve={
-          <>
-            <Trash className="w-4 h-4 mr-2" /> Delete
-          </>
-        }
-        reject={
-          <>
-            <X className="w-4 h-4 mr-2" /> Cancel
-          </>
-        }
-      />
+      {status !== ToolCallStatus.Complete && (
+        <ActionButtons
+          status={status}
+          respond={respond}
+          approve={
+            <>
+              <Trash className="w-4 h-4 mr-2" /> Delete
+            </>
+          }
+          reject={
+            <>
+              <X className="w-4 h-4 mr-2" /> Cancel
+            </>
+          }
+        />
+      )}
     </div>
   );
 };
