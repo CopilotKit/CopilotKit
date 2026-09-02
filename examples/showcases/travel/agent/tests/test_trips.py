@@ -14,6 +14,16 @@ class PlaceSelectionResponse(TypedDict):
     placeIds: list[str]
 
 
+class TripPlaceSelection(TypedDict):
+    tripId: str
+    placeIds: list[str]
+
+
+class MultiTripSelectionResponse(TypedDict):
+    operation: str
+    selections: list[TripPlaceSelection]
+
+
 def place(place_id: str) -> Place:
     return {
         "id": place_id,
@@ -26,10 +36,10 @@ def place(place_id: str) -> Place:
     }
 
 
-def trip(place_ids: list[str]) -> Trip:
+def trip(trip_id: str, place_ids: list[str]) -> Trip:
     return {
-        "id": "trip-1",
-        "name": "Trip 1",
+        "id": trip_id,
+        "name": trip_id,
         "center_latitude": 0,
         "center_longitude": 0,
         "zoom": 10,
@@ -40,24 +50,38 @@ def trip(place_ids: list[str]) -> Trip:
 def update_state(
     response: PlaceSelectionResponse, proposed_place_ids: list[str]
 ) -> AgentState:
+    return action_state(
+        "update_trips",
+        response,
+        [trip("trip-1", proposed_place_ids)],
+        [trip("trip-1", ["kept-place", "removed-place"])],
+    )
+
+
+def action_state(
+    action: str,
+    response: PlaceSelectionResponse | MultiTripSelectionResponse,
+    proposed_trips: list[Trip],
+    current_trips: list[Trip],
+) -> AgentState:
     ai_message = AIMessage(
         content="",
         tool_calls=[
             {
-                "name": "update_trips",
-                "args": {"trips": [trip(proposed_place_ids)]},
-                "id": "update-call",
+                "name": action,
+                "args": {"trips": proposed_trips},
+                "id": "trips-call",
                 "type": "tool_call",
             }
         ],
     )
     tool_message = ToolMessage(
         content=json.dumps(response),
-        tool_call_id="update-call",
+        tool_call_id="trips-call",
     )
     return AgentState(
         messages=[ai_message, tool_message],
-        trips=[trip(["kept-place", "removed-place"])],
+        trips=current_trips,
         selected_trip_id="trip-1",
         search_progress=[],
         planning_progress=[],
@@ -93,6 +117,78 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             self.assertRaisesRegex(ValueError, "Unsupported place operation: append"),
         ):
             await perform_trips_node(state, {})
+
+    async def test_multi_trip_edit_applies_each_replacement_selection(self):
+        state = action_state(
+            "update_trips",
+            {
+                "operation": "replace",
+                "selections": [
+                    {"tripId": "trip-a", "placeIds": ["a-added"]},
+                    {
+                        "tripId": "trip-b",
+                        "placeIds": ["b-kept", "b-added"],
+                    },
+                ],
+            },
+            [
+                trip("trip-a", ["a-kept", "a-added", "a-added"]),
+                trip("trip-b", ["b-kept", "b-added"]),
+            ],
+            [
+                trip("trip-a", ["a-kept", "a-removed"]),
+                trip("trip-b", ["b-kept", "b-removed"]),
+            ],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(
+            {
+                current_trip["id"]: [
+                    current_place["id"] for current_place in current_trip["places"]
+                ]
+                for current_trip in result["trips"]
+            },
+            {
+                "trip-a": ["a-added"],
+                "trip-b": ["b-kept", "b-added"],
+            },
+        )
+
+    async def test_multi_trip_add_applies_each_selection(self):
+        state = action_state(
+            "add_trips",
+            {
+                "operation": "select",
+                "selections": [
+                    {"tripId": "trip-a", "placeIds": ["a-two"]},
+                    {"tripId": "trip-b", "placeIds": ["b-one"]},
+                ],
+            },
+            [
+                trip("trip-a", ["a-one", "a-two"]),
+                trip("trip-b", ["b-one", "b-two"]),
+            ],
+            [],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(
+            {
+                added_trip["id"]: [
+                    added_place["id"] for added_place in added_trip["places"]
+                ]
+                for added_trip in result["trips"]
+            },
+            {
+                "trip-a": ["a-two"],
+                "trip-b": ["b-one"],
+            },
+        )
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import type { Place, Trip } from "@/lib/types";
 import { PlaceCard } from "@/components/PlaceCard";
 import { X, Save } from "lucide-react";
 import { ActionButtons } from "./ActionButtons";
+import type { PlaceSelectionsByTrip } from "./ActionButtons";
 import type { ToolCallStatus } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
@@ -21,18 +22,20 @@ function getDelta(arr1: Place[], arr2: Place[]) {
 }
 
 export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
-  const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(
-    new Set(),
+  const [selectedPlaceIdsByTrip, setSelectedPlaceIdsByTrip] = useState(
+    new Map<string, Set<string>>(),
   );
-  const handleCheck = (placeId: string, checked: boolean) => {
-    setSelectedPlaceIds((prev) => {
-      const newSet = new Set(prev);
+  const handleCheck = (tripId: string, placeId: string, checked: boolean) => {
+    setSelectedPlaceIdsByTrip((previousSelections) => {
+      const nextSelections: PlaceSelectionsByTrip = new Map(previousSelections);
+      const selectedPlaceIds = new Set(nextSelections.get(tripId));
       if (checked) {
-        newSet.add(placeId);
+        selectedPlaceIds.add(placeId);
       } else {
-        newSet.delete(placeId);
+        selectedPlaceIds.delete(placeId);
       }
-      return newSet;
+      nextSelections.set(tripId, selectedPlaceIds);
+      return nextSelections;
     });
   };
 
@@ -58,8 +61,11 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
                     <PlaceCard
                       key={place.id}
                       place={place}
+                      checked={selectedPlaceIdsByTrip
+                        .get(trip.id)
+                        ?.has(place.id)}
                       onCheck={(checked) =>
-                        handleCheck(place.id, checked as boolean)
+                        handleCheck(trip.id, place.id, checked as boolean)
                       }
                     />
                   ))}
@@ -70,10 +76,11 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
       <ActionButtons
         status={status}
         respond={respond}
-        placeIds={args.trips?.map((trip: Trip) =>
-          trip.places?.map((place: Place) => place.id),
-        )}
-        selectedPlaceIds={selectedPlaceIds}
+        tripPlaceIds={args.trips?.map((trip: Trip) => ({
+          tripId: trip.id,
+          placeIds: trip.places?.map((place: Place) => place.id),
+        }))}
+        selectedPlaceIdsByTrip={selectedPlaceIdsByTrip}
         approve={
           <>
             <Save className="w-4 h-4 mr-2" /> Save
@@ -85,7 +92,7 @@ export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
           </>
         }
         type="edit"
-        setSelectedPlaceIds={setSelectedPlaceIds}
+        setSelectedPlaceIdsByTrip={setSelectedPlaceIdsByTrip}
       />
     </div>
   );

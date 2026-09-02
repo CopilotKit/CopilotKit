@@ -31,22 +31,35 @@ async def perform_trips_node(state: AgentState, config: RunnableConfig):
         trips = args.get("trips", [])
         response = json.loads(tool_message.content)
         if isinstance(response, dict):
-            if response["operation"] != "replace":
+            if response["operation"] not in {"replace", "select"}:
                 raise ValueError(
                     f"Unsupported place operation: {response['operation']}"
                 )
-            selected_place_ids = response["placeIds"]
+            if "selections" in response:
+                selected_place_ids_by_trip = {
+                    selection["tripId"]: selection["placeIds"]
+                    for selection in response["selections"]
+                }
+                trips_to_filter = trips
+            else:
+                selected_place_ids_by_trip = {trips[0]["id"]: response["placeIds"]}
+                trips_to_filter = trips[:1]
         else:
-            selected_place_ids = response.split("|||")[0].split(",")
+            selected_place_ids_by_trip = {
+                trips[0]["id"]: response.split("|||")[0].split(",")
+            }
+            trips_to_filter = trips[:1]
 
-        filtered_places: list[Place] = []
-        seen_place_ids = set()
-        for place in trips[0]["places"]:
-            place_id = place["id"]
-            if place_id in selected_place_ids and place_id not in seen_place_ids:
-                filtered_places.append(place)
-                seen_place_ids.add(place_id)
-        args["trips"][0]["places"] = filtered_places
+        for trip in trips_to_filter:
+            selected_place_ids = selected_place_ids_by_trip[trip["id"]]
+            filtered_places: list[Place] = []
+            seen_place_ids = set()
+            for place in trip["places"]:
+                place_id = place["id"]
+                if place_id in selected_place_ids and place_id not in seen_place_ids:
+                    filtered_places.append(place)
+                    seen_place_ids.add(place_id)
+            trip["places"] = filtered_places
 
     if not isinstance(ai_message, AIMessage) or not ai_message.tool_calls:
         return state
