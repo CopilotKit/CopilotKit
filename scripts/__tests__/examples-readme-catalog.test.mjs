@@ -128,6 +128,7 @@ test("public example workflow watches its complete shared input set", () => {
   const expectedPaths = [
     "examples/**",
     "scripts/__tests__/examples-readme-catalog.test.mjs",
+    "scripts/deprecations/v1-dist-notices.mjs",
     "scripts/project.json",
     ".github/workflows/test_e2e-public-examples.yml",
     ".browserslistrc",
