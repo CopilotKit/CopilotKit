@@ -137,6 +137,24 @@ useAttachments({
 });
 ```
 
+### Upload concurrency
+
+Multi-file selections upload three at a time by default; the rest start as slots
+free up, and the whole selection is queued as `status: "uploading"` right away.
+`onUpload` is therefore called concurrently and must not assume the previous file
+finished. Set `maxConcurrentUploads` to change the pool — `1` restores
+one-at-a-time uploads for an endpoint that needs it.
+
+```tsx
+useAttachments({
+  config: {
+    enabled: true,
+    maxConcurrentUploads: 6,
+    onUpload: async (file) => uploadToStorage(file),
+  },
+});
+```
+
 ### Feedback on failed uploads
 
 ```tsx

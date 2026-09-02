@@ -14,6 +14,22 @@ export interface UseAttachmentsProps {
   config?: AttachmentsConfig;
 }
 
+const DEFAULT_MAX_SIZE = 20 * 1024 * 1024;
+
+/**
+ * How many uploads run at once when `maxConcurrentUploads` is unset. Three keeps
+ * a multi-file selection quick without opening a connection per file.
+ */
+const DEFAULT_MAX_CONCURRENT_UPLOADS = 3;
+
+/** At least one upload at a time, whole files only; anything unusable falls back to the default. */
+function resolveMaxConcurrentUploads(configured: number | undefined): number {
+  if (typeof configured !== "number" || Number.isNaN(configured)) {
+    return DEFAULT_MAX_CONCURRENT_UPLOADS;
+  }
+  return Math.max(1, Math.floor(configured));
+}
+
 export interface UseAttachmentsReturn {
   /** Currently selected attachments (uploading + ready). */
   attachments: Attachment[];
@@ -67,50 +83,15 @@ export function useAttachments({
   const attachmentsRef = useRef<Attachment[]>([]);
   attachmentsRef.current = attachments;
 
-  // Stable processFiles — reads config from ref, never changes identity
-  const processFiles = useCallback(async (files: File[]) => {
-    const cfg = configRef.current;
-    const accept = cfg?.accept ?? "*/*";
-    const maxSize = cfg?.maxSize ?? 20 * 1024 * 1024;
-
-    const rejectedFiles = files.filter(
-      (file) => !matchesAcceptFilter(file, accept),
-    );
-    for (const file of rejectedFiles) {
-      cfg?.onUploadFailed?.({
-        reason: "invalid-type",
-        file,
-        message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
-      });
-    }
-
-    const validFiles = files.filter((file) =>
-      matchesAcceptFilter(file, accept),
-    );
-
-    for (const file of validFiles) {
-      if (exceedsMaxSize(file, maxSize)) {
-        cfg?.onUploadFailed?.({
-          reason: "file-too-large",
-          file,
-          message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
-        });
-        continue;
-      }
-
-      const modality = getModalityFromMimeType(file.type);
-      const placeholderId = randomUUID();
-      const placeholder: Attachment = {
-        id: placeholderId,
-        type: modality,
-        source: { type: "data", value: "", mimeType: file.type },
-        filename: file.name,
-        size: file.size,
-        status: "uploading",
-      };
-
-      setAttachments((prev) => [...prev, placeholder]);
-
+  // Upload one queued file and settle its placeholder: the source it uploaded to on success,
+  // gone from the queue on failure. Resolves either way, so one bad file among many neither
+  // rejects nor stops the rest.
+  const uploadFile = useCallback(
+    async (
+      file: File,
+      placeholder: Attachment,
+      cfg: AttachmentsConfig | undefined,
+    ) => {
       try {
         let source: Attachment["source"];
         let uploadMetadata: Record<string, unknown> | undefined;
@@ -125,13 +106,13 @@ export function useAttachments({
         }
 
         let thumbnail: string | undefined;
-        if (modality === "video") {
+        if (placeholder.type === "video") {
           thumbnail = await generateVideoThumbnail(file);
         }
 
         setAttachments((prev) =>
           prev.map((att) =>
-            att.id === placeholderId
+            att.id === placeholder.id
               ? {
                   ...att,
                   source,
@@ -144,7 +125,7 @@ export function useAttachments({
         );
       } catch (error) {
         setAttachments((prev) =>
-          prev.filter((att) => att.id !== placeholderId),
+          prev.filter((att) => att.id !== placeholder.id),
         );
         console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
         cfg?.onUploadFailed?.({
@@ -156,8 +137,81 @@ export function useAttachments({
               : `Failed to upload "${file.name}"`,
         });
       }
-    }
-  }, []);
+    },
+    [],
+  );
+
+  // Stable processFiles — reads config from ref, never changes identity
+  const processFiles = useCallback(
+    async (files: File[]) => {
+      const cfg = configRef.current;
+      const accept = cfg?.accept ?? "*/*";
+      const maxSize = cfg?.maxSize ?? DEFAULT_MAX_SIZE;
+
+      const rejectedFiles = files.filter(
+        (file) => !matchesAcceptFilter(file, accept),
+      );
+      for (const file of rejectedFiles) {
+        cfg?.onUploadFailed?.({
+          reason: "invalid-type",
+          file,
+          message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
+        });
+      }
+
+      const validFiles = files.filter((file) =>
+        matchesAcceptFilter(file, accept),
+      );
+
+      const queued: { file: File; placeholder: Attachment }[] = [];
+      for (const file of validFiles) {
+        if (exceedsMaxSize(file, maxSize)) {
+          cfg?.onUploadFailed?.({
+            reason: "file-too-large",
+            file,
+            message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
+          });
+          continue;
+        }
+
+        queued.push({
+          file,
+          placeholder: {
+            id: randomUUID(),
+            type: getModalityFromMimeType(file.type),
+            source: { type: "data", value: "", mimeType: file.type },
+            filename: file.name,
+            size: file.size,
+            status: "uploading",
+          },
+        });
+      }
+
+      if (queued.length === 0) return;
+
+      // The whole selection joins the queue at once, in the order it was picked, so a file
+      // waiting for a free slot is already visible rather than appearing later.
+      setAttachments((prev) => [...prev, ...queued.map((q) => q.placeholder)]);
+
+      // Bounded fan-out: this many workers pull from one shared cursor, so at most that many
+      // uploads are in flight and the rest start as slots free up. Reading and advancing the
+      // cursor happens without an await between, so no two workers take the same file.
+      const workers = Math.min(
+        queued.length,
+        resolveMaxConcurrentUploads(cfg?.maxConcurrentUploads),
+      );
+      let next = 0;
+      await Promise.all(
+        Array.from({ length: workers }, async () => {
+          while (next < queued.length) {
+            const { file, placeholder } = queued[next++];
+            await uploadFile(file, placeholder, cfg);
+          }
+        }),
+      );
+    },
+    [uploadFile],
+  );
 
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
