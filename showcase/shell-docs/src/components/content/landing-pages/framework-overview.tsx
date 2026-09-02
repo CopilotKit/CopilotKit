@@ -54,19 +54,6 @@ export interface FrameworkOverviewProps {
    * iconKey. When supplied, `data.iconKey` is ignored.
    */
   iconOverride?: ReactNode;
-  /**
-   * Suppress the hero's "Copy onboarding prompt" button — and only that
-   * button; the quickstart link and the start-command chip are unaffected.
-   *
-   * Set by the render site when the same page already offers the prompt
-   * elsewhere. The one such site today is `DocsPageView`'s MDX components
-   * map: when it renders the page-tools row's `OnboardingPromptCopyButton`,
-   * an `<FrameworkOverview>` embedded in that page's MDX would otherwise put
-   * a second copy of the same prompt on screen. The flag is tied to that
-   * render decision, not to a slug list — a page-tools row without the
-   * onboarding button leaves the hero button in place.
-   */
-  hideOnboardingPrompt?: boolean;
 }
 
 /**
@@ -150,7 +137,6 @@ export function FrameworkOverview({
   frontendOverride,
   afterFeatures,
   iconOverride,
-  hideOnboardingPrompt = false,
 }: FrameworkOverviewProps) {
   const {
     frameworkName,
@@ -235,19 +221,6 @@ export function FrameworkOverview({
   const IconComponent = customIcons[iconKey as IconKey];
   const hasIcon = Boolean(iconOverride || IconComponent);
 
-  // The hero prompt button, or nothing when the render site has told us the
-  // page already carries the same prompt (see `hideOnboardingPrompt`). Built
-  // once so both hero branches below stay in sync.
-  const onboardingPromptButton = hideOnboardingPrompt ? null : (
-    <HeroOnboardingPromptButton
-      surface="docs_framework_hero"
-      framework={{
-        slug: currentFramework,
-        name: frameworkName,
-      }}
-    />
-  );
-
   const handleCopyCommand = async () => {
     try {
       await navigator.clipboard.writeText(initCommand);
@@ -329,7 +302,15 @@ export function FrameworkOverview({
           <div className="mt-7">
             {isGenericInit ? (
               <HeroStartActions
-                prompt={onboardingPromptButton}
+                prompt={
+                  <HeroOnboardingPromptButton
+                    surface="docs_framework_hero"
+                    framework={{
+                      slug: currentFramework,
+                      name: frameworkName,
+                    }}
+                  />
+                }
                 quickstart={
                   <QuickstartLinkButton
                     href={link(rawGuideLink)}
@@ -342,7 +323,13 @@ export function FrameworkOverview({
               />
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {onboardingPromptButton}
+                <HeroOnboardingPromptButton
+                  surface="docs_framework_hero"
+                  framework={{
+                    slug: currentFramework,
+                    name: frameworkName,
+                  }}
+                />
                 <QuickstartLinkButton
                   href={link(rawGuideLink)}
                   frontend={selectedFrontend}

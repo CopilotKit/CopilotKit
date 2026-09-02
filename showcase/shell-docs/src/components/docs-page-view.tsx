@@ -487,15 +487,6 @@ export async function DocsPageView({
                               frameworkOverride ?? props.currentFramework
                             }
                             hrefPrefix={slugHrefPrefix}
-                            // Suppress the hero's onboarding-prompt button
-                            // exactly when the page-tools row above rendered
-                            // its own. Same condition, same component — no
-                            // slug list, no URL sniffing: `onboardingFramework`
-                            // is what gates `DocsPageTools`'s button, so an
-                            // MDX-embedded hero drops its duplicate whenever
-                            // that button is on screen, and keeps it when the
-                            // row has no onboarding button.
-                            hideOnboardingPrompt={Boolean(onboardingFramework)}
                           />
                         ),
                         // Same closure pattern: thread the URL framework
