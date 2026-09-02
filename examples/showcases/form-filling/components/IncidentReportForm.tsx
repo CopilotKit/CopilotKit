@@ -37,7 +37,11 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useAgentContext, useFrontendTool } from "@copilotkit/react-core/v2";
-import { parseIncidentDate, serializeIncidentDate } from "@/lib/incident-date";
+import {
+  isIncidentDateAllowed,
+  parseIncidentDate,
+  serializeIncidentDate,
+} from "@/lib/incident-date";
 import { incidentReportFormSchema } from "@/lib/incident-report-form";
 import type { IncidentReportFormValues } from "@/lib/incident-report-form";
 import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
@@ -90,8 +94,8 @@ export function IncidentReportForm() {
     parameters: fillIncidentReportFormParameters,
     handler: async (action) => {
       const incidentDate = parseIncidentDate(action.date);
-      if (!incidentDate) {
-        return "The incident date must be a valid date in YYYY-MM-DD format.";
+      if (!incidentDate || !isIncidentDateAllowed(incidentDate)) {
+        return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
       }
 
       form.setValue("name", action.fullName);
@@ -206,9 +210,7 @@ export function IncidentReportForm() {
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}
-                          disabled={(date) =>
-                            date > new Date() || date < new Date("1900-01-01")
-                          }
+                          disabled={(date) => !isIncidentDateAllowed(date)}
                           initialFocus
                         />
                       </PopoverContent>

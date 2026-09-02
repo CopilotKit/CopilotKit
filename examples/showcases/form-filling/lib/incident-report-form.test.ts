@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { incidentReportFormSchema } from "./incident-report-form";
 
 function setup() {
@@ -77,5 +77,41 @@ test("rejects an unselected impact level", () => {
     expect(result.error.flatten().fieldErrors.impactLevel).toEqual([
       "Please select an impact level.",
     ]);
+  }
+});
+
+test("enforces the incident date boundaries", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(2026, 8, 2, 12));
+
+  try {
+    const { input } = setup();
+
+    expect(
+      incidentReportFormSchema.safeParse({
+        ...input,
+        date: new Date(1899, 11, 31),
+      }).success,
+    ).toBe(false);
+    expect(
+      incidentReportFormSchema.safeParse({
+        ...input,
+        date: new Date(1900, 0, 1),
+      }).success,
+    ).toBe(true);
+    expect(
+      incidentReportFormSchema.safeParse({
+        ...input,
+        date: new Date(2026, 8, 2),
+      }).success,
+    ).toBe(true);
+    expect(
+      incidentReportFormSchema.safeParse({
+        ...input,
+        date: new Date(2026, 8, 3),
+      }).success,
+    ).toBe(false);
+  } finally {
+    vi.useRealTimers();
   }
 });

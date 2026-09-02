@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isIncidentDateAllowed } from "./incident-date";
 
 export const incidentReportFormSchema = z.object({
   name: z.string().trim().min(2, {
@@ -14,9 +15,13 @@ export const incidentReportFormSchema = z.object({
     .min(1, {
       message: "Please select an incident type.",
     }),
-  date: z.date({
-    required_error: "Please select the date when the incident occurred.",
-  }),
+  date: z
+    .date({
+      required_error: "Please select the date when the incident occurred.",
+    })
+    .refine(isIncidentDateAllowed, {
+      message: "Incident date must be from January 1, 1900 through today.",
+    }),
   description: z.string().trim().min(10, {
     message: "Description must be at least 10 characters.",
   }),
