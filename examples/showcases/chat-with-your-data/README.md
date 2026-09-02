@@ -25,7 +25,7 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
 ### Prerequisites
 
 - Node.js 20.9.0+
-- npm, yarn, or pnpm
+- pnpm
 
 ### Installation
 
@@ -42,18 +42,6 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
    pnpm install
    ```
 
-   <details>
-     <summary><b>Using other package managers</b></summary>
-     
-     ```bash
-     # Using yarn
-     yarn install
-     
-     # Using npm
-     npm install
-     ```
-   </details>
-
 3. Create a `.env` file in the project root and add your [OpenAI API Key](https://platform.openai.com/api-keys) and [Tavily API Key](https://tavily.com/api-key):
 
    ```
@@ -66,18 +54,6 @@ This example uses CopilotKit v2. If you are upgrading an existing app, follow th
    ```bash
    pnpm dev
    ```
-
-   <details>
-     <summary><b>Using other package managers</b></summary>
-     
-     ```bash
-     # Using yarn
-     yarn dev
-     
-     # Using npm
-     npm run dev
-     ```
-   </details>
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 

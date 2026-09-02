@@ -29,3 +29,17 @@ test("documents the pinned Next.js major and required Node.js version", () => {
     new RegExp(`Node\\.js ${requiredNodeVersion.replaceAll(".", "\\.")}\\+`),
   );
 });
+
+test("documents pnpm as the required workspace package manager", () => {
+  const workspaceDependencies = Object.entries(packageJson.dependencies).filter(
+    ([, version]) => version.startsWith("workspace:"),
+  );
+
+  assert.ok(
+    workspaceDependencies.length > 0,
+    "expected the example to use workspace dependencies",
+  );
+  assert.match(readme, /^- pnpm$/m);
+  assert.doesNotMatch(readme, /Using other package managers/);
+  assert.doesNotMatch(readme, /^\s*(?:npm(?: run)?|yarn) (?:install|dev)\s*$/m);
+});
