@@ -13,7 +13,7 @@ export type Trip = {
   name: string;
   center_latitude: number;
   center_longitude: number;
-  zoom_level?: number | 13;
+  zoom: number;
   places: Place[];
 };
 
@@ -63,7 +63,7 @@ export const defaultTrips: Trip[] = [
         rating: 4.6,
       },
     ],
-    zoom_level: 14,
+    zoom: 14,
   },
   {
     id: "2",
@@ -99,6 +99,6 @@ export const defaultTrips: Trip[] = [
         rating: 4.7,
       },
     ],
-    zoom_level: 12,
+    zoom: 12,
   },
 ];

@@ -19,7 +19,7 @@ export const tripSchema = z.object({
   name: z.string().describe("The trip name"),
   center_latitude: z.number().describe("The map center latitude"),
   center_longitude: z.number().describe("The map center longitude"),
-  zoom_level: z.number().optional().describe("The map zoom level"),
+  zoom: z.number().describe("The map zoom level"),
   places: z.array(placeSchema).describe("Places included in the trip"),
 });
 

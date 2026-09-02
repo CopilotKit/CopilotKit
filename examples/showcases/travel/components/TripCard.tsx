@@ -25,7 +25,7 @@ export function TripCard({ className, map }: TripCardProps) {
   if (selectedTrip) {
     map.setView(
       [selectedTrip.center_latitude, selectedTrip.center_longitude],
-      selectedTrip.zoom_level || 13,
+      selectedTrip.zoom,
     );
   }
 

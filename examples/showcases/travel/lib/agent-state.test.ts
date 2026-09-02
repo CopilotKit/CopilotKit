@@ -51,6 +51,20 @@ test("drops malformed search progress", () => {
   expect(state.search_progress).toBeUndefined();
 });
 
+test("preserves the map zoom emitted by the Python trip contract", () => {
+  const state = normalizeAgentState({
+    trips: [
+      {
+        ...defaultTrips[0],
+        zoom: 11,
+      },
+    ],
+    selected_trip_id: defaultTrips[0]?.id,
+  });
+
+  expect(state.trips[0]).toMatchObject({ zoom: 11 });
+});
+
 test("uses the default selection when the selected trip ID is malformed", () => {
   const state = normalizeAgentState({
     trips: defaultTrips,
@@ -70,6 +84,23 @@ test("rejects initialized state with an invalid nested trips array", () => {
         },
       ],
       selected_trip_id: defaultTrips[0]?.id,
+    }),
+  ).toBe(false);
+});
+
+test("rejects initialized state when an agent trip omits map zoom", () => {
+  const tripWithoutZoom = {
+    id: defaultTrips[0].id,
+    name: defaultTrips[0].name,
+    center_latitude: defaultTrips[0].center_latitude,
+    center_longitude: defaultTrips[0].center_longitude,
+    places: defaultTrips[0].places,
+  };
+
+  expect(
+    isAgentStateInitialized({
+      trips: [tripWithoutZoom],
+      selected_trip_id: tripWithoutZoom.id,
     }),
   ).toBe(false);
 });
