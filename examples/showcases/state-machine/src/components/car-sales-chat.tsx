@@ -37,23 +37,13 @@ export function CarSalesChat({ className }: ChatProps) {
   useEffect(() => {
     if (initialMessageSent.current || !isReady || agent.isRunning) return;
 
-    if (
-      agent.messages.some(
-        (message) =>
-          message.role === "assistant" && message.content === initialMessage,
-      )
-    ) {
+    if (agent.messages.length > 0) {
       initialMessageSent.current = true;
       return;
     }
 
     const timeout = window.setTimeout(() => {
-      if (
-        agent.messages.some(
-          (message) =>
-            message.role === "assistant" && message.content === initialMessage,
-        )
-      ) {
+      if (agent.messages.length > 0) {
         initialMessageSent.current = true;
         return;
       }
