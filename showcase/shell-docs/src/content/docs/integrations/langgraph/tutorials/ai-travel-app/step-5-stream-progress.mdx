@@ -52,10 +52,11 @@ It emits again when each query finishes, then clears the progress after the
 whole search:
 
 ```python title="examples/showcases/travel/agent/src/search.py"
-for i, query in enumerate(queries):
-    places.extend(_search_places(query, i))
-    state["search_progress"][i]["done"] = True
-    await copilotkit_emit_state(config, state)
+async with httpx.AsyncClient() as client:
+    for i, query in enumerate(queries):
+        places.extend(await _search_places(client, query, i))
+        state["search_progress"][i]["done"] = True
+        await copilotkit_emit_state(config, state)
 
 state["search_progress"] = []
 await copilotkit_emit_state(config, state)
