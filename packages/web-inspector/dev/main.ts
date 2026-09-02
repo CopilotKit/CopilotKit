@@ -577,7 +577,7 @@ async function boot(): Promise<void> {
   }
 
   if (query.get("reset") === "1") {
-    clearThreadsStateLabStorage(window.localStorage);
+    clearThreadsStateLabStorage(window.localStorage, document);
     await resetServerLedger();
     actionStatus.textContent = "Inspector state and fixture ledger reset.";
   }
