@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+
+const require = createRequire(import.meta.url);
 
 const readFixture = (relativePath: string): string =>
   readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf8");
@@ -63,5 +66,33 @@ describe("README prerequisites", () => {
     expect(readmeVersion).toBeDefined();
     expect(lockfileVersion).toBeDefined();
     expect(readmeVersion).toBe(lockfileVersion);
+  });
+
+  it("documents the declared Next.js runtime requirements", () => {
+    const readme = readFixture("./README.md");
+    const packageJson = JSON.parse(readFixture("./package.json")) as {
+      dependencies: { next: string };
+    };
+    const nextPackageJson = JSON.parse(
+      readFileSync(require.resolve("next/package.json"), "utf8"),
+    ) as {
+      version: string;
+      engines: { node: string };
+    };
+    const declaredNextMajor =
+      packageJson.dependencies.next.match(/^\^?(\d+)\./)?.[1];
+    const installedNextMajor = nextPackageJson.version.match(/^(\d+)\./)?.[1];
+    const minimumNodeVersion =
+      nextPackageJson.engines.node.match(/>=(\d+\.\d+\.\d+)/)?.[1];
+
+    expect(declaredNextMajor).toBeDefined();
+    expect(installedNextMajor).toBe(declaredNextMajor);
+    expect(minimumNodeVersion).toBeDefined();
+    expect(readme).toMatch(
+      new RegExp(`Built%20with-Next\\.js%20${declaredNextMajor}-`),
+    );
+    expect(readme).toMatch(
+      new RegExp(`Node\\.js ${minimumNodeVersion?.replaceAll(".", "\\.")}\\+`),
+    );
   });
 });

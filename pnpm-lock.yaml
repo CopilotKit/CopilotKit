@@ -660,8 +660,8 @@ importers:
         specifier: ^0.414.0
         version: 0.414.0(react@19.2.3)
       next:
-        specifier: ^16.0.10
-        version: 16.1.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
+        specifier: 16.2.3
+        version: 16.2.3(@babel/core@8.0.1)(@opentelemetry/api@1.9.0)(@playwright/test@1.59.1)(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(sass@1.101.0)
       react:
         specifier: 19.2.3
         version: 19.2.3
