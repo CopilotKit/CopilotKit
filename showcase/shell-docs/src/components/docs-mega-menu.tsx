@@ -23,16 +23,17 @@ import {
   Server,
   Sparkles,
   Terminal,
-  type LucideIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { CopilotKitIcon } from "./copilotkit-icon";
 import {
   DOCS_MEGA_MENU_COLUMNS,
   isDocsExplorePath,
-  type MegaMenuIconName,
 } from "@/lib/docs-mega-menu";
+import type { MegaMenuIconName } from "@/lib/docs-mega-menu";
 
-const MEGA_MENU_ICONS: Record<MegaMenuIconName, LucideIcon> = {
+const MEGA_MENU_ICONS: Record<Exclude<MegaMenuIconName, "kite">, LucideIcon> = {
   book: BookOpen,
   rocket: Rocket,
   terminal: Terminal,
@@ -118,7 +119,7 @@ export function DocsMegaMenu({
             className="h-4 w-4 shrink-0 text-current"
             aria-hidden="true"
           />
-          <span>Explore docs</span>
+          <span>Docs</span>
           <ChevronDown
             className={`h-3.5 w-3.5 text-current transition-transform duration-150 ${
               open ? "rotate-180" : ""
@@ -142,14 +143,15 @@ export function DocsMegaMenu({
           if (openedByPointer.current) event.preventDefault();
         }}
       >
-        <nav aria-label="Explore docs">
+        <nav aria-label="Docs">
           <div className="shell-docs-mega-menu-grid">
             {DOCS_MEGA_MENU_COLUMNS.map((column) => (
               <section key={column.title} className="min-w-0">
                 <h2 className="shell-docs-mega-menu-heading">{column.title}</h2>
                 <ul role="list" className="shell-docs-mega-menu-list">
                   {column.links.map((link) => {
-                    const Icon = MEGA_MENU_ICONS[link.icon];
+                    const Icon =
+                      link.icon === "kite" ? null : MEGA_MENU_ICONS[link.icon];
                     const featured = link.featured === true;
                     return (
                       <li key={link.href}>
@@ -162,10 +164,14 @@ export function DocsMegaMenu({
                               : "shell-docs-mega-menu-link"
                           }
                         >
-                          <Icon
-                            className="shell-docs-mega-menu-icon"
-                            aria-hidden="true"
-                          />
+                          {Icon ? (
+                            <Icon
+                              className="shell-docs-mega-menu-icon"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <CopilotKitIcon className="shell-docs-mega-menu-icon" />
+                          )}
                           <span className="min-w-0">
                             <span className="block truncate font-medium">
                               {link.label}

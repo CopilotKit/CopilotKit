@@ -48,6 +48,7 @@ vi.mock("@clerk/nextjs", () => {
 });
 
 import { BrandNav, buildDocsAuthEntryHref } from "../brand-nav";
+import { PrimaryDocsTabs } from "../primary-docs-tabs";
 import {
   buildDocsUserMenuHref,
   DocsAuthFallbackBoundary,
@@ -70,28 +71,31 @@ const globalsCss = readFileSync(
   "utf8",
 );
 
-test("BrandNav opens docs from an Explore docs mega menu", () => {
+test("BrandNav opens Docs from a mega menu", () => {
   expect(brandNavSource).toContain("DocsMegaMenu");
   expect(brandNavSource).not.toContain('label: "Docs"');
   expect(brandNavSource).not.toContain('href: "/"');
 });
 
-test("BrandNav puts Intelligence next to Cookbook", () => {
+test("BrandNav keeps Intelligence out of the primary header links", () => {
   expect(brandNavSource).toContain('label: "Cookbook"');
-  expect(brandNavSource).toContain('label: "Intelligence"');
-  expect(brandNavSource).toContain("INTELLIGENCE_DOCS_HREF");
-  expect(brandNavSource.indexOf('label: "Cookbook"')).toBeLessThan(
-    brandNavSource.indexOf('label: "Intelligence"'),
-  );
+  expect(brandNavSource).not.toContain('label: "Intelligence"');
+  expect(brandNavSource).not.toContain("INTELLIGENCE_DOCS_HREF");
+});
+
+test("PrimaryDocsTabs keeps Intelligence out of the mobile links", () => {
+  const markup = renderToStaticMarkup(<PrimaryDocsTabs />);
+
+  expect(markup).toContain(">Docs<");
+  expect(markup).toContain(">Reference<");
+  expect(markup).toContain(">Cookbook<");
+  expect(markup).not.toContain(">Intelligence<");
 });
 
 test("BrandNav keeps space between the center rail and search", () => {
   expect(brandNavSource).toContain("grid-cols-[auto_minmax(0,1fr)_auto]");
   expect(brandNavSource).toContain("gap-x-8");
   expect(brandNavSource).toContain("pl-4");
-  expect(globalsCss).toContain(
-    ".shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover",
-  );
 });
 
 test("BrandNav uses the docs grid desktop layout cap", () => {

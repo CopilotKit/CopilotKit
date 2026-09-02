@@ -18,7 +18,8 @@ export type MegaMenuIconName =
   | "box"
   | "radio"
   | "brain"
-  | "chart";
+  | "chart"
+  | "kite";
 
 export interface MegaMenuLink {
   href: string;
@@ -69,7 +70,7 @@ export const DOCS_MEGA_MENU_COLUMNS: readonly MegaMenuColumn[] = [
       {
         href: INTELLIGENCE_DOCS_HREF,
         label: "Intelligence",
-        icon: "sparkles",
+        icon: "kite",
         featured: true,
       },
       { href: "/threads", label: "Threads", icon: "layers" },
@@ -109,9 +110,5 @@ export function isIntelligenceDocsPath(pathname: string) {
 
 export function isDocsExplorePath(pathname: string) {
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
-  return (
-    firstSegment !== "/reference" &&
-    firstSegment !== "/cookbook" &&
-    firstSegment !== "/intelligence"
-  );
+  return firstSegment !== "/reference" && firstSegment !== "/cookbook";
 }

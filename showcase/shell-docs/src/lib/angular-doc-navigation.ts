@@ -3,6 +3,7 @@ import {
   buildFrameworkOnlyNav,
   buildRootSurfaceNav,
   loadDoc,
+  normalizeSidebarNav,
 } from "./docs-render";
 import type { NavNode } from "./docs-render";
 import {
@@ -102,11 +103,12 @@ function filterResolvableAngularNodes(
     if (node.type === "page") {
       if (node.slug === "" || node.slug === "quickstart") return [];
       const canonicalSlug = getFrontendCanonicalSlug("angular", node.slug);
-      if (publishedSlugs.has(canonicalSlug)) {
+      const isIntelligenceOverview = canonicalSlug === "intelligence/overview";
+      if (publishedSlugs.has(canonicalSlug) && !isIntelligenceOverview) {
         return [];
       }
       if (!resolveAngularDoc(backendFramework, canonicalSlug)) return [];
-      publishedSlugs.add(canonicalSlug);
+      if (!isIntelligenceOverview) publishedSlugs.add(canonicalSlug);
       return [{ ...node, slug: canonicalSlug }];
     }
 
@@ -178,5 +180,5 @@ export function getAngularDocsNavTree(
     ),
   );
 
-  return [...prefixPages, ...backendNodes];
+  return normalizeSidebarNav([...prefixPages, ...backendNodes]);
 }

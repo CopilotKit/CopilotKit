@@ -3,18 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { CalendarDays, ChefHat, Star } from "lucide-react";
+import { CalendarDays, ChefHat } from "lucide-react";
 import { SearchTrigger } from "./search-trigger";
 import { CopilotKitMark } from "./copilotkit-mark";
 import { ThemeSwitch } from "./theme-switch";
 import ConsoleIcon from "./icons/console";
 import ExternalLinkIcon from "./icons/external-link";
 import { DocsMegaMenu } from "./docs-mega-menu";
-import {
-  INTELLIGENCE_DOCS_HREF,
-  isDocsExplorePath,
-  isIntelligenceDocsPath,
-} from "@/lib/docs-mega-menu";
+import { isDocsExplorePath } from "@/lib/docs-mega-menu";
 import {
   DocsPublicAuthControl,
   buildDocsAuthEntryHref,
@@ -50,11 +46,6 @@ const LEFT_LINKS: LeftLink[] = [
     label: "Cookbook",
     href: "/cookbook",
   },
-  {
-    icon: <Star className="w-4 h-4 text-current" />,
-    label: "Intelligence",
-    href: INTELLIGENCE_DOCS_HREF,
-  },
 ];
 
 export interface BrandNavProps {
@@ -69,18 +60,15 @@ export function BrandNav(_props: BrandNavProps = {}) {
   const posthog = usePostHog();
   const authEntryHref = useDocsAuthEntryHref();
 
-  // Active-route detection: Reference, Cookbook, and Intelligence each own
-  // their prefix. Everything else (root and framework-scoped pages)
-  // highlights Explore docs.
+  // Active-route detection: Reference and Cookbook each own their prefix.
+  // Everything else highlights Docs.
   const firstSegment = pathname === "/" ? "/" : `/${pathname.split("/")[1]}`;
   const activeRoute =
     firstSegment === "/reference"
       ? "/reference"
       : firstSegment === "/cookbook"
         ? "/cookbook"
-        : isIntelligenceDocsPath(pathname)
-          ? INTELLIGENCE_DOCS_HREF
-          : "/";
+        : "/";
 
   const handleTalkToEngineersClick = () => {
     posthog?.capture("talk_to_us_clicked", { location: "docs_nav" });
@@ -122,7 +110,6 @@ export function BrandNav(_props: BrandNavProps = {}) {
           </li>
           {LEFT_LINKS.map((link) => {
             const isActive = activeRoute === link.href;
-            const isIntelligence = link.href === INTELLIGENCE_DOCS_HREF;
             return (
               <li key={link.href} className="relative h-full group">
                 <Link
@@ -131,7 +118,7 @@ export function BrandNav(_props: BrandNavProps = {}) {
                     isActive
                       ? "shell-docs-nav-link-active"
                       : "shell-docs-nav-link-idle"
-                  }${isIntelligence ? " shell-docs-nav-link-intelligence" : ""}`}
+                  }`}
                 >
                   <span className="flex items-center gap-2">
                     <span className="[@media(width<808px)]:hidden">

@@ -23,9 +23,9 @@ afterEach(cleanup);
 test("opens a five-column docs map with Intelligence featured", () => {
   render(<DocsMegaMenu triggerClassName="shell-docs-nav-link-active" />);
 
-  fireEvent.pointerEnter(screen.getByRole("button", { name: "Explore docs" }));
+  fireEvent.pointerEnter(screen.getByRole("button", { name: "Docs" }));
 
-  expect(screen.getByRole("navigation", { name: "Explore docs" })).toBeTruthy();
+  expect(screen.getByRole("navigation", { name: "Docs" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Start" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Build" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Connect" })).toBeTruthy();
@@ -36,6 +36,12 @@ test("opens a five-column docs map with Intelligence featured", () => {
   expect(intelligence.getAttribute("href")).toBe("/intelligence/overview");
   expect(intelligence.className).toContain(
     "shell-docs-mega-menu-link-featured",
+  );
+  expect(intelligence.querySelector("svg")?.getAttribute("viewBox")).toBe(
+    "0 0 24 24",
+  );
+  expect(intelligence.querySelector("svg")?.getAttribute("fill")).toBe(
+    "currentColor",
   );
   expect(
     screen.getByRole("link", { name: "Threads" }).getAttribute("href"),

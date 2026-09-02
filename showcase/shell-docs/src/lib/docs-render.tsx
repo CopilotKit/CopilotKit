@@ -83,9 +83,11 @@ const SECTION_ICONS: Record<string, string> = {
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
+  intelligence: "custom/copilotkit-kite",
   "intelligence platform": "custom/copilotkit-kite",
   channels: "lucide/MessagesSquare",
   deploy: "lucide/Cloud",
+  deployment: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
   // `content/docs/integrations/built-in-agent/meta.json`. Adjust here
@@ -654,9 +656,11 @@ export function buildFrameworkOnlyNav(
     }
     return node;
   };
-  return dropEmptySections(
-    appendSharedThreadArchitecturePage(
-      appendSharedRootSections(nodes.map(rewrite), sharedSections),
+  return normalizeSidebarNav(
+    dropEmptySections(
+      appendSharedThreadArchitecturePage(
+        appendSharedRootSections(nodes.map(rewrite), sharedSections),
+      ),
     ),
   );
 }
@@ -755,6 +759,172 @@ function findPageBySlug(navTree: NavNode[], slug: string): NavNode | null {
     }
   }
   return null;
+}
+
+type SidebarSection = {
+  section: Extract<NavNode, { type: "section" }>;
+  children: NavNode[];
+  sourceIndex: number;
+};
+
+const SIDEBAR_SECTION_TITLES: Record<string, string> = {
+  "get started": "Getting Started",
+  "getting started": "Getting Started",
+  "build chat uis": "Basics",
+  basics: "Basics",
+  "build generative ui": "Generative UI",
+  "generative ui": "Generative UI",
+  "add agent powers": "App Control",
+  "app control": "App Control",
+  intelligence: "Intelligence",
+  "intelligence platform": "Intelligence",
+  backend: "Runtime",
+  runtime: "Runtime",
+  deploy: "Deployment",
+  deployment: "Deployment",
+};
+
+function sidebarSectionRank(title: string): number {
+  switch (title) {
+    case "Getting Started":
+      return 0;
+    case "Basics":
+      return 1;
+    case "Generative UI":
+      return 2;
+    case "App Control":
+      return 3;
+    case "Intelligence":
+      return 4;
+    case "Deployment":
+      return 6;
+    case "Concepts":
+    case "Observe & Operate":
+    case "Platforms":
+    case "Tutorials":
+    case "Troubleshooting":
+    case "Other":
+      return 7;
+    default:
+      return 5;
+  }
+}
+
+export function normalizeSidebarNav(navTree: NavNode[]) {
+  const prefix: NavNode[] = [];
+  const sections: SidebarSection[] = [];
+  const sectionsByTitle = new Map<string, SidebarSection>();
+  let current: SidebarSection | undefined;
+
+  for (const node of navTree) {
+    if (node.type === "section") {
+      const title =
+        SIDEBAR_SECTION_TITLES[node.title.toLowerCase()] ?? node.title;
+      const existing = sectionsByTitle.get(title);
+      if (existing) {
+        current = existing;
+        continue;
+      }
+      current = {
+        section: {
+          ...node,
+          title,
+          icon: node.icon ?? sectionIconFor(title),
+        },
+        children: [],
+        sourceIndex: sections.length,
+      };
+      sections.push(current);
+      sectionsByTitle.set(title, current);
+    } else if (current) {
+      current.children.push(node);
+    } else {
+      prefix.push(node);
+    }
+  }
+
+  let gettingStarted = sections.find(
+    ({ section }) => section.title === "Getting Started",
+  );
+  if (prefix.length > 0) {
+    if (!gettingStarted) {
+      gettingStarted = {
+        section: {
+          type: "section",
+          title: "Getting Started",
+          icon: sectionIconFor("Getting Started"),
+        },
+        children: [],
+        sourceIndex: -1,
+      };
+      sections.push(gettingStarted);
+    }
+    gettingStarted.children.unshift(...prefix);
+  }
+
+  const runtimeSections = sections.filter(
+    ({ section }) => section.title === "Runtime",
+  );
+  const orderedSections = sections.filter(
+    ({ section }) => section.title !== "Runtime",
+  );
+  const runtimeChildren = runtimeSections.flatMap(({ children }) => children);
+  if (runtimeChildren.length > 0) {
+    let deployment = orderedSections.find(
+      ({ section }) => section.title === "Deployment",
+    );
+    if (!deployment) {
+      deployment = {
+        section: {
+          type: "section",
+          title: "Deployment",
+          icon: sectionIconFor("Deployment"),
+        },
+        children: [],
+        sourceIndex: sections.length,
+      };
+      orderedSections.push(deployment);
+    }
+    deployment.children.push({
+      type: "group",
+      title: "Runtime",
+      slug: "sidebar#runtime",
+      children: runtimeChildren,
+    });
+  }
+
+  const intelligence = orderedSections.find(
+    ({ section }) => section.title === "Intelligence",
+  );
+  const intelligenceOverview = intelligence
+    ? findPageBySlug(intelligence.children, "intelligence/overview")
+    : null;
+  if (gettingStarted && intelligenceOverview?.type === "page") {
+    const existingIndex = gettingStarted.children.findIndex(
+      (node) => node.type === "page" && node.slug === intelligenceOverview.slug,
+    );
+    if (existingIndex !== -1) gettingStarted.children.splice(existingIndex, 1);
+
+    const quickstartIndex = gettingStarted.children.findIndex(
+      (node) =>
+        node.type === "page" &&
+        (node.slug === "quickstart" ||
+          node.title.toLowerCase().endsWith("quickstart")),
+    );
+    gettingStarted.children.splice(quickstartIndex + 1, 0, {
+      ...intelligenceOverview,
+      icon: "custom/copilotkit-kite",
+    });
+  }
+
+  return orderedSections
+    .sort((left, right) => {
+      const rankDifference =
+        sidebarSectionRank(left.section.title) -
+        sidebarSectionRank(right.section.title);
+      return rankDifference || left.sourceIndex - right.sourceIndex;
+    })
+    .flatMap(({ section, children }) => [section, ...children]);
 }
 
 function isRichThreadsGroup(
@@ -977,11 +1147,13 @@ export function buildFrameworkNav(
   frameworkName: string,
   frameworkSlug: string,
 ): NavNode[] {
-  return mergeFrameworkNav(
-    buildNavTree(CONTENT_DIR),
-    buildFrameworkOverridesNav(docsFolder),
-    frameworkName,
-    frameworkSectionIcon(frameworkSlug),
+  return normalizeSidebarNav(
+    mergeFrameworkNav(
+      buildNavTree(CONTENT_DIR),
+      buildFrameworkOverridesNav(docsFolder),
+      frameworkName,
+      frameworkSectionIcon(frameworkSlug),
+    ),
   );
 }
 

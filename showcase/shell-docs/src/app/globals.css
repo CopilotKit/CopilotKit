@@ -318,63 +318,6 @@
   color: var(--accent);
 }
 
-.shell-docs-intelligence-entry {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--shell-docs-radius-control);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  text-decoration: none;
-  transition:
-    background-color 150ms ease-out,
-    color 150ms ease-out,
-    transform 100ms ease-out;
-}
-
-.shell-docs-intelligence-entry svg {
-  fill: none;
-}
-
-.shell-docs-intelligence-entry:hover,
-.shell-docs-intelligence-entry:focus-visible {
-  background: var(--accent);
-  color: #fff;
-}
-
-.shell-docs-intelligence-entry:hover svg,
-.shell-docs-intelligence-entry:focus-visible svg {
-  fill: currentColor;
-}
-
-.shell-docs-intelligence-entry:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.shell-docs-intelligence-entry:active {
-  transform: scale(0.96);
-}
-
-.shell-docs-intelligence-entry-active {
-  background: color-mix(in oklch, var(--accent) 13%, transparent);
-  color: var(--accent);
-}
-
-.shell-docs-intelligence-entry-active:hover,
-.shell-docs-intelligence-entry-active:focus-visible {
-  background: var(--accent);
-  color: #fff;
-}
-
-.dark .shell-docs-intelligence-entry-active {
-  background: color-mix(in oklch, var(--accent) 20%, transparent);
-}
-
 .shell-docs-mega-menu {
   padding: 1.25rem 1.5rem;
 }
@@ -459,13 +402,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shell-docs-intelligence-entry,
   .shell-docs-mega-menu-link {
     transition: none;
-  }
-
-  .shell-docs-intelligence-entry:active {
-    transform: none;
   }
 }
 
@@ -585,20 +523,6 @@
     inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, var(--border)),
     0 1px 0 rgba(0, 0, 0, 0.25);
   color: var(--accent);
-}
-
-.shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover,
-.shell-docs-nav-link-active.shell-docs-nav-link-intelligence:hover,
-.shell-docs-nav-link-intelligence:focus-visible {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: none;
-}
-
-.dark .shell-docs-nav-link-idle.shell-docs-nav-link-intelligence:hover,
-.dark .shell-docs-nav-link-active.shell-docs-nav-link-intelligence:hover {
-  background: var(--accent);
-  color: #fff;
 }
 
 /* shell-docs sidebar overrides.

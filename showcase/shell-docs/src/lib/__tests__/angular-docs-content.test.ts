@@ -54,6 +54,25 @@ function pageSlugs(nodes: NavNode[]): string[] {
   });
 }
 
+function sectionTitles(nodes: NavNode[]): string[] {
+  return nodes.flatMap((node) => (node.type === "section" ? [node.title] : []));
+}
+
+function sectionNodes(nodes: NavNode[], section: string): NavNode[] {
+  const sectionIndex = nodes.findIndex(
+    (node) => node.type === "section" && node.title === section,
+  );
+  if (sectionIndex === -1) return [];
+
+  const nextSectionIndex = nodes.findIndex(
+    (node, index) => index > sectionIndex && node.type === "section",
+  );
+  return nodes.slice(
+    sectionIndex + 1,
+    nextSectionIndex === -1 ? undefined : nextSectionIndex,
+  );
+}
+
 function getReactNavTree(backendFramework: string | null): NavNode[] {
   if (!backendFramework) {
     return buildRootSurfaceNav(getDocsFolder(ROOT_FRAMEWORK));
@@ -196,6 +215,53 @@ test("maps every React navigation destination to a published Angular destination
       ).toBe(true);
     }
   }
+});
+
+test("uses the normalized sidebar flow for Angular docs", () => {
+  const navTree = getAngularDocsNavTree(null);
+  const titles = sectionTitles(navTree);
+  const gettingStarted = sectionNodes(navTree, "Getting Started");
+  const quickstartIndex = gettingStarted.findIndex(
+    (node) => node.type === "page" && node.title === "Angular quickstart",
+  );
+  const intelligenceLink = gettingStarted[quickstartIndex + 1];
+  const orderedSections = [
+    "Getting Started",
+    "Basics",
+    "Generative UI",
+    "App Control",
+    "Intelligence",
+    "Angular Guides",
+    "Built-in Agent",
+    "Deployment",
+  ].filter((title) => titles.includes(title));
+
+  expect(titles.filter((title) => orderedSections.includes(title))).toEqual([
+    "Getting Started",
+    "Basics",
+    "Intelligence",
+    "Angular Guides",
+    "Built-in Agent",
+    "Deployment",
+  ]);
+  expect(titles.filter((title) => title === "Getting Started")).toHaveLength(1);
+  expect(titles.indexOf("Angular Guides")).toBeGreaterThan(
+    titles.indexOf("Intelligence"),
+  );
+  expect(titles.indexOf("Deployment")).toBeGreaterThan(
+    titles.indexOf("Angular Guides"),
+  );
+  expect(intelligenceLink).toMatchObject({
+    type: "page",
+    title: "CopilotKit Intelligence",
+    icon: "custom/copilotkit-kite",
+  });
+  expect(
+    sectionNodes(navTree, "Intelligence").some(
+      (node) =>
+        node.type === "page" && node.title === "CopilotKit Intelligence",
+    ),
+  ).toBe(true);
 });
 
 test("resolves canonical contribution aliases through shared Angular content", () => {

@@ -28,7 +28,7 @@ describe("docs mega menu data", () => {
     expect(intelligence).toEqual({
       href: "/intelligence/overview",
       label: "Intelligence",
-      icon: "sparkles",
+      icon: "kite",
       featured: true,
     });
     expect(shipColumn?.links.map((link) => [link.label, link.href])).toEqual([
@@ -57,12 +57,13 @@ describe("isIntelligenceDocsPath", () => {
 });
 
 describe("isDocsExplorePath", () => {
-  it("treats guide pages as Explore docs, not Reference or Cookbook", () => {
+  it("treats Intelligence and guide pages as Docs", () => {
     expect(isDocsExplorePath("/")).toBe(true);
     expect(isDocsExplorePath("/quickstart")).toBe(true);
     expect(isDocsExplorePath("/reference")).toBe(false);
     expect(isDocsExplorePath("/reference/hooks/useAgent")).toBe(false);
     expect(isDocsExplorePath("/cookbook")).toBe(false);
-    expect(isDocsExplorePath("/intelligence/overview")).toBe(false);
+    expect(isDocsExplorePath("/intelligence/overview")).toBe(true);
+    expect(isDocsExplorePath("/premium/overview")).toBe(true);
   });
 });
