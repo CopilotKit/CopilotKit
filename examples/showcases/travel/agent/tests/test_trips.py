@@ -1,6 +1,6 @@
 import json
 import unittest
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 from unittest.mock import AsyncMock, patch
 
 from langchain_core.messages import AIMessage, ToolMessage
@@ -16,7 +16,7 @@ class PlaceSelectionResponse(TypedDict):
 
 class TripPlaceSelection(TypedDict):
     tripId: str
-    placeIds: list[str]
+    placeIds: NotRequired[list[str]]
 
 
 class MultiTripSelectionResponse(TypedDict):
@@ -187,6 +187,46 @@ class PerformTripsNodeTest(unittest.IsolatedAsyncioTestCase):
             {
                 "trip-a": ["a-two"],
                 "trip-b": ["b-one"],
+            },
+        )
+
+    async def test_multi_trip_selection_distinguishes_default_empty_and_subset(self):
+        state = action_state(
+            "update_trips",
+            {
+                "operation": "replace",
+                "selections": [
+                    {"tripId": "trip-default"},
+                    {"tripId": "trip-empty", "placeIds": []},
+                    {"tripId": "trip-subset", "placeIds": ["subset-two"]},
+                ],
+            },
+            [
+                trip("trip-default", ["default-one", "default-one", "default-two"]),
+                trip("trip-empty", ["empty-one"]),
+                trip("trip-subset", ["subset-one", "subset-two"]),
+            ],
+            [
+                trip("trip-default", ["default-stale"]),
+                trip("trip-empty", ["empty-stale"]),
+                trip("trip-subset", ["subset-stale"]),
+            ],
+        )
+
+        with patch("src.trips.copilotkit_emit_message", new_callable=AsyncMock):
+            result = await perform_trips_node(state, {})
+
+        self.assertEqual(
+            {
+                updated_trip["id"]: [
+                    updated_place["id"] for updated_place in updated_trip["places"]
+                ]
+                for updated_trip in result["trips"]
+            },
+            {
+                "trip-default": ["default-one", "default-two"],
+                "trip-empty": [],
+                "trip-subset": ["subset-two"],
             },
         )
 

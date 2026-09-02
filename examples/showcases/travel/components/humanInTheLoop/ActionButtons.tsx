@@ -79,28 +79,24 @@ export const ActionButtons = ({
           disabled={status !== ToolCallStatus.Executing || isPending}
           onClick={async () => {
             if (selectedPlaceIdsByTrip) {
-              const selections = (tripPlaceIds || []).map(
-                ({ tripId, placeIds }) => {
-                  const selectedPlaceIds = selectedPlaceIdsByTrip.get(tripId);
-                  return {
-                    tripId,
-                    placeIds:
-                      selectedPlaceIds && selectedPlaceIds.size > 0
-                        ? Array.from(selectedPlaceIds)
-                        : placeIds,
-                  };
-                },
-              );
-              if (
-                selections.some(
-                  ({ tripId }) => !selectedPlaceIdsByTrip.get(tripId)?.size,
-                )
-              ) {
+              const selections = (tripPlaceIds || []).map(({ tripId }) => {
+                const selectedPlaceIds = selectedPlaceIdsByTrip.get(tripId);
+                if (!selectedPlaceIdsByTrip.has(tripId)) {
+                  return { tripId };
+                }
+                return {
+                  tripId,
+                  placeIds: Array.from(selectedPlaceIds || []),
+                };
+              });
+              if (selections.some((selection) => !("placeIds" in selection))) {
                 setSelectedPlaceIdsByTrip?.(
                   new Map(
-                    selections.map(({ tripId, placeIds }) => [
+                    (tripPlaceIds || []).map(({ tripId, placeIds }) => [
                       tripId,
-                      new Set(placeIds),
+                      selectedPlaceIdsByTrip.has(tripId)
+                        ? new Set(selectedPlaceIdsByTrip.get(tripId))
+                        : new Set(placeIds),
                     ]),
                   ),
                 );
