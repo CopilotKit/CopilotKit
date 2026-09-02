@@ -10,7 +10,6 @@ export type EditTripsProps = {
   status: ToolCallStatus;
   respond?: (result: unknown) => Promise<void>;
   trips: Trip[];
-  selectedTripId: string | null;
 };
 
 function getDelta(arr1: Place[], arr2: Place[]) {
@@ -21,14 +20,7 @@ function getDelta(arr1: Place[], arr2: Place[]) {
   return [...onlyInArr1, ...onlyInArr2];
 }
 
-export const EditTrips = ({
-  args,
-  status,
-  respond,
-  trips,
-  selectedTripId,
-}: EditTripsProps) => {
-  // const { trips, selectedTripId } = useTrips();
+export const EditTrips = ({ args, status, respond, trips }: EditTripsProps) => {
   const [selectedPlaceIds, setSelectedPlaceIds] = useState<Set<string>>(
     new Set(),
   );
@@ -60,7 +52,8 @@ export const EditTrips = ({
                   <h2 className="text-lg font-bold">{trip.name}</h2>
                   {getDelta(
                     trip.places,
-                    trips.find((t) => t.id === selectedTripId)?.places || [],
+                    trips.find((currentTrip) => currentTrip.id === trip.id)
+                      ?.places || [],
                   ).map((place) => (
                     <PlaceCard
                       key={place.id}
