@@ -194,7 +194,9 @@ describe("useFrontendTool webmcp flag", () => {
         (t) => t.name === "scopedTool" && t.agentId === "alpha",
       );
       expect(alphaTool).toBeDefined();
-      expect(alphaTool!.webmcp).toEqual({ annotations: { readOnlyHint: true } });
+      expect(alphaTool!.webmcp).toEqual({
+        annotations: { readOnlyHint: true },
+      });
       const betaTool = coreRef!.tools.find(
         (t) => t.name === "scopedTool" && t.agentId === "beta",
       );
@@ -205,9 +207,9 @@ describe("useFrontendTool webmcp flag", () => {
     ui.unmount();
 
     await waitFor(() => {
-      expect(
-        coreRef!.tools.filter((t) => t.name === "scopedTool").length,
-      ).toBe(0);
+      expect(coreRef!.tools.filter((t) => t.name === "scopedTool").length).toBe(
+        0,
+      );
     });
   });
 });
