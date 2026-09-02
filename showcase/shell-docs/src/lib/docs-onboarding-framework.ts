@@ -18,12 +18,14 @@ import { getIntegration } from "@/lib/registry";
  *
  * `built-in-agent` is registered as "CopilotKit's Built-in Agent", which
  * `frameworkPromptSuffix` renders as "the CopilotKit's Built-in Agent agent
- * framework" — broken English. That sentence template is shared with the hero
- * button and with every other framework, so the name is corrected here at the
- * call site rather than by special-casing the template.
+ * framework". The template already supplies the word "agent", so the name is
+ * trimmed to "Built-in" here and the sentence reads "the Built-in agent
+ * framework". That template is shared with the hero button and with every
+ * other framework, so the name is corrected at the call site rather than by
+ * special-casing the template.
  */
 const PROMPT_DISPLAY_NAMES: Record<string, string> = {
-  "built-in-agent": "Built-in Agent",
+  "built-in-agent": "Built-in",
 };
 
 /**

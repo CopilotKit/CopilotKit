@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import registryData from "@/data/registry.json";
+import { getIntegrations } from "@/lib/registry";
 import {
   frameworkPromptSuffix,
   onboardingFrameworkSlug,
@@ -27,6 +27,13 @@ describe("onboardingFrameworkSlug", () => {
     // the Intelligence repo lists `built-in`, and the graph ships
     // `onboarding-prompts/framework/built-in.md`. Only the spelling differs.
     expect(onboardingFrameworkSlug("built-in-agent")).toBe("built-in");
+  });
+
+  it("maps the Deep Agents docs slug to the graph's `deep-agents`", () => {
+    // Docs-only integration, so it is absent from the registry JSON but
+    // present in `getIntegrations()`. The graph ships
+    // `onboarding-prompts/framework/deep-agents.md`; only the spelling differs.
+    expect(onboardingFrameworkSlug("deepagents")).toBe("deep-agents");
   });
 
   it("passes through a slug both sides already agree on", () => {
@@ -60,16 +67,21 @@ describe("frameworkPromptSuffix", () => {
     // The registry name is "CopilotKit's Built-in Agent", which this template
     // would render as "the CopilotKit's Built-in Agent agent framework".
     // `onboardingFrameworkFor` passes the trimmed name instead — assert the
-    // whole sentence so a regression in either half is caught here.
-    expect(frameworkPromptSuffix("built-in-agent", "Built-in Agent")).toBe(
-      " The developer selected the Built-in Agent agent framework (`built-in`).",
+    // whole sentence so a regression in either half is caught here. The name
+    // stops at "Built-in" because the template already supplies "agent".
+    expect(frameworkPromptSuffix("built-in-agent", "Built-in")).toBe(
+      " The developer selected the Built-in agent framework (`built-in`).",
     );
   });
 });
 
 describe("docs registry coverage", () => {
   it("maps every integration slug or lists it as deliberately unmapped", () => {
-    const undecided = registryData.integrations
+    // `getIntegrations()`, not the raw registry JSON: docs-only integrations
+    // (today `deepagents`) are merged in by `registry.ts` and never appear in
+    // the JSON. Reading the file directly left this guard blind to exactly the
+    // slugs most likely to be forgotten — `deepagents` reached main unmapped.
+    const undecided = getIntegrations()
       .map(({ slug }) => slug)
       .filter(
         (slug) =>

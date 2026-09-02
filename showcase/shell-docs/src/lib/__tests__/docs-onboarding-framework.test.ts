@@ -10,7 +10,7 @@ describe("onboardingFrameworkFor", () => {
     // route goes through — framework, root surface and cookbook alike.
     expect(onboardingFrameworkFor("built-in-agent")).toEqual({
       slug: "built-in-agent",
-      name: "Built-in Agent",
+      name: "Built-in",
     });
   });
 

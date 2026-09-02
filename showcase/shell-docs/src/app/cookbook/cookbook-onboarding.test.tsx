@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import CookbookLandingPage from "./page";
 import CookbookSlugPage from "./[...slug]/page";
 
-const BIA = { slug: "built-in-agent", name: "Built-in Agent" };
+const BIA = { slug: "built-in-agent", name: "Built-in" };
 
 describe("cookbook onboarding framework", () => {
   it("names the Built-in Agent on the cookbook landing page", () => {

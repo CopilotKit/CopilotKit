@@ -25,7 +25,7 @@
 import { describe, expect, it } from "vitest";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 
-const BIA = { slug: "built-in-agent", name: "Built-in Agent" };
+const BIA = { slug: "built-in-agent", name: "Built-in" };
 
 async function docsPageViewProps(
   slugPath: string,

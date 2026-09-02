@@ -34,11 +34,13 @@ const ONBOARDING_AGENT_FRAMEWORKS = new Set([
  * genuine disagreements need listing.
  *
  * `built-in-agent` is the docs slug for the framework the graph calls
- * `built-in` — the same framework, spelled differently on each side.
+ * `built-in`, and `deepagents` the one it calls `deep-agents` — the same
+ * frameworks, spelled differently on each side.
  */
 const DOCS_SLUG_RENAMES: Record<string, string> = {
   "built-in-agent": "built-in",
   "crewai-crews": "crewai-flows",
+  deepagents: "deep-agents",
   strands: "strands-python",
 };
 
