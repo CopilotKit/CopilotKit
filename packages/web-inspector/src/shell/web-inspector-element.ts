@@ -33,7 +33,7 @@ import {
 } from "./settings/theme.js";
 import { renderSettingsPanel as renderShellSettingsPanel } from "./settings/view.js";
 import { buildPersistedShellState, INSPECTOR_STORAGE_KEY } from "./state.js";
-import { LAUNCHER_MAX_SIZE, LAUNCHER_MIN_SIZE, shellStyles } from "./styles.js";
+import { shellStyles } from "./styles.js";
 import { LauncherController } from "./launcher/controller.js";
 import {
   EVENT_ERROR_GUIDANCE,
@@ -46,7 +46,10 @@ import type { LauncherSignalKey } from "./launcher/model.js";
 import type { InspectorEventErrorDetails } from "./launcher/state.js";
 import { renderLauncherView } from "./launcher/view.js";
 import {
+  INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+  loadInspectorDismissedUntil,
   loadInspectorState,
+  saveInspectorDismissedUntil,
   saveInspectorState,
 } from "../shared/persistence/inspector-state.js";
 import type { PersistedState } from "../shared/persistence/inspector-state.js";
@@ -143,11 +146,7 @@ import {
 } from "../shared/telemetry/privacy.js";
 import { createOnboardingRunId } from "../domains/home/onboarding-prompt.js";
 import type { DisplayValue } from "../shared/display/types.js";
-import type {
-  ThreadDebuggerMessage,
-  ThreadDebuggerMetadata,
-  ThreadDebuggerProvider,
-} from "../shared/thread-debugger/types.js";
+import type { ThreadDebuggerProvider } from "../shared/thread-debugger/types.js";
 import { runLearningRecall } from "../domains/learning/recall.js";
 import {
   clearRecall as clearLearningRecall,
@@ -446,67 +445,14 @@ function renderJsonValue(
   ></cpk-inspector-json-viewer>`;
 }
 
-function humanizeEventType(type: string): string {
-  const words = type
-    .trim()
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((word) => word.toLowerCase());
-  if (words.length === 0) return "Event";
-  const [first = "event", ...rest] = words;
-  return [`${first.charAt(0).toUpperCase()}${first.slice(1)}`, ...rest].join(
-    " ",
-  );
-}
+type InspectorDismissalDuration = "day" | "week";
 
-function messageTitle(role: string): string {
-  const normalized = role.trim() || "message";
-  const label = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1).toLowerCase()}`;
-  return `${label} message`;
-}
-
-function eventCategory(
-  type: string,
-): "message" | "tool" | "state" | "run" | "error" | "event" {
-  if (type === "RUN_ERROR" || type === "ERROR") return "error";
-  if (type.startsWith("TEXT_MESSAGE")) return "message";
-  if (type.startsWith("TOOL_CALL")) return "tool";
-  if (type.startsWith("STATE") || type.startsWith("MESSAGES")) return "state";
-  if (type.startsWith("RUN_") || type.startsWith("STEP_")) return "run";
-  return "event";
-}
-
-function formatTimestamp(ts: string | number): string {
-  const date = typeof ts === "number" ? new Date(ts) : new Date(ts);
-  if (Number.isNaN(date.getTime())) return "";
-  const ms = date.getMilliseconds().toString().padStart(3, "0");
-  return (
-    date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    }) +
-    "." +
-    ms
-  );
-}
-
-function formatRelativeTimestamp(ts: string | number): string {
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const elapsedSeconds = Math.max(
-    1,
-    Math.floor((Date.now() - date.getTime()) / 1_000),
-  );
-  if (elapsedSeconds < 60) {
-    return `${elapsedSeconds} ${elapsedSeconds === 1 ? "second" : "seconds"} ago`;
-  }
-
-  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-  return `${elapsedMinutes} ${elapsedMinutes === 1 ? "minute" : "minutes"} ago`;
-}
+const INSPECTOR_DISMISSAL_MS: Readonly<
+  Record<InspectorDismissalDuration, number>
+> = {
+  day: 24 * 60 * 60 * 1000,
+  week: INSPECTOR_DISMISSAL_MAX_DURATION_MS,
+};
 
 export class WebInspectorElement extends LitElement {
   static properties = {
@@ -698,10 +644,14 @@ export class WebInspectorElement extends LitElement {
   private announcementPromise: Promise<void> | null = null;
   private announcementLoadGeneration = 0;
   private hasCompletedFirstUpdate = false;
+  /** Host-wide deadline that suppresses both the Inspector and its launcher. */
+  private inspectorDismissedUntil: number | null = null;
+  private inspectorDismissalTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly announcementTelemetry = new AnnouncementTelemetry();
   private readonly launcher = new LauncherController({
     requestUpdate: () => this.requestUpdate(),
     isOpen: () => this.isOpen,
+    isDismissed: () => this.isInspectorDismissed,
     isConnected: () => this.isConnected,
     activeRoot: () => this.activeRoot,
     announcement: () => this.announcement,
@@ -714,6 +664,7 @@ export class WebInspectorElement extends LitElement {
       this.selectedMenu === LAUNCHER_SIGNALS[key].landingTarget,
     applyEventErrorLanding: (key) => this.applyEventErrorLanding(key),
     openInspector: () => this.openInspector("floating_button"),
+    dismissInspectorForDay: () => this.dismissInspectorFor("day"),
     recordNewsPulse: (announcement, presentation) => {
       this.announcementTelemetry.recordLauncherPulse(
         announcement,
@@ -1672,11 +1623,9 @@ export class WebInspectorElement extends LitElement {
             toolError.toolCallId === callId;
           return html`
             <div
-              class=${
-                isFailedCall
-                  ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
-                  : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
-              }
+              class=${isFailedCall
+                ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
+                : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"}
               data-cpk-failed-tool-call=${isFailedCall ? callId : undefined}
             >
               <div
@@ -1685,26 +1634,22 @@ export class WebInspectorElement extends LitElement {
                 <span>${functionName}${isFailedCall ? " failed" : ""}</span>
                 <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
-              ${
-                isFailedCall && toolError?.message
-                  ? html`<p
+              ${isFailedCall && toolError?.message
+                ? html`<p
                     class="mt-2 break-words leading-relaxed text-gray-800"
                   >
                     ${toolError.message}
                   </p>`
-                  : nothing
-              }
-              ${
-                argsString
-                  ? html`<div class="mt-2">
+                : nothing}
+              ${argsString
+                ? html`<div class="mt-2">
                     ${renderJsonValue(
                       coerceJsonValue(
                         call.function?.arguments ?? call.arguments,
                       ),
                     )}
                   </div>`
-                  : nothing
-              }
+                : nothing}
             </div>
           `;
         })}
@@ -1781,6 +1726,7 @@ export class WebInspectorElement extends LitElement {
 
       // Load state early (before first render) so menu selection is correct
       this.hydrateStateFromStorageEarly();
+      this.refreshInspectorDismissalState();
       if (
         this.hasCompletedFirstUpdate &&
         this.isOpen &&
@@ -1797,7 +1743,9 @@ export class WebInspectorElement extends LitElement {
       // the key rather than leaving it means nothing can fall back to it.
       clearLegacyAnnouncementReadState();
       this.tryAutoAttachCore();
-      this.ensureAnnouncementLoading();
+      if (!this.isInspectorDismissed) {
+        this.ensureAnnouncementLoading();
+      }
       this.subscribeToInspectorThreadBridge();
     }
     this.requestUpdate();
@@ -1805,8 +1753,12 @@ export class WebInspectorElement extends LitElement {
 
   private handleDocumentVisibilityChange = (): void => {
     this.accountCtaMotionPaused = document.visibilityState !== "visible";
-    // Flush point for defer reason 2: somebody is looking again.
-    if (document.visibilityState === "visible" && !this.isOpen) {
+    this.refreshInspectorDismissalState();
+    if (
+      document.visibilityState === "visible" &&
+      !this.isOpen &&
+      !this.isInspectorDismissed
+    ) {
       this.launcher.flushPendingSignalPulse();
     }
     this.requestUpdate();
@@ -1840,6 +1792,7 @@ export class WebInspectorElement extends LitElement {
     }
     this.threads.setupPromptCopyState = "idle";
     this.launcher.dispose();
+    this.clearInspectorDismissalTimer();
     if (!this.announcementLoaded) {
       this.announcementLoadGeneration += 1;
       this.announcementPromise = null;
@@ -1879,17 +1832,23 @@ export class WebInspectorElement extends LitElement {
 
     this.windowShell.applyInitialPlacement();
 
-    this.ensureAnnouncementLoading();
+    if (this.isInspectorDismissed) {
+      // This also covers another localhost port whose persisted state was open.
+      this.persistState();
+    } else {
+      this.ensureAnnouncementLoading();
+    }
 
     this.windowShell.updateInitialHostTransform();
-    this.launcher.scheduleHudIntro();
+    if (!this.isInspectorDismissed) {
+      this.launcher.scheduleHudIntro();
+    }
   }
 
   render() {
+    if (this.isInspectorDismissed) return nothing;
     return this.isOpen
-      ? html`
-          <div data-inspector-portal-anchor></div>
-        `
+      ? html` <div data-inspector-portal-anchor></div> `
       : this.renderButton();
   }
 
@@ -2003,11 +1962,9 @@ export class WebInspectorElement extends LitElement {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="${displayLabel} (opens in a new tab)"
-        style=${
-          placement === "threads-footer"
-            ? ""
-            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:7px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
-        }
+        style=${placement === "threads-footer"
+          ? ""
+          : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:7px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"}
         @click=${() =>
           this.handleInspectorMetadataActionClick(action, placement)}
       >
@@ -2027,9 +1984,8 @@ export class WebInspectorElement extends LitElement {
         class="inspector-sidebar"
         data-icon-rail=${iconRail ? "true" : "false"}
       >
-        ${
-          iconRail && this.sidebarRailTooltip
-            ? html`
+        ${iconRail && this.sidebarRailTooltip
+          ? html`
               <span
                 class="inspector-sidebar-rail-tooltip"
                 role="tooltip"
@@ -2037,8 +1993,7 @@ export class WebInspectorElement extends LitElement {
                 >${this.sidebarRailTooltip.label}</span
               >
             `
-            : nothing
-        }
+          : nothing}
         <div
           class="inspector-sidebar-agent-scope"
           data-inspector-sidebar-agent-selector
@@ -2056,9 +2011,8 @@ export class WebInspectorElement extends LitElement {
                 class="inspector-sidebar-section"
                 data-inspector-section=${group}
               >
-                ${
-                  label
-                    ? html`<button
+                ${label
+                  ? html`<button
                       type="button"
                       class="inspector-sidebar-label"
                       data-inspector-group=${group}
@@ -2068,61 +2022,54 @@ export class WebInspectorElement extends LitElement {
                     >
                       ${label}
                     </button>`
-                    : nothing
-                }
+                  : nothing}
                 ${items.map((item) => {
                   const isSelected = this.selectedMenu === item.key;
                   const marker = this.launcher.getNavigationSignalFor(item.key);
                   return html`
                     <button
                       type="button"
-                      class="inspector-nav-control inspector-sidebar-control ${
-                        isSelected ? "inspector-nav-control-active" : ""
-                      }"
+                      class="inspector-nav-control inspector-sidebar-control ${isSelected
+                        ? "inspector-nav-control-active"
+                        : ""}"
                       data-inspector-group=${group}
                       data-inspector-menu-key=${item.key}
                       aria-current=${isSelected ? "page" : nothing}
-                      aria-label=${
-                        marker
-                          ? `${item.label}, ${marker.accessibleLabel}`
-                          : item.label
-                      }
+                      aria-label=${marker
+                        ? `${item.label}, ${marker.accessibleLabel}`
+                        : item.label}
                       data-inspector-tooltip=${item.label}
                       title=${iconRail ? nothing : item.label}
                       style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                      @pointerenter=${
-                        iconRail ? this.handleSidebarRailTooltipShow : nothing
-                      }
-                      @pointerleave=${
-                        iconRail ? this.handleSidebarRailTooltipHide : nothing
-                      }
-                      @focus=${
-                        iconRail ? this.handleSidebarRailTooltipShow : nothing
-                      }
-                      @blur=${
-                        iconRail ? this.handleSidebarRailTooltipHide : nothing
-                      }
+                      @pointerenter=${iconRail
+                        ? this.handleSidebarRailTooltipShow
+                        : nothing}
+                      @pointerleave=${iconRail
+                        ? this.handleSidebarRailTooltipHide
+                        : nothing}
+                      @focus=${iconRail
+                        ? this.handleSidebarRailTooltipShow
+                        : nothing}
+                      @blur=${iconRail
+                        ? this.handleSidebarRailTooltipHide
+                        : nothing}
                       @click=${() => this.handleMenuSelect(item.key)}
                     >
                       <span class="inspector-nav-icon" aria-hidden="true">
-                        ${
-                          item.key === "threads"
-                            ? unsafeHTML(this.customTabIcons.threads)
-                            : this.renderIcon(item.icon)
-                        }
+                        ${item.key === "threads"
+                          ? unsafeHTML(this.customTabIcons.threads)
+                          : this.renderIcon(item.icon)}
                       </span>
                       <span class="inspector-nav-label">${item.label}</span>
-                      ${
-                        marker
-                          ? html`
+                      ${marker
+                        ? html`
                             <span
                               class="inspector-nav-signal-dot"
                               data-cpk-signal-tone=${marker.tone}
                               aria-hidden="true"
                             ></span>
                           `
-                          : nothing
-                      }
+                        : nothing}
                     </button>
                   `;
                 })}
@@ -2130,43 +2077,40 @@ export class WebInspectorElement extends LitElement {
             `;
           })}
         </nav>
-        ${
-          automaticallyCollapsed
-            ? nothing
-            : html`
+        ${automaticallyCollapsed
+          ? nothing
+          : html`
               <div class="inspector-sidebar-footer">
-                ${
-                  iconRail
-                    ? nothing
-                    : html`
+                ${iconRail
+                  ? nothing
+                  : html`
                       <div class="inspector-sidebar-status-list">
                         ${this.renderSidebarIntelligenceStatus(homeModel)}
                       </div>
-                    `
-                }
+                    `}
                 <button
                   type="button"
                   class="inspector-sidebar-toggle"
                   data-inspector-sidebar-toggle
                   aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
                   aria-expanded=${iconRail ? "false" : "true"}
-                  data-inspector-tooltip=${
-                    iconRail ? "Expand sidebar" : nothing
-                  }
+                  data-inspector-tooltip=${iconRail
+                    ? "Expand sidebar"
+                    : nothing}
                   title=${iconRail ? nothing : "Collapse sidebar"}
                   style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                  @pointerenter=${
-                    iconRail ? this.handleSidebarRailTooltipShow : nothing
-                  }
-                  @pointerleave=${
-                    iconRail ? this.handleSidebarRailTooltipHide : nothing
-                  }
-                  @focus=${
-                    iconRail ? this.handleSidebarRailTooltipShow : nothing
-                  }
-                  @blur=${
-                    iconRail ? this.handleSidebarRailTooltipHide : nothing
-                  }
+                  @pointerenter=${iconRail
+                    ? this.handleSidebarRailTooltipShow
+                    : nothing}
+                  @pointerleave=${iconRail
+                    ? this.handleSidebarRailTooltipHide
+                    : nothing}
+                  @focus=${iconRail
+                    ? this.handleSidebarRailTooltipShow
+                    : nothing}
+                  @blur=${iconRail
+                    ? this.handleSidebarRailTooltipHide
+                    : nothing}
                   @click=${this.handleSidebarToggle}
                 >
                   <span class="inspector-nav-icon" aria-hidden="true">
@@ -2179,8 +2123,7 @@ export class WebInspectorElement extends LitElement {
                   >
                 </button>
               </div>
-            `
-        }
+            `}
       </aside>
     `;
   }
@@ -2250,9 +2193,8 @@ export class WebInspectorElement extends LitElement {
           <strong>${primaryLabel}</strong>
           <span>${secondaryLabel}</span>
         </span>
-        ${
-          action
-            ? html`
+        ${action
+          ? html`
               <a
                 class="inspector-sidebar-status-action"
                 data-inspector-sidebar-intelligence-action=${action.kind}
@@ -2272,8 +2214,7 @@ export class WebInspectorElement extends LitElement {
                 >
               </a>
             `
-            : nothing
-        }
+          : nothing}
       </section>
     `;
   }
@@ -2414,31 +2355,23 @@ export class WebInspectorElement extends LitElement {
           >
           <span class="min-w-0 flex-1 space-y-1">
             <span class="block font-semibold">${guide.title}</span>
-            ${
-              error.agentId
-                ? html`<span class="block">Agent: ${error.agentId}</span>`
-                : nothing
-            }
-            ${
-              error.toolName
-                ? html`<span class="block">Tool: ${error.toolName}</span>`
-                : nothing
-            }
+            ${error.agentId
+              ? html`<span class="block">Agent: ${error.agentId}</span>`
+              : nothing}
+            ${error.toolName
+              ? html`<span class="block">Tool: ${error.toolName}</span>`
+              : nothing}
             <span class="block break-words leading-relaxed"
               >${error.message}</span
             >
-            ${
-              guide.advice
-                ? html`<span class="block leading-relaxed">${guide.advice}</span>`
-                : nothing
-            }
-            ${
-              guide.highlight && this.hasEventErrorHighlight(key)
-                ? html`<span class="block leading-relaxed"
+            ${guide.advice
+              ? html`<span class="block leading-relaxed">${guide.advice}</span>`
+              : nothing}
+            ${guide.highlight && this.hasEventErrorHighlight(key)
+              ? html`<span class="block leading-relaxed"
                   >${guide.highlight}</span
                 >`
-                : nothing
-            }
+              : nothing}
           </span>
         </button>
       </div>
@@ -2644,41 +2577,37 @@ export class WebInspectorElement extends LitElement {
         data-transitioning=${isTransitioning}
         data-color-scheme=${this.colorScheme}
       >
-        ${
-          isDocked && !isPoppedOut
-            ? renderDockResizeHandle({
-                onPointerDown: this.windowShell.handleResizePointerDown,
-                onPointerMove: this.windowShell.handleResizePointerMove,
-                onPointerUp: this.windowShell.handleResizePointerUp,
-                onPointerCancel: this.windowShell.handleResizePointerCancel,
-                onKeyDown: this.windowShell.handleResizeKeyDown,
-              })
-            : nothing
-        }
+        ${isDocked && !isPoppedOut
+          ? renderDockResizeHandle({
+              onPointerDown: this.windowShell.handleResizePointerDown,
+              onPointerMove: this.windowShell.handleResizePointerMove,
+              onPointerUp: this.windowShell.handleResizePointerUp,
+              onPointerCancel: this.windowShell.handleResizePointerCancel,
+              onKeyDown: this.windowShell.handleResizeKeyDown,
+            })
+          : nothing}
         <div
           class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800"
         >
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
-              disableDrag
-                ? ""
-                : this.isDragging && this.pointerContext === "window"
-                  ? "cursor-grabbing"
-                  : "cursor-grab"
-            }"
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${disableDrag
+              ? ""
+              : this.isDragging && this.pointerContext === "window"
+                ? "cursor-grabbing"
+                : "cursor-grab"}"
             data-drag-context="window"
-            @pointerdown=${
-              disableDrag ? undefined : this.windowShell.handlePointerDown
-            }
-            @pointermove=${
-              disableDrag ? undefined : this.windowShell.handlePointerMove
-            }
-            @pointerup=${
-              disableDrag ? undefined : this.windowShell.handlePointerUp
-            }
-            @pointercancel=${
-              disableDrag ? undefined : this.windowShell.handlePointerCancel
-            }
+            @pointerdown=${disableDrag
+              ? undefined
+              : this.windowShell.handlePointerDown}
+            @pointermove=${disableDrag
+              ? undefined
+              : this.windowShell.handlePointerMove}
+            @pointerup=${disableDrag
+              ? undefined
+              : this.windowShell.handlePointerUp}
+            @pointercancel=${disableDrag
+              ? undefined
+              : this.windowShell.handlePointerCancel}
           >
             <div
               class="inspector-account-strip flex flex-wrap items-center gap-3 px-3 py-2"
@@ -2704,9 +2633,9 @@ export class WebInspectorElement extends LitElement {
                 <a
                   class="inspector-account-cta"
                   data-inspector-thread-cta
-                  data-motion-paused=${
-                    this.accountCtaMotionPaused ? "true" : "false"
-                  }
+                  data-motion-paused=${this.accountCtaMotionPaused
+                    ? "true"
+                    : "false"}
                   href=${this.getThreadsTalkToEngineerUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -2727,15 +2656,13 @@ export class WebInspectorElement extends LitElement {
                   <button
                     class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
-                    aria-label=${
-                      this.colorScheme === "light"
-                        ? "Switch to dark mode"
-                        : "Switch to light mode"
-                    }
+                    aria-label=${this.colorScheme === "light"
+                      ? "Switch to dark mode"
+                      : "Switch to light mode"}
                     aria-pressed=${this.colorScheme === "dark"}
-                    title=${
-                      this.colorScheme === "light" ? "Dark mode" : "Light mode"
-                    }
+                    title=${this.colorScheme === "light"
+                      ? "Dark mode"
+                      : "Light mode"}
                     data-inspector-theme-toggle
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${this.handleColorSchemeToggle}
@@ -2750,11 +2677,10 @@ export class WebInspectorElement extends LitElement {
                     </span>
                   </button>
                   <button
-                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                      this.settingsOpen
-                        ? "inspector-account-control-active"
-                        : ""
-                    }"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${this
+                      .settingsOpen
+                      ? "inspector-account-control-active"
+                      : ""}"
                     type="button"
                     aria-label="Settings"
                     aria-pressed=${this.settingsOpen}
@@ -2769,10 +2695,9 @@ export class WebInspectorElement extends LitElement {
                       ${this.renderIcon("Settings")}
                     </span>
                   </button>
-                  ${
-                    isPoppedOut
-                      ? nothing
-                      : html`
+                  ${isPoppedOut
+                    ? nothing
+                    : html`
                         <button
                           class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                           type="button"
@@ -2783,8 +2708,7 @@ export class WebInspectorElement extends LitElement {
                         >
                           ${this.renderIcon("X")}
                         </button>
-                      `
-                  }
+                      `}
                 </div>
               </div>
             </div>
@@ -2803,17 +2727,15 @@ export class WebInspectorElement extends LitElement {
             </div>
           </div>
         </div>
-        ${
-          isPoppedOut
-            ? nothing
-            : renderFloatingResizeHandles(isDocked, {
-                onPointerDown: this.windowShell.handleResizePointerDown,
-                onPointerMove: this.windowShell.handleResizePointerMove,
-                onPointerUp: this.windowShell.handleResizePointerUp,
-                onPointerCancel: this.windowShell.handleResizePointerCancel,
-                onKeyDown: this.windowShell.handleResizeKeyDown,
-              })
-        }
+        ${isPoppedOut
+          ? nothing
+          : renderFloatingResizeHandles(isDocked, {
+              onPointerDown: this.windowShell.handleResizePointerDown,
+              onPointerMove: this.windowShell.handleResizePointerMove,
+              onPointerUp: this.windowShell.handleResizePointerUp,
+              onPointerCancel: this.windowShell.handleResizePointerCancel,
+              onKeyDown: this.windowShell.handleResizeKeyDown,
+            })}
       </section>
     `;
   }
@@ -2996,6 +2918,81 @@ export class WebInspectorElement extends LitElement {
   private handleAppBeforeUnload = (): void => {
     this.windowShell.closePopOut();
   };
+
+  /** Whether a persisted temporary dismissal is still active. */
+  private get isInspectorDismissed(): boolean {
+    return (
+      this.inspectorDismissedUntil !== null &&
+      this.inspectorDismissedUntil > Date.now()
+    );
+  }
+
+  /** Cancel the timer that restores Inspector after a temporary dismissal. */
+  private clearInspectorDismissalTimer(): void {
+    if (this.inspectorDismissalTimer === null) return;
+    clearTimeout(this.inspectorDismissalTimer);
+    this.inspectorDismissalTimer = null;
+  }
+
+  /** Schedule Inspector to return just after its persisted deadline. */
+  private scheduleInspectorDismissalExpiry(): void {
+    this.clearInspectorDismissalTimer();
+    if (this.inspectorDismissedUntil === null) return;
+    const delay = Math.max(0, this.inspectorDismissedUntil - Date.now() + 25);
+    this.inspectorDismissalTimer = setTimeout(() => {
+      this.inspectorDismissalTimer = null;
+      this.refreshInspectorDismissalState();
+    }, delay);
+  }
+
+  /** Reconcile this tab with host-scoped dismissal state from other ports. */
+  private refreshInspectorDismissalState(): void {
+    const hadDismissal = this.inspectorDismissedUntil !== null;
+    this.inspectorDismissedUntil = loadInspectorDismissedUntil();
+    this.clearInspectorDismissalTimer();
+
+    if (this.inspectorDismissedUntil !== null) {
+      this.windowShell.closePopOut();
+      this.closeInspector();
+      this.scheduleInspectorDismissalExpiry();
+      if (!hadDismissal) this.requestUpdate();
+      return;
+    }
+
+    if (!hadDismissal || !this.isConnected) return;
+    this.ensureAnnouncementLoading();
+    this.requestUpdate();
+    void this.updateComplete.then(() => {
+      if (!this.isConnected || this.isInspectorDismissed) return;
+      this.windowShell.handleResize();
+      this.launcher.scheduleHudIntro();
+      this.launcher.flushPendingSignalPulse();
+    });
+  }
+
+  /** Hide Inspector for a supported duration and persist it for this host. */
+  private dismissInspectorFor(duration: InspectorDismissalDuration): void {
+    const now = Date.now();
+    const until = now + INSPECTOR_DISMISSAL_MS[duration];
+    saveInspectorDismissedUntil(until, now);
+    this.inspectorDismissedUntil = until;
+    this.scheduleInspectorDismissalExpiry();
+    this.settingsOpen = false;
+    this.launcher.closeHud();
+    this.launcher.stopSignalPulse();
+    this.launcher.cancelGestureTail();
+    this.launcher.cancelHudIntro();
+    this.windowShell.closePopOut();
+
+    if (this.isOpen) {
+      this.closeInspector();
+      return;
+    }
+
+    this.persistState();
+    this.requestUpdate();
+  }
+
   private persistState(): void {
     const state = buildPersistedShellState({
       contextState: this.contextState,
@@ -3019,6 +3016,7 @@ export class WebInspectorElement extends LitElement {
     source: InspectorOpenSource,
     options: InspectorOpenOptions = {},
   ): void {
+    if (this.isInspectorDismissed) return;
     if (options.threadId) {
       this.focusThread(options);
     }
@@ -3510,6 +3508,7 @@ export class WebInspectorElement extends LitElement {
       optedOut: this.core?.telemetryDisabled ?? false,
       telemetryDocsUrl: TELEMETRY_DOCS_URL,
       renderIcon: (name) => this.renderIcon(name),
+      onDismissForWeek: () => this.dismissInspectorFor("week"),
     });
   }
 
@@ -4170,24 +4169,18 @@ export class WebInspectorElement extends LitElement {
         <div style="font-weight: 600;">
           Runtime entitlement: ${diagnostic.status}
         </div>
-        ${
-          diagnostic.error
-            ? html`
+        ${diagnostic.error
+          ? html`
               <div>${diagnostic.error.message}</div>
               <div>Code: ${diagnostic.error.code}</div>
-              ${
-                diagnostic.error.requestId
-                  ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
-                  : nothing
-              }
-              ${
-                diagnostic.error.traceId
-                  ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
-                  : nothing
-              }
+              ${diagnostic.error.requestId
+                ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
+                : nothing}
+              ${diagnostic.error.traceId
+                ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
+                : nothing}
             `
-            : nothing
-        }
+          : nothing}
       </div>
     `;
   }

@@ -44,6 +44,7 @@ type SignalPresentation = "animated" | "reduced_motion";
 export type LauncherControllerHost = Readonly<{
   requestUpdate: () => void;
   isOpen: () => boolean;
+  isDismissed: () => boolean;
   isConnected: () => boolean;
   activeRoot: () => ParentNode;
   announcement: () => AnnouncementReady | null;
@@ -55,6 +56,7 @@ export type LauncherControllerHost = Readonly<{
   isEventErrorLandingVisible: (key: InspectorEventErrorSource) => boolean;
   applyEventErrorLanding: (key: InspectorEventErrorSource) => void;
   openInspector: () => void;
+  dismissInspectorForDay: () => void;
   recordNewsPulse: (
     announcement: AnnouncementReady,
     presentation: SignalPresentation,
@@ -216,6 +218,7 @@ export class LauncherController {
   startSignalPulse(key: LauncherSignalKey): void {
     const deferred =
       this.host.isOpen() ||
+      this.host.isDismissed() ||
       (typeof document !== "undefined" &&
         document.visibilityState !== "visible") ||
       (this.gestureSlotSignal !== null && this.gestureSlotSignal !== key) ||
@@ -469,12 +472,19 @@ export class LauncherController {
   }
 
   scheduleHudIntro(delay: number = LAUNCHER_HUD_INTRO_MS.delay): void {
+    if (this.host.isDismissed()) return;
     if (this.state.hudIntroStartTimer !== null) {
       clearTimeout(this.state.hudIntroStartTimer);
     }
     this.state.hudIntroStartTimer = setTimeout(() => {
       this.state.hudIntroStartTimer = null;
-      if (!this.host.isConnected() || this.host.isOpen()) return;
+      if (
+        !this.host.isConnected() ||
+        this.host.isOpen() ||
+        this.host.isDismissed()
+      ) {
+        return;
+      }
       if (this.state.gestureSignal !== null) {
         this.scheduleHudIntro(LAUNCHER_HUD_INTRO_MS.blockedRetry);
         return;
@@ -535,7 +545,13 @@ export class LauncherController {
   }
 
   private openHud(): void {
-    if (this.state.gestureSignal !== null || this.host.isOpen()) return;
+    if (
+      this.state.gestureSignal !== null ||
+      this.host.isOpen() ||
+      this.host.isDismissed()
+    ) {
+      return;
+    }
     this.resolveHudSide();
     if (this.state.hudCloseTimer !== null) {
       clearTimeout(this.state.hudCloseTimer);
@@ -658,6 +674,13 @@ export class LauncherController {
       .activeRoot()
       .querySelector<HTMLButtonElement>(".console-button")
       ?.focus({ preventScroll: true });
+  };
+
+  /** Apply the launcher HUD's one-day dismissal without opening Inspector. */
+  readonly handleHudDismissDayClick = (event: Event): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    this.host.dismissInspectorForDay();
   };
 
   readonly handleHudRowClick = (event: Event, row: LauncherHudRowId): void => {

@@ -8,12 +8,19 @@ const PRIVATE_CONTENT = [
   "Completions",
 ] as const;
 
-type SettingsIcon = "ArrowUpRight" | "Check" | "ShieldCheck" | "ShieldOff";
+type SettingsIcon =
+  | "ArrowUpRight"
+  | "Check"
+  | "Clock"
+  | "EyeOff"
+  | "ShieldCheck"
+  | "ShieldOff";
 
 export function renderSettingsPanel(options: {
   optedOut: boolean;
   telemetryDocsUrl: string;
   renderIcon: (name: SettingsIcon) => unknown;
+  onDismissForWeek: () => void;
 }): TemplateResult {
   const { optedOut } = options;
   return html`
@@ -51,11 +58,9 @@ export function renderSettingsPanel(options: {
             <div>
               <h3>Anonymous usage analytics</h3>
               <p>
-                ${
-                  optedOut
-                    ? "Anonymous Inspector interaction data collection is disabled for this runtime."
-                    : "CopilotKit collects anonymous Inspector interactions to understand which features people use."
-                }
+                ${optedOut
+                  ? "Anonymous Inspector interaction data collection is disabled for this runtime."
+                  : "CopilotKit collects anonymous Inspector interactions to understand which features people use."}
               </p>
             </div>
             <span class="inspector-settings-status">
@@ -70,7 +75,9 @@ export function renderSettingsPanel(options: {
               ${PRIVATE_CONTENT.map(
                 (item) => html`
                   <li>
-                    <span aria-hidden="true">${options.renderIcon("Check")}</span>
+                    <span aria-hidden="true"
+                      >${options.renderIcon("Check")}</span
+                    >
                     ${item}
                   </li>
                 `,
@@ -85,8 +92,44 @@ export function renderSettingsPanel(options: {
             rel="noopener noreferrer"
           >
             Read the telemetry policy
-            <span aria-hidden="true">${options.renderIcon("ArrowUpRight")}</span>
+            <span aria-hidden="true"
+              >${options.renderIcon("ArrowUpRight")}</span
+            >
           </a>
+        </div>
+      </section>
+
+      <section
+        class="inspector-settings-section"
+        aria-labelledby="inspector-settings-visibility-title"
+      >
+        <div class="inspector-settings-section-heading">
+          <span class="inspector-settings-section-icon" aria-hidden="true">
+            ${options.renderIcon("EyeOff")}
+          </span>
+          <div>
+            <h2 id="inspector-settings-visibility-title">Visibility</h2>
+            <p>Temporarily hide the Inspector on this domain.</p>
+          </div>
+        </div>
+
+        <div class="inspector-settings-visibility">
+          <div>
+            <h3>Take a break from the Inspector</h3>
+            <p>
+              Hide the Inspector for seven days. It will return automatically
+              when the week is over.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="inspector-settings-dismiss"
+            data-cpk-dismiss-inspector="week"
+            @click=${options.onDismissForWeek}
+          >
+            <span aria-hidden="true">${options.renderIcon("Clock")}</span>
+            Hide Inspector for one week
+          </button>
         </div>
       </section>
     </div>

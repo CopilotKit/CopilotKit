@@ -66,11 +66,18 @@ export const LAUNCHER_HUD_WIDTH = 258;
 export const LAUNCHER_HUD_INTRO_MS = {
   delay: 500,
   duration: 3400,
-  rowStart: 180,
-  rowStagger: 170,
-  rowDuration: 300,
+  waterfallStart: 180,
+  waterfallStagger: 170,
+  waterfallDuration: 300,
   blockedRetry: 250,
 } as const;
+
+/** Return the staggered reveal delay for one launcher HUD layer. */
+export const launcherHudWaterfallDelay = (introIndex: number): string =>
+  `${
+    LAUNCHER_HUD_INTRO_MS.waterfallStart +
+    introIndex * LAUNCHER_HUD_INTRO_MS.waterfallStagger
+  }ms`;
 
 export type LauncherHudRowId = "threads" | "learning";
 

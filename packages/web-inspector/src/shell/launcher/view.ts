@@ -18,6 +18,7 @@ import {
   LAUNCHER_UNREAD_LABEL,
   NEWS_SIGNAL_ID,
   PILL_SUBLINE_LABEL,
+  launcherHudWaterfallDelay,
 } from "./model.js";
 import type { LauncherHudRowId } from "./model.js";
 
@@ -29,6 +30,7 @@ export type LauncherHudAvailability = Readonly<{
 export type LauncherHudIconName =
   | "Brain"
   | "CircleHelp"
+  | "Clock"
   | "MessageSquare"
   | "X";
 
@@ -102,27 +104,22 @@ export function renderLauncherView(
         type="button"
         aria-expanded=${state.hudOpen ? "true" : "false"}
         aria-controls=${state.hudOpen ? "cpk-launcher-hud" : nothing}
-        aria-label=${
-          signal?.tone === "error"
-            ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
-            : activeSignal === NEWS_SIGNAL_ID
-              ? `${LAUNCHER_BASE_LABEL}, ${LAUNCHER_UNREAD_LABEL}`
-              : LAUNCHER_BASE_LABEL
-        }
+        aria-label=${signal?.tone === "error"
+          ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
+          : activeSignal === NEWS_SIGNAL_ID
+            ? `${LAUNCHER_BASE_LABEL}, ${LAUNCHER_UNREAD_LABEL}`
+            : LAUNCHER_BASE_LABEL}
         title=${HUD_INSPECTOR_LABEL}
         data-drag-context="button"
         data-cpk-signal=${signal ? signal.tone : nothing}
-        data-cpk-signal-pulsing=${
-          activeSignal !== null && state.pulsingSignal === activeSignal
-            ? "true"
-            : nothing
-        }
+        data-cpk-signal-pulsing=${activeSignal !== null &&
+        state.pulsingSignal === activeSignal
+          ? "true"
+          : nothing}
         style=${styleMap(signalStyles)}
-        data-dragging=${
-          options.isDragging && options.pointerContextIsButton
-            ? "true"
-            : "false"
-        }
+        data-dragging=${options.isDragging && options.pointerContextIsButton
+          ? "true"
+          : "false"}
         @pointerdown=${options.onPointerDown}
         @pointermove=${options.onPointerMove}
         @pointerup=${options.onPointerUp}
@@ -135,19 +132,17 @@ export function renderLauncherView(
           class="cpk-launcher-mark h-6 w-auto"
           loading="lazy"
         />
-        ${
-          activeSignal !== null
-            ? html`<span
-                  class="cpk-launcher-signal-wash"
-                  aria-hidden="true"
-                ></span>
-                <span
-                  class="cpk-launcher-signal-dot"
-                  data-cpk-signal-dot=${activeSignal}
-                  aria-hidden="true"
-                ></span>`
-            : nothing
-        }
+        ${activeSignal !== null
+          ? html`<span
+                class="cpk-launcher-signal-wash"
+                aria-hidden="true"
+              ></span>
+              <span
+                class="cpk-launcher-signal-dot"
+                data-cpk-signal-dot=${activeSignal}
+                aria-hidden="true"
+              ></span>`
+          : nothing}
       </button>
       <span
         class="sr-only"
@@ -212,11 +207,7 @@ function renderHudRow(
       data-cpk-hud-row=${args.id}
       data-cpk-hud-action-kind="navigate"
       style=${styleMap({
-        "--cpk-hud-row-index": `${args.introIndex}`,
-        "--cpk-hud-row-delay": `${
-          LAUNCHER_HUD_INTRO_MS.rowStart +
-          args.introIndex * LAUNCHER_HUD_INTRO_MS.rowStagger
-        }ms`,
+        "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(args.introIndex),
       })}
       @click=${(event: Event) => controller.handleHudRowClick(event, args.id)}
     >
@@ -260,17 +251,18 @@ function renderHudRow(
           class="cpk-launcher-hud__toggle"
           data-cpk-hud-toggle=${args.id}
           data-enabled=${args.connected ? "true" : "false"}
-          aria-label=${
-            args.connected
-              ? `${args.label} is enabled`
-              : `Open ${args.label} in Inspector`
-          }
+          aria-label=${args.connected
+            ? `${args.label} is enabled`
+            : `Open ${args.label} in Inspector`}
           ?disabled=${args.connected}
           @click=${(event: Event) =>
             controller.handleHudActionClick(event, args.id)}
           @pointerdown=${(event: Event) => event.stopPropagation()}
         >
-          <span class="cpk-launcher-hud__toggle-track" aria-hidden="true"></span>
+          <span
+            class="cpk-launcher-hud__toggle-track"
+            aria-hidden="true"
+          ></span>
         </button>
       </span>
     </li>
@@ -285,6 +277,7 @@ function renderLauncherHud(
   if (!state.hudOpen) return nothing;
   const availability = options.getHudAvailability();
   const announcementTitle = controller.getUnreadAnnouncementTitle();
+  const featureBlockIntroIndex = announcementTitle ? 1 : 0;
   return html`
     <div
       class="cpk-launcher-hud"
@@ -296,68 +289,91 @@ function renderLauncherHud(
       data-color-scheme=${options.colorScheme}
       style=${styleMap({
         "--cpk-launcher-hud-intro-duration": `${LAUNCHER_HUD_INTRO_MS.duration}ms`,
-        "--cpk-launcher-hud-row-duration": `${LAUNCHER_HUD_INTRO_MS.rowDuration}ms`,
+        "--cpk-launcher-hud-waterfall-duration": `${LAUNCHER_HUD_INTRO_MS.waterfallDuration}ms`,
       })}
     >
       <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
       <div class="cpk-launcher-hud__card">
-        ${
-          announcementTitle
-            ? html`
-                <div class="cpk-launcher-hud__masthead">
-                  <div class="cpk-launcher-hud__news-wrap">
-                    <button
-                      type="button"
-                      class="cpk-launcher-hud__news"
-                      data-cpk-hud-news
-                      aria-label=${`Open new notification: ${announcementTitle}`}
-                      @click=${controller.handleHudNewsClick}
-                      @pointerdown=${(event: Event) => event.stopPropagation()}
+        ${announcementTitle
+          ? html`
+              <div
+                class="cpk-launcher-hud__masthead"
+                style=${styleMap({
+                  "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(0),
+                })}
+              >
+                <div class="cpk-launcher-hud__news-wrap">
+                  <button
+                    type="button"
+                    class="cpk-launcher-hud__news"
+                    data-cpk-hud-news
+                    aria-label=${`Open new notification: ${announcementTitle}`}
+                    @click=${controller.handleHudNewsClick}
+                    @pointerdown=${(event: Event) => event.stopPropagation()}
+                  >
+                    <span
+                      class="cpk-launcher-hud__news-label"
+                      data-cpk-hud-news-label
+                      aria-hidden="true"
+                      >New</span
                     >
-                      <span
-                        class="cpk-launcher-hud__news-label"
-                        data-cpk-hud-news-label
-                        aria-hidden="true"
-                        >New</span
-                      >
-                      <span class="cpk-launcher-hud__news-title"
-                        >${announcementTitle}</span
-                      >
-                    </button>
-                    <button
-                      type="button"
-                      class="cpk-launcher-hud__news-dismiss"
-                      data-cpk-hud-news-dismiss
-                      aria-label="Dismiss notification"
-                      @click=${controller.handleHudNewsDismissClick}
-                      @pointerdown=${(event: Event) => event.stopPropagation()}
+                    <span class="cpk-launcher-hud__news-title"
+                      >${announcementTitle}</span
                     >
-                      ${options.renderIcon("X")}
-                    </button>
-                  </div>
+                  </button>
+                  <button
+                    type="button"
+                    class="cpk-launcher-hud__news-dismiss"
+                    data-cpk-hud-news-dismiss
+                    aria-label="Dismiss notification"
+                    @click=${controller.handleHudNewsDismissClick}
+                    @pointerdown=${(event: Event) => event.stopPropagation()}
+                  >
+                    ${options.renderIcon("X")}
+                  </button>
                 </div>
-              `
-            : nothing
-        }
+              </div>
+            `
+          : nothing}
         <ul
           class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
           role="list"
+          style=${styleMap({
+            "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+              featureBlockIntroIndex,
+            ),
+          })}
         >
           ${renderHudRow(options, {
             id: "threads",
             label: HUD_THREADS_LABEL,
             icon: "MessageSquare",
             connected: availability.threads,
-            introIndex: 0,
+            introIndex: featureBlockIntroIndex + 1,
           })}
           ${renderHudRow(options, {
             id: "learning",
             label: HUD_LEARNING_LABEL,
             icon: "Brain",
             connected: availability.learning,
-            introIndex: 1,
+            introIndex: featureBlockIntroIndex + 2,
           })}
         </ul>
+        <button
+          type="button"
+          class="cpk-launcher-hud__dismiss-day"
+          data-cpk-dismiss-inspector="day"
+          style=${styleMap({
+            "--cpk-hud-waterfall-delay": launcherHudWaterfallDelay(
+              featureBlockIntroIndex + 3,
+            ),
+          })}
+          @click=${controller.handleHudDismissDayClick}
+          @pointerdown=${(event: Event) => event.stopPropagation()}
+        >
+          <span aria-hidden="true">${options.renderIcon("Clock")}</span>
+          Hide Inspector for a day
+        </button>
       </div>
     </div>
   `;
