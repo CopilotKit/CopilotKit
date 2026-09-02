@@ -1,5 +1,24 @@
 "use client";
 
+/**
+ * Example tool-call card, styled with Tailwind CSS utility classes such as
+ * `flex`, `items-center`, `gap-2`, `list-none`, and `h-3 w-3`. This example
+ * compiles them through `@import "tailwindcss"` in `src/app/globals.css`,
+ * `tailwindcss` and `@tailwindcss/postcss` in `package.json`, and
+ * `postcss.config.mjs`.
+ *
+ * If you copy this file into a project that does not compile Tailwind, every
+ * class resolves to nothing. The `<summary>` row then loses `flex` and falls
+ * back to block layout, so the icons and the tool name stack in one column.
+ * Two details confirm that cause:
+ *
+ *   - the native `<details>` triangle is visible, because `list-none` is gone
+ *   - the icons sit at the lucide default of 24px, not the 12px of `h-3 w-3`
+ *
+ * Set Tailwind up in the target project, or replace these class names with
+ * your own styles. Reported as CopilotKit issue #4777.
+ */
+
 import { useEffect, useRef } from "react";
 import { Wrench, Check, ChevronDown } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
