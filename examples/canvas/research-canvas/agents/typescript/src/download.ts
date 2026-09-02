@@ -8,6 +8,7 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import type { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
 import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
+import { withAbortTimeout } from "./abort-timeout";
 import { getCachedResource, getOrLoadResource } from "./resource-cache";
 
 export function getResource(url: string): string {
@@ -18,30 +19,25 @@ const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3";
 
 async function downloadResource(url: string): Promise<string> {
-  const controller = new AbortController();
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
   try {
-    return await getOrLoadResource(url, async () => {
-      timeoutId = setTimeout(() => controller.abort(), 5000);
-      const response = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      timeoutId = undefined;
+    return await getOrLoadResource(url, () =>
+      withAbortTimeout(5000, async (signal) => {
+        const response = await fetch(url, {
+          headers: { "User-Agent": USER_AGENT },
+          signal,
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to download resource: ${response.statusText}`);
-      }
+        if (!response.ok) {
+          throw new Error(
+            `Failed to download resource: ${response.statusText}`,
+          );
+        }
 
-      const htmlContent = await response.text();
-      return htmlToText(htmlContent);
-    });
+        const htmlContent = await response.text();
+        return htmlToText(htmlContent);
+      }),
+    );
   } catch (error) {
-    if (timeoutId !== undefined) {
-      clearTimeout(timeoutId);
-    }
     return `Error downloading resource: ${error}`;
   }
 }
