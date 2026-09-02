@@ -1257,10 +1257,11 @@ test("nothing stays over the host application once the gesture has finished", as
   await armConnectionFailure(context);
 
   const button = requireElement(launcher(context.inspector));
-  // No tooltip, still: a developer who deliberately ships the Inspector to
-  // production must not leak internal failure detail to their end users, and
-  // the pill carries a fixed failure *class*, never a message.
-  expect(button.getAttribute("title")).toBeNull();
+  // The hover title is deliberately stable product copy. A developer who
+  // ships the Inspector to production still cannot leak internal failure
+  // detail through it; the pill carries a fixed failure *class*, never a
+  // message.
+  expect(button.getAttribute("title")).toBe("CopilotKit Inspector");
 
   // Mid-gesture the pill is on the page and says its piece: the failure class
   // twice over and only twice — once visibly on the pill and once in the live

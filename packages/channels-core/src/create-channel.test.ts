@@ -32,6 +32,15 @@ const __handlerTypeGuards = () => {
     // @ts-expect-error 'nope' is not on the action value type
     ctx.action.value?.nope;
   });
+
+  // A clone method alone is not enough: Channels reads and mutates the full
+  // agent runtime surface while processing a turn.
+  createChannel({
+    identifyUser: "platform",
+    adapters: [new FakeAdapter()],
+    // @ts-expect-error incomplete agents must not satisfy the public boundary
+    agent: { clone: () => ({}) },
+  });
 };
 void __handlerTypeGuards;
 
