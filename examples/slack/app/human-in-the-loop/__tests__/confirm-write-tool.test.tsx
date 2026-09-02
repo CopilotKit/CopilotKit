@@ -4,21 +4,24 @@ import type { ChannelNode } from "@copilotkit/channels";
 import { renderSlackMessage } from "@copilotkit/channels/slack";
 import { confirmWriteTool } from "../confirm-write-tool.js";
 
-/** A fake thread whose `awaitChoice` records the posted UI and returns a fixed choice. */
-function fakeThread(choice: unknown) {
-  const awaited: unknown[] = [];
+/** A fake thread recording what the tool posts, and whether it blocked. */
+function fakeThread() {
+  const posted: unknown[] = [];
   const thread = {
-    async awaitChoice(ui: unknown) {
-      awaited.push(ui);
-      return choice;
+    async post(ui: unknown) {
+      posted.push(ui);
+      return { id: "msg_1" };
+    },
+    async awaitChoice() {
+      throw new Error("confirm_write must not block on awaitChoice");
     },
   };
-  return { thread, awaited };
+  return { thread, posted };
 }
 
 describe("confirm_write tool", () => {
-  it("posts a ConfirmWrite picker and returns the resolved {confirmed:true}", async () => {
-    const { thread, awaited } = fakeThread({ confirmed: true });
+  it("posts a ConfirmWrite card and returns without waiting for a click", async () => {
+    const { thread, posted } = fakeThread();
 
     const result = await confirmWriteTool.handler(
       {
@@ -28,30 +31,43 @@ describe("confirm_write tool", () => {
       { thread, platform: "slack" } as never,
     );
 
-    expect(result).toBe("The user APPROVED the write — proceed.");
-
-    // The posted UI is a ConfirmWrite picker: amber accent + header carrying the action.
-    expect(awaited).toHaveLength(1);
+    // The posted UI is a ConfirmWrite card: amber accent + header carrying the action.
+    expect(posted).toHaveLength(1);
     const { blocks, accent } = renderSlackMessage(
-      renderToIR(awaited[0] as ChannelNode),
+      renderToIR(posted[0] as ChannelNode),
     );
     expect(accent).toBe("#E2B340");
     const header = blocks.find((b) => b.type === "header") as
       | { text: { text: string } }
       | undefined;
     expect(header?.text.text).toContain("Create Linear issue");
+
+    // The agent is told to stop rather than to write.
+    expect(result).toContain("Approval requested");
+    expect(result).toContain("end your turn");
   });
 
-  it("returns {confirmed:false} when the user declines", async () => {
-    const { thread } = fakeThread({ confirmed: false });
+  it("accepts a null detail, which models send for an omitted optional", async () => {
+    const { thread, posted } = fakeThread();
 
-    const result = await confirmWriteTool.handler(
-      { action: "Create Linear issue" },
+    await confirmWriteTool.handler(
+      { action: "Create Linear issue", detail: null } as never,
       { thread, platform: "slack" } as never,
     );
 
-    expect(result).toBe(
-      "The user DECLINED — do not write; acknowledge and stop.",
-    );
+    expect(posted).toHaveLength(1);
+  });
+
+  it("does not block: it never calls awaitChoice", async () => {
+    const { thread } = fakeThread();
+
+    // fakeThread throws if awaitChoice is reached, so completing proves the
+    // handler returned on its own — the managed path rejects awaitChoice.
+    await expect(
+      confirmWriteTool.handler({ action: "Create Linear issue" } as never, {
+        thread,
+        platform: "slack",
+      } as never),
+    ).resolves.toBeTypeOf("string");
   });
 });

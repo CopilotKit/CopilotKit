@@ -83,7 +83,7 @@ const requiredIntelligenceKey = (): string => {
  * identifier the runtime uses to derive the managed Channel's activation config
  * (there is no launcher and no `INTELLIGENCE_CHANNEL_*` env to supply).
  */
-const channelName = "triage";
+const channelName = process.env.INTELLIGENCE_CHANNEL_NAME || "triage";
 
 async function main() {
   const agentUrl = required("AGENT_URL");
