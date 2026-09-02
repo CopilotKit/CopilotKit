@@ -83,10 +83,18 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key
    ```
 
-5. Start the development server (runs both frontend and agent):
+5. Start the development server.
+
+   When using the local agent, start both the frontend and agent:
 
    ```bash
    pnpm dev
+   ```
+
+   When using Copilot Cloud, start only the frontend:
+
+   ```bash
+   pnpm dev:ui
    ```
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
