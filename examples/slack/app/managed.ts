@@ -134,6 +134,29 @@ async function main() {
         );
     }
   });
+  // 💔 means the last answer missed. Ask the person what would have helped.
+  //
+  // The filter lists two tokens because this emoji is NOT in the SDK emoji
+  // table, so it never resolves to a canonical name: Discord delivers the
+  // character, Slack delivers the alias. A one-token filter matches on one
+  // platform and silently does nothing on the other.
+  support.onReaction(
+    ["💔", "broken_heart"],
+    async ({ added, thread, user }) => {
+      // A removed reaction is not feedback.
+      if (!added) return;
+      const opener = user?.name ? `${user.name}, sorry` : "Sorry";
+      await thread
+        .post(
+          `${opener} — that answer missed. What should I have done differently? ` +
+            "Reply here and I will try again.",
+        )
+        .catch((err: unknown) =>
+          console.error("[channel] failed to post feedback prompt", err),
+        );
+    },
+  );
+
   support.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
   support.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
