@@ -169,8 +169,14 @@ export class DeliveryAdapter implements PlatformAdapter {
       try {
         const agent = makeAgent(conversationKey);
         releaseAgent = await this.acquireAgent(agent);
+        // A command is invoked in a conversation and its handler is expected to
+        // act on that conversation ("/triage" summarizes it), so it needs the
+        // same provider transcript a message turn gets. Falling through to
+        // `loadHistory` hands the model canonical thread state instead, which
+        // is a different conversation from the one the user is looking at.
         const providerHistory =
-          target.delivery.turn.input.kind === "text"
+          target.delivery.turn.input.kind === "text" ||
+          target.delivery.turn.input.kind === "command"
             ? await this.loadProviderAgentHistory(target)
             : undefined;
         const history =
