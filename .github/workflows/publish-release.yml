@@ -420,6 +420,17 @@ jobs:
         if: ${{ inputs.dry-run != true && steps.meta.outputs.scope == 'channels' && steps.meta.outputs.mode == 'stable' }}
         run: pnpm run verify:channels-umbrella:registry
 
+      # The last line of defence for OSS-1107: a stable release of one scope
+      # must not ship a version another scope's PUBLISHED manifest has stopped
+      # admitting. `@copilotkit/angular@0.4.0` pinned `@copilotkit/core@1.69.3`
+      # and the monorepo scope released `1.70.0` four days later, so every
+      # Angular application on the new floor resolved two copies of core.
+      - name: Verify no published scope is left behind
+        if: ${{ inputs.dry-run != true && steps.meta.outputs.mode == 'stable' }}
+        env:
+          SCOPE: ${{ steps.meta.outputs.scope }}
+        run: pnpm run verify:cross-scope-pins:registry -- --scope "$SCOPE"
+
       - name: Publish to npm
         id: publish
         if: ${{ inputs.dry-run != true }}
