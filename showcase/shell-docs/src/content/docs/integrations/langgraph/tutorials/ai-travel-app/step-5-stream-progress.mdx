@@ -53,8 +53,7 @@ whole search:
 
 ```python title="examples/showcases/travel/agent/src/search.py"
 for i, query in enumerate(queries):
-    response = gmaps.places(query)
-    # Convert the response into places.
+    places.extend(_search_places(query, i))
     state["search_progress"][i]["done"] = True
     await copilotkit_emit_state(config, state)
 
