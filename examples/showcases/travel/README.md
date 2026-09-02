@@ -81,14 +81,14 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    pnpm install:agent
    ```
 
-4. Create `agent/.env`:
+4. Create `agent/.env` for the local-agent secrets:
 
    ```
    OPENAI_API_KEY=your_openai_api_key
    GOOGLE_MAPS_API_KEY=your_google_maps_api_key
    ```
 
-   Alternatively, use [Copilot Cloud](https://dashboard.operations.copilotkit.ai) by setting:
+   Optionally, use [Copilot Cloud](https://dashboard.operations.copilotkit.ai) instead of the local agent. Create `.env.local` in the example root:
 
    ```
    NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key

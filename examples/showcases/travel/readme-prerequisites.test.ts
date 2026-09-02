@@ -18,6 +18,14 @@ describe("README prerequisites", () => {
     expect(readme).toContain(`Create \`${agentDirectory}/.env\``);
   });
 
+  it("stores the Copilot Cloud public key in the Next.js project root", () => {
+    const readme = readFixture("./README.md");
+
+    expect(readme).toContain(
+      "Create `.env.local` in the example root:\n\n   ```\n   NEXT_PUBLIC_CPK_PUBLIC_API_KEY=your_copilotkit_api_key",
+    );
+  });
+
   it("matches the Python version required by the agent lockfile", () => {
     const readme = readFixture("./README.md");
     const lockfile = readFixture("./agent/uv.lock");
