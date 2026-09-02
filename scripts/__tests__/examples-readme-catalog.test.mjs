@@ -11,6 +11,10 @@ const repoRoot = path.resolve(
 );
 const examplesRoot = path.join(repoRoot, "examples");
 const readme = fs.readFileSync(path.join(examplesRoot, "README.md"), "utf8");
+const multiAgentCanvasReadme = fs.readFileSync(
+  path.join(examplesRoot, "showcases", "multi-agent-canvas", "README.md"),
+  "utf8",
+);
 
 const categories = [
   { directory: "integrations", heading: "Integrations" },
@@ -63,4 +67,22 @@ test("catalog total matches all current example directories", () => {
 
   assert.ok(totalMatch, "README is missing the consolidated example total");
   assert.equal(Number(totalMatch[1]), expectedTotal);
+});
+
+test("multi-agent canvas links to the canonical research canvas agents", () => {
+  const researcherLink = multiAgentCanvasReadme.match(
+    /\[CoAgents AI Researcher\]\(https:\/\/github\.com\/CopilotKit\/CopilotKit\/tree\/main\/([^)]+)\)/,
+  );
+
+  assert.ok(researcherLink, "README is missing the AI Researcher link");
+  assert.equal(researcherLink[1], "examples/canvas/research-canvas/agents");
+  assert.equal(
+    fs.statSync(path.join(repoRoot, researcherLink[1])).isDirectory(),
+    true,
+  );
+});
+
+test("multi-agent canvas expands MCP as Model Context Protocol", () => {
+  assert.match(multiAgentCanvasReadme, /MCP \(Model Context Protocol\) Agent/);
+  assert.doesNotMatch(multiAgentCanvasReadme, /Multi-Channel Protocol/);
 });
