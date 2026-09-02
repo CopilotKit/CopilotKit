@@ -121,29 +121,18 @@ This allows the AI to update the form fields.
 <em>[components/IncidentReportForm.tsx](./components/IncidentReportForm.tsx)</em>
 
 ```tsx
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { isIncidentDateAllowed, parseIncidentDate } from "@/lib/incident-date";
+import { fillIncidentReportFormParameters } from "@/lib/incident-report-tool";
+
 useFrontendTool({
   name: "fillIncidentReportForm",
   description: "Fill out the incident report form",
-  parameters: z.object({
-    fullName: z.string().min(2),
-    email: z.string().email(),
-    date: incidentDateSchema,
-    incidentType: z.enum([
-      "phishing",
-      "malware",
-      "data_breach",
-      "unauthorized_access",
-      "ddos",
-      "other",
-    ]),
-    incidentLevel: z.enum(["low", "medium", "high", "critical"]),
-    incidentDescription: z.string().min(10),
-    suggestedActions: z.string().min(10),
-  }),
+  parameters: fillIncidentReportFormParameters,
   handler: async (action) => {
     const incidentDate = parseIncidentDate(action.date);
-    if (!incidentDate) {
-      return "The incident date must be a valid date in YYYY-MM-DD format.";
+    if (!incidentDate || !isIncidentDateAllowed(incidentDate)) {
+      return "The incident date must be a valid date from January 1, 1900 through today in YYYY-MM-DD format.";
     }
 
     form.setValue("name", action.fullName);
