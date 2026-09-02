@@ -106,7 +106,13 @@ export type ChannelProviderPayload =
       fileHandle: string;
     }
   | {
-      kind: "slack.image.create" | "teams.image.create";
+      kind: "slack.image.create";
+      fileHandle: string;
+      altText: string;
+      share?: boolean;
+    }
+  | {
+      kind: "teams.image.create";
       fileHandle: string;
       altText: string;
     };
@@ -373,6 +379,16 @@ function isDeliveryPayload(value: unknown): value is ChannelDeliveryPayload {
         boundedString(value.fileHandle, 1, 128)
       );
     case "slack.image.create":
+      return (
+        hasExactFields(
+          value,
+          ["kind", "fileHandle", "altText", "share"],
+          ["share"],
+        ) &&
+        boundedString(value.fileHandle, 1, 128) &&
+        boundedString(value.altText, 1, 2_000) &&
+        (value.share === undefined || typeof value.share === "boolean")
+      );
     case "teams.image.create":
       return (
         hasExactFields(value, ["kind", "fileHandle", "altText"]) &&

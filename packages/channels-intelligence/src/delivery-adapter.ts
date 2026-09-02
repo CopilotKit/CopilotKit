@@ -871,9 +871,9 @@ export class DeliveryAdapter implements PlatformAdapter {
   /**
    * Host a PNG without posting a channel message.
    *
-   * Slack stores the bytes and returns the Intelligence handle. The gateway
-   * remaps `slack_file.id` handles to Slack file ids when it posts the message.
-   * Teams uses a data URI, the same as the local Teams adapter.
+   * Slack stores the bytes, then asks Intelligence to upload them unshared and
+   * wait until Block Kit can use the file. The later message packet remaps
+   * the handle to that Slack file id. Teams uses a data URI.
    */
   async stageFile(
     targetValue: ReplyTarget,
@@ -884,13 +884,17 @@ export class DeliveryAdapter implements PlatformAdapter {
       const b64 = Buffer.from(args.bytes).toString("base64");
       return { dataUrl: `data:image/png;base64,${b64}` };
     }
-    const handle = await target.claimedDelivery.uploadFile(
-      mintId("response_"),
-      args,
-    );
+    const responseId = mintId("response_");
+    const handle = await target.claimedDelivery.uploadFile(responseId, args);
     if (!handle) {
       throw new Error("Channel stageFile: upload returned no handle");
     }
+    await target.claimedDelivery.effect(responseId, {
+      kind: "slack.image.create",
+      fileHandle: handle,
+      altText: args.altText,
+      share: false,
+    });
     return { fileId: handle };
   }
 
