@@ -4,12 +4,28 @@ import path from "path";
 const EXAMPLE = process.env.EXAMPLE ?? "form-filling";
 const PORT = Number(process.env.PORT ?? "3000");
 
+const EXAMPLE_PATHS: Record<string, string> = {
+  "chat-with-your-data": "../showcases/chat-with-your-data",
+  "form-filling": "../showcases/form-filling",
+  "research-canvas": "../canvas/research-canvas",
+  "state-machine": "../showcases/state-machine",
+  travel: "../showcases/travel",
+};
+
+const examplePath = EXAMPLE_PATHS[EXAMPLE];
+
+if (!examplePath) {
+  throw new Error(
+    `Unknown EXAMPLE=${EXAMPLE}. Expected one of: ${Object.keys(EXAMPLE_PATHS).join(", ")}`,
+  );
+}
+
 const HYBRID_EXAMPLES = new Set(["travel", "research-canvas"]);
 const webServerCommand = HYBRID_EXAMPLES.has(EXAMPLE)
   ? "pnpm dev:ui"
   : "pnpm dev";
 
-const exampleDir = path.resolve(__dirname, "../v1", EXAMPLE);
+const exampleDir = path.resolve(__dirname, examplePath);
 
 export default defineConfig({
   testDir: "./tests",

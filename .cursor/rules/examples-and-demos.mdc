@@ -11,18 +11,18 @@ alwaysApply: false
 Multi-agent systems with complex workflows:
 - **[coagents-starter/](mdc:examples/coagents-starter)** - Basic coagents setup with both JS and Python agents
 - **[coagents-ai-researcher/](mdc:examples/coagents-ai-researcher)** - AI research assistant with web scraping
-- **[coagents-travel/](mdc:examples/coagents-travel)** - Travel planning assistant
+- **[travel/](mdc:examples/showcases/travel)** - Travel planning assistant
 - **[coagents-qa/](mdc:examples/coagents-qa)** - Question-answering system
-- **[coagents-research-canvas/](mdc:examples/coagents-research-canvas)** - Research canvas with collaborative editing
+- **[research-canvas/](mdc:examples/canvas/research-canvas)** - Research canvas with collaborative editing
 
 ### CrewAI Integration Examples
 - **[coagents-starter-crewai-flows/](mdc:examples/coagents-starter-crewai-flows)** - CrewAI flows integration
 
 ### Frontend-Focused Examples
-- **[copilot-chat-with-your-data/](mdc:examples/copilot-chat-with-your-data)** - Chat interface with custom data
-- **[copilot-form-filling/](mdc:examples/copilot-form-filling)** - AI-powered form filling
+- **[chat-with-your-data/](mdc:examples/showcases/chat-with-your-data)** - Chat interface with custom data
+- **[form-filling/](mdc:examples/showcases/form-filling)** - AI-powered form filling
 - **[copilot-fully-custom/](mdc:examples/copilot-fully-custom)** - Fully customized copilot implementation
-- **[copilot-state-machine/](mdc:examples/copilot-state-machine)** - State machine integration
+- **[state-machine/](mdc:examples/showcases/state-machine)** - State machine integration
 
 ### Integration Examples
 - **[copilot-openai-mongodb-atlas-vector-search/](mdc:examples/copilot-openai-mongodb-atlas-vector-search)** - OpenAI + MongoDB Atlas vector search
@@ -54,5 +54,4 @@ example-name/
 Community demos are stored in:
 - **[demos_2024/](mdc:community/demos_2024)** - 2024 community demos
 - **[demos_2025/](mdc:community/demos_2025)** - 2025 community demos
-
 
