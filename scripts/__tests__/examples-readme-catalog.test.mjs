@@ -15,6 +15,10 @@ const multiAgentCanvasReadme = fs.readFileSync(
   path.join(examplesRoot, "showcases", "multi-agent-canvas", "README.md"),
   "utf8",
 );
+const publicExamplesWorkflow = fs.readFileSync(
+  path.join(repoRoot, ".github", "workflows", "test_e2e-public-examples.yml"),
+  "utf8",
+);
 
 const categories = [
   { directory: "integrations", heading: "Integrations" },
@@ -85,4 +89,17 @@ test("multi-agent canvas links to the canonical research canvas agents", () => {
 test("multi-agent canvas expands MCP as Model Context Protocol", () => {
   assert.match(multiAgentCanvasReadme, /MCP \(Model Context Protocol\) Agent/);
   assert.doesNotMatch(multiAgentCanvasReadme, /Multi-Channel Protocol/);
+});
+
+test("catalog and example jobs check out the requested dispatch ref", () => {
+  const catalogJob = publicExamplesWorkflow.match(
+    /^  catalog:\n([\s\S]*?)(?=^  examples:\n)/m,
+  );
+  const examplesJob = publicExamplesWorkflow.match(/^  examples:\n([\s\S]*)$/m);
+  const requestedRef = "ref: ${{ github.event.inputs.branch || github.ref }}";
+
+  assert.ok(catalogJob, "workflow is missing the catalog job");
+  assert.ok(examplesJob, "workflow is missing the examples job");
+  assert.ok(catalogJob[1].includes(requestedRef));
+  assert.ok(examplesJob[1].includes(requestedRef));
 });
