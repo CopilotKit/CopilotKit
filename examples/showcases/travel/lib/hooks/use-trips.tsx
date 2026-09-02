@@ -100,11 +100,10 @@ export const TripsProvider = ({ children }: { children: ReactNode }) => {
           status={status}
           respond={respond}
           trips={state.trips}
-          selectedTripId={state.selected_trip_id}
         />
       ),
     },
-    [state.trips, state.selected_trip_id],
+    [state.trips],
   );
 
   useHumanInTheLoop(
