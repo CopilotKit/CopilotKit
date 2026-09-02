@@ -152,11 +152,12 @@ You can even render these backend actions safely in the frontend.
 useRenderTool({
   name: "searchInternet",
   parameters: z.object({ query: z.string() }),
-  render: ({ parameters, status }) => {
+  render: ({ parameters, status, result }) => {
     return (
       <SearchResults
         query={parameters.query || "No query provided"}
         status={status}
+        result={result}
       />
     );
   },

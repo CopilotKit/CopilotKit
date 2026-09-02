@@ -47,3 +47,16 @@ test("documents pnpm as the required workspace package manager", () => {
 test("does not document an unsupported openCopilot query parameter", () => {
   assert.doesNotMatch(readme, /openCopilot/);
 });
+
+test("passes the rendered tool result to SearchResults", () => {
+  const rendererSnippet = readme.match(
+    /```tsx\n(useRenderTool\(\{[\s\S]*?\n\}\);)\n```/,
+  )?.[1];
+
+  assert.ok(rendererSnippet, "expected a useRenderTool example");
+  assert.match(
+    rendererSnippet,
+    /render: \(\{ parameters, status, result \}\) =>/,
+  );
+  assert.match(rendererSnippet, /<SearchResults[\s\S]*result=\{result\}/);
+});
