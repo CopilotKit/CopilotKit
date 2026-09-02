@@ -20,7 +20,7 @@ dependencies = [
   "python-dotenv",
   "uvicorn",
   "copilotkit",
-  "googlemaps",
+  "httpx",
   "html2text",
   "ag-ui-langgraph",
 ]

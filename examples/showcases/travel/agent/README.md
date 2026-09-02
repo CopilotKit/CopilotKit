@@ -1,8 +1,8 @@
 # Travel Planner Agent
 
-This Python LangGraph agent manages trips in shared state and searches Google
-Maps for places. `main.py` serves it as an AG-UI endpoint for the CopilotKit v2
-frontend in `examples/showcases/travel`.
+This Python LangGraph agent manages trips in shared state and searches for
+places with Places API (New). `main.py` serves it as an AG-UI endpoint for the
+CopilotKit v2 frontend in `examples/showcases/travel`.
 
 ## Run the agent
 

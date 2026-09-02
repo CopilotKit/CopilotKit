@@ -2,14 +2,16 @@
 The search node is responsible for searching the internet for information.
 """
 
-import os
 import json
-import googlemaps
+import os
 from typing import cast
-from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import AIMessage, ToolMessage
+
+import httpx
+from copilotkit.langgraph import copilotkit_customize_config, copilotkit_emit_state
 from langchain.tools import tool
-from copilotkit.langgraph import copilotkit_emit_state, copilotkit_customize_config
+from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
+
 from src.state import AgentState
 
 
@@ -18,7 +20,41 @@ def search_for_places(queries: list[str]) -> list[dict]:
     """Search for places based on a query, returns a list of places including their name, address, and coordinates."""
 
 
-gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
+PLACES_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+PLACES_FIELD_MASK = (
+    "places.id,places.displayName,places.formattedAddress,places.location,places.rating"
+)
+
+
+def _search_places(query: str, query_index: int) -> list[dict]:
+    """Search Places API (New) and map its response to the shared Place shape."""
+    response = httpx.post(
+        PLACES_SEARCH_URL,
+        json={"textQuery": query},
+        headers={
+            "X-Goog-Api-Key": os.environ["GOOGLE_MAPS_API_KEY"],
+            "X-Goog-FieldMask": PLACES_FIELD_MASK,
+        },
+        timeout=10.0,
+    )
+    response.raise_for_status()
+
+    places = []
+    for result in response.json().get("places", []):
+        display_name = (result.get("displayName") or {}).get("text", "")
+        location = result.get("location") or {}
+        places.append(
+            {
+                "id": result.get("id", f"{display_name}-{query_index}"),
+                "name": display_name,
+                "address": result.get("formattedAddress", ""),
+                "latitude": location.get("latitude", 0),
+                "longitude": location.get("longitude", 0),
+                "rating": result.get("rating", 0),
+            }
+        )
+
+    return places
 
 
 async def search_node(state: AgentState, config: RunnableConfig):
@@ -48,21 +84,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
 
     places = []
     for i, query in enumerate(queries):
-        response = gmaps.places(query)
-        for result in response.get("results", []):
-            place = {
-                "id": result.get("place_id", f"{result.get('name', '')}-{i}"),
-                "name": result.get("name", ""),
-                "address": result.get("formatted_address", ""),
-                "latitude": result.get("geometry", {})
-                .get("location", {})
-                .get("lat", 0),
-                "longitude": result.get("geometry", {})
-                .get("location", {})
-                .get("lng", 0),
-                "rating": result.get("rating", 0),
-            }
-            places.append(place)
+        places.extend(_search_places(query, i))
         state["search_progress"][i]["done"] = True
         await copilotkit_emit_state(config, state)
 
