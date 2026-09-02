@@ -26,8 +26,7 @@ export type PersistedState = {
 // again on localhost:5173 during the same dismissal window. Cookies are shared
 // across ports on one host; localStorage is not.
 export const INSPECTOR_DISMISSAL_MIRROR_KEY = "cpk:inspector:dismissed_until";
-export const INSPECTOR_DISMISSAL_COOKIE_NAME =
-  "cpk_inspector_dismissed_until";
+export const INSPECTOR_DISMISSAL_COOKIE_NAME = "cpk_inspector_dismissed_until";
 export const INSPECTOR_DISMISSAL_MAX_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type InspectorDismissalPayload = Readonly<{ until: number }>;

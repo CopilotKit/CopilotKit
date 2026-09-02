@@ -58,9 +58,11 @@ export function renderSettingsPanel(options: {
             <div>
               <h3>Anonymous usage analytics</h3>
               <p>
-                ${optedOut
-                  ? "Anonymous Inspector interaction data collection is disabled for this runtime."
-                  : "CopilotKit collects anonymous Inspector interactions to understand which features people use."}
+                ${
+                  optedOut
+                    ? "Anonymous Inspector interaction data collection is disabled for this runtime."
+                    : "CopilotKit collects anonymous Inspector interactions to understand which features people use."
+                }
               </p>
             </div>
             <span class="inspector-settings-status">

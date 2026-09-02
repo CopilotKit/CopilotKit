@@ -104,22 +104,27 @@ export function renderLauncherView(
         type="button"
         aria-expanded=${state.hudOpen ? "true" : "false"}
         aria-controls=${state.hudOpen ? "cpk-launcher-hud" : nothing}
-        aria-label=${signal?.tone === "error"
-          ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
-          : activeSignal === NEWS_SIGNAL_ID
-            ? `${LAUNCHER_BASE_LABEL}, ${LAUNCHER_UNREAD_LABEL}`
-            : LAUNCHER_BASE_LABEL}
+        aria-label=${
+          signal?.tone === "error"
+            ? `${LAUNCHER_BASE_LABEL}, ${signal.accessibleLabel}`
+            : activeSignal === NEWS_SIGNAL_ID
+              ? `${LAUNCHER_BASE_LABEL}, ${LAUNCHER_UNREAD_LABEL}`
+              : LAUNCHER_BASE_LABEL
+        }
         title=${HUD_INSPECTOR_LABEL}
         data-drag-context="button"
         data-cpk-signal=${signal ? signal.tone : nothing}
-        data-cpk-signal-pulsing=${activeSignal !== null &&
-        state.pulsingSignal === activeSignal
-          ? "true"
-          : nothing}
+        data-cpk-signal-pulsing=${
+          activeSignal !== null && state.pulsingSignal === activeSignal
+            ? "true"
+            : nothing
+        }
         style=${styleMap(signalStyles)}
-        data-dragging=${options.isDragging && options.pointerContextIsButton
-          ? "true"
-          : "false"}
+        data-dragging=${
+          options.isDragging && options.pointerContextIsButton
+            ? "true"
+            : "false"
+        }
         @pointerdown=${options.onPointerDown}
         @pointermove=${options.onPointerMove}
         @pointerup=${options.onPointerUp}
@@ -132,8 +137,9 @@ export function renderLauncherView(
           class="cpk-launcher-mark h-6 w-auto"
           loading="lazy"
         />
-        ${activeSignal !== null
-          ? html`<span
+        ${
+          activeSignal !== null
+            ? html`<span
                 class="cpk-launcher-signal-wash"
                 aria-hidden="true"
               ></span>
@@ -142,7 +148,8 @@ export function renderLauncherView(
                 data-cpk-signal-dot=${activeSignal}
                 aria-hidden="true"
               ></span>`
-          : nothing}
+            : nothing
+        }
       </button>
       <span
         class="sr-only"
@@ -251,9 +258,11 @@ function renderHudRow(
           class="cpk-launcher-hud__toggle"
           data-cpk-hud-toggle=${args.id}
           data-enabled=${args.connected ? "true" : "false"}
-          aria-label=${args.connected
-            ? `${args.label} is enabled`
-            : `Open ${args.label} in Inspector`}
+          aria-label=${
+            args.connected
+              ? `${args.label} is enabled`
+              : `Open ${args.label} in Inspector`
+          }
           ?disabled=${args.connected}
           @click=${(event: Event) =>
             controller.handleHudActionClick(event, args.id)}
@@ -294,8 +303,9 @@ function renderLauncherHud(
     >
       <span class="cpk-launcher-hud__arrow" aria-hidden="true"></span>
       <div class="cpk-launcher-hud__card">
-        ${announcementTitle
-          ? html`
+        ${
+          announcementTitle
+            ? html`
               <div
                 class="cpk-launcher-hud__masthead"
                 style=${styleMap({
@@ -334,7 +344,8 @@ function renderLauncherHud(
                 </div>
               </div>
             `
-          : nothing}
+            : nothing
+        }
         <ul
           class="cpk-launcher-hud__list cpk-launcher-hud__feature-list"
           role="list"

@@ -1623,9 +1623,11 @@ export class WebInspectorElement extends LitElement {
             toolError.toolCallId === callId;
           return html`
             <div
-              class=${isFailedCall
-                ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
-                : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"}
+              class=${
+                isFailedCall
+                  ? "rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-gray-900"
+                  : "rounded-md border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700"
+              }
               data-cpk-failed-tool-call=${isFailedCall ? callId : undefined}
             >
               <div
@@ -1634,22 +1636,26 @@ export class WebInspectorElement extends LitElement {
                 <span>${functionName}${isFailedCall ? " failed" : ""}</span>
                 <span class="text-[10px] text-gray-600">ID: ${callId}</span>
               </div>
-              ${isFailedCall && toolError?.message
-                ? html`<p
+              ${
+                isFailedCall && toolError?.message
+                  ? html`<p
                     class="mt-2 break-words leading-relaxed text-gray-800"
                   >
                     ${toolError.message}
                   </p>`
-                : nothing}
-              ${argsString
-                ? html`<div class="mt-2">
+                  : nothing
+              }
+              ${
+                argsString
+                  ? html`<div class="mt-2">
                     ${renderJsonValue(
                       coerceJsonValue(
                         call.function?.arguments ?? call.arguments,
                       ),
                     )}
                   </div>`
-                : nothing}
+                  : nothing
+              }
             </div>
           `;
         })}
@@ -1848,7 +1854,9 @@ export class WebInspectorElement extends LitElement {
   render() {
     if (this.isInspectorDismissed) return nothing;
     return this.isOpen
-      ? html` <div data-inspector-portal-anchor></div> `
+      ? html`
+          <div data-inspector-portal-anchor></div>
+        `
       : this.renderButton();
   }
 
@@ -1962,9 +1970,11 @@ export class WebInspectorElement extends LitElement {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="${displayLabel} (opens in a new tab)"
-        style=${placement === "threads-footer"
-          ? ""
-          : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:7px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"}
+        style=${
+          placement === "threads-footer"
+            ? ""
+            : "display:inline-flex;min-height:34px;align-items:center;justify-content:center;gap:6px;border:1px solid #dbdbe5;border-radius:7px;background:#ffffff;padding:8px 12px;color:#57575b;font-size:12px;font-weight:600;text-decoration:none;outline-style:solid;outline-width:2px;outline-color:transparent;outline-offset:2px;cursor:pointer;"
+        }
         @click=${() =>
           this.handleInspectorMetadataActionClick(action, placement)}
       >
@@ -1984,8 +1994,9 @@ export class WebInspectorElement extends LitElement {
         class="inspector-sidebar"
         data-icon-rail=${iconRail ? "true" : "false"}
       >
-        ${iconRail && this.sidebarRailTooltip
-          ? html`
+        ${
+          iconRail && this.sidebarRailTooltip
+            ? html`
               <span
                 class="inspector-sidebar-rail-tooltip"
                 role="tooltip"
@@ -1993,7 +2004,8 @@ export class WebInspectorElement extends LitElement {
                 >${this.sidebarRailTooltip.label}</span
               >
             `
-          : nothing}
+            : nothing
+        }
         <div
           class="inspector-sidebar-agent-scope"
           data-inspector-sidebar-agent-selector
@@ -2011,8 +2023,9 @@ export class WebInspectorElement extends LitElement {
                 class="inspector-sidebar-section"
                 data-inspector-section=${group}
               >
-                ${label
-                  ? html`<button
+                ${
+                  label
+                    ? html`<button
                       type="button"
                       class="inspector-sidebar-label"
                       data-inspector-group=${group}
@@ -2022,54 +2035,61 @@ export class WebInspectorElement extends LitElement {
                     >
                       ${label}
                     </button>`
-                  : nothing}
+                    : nothing
+                }
                 ${items.map((item) => {
                   const isSelected = this.selectedMenu === item.key;
                   const marker = this.launcher.getNavigationSignalFor(item.key);
                   return html`
                     <button
                       type="button"
-                      class="inspector-nav-control inspector-sidebar-control ${isSelected
-                        ? "inspector-nav-control-active"
-                        : ""}"
+                      class="inspector-nav-control inspector-sidebar-control ${
+                        isSelected ? "inspector-nav-control-active" : ""
+                      }"
                       data-inspector-group=${group}
                       data-inspector-menu-key=${item.key}
                       aria-current=${isSelected ? "page" : nothing}
-                      aria-label=${marker
-                        ? `${item.label}, ${marker.accessibleLabel}`
-                        : item.label}
+                      aria-label=${
+                        marker
+                          ? `${item.label}, ${marker.accessibleLabel}`
+                          : item.label
+                      }
                       data-inspector-tooltip=${item.label}
                       title=${iconRail ? nothing : item.label}
                       style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                      @pointerenter=${iconRail
-                        ? this.handleSidebarRailTooltipShow
-                        : nothing}
-                      @pointerleave=${iconRail
-                        ? this.handleSidebarRailTooltipHide
-                        : nothing}
-                      @focus=${iconRail
-                        ? this.handleSidebarRailTooltipShow
-                        : nothing}
-                      @blur=${iconRail
-                        ? this.handleSidebarRailTooltipHide
-                        : nothing}
+                      @pointerenter=${
+                        iconRail ? this.handleSidebarRailTooltipShow : nothing
+                      }
+                      @pointerleave=${
+                        iconRail ? this.handleSidebarRailTooltipHide : nothing
+                      }
+                      @focus=${
+                        iconRail ? this.handleSidebarRailTooltipShow : nothing
+                      }
+                      @blur=${
+                        iconRail ? this.handleSidebarRailTooltipHide : nothing
+                      }
                       @click=${() => this.handleMenuSelect(item.key)}
                     >
                       <span class="inspector-nav-icon" aria-hidden="true">
-                        ${item.key === "threads"
-                          ? unsafeHTML(this.customTabIcons.threads)
-                          : this.renderIcon(item.icon)}
+                        ${
+                          item.key === "threads"
+                            ? unsafeHTML(this.customTabIcons.threads)
+                            : this.renderIcon(item.icon)
+                        }
                       </span>
                       <span class="inspector-nav-label">${item.label}</span>
-                      ${marker
-                        ? html`
+                      ${
+                        marker
+                          ? html`
                             <span
                               class="inspector-nav-signal-dot"
                               data-cpk-signal-tone=${marker.tone}
                               aria-hidden="true"
                             ></span>
                           `
-                        : nothing}
+                          : nothing
+                      }
                     </button>
                   `;
                 })}
@@ -2077,40 +2097,43 @@ export class WebInspectorElement extends LitElement {
             `;
           })}
         </nav>
-        ${automaticallyCollapsed
-          ? nothing
-          : html`
+        ${
+          automaticallyCollapsed
+            ? nothing
+            : html`
               <div class="inspector-sidebar-footer">
-                ${iconRail
-                  ? nothing
-                  : html`
+                ${
+                  iconRail
+                    ? nothing
+                    : html`
                       <div class="inspector-sidebar-status-list">
                         ${this.renderSidebarIntelligenceStatus(homeModel)}
                       </div>
-                    `}
+                    `
+                }
                 <button
                   type="button"
                   class="inspector-sidebar-toggle"
                   data-inspector-sidebar-toggle
                   aria-label=${iconRail ? "Expand sidebar" : "Collapse sidebar"}
                   aria-expanded=${iconRail ? "false" : "true"}
-                  data-inspector-tooltip=${iconRail
-                    ? "Expand sidebar"
-                    : nothing}
+                  data-inspector-tooltip=${
+                    iconRail ? "Expand sidebar" : nothing
+                  }
                   title=${iconRail ? nothing : "Collapse sidebar"}
                   style=${INTERACTIVE_FOCUS_BASE_STYLE}
-                  @pointerenter=${iconRail
-                    ? this.handleSidebarRailTooltipShow
-                    : nothing}
-                  @pointerleave=${iconRail
-                    ? this.handleSidebarRailTooltipHide
-                    : nothing}
-                  @focus=${iconRail
-                    ? this.handleSidebarRailTooltipShow
-                    : nothing}
-                  @blur=${iconRail
-                    ? this.handleSidebarRailTooltipHide
-                    : nothing}
+                  @pointerenter=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @pointerleave=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
+                  @focus=${
+                    iconRail ? this.handleSidebarRailTooltipShow : nothing
+                  }
+                  @blur=${
+                    iconRail ? this.handleSidebarRailTooltipHide : nothing
+                  }
                   @click=${this.handleSidebarToggle}
                 >
                   <span class="inspector-nav-icon" aria-hidden="true">
@@ -2123,7 +2146,8 @@ export class WebInspectorElement extends LitElement {
                   >
                 </button>
               </div>
-            `}
+            `
+        }
       </aside>
     `;
   }
@@ -2193,8 +2217,9 @@ export class WebInspectorElement extends LitElement {
           <strong>${primaryLabel}</strong>
           <span>${secondaryLabel}</span>
         </span>
-        ${action
-          ? html`
+        ${
+          action
+            ? html`
               <a
                 class="inspector-sidebar-status-action"
                 data-inspector-sidebar-intelligence-action=${action.kind}
@@ -2214,7 +2239,8 @@ export class WebInspectorElement extends LitElement {
                 >
               </a>
             `
-          : nothing}
+            : nothing
+        }
       </section>
     `;
   }
@@ -2355,23 +2381,31 @@ export class WebInspectorElement extends LitElement {
           >
           <span class="min-w-0 flex-1 space-y-1">
             <span class="block font-semibold">${guide.title}</span>
-            ${error.agentId
-              ? html`<span class="block">Agent: ${error.agentId}</span>`
-              : nothing}
-            ${error.toolName
-              ? html`<span class="block">Tool: ${error.toolName}</span>`
-              : nothing}
+            ${
+              error.agentId
+                ? html`<span class="block">Agent: ${error.agentId}</span>`
+                : nothing
+            }
+            ${
+              error.toolName
+                ? html`<span class="block">Tool: ${error.toolName}</span>`
+                : nothing
+            }
             <span class="block break-words leading-relaxed"
               >${error.message}</span
             >
-            ${guide.advice
-              ? html`<span class="block leading-relaxed">${guide.advice}</span>`
-              : nothing}
-            ${guide.highlight && this.hasEventErrorHighlight(key)
-              ? html`<span class="block leading-relaxed"
+            ${
+              guide.advice
+                ? html`<span class="block leading-relaxed">${guide.advice}</span>`
+                : nothing
+            }
+            ${
+              guide.highlight && this.hasEventErrorHighlight(key)
+                ? html`<span class="block leading-relaxed"
                   >${guide.highlight}</span
                 >`
-              : nothing}
+                : nothing
+            }
           </span>
         </button>
       </div>
@@ -2577,37 +2611,41 @@ export class WebInspectorElement extends LitElement {
         data-transitioning=${isTransitioning}
         data-color-scheme=${this.colorScheme}
       >
-        ${isDocked && !isPoppedOut
-          ? renderDockResizeHandle({
-              onPointerDown: this.windowShell.handleResizePointerDown,
-              onPointerMove: this.windowShell.handleResizePointerMove,
-              onPointerUp: this.windowShell.handleResizePointerUp,
-              onPointerCancel: this.windowShell.handleResizePointerCancel,
-              onKeyDown: this.windowShell.handleResizeKeyDown,
-            })
-          : nothing}
+        ${
+          isDocked && !isPoppedOut
+            ? renderDockResizeHandle({
+                onPointerDown: this.windowShell.handleResizePointerDown,
+                onPointerMove: this.windowShell.handleResizePointerMove,
+                onPointerUp: this.windowShell.handleResizePointerUp,
+                onPointerCancel: this.windowShell.handleResizePointerCancel,
+                onKeyDown: this.windowShell.handleResizeKeyDown,
+              })
+            : nothing
+        }
         <div
           class="flex flex-1 flex-col overflow-hidden bg-white text-gray-800"
         >
           <div
-            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${disableDrag
-              ? ""
-              : this.isDragging && this.pointerContext === "window"
-                ? "cursor-grabbing"
-                : "cursor-grab"}"
+            class="drag-handle relative z-30 flex flex-col border-b border-gray-200 bg-white/95 backdrop-blur-sm ${
+              disableDrag
+                ? ""
+                : this.isDragging && this.pointerContext === "window"
+                  ? "cursor-grabbing"
+                  : "cursor-grab"
+            }"
             data-drag-context="window"
-            @pointerdown=${disableDrag
-              ? undefined
-              : this.windowShell.handlePointerDown}
-            @pointermove=${disableDrag
-              ? undefined
-              : this.windowShell.handlePointerMove}
-            @pointerup=${disableDrag
-              ? undefined
-              : this.windowShell.handlePointerUp}
-            @pointercancel=${disableDrag
-              ? undefined
-              : this.windowShell.handlePointerCancel}
+            @pointerdown=${
+              disableDrag ? undefined : this.windowShell.handlePointerDown
+            }
+            @pointermove=${
+              disableDrag ? undefined : this.windowShell.handlePointerMove
+            }
+            @pointerup=${
+              disableDrag ? undefined : this.windowShell.handlePointerUp
+            }
+            @pointercancel=${
+              disableDrag ? undefined : this.windowShell.handlePointerCancel
+            }
           >
             <div
               class="inspector-account-strip flex flex-wrap items-center gap-3 px-3 py-2"
@@ -2633,9 +2671,9 @@ export class WebInspectorElement extends LitElement {
                 <a
                   class="inspector-account-cta"
                   data-inspector-thread-cta
-                  data-motion-paused=${this.accountCtaMotionPaused
-                    ? "true"
-                    : "false"}
+                  data-motion-paused=${
+                    this.accountCtaMotionPaused ? "true" : "false"
+                  }
                   href=${this.getThreadsTalkToEngineerUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -2656,13 +2694,15 @@ export class WebInspectorElement extends LitElement {
                   <button
                     class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                     type="button"
-                    aria-label=${this.colorScheme === "light"
-                      ? "Switch to dark mode"
-                      : "Switch to light mode"}
+                    aria-label=${
+                      this.colorScheme === "light"
+                        ? "Switch to dark mode"
+                        : "Switch to light mode"
+                    }
                     aria-pressed=${this.colorScheme === "dark"}
-                    title=${this.colorScheme === "light"
-                      ? "Dark mode"
-                      : "Light mode"}
+                    title=${
+                      this.colorScheme === "light" ? "Dark mode" : "Light mode"
+                    }
                     data-inspector-theme-toggle
                     style=${INTERACTIVE_FOCUS_BASE_STYLE}
                     @click=${this.handleColorSchemeToggle}
@@ -2677,10 +2717,11 @@ export class WebInspectorElement extends LitElement {
                     </span>
                   </button>
                   <button
-                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${this
-                      .settingsOpen
-                      ? "inspector-account-control-active"
-                      : ""}"
+                    class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      this.settingsOpen
+                        ? "inspector-account-control-active"
+                        : ""
+                    }"
                     type="button"
                     aria-label="Settings"
                     aria-pressed=${this.settingsOpen}
@@ -2695,9 +2736,10 @@ export class WebInspectorElement extends LitElement {
                       ${this.renderIcon("Settings")}
                     </span>
                   </button>
-                  ${isPoppedOut
-                    ? nothing
-                    : html`
+                  ${
+                    isPoppedOut
+                      ? nothing
+                      : html`
                         <button
                           class="inspector-account-control flex h-8 w-8 items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                           type="button"
@@ -2708,7 +2750,8 @@ export class WebInspectorElement extends LitElement {
                         >
                           ${this.renderIcon("X")}
                         </button>
-                      `}
+                      `
+                  }
                 </div>
               </div>
             </div>
@@ -2727,15 +2770,17 @@ export class WebInspectorElement extends LitElement {
             </div>
           </div>
         </div>
-        ${isPoppedOut
-          ? nothing
-          : renderFloatingResizeHandles(isDocked, {
-              onPointerDown: this.windowShell.handleResizePointerDown,
-              onPointerMove: this.windowShell.handleResizePointerMove,
-              onPointerUp: this.windowShell.handleResizePointerUp,
-              onPointerCancel: this.windowShell.handleResizePointerCancel,
-              onKeyDown: this.windowShell.handleResizeKeyDown,
-            })}
+        ${
+          isPoppedOut
+            ? nothing
+            : renderFloatingResizeHandles(isDocked, {
+                onPointerDown: this.windowShell.handleResizePointerDown,
+                onPointerMove: this.windowShell.handleResizePointerMove,
+                onPointerUp: this.windowShell.handleResizePointerUp,
+                onPointerCancel: this.windowShell.handleResizePointerCancel,
+                onKeyDown: this.windowShell.handleResizeKeyDown,
+              })
+        }
       </section>
     `;
   }
@@ -4169,18 +4214,24 @@ export class WebInspectorElement extends LitElement {
         <div style="font-weight: 600;">
           Runtime entitlement: ${diagnostic.status}
         </div>
-        ${diagnostic.error
-          ? html`
+        ${
+          diagnostic.error
+            ? html`
               <div>${diagnostic.error.message}</div>
               <div>Code: ${diagnostic.error.code}</div>
-              ${diagnostic.error.requestId
-                ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
-                : nothing}
-              ${diagnostic.error.traceId
-                ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
-                : nothing}
+              ${
+                diagnostic.error.requestId
+                  ? html`<div>Request ID: ${diagnostic.error.requestId}</div>`
+                  : nothing
+              }
+              ${
+                diagnostic.error.traceId
+                  ? html`<div>Trace ID: ${diagnostic.error.traceId}</div>`
+                  : nothing
+              }
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
