@@ -21,6 +21,7 @@
 import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
 
@@ -36,16 +37,31 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   const docsFolder = getDocsFolder(ROOT_FRAMEWORK);
   const navTree = buildRootSurfaceNav(docsFolder);
 
+  // Every root-surface page names the Built-in Agent in the page-tools "Copy
+  // agent prompt" button. The root surface IS the Built-in Agent's lens on the
+  // docs — `/faq` and `/mastra/faq` are the same page read with a different
+  // framework selected — so the button cannot depend on which of the two URLs
+  // the reader arrived through. One value for the whole component, not a
+  // per-branch one.
+  //
+  // `frameworkOverride` below stays a separate, narrower decision: it picks
+  // which framework's snippets and gated blocks the CONTENT resolves against,
+  // and only pages that carry framework-scoped content get it. The two props
+  // answer different questions and are no longer expected to agree.
+  const onboardingFramework = onboardingFrameworkFor(ROOT_FRAMEWORK);
+
   // BIA-authored page for this slug → render it BIA-scoped at the root
   // URL: BIA snippet resolution, root-relative hrefs.
   const overridePath = `integrations/${docsFolder}/${slugPath}`;
   if (getDocsMode(ROOT_FRAMEWORK) === "authored" && loadDoc(overridePath)) {
+    const frameworkOverride = ROOT_FRAMEWORK;
     return (
       <DocsPageView
         slugPath={slugPath}
         contentSlugPath={overridePath}
         slugHrefPrefix=""
-        frameworkOverride={ROOT_FRAMEWORK}
+        frameworkOverride={frameworkOverride}
+        onboardingFramework={onboardingFramework}
         navTree={navTree}
       />
     );
@@ -60,11 +76,13 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   // instead, resolved against the default framework — the same content
   // the bounce produced, minus the redirect. Pages without a cell render
   // framework-agnostic. Both keep the unified root-surface sidebar.
+  const frameworkOverride = doc.fm.defaultCell ? ROOT_FRAMEWORK : undefined;
   return (
     <DocsPageView
       slugPath={slugPath}
       slugHrefPrefix=""
-      frameworkOverride={doc.fm.defaultCell ? ROOT_FRAMEWORK : undefined}
+      frameworkOverride={frameworkOverride}
+      onboardingFramework={onboardingFramework}
       navTree={navTree}
     />
   );

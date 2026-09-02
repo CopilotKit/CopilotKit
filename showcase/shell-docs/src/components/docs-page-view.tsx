@@ -26,10 +26,7 @@ import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { EarlyAccessGate } from "@/components/early-access-gate";
 import { getEarlyAccessGate } from "@/lib/early-access";
-import {
-  MarkdownCopyButton,
-  ViewOptionsPopover,
-} from "@/components/ai/page-actions";
+import { DocsPageTools } from "@/components/docs-page-tools";
 import { Snippet } from "@/components/snippet";
 import { WhenFrameworkHas } from "@/components/when-framework-has";
 import { WhenAngularBackend } from "@/components/when-angular-backend";
@@ -91,6 +88,19 @@ export interface DocsPageViewProps {
   slugHrefPrefix: string;
   /** Optional framework slug to thread into <Snippet> as a default. */
   frameworkOverride?: string | null;
+  /**
+   * The agent framework whose docs this page is: `slug` is the docs registry
+   * slug, `name` its display name. Passing it is what puts the "Copy agent
+   * prompt" button in the page-tools row, and every docs route passes it: a
+   * `/<framework>/…` URL names that framework, while the root surface and the
+   * cookbook name the Built-in Agent, whose lens they are.
+   *
+   * Deliberately separate from `frameworkOverride`, which is a content
+   * concern (which framework's snippets and gated blocks to render). The two
+   * answer different questions and routinely differ — a page can name a
+   * framework in the prompt without resolving its content framework-scoped.
+   */
+  onboardingFramework?: { slug: string; name: string };
   /** Frontend selected by the URL. Defaults to React on the root surface. */
   frontendOverride?: FrontendId;
   /** Pre-built nav tree. When omitted, defaults to the full docs tree. */
@@ -146,6 +156,7 @@ export async function DocsPageView({
   contentSlugPath,
   slugHrefPrefix,
   frameworkOverride,
+  onboardingFramework,
   frontendOverride,
   navTree,
   bannerSlot,
@@ -283,35 +294,19 @@ export async function DocsPageView({
               </DocsDescription>
             )}
 
-            {/* Page actions (Copy Markdown / Open in <LLM>) — fumadocs's
-              upstream LLM page-actions feature. `markdownUrl` resolves
-              through the `/:path*.mdx` rewrite to the route handler at
-              `app/llms-mdx/[[...slug]]/route.ts`, which serves the raw
-              MDX via the same `loadDoc()` the page uses. The GitHub URL
-              is computed from `doc.filePath` (absolute fs path) by
-              slicing from the `/showcase/` segment. */}
-            {(() => {
-              // Markdown URL = the canonical page URL with `.mdx` appended.
-              // The Next.js rewrite in `next.config.ts` routes this to
-              // `/llms-mdx/[[...slug]]`, which re-runs the same framework-
-              // aware content resolution the page uses. Using the page URL
-              // (rather than `contentSlugPath`) keeps the "View as Markdown"
-              // link the user opens in a new tab visually aligned with the
-              // page they're reading.
-              const base = `${slugHrefPrefix || ""}/${slugPath}`
-                .replace(/\/+/g, "/")
-                .replace(/^\/+/, "/");
-              const markdownUrl = `${base.replace(/\/$/, "")}.mdx`;
-              return (
-                <div className="flex min-w-0 flex-row flex-wrap gap-2 items-center my-6">
-                  <MarkdownCopyButton markdownUrl={markdownUrl} />
-                  <ViewOptionsPopover
-                    markdownUrl={markdownUrl}
-                    githubUrl={buildGitHubUrl(doc.filePath)}
-                  />
-                </div>
-              );
-            })()}
+            {/* Page actions (Copy agent prompt / Copy Markdown / Open in
+              <LLM>) — fumadocs's upstream LLM page-actions feature. The
+              markdown URL resolves through the `/:path*.mdx` rewrite to the
+              route handler at `app/llms-mdx/[[...slug]]/route.ts`, which
+              serves the raw MDX via the same `loadDoc()` the page uses. The
+              GitHub URL is computed from `doc.filePath` (absolute fs path)
+              by slicing from the `/showcase/` segment. */}
+            <DocsPageTools
+              slugPath={slugPath}
+              slugHrefPrefix={slugHrefPrefix}
+              githubUrl={buildGitHubUrl(doc.filePath)}
+              onboardingFramework={onboardingFramework}
+            />
 
             {/* Thin divider between the page-actions row and the page body
               (banner / content). Visually separates the page metadata

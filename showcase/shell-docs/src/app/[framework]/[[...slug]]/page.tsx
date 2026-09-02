@@ -60,6 +60,7 @@ import {
 import { resolveChannelGuideRoute } from "@/lib/channel-guide-routes";
 import type { ChannelFrontend } from "@/lib/channel-guide-routes";
 import { transformerMeta } from "@/lib/rehype-code-meta";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import {
   CONTENT_DIR,
   buildFrameworkNav,
@@ -668,6 +669,7 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={resolution.framework}
+          onboardingFramework={onboardingFrameworkFor(resolution.framework)}
           frontendOverride="angular"
           navTree={getAngularDocsNavTree(activeBackendFramework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -702,6 +704,19 @@ export default async function FrameworkScopedDocsPage({
             activeBackendFramework,
           )}
           frameworkOverride={activeBackendFramework}
+          // This is the `else` of `if (activeBackendFramework)`, so the URL
+          // carries no backend segment — which on a frontend route is exactly
+          // how the Built-in Agent is spelled: `/vue/built-in-agent/<slug>`
+          // redirects here, and the framework selector shows the Built-in
+          // Agent as the active backend. So `/vue/<slug>` and
+          // `/vue/mastra/<slug>` are the same page under two framework
+          // selections and both name theirs in the copied prompt.
+          //
+          // `frameworkOverride` stays null: no backend segment still means no
+          // framework-scoped snippet resolution for this content.
+          onboardingFramework={onboardingFrameworkFor(
+            activeBackendFramework ?? ROOT_FRAMEWORK,
+          )}
           frontendOverride={framework}
           navTree={getFrontendQuickstartNavTree(framework)}
           sidebarBannerSlot={<FrontendSidebarBanner frontend={framework} />}
@@ -939,6 +954,7 @@ export default async function FrameworkScopedDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}
       frameworkOverride={scopedFramework}
+      onboardingFramework={onboardingFrameworkFor(scopedFramework)}
       frontendOverride={activeFrontendPage ?? undefined}
       navTree={
         activeFrontendPage
@@ -974,6 +990,12 @@ function ChannelGuideDocsPage({
       contentSlugPath={contentSlugPath}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework ?? ROOT_FRAMEWORK}
+      // A channel guide with no backend selected still documents the
+      // Built-in Agent, so `ROOT_FRAMEWORK` is the framework being read
+      // about here, not a placeholder.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
       frontendOverride={frontend}
       navTree={getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1004,6 +1026,13 @@ function FrontendQuickstartDocsPage({
         activeBackendFramework ??
         (frontend === "slack" || frontend === "teams" ? ROOT_FRAMEWORK : null)
       }
+      // No backend segment in the URL means the Built-in Agent is selected,
+      // for every frontend — unlike `frameworkOverride` above, which stays
+      // null off the channel frontends because their quickstart content is
+      // not framework-scoped.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1029,6 +1058,12 @@ function FrontendGuidanceDocsPage({
       contentSlugPath={contentSlug}
       slugHrefPrefix={frontendRoutePath(frontend, "", activeBackendFramework)}
       frameworkOverride={activeBackendFramework}
+      // Same rule as every other frontend route: no backend segment is the
+      // Built-in Agent, so `/vue/using-these-docs` names it where
+      // `/vue/mastra/using-these-docs` names Mastra.
+      onboardingFramework={onboardingFrameworkFor(
+        activeBackendFramework ?? ROOT_FRAMEWORK,
+      )}
       frontendOverride={frontend}
       navTree={navTree ?? getFrontendQuickstartNavTree(frontend)}
       sidebarBannerSlot={<FrontendSidebarBanner frontend={frontend} />}
@@ -1116,6 +1151,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}
@@ -1250,6 +1286,7 @@ async function FrameworkRootPage({
         contentSlugPath={indexContentPath}
         slugHrefPrefix={slugHrefPrefix}
         frameworkOverride={framework}
+        onboardingFramework={onboardingFrameworkFor(framework)}
         frontendOverride={frontendOverride}
         navTree={navTree}
         sidebarBannerSlot={sidebarBannerSlot}

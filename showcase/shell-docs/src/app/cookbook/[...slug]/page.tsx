@@ -9,7 +9,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
 import { buildCookbookNavTree } from "@/lib/cookbook-nav";
+import { onboardingFrameworkFor } from "@/lib/docs-onboarding-framework";
 import { loadDoc } from "@/lib/docs-render";
+import { ROOT_FRAMEWORK } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +45,9 @@ export default async function CookbookSlugPage({
     <DocsPageView
       slugPath={slugPath}
       slugHrefPrefix=""
+      // Root surface, so the Built-in Agent is the framework this recipe is
+      // read with — the same one `/<framework>/cookbook/<slug>` names.
+      onboardingFramework={onboardingFrameworkFor(ROOT_FRAMEWORK)}
       navTree={buildCookbookNavTree()}
       sidebarBannerSlot={null}
       sidebarClassName="shell-docs-sidebar-cookbook"
