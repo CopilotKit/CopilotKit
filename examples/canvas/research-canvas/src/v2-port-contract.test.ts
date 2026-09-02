@@ -44,3 +44,18 @@ test("replaces the delete question with a neutral completed status", () => {
   expect(researchCanvas).toContain('role="status"');
   expect(researchCanvas).toContain("Response recorded.");
 });
+
+test("keeps research edits disabled until the agent is ready", () => {
+  const researchCanvas = readSource("./components/ResearchCanvas.tsx");
+
+  expect(researchCanvas).toContain("agent: researchAgent, isReady");
+  expect(researchCanvas).toContain("disabled={!isReady}");
+  expect(researchCanvas).toContain("aria-busy={!isReady}");
+  expect(researchCanvas).toContain("if (!isReady) {");
+  expect(researchCanvas).toContain(
+    "handleCardClick={isReady ? handleCardClick : undefined}",
+  );
+  expect(researchCanvas).toContain(
+    "removeResource={isReady ? removeResource : undefined}",
+  );
+});
