@@ -38,7 +38,7 @@ import { CarSalesChat } from "./car-sales-chat";
 const initialMessage =
   "Hi, I'm Fio, your AI car salesman. First, let's get your contact information before we get started.";
 
-function initializeChat(messages: Message[]) {
+function renderChat(messages: Message[]) {
   const addMessage = vi.fn<(message: Message) => void>();
   hookMocks.useAgent.mockReturnValue({
     agent: {
@@ -49,10 +49,9 @@ function initializeChat(messages: Message[]) {
     isReady: true,
   });
 
-  CarSalesChat({});
-  vi.advanceTimersByTime(500);
+  const view = CarSalesChat({});
 
-  return addMessage;
+  return { addMessage, view };
 }
 
 beforeEach(() => {
@@ -70,8 +69,22 @@ afterEach(() => {
 });
 
 describe("CarSalesChat initialization", () => {
+  test("does not overwrite a restored thread whose messages hydrate later", () => {
+    const messages: Message[] = [];
+    const { addMessage } = renderChat(messages);
+
+    vi.runAllTimers();
+    messages.push({
+      id: "delayed-restored-user-message",
+      role: "user",
+      content: "Show me an electric car",
+    });
+
+    expect(addMessage).not.toHaveBeenCalled();
+  });
+
   test("treats a restored non-empty thread as initialized", () => {
-    const addMessage = initializeChat([
+    const { addMessage } = renderChat([
       {
         id: "restored-user-message",
         role: "user",
@@ -82,14 +95,14 @@ describe("CarSalesChat initialization", () => {
     expect(addMessage).not.toHaveBeenCalled();
   });
 
-  test("adds one welcome message to an empty thread", () => {
-    const addMessage = initializeChat([]);
+  test("configures the greeting as welcome content without mutating the thread", () => {
+    const { addMessage, view } = renderChat([]);
 
-    expect(addMessage).toHaveBeenCalledOnce();
-    expect(addMessage).toHaveBeenCalledWith({
-      id: expect.any(String),
-      role: "assistant",
-      content: initialMessage,
+    vi.runAllTimers();
+
+    expect(addMessage).not.toHaveBeenCalled();
+    expect(view.props.children.props.children.props.labels).toEqual({
+      welcomeMessageText: initialMessage,
     });
   });
 });
