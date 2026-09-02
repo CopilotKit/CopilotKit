@@ -46,7 +46,7 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
 
 - Node.js 18+
 - Python 3.12+ with [uv](https://docs.astral.sh/uv/) package manager
-- npm, yarn, or pnpm
+- pnpm 10+
 - A Google Maps Platform project with Places API (New) enabled
 
 ### Installation
@@ -63,19 +63,6 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    ```bash
    pnpm install
    ```
-
-   <details>
-     <summary><b>Using other package managers</b></summary>
-
-   ```bash
-   # Using yarn
-   yarn install
-
-   # Using npm
-   npm install
-   ```
-
-   </details>
 
 3. Install agent dependencies:
 
@@ -101,18 +88,5 @@ This application demonstrates the power of CopilotKit working with an Agent Fram
    ```bash
    pnpm dev
    ```
-
-   <details>
-     <summary><b>Using other package managers</b></summary>
-
-   ```bash
-   # Using yarn
-   yarn dev
-
-   # Using npm
-   npm run dev
-   ```
-
-   </details>
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
