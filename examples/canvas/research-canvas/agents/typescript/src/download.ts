@@ -9,31 +9,18 @@ import type { AgentState } from "./state";
 import { htmlToText } from "html-to-text";
 import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph";
 import { withAbortTimeout } from "./abort-timeout";
+import { fetchPublicText } from "./public-url-fetch";
 import { getCachedResource, getOrLoadResource } from "./resource-cache";
 
 export function getResource(url: string): string {
   return getCachedResource(url) ?? "";
 }
 
-const USER_AGENT =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3";
-
 async function downloadResource(url: string): Promise<string> {
   try {
     return await getOrLoadResource(url, () =>
       withAbortTimeout(5000, async (signal) => {
-        const response = await fetch(url, {
-          headers: { "User-Agent": USER_AGENT },
-          signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to download resource: ${response.statusText}`,
-          );
-        }
-
-        const htmlContent = await response.text();
+        const htmlContent = await fetchPublicText(url, signal);
         return htmlToText(htmlContent);
       }),
     );
