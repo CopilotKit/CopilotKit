@@ -19,6 +19,12 @@ const publicExamplesWorkflow = fs.readFileSync(
   path.join(repoRoot, ".github", "workflows", "test_e2e-public-examples.yml"),
   "utf8",
 );
+const chatWithYourDataPackage = JSON.parse(
+  fs.readFileSync(
+    path.join(examplesRoot, "showcases", "chat-with-your-data", "package.json"),
+    "utf8",
+  ),
+);
 
 const categories = [
   { directory: "integrations", heading: "Integrations" },
@@ -89,6 +95,11 @@ env:
     "packages/**",
     "scripts/**",
   ]);
+});
+
+test("chat-with-your-data declares the runner used by its test script", () => {
+  assert.match(chatWithYourDataPackage.scripts.test, /\btsx\b/);
+  assert.equal(typeof chatWithYourDataPackage.devDependencies.tsx, "string");
 });
 
 for (const { directory, heading } of categories) {
