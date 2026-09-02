@@ -1,10 +1,10 @@
 ---
-title: "Step 5: Stream progress"
+title: 'Step 5: Stream progress'
 ---
 
 Place searches can take several seconds. The travel agent emits its current
-`search_progress` state after each query, and the React app renders that state
-inside the matching tool call.
+`search_progress` state after each query. While the matching tool call is
+executing, the React app renders that state in its chat entry.
 
 The Python CopilotKit SDK is already listed in `agent/pyproject.toml` and was
 installed by `pnpm install:agent` in Step 1.
@@ -65,20 +65,22 @@ await copilotkit_emit_state(config, state)
 
 The v2 `useRenderTool` hook in `lib/hooks/use-trips.tsx` registers UI for the
 same tool name. It reads the latest shared state and renders the existing
-`SearchProgress` component:
+`SearchProgress` component only while the tool call is executing:
 
 ```tsx title="examples/showcases/travel/lib/hooks/use-trips.tsx"
-import { useRenderTool } from "@copilotkit/react-core/v2";
+import { useRenderTool } from '@copilotkit/react-core/v2';
 
 useRenderTool(
   {
-    name: "search_for_places",
-    agentId: "travel",
+    name: 'search_for_places',
+    agentId: 'travel',
     parameters: z.object({
-      queries: z.array(z.string()).describe("The place searches to run"),
+      queries: z.array(z.string()).describe('The place searches to run'),
     }),
-    render: () =>
-      state.search_progress && state.search_progress.length > 0 ? (
+    render: ({ status }) =>
+      status === 'executing' &&
+      state.search_progress &&
+      state.search_progress.length > 0 ? (
         <SearchProgress progress={state.search_progress} />
       ) : (
         <></>
@@ -88,6 +90,7 @@ useRenderTool(
 );
 ```
 
+The status check keeps completed tool calls from rendering newer progress state.
 The dependency list refreshes the renderer when progress changes. Ask the app
 to find places for a trip to see each search complete in the chat.
 
