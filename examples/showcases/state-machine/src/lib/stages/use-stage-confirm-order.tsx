@@ -12,7 +12,15 @@ import { z } from "zod";
   - Optionally, can decide to move to the next stage, buildCar, based on the user's responses.
 */
 export function useStageConfirmOrder() {
-  const { setOrders, stage, setStage } = useGlobalState();
+  const {
+    setOrders,
+    stage,
+    setStage,
+    setSelectedCar,
+    setContactInfo,
+    setCardInfo,
+    setFinancingInfo,
+  } = useGlobalState();
 
   // Conditionally add the nextState action to the state machine. Agent will decide if it should be called.
   useFrontendTool(
@@ -22,6 +30,10 @@ export function useStageConfirmOrder() {
       available: stage === "confirmOrder",
       parameters: z.object({}),
       handler: async () => {
+        setSelectedCar(null);
+        setContactInfo(null);
+        setCardInfo(null);
+        setFinancingInfo(null);
         setStage("getContactInfo");
         return "Started a new order";
       },
