@@ -486,7 +486,7 @@ test("keeps shared backend guidance while expanding Angular source regions", () 
     "connectAgentContext(this.configContext)",
   );
   expect(angularAgentConfig).toContain(
-    "The backend half is also a single node.",
+    "The framework setup above shows the exact backend bridge",
   );
   expect(angularAgentConfig).not.toContain("useAgentContext({");
   expect(angularSubagents).toContain(

@@ -64,6 +64,7 @@ function formatPreferencesBlock(prefs: unknown): string | null {
  * langgraph's lift-context-into-prompt pattern; the Python sibling does the
  * same in `build_state_prompt`.
  */
+// @region[agent-config-context-builder]
 function formatContextBlock(context: unknown): string | null {
   if (!Array.isArray(context) || context.length === 0) return null;
   const lines: string[] = [];
@@ -79,6 +80,16 @@ function formatContextBlock(context: unknown): string | null {
     lines.join("\n")
   );
 }
+
+export function buildAgentContextPrompt(
+  inputData: { context?: unknown },
+  prompt: string,
+): string {
+  const contextBlock = formatContextBlock(inputData.context);
+  if (!contextBlock) return prompt;
+  return `${contextBlock}\n\nUser request: ${prompt}`;
+}
+// @endregion[agent-config-context-builder]
 
 /**
  * Inject UI-owned shared-state slots and AG-UI context into the outgoing
@@ -100,11 +111,13 @@ export function buildStatePrompt(
       );
     }
   }
-  const contextBlock = formatContextBlock(inputData.context);
-  if (contextBlock) blocks.push(contextBlock);
+  const contextPrompt = buildAgentContextPrompt(inputData, prompt);
 
-  if (blocks.length === 0) return prompt;
-  return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
+  if (blocks.length === 0) return contextPrompt;
+  if (contextPrompt === prompt) {
+    return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
+  }
+  return `${blocks.join("\n\n")}\n\n${contextPrompt}`;
 }
 
 // ---- state-from-args hooks -----------------------------------------------
