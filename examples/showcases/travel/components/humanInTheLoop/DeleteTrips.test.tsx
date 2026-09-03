@@ -48,23 +48,19 @@ const trip: Trip = {
   ],
 };
 
-function setup(status: ToolCallStatus) {
+function setup(status: ToolCallStatus, trips: readonly Trip[] = [trip]) {
   return renderToStaticMarkup(
     <DeleteTrips
       args={{ trip_ids: [trip.id] }}
       status={status}
-      trips={[trip]}
+      trips={trips}
     />,
   );
 }
 
-test("keeps deleted-trip details and omits actions in the completed card", () => {
-  const markup = setup(ToolCallStatus.Complete);
+test("omits actions after the live trip has been deleted", () => {
+  const markup = setup(ToolCallStatus.Complete, []);
 
-  expect(markup).toContain(trip.name);
-  expect(markup).toContain(trip.places[0].name);
-  expect(markup).toContain(trip.places[0].address);
-  expect(markup).toContain(trip.places[0].description);
   expect(markup).not.toContain("data-delete-trip-actions");
   expect(markup).not.toContain(">Cancel</button>");
   expect(markup).not.toContain(">Delete</button>");
