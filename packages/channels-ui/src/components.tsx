@@ -84,6 +84,13 @@ export interface RenderProps extends WithChildren {
   alt: string;
   /** Snapshot width in pixels. Default 800 at render time. */
   width?: number;
+  /**
+   * Snapshot height in pixels. Defaults to the channel render config at render
+   * time. Set it when the snapshot is shorter than that default, otherwise the
+   * surplus canvas is dead space the surface may crop (a carousel hero image
+   * shows the crop, not the card).
+   */
+  height?: number;
 }
 
 export interface CarouselProps extends WithChildren {}
